@@ -1,0 +1,110 @@
+asyncapi: 3.0.0
+info:
+  title: ShardLoom Live/Hybrid Event Stream Contract
+  version: 0.1.0
+  summary: Contract-first CG-23 event stream surface for certified live/hybrid fixture evidence.
+  description: >
+    This contract describes ShardLoom event delivery envelopes before any event
+    server, broker, or WebSocket channel is required. Server-Sent Events are the
+    default delivery protocol. WebSocket support is optional posture only.
+defaultContentType: application/json
+servers:
+  localLoopback:
+    host: 127.0.0.1:8787
+    protocol: sse
+    description: Planned local loopback event contract; no listener is started by report commands.
+channels:
+  liveHybridEvents:
+    address: /v1/events/streams/{stream_id}/sse
+    messages:
+      progress:
+        $ref: "#/components/messages/ProgressEvent"
+      state:
+        $ref: "#/components/messages/StateEvent"
+      checkpoint:
+        $ref: "#/components/messages/CheckpointEvent"
+      watermark:
+        $ref: "#/components/messages/WatermarkEvent"
+      certificate:
+        $ref: "#/components/messages/CertificateEvent"
+      lineage:
+        $ref: "#/components/messages/LineageEvent"
+      benchmark:
+        $ref: "#/components/messages/BenchmarkEvent"
+      hybridContribution:
+        $ref: "#/components/messages/HybridContributionEvent"
+operations:
+  subscribeLiveHybridEvents:
+    action: receive
+    channel:
+      $ref: "#/channels/liveHybridEvents"
+components:
+  messages:
+    ProgressEvent:
+      name: progress
+      title: Query progress event
+      payload:
+        $ref: "#/components/schemas/CloudEventEnvelope"
+    StateEvent:
+      name: state
+      title: State update event
+      payload:
+        $ref: "#/components/schemas/CloudEventEnvelope"
+    CheckpointEvent:
+      name: checkpoint
+      title: Checkpoint event
+      payload:
+        $ref: "#/components/schemas/CloudEventEnvelope"
+    WatermarkEvent:
+      name: watermark
+      title: Watermark event
+      payload:
+        $ref: "#/components/schemas/CloudEventEnvelope"
+    CertificateEvent:
+      name: certificate
+      title: Certificate-ready event
+      payload:
+        $ref: "#/components/schemas/CloudEventEnvelope"
+    LineageEvent:
+      name: lineage
+      title: Lineage-ready event
+      payload:
+        $ref: "#/components/schemas/CloudEventEnvelope"
+    BenchmarkEvent:
+      name: benchmark
+      title: Benchmark evidence event
+      payload:
+        $ref: "#/components/schemas/CloudEventEnvelope"
+    HybridContributionEvent:
+      name: hybrid_hot_cold_contribution
+      title: Hybrid hot/cold contribution event
+      payload:
+        $ref: "#/components/schemas/CloudEventEnvelope"
+  schemas:
+    CloudEventEnvelope:
+      type: object
+      required: [specversion, id, type, source, subject, time, datacontenttype, dataschema, data]
+      properties:
+        specversion:
+          type: string
+          const: "1.0"
+        id:
+          type: string
+        type:
+          type: string
+        source:
+          type: string
+        subject:
+          type: string
+        time:
+          type: string
+          format: date-time
+        datacontenttype:
+          type: string
+          const: application/json
+        dataschema:
+          type: string
+        data:
+          type: object
+      x-shardloom-no-fallback: true
+      x-shardloom-external-broker-required: false

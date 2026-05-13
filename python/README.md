@@ -184,6 +184,7 @@ api = ctx.rest_api_contract_plan()
 discovery = ctx.serve_discovery_contract()
 preview = ctx.rest_api_plan_preview("certified-local-batch")
 lifecycle = ctx.rest_api_local_lifecycle("certified-local-batch")
+events = ctx.rest_api_event_stream("certified-live-fixture")
 
 print(api.openapi_contract_path)
 print(api.represented_resources)
@@ -199,6 +200,11 @@ print(lifecycle.result_ref)
 print(lifecycle.result_policies)
 print(lifecycle.arrow_ipc_materialization)
 print(lifecycle.fallback_attempted)
+print(events.event_stream_status)
+print(events.delivery_protocols)
+print(events.event_types)
+print(events.asyncapi_contract_path)
+print(events.broker_io)
 ```
 
 Equivalent CLI commands:
@@ -209,6 +215,8 @@ shardloom rest-api-plan-preview certified-local-batch --format json
 shardloom rest-api-plan-preview unsupported-operator --format json
 shardloom rest-api-local-lifecycle certified-local-batch --format json
 shardloom rest-api-local-lifecycle blocked-uncertified --format json
+shardloom rest-api-event-stream certified-live-fixture --format json
+shardloom rest-api-event-stream broker-requested --format json
 shardloom serve --mode discovery --format json
 ```
 

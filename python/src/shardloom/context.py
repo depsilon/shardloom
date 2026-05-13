@@ -17,6 +17,7 @@ from .client import (
     PythonClientSmokeReport,
     RestApiContractPlan,
     RestApiDiscoveryContract,
+    RestApiEventStream,
     RestApiLocalLifecycle,
     RestApiPlanPreview,
     ShardLoomClient,
@@ -381,6 +382,16 @@ class ShardLoomContext:
         """Return the certified local REST lifecycle/result-delivery bundle."""
 
         return self.client.rest_api_local_lifecycle(scenario, check=check)
+
+    def rest_api_event_stream(
+        self,
+        scenario: str = "certified-live-fixture",
+        *,
+        check: bool = True,
+    ) -> RestApiEventStream:
+        """Return the live/hybrid REST event stream contract bundle."""
+
+        return self.client.rest_api_event_stream(scenario, check=check)
 
     def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
         """Return the CG-22 live change contract."""

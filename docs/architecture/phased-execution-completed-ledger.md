@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P6.4 live/hybrid event API and streaming evidence bundle
+  - Primary files:
+    - `docs/api/shardloom-openapi-v1.yaml`
+    - `docs/api/shardloom-asyncapi-events-v1.yaml`
+    - `shardloom-core/src/remote_api.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add the CG-23 A7 live/hybrid event API contract bundle over already-certified CG-22
+    fixture evidence, including SSE-first delivery posture, optional WebSocket posture, AsyncAPI
+    event contract metadata, CloudEvents-style event envelopes, event evidence refs, certificate
+    refs, and deterministic blocked production/broker scenarios.
+  - Checklist:
+    - [x] Add `RestApiEventStreamReport` with certified-live-fixture, certified-hybrid-fixture,
+          blocked-production-workload, and broker-requested scenarios.
+    - [x] Add `rest-api-event-stream` CLI output with event stream status, event type contracts,
+          SSE/AsyncAPI/CloudEvents metadata, live/hybrid evidence refs, certificate refs, and
+          no-broker/no-object-store/no-fallback effect fields.
+    - [x] Extend `docs/api/shardloom-openapi-v1.yaml` with event stream create/status/SSE/
+          WebSocket-posture/schema/AsyncAPI endpoints and event stream schemas.
+    - [x] Add `docs/api/shardloom-asyncapi-events-v1.yaml` for the checked-in CG-23 event stream
+          contract.
+    - [x] Expose Python `RestApiEventStream`, `ShardLoomClient.rest_api_event_stream()`, and
+          `ShardLoomContext.rest_api_event_stream()`.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-core remote_api --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test api_protocol_snapshots --test typed_envelope_compatibility_lock`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client python.tests.test_query_builder`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-event-stream certified-live-fixture --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-event-stream certified-hybrid-fixture --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-event-stream blocked-production-workload --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-event-stream broker-requested --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-event-stream-clippy'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-event-stream-test'; cargo test --workspace --all-targets`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-event-stream-stable-clippy'; cargo +stable clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Runtime stance: contract/report-only event lane. The command does not start a server, open a
+    listener, subscribe to brokers, read/write object stores, probe datasets/catalogs, resolve
+    credentials, run workload execution, write checkpoints, invoke external engines, delegate
+    execution, or attempt fallback execution.
+
 - [x] Session label: P6.3 certified local lifecycle, result delivery, and evidence refs
   - Primary files:
     - `docs/api/shardloom-openapi-v1.yaml`

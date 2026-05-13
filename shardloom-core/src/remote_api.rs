@@ -13,8 +13,11 @@ pub const REST_API_CONTRACT_SCHEMA_VERSION: &str = "shardloom.rest_api_contract.
 pub const REST_API_DISCOVERY_SCHEMA_VERSION: &str = "shardloom.rest_api_discovery_mode.v1";
 pub const REST_API_PLAN_PREVIEW_SCHEMA_VERSION: &str = "shardloom.rest_api_plan_preview.v1";
 pub const REST_API_LOCAL_LIFECYCLE_SCHEMA_VERSION: &str = "shardloom.rest_api_local_lifecycle.v1";
+pub const REST_API_EVENT_STREAM_SCHEMA_VERSION: &str = "shardloom.rest_api_event_stream.v1";
 pub const OPENAPI_CONTRACT_PATH: &str = "docs/api/shardloom-openapi-v1.yaml";
+pub const ASYNCAPI_EVENT_CONTRACT_PATH: &str = "docs/api/shardloom-asyncapi-events-v1.yaml";
 pub const OPENAPI_VERSION: &str = "3.2.0";
+pub const ASYNCAPI_VERSION: &str = "3.0.0";
 pub const API_VERSION: &str = "v1";
 pub const PROBLEM_DETAILS_MEDIA_TYPE: &str = "application/problem+json";
 
@@ -186,6 +189,46 @@ struct LocalLifecycleScenarioContract {
     diagnostics: Vec<Diagnostic>,
 }
 
+#[allow(clippy::struct_excessive_bools)]
+struct EventStreamScenarioContract {
+    event_stream_status: RestApiEventStreamStatus,
+    stream_id: &'static str,
+    stream_ref: &'static str,
+    engine_mode: &'static str,
+    workload_ref: &'static str,
+    event_count: u32,
+    progress_event_count: u32,
+    state_event_count: u32,
+    checkpoint_event_count: u32,
+    watermark_event_count: u32,
+    certificate_event_count: u32,
+    lineage_event_count: u32,
+    benchmark_event_count: u32,
+    hot_cold_contribution_event_count: u32,
+    live_fixture_certified: bool,
+    hybrid_fixture_certified: bool,
+    workload_certified: bool,
+    cg22_workload_evidence_present: bool,
+    cg8_runtime_evidence_present: bool,
+    cg4_checkpoint_evidence_present: bool,
+    cg16_execution_certificate_present: bool,
+    production_claim_allowed: bool,
+    broker_requested: bool,
+    broker_required: bool,
+    object_store_required: bool,
+    freshness_certificate_ref: &'static str,
+    state_certificate_ref: &'static str,
+    continuous_view_certificate_ref: &'static str,
+    delta_overlay_certificate_ref: &'static str,
+    micro_segment_flush_evidence_ref: &'static str,
+    hot_cold_contribution_report_ref: &'static str,
+    execution_certificate_ref: &'static str,
+    native_io_certificate_ref: &'static str,
+    lineage_artifact_ref: &'static str,
+    benchmark_event_ref: &'static str,
+    diagnostics: Vec<Diagnostic>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RestApiPlanPreviewStatus {
     CertifiedPreview,
@@ -349,6 +392,65 @@ impl RestApiLocalLifecycleStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestApiEventStreamScenario {
+    CertifiedLiveFixture,
+    CertifiedHybridFixture,
+    BlockedProductionWorkload,
+    BrokerRequested,
+}
+
+impl RestApiEventStreamScenario {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CertifiedLiveFixture => "certified-live-fixture",
+            Self::CertifiedHybridFixture => "certified-hybrid-fixture",
+            Self::BlockedProductionWorkload => "blocked-production-workload",
+            Self::BrokerRequested => "broker-requested",
+        }
+    }
+
+    #[must_use]
+    pub const fn all() -> &'static [Self] {
+        &[
+            Self::CertifiedLiveFixture,
+            Self::CertifiedHybridFixture,
+            Self::BlockedProductionWorkload,
+            Self::BrokerRequested,
+        ]
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "certified-live-fixture" => Some(Self::CertifiedLiveFixture),
+            "certified-hybrid-fixture" => Some(Self::CertifiedHybridFixture),
+            "blocked-production-workload" => Some(Self::BlockedProductionWorkload),
+            "broker-requested" => Some(Self::BrokerRequested),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestApiEventStreamStatus {
+    CertifiedFixture,
+    BlockedMissingEvidence,
+    UnsupportedExternalBroker,
+}
+
+impl RestApiEventStreamStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CertifiedFixture => "certified_fixture",
+            Self::BlockedMissingEvidence => "blocked_missing_evidence",
+            Self::UnsupportedExternalBroker => "unsupported_external_broker",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestApiLifecycleEvent {
     pub event_id: &'static str,
@@ -362,6 +464,17 @@ pub struct RestApiResultPolicyContract {
     pub materialization: &'static str,
     pub certified_native: bool,
     pub preferred_for_high_fidelity: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiEventStreamEventContract {
+    pub event_type: &'static str,
+    pub category: &'static str,
+    pub cloudevents_type: &'static str,
+    pub subject: &'static str,
+    pub data_schema_ref: &'static str,
+    pub evidence_ref: &'static str,
+    pub certificate_ref: &'static str,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -426,6 +539,82 @@ pub struct RestApiLocalLifecycleReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiEventStreamReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub api_version: &'static str,
+    pub scenario: RestApiEventStreamScenario,
+    pub event_stream_status: RestApiEventStreamStatus,
+    pub endpoint_paths: Vec<&'static str>,
+    pub event_operations: Vec<&'static str>,
+    pub delivery_protocols: Vec<&'static str>,
+    pub stream_id: &'static str,
+    pub stream_ref: &'static str,
+    pub engine_mode: &'static str,
+    pub workload_ref: &'static str,
+    pub openapi_contract_path: &'static str,
+    pub asyncapi_version: &'static str,
+    pub asyncapi_contract_path: &'static str,
+    pub cloudevents_spec_version: &'static str,
+    pub cloudevents_required_fields: Vec<&'static str>,
+    pub event_contracts: Vec<RestApiEventStreamEventContract>,
+    pub sse_first: bool,
+    pub sse_media_type: &'static str,
+    pub websocket_supported: bool,
+    pub websocket_required: bool,
+    pub bidirectional_interaction_required: bool,
+    pub event_count: u32,
+    pub progress_event_count: u32,
+    pub state_event_count: u32,
+    pub checkpoint_event_count: u32,
+    pub watermark_event_count: u32,
+    pub certificate_event_count: u32,
+    pub lineage_event_count: u32,
+    pub benchmark_event_count: u32,
+    pub hot_cold_contribution_event_count: u32,
+    pub live_fixture_certified: bool,
+    pub hybrid_fixture_certified: bool,
+    pub workload_certified: bool,
+    pub cg22_workload_evidence_present: bool,
+    pub cg8_runtime_evidence_present: bool,
+    pub cg4_checkpoint_evidence_present: bool,
+    pub cg16_execution_certificate_present: bool,
+    pub production_claim_allowed: bool,
+    pub broker_requested: bool,
+    pub broker_required: bool,
+    pub object_store_required: bool,
+    pub freshness_certificate_ref: &'static str,
+    pub state_certificate_ref: &'static str,
+    pub continuous_view_certificate_ref: &'static str,
+    pub delta_overlay_certificate_ref: &'static str,
+    pub micro_segment_flush_evidence_ref: &'static str,
+    pub hot_cold_contribution_report_ref: &'static str,
+    pub execution_certificate_ref: &'static str,
+    pub native_io_certificate_ref: &'static str,
+    pub lineage_artifact_ref: &'static str,
+    pub benchmark_event_ref: &'static str,
+    pub no_fallback_evidence_artifact_ref: &'static str,
+    pub server_started: bool,
+    pub network_listener_opened: bool,
+    pub broker_io: bool,
+    pub object_store_io: bool,
+    pub dataset_probe: bool,
+    pub catalog_probe: bool,
+    pub credential_resolution: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+    pub query_execution: bool,
+    pub runtime_execution: bool,
+    pub write_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub execution_delegated: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
 impl RestApiContractReport {
     #[must_use]
     pub fn contract_only() -> Self {
@@ -446,6 +635,7 @@ impl RestApiContractReport {
                 "plans",
                 "queries",
                 "results",
+                "events",
                 "certificates",
                 "profiles",
                 "benchmarks",
@@ -1222,6 +1412,199 @@ impl RestApiLocalLifecycleReport {
     }
 }
 
+impl RestApiEventStreamReport {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn for_scenario(scenario: RestApiEventStreamScenario) -> Self {
+        let contract = event_stream_scenario_contract(scenario);
+
+        Self {
+            schema_version: REST_API_EVENT_STREAM_SCHEMA_VERSION,
+            report_id: "cg23.rest_api_event_stream",
+            api_version: API_VERSION,
+            scenario,
+            event_stream_status: contract.event_stream_status,
+            endpoint_paths: event_stream_endpoint_paths(),
+            event_operations: vec![
+                "stream_create",
+                "stream_status",
+                "sse_subscribe",
+                "websocket_posture",
+                "schema_lookup",
+                "asyncapi_contract",
+            ],
+            delivery_protocols: vec!["server_sent_events", "websocket_optional"],
+            stream_id: contract.stream_id,
+            stream_ref: contract.stream_ref,
+            engine_mode: contract.engine_mode,
+            workload_ref: contract.workload_ref,
+            openapi_contract_path: OPENAPI_CONTRACT_PATH,
+            asyncapi_version: ASYNCAPI_VERSION,
+            asyncapi_contract_path: ASYNCAPI_EVENT_CONTRACT_PATH,
+            cloudevents_spec_version: "1.0",
+            cloudevents_required_fields: vec![
+                "specversion",
+                "id",
+                "type",
+                "source",
+                "subject",
+                "time",
+                "datacontenttype",
+                "dataschema",
+                "data",
+            ],
+            event_contracts: event_stream_event_contracts(),
+            sse_first: true,
+            sse_media_type: "text/event-stream",
+            websocket_supported: true,
+            websocket_required: false,
+            bidirectional_interaction_required: false,
+            event_count: contract.event_count,
+            progress_event_count: contract.progress_event_count,
+            state_event_count: contract.state_event_count,
+            checkpoint_event_count: contract.checkpoint_event_count,
+            watermark_event_count: contract.watermark_event_count,
+            certificate_event_count: contract.certificate_event_count,
+            lineage_event_count: contract.lineage_event_count,
+            benchmark_event_count: contract.benchmark_event_count,
+            hot_cold_contribution_event_count: contract.hot_cold_contribution_event_count,
+            live_fixture_certified: contract.live_fixture_certified,
+            hybrid_fixture_certified: contract.hybrid_fixture_certified,
+            workload_certified: contract.workload_certified,
+            cg22_workload_evidence_present: contract.cg22_workload_evidence_present,
+            cg8_runtime_evidence_present: contract.cg8_runtime_evidence_present,
+            cg4_checkpoint_evidence_present: contract.cg4_checkpoint_evidence_present,
+            cg16_execution_certificate_present: contract.cg16_execution_certificate_present,
+            production_claim_allowed: contract.production_claim_allowed,
+            broker_requested: contract.broker_requested,
+            broker_required: contract.broker_required,
+            object_store_required: contract.object_store_required,
+            freshness_certificate_ref: contract.freshness_certificate_ref,
+            state_certificate_ref: contract.state_certificate_ref,
+            continuous_view_certificate_ref: contract.continuous_view_certificate_ref,
+            delta_overlay_certificate_ref: contract.delta_overlay_certificate_ref,
+            micro_segment_flush_evidence_ref: contract.micro_segment_flush_evidence_ref,
+            hot_cold_contribution_report_ref: contract.hot_cold_contribution_report_ref,
+            execution_certificate_ref: contract.execution_certificate_ref,
+            native_io_certificate_ref: contract.native_io_certificate_ref,
+            lineage_artifact_ref: contract.lineage_artifact_ref,
+            benchmark_event_ref: contract.benchmark_event_ref,
+            no_fallback_evidence_artifact_ref: "artifacts/cg23/event-stream/no-fallback.json",
+            server_started: false,
+            network_listener_opened: false,
+            broker_io: false,
+            object_store_io: false,
+            dataset_probe: false,
+            catalog_probe: false,
+            credential_resolution: false,
+            data_read: false,
+            data_materialized: false,
+            query_execution: false,
+            runtime_execution: false,
+            write_io: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            execution_delegated: false,
+            diagnostics: contract.diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn status(&self) -> CommandStatus {
+        match self.event_stream_status {
+            RestApiEventStreamStatus::CertifiedFixture => CommandStatus::Success,
+            RestApiEventStreamStatus::BlockedMissingEvidence => CommandStatus::Warning,
+            RestApiEventStreamStatus::UnsupportedExternalBroker => CommandStatus::Unsupported,
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.effect_policy_violated()
+            || self
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+    }
+
+    #[must_use]
+    pub const fn effect_policy_violated(&self) -> bool {
+        self.server_started
+            || self.network_listener_opened
+            || self.broker_io
+            || self.object_store_io
+            || self.dataset_probe
+            || self.catalog_probe
+            || self.credential_resolution
+            || self.data_read
+            || self.data_materialized
+            || self.query_execution
+            || self.runtime_execution
+            || self.write_io
+            || self.external_engine_invoked
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+            || self.execution_delegated
+    }
+
+    #[must_use]
+    pub fn event_type_summary(&self) -> String {
+        self.event_contracts
+            .iter()
+            .map(|event| event.event_type)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn event_contract_summary(&self) -> String {
+        self.event_contracts
+            .iter()
+            .map(|event| format!("{}:{}", event.event_type, event.cloudevents_type))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn certificate_ref_summary(&self) -> String {
+        [
+            self.freshness_certificate_ref,
+            self.state_certificate_ref,
+            self.continuous_view_certificate_ref,
+            self.delta_overlay_certificate_ref,
+            self.micro_segment_flush_evidence_ref,
+            self.execution_certificate_ref,
+            self.native_io_certificate_ref,
+        ]
+        .into_iter()
+        .filter(|value| *value != "none")
+        .collect::<Vec<_>>()
+        .join(",")
+    }
+
+    #[must_use]
+    pub fn cloudevents_required_field_summary(&self) -> String {
+        self.cloudevents_required_fields.join(",")
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "rest api event stream\nschema_version: {}\nreport: {}\nscenario: {}\nstatus: {}\nstream: {}\nengine mode: {}\nprotocols: {}\nevents: {}\nasyncapi: {}\nserver started: false\nbroker io: false\nobject store io: false\nexternal engine: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.scenario.as_str(),
+            self.event_stream_status.as_str(),
+            self.stream_ref,
+            self.engine_mode,
+            self.delivery_protocols.join(","),
+            self.event_type_summary(),
+            self.asyncapi_contract_path,
+        )
+    }
+}
+
 fn rest_api_maturity_stages() -> Vec<RestApiMaturityStage> {
     vec![
         RestApiMaturityStage {
@@ -1269,9 +1652,9 @@ fn rest_api_maturity_stages() -> Vec<RestApiMaturityStage> {
         RestApiMaturityStage {
             stage_id: "API-A7",
             label: "live_hybrid_event_api",
-            status: RestApiMaturityStatus::BlockedUntilEvidence,
+            status: RestApiMaturityStatus::AvailableContract,
             server_required: true,
-            execution_capable: true,
+            execution_capable: false,
         },
         RestApiMaturityStage {
             stage_id: "API-A8",
@@ -1554,6 +1937,268 @@ fn lifecycle_events(
         .collect()
 }
 
+fn event_stream_endpoint_paths() -> Vec<&'static str> {
+    vec![
+        "/v1/events/streams",
+        "/v1/events/streams/{stream_id}",
+        "/v1/events/streams/{stream_id}/sse",
+        "/v1/events/streams/{stream_id}/websocket",
+        "/v1/events/schemas",
+        "/v1/events/asyncapi",
+    ]
+}
+
+fn event_stream_event_contracts() -> Vec<RestApiEventStreamEventContract> {
+    vec![
+        RestApiEventStreamEventContract {
+            event_type: "progress",
+            category: "progress",
+            cloudevents_type: "dev.shardloom.query.progress.v1",
+            subject: "query.progress",
+            data_schema_ref: "#/components/schemas/EventProgressData",
+            evidence_ref: "artifacts/cg23/event-stream/progress.json",
+            certificate_ref: "none",
+        },
+        RestApiEventStreamEventContract {
+            event_type: "state",
+            category: "state",
+            cloudevents_type: "dev.shardloom.query.state.v1",
+            subject: "query.state",
+            data_schema_ref: "#/components/schemas/EventStateData",
+            evidence_ref: "artifacts/cg23/event-stream/state.json",
+            certificate_ref: "certificates/cg22/live/fixture/state.json",
+        },
+        RestApiEventStreamEventContract {
+            event_type: "checkpoint",
+            category: "checkpoint",
+            cloudevents_type: "dev.shardloom.checkpoint.v1",
+            subject: "checkpoint",
+            data_schema_ref: "#/components/schemas/EventCheckpointData",
+            evidence_ref: "artifacts/cg23/event-stream/checkpoint.json",
+            certificate_ref: "certificates/cg22/live/fixture/state.json",
+        },
+        RestApiEventStreamEventContract {
+            event_type: "watermark",
+            category: "watermark",
+            cloudevents_type: "dev.shardloom.watermark.v1",
+            subject: "watermark",
+            data_schema_ref: "#/components/schemas/EventWatermarkData",
+            evidence_ref: "artifacts/cg23/event-stream/watermark.json",
+            certificate_ref: "certificates/cg22/live/fixture/freshness.json",
+        },
+        RestApiEventStreamEventContract {
+            event_type: "certificate",
+            category: "certificate",
+            cloudevents_type: "dev.shardloom.certificate.ready.v1",
+            subject: "certificate",
+            data_schema_ref: "#/components/schemas/EventCertificateData",
+            evidence_ref: "artifacts/cg23/event-stream/certificates.json",
+            certificate_ref: "certificates/cg22/live/fixture/group-count/execution.json",
+        },
+        RestApiEventStreamEventContract {
+            event_type: "lineage",
+            category: "lineage",
+            cloudevents_type: "dev.shardloom.lineage.ready.v1",
+            subject: "lineage",
+            data_schema_ref: "#/components/schemas/EventLineageData",
+            evidence_ref: "artifacts/cg23/event-stream/lineage.json",
+            certificate_ref: "none",
+        },
+        RestApiEventStreamEventContract {
+            event_type: "benchmark",
+            category: "benchmark",
+            cloudevents_type: "dev.shardloom.benchmark.evidence.v1",
+            subject: "benchmark",
+            data_schema_ref: "#/components/schemas/EventBenchmarkData",
+            evidence_ref: "artifacts/cg23/event-stream/benchmark.json",
+            certificate_ref: "none",
+        },
+        RestApiEventStreamEventContract {
+            event_type: "hybrid_hot_cold_contribution",
+            category: "hybrid",
+            cloudevents_type: "dev.shardloom.hybrid.contribution.v1",
+            subject: "hybrid.hot_cold_contribution",
+            data_schema_ref: "#/components/schemas/EventHybridContributionData",
+            evidence_ref: "artifacts/cg22/hybrid/fixture/hot-cold-contribution.json",
+            certificate_ref: "certificates/cg22/hybrid/fixture/delta-overlay.json",
+        },
+    ]
+}
+
+#[allow(clippy::too_many_lines)]
+fn event_stream_scenario_contract(
+    scenario: RestApiEventStreamScenario,
+) -> EventStreamScenarioContract {
+    match scenario {
+        RestApiEventStreamScenario::CertifiedLiveFixture => EventStreamScenarioContract {
+            event_stream_status: RestApiEventStreamStatus::CertifiedFixture,
+            stream_id: "event-stream://cg23/live-fixture/group-count",
+            stream_ref: "event-stream://cg23/live-fixture/group-count",
+            engine_mode: "live",
+            workload_ref: "fixture://cg22/live/group-count",
+            event_count: 7,
+            progress_event_count: 1,
+            state_event_count: 1,
+            checkpoint_event_count: 1,
+            watermark_event_count: 1,
+            certificate_event_count: 1,
+            lineage_event_count: 1,
+            benchmark_event_count: 1,
+            hot_cold_contribution_event_count: 0,
+            live_fixture_certified: true,
+            hybrid_fixture_certified: false,
+            workload_certified: true,
+            cg22_workload_evidence_present: true,
+            cg8_runtime_evidence_present: true,
+            cg4_checkpoint_evidence_present: true,
+            cg16_execution_certificate_present: true,
+            production_claim_allowed: false,
+            broker_requested: false,
+            broker_required: false,
+            object_store_required: false,
+            freshness_certificate_ref: "certificates/cg22/live/fixture/freshness.json",
+            state_certificate_ref: "certificates/cg22/live/fixture/state.json",
+            continuous_view_certificate_ref: "certificates/cg22/live/fixture/continuous-view.json",
+            delta_overlay_certificate_ref: "none",
+            micro_segment_flush_evidence_ref: "none",
+            hot_cold_contribution_report_ref: "none",
+            execution_certificate_ref: "certificates/cg22/live/fixture/group-count/execution.json",
+            native_io_certificate_ref: "certificates/cg22/live/fixture/group-count/native-io.json",
+            lineage_artifact_ref: "artifacts/cg23/event-stream/live-fixture/lineage.json",
+            benchmark_event_ref: "artifacts/cg23/event-stream/live-fixture/benchmark.json",
+            diagnostics: Vec::new(),
+        },
+        RestApiEventStreamScenario::CertifiedHybridFixture => EventStreamScenarioContract {
+            event_stream_status: RestApiEventStreamStatus::CertifiedFixture,
+            stream_id: "event-stream://cg23/hybrid-fixture/group-count",
+            stream_ref: "event-stream://cg23/hybrid-fixture/group-count",
+            engine_mode: "hybrid",
+            workload_ref: "fixture://cg22/hybrid/group-count",
+            event_count: 8,
+            progress_event_count: 1,
+            state_event_count: 0,
+            checkpoint_event_count: 1,
+            watermark_event_count: 1,
+            certificate_event_count: 1,
+            lineage_event_count: 1,
+            benchmark_event_count: 1,
+            hot_cold_contribution_event_count: 1,
+            live_fixture_certified: false,
+            hybrid_fixture_certified: true,
+            workload_certified: true,
+            cg22_workload_evidence_present: true,
+            cg8_runtime_evidence_present: true,
+            cg4_checkpoint_evidence_present: true,
+            cg16_execution_certificate_present: true,
+            production_claim_allowed: false,
+            broker_requested: false,
+            broker_required: false,
+            object_store_required: false,
+            freshness_certificate_ref: "certificates/cg22/hybrid/fixture/freshness.json",
+            state_certificate_ref: "none",
+            continuous_view_certificate_ref: "none",
+            delta_overlay_certificate_ref: "certificates/cg22/hybrid/fixture/delta-overlay.json",
+            micro_segment_flush_evidence_ref: "artifacts/cg22/hybrid/fixture/micro-segment-flush.json",
+            hot_cold_contribution_report_ref: "artifacts/cg22/hybrid/fixture/hot-cold-contribution.json",
+            execution_certificate_ref: "certificates/cg22/hybrid/fixture/group-count/execution.json",
+            native_io_certificate_ref: "certificates/cg22/hybrid/fixture/group-count/native-io.json",
+            lineage_artifact_ref: "artifacts/cg23/event-stream/hybrid-fixture/lineage.json",
+            benchmark_event_ref: "artifacts/cg23/event-stream/hybrid-fixture/benchmark.json",
+            diagnostics: Vec::new(),
+        },
+        RestApiEventStreamScenario::BlockedProductionWorkload => EventStreamScenarioContract {
+            event_stream_status: RestApiEventStreamStatus::BlockedMissingEvidence,
+            stream_id: "event-stream://cg23/production-live/blocked",
+            stream_ref: "event-stream://cg23/production-live/blocked",
+            engine_mode: "live",
+            workload_ref: "workload://cg23/production-live/unscoped",
+            event_count: 0,
+            progress_event_count: 0,
+            state_event_count: 0,
+            checkpoint_event_count: 0,
+            watermark_event_count: 0,
+            certificate_event_count: 0,
+            lineage_event_count: 0,
+            benchmark_event_count: 0,
+            hot_cold_contribution_event_count: 0,
+            live_fixture_certified: false,
+            hybrid_fixture_certified: false,
+            workload_certified: false,
+            cg22_workload_evidence_present: false,
+            cg8_runtime_evidence_present: false,
+            cg4_checkpoint_evidence_present: false,
+            cg16_execution_certificate_present: false,
+            production_claim_allowed: false,
+            broker_requested: false,
+            broker_required: false,
+            object_store_required: false,
+            freshness_certificate_ref: "none",
+            state_certificate_ref: "none",
+            continuous_view_certificate_ref: "none",
+            delta_overlay_certificate_ref: "none",
+            micro_segment_flush_evidence_ref: "none",
+            hot_cold_contribution_report_ref: "none",
+            execution_certificate_ref: "none",
+            native_io_certificate_ref: "none",
+            lineage_artifact_ref: "none",
+            benchmark_event_ref: "none",
+            diagnostics: vec![Diagnostic::new(
+                DiagnosticCode::NotImplemented,
+                DiagnosticSeverity::Warning,
+                DiagnosticCategory::Planning,
+                "Production live/hybrid event API certification is blocked until workload-scoped CG-22, CG-8, CG-4, and CG-16 evidence exists.",
+                Some("rest_api_event_stream".to_string()),
+                Some("Fixture event stream contracts are available, but this workload has no certified live/hybrid dossier.".to_string()),
+                Some("Run a workload-scoped certification dossier before enabling production event streaming.".to_string()),
+                FallbackStatus::disabled_by_policy(),
+            )],
+        },
+        RestApiEventStreamScenario::BrokerRequested => EventStreamScenarioContract {
+            event_stream_status: RestApiEventStreamStatus::UnsupportedExternalBroker,
+            stream_id: "event-stream://cg23/broker-requested/blocked",
+            stream_ref: "event-stream://cg23/broker-requested/blocked",
+            engine_mode: "hybrid",
+            workload_ref: "workload://cg23/broker-requested/unscoped",
+            event_count: 0,
+            progress_event_count: 0,
+            state_event_count: 0,
+            checkpoint_event_count: 0,
+            watermark_event_count: 0,
+            certificate_event_count: 0,
+            lineage_event_count: 0,
+            benchmark_event_count: 0,
+            hot_cold_contribution_event_count: 0,
+            live_fixture_certified: false,
+            hybrid_fixture_certified: false,
+            workload_certified: false,
+            cg22_workload_evidence_present: false,
+            cg8_runtime_evidence_present: false,
+            cg4_checkpoint_evidence_present: false,
+            cg16_execution_certificate_present: false,
+            production_claim_allowed: false,
+            broker_requested: true,
+            broker_required: true,
+            object_store_required: false,
+            freshness_certificate_ref: "none",
+            state_certificate_ref: "none",
+            continuous_view_certificate_ref: "none",
+            delta_overlay_certificate_ref: "none",
+            micro_segment_flush_evidence_ref: "none",
+            hot_cold_contribution_report_ref: "none",
+            execution_certificate_ref: "none",
+            native_io_certificate_ref: "none",
+            lineage_artifact_ref: "none",
+            benchmark_event_ref: "none",
+            diagnostics: vec![Diagnostic::unsupported(
+                DiagnosticCode::ExternalEffectDisabled,
+                "rest_api_event_broker",
+                "Broker-backed event delivery is not implemented and cannot be used as implicit execution.",
+                Some("Use the SSE-first fixture event stream contract or add explicit broker certification evidence.".to_string()),
+            )],
+        },
+    }
+}
+
 fn plan_preview_endpoint_paths() -> Vec<&'static str> {
     vec![
         "/v1/plans",
@@ -1823,6 +2468,104 @@ mod tests {
     }
 
     #[test]
+    fn rest_api_event_stream_certified_fixtures_expose_event_and_evidence_contracts() {
+        let live = RestApiEventStreamReport::for_scenario(
+            RestApiEventStreamScenario::CertifiedLiveFixture,
+        );
+        let hybrid = RestApiEventStreamReport::for_scenario(
+            RestApiEventStreamScenario::CertifiedHybridFixture,
+        );
+
+        assert_eq!(live.schema_version, REST_API_EVENT_STREAM_SCHEMA_VERSION);
+        assert_eq!(live.status(), CommandStatus::Success);
+        assert_eq!(
+            live.event_stream_status,
+            RestApiEventStreamStatus::CertifiedFixture
+        );
+        assert!(live.sse_first);
+        assert!(live.websocket_supported);
+        assert!(!live.websocket_required);
+        assert_eq!(live.asyncapi_contract_path, ASYNCAPI_EVENT_CONTRACT_PATH);
+        assert_eq!(live.cloudevents_spec_version, "1.0");
+        assert!(live.event_type_summary().contains("progress"));
+        assert!(live.event_type_summary().contains("watermark"));
+        assert!(live.live_fixture_certified);
+        assert!(live.workload_certified);
+        assert!(!live.production_claim_allowed);
+        assert!(live.cg22_workload_evidence_present);
+        assert!(live.cg8_runtime_evidence_present);
+        assert!(live.cg4_checkpoint_evidence_present);
+        assert!(live.cg16_execution_certificate_present);
+        assert!(live.certificate_ref_summary().contains("freshness.json"));
+        assert!(!live.broker_io);
+        assert!(!live.object_store_io);
+        assert!(!live.runtime_execution);
+        assert!(!live.fallback_attempted);
+        assert!(!live.effect_policy_violated());
+
+        assert_eq!(hybrid.status(), CommandStatus::Success);
+        assert!(hybrid.hybrid_fixture_certified);
+        assert_eq!(hybrid.engine_mode, "hybrid");
+        assert_eq!(hybrid.hot_cold_contribution_event_count, 1);
+        assert!(
+            hybrid
+                .event_type_summary()
+                .contains("hybrid_hot_cold_contribution")
+        );
+        assert!(
+            hybrid
+                .hot_cold_contribution_report_ref
+                .ends_with("hot-cold-contribution.json")
+        );
+        assert!(
+            hybrid
+                .certificate_ref_summary()
+                .contains("delta-overlay.json")
+        );
+        assert!(!hybrid.effect_policy_violated());
+    }
+
+    #[test]
+    fn rest_api_event_stream_blocks_uncertified_production_and_broker_paths() {
+        let blocked = RestApiEventStreamReport::for_scenario(
+            RestApiEventStreamScenario::BlockedProductionWorkload,
+        );
+        let broker =
+            RestApiEventStreamReport::for_scenario(RestApiEventStreamScenario::BrokerRequested);
+
+        assert_eq!(blocked.status(), CommandStatus::Warning);
+        assert_eq!(
+            blocked.event_stream_status,
+            RestApiEventStreamStatus::BlockedMissingEvidence
+        );
+        assert!(!blocked.workload_certified);
+        assert!(!blocked.cg22_workload_evidence_present);
+        assert!(!blocked.cg8_runtime_evidence_present);
+        assert!(!blocked.cg4_checkpoint_evidence_present);
+        assert!(!blocked.cg16_execution_certificate_present);
+        assert!(!blocked.production_claim_allowed);
+        assert!(!blocked.broker_io);
+        assert!(!blocked.object_store_io);
+        assert!(!blocked.fallback_attempted);
+        assert_eq!(blocked.diagnostics[0].code, DiagnosticCode::NotImplemented);
+
+        assert_eq!(broker.status(), CommandStatus::Unsupported);
+        assert_eq!(
+            broker.event_stream_status,
+            RestApiEventStreamStatus::UnsupportedExternalBroker
+        );
+        assert!(broker.broker_requested);
+        assert!(broker.broker_required);
+        assert!(!broker.broker_io);
+        assert!(!broker.external_engine_invoked);
+        assert!(!broker.fallback_attempted);
+        assert_eq!(
+            broker.diagnostics[0].code,
+            DiagnosticCode::ExternalEffectDisabled
+        );
+    }
+
+    #[test]
     fn checked_in_openapi_contract_matches_report() {
         let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let contract_path = manifest_dir.join("..").join(OPENAPI_CONTRACT_PATH);
@@ -1838,5 +2581,14 @@ mod tests {
         assert!(contract.contains("/v1/plans/{plan_handle}/certification-preview:"));
         assert!(contract.contains("LocalLifecycleResponse"));
         assert!(contract.contains("/v1/queries/{query_id}/cancel:"));
+        assert!(contract.contains("EventStreamResponse"));
+        assert!(contract.contains("/v1/events/streams/{stream_id}/sse:"));
+
+        let asyncapi_path = manifest_dir.join("..").join(ASYNCAPI_EVENT_CONTRACT_PATH);
+        let asyncapi = fs::read_to_string(&asyncapi_path)
+            .unwrap_or_else(|err| panic!("failed to read {asyncapi_path:?}: {err}"));
+        assert!(asyncapi.contains("asyncapi: 3.0.0"));
+        assert!(asyncapi.contains("/v1/events/streams/{stream_id}/sse"));
+        assert!(asyncapi.contains("CloudEventEnvelope"));
     }
 }

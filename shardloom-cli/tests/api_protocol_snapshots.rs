@@ -33,6 +33,10 @@ fn run_rest_api_local_lifecycle(scenario: &str) -> String {
     run_cli_json(&["rest-api-local-lifecycle", scenario, "--format", "json"])
 }
 
+fn run_rest_api_event_stream(scenario: &str) -> String {
+    run_cli_json(&["rest-api-event-stream", scenario, "--format", "json"])
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
@@ -55,7 +59,7 @@ fn rest_api_contract_plan_json_exposes_openapi_discovery_contract() {
         "problem_details_media_type",
         "application/problem+json"
     )));
-    assert!(output.contains(&field("represented_resource_count", "15")));
+    assert!(output.contains(&field("represented_resource_count", "16")));
     assert!(output.contains(&field(
         "execution_policy_fields",
         "engine_mode,fallback_policy,materialization_policy,result_policy,evidence_policy"
@@ -320,6 +324,125 @@ fn rest_api_local_lifecycle_json_preserves_no_external_effects_and_no_fallback_p
         assert!(output.contains(&field("credential_resolution", "false")));
         assert!(output.contains(&field("data_read", "false")));
         assert!(output.contains(&field("data_materialized", "false")));
+        assert!(output.contains(&field("write_io", "false")));
+        assert!(output.contains(&field("external_engine_invoked", "false")));
+        assert!(output.contains(&field("fallback_execution_allowed", "false")));
+        assert!(output.contains(&field("fallback_attempted", "false")));
+        assert!(output.contains(&field("execution_delegated", "false")));
+        assert!(output.contains(&field("effect_policy_violated", "false")));
+    }
+}
+
+#[test]
+fn rest_api_event_stream_json_exposes_sse_asyncapi_and_cloudevents_contracts() {
+    let output = run_rest_api_event_stream("certified-live-fixture");
+
+    assert!(output.contains("\"command\":\"rest-api-event-stream\""));
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("mode", "rest_api_event_stream")));
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.rest_api_event_stream.v1"
+    )));
+    assert!(output.contains(&field("scenario", "certified-live-fixture")));
+    assert!(output.contains(&field("event_stream_status", "certified_fixture")));
+    assert!(output.contains(&field(
+        "stream_ref",
+        "event-stream://cg23/live-fixture/group-count"
+    )));
+    assert!(output.contains(&field("engine_mode", "live")));
+    assert!(output.contains(&field(
+        "delivery_protocols",
+        "server_sent_events,websocket_optional"
+    )));
+    assert!(output.contains(&field("sse_first", "true")));
+    assert!(output.contains(&field("sse_media_type", "text/event-stream")));
+    assert!(output.contains(&field("websocket_required", "false")));
+    assert!(output.contains(&field("asyncapi_version", "3.0.0")));
+    assert!(output.contains(&field(
+        "asyncapi_contract_path",
+        "docs/api/shardloom-asyncapi-events-v1.yaml"
+    )));
+    assert!(output.contains(&field("cloudevents_spec_version", "1.0")));
+    assert!(output.contains(&field(
+        "cloudevents_required_fields",
+        "specversion,id,type,source,subject,time,datacontenttype,dataschema,data"
+    )));
+    assert!(output.contains(&field(
+        "event_types",
+        "progress,state,checkpoint,watermark,certificate,lineage,benchmark,hybrid_hot_cold_contribution"
+    )));
+    assert!(output.contains(&field("event_count", "7")));
+    assert!(output.contains(&field("workload_certified", "true")));
+    assert!(output.contains(&field("production_claim_allowed", "false")));
+    assert!(output.contains(&field(
+        "freshness_certificate_ref",
+        "certificates/cg22/live/fixture/freshness.json"
+    )));
+    assert!(output.contains(&field(
+        "execution_certificate_ref",
+        "certificates/cg22/live/fixture/group-count/execution.json"
+    )));
+}
+
+#[test]
+fn rest_api_event_stream_json_covers_hybrid_and_blocked_scenarios() {
+    let hybrid = run_rest_api_event_stream("certified-hybrid-fixture");
+    let blocked = run_rest_api_event_stream("blocked-production-workload");
+    let broker = run_rest_api_event_stream("broker-requested");
+
+    assert!(hybrid.contains("\"status\":\"success\""));
+    assert!(hybrid.contains(&field("scenario", "certified-hybrid-fixture")));
+    assert!(hybrid.contains(&field("engine_mode", "hybrid")));
+    assert!(hybrid.contains(&field("hybrid_fixture_certified", "true")));
+    assert!(hybrid.contains(&field("hot_cold_contribution_event_count", "1")));
+    assert!(hybrid.contains(&field(
+        "hot_cold_contribution_report_ref",
+        "artifacts/cg22/hybrid/fixture/hot-cold-contribution.json"
+    )));
+    assert!(hybrid.contains(&field(
+        "delta_overlay_certificate_ref",
+        "certificates/cg22/hybrid/fixture/delta-overlay.json"
+    )));
+
+    assert!(blocked.contains("\"status\":\"warning\""));
+    assert!(blocked.contains(&field("event_stream_status", "blocked_missing_evidence")));
+    assert!(blocked.contains(&field("workload_certified", "false")));
+    assert!(blocked.contains(&field("cg22_workload_evidence_present", "false")));
+    assert!(blocked.contains(&field("cg8_runtime_evidence_present", "false")));
+    assert!(blocked.contains(&field("cg4_checkpoint_evidence_present", "false")));
+    assert!(blocked.contains(&field("cg16_execution_certificate_present", "false")));
+    assert!(blocked.contains("\"code\":\"SL_NOT_IMPLEMENTED\""));
+
+    assert!(broker.contains("\"status\":\"unsupported\""));
+    assert!(broker.contains(&field("event_stream_status", "unsupported_external_broker")));
+    assert!(broker.contains(&field("broker_requested", "true")));
+    assert!(broker.contains(&field("broker_required", "true")));
+    assert!(broker.contains(&field("broker_io", "false")));
+    assert!(broker.contains("\"code\":\"SL_EXTERNAL_EFFECT_DISABLED\""));
+}
+
+#[test]
+fn rest_api_event_stream_json_preserves_no_broker_object_store_or_fallback_effects() {
+    for scenario in [
+        "certified-live-fixture",
+        "certified-hybrid-fixture",
+        "blocked-production-workload",
+        "broker-requested",
+    ] {
+        let output = run_rest_api_event_stream(scenario);
+
+        assert!(output.contains(&field("server_started", "false")));
+        assert!(output.contains(&field("network_listener_opened", "false")));
+        assert!(output.contains(&field("network_probe", "false")));
+        assert!(output.contains(&field("broker_io", "false")));
+        assert!(output.contains(&field("object_store_io", "false")));
+        assert!(output.contains(&field("dataset_probe", "false")));
+        assert!(output.contains(&field("catalog_probe", "false")));
+        assert!(output.contains(&field("credential_resolution", "false")));
+        assert!(output.contains(&field("data_read", "false")));
+        assert!(output.contains(&field("data_materialized", "false")));
+        assert!(output.contains(&field("runtime_execution", "false")));
         assert!(output.contains(&field("write_io", "false")));
         assert!(output.contains(&field("external_engine_invoked", "false")));
         assert!(output.contains(&field("fallback_execution_allowed", "false")));

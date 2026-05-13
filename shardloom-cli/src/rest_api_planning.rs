@@ -7,8 +7,9 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     CliApiJsonProtocolReport, OutputFormat, ReleasePlan, RestApiContractReport,
-    RestApiDiscoveryModeReport, RestApiLocalLifecycleReport, RestApiLocalLifecycleScenario,
-    RestApiPlanPreviewReport, RestApiPlanPreviewScenario, ShardLoomError,
+    RestApiDiscoveryModeReport, RestApiEventStreamReport, RestApiEventStreamScenario,
+    RestApiLocalLifecycleReport, RestApiLocalLifecycleScenario, RestApiPlanPreviewReport,
+    RestApiPlanPreviewScenario, ShardLoomError,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -140,6 +141,56 @@ pub(crate) fn handle_rest_api_local_lifecycle(
         report.to_human_text(),
         report.diagnostics.clone(),
         rest_api_local_lifecycle_fields(&report),
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_rest_api_event_stream(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let scenario = match args.next() {
+        Some(token) => {
+            let Some(parsed) = RestApiEventStreamScenario::parse(&token) else {
+                return emit_error(
+                    "rest-api-event-stream",
+                    format,
+                    "rest api event stream argument parsing failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "unknown event stream scenario: {token}; expected one of {}",
+                        RestApiEventStreamScenario::all()
+                            .iter()
+                            .map(|scenario| scenario.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    )),
+                );
+            };
+            parsed
+        }
+        None => RestApiEventStreamScenario::CertifiedLiveFixture,
+    };
+
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "rest-api-event-stream",
+            format,
+            "rest api event stream argument parsing failed",
+            &ShardLoomError::InvalidOperation(format!(
+                "unexpected rest-api-event-stream argument: {extra}; pass at most one scenario"
+            )),
+        );
+    }
+
+    let report = RestApiEventStreamReport::for_scenario(scenario);
+    emit(
+        "rest-api-event-stream",
+        format,
+        report.status(),
+        "rest api live/hybrid event stream contract".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        rest_api_event_stream_fields(&report),
     );
     ExitCode::SUCCESS
 }
@@ -783,6 +834,278 @@ fn append_local_lifecycle_effect_fields(
         "local_execution_performed",
         report.local_execution_performed,
     );
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(fields, "execution_delegated", report.execution_delegated);
+    push_bool_field(
+        fields,
+        "effect_policy_violated",
+        report.effect_policy_violated(),
+    );
+}
+
+fn rest_api_event_stream_fields(report: &RestApiEventStreamReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_event_stream_identity_fields(&mut fields, report);
+    append_event_stream_protocol_fields(&mut fields, report);
+    append_event_stream_evidence_fields(&mut fields, report);
+    append_event_stream_certification_fields(&mut fields, report);
+    append_event_stream_effect_fields(&mut fields, report);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn append_event_stream_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiEventStreamReport,
+) {
+    push_field(fields, "mode", "rest_api_event_stream");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "api_version", report.api_version);
+    push_field(fields, "scenario", report.scenario.as_str());
+    push_field(
+        fields,
+        "event_stream_status",
+        report.event_stream_status.as_str(),
+    );
+    push_field(fields, "stream_id", report.stream_id);
+    push_field(fields, "stream_ref", report.stream_ref);
+    push_field(fields, "engine_mode", report.engine_mode);
+    push_field(fields, "workload_ref", report.workload_ref);
+    push_field(fields, "endpoint_paths", &report.endpoint_paths.join(","));
+    push_field(
+        fields,
+        "event_operations",
+        &report.event_operations.join(","),
+    );
+}
+
+fn append_event_stream_protocol_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiEventStreamReport,
+) {
+    push_field(
+        fields,
+        "delivery_protocols",
+        &report.delivery_protocols.join(","),
+    );
+    push_bool_field(fields, "sse_first", report.sse_first);
+    push_field(fields, "sse_media_type", report.sse_media_type);
+    push_bool_field(fields, "websocket_supported", report.websocket_supported);
+    push_bool_field(fields, "websocket_required", report.websocket_required);
+    push_bool_field(
+        fields,
+        "bidirectional_interaction_required",
+        report.bidirectional_interaction_required,
+    );
+    push_field(
+        fields,
+        "openapi_contract_path",
+        report.openapi_contract_path,
+    );
+    push_field(fields, "asyncapi_version", report.asyncapi_version);
+    push_field(
+        fields,
+        "asyncapi_contract_path",
+        report.asyncapi_contract_path,
+    );
+    push_field(
+        fields,
+        "cloudevents_spec_version",
+        report.cloudevents_spec_version,
+    );
+    push_field(
+        fields,
+        "cloudevents_required_fields",
+        &report.cloudevents_required_field_summary(),
+    );
+    push_field(fields, "event_types", &report.event_type_summary());
+    push_field(fields, "event_contracts", &report.event_contract_summary());
+    push_field(fields, "event_count", &report.event_count.to_string());
+    push_field(
+        fields,
+        "progress_event_count",
+        &report.progress_event_count.to_string(),
+    );
+    push_field(
+        fields,
+        "state_event_count",
+        &report.state_event_count.to_string(),
+    );
+    push_field(
+        fields,
+        "checkpoint_event_count",
+        &report.checkpoint_event_count.to_string(),
+    );
+    push_field(
+        fields,
+        "watermark_event_count",
+        &report.watermark_event_count.to_string(),
+    );
+    push_field(
+        fields,
+        "certificate_event_count",
+        &report.certificate_event_count.to_string(),
+    );
+    push_field(
+        fields,
+        "lineage_event_count",
+        &report.lineage_event_count.to_string(),
+    );
+    push_field(
+        fields,
+        "benchmark_event_count",
+        &report.benchmark_event_count.to_string(),
+    );
+    push_field(
+        fields,
+        "hot_cold_contribution_event_count",
+        &report.hot_cold_contribution_event_count.to_string(),
+    );
+}
+
+fn append_event_stream_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiEventStreamReport,
+) {
+    push_field(
+        fields,
+        "freshness_certificate_ref",
+        report.freshness_certificate_ref,
+    );
+    push_field(
+        fields,
+        "state_certificate_ref",
+        report.state_certificate_ref,
+    );
+    push_field(
+        fields,
+        "continuous_view_certificate_ref",
+        report.continuous_view_certificate_ref,
+    );
+    push_field(
+        fields,
+        "delta_overlay_certificate_ref",
+        report.delta_overlay_certificate_ref,
+    );
+    push_field(
+        fields,
+        "micro_segment_flush_evidence_ref",
+        report.micro_segment_flush_evidence_ref,
+    );
+    push_field(
+        fields,
+        "hot_cold_contribution_report_ref",
+        report.hot_cold_contribution_report_ref,
+    );
+    push_field(
+        fields,
+        "execution_certificate_ref",
+        report.execution_certificate_ref,
+    );
+    push_field(
+        fields,
+        "native_io_certificate_ref",
+        report.native_io_certificate_ref,
+    );
+    push_field(fields, "lineage_artifact_ref", report.lineage_artifact_ref);
+    push_field(fields, "benchmark_event_ref", report.benchmark_event_ref);
+    push_field(
+        fields,
+        "no_fallback_evidence_artifact_ref",
+        report.no_fallback_evidence_artifact_ref,
+    );
+    push_field(
+        fields,
+        "certificate_ref_summary",
+        &report.certificate_ref_summary(),
+    );
+}
+
+fn append_event_stream_certification_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiEventStreamReport,
+) {
+    push_bool_field(
+        fields,
+        "live_fixture_certified",
+        report.live_fixture_certified,
+    );
+    push_bool_field(
+        fields,
+        "hybrid_fixture_certified",
+        report.hybrid_fixture_certified,
+    );
+    push_bool_field(fields, "workload_certified", report.workload_certified);
+    push_bool_field(
+        fields,
+        "cg22_workload_evidence_present",
+        report.cg22_workload_evidence_present,
+    );
+    push_bool_field(
+        fields,
+        "cg8_runtime_evidence_present",
+        report.cg8_runtime_evidence_present,
+    );
+    push_bool_field(
+        fields,
+        "cg4_checkpoint_evidence_present",
+        report.cg4_checkpoint_evidence_present,
+    );
+    push_bool_field(
+        fields,
+        "cg16_execution_certificate_present",
+        report.cg16_execution_certificate_present,
+    );
+    push_bool_field(
+        fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(fields, "broker_requested", report.broker_requested);
+    push_bool_field(fields, "broker_required", report.broker_required);
+    push_bool_field(
+        fields,
+        "object_store_required",
+        report.object_store_required,
+    );
+}
+
+fn append_event_stream_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiEventStreamReport,
+) {
+    push_bool_field(fields, "server_started", report.server_started);
+    push_bool_field(
+        fields,
+        "network_listener_opened",
+        report.network_listener_opened,
+    );
+    push_bool_field(fields, "network_probe", report.network_listener_opened);
+    push_bool_field(fields, "broker_io", report.broker_io);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "dataset_probe", report.dataset_probe);
+    push_bool_field(fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(
+        fields,
+        "credential_resolution",
+        report.credential_resolution,
+    );
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "query_execution", report.query_execution);
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
     push_bool_field(fields, "write_io", report.write_io);
     push_bool_field(
         fields,

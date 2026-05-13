@@ -23,6 +23,7 @@ from shardloom import (
     OutputEnvelope,
     RestApiContractPlan,
     RestApiDiscoveryContract,
+    RestApiEventStream,
     RestApiLocalLifecycle,
     RestApiPlanPreview,
     WorkflowReadinessSmokeReport,
@@ -1050,6 +1051,74 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(result.query_execution)
         self.assertTrue(result.runtime_execution)
         self.assertTrue(result.local_execution_performed)
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.execution_delegated)
+
+    def test_rest_api_event_stream_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "rest-api-event-stream", "certified-live-fixture", "--format", "json"
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "rest-api-event-stream",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "scenario", "value": "certified-live-fixture"},
+                        {"key": "event_stream_status", "value": "certified_fixture"},
+                        {"key": "stream_id", "value": "event-stream://cg23/live-fixture/group-count"},
+                        {"key": "stream_ref", "value": "event-stream://cg23/live-fixture/group-count"},
+                        {"key": "engine_mode", "value": "live"},
+                        {"key": "delivery_protocols", "value": "server_sent_events,websocket_optional"},
+                        {"key": "event_types", "value": "progress,state,checkpoint,watermark,certificate,lineage,benchmark,hybrid_hot_cold_contribution"},
+                        {"key": "certificate_ref_summary", "value": "certificates/cg22/live/fixture/freshness.json,certificates/cg22/live/fixture/group-count/execution.json"},
+                        {"key": "asyncapi_contract_path", "value": "docs/api/shardloom-asyncapi-events-v1.yaml"},
+                        {"key": "sse_first", "value": "true"},
+                        {"key": "websocket_required", "value": "false"},
+                        {"key": "event_count", "value": "7"},
+                        {"key": "workload_certified", "value": "true"},
+                        {"key": "production_claim_allowed", "value": "false"},
+                        {"key": "broker_required", "value": "false"},
+                        {"key": "broker_io", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).rest_api_event_stream()
+
+        self.assertIsInstance(result, RestApiEventStream)
+        self.assertEqual(result.scenario, "certified-live-fixture")
+        self.assertEqual(result.event_stream_status, "certified_fixture")
+        self.assertEqual(result.stream_id, "event-stream://cg23/live-fixture/group-count")
+        self.assertEqual(result.stream_ref, "event-stream://cg23/live-fixture/group-count")
+        self.assertEqual(result.engine_mode, "live")
+        self.assertIn("server_sent_events", result.delivery_protocols)
+        self.assertIn("watermark", result.event_types)
+        self.assertIn("certificates/cg22/live/fixture/freshness.json", result.certificate_refs)
+        self.assertEqual(
+            result.asyncapi_contract_path,
+            "docs/api/shardloom-asyncapi-events-v1.yaml",
+        )
+        self.assertTrue(result.sse_first)
+        self.assertFalse(result.websocket_required)
+        self.assertEqual(result.event_count, 7)
+        self.assertTrue(result.workload_certified)
+        self.assertFalse(result.production_claim_allowed)
+        self.assertFalse(result.broker_required)
+        self.assertFalse(result.broker_io)
+        self.assertFalse(result.object_store_io)
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.execution_delegated)
 

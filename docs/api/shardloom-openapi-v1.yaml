@@ -16,6 +16,7 @@ tags:
   - name: capabilities
   - name: planning
   - name: evidence
+  - name: events
   - name: governance
 paths:
   /v1/health:
@@ -508,6 +509,104 @@ paths:
                 $ref: "#/components/schemas/EvidenceArtifactEnvelope"
         "404":
           $ref: "#/components/responses/Problem"
+  /v1/events/streams:
+    post:
+      tags: [events]
+      operationId: createEventStream
+      summary: Create an SSE-first live/hybrid event stream contract for certified fixture evidence.
+      x-shardloom-maturity: API-A7
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventStreamRequest"
+      responses:
+        "202":
+          description: Event stream contract accepted or blocked with deterministic diagnostics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventStreamResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/events/streams/{stream_id}:
+    get:
+      tags: [events]
+      operationId: getEventStream
+      summary: Fetch live/hybrid event stream contract state and evidence refs.
+      x-shardloom-maturity: API-A7
+      parameters:
+        - $ref: "#/components/parameters/StreamId"
+      responses:
+        "200":
+          description: Event stream contract state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventStreamResponse"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/events/streams/{stream_id}/sse:
+    get:
+      tags: [events]
+      operationId: subscribeEventStreamSse
+      summary: Subscribe to the SSE-first event stream contract.
+      x-shardloom-maturity: API-A7
+      parameters:
+        - $ref: "#/components/parameters/StreamId"
+      responses:
+        "200":
+          description: Server-Sent Events stream carrying CloudEvents JSON payloads.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/events/streams/{stream_id}/websocket:
+    get:
+      tags: [events]
+      operationId: getEventStreamWebSocketPosture
+      summary: Report optional WebSocket posture; SSE remains the default event delivery mode.
+      x-shardloom-maturity: API-A7
+      parameters:
+        - $ref: "#/components/parameters/StreamId"
+      responses:
+        "200":
+          description: WebSocket posture without opening a bidirectional channel.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventStreamResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/events/schemas:
+    get:
+      tags: [events]
+      operationId: listEventSchemas
+      summary: List CloudEvents-style event schema refs for progress, state, checkpoints, watermarks, certificates, lineage, benchmarks, and hybrid contribution events.
+      x-shardloom-maturity: API-A7
+      responses:
+        "200":
+          description: Event schema contract refs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventStreamResponse"
+  /v1/events/asyncapi:
+    get:
+      tags: [events]
+      operationId: getAsyncApiEventContract
+      summary: Fetch the checked-in AsyncAPI event contract path and version.
+      x-shardloom-maturity: API-A7
+      responses:
+        "200":
+          description: AsyncAPI event contract metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventStreamResponse"
   /v1/benchmarks:
     get:
       tags: [evidence]
@@ -584,6 +683,12 @@ components:
         type: string
     ArtifactId:
       name: artifact_id
+      in: path
+      required: true
+      schema:
+        type: string
+    StreamId:
+      name: stream_id
       in: path
       required: true
       schema:
@@ -891,6 +996,128 @@ components:
               type: string
             cleanup_required:
               type: boolean
+            fallback:
+              $ref: "#/components/schemas/FallbackStatus"
+    EventStreamRequest:
+      type: object
+      required: [scenario, policy]
+      properties:
+        scenario:
+          type: string
+          enum:
+            - certified-live-fixture
+            - certified-hybrid-fixture
+            - blocked-production-workload
+            - broker-requested
+        policy:
+          $ref: "#/components/schemas/ExecutionRequestPolicy"
+    EventStreamEventContract:
+      type: object
+      required:
+        - event_type
+        - cloudevents_type
+        - subject
+        - data_schema_ref
+        - evidence_ref
+      properties:
+        event_type:
+          type: string
+          enum:
+            - progress
+            - state
+            - checkpoint
+            - watermark
+            - certificate
+            - lineage
+            - benchmark
+            - hybrid_hot_cold_contribution
+        category:
+          type: string
+        cloudevents_type:
+          type: string
+        subject:
+          type: string
+        data_schema_ref:
+          type: string
+        evidence_ref:
+          type: string
+        certificate_ref:
+          type: [string, "null"]
+    CloudEventEnvelope:
+      type: object
+      required: [specversion, id, type, source, subject, time, datacontenttype, dataschema, data]
+      properties:
+        specversion:
+          type: string
+          const: "1.0"
+        id:
+          type: string
+        type:
+          type: string
+        source:
+          type: string
+        subject:
+          type: string
+        time:
+          type: string
+          format: date-time
+        datacontenttype:
+          type: string
+          const: application/json
+        dataschema:
+          type: string
+        data:
+          type: object
+    EventStreamResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+        - type: object
+          required:
+            - stream_id
+            - status
+            - delivery_protocols
+            - event_contracts
+            - fallback
+          properties:
+            stream_id:
+              type: string
+            status:
+              type: string
+              enum: [certified_fixture, blocked_missing_evidence, unsupported_external_broker]
+            engine_mode:
+              type: string
+              enum: [live, hybrid]
+            delivery_protocols:
+              type: array
+              items:
+                type: string
+                enum: [server_sent_events, websocket_optional]
+            sse_first:
+              type: boolean
+              const: true
+            websocket_required:
+              type: boolean
+              const: false
+            asyncapi_contract_path:
+              type: string
+            cloudevents_spec_version:
+              type: string
+              const: "1.0"
+            event_contracts:
+              type: array
+              items:
+                $ref: "#/components/schemas/EventStreamEventContract"
+            certificate_refs:
+              type: array
+              items:
+                type: string
+            broker_required:
+              type: boolean
+            object_store_required:
+              type: boolean
+            production_claim_allowed:
+              type: boolean
+              const: false
             fallback:
               $ref: "#/components/schemas/FallbackStatus"
     EvidenceArtifactEnvelope:

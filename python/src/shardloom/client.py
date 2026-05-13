@@ -777,6 +777,138 @@ class RestApiLocalLifecycle:
 
 
 @dataclass(frozen=True, slots=True)
+class RestApiEventStream:
+    """Typed view over the CG-23 live/hybrid event stream contract."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def scenario(self) -> str | None:
+        """Return the deterministic event-stream scenario."""
+
+        return self.envelope.field("scenario")
+
+    @property
+    def event_stream_status(self) -> str | None:
+        """Return the event stream status."""
+
+        return self.envelope.field("event_stream_status")
+
+    @property
+    def stream_id(self) -> str | None:
+        """Return the stream handle."""
+
+        return self.envelope.field("stream_id")
+
+    @property
+    def stream_ref(self) -> str | None:
+        """Return the stream reference."""
+
+        value = self.envelope.field("stream_ref")
+        return None if value in {None, "none"} else value
+
+    @property
+    def engine_mode(self) -> str | None:
+        """Return the event stream engine-mode posture."""
+
+        return self.envelope.field("engine_mode")
+
+    @property
+    def delivery_protocols(self) -> tuple[str, ...]:
+        """Return declared event delivery protocols."""
+
+        value = self.envelope.field("delivery_protocols", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def event_types(self) -> tuple[str, ...]:
+        """Return declared event type names."""
+
+        value = self.envelope.field("event_types", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def certificate_refs(self) -> tuple[str, ...]:
+        """Return available event evidence certificate refs."""
+
+        value = (
+            self.envelope.field("certificate_ref_summary")
+            or self.envelope.field("certificate_refs")
+            or ""
+        )
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def asyncapi_contract_path(self) -> str | None:
+        """Return the checked-in AsyncAPI contract path."""
+
+        return self.envelope.field("asyncapi_contract_path")
+
+    @property
+    def sse_first(self) -> bool:
+        """Whether SSE is the default event delivery protocol."""
+
+        return self.envelope.field_bool("sse_first", False) is True
+
+    @property
+    def websocket_required(self) -> bool:
+        """Whether WebSocket is required for this contract."""
+
+        return self.envelope.field_bool("websocket_required", False) is True
+
+    @property
+    def event_count(self) -> int:
+        """Return the deterministic event count for the scenario."""
+
+        return self.envelope.field_int("event_count", 0) or 0
+
+    @property
+    def workload_certified(self) -> bool:
+        """Whether the referenced workload is certified for event streaming."""
+
+        return self.envelope.field_bool("workload_certified", False) is True
+
+    @property
+    def production_claim_allowed(self) -> bool:
+        """Whether production event-streaming claims are allowed."""
+
+        return self.envelope.field_bool("production_claim_allowed", False) is True
+
+    @property
+    def broker_required(self) -> bool:
+        """Whether the contract requires a broker."""
+
+        return self.envelope.field_bool("broker_required", False) is True
+
+    @property
+    def broker_io(self) -> bool:
+        """Whether broker I/O was performed."""
+
+        return self.envelope.field_bool("broker_io", False) is True
+
+    @property
+    def object_store_io(self) -> bool:
+        """Whether object-store I/O was performed."""
+
+        return self.envelope.field_bool("object_store_io", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether event-stream handling attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def execution_delegated(self) -> bool:
+        """Whether event-stream handling delegated execution."""
+
+        return self.envelope.field_bool("execution_delegated", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class LiveChangeContractPlan:
     """Typed convenience view over the CG-22 live change contract."""
 
@@ -1197,6 +1329,18 @@ class ShardLoomClient:
 
         return RestApiLocalLifecycle(
             self.run(["rest-api-local-lifecycle", scenario], check=check)
+        )
+
+    def rest_api_event_stream(
+        self,
+        scenario: str = "certified-live-fixture",
+        *,
+        check: bool = True,
+    ) -> RestApiEventStream:
+        """Return a CG-23 live/hybrid event stream contract envelope."""
+
+        return RestApiEventStream(
+            self.run(["rest-api-event-stream", scenario], check=check)
         )
 
     def python_wrapper_plan(self, *, check: bool = True) -> OutputEnvelope:
