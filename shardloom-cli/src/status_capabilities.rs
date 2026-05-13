@@ -29,9 +29,10 @@ use crate::{
 const WORKFLOW_OPERATION_NAMES: &str = concat!(
     "profile,collect,from_pandas,from_arrow_table,from_arrow_ipc,",
     "to_pandas,to_arrow,to_arrow_table,to_arrow_ipc,to_numpy,to_python_objects,",
-    "write_vortex,write_parquet,sql,join,aggregate,window,schema_contract,",
-    "schema,describe_schema,validate_schema,data_quality,data_quality_summary,",
-    "quarantine,preview,display"
+    "with_column,group_by,agg,sort,limit,write_vortex,write_parquet,sql,",
+    "sql_parse,sql_bind,sql_plan,sql_execute,join,aggregate,window,",
+    "schema_contract,schema,describe_schema,validate_schema,data_quality,",
+    "data_quality_summary,quarantine,preview,display"
 );
 const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.profile.runtime_profile_unsupported,",
@@ -45,9 +46,18 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported,",
     "cg21.workflow.to_numpy.python_array_unsupported,",
     "cg21.workflow.to_python_objects.object_materialization_unsupported,",
+    "cg21.workflow.with_column.expression_unsupported,",
+    "cg21.workflow.group_by.operator_unsupported,",
+    "cg21.workflow.agg.operator_unsupported,",
+    "cg21.workflow.sort.operator_unsupported,",
+    "cg21.workflow.limit.execution_uncertified,",
     "cg21.workflow.write_vortex.write_policy_unsupported,",
     "cg21.workflow.write_parquet.compatibility_export_unsupported,",
     "cg21.workflow.sql.frontend_unsupported,",
+    "cg21.workflow.sql.parse_unsupported,",
+    "cg21.workflow.sql.bind_unsupported,",
+    "cg21.workflow.sql.plan_unsupported,",
+    "cg21.workflow.sql.execute_unsupported,",
     "cg21.workflow.join.operator_unsupported,",
     "cg21.workflow.aggregate.operator_unsupported,",
     "cg21.workflow.window.operator_unsupported,",
@@ -61,7 +71,7 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.preview.materialization_unsupported,",
     "cg21.workflow.display.rich_display_unsupported"
 );
-const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary";
+const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary";
 const WORKFLOW_SUGGESTED_NEXT_ACTION: &str = "Use workflow-unsupported-plan for method-specific blocker details before requesting execution.";
 const REMOTE_API_BLOCKER_IDS: &str = concat!(
     "cg23.remote_api.plan_preview.unsupported_operator,",
@@ -622,7 +632,7 @@ fn emit_workflow_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         "/v1/capabilities/workflow",
     );
     push_field(&mut fields, "workflow_state", "unsupported_report_only");
-    push_count_field(&mut fields, "workflow_operation_count", 26);
+    push_count_field(&mut fields, "workflow_operation_count", 35);
     push_field(
         &mut fields,
         "workflow_operation_names",

@@ -24,6 +24,7 @@ from .client import (
     RestApiLocalLifecycle,
     RestApiPlanPreview,
     RestApiSecurityGovernance,
+    SemanticConformanceSuite,
     ShardLoomClient,
     WorkloadCertificationDossier,
 )
@@ -31,6 +32,7 @@ from .models import Diagnostic, OutputEnvelope
 from .query import (
     LazyFrame,
     UnsupportedWorkflowOperationReport,
+    WorkflowSource,
     from_arrow_ipc,
     from_arrow_table,
     from_pandas,
@@ -498,6 +500,61 @@ class ShardLoomContext:
 
         return self.client.compute_capability_matrix(check=check)
 
+    def semantic_conformance_suite(self, *, check: bool = True) -> SemanticConformanceSuite:
+        """Return the P7.4 ShardLoomNative semantic conformance suite."""
+
+        return self.client.semantic_conformance_suite(check=check)
+
+    def sql_parse(
+        self,
+        statement: str,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for SQL parsing."""
+
+        return self._sql_unsupported("sql-parse", statement, check=check)
+
+    def sql_bind(
+        self,
+        statement: str,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for SQL binding."""
+
+        return self._sql_unsupported("sql-bind", statement, check=check)
+
+    def sql_plan(
+        self,
+        statement: str,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for SQL planning."""
+
+        return self._sql_unsupported("sql-plan", statement, check=check)
+
+    def sql_execute(
+        self,
+        statement: str,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for SQL execution."""
+
+        return self._sql_unsupported("sql-execute", statement, check=check)
+
+    def sql(
+        self,
+        statement: str,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for SQL workflow execution."""
+
+        return self._sql_unsupported("sql", statement, check=check)
+
     def rest_api_contract_plan(self, *, check: bool = True) -> RestApiContractPlan:
         """Return the CG-23 REST/OpenAPI contract plan."""
 
@@ -675,6 +732,30 @@ class ShardLoomContext:
         return CapabilityView(
             scope=normalized,
             envelope=self.client.capabilities(normalized, check=check),
+        )
+
+    def _sql_unsupported(
+        self,
+        operation: str,
+        statement: str,
+        *,
+        check: bool,
+    ) -> UnsupportedWorkflowOperationReport:
+        workflow = LazyFrame(
+            source=WorkflowSource("sql", "sql:statement"),
+            client=self.client,
+            engine_mode=self.engine,
+        )
+        envelope = self.client.workflow_unsupported_plan(
+            operation,
+            "sql(statement)",
+            statement,
+            check=check,
+        )
+        return UnsupportedWorkflowOperationReport(
+            workflow=workflow,
+            operation=operation,
+            envelope=envelope,
         )
 
 

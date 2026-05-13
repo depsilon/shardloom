@@ -297,6 +297,33 @@ const COMPUTE_CAPABILITY_MATRIX_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "fallback_attempted",
 ];
 
+const SEMANTIC_CONFORMANCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "mode",
+    "schema_version",
+    "report_id",
+    "semantic_profile",
+    "suite_status",
+    "row_order",
+    "semantic_dimension_count",
+    "executed_fixture_count",
+    "passed_fixture_count",
+    "failed_fixture_count",
+    "planned_fixture_count",
+    "blocked_fixture_count",
+    "fixture_status_vocabulary",
+    "required_semantic_dimensions",
+    "certification_blocker_ids",
+    "semantic_failures_block_certification",
+    "semantic_failures_block_benchmark_claims",
+    "external_oracle_used",
+    "external_engine_invoked",
+    "in_memory_fixture_execution",
+    "query_execution",
+    "runtime_execution",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+];
+
 const INPUT_PLAN_SOURCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "mode",
     "source_kind",
@@ -554,6 +581,12 @@ fn inline_report_payload_spec(command: &str) -> Option<InlineReportPayloadSpec> 
             artifact_kind: "compute_capability_matrix_report",
             status_key: "matrix_status",
             payload_keys: COMPUTE_CAPABILITY_MATRIX_REPORT_PAYLOAD_KEYS,
+        }),
+        "semantic-conformance-suite" => Some(InlineReportPayloadSpec {
+            artifact_id_fallback: "semantic-conformance-suite.report",
+            artifact_kind: "semantic_conformance_report",
+            status_key: "suite_status",
+            payload_keys: SEMANTIC_CONFORMANCE_REPORT_PAYLOAD_KEYS,
         }),
         "input-plan" => Some(InlineReportPayloadSpec {
             artifact_id_fallback: "input-plan.source",

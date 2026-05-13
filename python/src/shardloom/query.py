@@ -261,6 +261,23 @@ class LazyFrame:
 
         return self._append(WorkflowOperation("select", _normalize_columns(columns)))
 
+    def with_column(
+        self,
+        name: str,
+        expression: object,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for expression-backed column creation."""
+
+        column_name = _require_non_empty("column name", name)
+        expression_text = _require_non_empty("column expression", expression)
+        return self._unsupported_operation(
+            "with-column",
+            f"{column_name}={expression_text}",
+            check=check,
+        )
+
     def limit(self, count: int) -> "LazyFrame":
         """Return a lazy plan with an added limit."""
 
@@ -377,6 +394,14 @@ class LazyFrame:
         target = f"{how.strip().lower()}:{columns}:{right}"
         return self._unsupported_operation("join", target, check=check)
 
+    def group_by(self, *columns: object) -> "GroupedLazyFrame":
+        """Return a grouped lazy workflow handle for unsupported aggregation diagnostics."""
+
+        return GroupedLazyFrame(
+            workflow=self,
+            columns=_normalize_columns(columns),
+        )
+
     def aggregate(
         self,
         *expressions: object,
@@ -389,6 +414,35 @@ class LazyFrame:
             ",".join(_normalize_columns(expressions)),
             check=check,
         )
+
+    def agg(
+        self,
+        *expressions: object,
+        check: bool = False,
+        **named_expressions: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for DataFrame-style `agg`."""
+
+        values = list(_normalize_columns(expressions)) if expressions else []
+        values.extend(
+            f"{_require_non_empty('aggregate name', name)}={_require_non_empty('aggregate expression', expression)}"
+            for name, expression in named_expressions.items()
+        )
+        if not values:
+            raise ValueError("aggregate expressions must not be empty")
+        return self._unsupported_operation("agg", ",".join(values), check=check)
+
+    def sort(
+        self,
+        *columns: object,
+        descending: bool = False,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for DataFrame sorting."""
+
+        direction = "desc" if descending else "asc"
+        target = f"{direction}:{','.join(_normalize_columns(columns))}"
+        return self._unsupported_operation("sort", target, check=check)
 
     def window(
         self,
@@ -563,6 +617,58 @@ class LazyFrame:
             operation=operation,
             envelope=envelope,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class GroupedLazyFrame:
+    """Grouped lazy workflow handle used for unsupported aggregation diagnostics."""
+
+    workflow: LazyFrame
+    columns: tuple[str, ...]
+
+    @property
+    def operation_summary(self) -> str:
+        """Return the grouped workflow summary."""
+
+        return f"{self.workflow.operation_summary} -> group_by({','.join(self.columns)})"
+
+    def agg(
+        self,
+        *expressions: object,
+        check: bool = False,
+        **named_expressions: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for grouped aggregation."""
+
+        values = list(_normalize_columns(expressions)) if expressions else []
+        values.extend(
+            f"{_require_non_empty('aggregate name', name)}={_require_non_empty('aggregate expression', expression)}"
+            for name, expression in named_expressions.items()
+        )
+        if not values:
+            raise ValueError("aggregate expressions must not be empty")
+        target = f"group_by:{','.join(self.columns)};agg:{','.join(values)}"
+        envelope = self.workflow.client.workflow_unsupported_plan(
+            "agg",
+            self.operation_summary,
+            target,
+            check=check,
+        )
+        return UnsupportedWorkflowOperationReport(
+            workflow=self.workflow,
+            operation="agg",
+            envelope=envelope,
+        )
+
+    def aggregate(
+        self,
+        *expressions: object,
+        check: bool = False,
+        **named_expressions: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Alias for grouped `agg` unsupported reporting."""
+
+        return self.agg(*expressions, check=check, **named_expressions)
 
 
 def read_vortex(

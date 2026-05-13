@@ -158,19 +158,12 @@ from the merged code and tests.
     execution certificates, Native I/O evidence where data is read/written,
     materialization/decode-boundary evidence, `fallback_attempted=false`, and
     `external_engine_invoked=false`.
-  - [ ] P7.4.2 ShardLoomNative semantic conformance and unsupported API parity bundle.
-    - User-visible surface: executable semantic conformance tests for supported operators plus
-      complete report-only diagnostics for planned DataFrame and SQL surfaces before broad runtime
-      implementation.
-    - Acceptance: supported compute operators cover null comparison, three-valued logic, null sort
-      ordering, NaN equality/order, signed zero, integer overflow, decimal precision/scale,
-      timestamp/date behavior, string collation/case sensitivity, binary equality, empty/count-null
-      aggregate behavior, join null semantics, window defaults, duplicate columns, nested/list
-      equality, and schema field identity where applicable. Unsupported DataFrame/SQL methods expose
-      stable diagnostics, blockers, required evidence, rewrite suggestions, and no-fallback status
-      across CLI, Python, and future REST views.
-    - Verification: semantic fixture suites, unsupported diagnostic snapshots, Python parity tests,
-      and external-oracle-reference-only policy checks.
+  - Intake mapping: the May 13 compute-engine closeout intake is represented here as concrete
+    evidence-bearing slices, not as a separate architecture category. P7.4.1 completed the compute
+    capability matrix and operator-family ladder; P7.4.2 completed the first semantic/API parity
+    layer; P7.4.3 through P7.4.7 carry artifact richness, benchmark/source-backed rows,
+    sink/replay/workload certification, scheduler/memory/spill maturity, and Vortex advisor
+    feedback. P8.4 and P9.6 carry the matching release-readiness and Foundry proof-of-use closeout.
   - [ ] P7.4.3 execution artifact richness and provider-evidence preservation bundle.
     - User-visible surface: top-level `ShardLoomExecutionResult` and typed CLI/Python envelopes
       preserve rich provider evidence from local, Vortex primitive, prepared encoded,

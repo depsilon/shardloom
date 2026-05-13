@@ -733,6 +733,125 @@ class ComputeCapabilityMatrix:
 
 
 @dataclass(frozen=True, slots=True)
+class SemanticConformanceRow:
+    """One semantic dimension row in the ShardLoomNative conformance suite."""
+
+    row_id: str
+    dimension: str
+    operator_family: str
+    fixture_status: str
+    current_support: str
+    assertion: str
+    blocker_id: str
+    required_future_evidence: tuple[str, ...]
+    fixture_executed: bool
+    passed: bool
+    fallback_attempted: bool
+    external_oracle_used: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticConformanceSuite:
+    """Typed view over the P7.4 semantic conformance suite report."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def suite_status(self) -> str:
+        """Return the semantic suite status."""
+
+        return _required_field(self.envelope, "suite_status")
+
+    @property
+    def semantic_profile(self) -> str:
+        """Return the named semantic profile under test."""
+
+        return _required_field(self.envelope, "semantic_profile")
+
+    @property
+    def rows(self) -> tuple[SemanticConformanceRow, ...]:
+        """Return semantic rows in declared order."""
+
+        rows: list[SemanticConformanceRow] = []
+        for row_id in _csv_values(self.envelope.field("row_order")):
+            prefix = f"semantic_row_{row_id}_"
+            rows.append(
+                SemanticConformanceRow(
+                    row_id=row_id,
+                    dimension=_required_field(self.envelope, f"{prefix}dimension"),
+                    operator_family=_required_field(
+                        self.envelope,
+                        f"{prefix}operator_family",
+                    ),
+                    fixture_status=_required_field(self.envelope, f"{prefix}fixture_status"),
+                    current_support=_required_field(self.envelope, f"{prefix}current_support"),
+                    assertion=_required_field(self.envelope, f"{prefix}assertion"),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    fixture_executed=self.envelope.field_bool(
+                        f"{prefix}fixture_executed",
+                        False,
+                    )
+                    is True,
+                    passed=self.envelope.field_bool(f"{prefix}passed", False) is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_oracle_used=self.envelope.field_bool(
+                        f"{prefix}external_oracle_used",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def executed_fixture_count(self) -> int:
+        """Return the number of in-memory semantic fixtures executed."""
+
+        return int(_required_field(self.envelope, "executed_fixture_count"))
+
+    @property
+    def passed_fixture_count(self) -> int:
+        """Return the number of semantic fixtures that passed."""
+
+        return int(_required_field(self.envelope, "passed_fixture_count"))
+
+    @property
+    def failed_fixture_count(self) -> int:
+        """Return the number of semantic fixtures that failed."""
+
+        return int(_required_field(self.envelope, "failed_fixture_count"))
+
+    @property
+    def no_runtime(self) -> bool:
+        """Whether the suite avoided workload runtime execution."""
+
+        return self.envelope.field_bool("no_runtime", False) is True
+
+    @property
+    def no_fallback(self) -> bool:
+        """Whether the suite declares and preserves no fallback execution."""
+
+        return (
+            self.envelope.field_bool("no_fallback", False) is True
+            and not self.envelope.fallback.attempted
+            and not self.envelope.fallback.allowed
+        )
+
+    @property
+    def no_effects(self) -> bool:
+        """Whether the suite performed no external effects."""
+
+        return self.envelope.field_bool("no_effects", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class RestApiContractPlan:
     """Typed convenience view over the CG-23 REST/OpenAPI contract report."""
 
@@ -2040,6 +2159,11 @@ class ShardLoomClient:
         """Return the P7.4 report-only compute capability coverage matrix."""
 
         return ComputeCapabilityMatrix(self.run(["compute-capability-matrix"], check=check))
+
+    def semantic_conformance_suite(self, *, check: bool = True) -> SemanticConformanceSuite:
+        """Return the P7.4 ShardLoomNative semantic conformance suite report."""
+
+        return SemanticConformanceSuite(self.run(["semantic-conformance-suite"], check=check))
 
     def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
         """Return the CG-22 report-only live change contract."""

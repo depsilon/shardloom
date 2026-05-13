@@ -139,11 +139,110 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         ],
         false,
     );
+    let with_column = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "with-column",
+            "read_csv(events.csv)",
+            "date=to_date(ts)",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let group_by = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "group-by",
+            "read_csv(events.csv)",
+            "customer_id",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let agg = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "agg",
+            "read_csv(events.csv) -> group_by(customer_id)",
+            "sum(amount)",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let sort = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "sort",
+            "read_csv(events.csv)",
+            "amount desc",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let limit = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "limit",
+            "read_csv(events.csv)",
+            "10",
+            "--format",
+            "json",
+        ],
+        false,
+    );
     let sql = run_command_json(
         &[
             "workflow-unsupported-plan",
             "sql",
             "read_vortex(orders.vortex)",
+            "select * from orders",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let sql_parse = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "sql-parse",
+            "sql(statement)",
+            "select * from orders",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let sql_bind = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "sql-bind",
+            "sql(statement)",
+            "select * from orders",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let sql_plan = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "sql-plan",
+            "sql(statement)",
+            "select * from orders",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let sql_execute = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "sql-execute",
+            "sql(statement)",
             "select * from orders",
             "--format",
             "json",
@@ -178,7 +277,16 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         &from_pandas,
         &to_numpy,
         &write,
+        &with_column,
+        &group_by,
+        &agg,
+        &sort,
+        &limit,
         &sql,
+        &sql_parse,
+        &sql_bind,
+        &sql_plan,
+        &sql_execute,
         &schema,
         &preview,
     ] {
@@ -232,12 +340,44 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         "cg21.workflow.write_parquet.compatibility_export_unsupported"
     )));
     assert!(write.contains(&field("write_required", "true")));
+    assert!(with_column.contains(&field("workflow_operation", "with_column")));
+    assert!(with_column.contains(&field(
+        "blocker_id",
+        "cg21.workflow.with_column.expression_unsupported"
+    )));
+    assert!(group_by.contains(&field("workflow_operation", "group_by")));
+    assert!(group_by.contains(&field(
+        "blocker_id",
+        "cg21.workflow.group_by.operator_unsupported"
+    )));
+    assert!(agg.contains(&field("workflow_operation", "agg")));
+    assert!(agg.contains(&field(
+        "blocker_id",
+        "cg21.workflow.agg.operator_unsupported"
+    )));
+    assert!(sort.contains(&field("workflow_operation", "sort")));
+    assert!(sort.contains(&field(
+        "blocker_id",
+        "cg21.workflow.sort.operator_unsupported"
+    )));
+    assert!(limit.contains(&field("workflow_operation", "limit")));
+    assert!(limit.contains(&field(
+        "blocker_id",
+        "cg21.workflow.limit.execution_uncertified"
+    )));
     assert!(sql.contains(&field("workflow_operation", "sql")));
     assert!(sql.contains(&field(
         "blocker_id",
         "cg21.workflow.sql.frontend_unsupported"
     )));
     assert!(sql.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
+    assert!(sql_parse.contains(&field("workflow_operation", "sql_parse")));
+    assert!(sql_parse.contains(&field("blocker_id", "cg21.workflow.sql.parse_unsupported")));
+    assert!(sql_parse.contains(&field("runtime_required", "false")));
+    assert!(sql_bind.contains(&field("workflow_operation", "sql_bind")));
+    assert!(sql_plan.contains(&field("workflow_operation", "sql_plan")));
+    assert!(sql_execute.contains(&field("workflow_operation", "sql_execute")));
+    assert!(sql_execute.contains(&field("runtime_required", "true")));
     assert!(schema.contains(&field("workflow_operation", "describe_schema")));
     assert!(schema.contains(&field(
         "blocker_id",

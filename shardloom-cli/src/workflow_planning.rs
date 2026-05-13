@@ -695,13 +695,20 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
         "to-python-objects" | "to-py" | "to-pylist" => {
             Some(workflow_unsupported_to_python_objects())
         }
+        "with-column" | "with_column" => Some(workflow_unsupported_with_column()),
+        "group-by" | "group_by" | "groupby" => Some(workflow_unsupported_group_by()),
+        "agg" => Some(workflow_unsupported_agg()),
+        "sort" | "order-by" | "order_by" => Some(workflow_unsupported_sort()),
+        "limit" => Some(workflow_unsupported_limit()),
         "write-vortex" => Some(workflow_unsupported_write_vortex()),
         "write-parquet" => Some(workflow_unsupported_write_parquet()),
         "sql" => Some(workflow_unsupported_sql()),
+        "sql-parse" | "sql_parse" => Some(workflow_unsupported_sql_parse()),
+        "sql-bind" | "sql_bind" => Some(workflow_unsupported_sql_bind()),
+        "sql-plan" | "sql_plan" => Some(workflow_unsupported_sql_plan()),
+        "sql-execute" | "sql_execute" => Some(workflow_unsupported_sql_execute()),
         "join" => Some(workflow_unsupported_join()),
-        "aggregate" | "aggregation" | "group-by" | "groupby" => {
-            Some(workflow_unsupported_aggregate())
-        }
+        "aggregate" | "aggregation" => Some(workflow_unsupported_aggregate()),
         "window" | "windows" => Some(workflow_unsupported_window()),
         "schema-contract" => Some(workflow_unsupported_schema_contract()),
         "schema" | "schema-discovery" => Some(workflow_unsupported_schema_discovery()),
@@ -896,6 +903,86 @@ fn workflow_unsupported_to_python_objects() -> WorkflowUnsupportedOperation {
     }
 }
 
+fn workflow_unsupported_with_column() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "with_column",
+        label: "DataFrame with_column expression",
+        surface: "dataframe_expression_projection",
+        feature: "cg21.workflow.with_column",
+        blocker_id: "cg21.workflow.with_column.expression_unsupported",
+        required_evidence: "expression_registry,semantic_conformance_suite,operator_capability_matrix,execution_certificate",
+        suggested_next_action: "Use select/filter plan-only summaries until expression lowering and semantic fixtures are certified.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_group_by() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "group_by",
+        label: "DataFrame group_by workflow",
+        surface: "dataframe_group_by",
+        feature: "cg21.workflow.group_by",
+        blocker_id: "cg21.workflow.group_by.operator_unsupported",
+        required_evidence: "grouped_aggregate_operator,semantic_conformance_suite,memory_spill_declaration,benchmark_row",
+        suggested_next_action: "Use aggregate capability rows and semantic-conformance-suite output before relying on grouped aggregations.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_agg() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "agg",
+        label: "DataFrame agg workflow",
+        surface: "dataframe_agg",
+        feature: "cg21.workflow.agg",
+        blocker_id: "cg21.workflow.agg.operator_unsupported",
+        required_evidence: "aggregate_operator_capability,grouped_aggregate_operator,semantic_conformance_suite,execution_certificate",
+        suggested_next_action: "Use aggregate unsupported reports and compute-capability-matrix rows until agg execution is certified.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_sort() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sort",
+        label: "DataFrame sort workflow",
+        surface: "dataframe_sort",
+        feature: "cg21.workflow.sort",
+        blocker_id: "cg21.workflow.sort.operator_unsupported",
+        required_evidence: "sort_operator_capability,null_sort_ordering_semantics,memory_spill_declaration,benchmark_row",
+        suggested_next_action: "Use semantic-conformance-suite for null ordering blockers before requesting sort execution.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_limit() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "limit",
+        label: "DataFrame limit execution",
+        surface: "dataframe_limit",
+        feature: "cg21.workflow.limit",
+        blocker_id: "cg21.workflow.limit.execution_uncertified",
+        required_evidence: "limit_operator_capability,execution_certificate,benchmark_row,materialization_boundary",
+        suggested_next_action: "Limit can appear in lazy plan summaries, but execution claims require certificate-backed runtime evidence.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
 fn workflow_unsupported_write_vortex() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "write_vortex",
@@ -935,8 +1022,72 @@ fn workflow_unsupported_sql() -> WorkflowUnsupportedOperation {
         surface: "sql_frontend",
         feature: "cg21.workflow.sql",
         blocker_id: "cg21.workflow.sql.frontend_unsupported",
-        required_evidence: "sql_parser,binder,semantic_profile,operator_capability_matrix",
+        required_evidence: "sql_parser,binder,semantic_profile,semantic_conformance_suite,operator_capability_matrix",
         suggested_next_action: "Use capability discovery for SQL posture and keep SQL text in plan-only diagnostics.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_sql_parse() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sql_parse",
+        label: "SQL parse",
+        surface: "sql_parse",
+        feature: "cg21.workflow.sql.parse",
+        blocker_id: "cg21.workflow.sql.parse_unsupported",
+        required_evidence: "sql_parser,sql_ast_contract,unsupported_diagnostic_snapshot",
+        suggested_next_action: "Keep SQL text in unsupported diagnostics until parser coverage and AST contracts are certified.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_sql_bind() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sql_bind",
+        label: "SQL bind",
+        surface: "sql_bind",
+        feature: "cg21.workflow.sql.bind",
+        blocker_id: "cg21.workflow.sql.bind_unsupported",
+        required_evidence: "sql_binder,catalog_schema_contract,name_resolution_policy,semantic_conformance_suite",
+        suggested_next_action: "Use schema and capability reports before binding SQL identifiers.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_sql_plan() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sql_plan",
+        label: "SQL plan",
+        surface: "sql_plan",
+        feature: "cg21.workflow.sql.plan",
+        blocker_id: "cg21.workflow.sql.plan_unsupported",
+        required_evidence: "sql_logical_plan_lowering,operator_capability_matrix,semantic_conformance_suite",
+        suggested_next_action: "Use DataFrame/query-builder plan summaries until SQL lowering is certified.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_sql_execute() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sql_execute",
+        label: "SQL execute",
+        surface: "sql_execute",
+        feature: "cg21.workflow.sql.execute",
+        blocker_id: "cg21.workflow.sql.execute_unsupported",
+        required_evidence: "sql_parser,binder,planner,semantic_conformance_suite,execution_certificate,native_io_certificate",
+        suggested_next_action: "Do not execute SQL through external engines; wait for ShardLoom-native SQL certification.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
         materialization_required: false,
         write_required: false,
