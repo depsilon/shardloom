@@ -90,6 +90,17 @@ STRESS_SCENARIO_ORDER = (
     "scale stress multi-stage etl",
 )
 SHARDLOOM_TRADITIONAL_SCENARIOS = SCENARIO_ORDER + STRESS_SCENARIO_ORDER
+SHARDLOOM_TAXONOMY_EXTRA_SCENARIOS = (
+    "filter + projection + limit",
+    "multi-key group by",
+    "join + aggregate",
+    "row number window",
+    "high-cardinality string group/distinct",
+    "top-N per group",
+)
+SHARDLOOM_EXECUTABLE_SCENARIOS = (
+    SCENARIO_ORDER + SHARDLOOM_TAXONOMY_EXTRA_SCENARIOS + STRESS_SCENARIO_ORDER
+)
 SCENARIO_BYTES = {
     "csv/file ingest": ("fact",),
     "selective filter": ("fact",),
@@ -1221,7 +1232,7 @@ def shardloom_runner() -> EngineRunner:
                     scenario, paths, data_format
                 )
             )
-            for scenario in SHARDLOOM_TRADITIONAL_SCENARIOS
+            for scenario in SHARDLOOM_EXECUTABLE_SCENARIOS
         },
         formats=FORMAT_ORDER,
     )

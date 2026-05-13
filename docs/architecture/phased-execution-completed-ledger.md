@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 ShardLoom expanded taxonomy scenario execution bundle
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: continue the open P7.4.4 benchmark-taxonomy closeout by moving supported base-schema
+    expanded taxonomy scenarios from harness-only comparison rows into ShardLoom's feature-gated
+    local Vortex analytics execution path.
+  - Vortex-first provider check:
+    - Subject area: expanded local analytics taxonomy scenarios over the current fact/dimension
+      Vortex fixture schema.
+    - Upstream Vortex concept checked: existing Vortex file/source/sink import, scan, replay, and
+      result-sink provider boundaries already used by `local_vortex_analytics_v1`.
+    - Decision: `use_vortex_native_provider` for the existing local Vortex import/replay/sink path,
+      with ShardLoom-native scenario operators for base-schema grouping, joining, ranking, and
+      filter/projection/limit result construction.
+    - Vortex API/provider surface: existing feature-gated Vortex file writer/reader plus local
+      Vortex source/result-sink replay.
+    - ShardLoom provider/report/certificate surface: `traditional-analytics-run` fields,
+      `TraditionalAnalyticsScenario`, runtime `ExecutionCertificate`, and Native I/O certificates.
+    - Residual handling: dirty CSV, nested JSON, CDC overlay, partition-pruning, null-heavy
+      extra-column, many-small-files, and clean/cast/filter/write taxonomy rows remain explicit
+      unsupported rows for ShardLoom until those input contracts are certified.
+    - Materialization/decode boundary: unchanged from the current local workflow; expanded
+      scenarios preserve the same materialization/decode-boundary and result-sink evidence fields.
+    - Evidence added: ShardLoom result rows for `filter + projection + limit`,
+      `multi-key group by`, `join + aggregate`, `row number window`,
+      `high-cardinality string group/distinct`, and `top-N per group` with replay/result-sink,
+      Native I/O, runtime certificate, and no-fallback assertions.
+    - Gates still blocked: clean/cast/filter/write execution, many-file native input, dirty/nested/
+      CDC extra-column execution, comparative benchmark reruns, source-backed claim-grade
+      promotion, and performance claims.
+    - `fallback_attempted=false`: preserved.
+  - Checklist:
+    - [x] Add six expanded taxonomy scenarios to `TraditionalAnalyticsScenario`.
+    - [x] Execute filter/projection/limit, multi-key grouping, join+aggregate, row-number window,
+          high-cardinality string grouping/distinct, and top-N per group from local Vortex tables.
+    - [x] Include the supported taxonomy extras in the ShardLoom benchmark runner lane.
+    - [x] Add replay/result-sink regression coverage for all six expanded ShardLoom scenarios.
+    - [x] Update README, benchmark README, phase plan, benchmark catalog, and RFC traceability.
+  - Validation:
+    - [x] `cargo fmt --all`
+    - [x] `cargo test -p shardloom-vortex expanded_taxonomy_scenarios_run_against_local_vortex_outputs --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-cli --features vortex-traditional-analytics-benchmark`
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "filter + projection + limit" --scenario "multi-key group by" --scenario "join + aggregate" --scenario "row number window" --scenario "high-cardinality string group/distinct" --scenario "top-N per group" --rows 20 --iterations 1 --formats csv --shardloom-build-profile debug --skip-shardloom-native --shardloom-result-sink --no-markdown --output target\codex-p744-expanded-taxonomy-benchmark.json`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: feature-gated local Vortex analytics benchmark evidence only. This does not add
+    SQL/DataFrame runtime, broad operator certification, dirty/nested/CDC input execution,
+    comparative benchmark publication, external engine invocation, or fallback execution.
+
 - [x] Session label: P7.4.6 local scheduler/runtime and memory-spill evidence bundle
   - Primary files:
     - `shardloom-exec/src/memory.rs`
