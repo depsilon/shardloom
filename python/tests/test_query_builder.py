@@ -277,6 +277,28 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "execution_delegated", "value": "false"},
                     ]
+                elif args == ["rest-api-event-stream", "certified-live-fixture", "--format", "json"]:
+                    fields = [
+                        {"key": "scenario", "value": "certified-live-fixture"},
+                        {"key": "event_stream_status", "value": "certified_fixture"},
+                        {"key": "stream_id", "value": "event-stream://cg23/live-fixture/group-count"},
+                        {"key": "stream_ref", "value": "event-stream://cg23/live-fixture/group-count"},
+                        {"key": "engine_mode", "value": "live"},
+                        {"key": "delivery_protocols", "value": "server_sent_events,websocket_optional"},
+                        {"key": "event_types", "value": "progress,state,checkpoint,watermark,certificate,lineage,benchmark,hybrid_hot_cold_contribution"},
+                        {"key": "certificate_ref_summary", "value": "certificates/cg22/live/fixture/freshness.json"},
+                        {"key": "asyncapi_contract_path", "value": "docs/api/shardloom-asyncapi-events-v1.yaml"},
+                        {"key": "sse_first", "value": "true"},
+                        {"key": "websocket_required", "value": "false"},
+                        {"key": "event_count", "value": "7"},
+                        {"key": "workload_certified", "value": "true"},
+                        {"key": "production_claim_allowed", "value": "false"},
+                        {"key": "broker_required", "value": "false"},
+                        {"key": "broker_io", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"},
+                    ]
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -298,6 +320,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         discovery = ctx.serve_discovery_contract()
         preview = ctx.rest_api_plan_preview()
         lifecycle = ctx.rest_api_local_lifecycle()
+        event_stream = ctx.rest_api_event_stream()
 
         self.assertEqual(contract.api_version, "v1")
         self.assertEqual(contract.openapi_version, "3.2.0")
@@ -327,6 +350,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(lifecycle.local_execution_performed)
         self.assertFalse(lifecycle.fallback_attempted)
         self.assertFalse(lifecycle.execution_delegated)
+        self.assertEqual(event_stream.event_stream_status, "certified_fixture")
+        self.assertEqual(event_stream.engine_mode, "live")
+        self.assertIn("server_sent_events", event_stream.delivery_protocols)
+        self.assertIn("watermark", event_stream.event_types)
+        self.assertTrue(event_stream.sse_first)
+        self.assertFalse(event_stream.websocket_required)
+        self.assertTrue(event_stream.workload_certified)
+        self.assertFalse(event_stream.production_claim_allowed)
+        self.assertFalse(event_stream.broker_required)
+        self.assertFalse(event_stream.broker_io)
+        self.assertFalse(event_stream.object_store_io)
+        self.assertFalse(event_stream.fallback_attempted)
 
     def test_live_and_hybrid_fixture_reports_are_explicit(self) -> None:
         binary = self.fake_cli(

@@ -141,6 +141,12 @@ Completed checked-off work that used to live in this section is recorded in
 `docs/architecture/phased-execution-completed-ledger.md`. Keep this section focused on remaining
 actionable work.
 
+Execution slice rule for autonomy: parent priority checkboxes stay unchecked until every child
+bundle under that priority is complete. Work proceeds from the first unchecked child bundle, but PRs
+should be large enough to ship a usable command/API/report surface with schema, tests, smoke
+commands, and docs. Current large-slice order is P6.4, P6.5, P6.6, P7.1-P7.3, P8.1-P8.3, then
+P9.1-P9.5.
+
 - [x] Priority 3.9 - CLI contract closeout and ownership cleanup
   - Outcome: finish the typed command/result envelope and CLI modularity work only to the point that
     every user-facing command emits the same `shardloom.output.v2` contract, no-fallback status,
@@ -370,16 +376,21 @@ actionable work.
       and retry fixtures emit deterministic diagnostics; Arrow IPC is classified as a decoded
       columnar boundary while Vortex artifact/object-reference modes stay preferred for
       high-fidelity results.
-  - [ ] P6.4 live/hybrid event API and streaming evidence bundle.
-    - User-visible surface: SSE-first event stream contracts, optional WebSocket posture where
-      bidirectional interaction is required, AsyncAPI event contracts, and CloudEvents-style
-      envelopes for progress, state, checkpoint, watermark, certificates, lineage, benchmarks, and
-      hybrid hot/cold contribution events.
-    - Acceptance: live/hybrid API certification remains blocked unless CG-22, CG-8, CG-4, and CG-16
-      evidence exists for the specific workload; event delivery never turns broker/object-store or
-      fallback behavior into implicit execution.
-    - Verification: event schema fixtures, live/hybrid blocked-vs-certified snapshots, no-broker/
-      no-object-store smoke, and CLI/Python parity for certificate refs.
+  - [x] P6.4 live/hybrid event API and streaming evidence bundle.
+    - Added `RestApiEventStreamReport`, `rest-api-event-stream`, OpenAPI event endpoints, and a
+      checked-in AsyncAPI event contract for SSE-first event streaming with optional WebSocket
+      posture.
+    - Exposed CloudEvents-style event contracts for progress, state, checkpoint, watermark,
+      certificates, lineage, benchmarks, and hybrid hot/cold contribution events with evidence refs
+      and certificate refs.
+    - Added certified live/hybrid fixture scenarios plus blocked-production-workload and
+      broker-requested scenarios so users can inspect certified fixture evidence and see deterministic
+      blockers for production/broker paths.
+    - Exposed Python `RestApiEventStream`, `ShardLoomClient.rest_api_event_stream()`, and
+      `ShardLoomContext.rest_api_event_stream()` typed views.
+    - Verified event delivery stays report/contract-only in this lane: no server start, network
+      listener, broker I/O, object-store I/O, dataset/catalog probing, credential resolution,
+      runtime execution, write I/O, external-engine invocation, delegation, or fallback execution.
   - [ ] P6.5 security, governance, observability, and agent API bundle.
     - User-visible surface: local-only, token, mTLS, OIDC, and service-account auth posture; scopes
       for read, plan, execute, write, cancel, admin, benchmark, migration, and agent operations;
