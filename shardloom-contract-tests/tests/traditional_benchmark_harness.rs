@@ -32,6 +32,15 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"native_io_certificate_path_id\""));
     assert!(script.contains("\"native_io_per_path_certificate_emitted\""));
     assert!(script.contains("\"native_io_materializing_transitions_have_boundaries\""));
+    assert!(script.contains("SHARDLOOM_CLAIM_GRADE_REQUIRED_EVIDENCE"));
+    assert!(script.contains("def claim_grade_readiness("));
+    assert!(script.contains("\"claim_gate_status\""));
+    assert!(script.contains("\"claim_grade_requirements_met\""));
+    assert!(script.contains("\"claim_grade_missing_evidence\""));
+    assert!(script.contains("\"timing_row_claim_grade\""));
+    assert!(script.contains("\"fixture_smoke_only\""));
+    assert!(script.contains("\"not_claim_grade\""));
+    assert!(script.contains("\"claim_grade\""));
     assert!(script.contains("CORRECTNESS_FLOAT_DIGITS = 4"));
     assert!(script.contains("\"status\", \"--short\", \"--untracked-files=no\""));
     assert!(script.contains("traditional-analytics-run"));
@@ -111,6 +120,10 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"engine_role\"",
         "\"benchmark_constitution\"",
         "\"coverage_table\"",
+        "\"claim_gate_status\"",
+        "\"claim_grade_requirements_met\"",
+        "\"claim_grade_missing_evidence\"",
+        "\"timing_row_claim_grade\"",
         "\"taxonomy_extra_included\"",
         "\"stress_lane_included\"",
         "\"shardloom_build_profile\"",

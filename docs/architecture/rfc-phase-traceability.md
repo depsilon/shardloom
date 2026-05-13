@@ -91,7 +91,10 @@ contains workload-scoped correctness, benchmark, execution-certificate, Native I
 materialization/decode, and no-fallback evidence. Managed platforms remain design references only.
 Unsupported ShardLoom expanded taxonomy scenarios should emit deterministic unsupported or blocked
 rows with `fallback_attempted=false` and `external_engine_invoked=false`, not crash and not delegate
-to external engines.
+to external engines. The harness now records `claim_gate_status`,
+`claim_grade_requirements_met`, `claim_grade_missing_evidence`, and `timing_row_claim_grade` in the
+coverage table so fixture-smoke, not-claim-grade, claim-grade, unsupported, blocked, and external
+baseline rows are machine-distinguishable.
 
 P7.4.6 update: the feature-gated `local_vortex_analytics_v1` workflow now records local
 task-graph scheduler refs, scheduled/completed task counts, bounded queue/backpressure status,

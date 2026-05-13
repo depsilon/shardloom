@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 benchmark claim-readiness coverage bundle
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-core/src/benchmark_suite.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: continue P7.4.4 benchmark closeout by making claim-readiness classification explicit in
+    the local taxonomy benchmark artifact without treating raw timings as public performance
+    claims.
+  - Checklist:
+    - [x] Add `claim_gate_status`, `claim_grade_requirements_met`,
+          `claim_grade_missing_evidence`, and `timing_row_claim_grade` to every harness coverage
+          row.
+    - [x] Classify ShardLoom result-sink rows as `claim_grade` only when workload scorecard,
+          benchmark/coverage refs, execution certificate, source/result Native I/O certificates,
+          materialization-boundary evidence, and no-fallback/no-external evidence are present.
+    - [x] Keep supported ShardLoom rows without replay/result-sink evidence as `not_claim_grade`
+          with machine-readable missing evidence.
+    - [x] Classify `shardloom-vortex` rows as `fixture_smoke_only` instead of external baselines.
+    - [x] Keep unsupported ShardLoom taxonomy rows deterministic with no fallback or external engine
+          invocation.
+    - [x] Add benchmark-suite coverage statuses for `claim_grade`, `not_claim_grade`, and
+          `fixture_smoke_only`.
+    - [x] Update README, benchmark README, benchmark catalog, phase plan, and RFC traceability.
+  - Validation:
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `cargo fmt --all`
+    - [x] `cargo test -p shardloom-core benchmark_suite --lib`
+    - [x] `cargo test -p shardloom-contract-tests traditional_benchmark`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,pandas,duckdb,polars,datafusion --formats csv --scenario "selective filter" --scenario "top-N per group" --scenario "partition pruning" --dataset-profile narrow_fact_dim --rows 64 --iterations 1 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\codex-p744-claim-readiness.json`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "selective filter" --dataset-profile narrow_fact_dim --rows 64 --iterations 1 --shardloom-build-profile debug --skip-shardloom-native --no-markdown --output target\codex-p744-not-claim-grade.json`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets -j 1` with `CARGO_INCREMENTAL=0`
+    - [x] `git diff --check`
+  - Runtime stance: benchmark harness evidence only. This does not add broad ShardLoom-native
+    taxonomy support, managed platform runs, public performance claims, external engine fallback, or
+    release readiness.
+
 - [x] Session label: P7.4.7 Vortex layout/write advisor feedback loop bundle
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

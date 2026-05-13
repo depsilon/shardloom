@@ -143,6 +143,9 @@ impl BenchmarkEngineRole {
 pub enum BenchmarkCoverageStatus {
     Certified,
     Supported,
+    FixtureSmokeOnly,
+    ClaimGrade,
+    NotClaimGrade,
     Planned,
     Unsupported,
     Blocked,
@@ -155,6 +158,9 @@ impl BenchmarkCoverageStatus {
         match self {
             Self::Certified => "certified",
             Self::Supported => "supported",
+            Self::FixtureSmokeOnly => "fixture_smoke_only",
+            Self::ClaimGrade => "claim_grade",
+            Self::NotClaimGrade => "not_claim_grade",
             Self::Planned => "planned",
             Self::Unsupported => "unsupported",
             Self::Blocked => "blocked",
@@ -164,7 +170,7 @@ impl BenchmarkCoverageStatus {
 
     #[must_use]
     pub const fn permits_shardloom_claim(self) -> bool {
-        matches!(self, Self::Certified)
+        matches!(self, Self::Certified | Self::ClaimGrade)
     }
 }
 
@@ -659,5 +665,22 @@ mod tests {
                 .iter()
                 .all(|row| !row.fallback_attempted)
         );
+    }
+
+    #[test]
+    fn coverage_statuses_distinguish_claim_grade_from_smoke_and_baselines() {
+        assert_eq!(BenchmarkCoverageStatus::ClaimGrade.as_str(), "claim_grade");
+        assert_eq!(
+            BenchmarkCoverageStatus::NotClaimGrade.as_str(),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            BenchmarkCoverageStatus::FixtureSmokeOnly.as_str(),
+            "fixture_smoke_only"
+        );
+        assert!(BenchmarkCoverageStatus::ClaimGrade.permits_shardloom_claim());
+        assert!(!BenchmarkCoverageStatus::NotClaimGrade.permits_shardloom_claim());
+        assert!(!BenchmarkCoverageStatus::FixtureSmokeOnly.permits_shardloom_claim());
+        assert!(!BenchmarkCoverageStatus::ExternalBaselineOnly.permits_shardloom_claim());
     }
 }
