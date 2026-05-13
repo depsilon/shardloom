@@ -7,10 +7,10 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     CliApiJsonProtocolReport, OutputFormat, ReleasePlan, RestApiContractReport,
-    RestApiDiscoveryModeReport, RestApiEventStreamReport, RestApiEventStreamScenario,
-    RestApiLocalLifecycleReport, RestApiLocalLifecycleScenario, RestApiPlanPreviewReport,
-    RestApiPlanPreviewScenario, RestApiSecurityGovernanceReport, RestApiSecurityGovernanceScenario,
-    ShardLoomError,
+    RestApiDataPlaneReport, RestApiDataPlaneScenario, RestApiDiscoveryModeReport,
+    RestApiEventStreamReport, RestApiEventStreamScenario, RestApiLocalLifecycleReport,
+    RestApiLocalLifecycleScenario, RestApiPlanPreviewReport, RestApiPlanPreviewScenario,
+    RestApiSecurityGovernanceReport, RestApiSecurityGovernanceScenario, ShardLoomError,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -242,6 +242,56 @@ pub(crate) fn handle_rest_api_security_governance(
         report.to_human_text(),
         report.diagnostics.clone(),
         rest_api_security_governance_fields(&report),
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_rest_api_data_plane(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let scenario = match args.next() {
+        Some(token) => {
+            let Some(parsed) = RestApiDataPlaneScenario::parse(&token) else {
+                return emit_error(
+                    "rest-api-data-plane",
+                    format,
+                    "rest api data plane argument parsing failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "unknown data plane scenario: {token}; expected one of {}",
+                        RestApiDataPlaneScenario::all()
+                            .iter()
+                            .map(|scenario| scenario.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    )),
+                );
+            };
+            parsed
+        }
+        None => RestApiDataPlaneScenario::ArtifactReferenceDefault,
+    };
+
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "rest-api-data-plane",
+            format,
+            "rest api data plane argument parsing failed",
+            &ShardLoomError::InvalidOperation(format!(
+                "unexpected rest-api-data-plane argument: {extra}; pass at most one scenario"
+            )),
+        );
+    }
+
+    let report = RestApiDataPlaneReport::for_scenario(scenario);
+    emit(
+        "rest-api-data-plane",
+        format,
+        report.status(),
+        "rest api columnar data-plane and standards boundary contract".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        rest_api_data_plane_fields(&report),
     );
     ExitCode::SUCCESS
 }
@@ -1387,6 +1437,249 @@ fn append_security_governance_effect_fields(
     push_bool_field(fields, "raw_secret_emitted", report.raw_secret_emitted);
     push_bool_field(fields, "audit_write_io", report.audit_write_io);
     push_bool_field(fields, "mcp_tool_execution", report.mcp_tool_execution);
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "query_execution", report.query_execution);
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(fields, "execution_delegated", report.execution_delegated);
+    push_bool_field(
+        fields,
+        "effect_policy_violated",
+        report.effect_policy_violated(),
+    );
+}
+
+fn rest_api_data_plane_fields(report: &RestApiDataPlaneReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_data_plane_identity_fields(&mut fields, report);
+    append_data_plane_transfer_fields(&mut fields, report);
+    append_data_plane_standards_fields(&mut fields, report);
+    append_data_plane_effect_fields(&mut fields, report);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn append_data_plane_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiDataPlaneReport,
+) {
+    push_field(fields, "mode", "rest_api_data_plane");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "api_version", report.api_version);
+    push_field(fields, "scenario", report.scenario.as_str());
+    push_field(
+        fields,
+        "data_plane_status",
+        report.data_plane_status.as_str(),
+    );
+    push_field(fields, "endpoint_paths", &report.endpoint_paths.join(","));
+    push_field(
+        fields,
+        "data_plane_operations",
+        &report.data_plane_operations.join(","),
+    );
+    push_field(
+        fields,
+        "openapi_contract_path",
+        report.openapi_contract_path,
+    );
+    push_bool_field(
+        fields,
+        "rest_control_plane_required",
+        report.rest_control_plane_required,
+    );
+    push_bool_field(
+        fields,
+        "rest_control_plane_sufficient_for_local_use",
+        report.rest_control_plane_sufficient_for_local_use,
+    );
+    push_bool_field(
+        fields,
+        "flight_adbc_required_for_basic_local_use",
+        report.flight_adbc_required_for_basic_local_use,
+    );
+}
+
+fn append_data_plane_transfer_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiDataPlaneReport,
+) {
+    push_field(fields, "transfer_modes", &report.transfer_mode_summary());
+    push_count_field(
+        fields,
+        "transfer_mode_count",
+        report.transfer_contracts.len(),
+    );
+    push_field(
+        fields,
+        "optional_transports",
+        &report.optional_transport_summary(),
+    );
+    append_data_plane_optional_transport_fields(fields, report);
+    append_data_plane_payload_policy_fields(fields, report);
+    push_field(
+        fields,
+        "no_fallback_evidence_artifact_ref",
+        report.no_fallback_evidence_artifact_ref,
+    );
+    push_field(
+        fields,
+        "security_governance_policy_ref",
+        report.security_governance_policy_ref,
+    );
+}
+
+fn append_data_plane_optional_transport_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiDataPlaneReport,
+) {
+    push_bool_field(
+        fields,
+        "flight_ticket_requested",
+        report.flight_ticket_requested,
+    );
+    push_bool_field(
+        fields,
+        "flight_ticket_supported",
+        report.flight_ticket_supported,
+    );
+    push_bool_field(
+        fields,
+        "adbc_endpoint_requested",
+        report.adbc_endpoint_requested,
+    );
+    push_bool_field(
+        fields,
+        "adbc_endpoint_supported",
+        report.adbc_endpoint_supported,
+    );
+    push_bool_field(
+        fields,
+        "optional_transport_required",
+        report.optional_transport_required,
+    );
+}
+
+fn append_data_plane_payload_policy_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiDataPlaneReport,
+) {
+    push_field(
+        fields,
+        "large_payload_threshold_bytes",
+        &report.large_payload_threshold_bytes.to_string(),
+    );
+    push_field(
+        fields,
+        "preferred_large_payload_modes",
+        &report.preferred_large_payload_modes.join(","),
+    );
+    push_field(
+        fields,
+        "inline_json_max_bytes",
+        &report.inline_json_max_bytes.to_string(),
+    );
+    push_bool_field(fields, "paged_json_available", report.paged_json_available);
+    push_bool_field(
+        fields,
+        "jsonl_ndjson_available",
+        report.jsonl_ndjson_available,
+    );
+    push_bool_field(
+        fields,
+        "vortex_artifact_available",
+        report.vortex_artifact_available,
+    );
+    push_bool_field(
+        fields,
+        "object_reference_available",
+        report.object_reference_available,
+    );
+    push_bool_field(
+        fields,
+        "arrow_ipc_decoded_boundary_available",
+        report.arrow_ipc_decoded_boundary_available,
+    );
+    push_bool_field(
+        fields,
+        "arrow_ipc_certified_native",
+        report.arrow_ipc_certified_native,
+    );
+    push_bool_field(
+        fields,
+        "decoded_columnar_boundary_declared",
+        report.decoded_columnar_boundary_declared,
+    );
+    push_bool_field(
+        fields,
+        "materialization_declared",
+        report.materialization_declared,
+    );
+    push_bool_field(fields, "fidelity_declared", report.fidelity_declared);
+    push_bool_field(
+        fields,
+        "result_policy_declared",
+        report.result_policy_declared,
+    );
+}
+
+fn append_data_plane_standards_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiDataPlaneReport,
+) {
+    push_bool_field(
+        fields,
+        "standards_matrix_requested",
+        report.standards_matrix_requested,
+    );
+    push_count_field(
+        fields,
+        "standards_matrix_count",
+        report.standards_matrix_count,
+    );
+    push_field(fields, "standards", &report.standards_summary());
+    push_field(fields, "standards_names", &report.standards_name_summary());
+}
+
+fn append_data_plane_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiDataPlaneReport,
+) {
+    push_bool_field(fields, "server_started", report.server_started);
+    push_bool_field(
+        fields,
+        "network_listener_opened",
+        report.network_listener_opened,
+    );
+    push_bool_field(fields, "network_probe", report.network_listener_opened);
+    push_bool_field(
+        fields,
+        "flight_server_started",
+        report.flight_server_started,
+    );
+    push_bool_field(fields, "adbc_endpoint_opened", report.adbc_endpoint_opened);
+    push_bool_field(fields, "broker_io", report.broker_io);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(fields, "dataset_probe", report.dataset_probe);
+    push_bool_field(
+        fields,
+        "credential_resolution",
+        report.credential_resolution,
+    );
     push_bool_field(fields, "data_read", report.data_read);
     push_bool_field(fields, "data_materialized", report.data_materialized);
     push_bool_field(fields, "query_execution", report.query_execution);

@@ -21,6 +21,8 @@ tags:
   - name: governance
   - name: observability
   - name: agents
+  - name: data-plane
+  - name: standards
 paths:
   /v1/health:
     get:
@@ -730,6 +732,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SecurityGovernanceResponse"
+  /v1/data-plane:
+    get:
+      tags: [data-plane]
+      operationId: getDataPlanePosture
+      summary: Report REST result transfer, large-payload, and optional Flight/ADBC posture.
+      responses:
+        "200":
+          description: Data-plane posture contract.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataPlaneResponse"
+  /v1/results/{result_id}/flight-ticket:
+    get:
+      tags: [data-plane]
+      operationId: getResultFlightTicketPosture
+      summary: Report optional Flight ticket posture without starting a Flight server.
+      parameters:
+        - $ref: "#/components/parameters/ResultId"
+      responses:
+        "200":
+          description: Optional Flight ticket posture.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataPlaneResponse"
+  /v1/results/{result_id}/adbc-endpoint:
+    get:
+      tags: [data-plane]
+      operationId: getResultAdbcEndpointPosture
+      summary: Report optional ADBC endpoint posture without opening an endpoint.
+      parameters:
+        - $ref: "#/components/parameters/ResultId"
+      responses:
+        "200":
+          description: Optional ADBC endpoint posture.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataPlaneResponse"
+  /v1/data-plane/standards:
+    get:
+      tags: [standards]
+      operationId: getDataPlaneStandardsMatrix
+      summary: Classify ecosystem standards boundaries without catalog, broker, or object-store I/O.
+      responses:
+        "200":
+          description: Standards boundary matrix.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataPlaneResponse"
 components:
   parameters:
     CertificateId:
@@ -1367,6 +1421,159 @@ components:
               type: boolean
               const: false
             runtime_collection_enabled:
+              type: boolean
+              const: false
+            fallback:
+              $ref: "#/components/schemas/FallbackStatus"
+    DataPlaneTransferContract:
+      type: object
+      required:
+        - mode
+        - transport
+        - materialization
+        - fidelity
+        - result_policy
+        - preferred_for_large_payloads
+        - optional_dependency_required
+        - enabled_by_default
+      properties:
+        mode:
+          type: string
+          enum:
+            - inline_json
+            - paged_json
+            - jsonl_ndjson
+            - vortex_artifact
+            - object_reference
+            - arrow_ipc_decoded_boundary
+            - flight_ticket_future
+            - adbc_endpoint_future
+        transport:
+          type: string
+        materialization:
+          type: string
+        fidelity:
+          type: string
+        result_policy:
+          type: string
+        preferred_for_large_payloads:
+          type: boolean
+        native_vortex_fidelity:
+          type: boolean
+        decoded_columnar_boundary:
+          type: boolean
+        optional_dependency_required:
+          type: boolean
+        enabled_by_default:
+          type: boolean
+    StandardsBoundaryContract:
+      type: object
+      required:
+        - standard
+        - category
+        - posture
+        - dependency_policy
+        - boundary_classification
+        - control_plane_role
+        - execution_allowed
+        - fallback_allowed
+      properties:
+        standard:
+          type: string
+          enum:
+            - iceberg_rest_catalog
+            - polaris
+            - gravitino
+            - delta_sharing
+            - substrait
+            - wasi_webassembly_components
+            - nats_jetstream
+            - redpanda
+            - kafka_compatible
+            - paimon
+            - fluss
+        category:
+          type: string
+        posture:
+          type: string
+        dependency_policy:
+          type: string
+        boundary_classification:
+          type: string
+        control_plane_role:
+          type: string
+        materialization:
+          type: string
+        external_compute_boundary:
+          type: boolean
+          const: true
+        broker_io:
+          type: boolean
+          const: false
+        catalog_io:
+          type: boolean
+          const: false
+        object_store_io:
+          type: boolean
+          const: false
+        execution_allowed:
+          type: boolean
+          const: false
+        fallback_allowed:
+          type: boolean
+          const: false
+    DataPlaneResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+        - type: object
+          required:
+            - status
+            - transfer_contracts
+            - standards
+            - fallback
+          properties:
+            status:
+              type: string
+              enum: [contract_available, optional_transport_planned, standards_matrix_available]
+            transfer_contracts:
+              type: array
+              items:
+                $ref: "#/components/schemas/DataPlaneTransferContract"
+            standards:
+              type: array
+              items:
+                $ref: "#/components/schemas/StandardsBoundaryContract"
+            rest_control_plane_required:
+              type: boolean
+              const: true
+            rest_control_plane_sufficient_for_local_use:
+              type: boolean
+              const: true
+            flight_adbc_required_for_basic_local_use:
+              type: boolean
+              const: false
+            large_payload_threshold_bytes:
+              type: integer
+            preferred_large_payload_modes:
+              type: array
+              items:
+                type: string
+            decoded_columnar_boundary_declared:
+              type: boolean
+              const: true
+            materialization_declared:
+              type: boolean
+              const: true
+            fidelity_declared:
+              type: boolean
+              const: true
+            result_policy_declared:
+              type: boolean
+              const: true
+            flight_ticket_supported:
+              type: boolean
+              const: false
+            adbc_endpoint_supported:
               type: boolean
               const: false
             fallback:

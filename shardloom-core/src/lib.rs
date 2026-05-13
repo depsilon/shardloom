@@ -247,15 +247,16 @@ pub use release::{
 };
 pub use remote_api::{
     RestApiAuditPolicyContract, RestApiAuthPostureContract, RestApiContractReport,
-    RestApiDiscoveryModeReport, RestApiEndpointContract, RestApiEventStreamEventContract,
-    RestApiEventStreamReport, RestApiEventStreamScenario, RestApiEventStreamStatus,
-    RestApiEvidenceModelSignal, RestApiLifecycleEvent, RestApiLocalLifecycleReport,
-    RestApiLocalLifecycleScenario, RestApiLocalLifecycleStatus, RestApiMaturityStage,
-    RestApiMaturityStatus, RestApiMcpContract, RestApiPlanPreviewReport,
+    RestApiDataPlaneReport, RestApiDataPlaneScenario, RestApiDataPlaneStatus,
+    RestApiDataPlaneTransferContract, RestApiDiscoveryModeReport, RestApiEndpointContract,
+    RestApiEventStreamEventContract, RestApiEventStreamReport, RestApiEventStreamScenario,
+    RestApiEventStreamStatus, RestApiEvidenceModelSignal, RestApiLifecycleEvent,
+    RestApiLocalLifecycleReport, RestApiLocalLifecycleScenario, RestApiLocalLifecycleStatus,
+    RestApiMaturityStage, RestApiMaturityStatus, RestApiMcpContract, RestApiPlanPreviewReport,
     RestApiPlanPreviewScenario, RestApiPlanPreviewStage, RestApiPlanPreviewStatus,
     RestApiPlanStageStatus, RestApiProblemDetailsPreview, RestApiResultPolicyContract,
     RestApiScopeContract, RestApiSecurityGovernanceReport, RestApiSecurityGovernanceScenario,
-    RestApiSecurityGovernanceStatus,
+    RestApiSecurityGovernanceStatus, RestApiStandardsBoundaryContract,
 };
 pub use rfc_coverage::{
     RfcCoverageFollowThroughArea, RfcCoverageFollowThroughEntry, RfcCoverageFollowThroughReport,

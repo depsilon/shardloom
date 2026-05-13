@@ -16,6 +16,7 @@ from .client import (
     LiveFixtureRunReport,
     PythonClientSmokeReport,
     RestApiContractPlan,
+    RestApiDataPlane,
     RestApiDiscoveryContract,
     RestApiEventStream,
     RestApiLocalLifecycle,
@@ -403,6 +404,16 @@ class ShardLoomContext:
         """Return the REST security/governance/observability/agent contract bundle."""
 
         return self.client.rest_api_security_governance(scenario, check=check)
+
+    def rest_api_data_plane(
+        self,
+        scenario: str = "artifact-reference-default",
+        *,
+        check: bool = True,
+    ) -> RestApiDataPlane:
+        """Return the REST data-plane/standards boundary contract bundle."""
+
+        return self.client.rest_api_data_plane(scenario, check=check)
 
     def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
         """Return the CG-22 live change contract."""

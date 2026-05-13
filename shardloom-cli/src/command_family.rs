@@ -92,6 +92,7 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
             | "rest-api-local-lifecycle"
             | "rest-api-event-stream"
             | "rest-api-security-governance"
+            | "rest-api-data-plane"
             | "serve"
     ) {
         CommandFamily::RestApiPlanning
@@ -439,6 +440,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("rest-api-security-governance"),
+            CommandFamily::RestApiPlanning
+        );
+        assert_eq!(
+            classify_command("rest-api-data-plane"),
             CommandFamily::RestApiPlanning
         );
         assert_eq!(classify_command("serve"), CommandFamily::RestApiPlanning);

@@ -144,7 +144,7 @@ actionable work.
 Execution slice rule for autonomy: parent priority checkboxes stay unchecked until every child
 bundle under that priority is complete. Work proceeds from the first unchecked child bundle, but PRs
 should be large enough to ship a usable command/API/report surface with schema, tests, smoke
-commands, and docs. Current large-slice order is P6.6, P7.1-P7.3, P8.1-P8.3, then P9.1-P9.5.
+commands, and docs. Current large-slice order is P7.1-P7.3, P8.1-P8.3, then P9.1-P9.5.
 
 - [x] Priority 3.9 - CLI contract closeout and ownership cleanup
   - Outcome: finish the typed command/result envelope and CLI modularity work only to the point that
@@ -323,7 +323,7 @@ commands, and docs. Current large-slice order is P6.6, P7.1-P7.3, P8.1-P8.3, the
     - Moved hybrid engine selection and capability matrix posture to fixture-level partial support
       while keeping production claims blocked on durable flush writes, object-store commit protocol,
       external catalog discovery, workload correctness evidence, and benchmark evidence.
-- [ ] Priority 6 - CG-23 REST, event, and remote API surface
+- [x] Priority 6 - CG-23 REST, event, and remote API surface
   - Outcome: make remote access a contract-first control plane over the already-certified local
     surfaces, with deterministic unsupported diagnostics and no weakening of CLI/Python protocol
     parity.
@@ -405,16 +405,24 @@ commands, and docs. Current large-slice order is P6.6, P7.1-P7.3, P8.1-P8.3, the
     - Verified credentials remain references, raw secrets are not emitted, destructive operations are
       blocked without explicit policy, MCP tools remain dry-run/explain/estimate/certify by default,
       and no server/listener/probe/credential resolution/audit write/runtime/fallback effects occur.
-  - [ ] P6.6 columnar data-plane and ecosystem standards boundary bundle.
-    - User-visible surface: optional Flight/ADBC posture, large-payload transfer policy, and standards
-      classification for Iceberg REST Catalog, Polaris, Gravitino, Delta Sharing, Substrait,
-      WASI/WebAssembly components, NATS JetStream, Redpanda, Kafka-compatible systems, Paimon,
-      Fluss, and similar systems.
-    - Acceptance: REST remains the control plane and proof surface; Flight/ADBC is optional and never
-      required for basic local use or import; all transfers declare materialization, fidelity, result
-      policy, and no-fallback status.
-    - Verification: standards matrix snapshots, decoded-columnar boundary assertions, optional
-      dependency posture tests, and full protocol compatibility validation.
+  - [x] P6.6 columnar data-plane and ecosystem standards boundary bundle.
+    - Added `RestApiDataPlaneReport` and `rest-api-data-plane` for artifact-reference-default,
+      flight-ticket-requested, adbc-endpoint-requested, and standards-matrix scenarios.
+    - Exposed REST result-transfer and large-payload policy for inline JSON, paged JSON, JSON Lines,
+      native Vortex artifacts, object references, Arrow IPC decoded-columnar boundaries, and optional
+      future Flight/ADBC posture.
+    - Classified Iceberg REST Catalog, Polaris, Gravitino, Delta Sharing, Substrait,
+      WASI/WebAssembly components, NATS JetStream, Redpanda, Kafka-compatible systems, Paimon, and
+      Fluss as interop/reference boundaries without catalog, broker, object-store, external compute,
+      or fallback effects.
+    - Extended the OpenAPI contract with data-plane, optional Flight/ADBC posture, and standards
+      matrix endpoints plus `DataPlaneResponse` schemas.
+    - Exposed Python `RestApiDataPlane`, `ShardLoomClient.rest_api_data_plane()`, and
+      `ShardLoomContext.rest_api_data_plane()`.
+    - Verified REST remains the control plane and proof surface, Flight/ADBC is optional and not
+      required for local use/import, every transfer declares materialization/fidelity/result policy,
+      decoded-columnar boundaries are explicit, and no server/listener/transport/catalog/broker/
+      object-store/runtime/fallback effects occur.
 - [ ] Priority 7 - CG-21/CG-22/CG-23 integrated certification closeout
   - Outcome: prove that workflow UX, engine-mode evidence, and remote/API posture agree across CLI,
     Python, and API contracts before any broader support claim is made.
