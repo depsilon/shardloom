@@ -51,6 +51,8 @@ pub enum TraditionalAnalyticsScenario {
     HighCardinalityStringGroupDistinct,
     TopNPerGroup,
     CleanCastFilterWrite,
+    MalformedTimestampDirtyCsv,
+    NestedJsonFieldScan,
     ScaleStressSkewedJoinAggregation,
     ScaleStressMultiStageEtl,
 }
@@ -81,6 +83,10 @@ impl TraditionalAnalyticsScenario {
             }
             "top-N per group" | "top-n-per-group" | "top-N-per-group" => Ok(Self::TopNPerGroup),
             "clean/cast/filter/write" | "clean-cast-filter-write" => Ok(Self::CleanCastFilterWrite),
+            "malformed timestamp / dirty CSV" | "malformed-timestamp-dirty-csv" => {
+                Ok(Self::MalformedTimestampDirtyCsv)
+            }
+            "nested JSON field scan" | "nested-json-field-scan" => Ok(Self::NestedJsonFieldScan),
             "scale stress skewed join aggregation" | "scale-stress-skewed-join-aggregation" => {
                 Ok(Self::ScaleStressSkewedJoinAggregation)
             }
@@ -113,6 +119,8 @@ impl TraditionalAnalyticsScenario {
             Self::HighCardinalityStringGroupDistinct => "high-cardinality string group/distinct",
             Self::TopNPerGroup => "top-N per group",
             Self::CleanCastFilterWrite => "clean/cast/filter/write",
+            Self::MalformedTimestampDirtyCsv => "malformed timestamp / dirty CSV",
+            Self::NestedJsonFieldScan => "nested JSON field scan",
             Self::ScaleStressSkewedJoinAggregation => "scale stress skewed join aggregation",
             Self::ScaleStressMultiStageEtl => "scale stress multi-stage etl",
         }
@@ -2063,6 +2071,7 @@ struct TraditionalFactRow {
     category: String,
     event_date: Option<String>,
     nullable_metric_00: Option<String>,
+    nested_payload: Option<String>,
     raw_event_time: Option<String>,
     dirty_numeric: Option<String>,
     dirty_flag: Option<String>,
@@ -2088,6 +2097,7 @@ struct VortexFactTable {
     category: Vec<String>,
     event_date: Vec<String>,
     nullable_metric_00: Vec<String>,
+    nested_payload: Vec<String>,
     raw_event_time: Vec<String>,
     dirty_numeric: Vec<String>,
     dirty_flag: Vec<String>,
@@ -2951,11 +2961,13 @@ fn scenario_operator_memory_class(scenario: TraditionalAnalyticsScenario) -> Ope
         TraditionalAnalyticsScenario::SelectiveFilter
         | TraditionalAnalyticsScenario::FilterProjectionLimit
         | TraditionalAnalyticsScenario::PartitionPruning
-        | TraditionalAnalyticsScenario::ManySmallFilesScan => OperatorMemoryClass::Filter,
+        | TraditionalAnalyticsScenario::ManySmallFilesScan
+        | TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => OperatorMemoryClass::Filter,
         TraditionalAnalyticsScenario::GroupByAggregation
         | TraditionalAnalyticsScenario::DistinctCount
         | TraditionalAnalyticsScenario::MultiKeyGroupBy
         | TraditionalAnalyticsScenario::NullHeavyAggregate
+        | TraditionalAnalyticsScenario::NestedJsonFieldScan
         | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
             OperatorMemoryClass::Aggregate
         }
@@ -3219,6 +3231,12 @@ fn traditional_layout_recommendations(
             "dictionary_encode_dirty_flag_and_category",
             "raw_event_time,dirty_numeric,dirty_flag",
         ),
+        TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => (
+            "preserve_dirty_column_fidelity_for_quality_scan",
+            "raw_event_time_dirty_numeric_validity_statistics",
+            "cluster_valid_dirty_rows_for_quality_filters",
+            "raw_event_time,dirty_numeric",
+        ),
         TraditionalAnalyticsScenario::PartitionPruning => (
             "preserve_event_date_statistics_for_pruning",
             "event_date_min_max_and_partition_statistics",
@@ -3236,6 +3254,12 @@ fn traditional_layout_recommendations(
             "nullable_metric_00_valid_count_and_sum_profile",
             "dictionary_or_sparse_validity_when_null_density_is_high",
             "nullable_metric_00",
+        ),
+        TraditionalAnalyticsScenario::NestedJsonFieldScan => (
+            "preserve_nested_payload_string_fidelity",
+            "nested_payload_presence_and_score_statistics",
+            "extract_frequent_nested_metrics_after_json_capability_certification",
+            "nested_payload,nested_score",
         ),
         TraditionalAnalyticsScenario::CsvFileIngest => (
             "preserve_writer_defaults_for_ingest_smoke",
@@ -4006,6 +4030,7 @@ fn write_fact_vortex(rows: &[TraditionalFactRow], path: &std::path::Path) -> Res
             "category",
             "event_date",
             "nullable_metric_00",
+            "nested_payload",
             "raw_event_time",
             "dirty_numeric",
             "dirty_flag",
@@ -4045,6 +4070,11 @@ fn write_fact_vortex(rows: &[TraditionalFactRow], path: &std::path::Path) -> Res
             VarBinViewArray::from_iter_str(
                 rows.iter()
                     .map(|row| row.nullable_metric_00.as_deref().unwrap_or("")),
+            )
+            .into_array(),
+            VarBinViewArray::from_iter_str(
+                rows.iter()
+                    .map(|row| row.nested_payload.as_deref().unwrap_or("")),
             )
             .into_array(),
             VarBinViewArray::from_iter_str(
@@ -4602,6 +4632,7 @@ fn read_fact_vortex(path: &std::path::Path) -> Result<VortexFactTable> {
         category: utf8_field(&fields, "category")?,
         event_date: optional_utf8_field(&fields, "event_date", row_count)?,
         nullable_metric_00: optional_utf8_field(&fields, "nullable_metric_00", row_count)?,
+        nested_payload: optional_utf8_field(&fields, "nested_payload", row_count)?,
         raw_event_time: optional_utf8_field(&fields, "raw_event_time", row_count)?,
         dirty_numeric: optional_utf8_field(&fields, "dirty_numeric", row_count)?,
         dirty_flag: optional_utf8_field(&fields, "dirty_flag", row_count)?,
@@ -4889,6 +4920,9 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
     let nullable_metric_00_index = header_cols
         .iter()
         .position(|column| *column == "nullable_metric_00");
+    let nested_payload_index = header_cols
+        .iter()
+        .position(|column| *column == "nested_payload");
     let mut rows = Vec::new();
     for (line_index, line) in lines.enumerate() {
         if line.trim().is_empty() {
@@ -4914,6 +4948,7 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
             category: cols[6].to_string(),
             event_date: optional_csv_string(cols.as_slice(), event_date_index),
             nullable_metric_00: optional_csv_string(cols.as_slice(), nullable_metric_00_index),
+            nested_payload: optional_csv_string(cols.as_slice(), nested_payload_index),
             raw_event_time: optional_csv_string(cols.as_slice(), raw_event_time_index),
             dirty_numeric: optional_csv_string(cols.as_slice(), dirty_numeric_index),
             dirty_flag: optional_csv_string(cols.as_slice(), dirty_flag_index),
@@ -4991,6 +5026,12 @@ fn read_traditional_fact_jsonl(path: &std::path::Path) -> Result<Vec<Traditional
                 path,
                 line_index + 1,
                 "nullable_metric_00",
+            )?,
+            nested_payload: parse_jsonl_optional_string_field(
+                &fields,
+                path,
+                line_index + 1,
+                "nested_payload",
             )?,
             raw_event_time: parse_jsonl_optional_string_field(
                 &fields,
@@ -5491,6 +5532,12 @@ fn fact_rows_from_arrow_batches(
                     path,
                     row_index,
                     "nullable_metric_00",
+                )?,
+                nested_payload: arrow_optional_string_field(
+                    batch,
+                    path,
+                    row_index,
+                    "nested_payload",
                 )?,
                 raw_event_time: arrow_optional_string_field(
                     batch,
@@ -6143,6 +6190,10 @@ fn run_vortex_derived_scenario(
         }
         TraditionalAnalyticsScenario::NullHeavyAggregate => null_heavy_aggregate_json(fact)?,
         TraditionalAnalyticsScenario::CleanCastFilterWrite => clean_cast_filter_write_json(fact),
+        TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
+            malformed_timestamp_dirty_csv_json(fact)?
+        }
+        TraditionalAnalyticsScenario::NestedJsonFieldScan => nested_json_field_scan_json(fact)?,
         TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation => {
             let mut groups = BTreeMap::<u32, TraditionalGroupAccum>::new();
             for index in 0..fact.len() {
@@ -6252,6 +6303,103 @@ fn null_heavy_aggregate_json(fact: &VortexFactTable) -> Result<String> {
         accum.add(value);
     }
     Ok(scalar_result_json(accum.row_count, accum.metric_sum))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn malformed_timestamp_dirty_csv_json(fact: &VortexFactTable) -> Result<String> {
+    if fact.raw_event_time.iter().all(String::is_empty)
+        || fact.dirty_numeric.iter().all(String::is_empty)
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "malformed timestamp / dirty CSV requires raw_event_time and dirty_numeric fixture columns"
+                .to_string(),
+        ));
+    }
+    let mut accum = TraditionalGroupAccum::default();
+    for index in 0..fact.len() {
+        if !generated_timestamp_shape_is_valid(&fact.raw_event_time[index]) {
+            continue;
+        }
+        let Ok(value) = fact.dirty_numeric[index].parse::<f64>() else {
+            continue;
+        };
+        accum.add(value);
+    }
+    Ok(scalar_result_json(accum.row_count, accum.metric_sum))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn nested_json_field_scan_json(fact: &VortexFactTable) -> Result<String> {
+    if fact.nested_payload.iter().all(String::is_empty) {
+        return Err(ShardLoomError::InvalidOperation(
+            "nested JSON field scan requires nested_payload fixture column".to_string(),
+        ));
+    }
+    let mut row_count = 0_u64;
+    let mut metric_sum = 0.0;
+    let mut flagged = 0_u64;
+    for index in 0..fact.len() {
+        if fact.nested_payload[index].is_empty() {
+            continue;
+        }
+        let payload = fact.nested_payload[index].as_str();
+        metric_sum += generated_nested_score(payload, index)?;
+        if generated_nested_flag(payload, index)? {
+            flagged += 1;
+        }
+        row_count += 1;
+    }
+    Ok(format!(
+        "{{\"row_count\":{row_count},\"metric_sum\":{},\"flagged\":{flagged}}}",
+        json_float(metric_sum)
+    ))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn generated_nested_score(payload: &str, row_index: usize) -> Result<f64> {
+    let Some(start) = payload
+        .find("\"score\":")
+        .map(|index| index + "\"score\":".len())
+    else {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} missing metrics.score",
+            row_index + 1
+        )));
+    };
+    let tail = &payload[start..];
+    let end = tail
+        .find(|ch: char| !matches!(ch, '-' | '+' | '.' | '0'..='9' | 'e' | 'E'))
+        .unwrap_or(tail.len());
+    tail[..end].parse::<f64>().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} has invalid metrics.score: {error}",
+            row_index + 1
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn generated_nested_flag(payload: &str, row_index: usize) -> Result<bool> {
+    let Some(start) = payload
+        .find("\"flag\":")
+        .map(|index| index + "\"flag\":".len())
+    else {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} missing event.flag",
+            row_index + 1
+        )));
+    };
+    let tail = &payload[start..];
+    if tail.starts_with("true") {
+        Ok(true)
+    } else if tail.starts_with("false") {
+        Ok(false)
+    } else {
+        Err(ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} has invalid event.flag",
+            row_index + 1
+        )))
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -6567,6 +6715,14 @@ mod tests {
             TraditionalAnalyticsScenario::parse("clean/cast/filter/write").unwrap(),
             TraditionalAnalyticsScenario::CleanCastFilterWrite
         );
+        assert_eq!(
+            TraditionalAnalyticsScenario::parse("malformed timestamp / dirty CSV").unwrap(),
+            TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv
+        );
+        assert_eq!(
+            TraditionalAnalyticsScenario::parse("nested JSON field scan").unwrap(),
+            TraditionalAnalyticsScenario::NestedJsonFieldScan
+        );
     }
 
     #[test]
@@ -6699,6 +6855,48 @@ mod tests {
         assert_eq!(report.result_json, "{\"row_count\":2,\"metric_sum\":6.0}");
         assert_eq!(report.fact_rows, 2);
         assert!(report.fact_source_path.is_dir());
+        assert!(report.output_replay_verified);
+        assert!(report.computed_result_sink_replay_verified);
+        assert!(!report.fallback_execution_allowed);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn nested_json_field_scan_runs_jsonl_fixture() {
+        let root = traditional_analytics_test_root("nested-jsonl");
+        std::fs::create_dir_all(&root).unwrap();
+        let fact_jsonl = root.join("fact.jsonl");
+        let dim_jsonl = root.join("dim.jsonl");
+        std::fs::write(
+            &fact_jsonl,
+            "{\"id\":1,\"group_key\":10,\"dim_key\":1,\"value\":6000,\"metric\":2.5,\"flag\":1,\"category\":\"A\",\"nested_payload\":\"{\\\"event\\\":{\\\"flag\\\":true},\\\"metrics\\\":{\\\"score\\\":2.5}}\"}\n{\"id\":2,\"group_key\":11,\"dim_key\":2,\"value\":1000,\"metric\":3.5,\"flag\":0,\"category\":\"B\",\"nested_payload\":\"{\\\"event\\\":{\\\"flag\\\":false},\\\"metrics\\\":{\\\"score\\\":3.75}}\"}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &dim_jsonl,
+            "{\"dim_key\":1,\"dim_label\":\"one\",\"weight\":1.5}\n{\"dim_key\":2,\"dim_label\":\"two\",\"weight\":2.0}\n",
+        )
+        .unwrap();
+
+        let report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::NestedJsonFieldScan,
+                fact_jsonl,
+                dim_jsonl,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::JsonLines)
+            .with_native_vortex_replay_verification(true)
+            .with_result_vortex_write(true),
+        )
+        .unwrap();
+
+        assert_eq!(
+            report.result_json,
+            "{\"row_count\":2,\"metric_sum\":6.25,\"flagged\":1}"
+        );
         assert!(report.output_replay_verified);
         assert!(report.computed_result_sink_replay_verified);
         assert!(!report.fallback_execution_allowed);
@@ -6902,6 +7100,10 @@ mod tests {
             ),
             (
                 TraditionalAnalyticsScenario::CleanCastFilterWrite,
+                "{\"row_count\":2,\"metric_sum\":14000.0}",
+            ),
+            (
+                TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv,
                 "{\"row_count\":2,\"metric_sum\":14000.0}",
             ),
             (

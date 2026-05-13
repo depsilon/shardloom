@@ -102,6 +102,8 @@ SHARDLOOM_TAXONOMY_EXTRA_SCENARIOS = (
     "high-cardinality string group/distinct",
     "top-N per group",
     "clean/cast/filter/write",
+    "malformed timestamp / dirty CSV",
+    "nested JSON field scan",
 )
 SHARDLOOM_EXECUTABLE_SCENARIOS = (
     SCENARIO_ORDER + SHARDLOOM_TAXONOMY_EXTRA_SCENARIOS + STRESS_SCENARIO_ORDER
@@ -1183,6 +1185,10 @@ def shardloom_runner() -> EngineRunner:
                     "many-small-files scan requires split CSV or JSONL fact parts"
                 )
             return parts[0].parent
+        if scenario == "nested JSON field scan" and data_format == "csv":
+            raise BenchmarkUnsupported(
+                "nested JSON field scan requires JSONL or Arrow-family fixture input for ShardLoom"
+            )
         return fact_path(paths, data_format)
 
     def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
