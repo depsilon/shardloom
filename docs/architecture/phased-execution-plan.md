@@ -180,12 +180,13 @@ actionable work.
       closeout.
     - Verification: feature-gated local primitive tests, Vortex readiness/planning snapshots,
       typed-envelope snapshots, and full workspace validation.
-  - [ ] P3.9D typed envelope compatibility lock.
+  - [x] P3.9D typed envelope compatibility lock.
     - User-visible surface: every CLI command, including error paths, returns consistent
       `shardloom.output.v2` JSON when `--format json` is requested.
-    - Acceptance: snapshot coverage exists for success, invalid input, unsupported, blocked,
-      evidence-incomplete, certified local execution, missing-binary Python parity, and concrete
-      Foundry boundary reports once those report surfaces exist.
+    - Acceptance: API protocol output declares the compatibility lock; command-family lifecycle
+      taxonomy matches the current handler modules; representative JSON matrix coverage exists for
+      success, invalid input, unknown command, unsupported, blocked, evidence-incomplete, optional
+      Foundry, and certified local execution paths; missing-binary Python parity remains locked.
     - Slice boundary: treat this as the final contract-lock PR before prioritizing user-testable
       P4 workflow execution; only add Foundry fixtures here if the matching report surface exists.
     - Verification: `typed_envelope_contract_snapshots`, Python client protocol tests, CLI API

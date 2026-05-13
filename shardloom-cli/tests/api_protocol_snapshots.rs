@@ -54,6 +54,14 @@ fn api_compat_plan_json_exposes_cli_api_protocol_contract() {
         "command_status_values",
         "success,warning,error,unsupported"
     )));
+    assert!(output.contains(&field("compatibility_lock_status", "locked")));
+    assert!(output.contains(&field(
+        "compatibility_lock_fixture_statuses",
+        "success,error,unsupported,blocked,evidence_incomplete,certified_local_execution,missing_binary,foundry_optional"
+    )));
+    assert!(output.contains(&field("json_error_paths_enveloped", "true")));
+    assert!(output.contains(&field("unknown_command_json_enveloped", "true")));
+    assert!(output.contains(&field("missing_binary_error_payload_shaped", "true")));
     assert!(output.contains(&field("output_formats", "text,json")));
 }
 

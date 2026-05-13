@@ -455,6 +455,11 @@ pub struct CliApiJsonProtocolReport {
     pub legacy_fields_mirror_present: bool,
     pub flat_fields_primary_payload_allowed: bool,
     pub command_status_values: Vec<&'static str>,
+    pub compatibility_lock_status: &'static str,
+    pub compatibility_lock_fixture_statuses: Vec<&'static str>,
+    pub json_error_paths_enveloped: bool,
+    pub unknown_command_json_enveloped: bool,
+    pub missing_binary_error_payload_shaped: bool,
     pub output_formats: Vec<&'static str>,
     pub thin_python_wrapper_boundary: &'static str,
     pub pyo3_maturin_allowed: bool,
@@ -698,6 +703,20 @@ impl CliApiJsonProtocolReport {
             legacy_fields_mirror_present: true,
             flat_fields_primary_payload_allowed: false,
             command_status_values: vec!["success", "warning", "error", "unsupported"],
+            compatibility_lock_status: "locked",
+            compatibility_lock_fixture_statuses: vec![
+                "success",
+                "error",
+                "unsupported",
+                "blocked",
+                "evidence_incomplete",
+                "certified_local_execution",
+                "missing_binary",
+                "foundry_optional",
+            ],
+            json_error_paths_enveloped: true,
+            unknown_command_json_enveloped: true,
+            missing_binary_error_payload_shaped: true,
             output_formats: vec!["text", "json"],
             thin_python_wrapper_boundary: "cli_json_subprocess_first",
             pyo3_maturin_allowed: false,
@@ -732,6 +751,10 @@ impl CliApiJsonProtocolReport {
         self.fallback_execution_allowed
             || self.fallback_attempted
             || self.flat_fields_primary_payload_allowed
+            || self.compatibility_lock_status != "locked"
+            || !self.json_error_paths_enveloped
+            || !self.unknown_command_json_enveloped
+            || !self.missing_binary_error_payload_shaped
             || self.runtime_execution
             || self.write_io
             || self.external_publish
@@ -1197,6 +1220,15 @@ mod tests {
         assert_eq!(report.required_typed_payload_fields, vec!["fields"]);
         assert!(report.legacy_fields_mirror_present);
         assert!(!report.flat_fields_primary_payload_allowed);
+        assert_eq!(report.compatibility_lock_status, "locked");
+        assert!(
+            report
+                .compatibility_lock_fixture_statuses
+                .contains(&"certified_local_execution")
+        );
+        assert!(report.json_error_paths_enveloped);
+        assert!(report.unknown_command_json_enveloped);
+        assert!(report.missing_binary_error_payload_shaped);
         assert!(!report.fallback_execution_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.runtime_execution);

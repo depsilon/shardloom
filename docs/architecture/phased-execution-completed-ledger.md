@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P3.9D typed envelope compatibility lock
+  - Primary files:
+    - `shardloom-core/src/output.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: lock the `shardloom.output.v2` compatibility surface after the P3.9 ownership moves by
+    making the API protocol report explicit about the lock, aligning lifecycle `command_family`
+    labels with current handler modules, and adding a representative JSON matrix across success,
+    error, unsupported, blocked, evidence-incomplete, optional Foundry, and unknown-command paths.
+  - Checklist:
+    - [x] Add API protocol fields for compatibility lock status, fixture-status coverage,
+          enveloped JSON error paths, unknown-command JSON envelopes, and Python missing-binary
+          error payload shape.
+    - [x] Update command-family classification for input planning, object-store planning,
+          optimizer planning, Vortex planning, Vortex runtime planning, and Vortex output/commit
+          modules instead of relying on older catch-all Vortex or operational labels.
+    - [x] Add `typed_envelope_compatibility_lock.rs` to exercise representative CLI JSON paths and
+          require common typed slots, no-fallback status, lifecycle family labels, and selected
+          field/artifact evidence.
+    - [x] Keep concrete Foundry boundary fixtures deferred until a concrete Foundry command surface
+          exists; preserve the optional Foundry harness fixture in the lock matrix.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_compatibility_lock --test api_protocol_snapshots --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --features vortex-local-primitives --test typed_envelope_contract_snapshots certified_runtime_execution_fixture_routes_inline_certificates`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: this is a protocol-contract and test-lock slice only. It does not add dataset
+    probing, materialization, writes, package publishing, server startup, object-store/catalog
+    access, external engine execution, or fallback execution.
+
 - [x] Session label: P3.9C Vortex primitive and readiness CLI ownership closeout
   - Primary files:
     - `shardloom-cli/src/main.rs`
