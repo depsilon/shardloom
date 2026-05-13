@@ -102,9 +102,10 @@ Implemented or actively wired surfaces include:
   very-wide, null-heavy, many/few file-shape, date-partitioned, clustered, schema-drift, dirty CSV,
   nested JSON, CDC overlay, and skewed local data shapes, plus support/coverage output separate from
   timing rows
-- opt-in `local_vortex_analytics_v1` replay verification for the current local traditional
-  analytics path, including Vortex artifact digests, schema summary, benchmark/coverage row refs,
-  Native I/O replay certificate refs, commit/cleanup status, and `fallback_attempted=false`
+- opt-in `local_vortex_analytics_v1` replay and result-sink verification for the current local
+  traditional analytics path, including Vortex source/result artifact digests, schema summaries,
+  benchmark/coverage row refs, source replay and result-sink Native I/O certificate refs, separate
+  compute/write timing fields, commit/cleanup status, and `fallback_attempted=false`
 - source-backed benchmark matrix smoke measurement for eligible prepared, source-bound, and
   reader-backed constant/dictionary/run-end encoded filter/projection/filter-project rows, with
   provider refs, certificate refs, Native I/O refs, representation transitions, reproducibility
@@ -122,8 +123,7 @@ Still planned or gated:
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
 - claim-grade compute-engine completion: source-backed measured rows beyond fixture-smoke evidence,
-  computed result sink/write proof beyond the current local replay certificate, local scheduler and
-  memory/spill maturity, and Vortex layout/write advisor feedback
+  local scheduler and memory/spill maturity, and Vortex layout/write advisor feedback
 - full comparative benchmark reruns, ShardLoom-native support for the expanded taxonomy scenarios,
   write/incremental benchmark promotion, and claim-grade source-backed benchmark promotion
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
@@ -222,9 +222,10 @@ execution.
 
 It also exposes the current local live ETL smoke commands for explicit testing:
 CSV-to-Vortex through `traditional-analytics-run`, optionally with
-`--verify-native-replay` to re-open the emitted Vortex artifacts and emit
-artifact digest/schema/replay certificate fields, and existing native Vortex
-inputs through `traditional-analytics-vortex-run`. The Python client can also be
+`--verify-native-replay --write-result-vortex` to re-open the emitted Vortex
+source artifacts, write a computed `result.vortex` sink artifact, replay it, and
+emit artifact digest/schema/certificate/timing fields. Existing native Vortex
+inputs run through `traditional-analytics-vortex-run`. The Python client can also be
 installed in editable mode, configured through environment variables, run a
 no-dataset smoke check, and query the side-effect-free universal input adapter
 registry, where common structured formats, lakehouse/table refs, object-store

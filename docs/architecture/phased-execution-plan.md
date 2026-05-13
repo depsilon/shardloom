@@ -215,7 +215,7 @@ from the merged code and tests.
       diagnostics with required future evidence.
     - Verification: benchmark catalog/schema tests, measured-row manifests, coverage-table
       snapshots, reproducibility checks, and external-baseline-local-only assertions.
-  - [ ] P7.4.5 sink/write, replayability, and first workload-certified compute workflow bundle.
+  - [x] P7.4.5 sink/write, replayability, and first workload-certified compute workflow bundle.
     - User-visible surface: at least one complete source -> supported compute -> Vortex sink path
       with inspectable output artifact, commit/recovery status, replay verification, execution
       certificate, Native I/O certificate, benchmark row, coverage row, and CLI/Python invocation.
@@ -223,9 +223,12 @@ from the merged code and tests.
       replay verification from CLI and Python, with content digests for emitted Vortex artifacts,
       schema summary, benchmark/coverage refs, replay Native I/O certificate status,
       commit/cleanup status, and no-fallback fields.
-    - Remaining sink gap: promote at least one computed result output, not only imported source
-      Vortex artifacts plus scalar result JSON, into an inspectable/replayable native Vortex sink
-      artifact with write timing separated from compute timing.
+    - Completed sub-slice in ledger: `traditional-analytics-run --write-result-vortex` now writes
+      the computed result envelope as `result.vortex`, re-opens it, verifies result JSON and
+      materialized rows, emits result-sink digest/schema/replay/certificate fields, separates
+      `scenario_compute_micros` from `computed_result_sink_write_micros`, and promotes
+      `local_vortex_analytics_v1` to `workload_certified` only when source replay and computed
+      result-sink replay both pass.
     - Acceptance: output artifacts include digest/hash, schema/dtype summary, Native I/O
       certificate, expected row/stat/schema replay evidence, materialization/decode evidence, and
       deterministic failure when replay verification fails. The first candidate workload

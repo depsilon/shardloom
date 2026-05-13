@@ -2088,6 +2088,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--compat-output-format",
                     "orc",
                     "--verify-native-replay",
+                    "--write-result-vortex",
                     "--memory-gb",
                     "8",
                     "--max-parallelism",
@@ -2117,6 +2118,7 @@ class ShardLoomClientTests(unittest.TestCase):
             workspace="work",
             compatibility_output_format="orc",
             verify_native_replay=True,
+            write_result_vortex=True,
             memory_gb=8,
             max_parallelism=4,
         )
@@ -2137,6 +2139,16 @@ class ShardLoomClientTests(unittest.TestCase):
                 "dim.vortex",
                 input_format="vortex",
                 verify_native_replay=True,
+            )
+
+    def test_live_etl_smoke_rejects_result_sink_for_existing_vortex_inputs(self) -> None:
+        with self.assertRaises(ValueError):
+            ShardLoomClient(binary=["shardloom"]).live_etl_smoke(
+                "wide projection",
+                "fact.vortex",
+                "dim.vortex",
+                input_format="vortex",
+                write_result_vortex=True,
             )
 
     def test_live_etl_csv_to_vortex_replay_runs_import_then_native_replay(self) -> None:

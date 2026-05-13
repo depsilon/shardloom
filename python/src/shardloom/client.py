@@ -2586,6 +2586,7 @@ class ShardLoomClient:
         input_format: str | None = None,
         compatibility_output_format: str | None = None,
         verify_native_replay: bool = False,
+        write_result_vortex: bool = False,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -2606,6 +2607,8 @@ class ShardLoomClient:
             args.extend(["--compat-output-format", compatibility_output_format])
         if verify_native_replay:
             args.append("--verify-native-replay")
+        if write_result_vortex:
+            args.append("--write-result-vortex")
         if memory_gb is not None:
             args.extend(["--memory-gb", str(memory_gb)])
         if max_parallelism is not None:
@@ -2642,6 +2645,7 @@ class ShardLoomClient:
         workspace: str | os.PathLike[str] | None = None,
         compatibility_output_format: str | None = None,
         verify_native_replay: bool = False,
+        write_result_vortex: bool = False,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -2670,6 +2674,7 @@ class ShardLoomClient:
                 input_format=normalized_format,
                 compatibility_output_format=compatibility_output_format,
                 verify_native_replay=verify_native_replay,
+                write_result_vortex=write_result_vortex,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -2679,6 +2684,10 @@ class ShardLoomClient:
         if verify_native_replay:
             raise ValueError(
                 "verify_native_replay is only supported for compatibility-file live ETL smoke runs"
+            )
+        if write_result_vortex:
+            raise ValueError(
+                "write_result_vortex is only supported for compatibility-file live ETL smoke runs"
             )
         return self.traditional_analytics_vortex_run(
             scenario,
@@ -2696,6 +2705,7 @@ class ShardLoomClient:
         workspace: str | os.PathLike[str],
         replay_native: bool = True,
         compatibility_output_format: str | None = None,
+        write_result_vortex: bool = False,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -2715,6 +2725,7 @@ class ShardLoomClient:
             workspace=workspace,
             input_format="csv",
             compatibility_output_format=compatibility_output_format,
+            write_result_vortex=write_result_vortex,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
             check=check,

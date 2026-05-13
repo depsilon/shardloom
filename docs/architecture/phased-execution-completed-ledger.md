@@ -16,6 +16,76 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.5 computed result Vortex sink and workload certification bundle
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `benchmarks/traditional_analytics/run.py`
+    - `README.md`
+    - `python/README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: finish the remaining P7.4.5 sink gap by promoting the current
+    `local_vortex_analytics_v1` smoke from replayable source artifacts plus scalar JSON into a
+    source -> compute -> native Vortex result-sink workflow.
+  - Vortex-first provider check:
+    - Subject area: local traditional analytics computed result sink and replay.
+    - Upstream Vortex concept checked: Vortex array/file writer and file reopen path.
+    - Decision: `use_vortex_native_provider`.
+    - Vortex API/provider surface: upstream Vortex `StructArray`/`VarBinViewArray`/`PrimitiveArray`
+      plus the existing feature-gated Vortex file writer/reader boundary.
+    - ShardLoom provider/report/certificate surface: `traditional-analytics-run
+      --write-result-vortex`, typed fields, result refs, benchmark/coverage refs, and
+      `NativeIoCertificate` refs.
+    - Residual handling: result JSON scalar finish remains ShardLoom-native; no external residual
+      executor is invoked.
+    - Materialization/decode boundary: source replay records existing Vortex scan/decode evidence;
+      result-sink certificate records decoded-columnar result envelope to native Vortex output.
+    - Evidence added: source replay certificate, result-sink certificate, source/result digests,
+      result schema summary, replay result check, materialized-row check, commit/cleanup status,
+      `scenario_compute_micros`, and `computed_result_sink_write_micros`.
+    - Gates still blocked: broad SQL/DataFrame execution, production/object-store sink commits,
+      comparative performance claims, and expanded-scenario ShardLoom-native support.
+    - `fallback_attempted=false`: preserved.
+  - Checklist:
+    - [x] Add opt-in `--write-result-vortex` for `traditional-analytics-run`.
+    - [x] Write the computed result envelope as `result.vortex` with scenario, result JSON,
+          materialized-row count, and workload constitution fields.
+    - [x] Re-open `result.vortex`, verify the stored result JSON, row count, scenario, and workload
+          constitution, and fail deterministically if replay diverges.
+    - [x] Emit result-sink evidence fields for path, bytes, digest, schema summary, replay status,
+          Native I/O certificate id/status, result rows, materialized rows, write timing, compute
+          timing, commit state, and no-fallback policy.
+    - [x] Tighten workload scorecard semantics so `workload_certified` requires both source replay
+          and computed result-sink replay.
+    - [x] Add Python `write_result_vortex=True` support on `traditional_analytics_run`,
+          `live_etl_smoke`, and `live_etl_csv_to_vortex_replay`, with deterministic rejection for
+          existing native Vortex inputs.
+    - [x] Add benchmark harness `--shardloom-result-sink` so ShardLoom rows can opt into result-sink
+          replay and certificate evidence while keeping default comparative timings unchanged.
+    - [x] Update README, Python README, benchmark README, phase plan, and RFC traceability.
+  - Validation:
+    - [x] `cargo fmt --all`
+    - [x] `python -m compileall -q python\src\shardloom python\tests\test_cli_client.py benchmarks\traditional_analytics\run.py`
+    - [x] `cargo test -p shardloom-vortex computed_result_vortex_sink_writes_and_replays_result_artifact --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-cli --features vortex-traditional-analytics-benchmark`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client`
+    - [x] `cargo run -q -p shardloom-cli --features vortex-traditional-analytics-benchmark -- traditional-analytics-run "selective filter" target\codex-p745-result-sink-smoke\fact.csv target\codex-p745-result-sink-smoke\dim.csv --workspace target\codex-p745-result-sink-smoke\workspace --input-format csv --verify-native-replay --write-result-vortex --format json`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "selective filter" --rows 10 --iterations 1 --formats csv --shardloom-build-profile debug --skip-shardloom-native --shardloom-result-sink --no-markdown --output target\codex-p745-result-sink-benchmark.json`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: local feature-gated Vortex writer/reader proof only. This does not add
+    SQL/DataFrame execution, production/object-store commit semantics, external engine invocation,
+    comparative performance claims, release publication, or fallback execution.
+
 - [x] Session label: P7.4.5 native replay workflow proof and benchmark-feature CLI matrix bundle
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
