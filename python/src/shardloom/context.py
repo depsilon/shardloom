@@ -11,6 +11,8 @@ from .client import (
     DEFAULT_PROFILE_ORDER,
     EngineCapabilityMatrix,
     EngineSelectionPlan,
+    LiveChangeContractPlan,
+    LiveFixtureRunReport,
     PythonClientSmokeReport,
     ShardLoomClient,
 )
@@ -339,6 +341,22 @@ class ShardLoomContext:
         """Return the CG-22 per-engine capability matrix."""
 
         return self.client.engine_capability_matrix(check=check)
+
+    def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
+        """Return the CG-22 live change contract."""
+
+        return self.client.live_change_contract_plan(check=check)
+
+    def live_fixture_run(
+        self,
+        operator: str = "filter",
+        argument: str | Sequence[str] | None = None,
+        *,
+        check: bool = True,
+    ) -> LiveFixtureRunReport:
+        """Run the explicit CG-22 in-memory live fixture."""
+
+        return self.client.live_fixture_run(operator, argument, check=check)
 
     def read_vortex(self, uri: str | os.PathLike[str]) -> LazyFrame:
         """Declare a lazy native Vortex source using this context's client."""

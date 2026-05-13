@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-22C/D/I live source/change, in-memory prototype, and state/freshness
+      certification bundle
+  - Primary files:
+    - `shardloom-core/src/live_engine.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-core/src/engine_modes.rs`
+    - `shardloom-cli/src/engine_fabric_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/cg22_engine_fabric_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add the first executable CG-22 live lane as a deterministic in-memory fixture: native
+    change records, live policy vocabulary, append/upsert/delete/retract/tombstone state updates,
+    output changelog rows, freshness/state/continuous-view certificates, execution and Native I/O
+    certificates, CLI commands, and Python wrappers.
+  - Checklist:
+    - [x] Add a ShardLoom-native `ChangeRecord` contract with ordered sequence, event time,
+          processing time, source offset, schema digest, payload ref, key, metric, and value fields.
+    - [x] Add live fixture operators for filter, project, count, count_where, and group_count over
+          deterministic in-memory state after append, upsert, delete, retract, and tombstone events.
+    - [x] Emit `FreshnessCertificate`, `StateCertificate`, `ContinuousViewCertificate`, execution
+          certificate, Native I/O certificate, no-fallback policy, and no external-engine evidence.
+    - [x] Move live engine selection from blocked to partially supported for fixture-compatible
+          unbounded changelog contracts while keeping production claims blocked.
+    - [x] Expose `live-change-contract-plan` and `live-fixture-run` through CLI JSON/text output,
+          command-family taxonomy, typed-envelope coverage, and Python client/context methods.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core live --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test cg22_engine_fabric_snapshots --no-run`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test cg22_engine_fabric_snapshots --test typed_envelope_compatibility_lock --test capability_discovery_snapshots`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `.\target\debug\shardloom.exe live-change-contract-plan --format json`
+    - [x] `.\target\debug\shardloom.exe live-fixture-run group-count metric --format json`
+    - [x] `.\target\debug\shardloom.exe engine-selection-plan live unbounded append-only changelog --format json`
+    - [x] `.\target\debug\shardloom.exe engine-capability-matrix --format json`
+  - Runtime stance: executable only for the deterministic in-memory live fixture. It reads no user
+    data, writes no outputs, opens no broker/object-store/catalog connection, invokes no external
+    query engine, performs no fallback execution, and keeps durable checkpoint stores, schedulers,
+    broker adapters, workload correctness evidence, and benchmark evidence as remaining blockers
+    before any production live-engine claim.
+
 - [x] Session label: CG-22A/B/H engine contract, per-engine matrix, and Python/API UX bundle
   - Primary files:
     - `shardloom-core/src/engine_modes.rs`

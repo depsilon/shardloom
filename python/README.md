@@ -101,19 +101,19 @@ stores, touch catalogs, execute SQL, or invoke external engines. The explicit
 `smoke_check()` and `capabilities()` methods run only no-dataset CLI JSON
 commands and preserve no-fallback status.
 
-Engine intent is report-only and explicit. `engine="auto"` selects the current
-bounded snapshot batch path when allowed; `live` and `hybrid` return structured
-rejection reasons until CG-22 state, checkpoint, freshness, delta-overlay, and
-micro-segment evidence exists:
+Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
+batch path when allowed; `live` now selects the CG-22 in-memory fixture path for
+bounded/unbounded change streams, while `hybrid` still returns structured
+rejection reasons until delta-overlay, micro-segment, and layout evidence exists:
 
 ```python
 import shardloom as sl
 
-ctx = sl.context(engine="hybrid")
+ctx = sl.context(engine="live")
 selection = ctx.engine_selection(
-    boundedness="snapshot",
-    update_mode="upsert",
-    output_mode="continuous-view",
+    boundedness="unbounded",
+    update_mode="append-only",
+    output_mode="changelog",
 )
 matrix = ctx.engine_capability_matrix()
 
@@ -129,6 +129,29 @@ These calls do not execute live or hybrid workloads, probe brokers, write
 checkpoints, invoke external engines, or attempt fallback. They expose the same
 CG-22 contract as `shardloom engine-selection-plan`,
 `shardloom engine-capability-matrix`, and `shardloom capabilities engines`.
+
+The executable live surface is intentionally narrower: a deterministic
+in-memory fixture for filter, project, count, count_where, and group_count. It
+does not read brokers or files and does not write checkpoints, but it does emit
+freshness, state, continuous-view, execution, and Native I/O certificate fields:
+
+```python
+contract = ctx.live_change_contract_plan()
+fixture = ctx.live_fixture_run("group-count", "metric")
+
+print(contract.change_record_fields)
+print(contract.operations)
+print(fixture.output_rows)
+print(fixture.all_certified)
+print(fixture.fallback_attempted)
+```
+
+Equivalent CLI commands:
+
+```powershell
+shardloom live-change-contract-plan --format json
+shardloom live-fixture-run group-count metric --format json
+```
 
 Lazy workflow planning is also available without adding pandas, Polars, Spark,
 DataFusion, or any other execution dependency:

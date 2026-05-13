@@ -276,6 +276,28 @@ impl EngineSelectionRequest {
             && self.update_mode.is_batch_compatible()
             && self.output_mode.is_batch_compatible()
     }
+
+    #[must_use]
+    pub const fn live_fixture_compatible(&self) -> bool {
+        matches!(
+            self.boundedness,
+            Boundedness::Bounded | Boundedness::Unbounded
+        ) && matches!(
+            self.update_mode,
+            UpdateMode::AppendOnly
+                | UpdateMode::Upsert
+                | UpdateMode::Delete
+                | UpdateMode::Retract
+                | UpdateMode::Tombstone
+                | UpdateMode::Changelog
+        ) && matches!(
+            self.output_mode,
+            OutputMode::Append
+                | OutputMode::Update
+                | OutputMode::Changelog
+                | OutputMode::ContinuousView
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -300,17 +322,23 @@ impl EngineSelectionReport {
     #[must_use]
     pub fn evaluate(request: EngineSelectionRequest) -> Self {
         let batch_allowed = request.batch_compatible();
+        let live_allowed = request.live_fixture_compatible();
         let mut allowed_modes = Vec::new();
         let mut rejection_reasons = Vec::new();
 
         if batch_allowed {
             allowed_modes.push(EngineMode::Batch);
         }
+        if live_allowed {
+            allowed_modes.push(EngineMode::Live);
+        }
 
         append_batch_compatibility_reasons(&request, &mut rejection_reasons);
+        append_live_fixture_compatibility_reasons(&request, &mut rejection_reasons);
 
         let selected = match request.requested {
             EngineMode::Batch | EngineMode::Auto if batch_allowed => Some(EngineMode::Batch),
+            EngineMode::Live | EngineMode::Auto if live_allowed => Some(EngineMode::Live),
             _ => None,
         };
 
@@ -630,21 +658,22 @@ fn batch_row() -> EngineCapabilityRow {
 fn live_row() -> EngineCapabilityRow {
     EngineCapabilityRow {
         engine_mode: EngineMode::Live,
-        support_status: EngineSupportStatus::Planned,
+        support_status: EngineSupportStatus::PartiallySupported,
         operator_support: vec![
-            "fixture_filter_planned",
-            "fixture_project_planned",
-            "fixture_count_planned",
-            "fixture_group_count_planned",
+            "fixture_filter",
+            "fixture_project",
+            "fixture_count",
+            "fixture_count_where",
+            "fixture_group_count",
         ],
-        function_support: vec!["count_planned", "group_count_planned"],
-        source_support: vec!["fixture_change_stream_planned"],
-        sink_support: vec!["output_changelog_planned", "continuous_view_planned"],
+        function_support: vec!["count", "group_count"],
+        source_support: vec!["in_memory_change_fixture"],
+        sink_support: vec!["in_memory_output_changelog", "in_memory_continuous_view"],
         bounded_snapshot_support: false,
-        append_only_stream_support: false,
-        upsert_delete_tombstone_support: false,
-        changelog_support: false,
-        continuous_materialized_view_support: false,
+        append_only_stream_support: true,
+        upsert_delete_tombstone_support: true,
+        changelog_support: true,
+        continuous_materialized_view_support: true,
         global_sort_supported: false,
         unbounded_join_supported: false,
         state_required: true,
@@ -657,11 +686,11 @@ fn live_row() -> EngineCapabilityRow {
         ],
         production_claim_allowed: false,
         blockers: vec![
-            "change_record_contract",
-            "watermark_policy",
-            "state_ttl",
-            "checkpoint_policy",
-            "freshness_certificate",
+            "external_broker_adapters",
+            "durable_checkpoint_store",
+            "unbounded_runtime_scheduler",
+            "workload_correctness_evidence",
+            "benchmark_evidence",
         ],
     }
 }
@@ -729,6 +758,47 @@ fn append_batch_compatibility_reasons(
     }
 }
 
+fn append_live_fixture_compatibility_reasons(
+    request: &EngineSelectionRequest,
+    rejection_reasons: &mut Vec<String>,
+) {
+    if !matches!(
+        request.boundedness,
+        Boundedness::Bounded | Boundedness::Unbounded
+    ) {
+        rejection_reasons.push(
+            "live fixture requires bounded or unbounded change streams; snapshot/unknown inputs remain batch or unsupported"
+                .to_string(),
+        );
+    }
+    if !matches!(
+        request.update_mode,
+        UpdateMode::AppendOnly
+            | UpdateMode::Upsert
+            | UpdateMode::Delete
+            | UpdateMode::Retract
+            | UpdateMode::Tombstone
+            | UpdateMode::Changelog
+    ) {
+        rejection_reasons.push(
+            "live fixture requires append/upsert/delete/retract/tombstone/changelog update modes"
+                .to_string(),
+        );
+    }
+    if !matches!(
+        request.output_mode,
+        OutputMode::Append
+            | OutputMode::Update
+            | OutputMode::Changelog
+            | OutputMode::ContinuousView
+    ) {
+        rejection_reasons.push(
+            "live fixture requires append/update/changelog/continuous-view output modes"
+                .to_string(),
+        );
+    }
+}
+
 fn append_requested_engine_rejection(
     request: &EngineSelectionRequest,
     rejection_reasons: &mut Vec<String>,
@@ -736,7 +806,7 @@ fn append_requested_engine_rejection(
     match request.requested {
         EngineMode::Batch | EngineMode::Auto => {}
         EngineMode::Live => rejection_reasons.push(
-            "live engine is planned but blocked until change-record, watermark, state, checkpoint, and freshness evidence exists"
+            "live engine is only partially supported for CG-22 in-memory fixture change streams; the requested workload contract is outside that support"
                 .to_string(),
         ),
         EngineMode::Hybrid => rejection_reasons.push(
@@ -811,21 +881,22 @@ mod tests {
     }
 
     #[test]
-    fn live_and_hybrid_are_rejected_until_state_checkpoint_and_freshness_evidence_exists() {
+    fn live_fixture_workloads_select_live_without_fallback() {
         let live = EngineSelectionReport::evaluate(EngineSelectionRequest::new(
             EngineMode::Live,
             Boundedness::Unbounded,
             UpdateMode::AppendOnly,
             OutputMode::Changelog,
         ));
-        assert_eq!(live.status, EngineSelectionStatus::Rejected);
-        assert_eq!(live.selected, None);
-        assert!(
-            live.rejection_reason_text()
-                .contains("live engine is planned")
-        );
+        assert_eq!(live.status, EngineSelectionStatus::Selected);
+        assert_eq!(live.selected, Some(EngineMode::Live));
+        assert!(live.rejected_modes.contains(&EngineMode::Hybrid));
         assert!(!live.fallback_attempted());
+        assert!(live.diagnostics().is_empty());
+    }
 
+    #[test]
+    fn hybrid_is_rejected_until_overlay_flush_and_freshness_evidence_exists() {
         let hybrid = EngineSelectionReport::evaluate(EngineSelectionRequest::new(
             EngineMode::Hybrid,
             Boundedness::Snapshot,
@@ -845,8 +916,8 @@ mod tests {
     fn capability_matrix_separates_batch_live_and_hybrid_support() {
         let matrix = EngineCapabilityMatrixReport::cg22_contract();
         assert_eq!(matrix.rows.len(), 3);
-        assert_eq!(matrix.partially_supported_count(), 1);
-        assert_eq!(matrix.planned_count(), 2);
+        assert_eq!(matrix.partially_supported_count(), 2);
+        assert_eq!(matrix.planned_count(), 1);
         assert_eq!(matrix.live_hybrid_claim_blocked_count(), 2);
         assert!(
             matrix
@@ -855,6 +926,7 @@ mod tests {
                 .bounded_snapshot_support
         );
         assert!(matrix.row(EngineMode::Live).unwrap().state_required);
+        assert!(matrix.row(EngineMode::Live).unwrap().changelog_support);
         assert!(matrix.row(EngineMode::Hybrid).unwrap().checkpoint_required);
         assert!(!matrix.fallback_attempted());
         assert!(!matrix.external_engine_invoked);

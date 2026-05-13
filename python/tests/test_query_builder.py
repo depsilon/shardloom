@@ -133,30 +133,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
                     "command": "engine-selection-plan",
-                    "status": "unsupported",
+                    "status": "success",
                     "summary": "engine selection plan",
-                    "human_text": "rejected",
+                    "human_text": "selected",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [{
-                        "code": "SL_NOT_IMPLEMENTED",
-                        "severity": "error",
-                        "category": "unsupported_feature",
-                        "message": "live blocked",
-                        "feature": "engine-selection-plan",
-                        "reason": "live engine is planned but blocked",
-                        "suggested_next_step": "use batch",
-                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
-                    }],
+                    "diagnostics": [],
                     "fields": [
                         {"key": "requested_engine_mode", "value": "live"},
-                        {"key": "selection_status", "value": "rejected"},
-                        {"key": "selected_engine_mode", "value": "none"},
-                        {"key": "rejection_reasons", "value": "live engine is planned but blocked"},
+                        {"key": "selection_status", "value": "selected"},
+                        {"key": "selected_engine_mode", "value": "live"},
+                        {"key": "rejection_reasons", "value": "none"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ],
                 }))
-                sys.exit(1)
                 """
             )
         )
@@ -173,9 +163,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
 
         self.assertEqual(report.requested_engine_mode, "live")
-        self.assertEqual(report.selection_status, "rejected")
-        self.assertEqual(report.selected_engine_mode, "none")
-        self.assertIn("live engine is planned but blocked", report.rejection_reasons)
+        self.assertEqual(report.selection_status, "selected")
+        self.assertEqual(report.selected_engine_mode, "live")
+        self.assertEqual(report.rejection_reasons, ())
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -212,6 +202,77 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(matrix.live_hybrid_claim_blocked_count, 2)
         self.assertFalse(matrix.fallback_attempted)
         self.assertFalse(matrix.external_engine_invoked)
+
+    def test_live_change_contract_and_fixture_reports_are_explicit(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                if args == ["live-change-contract-plan", "--format", "json"]:
+                    command = "live-change-contract-plan"
+                    fields = [
+                        {"key": "change_record_field_order", "value": "key,operation,sequence,event_time_ms,processing_time_ms,source_offset,schema_digest,payload_ref"},
+                        {"key": "change_operation_vocabulary", "value": "append,upsert,delete,retract,tombstone"},
+                        {"key": "fixture_operator_vocabulary", "value": "filter,project,count,count_where,group_count"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                    ]
+                elif args == ["live-fixture-run", "group-count", "metric", "--format", "json"]:
+                    command = "live-fixture-run"
+                    fields = [
+                        {"key": "fixture_operator", "value": "group_count"},
+                        {"key": "input_change_record_count", "value": "10"},
+                        {"key": "active_state_key_count", "value": "3"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "output_rows", "value": "east:group_count:2|west:group_count:1"},
+                        {"key": "freshness_certificate_status", "value": "certified"},
+                        {"key": "state_certificate_status", "value": "certified"},
+                        {"key": "continuous_view_certificate_status", "value": "certified"},
+                        {"key": "execution_certificate_status", "value": "certified"},
+                        {"key": "native_io_certificate_status", "value": "certified"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                    ]
+                else:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary), engine="live")
+
+        contract = ctx.live_change_contract_plan()
+        fixture = ctx.live_fixture_run("group-count", "metric")
+
+        self.assertEqual(contract.change_record_fields[0], "key")
+        self.assertIn("tombstone", contract.operations)
+        self.assertIn("group_count", contract.fixture_operators)
+        self.assertFalse(contract.runtime_execution)
+        self.assertFalse(contract.fallback_attempted)
+        self.assertEqual(fixture.operator, "group_count")
+        self.assertEqual(fixture.input_change_record_count, 10)
+        self.assertEqual(fixture.active_state_key_count, 3)
+        self.assertEqual(fixture.output_rows, ("east:group_count:2", "west:group_count:1"))
+        self.assertTrue(fixture.all_certified)
+        self.assertTrue(fixture.runtime_execution)
+        self.assertFalse(fixture.data_read)
+        self.assertFalse(fixture.write_io)
+        self.assertFalse(fixture.fallback_attempted)
+        self.assertFalse(fixture.external_engine_invoked)
 
     def test_lazy_workflow_report_collects_explain_estimate_and_certify_surfaces(self) -> None:
         expected_workflow = (

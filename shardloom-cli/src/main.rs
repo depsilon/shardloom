@@ -82,7 +82,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance|engines]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|cg17-stateful-reuse-gate|universal-harness-plan|rfc-coverage-followthrough-plan|native-io-envelope-plan|world-class-sufficiency-plan|cg20-user-capability-gate|cg20-approx-sketch-gate|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|engine-selection-plan [auto|batch|live|hybrid] [bounded|unbounded|snapshot|unknown] [snapshot|append-only|upsert|delete|retract|tombstone|changelog] [snapshot|append|update|complete|changelog|continuous-view]|engine-capability-matrix|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|cg14-memory-runtime-hardening-gate|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance|engines]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|cg17-stateful-reuse-gate|universal-harness-plan|rfc-coverage-followthrough-plan|native-io-envelope-plan|world-class-sufficiency-plan|cg20-user-capability-gate|cg20-approx-sketch-gate|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|engine-selection-plan [auto|batch|live|hybrid] [bounded|unbounded|snapshot|unknown] [snapshot|append-only|upsert|delete|retract|tombstone|changelog] [snapshot|append|update|complete|changelog|continuous-view]|engine-capability-matrix|live-change-contract-plan|live-fixture-run [filter|project|count|count-where|group-count] [predicate|columns|group-column]|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|cg14-memory-runtime-hardening-gate|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1014,6 +1014,10 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("engine-capability-matrix") => {
             engine_fabric_planning::handle_engine_capability_matrix(args, format)
         }
+        Some("live-change-contract-plan") => {
+            engine_fabric_planning::handle_live_change_contract_plan(args, format)
+        }
+        Some("live-fixture-run") => engine_fabric_planning::handle_live_fixture_run(args, format),
         Some("streaming-plan") => engine_runtime_planning::handle_streaming_plan(args, format),
         Some("streaming-batch-plan") => {
             engine_runtime_planning::handle_streaming_batch_plan(args, format)
@@ -2782,6 +2786,8 @@ mod tests {
     fn usage_includes_cg22_engine_fabric_plans() {
         assert!(cli_usage_line().contains("engine-selection-plan"));
         assert!(cli_usage_line().contains("engine-capability-matrix"));
+        assert!(cli_usage_line().contains("live-change-contract-plan"));
+        assert!(cli_usage_line().contains("live-fixture-run"));
         assert!(cli_usage_line().contains("capabilities [sql|functions"));
         assert!(cli_usage_line().contains("security-governance|engines]"));
     }
@@ -2791,7 +2797,7 @@ mod tests {
         assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]
-    fn engine_selection_plan_live_changelog_returns_non_zero() {
+    fn engine_selection_plan_live_changelog_returns_success() {
         let code = run(vec![
             "engine-selection-plan".to_string(),
             "live".to_string(),
@@ -2799,11 +2805,25 @@ mod tests {
             "append-only".to_string(),
             "changelog".to_string(),
         ]);
-        assert_ne!(code, ExitCode::SUCCESS);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]
     fn engine_capability_matrix_returns_success() {
         let code = run(vec!["engine-capability-matrix".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn live_change_contract_plan_returns_success() {
+        let code = run(vec!["live-change-contract-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn live_fixture_run_returns_success() {
+        let code = run(vec![
+            "live-fixture-run".to_string(),
+            "group-count".to_string(),
+            "metric".to_string(),
+        ]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]
