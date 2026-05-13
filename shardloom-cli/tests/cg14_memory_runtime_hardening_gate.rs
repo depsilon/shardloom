@@ -45,6 +45,10 @@ fn cg14_memory_runtime_hardening_gate_exposes_existing_and_blocked_surfaces() {
         "surface_order",
         "memory_reservation_admission,operator_memory_spill_declaration_gate,spill_reservation_integration_plan,spill_lifecycle_plan,dynamic_runtime_promotion_reference,resource_derived_chunk_sizing_runtime,adaptive_parallelism_runtime,memory_reservation_release_runtime,pressure_reaction_runtime,native_spill_write_runtime,native_spill_read_runtime,spill_cleanup_execution,allocator_runtime_integration,benchmark_certificate_closeout"
     )));
+    assert!(output.contains(&field(
+        "existing_report_refs",
+        "shardloom.memory_admission.v1,shardloom.operator_memory_spill_declaration.v1,shardloom.spill_reservation_integration.v1,shardloom.spill_lifecycle.v1,shardloom.dynamic_runtime_promotion_gate.v1"
+    )));
 }
 
 #[test]

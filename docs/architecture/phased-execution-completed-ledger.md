@@ -7658,7 +7658,7 @@ Status legend:
 - **[ ] open/planned**
 - **[~] blocked/deferred**
 
-- [ ] CG-1 — Real encoded read path (**partially complete; broader closeout deferred**)
+- Open: CG-1 — Real encoded read path (**partially complete; broader closeout deferred**)
   - [x] CG-1.1a encoded read boundary core contract
   - [x] CG-1.1b CLI/docs integration
   - [x] CG-1.2a/1.2b/1.2c planning, fixture, and metadata probe/report integration
@@ -7674,7 +7674,7 @@ Status legend:
     - no Arrow-default conversion
     - no fallback execution
 
-- [ ] CG-2 — Real query primitive execution over actual Vortex data (**partially complete; broader
+- Open: CG-2 — Real query primitive execution over actual Vortex data (**partially complete; broader
       closeout deferred**)
   - [x] report-only readiness planning for:
     - count
@@ -7760,7 +7760,7 @@ Status legend:
       owned by CG-4
     - no object-store writes initially
 
-- [ ] CG-4 — Commit protocol execution (**partially complete; broader closeout deferred**)
+- Open: CG-4 — Commit protocol execution (**partially complete; broader closeout deferred**)
   - [x] report-only planning/state-machine and marker/finalization readiness contracts
   - [x] first feature-gated local committed-manifest execution path
   - [x] idempotent identical committed-manifest detection
@@ -7773,7 +7773,7 @@ Status legend:
     - recoverable rollback/ambiguous-commit diagnostics across supported paths
     - deterministic commit-state transitions
 
-- [ ] CG-5 — Correctness/differential tests (**planned**)
+- Open: CG-5 — Correctness/differential tests (**planned**)
   - [x] CG-5.1 metadata query primitive correctness fixtures
   - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures
   - [x] CG-5.3 correctness fixture manifest contract
@@ -7808,7 +7808,7 @@ Status legend:
     - populated external-oracle result artifacts before claim-grade correctness closeout
     - property/fuzz fixtures and reproducible seeds before broad encoded execution claims
 
-- [ ] CG-6 — Benchmarks (**planned**)
+- Open: CG-6 — Benchmarks (**planned**)
   - [x] CG-6.1 benchmark evidence manifest
   - [x] CG-6.2 benchmark claim gate
   - [x] CG-6.3 benchmark comparison report contract
@@ -7866,7 +7866,7 @@ Status legend:
     - metadata/encoded/hybrid execution levels
     - expression evaluation over encoded segments
 
-- [ ] CG-8 — Streaming/parallel/adaptive execution (**planned**)
+- Open: CG-8 — Streaming/parallel/adaptive execution (**planned**)
   - [x] CG-8.1 streaming plan discovery surface
   - [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
   - [x] CG-8.3 bounded backpressure planning surface
@@ -7887,7 +7887,7 @@ Status legend:
     - dynamic work shaping aggregate evidence
     - backpressure and memory/spill-aware scheduling
 
-- [ ] CG-9 — Lakehouse/table intelligence (**planned**)
+- Open: CG-9 — Lakehouse/table intelligence (**planned**)
   - [x] CG-9.1 schema evolution compatibility evidence
   - [x] CG-9.2 partition evolution compatibility evidence
   - [x] CG-9.3 delete/tombstone compatibility evidence
@@ -7904,7 +7904,7 @@ Status legend:
     - layout-health and compaction planning
     - aggregate table intelligence report before table-format/catalog runtime behavior
 
-- [ ] CG-10 — Object-store/distributed execution (**planned**)
+- Open: CG-10 — Object-store/distributed execution (**planned**)
   - [x] CG-10.1 object-store range planning evidence
   - [x] CG-10.2 object-store request coalescing evidence
   - [x] CG-10.3 object-store commit protocol planning evidence
@@ -7918,7 +7918,7 @@ Status legend:
       recorded before execution
     - aggregate request planner before object-store IO or distributed runtime behavior
 
-- [ ] CG-11 — Python/API foundation surface later (**planned**)
+- Open: CG-11 — Python/API foundation surface later (**planned**)
   - [x] CG-11.1 stable CLI/API JSON protocol foundation
   - [x] CG-11.2 thin Python wrapper foundation
   - [x] CG-11.3 source-tree Python CLI JSON client package
@@ -7932,7 +7932,7 @@ Status legend:
     - no PyO3/maturin unless explicitly approved
     - mature Python wrapper/DataFrame/notebook/Python UDF certification belongs to CG-20
 
-- [ ] CG-12 — Plan portability / semantic IR (**planned**)
+- Open: CG-12 — Plan portability / semantic IR (**planned**)
   - [x] CG-12.1 native-first `PlanPortabilityReport` foundation
   - [x] CG-12.2 explicit unsupported/lossy/residual construct reporting
   - [x] CG-12.3 import/export commands remain validation-only and side-effect-free
@@ -7945,7 +7945,7 @@ Status legend:
     - native ShardLoom plan serialization/import/export is in-memory and side-effect-free
     - imported-plan execution remains deferred until capability checks are certified
 
-- [ ] CG-13 — Encoded-native compressed execution (**planned**)
+- Open: CG-13 — Encoded-native compressed execution (**planned**)
   - [x] CG-13.1 encoded execution path selection report foundation
   - [x] CG-13.2 decode/materialization avoided proof fields in path-selection output
   - [x] CG-13.6 local primitive execution reports decode/materialization boundaries without claiming
@@ -7987,7 +7987,7 @@ Status legend:
       decode/materialization
     - generalized direct encoded count/filter/project execution remains deferred
 
-- [ ] CG-14 — Runtime-adaptive optimizer and execution memory (**planned**)
+- Open: CG-14 — Runtime-adaptive optimizer and execution memory (**planned**)
   - [x] CG-14.1 adaptive optimizer and memory decision report foundation
   - [ ] CG-14.4 resource-derived chunk sizing and parallelism runtime application
   - [ ] CG-14.5 memory reservation, pressure detection, spill policy, and fail-before-OOM execution
@@ -7997,7 +7997,7 @@ Status legend:
     - bounded-memory-safe adaptation boundaries
     - runtime adaptation, filter application, plan rewrite, and spill execution remain deferred
 
-- [ ] CG-15 — CPU operator specialization (**planned**)
+- Open: CG-15 — CPU operator specialization (**planned**)
   - [x] CG-15.1 CPU specialization report foundation
   - [ ] CG-15.2 correctness-gated SIMD/cache-aware dispatch for certified primitive kernels
   - [ ] CG-15.3 benchmark-gated encoded-layout specialization for declared workload categories
@@ -8008,7 +8008,7 @@ Status legend:
     - correctness and benchmark evidence gates before execution or claims
     - no fallback engines for specialization
 
-- [ ] CG-16 — Evidence-first execution certificates (**planned**)
+- Open: CG-16 — Evidence-first execution certificates (**planned**)
   - [x] CG-16.1 local encoded `CountAll` execution certificate
   - [x] CG-16.2 execution certificate evidence surface
   - [x] CG-16.3 broader local primitive execution certificate evidence
@@ -8041,7 +8041,7 @@ Status legend:
     - reproducibility metadata and segment traces
     - deterministic machine-readable certificate surfaces
 
-- [ ] CG-17 — Stateful result reuse / incremental execution (**planned**)
+- Open: CG-17 — Stateful result reuse / incremental execution (**planned**)
   - [x] CG-17.1 stateful reuse boundary report
   - [ ] CG-17.2 stable reuse keys, invalidation, and manifest-diff evidence
   - [ ] CG-17.3 incremental recompute execution with state certificates and benchmark evidence
@@ -8050,7 +8050,7 @@ Status legend:
     - explicit invalidation rules and correctness-proof signals
     - execution-certificate and manifest-diff requirements before any reuse or incremental recompute
 
-- [ ] CG-18 — Universal import/deployment/baseline harness (**planned**)
+- Open: CG-18 — Universal import/deployment/baseline harness (**planned**)
   - [x] CG-18.1 universal harness report
   - [ ] CG-18.2 reproducible local/CI/container/optional Foundry harnesses
   - [ ] CG-18.3 optional Spark/DataFusion/Polars/DuckDB/Dask/pandas baseline environments with
@@ -8060,7 +8060,7 @@ Status legend:
     - external baseline harnesses are comparison-only
     - Foundry remains optional deployment/comparison only
 
-- [ ] CG-19 — Universal Native I/O Envelope (**planned**)
+- Open: CG-19 — Universal Native I/O Envelope (**planned**)
   - [x] RFC 0031 contract deepening complete
   - [x] CG-19.1 native I/O envelope report
   - [x] CG-19.2 benchmark CSV-to-Vortex runtime Native I/O certificate
@@ -8097,7 +8097,7 @@ Status legend:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink
       constraints without default decode
 
-- [ ] CG-20 — World-Class SQL/operator/function/adapter/user capability surface (**planned;
+- Open: CG-20 — World-Class SQL/operator/function/adapter/user capability surface (**planned;
       report-only foundation started**)
   - [x] RFC 0032 contract deepening complete
   - [x] common data/ETL, Python wrapper/API, UDF, universal adapter, and unstructured/media evidence
@@ -8116,7 +8116,7 @@ Status legend:
       universal adapters, event/API/SaaS adapters, unstructured/media, deployment/importability, and
       certification reporting
 
-- [ ] CG-21 - User Data Workflow and ETL Surface (**intake RFC landed; implementation pending**)
+- Open: CG-21 - User Data Workflow and ETL Surface (**intake RFC landed; implementation pending**)
   - Governing RFC: `docs/rfcs/0033-user-data-workflow-etl-surface.md`
   - Scope:
     - complete user workflow from install/import through read, validate, transform, write, explain,
@@ -8125,7 +8125,7 @@ Status legend:
       execution certificates, CG-5 correctness, and CG-6 benchmark evidence
     - no runtime behavior, dependency, fallback, or claim permission from RFC alone
 
-- [ ] CG-22 - Three-Engine Certified Data Execution Fabric (**intake RFC landed; implementation
+- Open: CG-22 - Three-Engine Certified Data Execution Fabric (**intake RFC landed; implementation
       pending**)
   - Governing RFC: `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`
   - Scope:
@@ -8134,7 +8134,7 @@ Status legend:
       hot/cold contribution, and continuous-view certification
     - no runtime behavior, dependency, fallback, or claim permission from RFC alone
 
-- [ ] CG-23 - REST, Event, and Remote API Surface (**intake RFC landed; implementation pending**)
+- Open: CG-23 - REST, Event, and Remote API Surface (**intake RFC landed; implementation pending**)
   - Governing RFC: `docs/rfcs/0035-rest-event-remote-api-surface.md`
   - Scope:
     - remote REST control plane, event plane, data-plane result delivery contracts,
@@ -8161,7 +8161,7 @@ session-updateable without losing provenance detail.
 - [x] CG-1.3 no-broad-materialization/no-Arrow-default invariant closeout (report-contract scope)
 - [x] CG-1.2d metadata/footer invocation execution path for local fixtures
 - [x] CG-1.4 local fixture Vortex array scan/count proof
-- [ ] CG-1 closeout still requires generalized encoded data path evidence beyond a local fixture
+- Open: CG-1 closeout still requires generalized encoded data path evidence beyond a local fixture
       array-length scan
 
 #### CG-2 detailed checklist
@@ -8240,7 +8240,7 @@ session-updateable without losing provenance detail.
       without reader wiring
 - [~] CG-2.1+ broader zero-decode encoded query primitive execution remains deferred pending
   filter/project encoded-kernel guarantees
-- [ ] CG-2 closeout requires generalized count plus filtered-count/projection execution over actual
+- Open: CG-2 closeout requires generalized count plus filtered-count/projection execution over actual
       Vortex data with correctness, benchmark, and certificate evidence
 
 #### CG-3 detailed checklist
@@ -8388,7 +8388,7 @@ session-updateable without losing provenance detail.
 - [~] spill-required/avoided evidence surfaces spill avoided for current native paths;
   spill-required byte accounting remains planned
 - [x] startup latency benchmark accounting
-- [ ] query runtime benchmarks
+- Open: query runtime benchmarks
 - [~] write/commit latency benchmarks started with local committed-manifest smoke evidence;
   object-store/table-format commit latency remains planned
 
@@ -8473,11 +8473,11 @@ session-updateable without losing provenance detail.
 - [x] CG-8.12 benchmark-only native Vortex scenario execution streams projected scan chunks for
       CSV/file-ingest, selective-filter, and wide-projection paths when no compatibility output
       forces full-table export
-- [ ] broader streaming encoded batch runtime execution
-- [ ] bounded parallel encoded/read local execution
+- Open: broader streaming encoded batch runtime execution
+- Open: bounded parallel encoded/read local execution
 - [x] adaptive split/coalesce planning surface
 - [x] dynamic sizing feedback planning surface
-- [ ] dynamic sizing feedback execution loop
+- Open: dynamic sizing feedback execution loop
 - [x] dynamic work shaping aggregate surface
 - [x] backpressure planning surface
 - [x] memory/spill-aware scheduler planning surface
@@ -8490,12 +8490,12 @@ session-updateable without losing provenance detail.
 - [x] CG-9.5 CDC incremental planning evidence
 - [x] CG-9.6 layout health planning evidence
 - [x] CG-9.7 compaction planning evidence
-- [ ] broader schema evolution catalog/table metadata integration
-- [ ] broader partition evolution catalog/table metadata integration
-- [ ] broader delete/tombstone catalog/table metadata integration
-- [ ] broader CDC/incremental execution
-- [ ] broader layout-health integration
-- [ ] broader compaction execution and catalog/table maintenance integration
+- Open: broader schema evolution catalog/table metadata integration
+- Open: broader partition evolution catalog/table metadata integration
+- Open: broader delete/tombstone catalog/table metadata integration
+- Open: broader CDC/incremental execution
+- Open: broader layout-health integration
+- Open: broader compaction execution and catalog/table maintenance integration
 
 #### CG-10 detailed checklist
 - [x] CG-10.1 object-store range planning evidence
@@ -8503,8 +8503,8 @@ session-updateable without losing provenance detail.
 - [x] CG-10.3 object-store commit protocol planning evidence
 - [x] CG-10.4 object-store distributed scheduling planning evidence
 - [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence
-- [ ] broader object-store commit execution
-- [ ] checkpoint/retry/idempotency execution
+- Open: broader object-store commit execution
+- Open: checkpoint/retry/idempotency execution
 
 #### CG-11 detailed checklist
 - [x] CG-11.1 stable CLI/API JSON protocol foundation
@@ -8582,18 +8582,18 @@ session-updateable without losing provenance detail.
 - [x] CG-13.26 generalized prepared encoded projection/filter-project execution records
       `vortex_encoded->vortex_encoded` projection and `vortex_encoded->selection_vector_encoded`
       filter-project evidence without reader wiring
-- [ ] generalized direct count/filter/project encoded execution
-- [ ] broad compressed-kernel correctness and benchmark certification
+- Open: generalized direct count/filter/project encoded execution
+- Open: broad compressed-kernel correctness and benchmark certification
 
 #### CG-14 detailed checklist
 - [x] CG-14.1 adaptive decisions with deterministic diagnostics
 - [x] CG-14.2 bounded-memory-safe adaptation boundaries
 - [x] CG-14.3 conservative runtime-filter and dynamic-pruning proof gates
-- [ ] runtime adaptation application
-- [ ] runtime filter construction/application
-- [ ] resource-derived chunk sizing, partitioning, and parallelism application
-- [ ] memory reservation, pressure detection, spill policy, and fail-before-OOM execution
-- [ ] spill-aware adaptive execution
+- Open: runtime adaptation application
+- Open: runtime filter construction/application
+- Open: resource-derived chunk sizing, partitioning, and parallelism application
+- Open: memory reservation, pressure detection, spill policy, and fail-before-OOM execution
+- Open: spill-aware adaptive execution
 
 #### CG-15 detailed checklist
 - [x] CG-15.1 CPU specialization report foundation
@@ -8603,8 +8603,8 @@ session-updateable without losing provenance detail.
 - [x] no external engine fallback for specialization
 - [x] runtime CPU dispatch and unsafe SIMD implementation remain deferred until correctness and
       benchmark gates exist
-- [ ] correctness-gated SIMD/cache-aware dispatch for certified primitive kernels
-- [ ] benchmark-gated encoded-layout specialization for declared workload categories
+- Open: correctness-gated SIMD/cache-aware dispatch for certified primitive kernels
+- Open: benchmark-gated encoded-layout specialization for declared workload categories
 
 #### CG-16 detailed checklist
 - [x] CG-16.1 local encoded `CountAll` execution certificate
@@ -8644,16 +8644,16 @@ session-updateable without losing provenance detail.
 - [x] explicit invalidation and correctness proof signals
 - [x] execution-certificate linkage for every reusable cache family
 - [x] manifest-diff proof requirements before incremental recompute
-- [ ] stable reuse keys, invalidation, and state certificates
-- [ ] incremental recompute execution with no-fallback evidence
+- Open: stable reuse keys, invalidation, and state certificates
+- Open: incremental recompute execution with no-fallback evidence
 
 #### CG-18 detailed checklist
 - [x] CG-18.1 universal harness report
 - [x] universal runner contracts and portability checks
 - [x] external baseline harnesses are comparison-only
 - [x] Foundry optional deployment/comparison example only
-- [ ] reproducible local, CI, container, optional Foundry, and optional benchmark environments
-- [ ] comparison-only Spark/DataFusion/Polars/DuckDB/Dask/pandas environment separation
+- Open: reproducible local, CI, container, optional Foundry, and optional benchmark environments
+- Open: comparison-only Spark/DataFusion/Polars/DuckDB/Dask/pandas environment separation
 
 #### CG-19 detailed checklist
 - [x] RFC 0031 contract deepening complete
@@ -8759,7 +8759,7 @@ session-updateable without losing provenance detail.
       `shardloom` metapackage recipes plus no-fallback dependency tests while keeping package
       build/install/publication certification release-gated
 - [~] mature implementation pending
-- [ ] capability certification surface implementation across real
+- Open: capability certification surface implementation across real
       SQL/operators/functions/adapters/semantic
       profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media
       certification evidence
@@ -8772,7 +8772,7 @@ session-updateable without losing provenance detail.
       landed.
 - [x] Promote CG-21A through CG-21R implementation lanes into Planned so future work follows the
       three-section plan model.
-- [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the
+- Open: Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the
       real CG-21 contract says otherwise and validation gates pass.
 
 #### CG-22 detailed checklist
@@ -8783,7 +8783,7 @@ session-updateable without losing provenance detail.
       landed.
 - [x] Promote CG-22A through CG-22I implementation lanes into Planned so future work follows the
       three-section plan model.
-- [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the
+- Open: Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the
       real CG-22 contract says otherwise and validation gates pass.
 
 #### CG-23 detailed checklist
@@ -8794,15 +8794,15 @@ session-updateable without losing provenance detail.
       landed.
 - [x] Promote CG-23A through CG-23I implementation lanes into Planned so future work follows the
       three-section plan model.
-- [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the
+- Open: Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the
       real CG-23 contract says otherwise and validation gates pass.
 
 #### CG attribution and evidence notes
-- [ ] When moving any detailed item to complete, link the implementing PR/commit and validating
+- Open: When moving any detailed item to complete, link the implementing PR/commit and validating
       tests in the completion note.
-- [ ] Do not mark CG-3 complete from placeholder artifacts.
-- [ ] Do not make superiority claims before CG-5 and CG-6 are satisfied.
-- [ ] Keep external engines baseline-only for comparison/correctness/benchmarks, never runtime
+- Open: Do not mark CG-3 complete from placeholder artifacts.
+- Open: Do not make superiority claims before CG-5 and CG-6 are satisfied.
+- Open: Keep external engines baseline-only for comparison/correctness/benchmarks, never runtime
       fallback.
 
 ### Reference: Cross-cutting Epics

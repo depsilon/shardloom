@@ -5719,37 +5719,34 @@ fn parse_vortex_count_where_args(
     let uri = match DatasetUri::new(uri_arg) {
         Ok(uri) => uri,
         Err(error) => {
-            emit_error(
+            return Err(emit_error(
                 "vortex-count-where",
                 format,
                 "vortex count where failed",
                 &error,
-            );
-            return Err(ExitCode::from(1));
+            ));
         }
     };
     let predicate = match parse_tiny_predicate(&predicate_arg) {
         Ok(predicate) => predicate,
         Err(error) => {
-            emit_error(
+            return Err(emit_error(
                 "vortex-count-where",
                 format,
                 "vortex count where failed",
                 &error,
-            );
-            return Err(ExitCode::from(1));
+            ));
         }
     };
     let local_execution_request = match parse_vortex_count_where_local_execution_args(args) {
         Ok(request) => request,
         Err(error) => {
-            emit_error(
+            return Err(emit_error(
                 "vortex-count-where",
                 format,
                 "vortex count where failed",
                 &error,
-            );
-            return Err(ExitCode::from(1));
+            ));
         }
     };
     Ok((uri, predicate_arg, predicate, local_execution_request))

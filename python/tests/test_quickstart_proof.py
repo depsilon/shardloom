@@ -8,13 +8,43 @@ from pathlib import Path
 
 from shardloom import QuickstartProofReport, ShardLoomClient, quickstart_proof
 
+_FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
+    """
+    import json as _shardloom_json
+
+    _shardloom_original_json_dumps = _shardloom_json.dumps
+
+    def _shardloom_fill_typed_envelope(value):
+        if isinstance(value, dict) and value.get("schema_version") == "shardloom.output.v2":
+            value = dict(value)
+            value.setdefault("result", {"fields": value.get("fields", [])})
+            value.setdefault("result_refs", [])
+            value.setdefault("artifacts", [])
+            value.setdefault("artifact_refs", [])
+            value.setdefault("certificates", [])
+            value.setdefault("policy", {"fields": []})
+            value.setdefault("lifecycle", {"fields": []})
+            value.setdefault("capability_snapshot", {"fields": []})
+        return value
+
+    def _shardloom_json_dumps(value, *args, **kwargs):
+        return _shardloom_original_json_dumps(
+            _shardloom_fill_typed_envelope(value),
+            *args,
+            **kwargs,
+        )
+
+    _shardloom_json.dumps = _shardloom_json_dumps
+    """
+)
+
 
 class QuickstartProofTests(unittest.TestCase):
     def fake_cli(self, body: str) -> list[str]:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"
-        path.write_text(body, encoding="utf-8")
+        path.write_text(_FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
         return [sys.executable, str(path)]
 
     def test_quickstart_proof_collects_planning_and_optional_execution(self) -> None:

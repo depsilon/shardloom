@@ -1241,16 +1241,18 @@ fn artifact_status(
     plan: &ReleasePlan,
     kind: ReleaseArtifactKind,
 ) -> ReleaseEvidenceRequirementStatus {
-    plan.artifacts
+    let mut matching_artifacts = plan
+        .artifacts
         .iter()
-        .find(|artifact| artifact.kind == kind)
-        .map_or(ReleaseEvidenceRequirementStatus::Missing, |artifact| {
-            if artifact.built {
-                ReleaseEvidenceRequirementStatus::Present
-            } else {
-                ReleaseEvidenceRequirementStatus::Planned
-            }
-        })
+        .filter(|artifact| artifact.kind == kind)
+        .peekable();
+    if matching_artifacts.peek().is_none() {
+        ReleaseEvidenceRequirementStatus::Missing
+    } else if matching_artifacts.all(|artifact| artifact.built) {
+        ReleaseEvidenceRequirementStatus::Present
+    } else {
+        ReleaseEvidenceRequirementStatus::Planned
+    }
 }
 
 fn checklist_status(
@@ -1595,6 +1597,9 @@ impl CondaBuildInstallCertificationReport {
             + (!self.version_alignment_verified as usize)
             + (!self.provenance_attestation_present as usize)
             + (!self.human_approval_present as usize)
+            + (!self.clean_build_certified as usize)
+            + (!self.clean_install_certified as usize)
+            + (!self.package_publication_allowed as usize)
     }
 
     pub const fn release_gated(&self) -> bool {
@@ -1858,6 +1863,27 @@ mod tests {
     }
 
     #[test]
+    fn release_readiness_evidence_aggregates_duplicate_artifact_kinds() {
+        let mut plan = ReleasePlan::default_foundation_plan();
+        plan.add_artifact(
+            ReleaseArtifactPlan::planned(ReleaseArtifactKind::Sbom, "sbom.spdx.json")
+                .expect("sbom artifact")
+                .mark_built(true),
+        );
+        plan.add_artifact(
+            ReleaseArtifactPlan::planned(ReleaseArtifactKind::Sbom, "sbom.cyclonedx.json")
+                .expect("second sbom artifact"),
+        );
+
+        let evidence = plan.release_readiness_evidence();
+
+        assert_eq!(
+            evidence.status_for(ReleaseEvidenceRequirementKind::Sbom),
+            ReleaseEvidenceRequirementStatus::Planned
+        );
+    }
+
+    #[test]
     fn release_readiness_evidence_blocks_no_fallback_policy_violations() {
         let mut plan = ReleasePlan::default_foundation_plan();
         plan.no_fallback_check = NoFallbackReleaseCheck {
@@ -1924,7 +1950,7 @@ mod tests {
         assert_eq!(report.package_count(), 3);
         assert_eq!(report.recipe_scaffold_count(), 3);
         assert_eq!(report.certified_package_count(), 0);
-        assert_eq!(report.release_gate_blocking_count(), 5);
+        assert_eq!(report.release_gate_blocking_count(), 8);
         assert!(report.tagged_archive_required);
         assert!(report.source_hash_required);
         assert!(report.version_alignment_required);

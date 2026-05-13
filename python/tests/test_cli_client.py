@@ -31,13 +31,43 @@ from shardloom import (
     WorkflowReadinessSmokeReport,
 )
 
+_FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
+    """
+    import json as _shardloom_json
+
+    _shardloom_original_json_dumps = _shardloom_json.dumps
+
+    def _shardloom_fill_typed_envelope(value):
+        if isinstance(value, dict) and value.get("schema_version") == "shardloom.output.v2":
+            value = dict(value)
+            value.setdefault("result", {"fields": value.get("fields", [])})
+            value.setdefault("result_refs", [])
+            value.setdefault("artifacts", [])
+            value.setdefault("artifact_refs", [])
+            value.setdefault("certificates", [])
+            value.setdefault("policy", {"fields": []})
+            value.setdefault("lifecycle", {"fields": []})
+            value.setdefault("capability_snapshot", {"fields": []})
+        return value
+
+    def _shardloom_json_dumps(value, *args, **kwargs):
+        return _shardloom_original_json_dumps(
+            _shardloom_fill_typed_envelope(value),
+            *args,
+            **kwargs,
+        )
+
+    _shardloom_json.dumps = _shardloom_json_dumps
+    """
+)
+
 
 class ShardLoomClientTests(unittest.TestCase):
     def fake_cli(self, body: str) -> list[str]:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"
-        path.write_text(body, encoding="utf-8")
+        path.write_text(_FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
         return [sys.executable, str(path)]
 
     def test_package_exports_non_placeholder_version(self) -> None:
@@ -109,6 +139,26 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.policy["fields"][0]["key"], "fallback_execution_allowed")
         self.assertEqual(result.lifecycle["fields"][0]["value"], "report_only")
         self.assertEqual(result.capability_snapshot["fields"][0]["value"], "status")
+
+    def test_v2_envelopes_require_typed_payload_slots(self) -> None:
+        payload = {
+            "schema_version": "shardloom.output.v2",
+            "command": "status",
+            "status": "success",
+            "summary": "ok",
+            "human_text": "ok",
+            "fallback": {
+                "attempted": False,
+                "allowed": False,
+                "engine": None,
+                "reason": "disabled",
+            },
+            "diagnostics": [],
+            "fields": [],
+        }
+
+        with self.assertRaisesRegex(ValueError, "capability_snapshot"):
+            OutputEnvelope.from_json(payload)
 
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(
@@ -379,6 +429,34 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(capabilities.input_adapters.field_bool("plan_only"))
         self.assertFalse(capabilities.fallback_attempted)
         self.assertEqual(ctx.functions().field("scope"), "functions")
+
+    def test_context_capabilities_empty_scope_list_is_explicit(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["status", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "status",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": "fallback_execution_allowed", "value": "false"}],
+                }))
+                """
+            )
+        )
+
+        capabilities = shardloom_context(binary=binary).capabilities(
+            scopes=[],
+            include_input_adapters=False,
+        )
+
+        self.assertEqual(capabilities.views, {})
+        self.assertIsNone(capabilities.input_adapters)
 
     def test_vortex_run_passes_explicit_runtime_command(self) -> None:
         binary = self.fake_cli(

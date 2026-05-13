@@ -2573,11 +2573,18 @@ class ShardLoomClient:
         return self.run(["input-adapters"], check=check)
 
     def input_plan(
-        self, dataset_uri: str | os.PathLike[str], *, check: bool = True
+        self,
+        dataset_uri: str | os.PathLike[str],
+        *,
+        source_format: str | None = None,
+        check: bool = True,
     ) -> OutputEnvelope:
         """Return a side-effect-free universal input plan for a dataset URI."""
 
-        return self.run(["input-plan", str(dataset_uri)], check=check)
+        command: list[CommandPart] = ["input-plan", str(dataset_uri)]
+        if source_format is not None:
+            command.extend(["--source-format", str(source_format)])
+        return self.run(command, check=check)
 
     def compatibility_source_smoke(
         self,

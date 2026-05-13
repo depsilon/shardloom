@@ -1250,6 +1250,11 @@ fn append_memory_runtime_hardening_existing_fields(
     fields: &mut Vec<(String, String)>,
     report: &MemoryRuntimeHardeningGateReport,
 ) {
+    push_field(
+        fields,
+        "existing_report_refs",
+        &report.existing_report_refs.join(","),
+    );
     push_bool_field(
         fields,
         "existing_memory_reservation_admission_present",

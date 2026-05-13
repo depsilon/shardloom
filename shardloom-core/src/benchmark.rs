@@ -1197,6 +1197,11 @@ pub fn benchmark_claim_evidence_from_parts(
         .iter()
         .filter(|gap| gap.engine != BaselineEngine::ShardLoom)
         .count();
+    let missing_external_metric_count = comparison_report
+        .missing_metrics
+        .iter()
+        .filter(|gap| gap.engine != BaselineEngine::ShardLoom)
+        .count();
     let incomplete_dataset_profile_count = run_manifest
         .dataset_profiles
         .iter()
@@ -1219,17 +1224,18 @@ pub fn benchmark_claim_evidence_from_parts(
             approved_comparison_rows_present,
         );
     let claim_grade_source_backed_benchmark_closeout_allowed =
-        claim_grade_source_backed_benchmark_closeout_blocker_order.is_empty()
-            && performance_claim_allowed;
-    let blocked_surface_order = benchmark_claim_blocked_surfaces(
-        plan,
-        run_manifest,
-        comparison_report,
-        &bundle,
-        missing_external_result_count,
-        !missing_required_foundation_metrics.is_empty(),
-        baselines_fallback_free,
-    );
+        claim_grade_source_backed_benchmark_closeout_blocker_order.is_empty();
+    let blocked_surface_order =
+        benchmark_claim_blocked_surfaces(&BenchmarkClaimBlockedSurfaceContext {
+            plan,
+            run_manifest,
+            comparison_report,
+            bundle: &bundle,
+            missing_external_result_count,
+            missing_external_metric_count,
+            missing_foundation_metrics: !missing_required_foundation_metrics.is_empty(),
+            baselines_fallback_free,
+        });
     let blocked_surface_count = blocked_surface_order.len();
     let planned_surface_count =
         BenchmarkClaimEvidenceReport::surface_order().len() - blocked_surface_count;
@@ -1327,41 +1333,44 @@ pub fn benchmark_claim_evidence_from_parts(
     }
 }
 
-fn benchmark_claim_blocked_surfaces(
-    plan: &BenchmarkPlan,
-    run_manifest: &BenchmarkRunManifest,
-    comparison_report: &BenchmarkComparisonReport,
-    bundle: &BenchmarkEvidenceBundle,
+struct BenchmarkClaimBlockedSurfaceContext<'a> {
+    plan: &'a BenchmarkPlan,
+    run_manifest: &'a BenchmarkRunManifest,
+    comparison_report: &'a BenchmarkComparisonReport,
+    bundle: &'a BenchmarkEvidenceBundle,
     missing_external_result_count: usize,
+    missing_external_metric_count: usize,
     missing_foundation_metrics: bool,
     baselines_fallback_free: bool,
-) -> Vec<String> {
+}
+
+fn benchmark_claim_blocked_surfaces(ctx: &BenchmarkClaimBlockedSurfaceContext<'_>) -> Vec<String> {
     let mut blocked = Vec::new();
-    if plan.scenario_count() == 0 {
+    if ctx.plan.scenario_count() == 0 {
         blocked.push("benchmark_plan".to_string());
     }
-    if plan.required_metrics().is_empty() || missing_foundation_metrics {
+    if ctx.plan.required_metrics().is_empty() || ctx.missing_foundation_metrics {
         blocked.push("required_metrics".to_string());
     }
-    if !bundle.claim_gate.correctness_evidence.is_present() {
+    if !ctx.bundle.claim_gate.correctness_evidence.is_present() {
         blocked.push("correctness_evidence".to_string());
     }
-    if !bundle.claim_gate.benchmark_evidence.is_present() {
+    if !ctx.bundle.claim_gate.benchmark_evidence.is_present() {
         blocked.push("benchmark_result_rows".to_string());
     }
-    if missing_external_result_count > 0 {
+    if ctx.missing_external_result_count > 0 || ctx.missing_external_metric_count > 0 {
         blocked.push("external_comparison_results".to_string());
     }
-    if comparison_report.scenario_count == 0 {
+    if ctx.comparison_report.scenario_count == 0 {
         blocked.push("comparison_report".to_string());
     }
-    if !run_manifest.evidence_state().is_present() {
+    if !ctx.run_manifest.evidence_state().is_present() {
         blocked.push("reproducibility_manifest".to_string());
     }
-    if bundle.claim_gate.fallback.attempted() || !baselines_fallback_free {
+    if ctx.bundle.claim_gate.fallback.attempted() || !ctx.baselines_fallback_free {
         blocked.push("no_fallback_policy".to_string());
     }
-    if !bundle.can_publish_performance_claim() {
+    if !ctx.bundle.can_publish_performance_claim() {
         blocked.push("claim_publication_gate".to_string());
     }
     blocked
@@ -2049,6 +2058,21 @@ mod tests {
         )
     }
 
+    fn ready_external_plan(name: &str, metric: BenchmarkMetric) -> BenchmarkPlan {
+        let mut plan = BenchmarkPlan::new();
+        let mut scenario = BenchmarkScenario::new(name, WorkloadClass::SingleNodeEncodedExecution)
+            .expect("scenario");
+        scenario.dataset_name = Some("fixture".to_string());
+        scenario.dataset_scale = Some("tiny".to_string());
+        scenario.storage_format = Some("vortex".to_string());
+        scenario.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
+        scenario.add_baseline(BaselineEngine::ShardLoom);
+        scenario.add_baseline(BaselineEngine::DuckDb);
+        scenario.add_required_metric(metric);
+        plan.add_scenario(scenario);
+        plan
+    }
+
     #[test]
     fn spark_fallback_not_allowed() {
         assert!(!BaselineEngine::Spark.is_fallback_allowed());
@@ -2328,5 +2352,66 @@ mod tests {
         );
         assert!(report.side_effect_free());
         assert!(!report.performance_claim_allowed);
+    }
+
+    #[test]
+    fn benchmark_claim_evidence_blocks_external_rows_missing_required_metrics() {
+        let plan = ready_external_plan("encoded count", BenchmarkMetric::WallTimeMillis);
+        let scenario_name = plan.scenarios[0].name.clone();
+        let mut shardloom_result =
+            BenchmarkResult::new(scenario_name.clone(), BaselineEngine::ShardLoom)
+                .expect("shardloom result");
+        shardloom_result.add_metric(BenchmarkMetric::WallTimeMillis, MetricValue::U64(10));
+        let external_result =
+            BenchmarkResult::new(scenario_name, BaselineEngine::DuckDb).expect("external result");
+        let comparison = BenchmarkComparisonReport::from_plan_and_results(
+            &plan,
+            vec![shardloom_result, external_result],
+            BenchmarkEvidenceState::Present,
+        );
+        let manifest = BenchmarkRunManifest::from_plan(&plan);
+
+        let report = benchmark_claim_evidence_from_parts(
+            "external-missing-metric",
+            &plan,
+            &manifest,
+            &comparison,
+        );
+
+        assert_eq!(report.missing_external_result_count, 0);
+        assert_eq!(report.missing_metric_count, 1);
+        assert!(
+            report
+                .blocked_surface_order
+                .contains(&"external_comparison_results".to_string())
+        );
+    }
+
+    #[test]
+    fn benchmark_closeout_allowed_depends_on_closeout_blockers_only() {
+        let manifest_plan = ready_plan("encoded count", BenchmarkMetric::WallTimeMillis);
+        let comparison_plan = ready_plan("metadata count", BenchmarkMetric::WallTimeMillis);
+        let manifest = reproducible_manifest(&manifest_plan);
+        let comparison = ready_comparison(&comparison_plan, BenchmarkMetric::WallTimeMillis);
+
+        let report = benchmark_claim_evidence_from_parts(
+            "closeout-independent",
+            &manifest_plan,
+            &manifest,
+            &comparison,
+        );
+
+        assert!(
+            report
+                .claim_grade_source_backed_benchmark_closeout_blocker_order
+                .is_empty()
+        );
+        assert!(report.claim_grade_source_backed_benchmark_closeout_allowed);
+        assert!(!report.performance_claim_allowed);
+        assert!(
+            report
+                .blocked_surface_order
+                .contains(&"claim_publication_gate".to_string())
+        );
     }
 }

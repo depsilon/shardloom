@@ -273,7 +273,9 @@ class ShardLoomContext:
     ) -> ContextCapabilities:
         """Collect side-effect-free capability envelopes for common workflow scopes."""
 
-        selected_scopes = tuple(scopes or DEFAULT_CAPABILITY_SCOPES)
+        selected_scopes = (
+            tuple(DEFAULT_CAPABILITY_SCOPES) if scopes is None else tuple(scopes)
+        )
         views = {
             _normalize_scope_name(scope): self._capability_view(scope, check=check)
             for scope in selected_scopes

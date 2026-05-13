@@ -668,8 +668,10 @@ fn typed_envelope_ref_slot(key: &str) -> Option<(TypedEnvelopeRefSlot, &'static 
 
     if normalized.contains("native_io_certificate") {
         Some((TypedEnvelopeRefSlot::Certificate, "native_io_certificate"))
-    } else if normalized.contains("execution_certificate") {
+    } else if is_execution_certificate_ref_key(&normalized) {
         Some((TypedEnvelopeRefSlot::Certificate, "execution_certificate"))
+    } else if normalized.contains("execution_certificate") {
+        None
     } else if normalized.contains("certificate") {
         Some((TypedEnvelopeRefSlot::Certificate, "certificate"))
     } else if normalized.contains("evidence_artifact") {
@@ -698,6 +700,22 @@ fn typed_envelope_ref_slot(key: &str) -> Option<(TypedEnvelopeRefSlot, &'static 
     } else {
         None
     }
+}
+
+fn is_execution_certificate_ref_key(key: &str) -> bool {
+    [
+        "execution_certificate",
+        "local_primitive_execution_certificate",
+    ]
+    .iter()
+    .any(|stem| key_matches_certificate_ref_stem(key, stem))
+}
+
+fn key_matches_certificate_ref_stem(key: &str, stem: &str) -> bool {
+    let Some(prefix) = key.strip_suffix("_ref").or_else(|| key.strip_suffix("_id")) else {
+        return false;
+    };
+    prefix == stem || prefix.ends_with(&format!("_{stem}"))
 }
 
 fn is_reference_field_key(key: &str) -> bool {
@@ -848,6 +866,37 @@ mod tests {
                 "cert.execution.local".to_string()
             )]
         );
+    }
+
+    #[test]
+    fn execution_certificate_classifier_ignores_related_non_certificate_refs() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("test", "ok", "ok"),
+            "test",
+            vec![
+                (
+                    "execution_certificate_input_ref".to_string(),
+                    "inputs/local.vortex".to_string(),
+                ),
+                (
+                    "execution_certificate_output_ref".to_string(),
+                    "outputs/local.vortex".to_string(),
+                ),
+                (
+                    "local_primitive_execution_certificate_fixture_id".to_string(),
+                    "vortex-local-count-where-struct-five".to_string(),
+                ),
+                (
+                    "local_primitive_execution_certificate_id".to_string(),
+                    "execution.local.fixture".to_string(),
+                ),
+            ],
+        );
+
+        assert_eq!(envelope.certificates.len(), 1);
+        assert_eq!(envelope.certificates[0].id, "execution.local.fixture");
+        assert_eq!(envelope.certificates[0].kind, "execution_certificate");
+        assert_eq!(envelope.fields.len(), 4);
     }
 
     #[test]

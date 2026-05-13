@@ -391,6 +391,18 @@ mod tests {
             CommandFamily::VortexRuntimePlanning
         );
         assert_eq!(
+            classify_command("vortex-memory-plan"),
+            CommandFamily::VortexRuntimePlanning
+        );
+        assert_eq!(
+            classify_command("vortex-adaptive-sizing"),
+            CommandFamily::VortexRuntimePlanning
+        );
+        assert_eq!(
+            classify_command("vortex-schedule-plan"),
+            CommandFamily::VortexRuntimePlanning
+        );
+        assert_eq!(
             classify_command("vortex-output-payload-plan"),
             CommandFamily::VortexOutputCommit
         );
