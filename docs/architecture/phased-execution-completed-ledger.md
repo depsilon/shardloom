@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 benchmark taxonomy advanced fixture profiles bundle
+  - Primary files:
+    - `benchmarks/common/scenario_catalog.json`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: continue P7.4.4 by turning the remaining declared benchmark catalog profiles from
+    roadmap names into generated, runnable local fixture artifacts while preserving claim blockers.
+  - Checklist:
+    - [x] Add generator support for `many_small_files`, `few_large_files`, `schema_drift`,
+          `dirty_csv`, `nested_json`, and `cdc_delta_overlay`.
+    - [x] Emit sidecar fixtures for advanced profiles: split CSV/JSONL fact parts, malformed
+          timestamp/numeric fields, nested JSON payloads, and deterministic CDC delta overlays.
+    - [x] Add opt-in executable local scenario rows for partition pruning, many-small-files scan,
+          null-heavy aggregate, high-cardinality string group/distinct, top-N per group,
+          malformed timestamp cleanup, small-change-over-large-base, and nested JSON field scan.
+    - [x] Keep ShardLoom-native expanded-scenario support claim-blocked by reporting unsupported
+          rows for scenarios the native benchmark commands do not implement instead of invoking
+          fallback execution or crashing the harness.
+    - [x] Preserve benchmark taxonomy metadata, coverage-table rows, benchmark constitutions,
+          `external_baseline_only`, `external_engine_invoked`, and `fallback_attempted=false`
+          evidence on the expanded fixture rows.
+    - [x] Update README, benchmark README, benchmark catalog, phase plan, completed ledger, and
+          RFC traceability to separate generated local fixture coverage from comparative benchmark
+          promotion and claim-grade ShardLoom-native support.
+  - Validation:
+    - [x] `python -m py_compile benchmarks\traditional_analytics\run.py`
+    - [x] `python -m json.tool benchmarks\common\scenario_catalog.json > $null`
+    - [x] `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "many-small-files scan" --dataset-profile many_small_files --rows 64 --dim-rows 8 --iterations 1 --skip-shardloom-native --no-markdown --output target\codex-p744-fixtures-many-small.json --data-dir target\codex-p744-fixtures-many-small-data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats jsonl --scenario "many-small-files scan" --dataset-profile many_small_files --rows 32 --dim-rows 8 --iterations 1 --skip-shardloom-native --no-markdown --output target\codex-p744-fixtures-many-small-jsonl.json --data-dir target\codex-p744-fixtures-many-small-jsonl-data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "malformed timestamp / dirty CSV" --dataset-profile dirty_csv --rows 64 --dim-rows 8 --iterations 1 --skip-shardloom-native --no-markdown --output target\codex-p744-fixtures-dirty-rerun.json --data-dir target\codex-p744-fixtures-dirty-rerun-data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "small change over large base" --dataset-profile cdc_delta_overlay --rows 64 --dim-rows 8 --iterations 1 --skip-shardloom-native --no-markdown --output target\codex-p744-fixtures-cdc.json --data-dir target\codex-p744-fixtures-cdc-data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "nested JSON field scan" --dataset-profile nested_json --rows 64 --dim-rows 8 --iterations 1 --skip-shardloom-native --no-markdown --output target\codex-p744-fixtures-nested.json --data-dir target\codex-p744-fixtures-nested-data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "partition pruning" --dataset-profile partitioned_by_date --rows 64 --dim-rows 8 --iterations 1 --skip-shardloom-native --no-markdown --output target\codex-p744-fixtures-partition.json --data-dir target\codex-p744-fixtures-partition-data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "null-heavy aggregate" --dataset-profile null_heavy --rows 64 --dim-rows 8 --iterations 1 --skip-shardloom-native --no-markdown --output target\codex-p744-fixtures-null.json --data-dir target\codex-p744-fixtures-null-data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "high-cardinality string group/distinct" --dataset-profile high_cardinality_strings --rows 64 --dim-rows 8 --iterations 1 --skip-shardloom-native --no-markdown --output target\codex-p744-fixtures-high-card.json --data-dir target\codex-p744-fixtures-high-card-data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "top-N per group" --dataset-profile narrow_fact_dim --rows 64 --dim-rows 8 --iterations 1 --skip-shardloom-native --no-markdown --output target\codex-p744-fixtures-topn.json --data-dir target\codex-p744-fixtures-topn-data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "top-N per group" --dataset-profile tiny_smoke --rows 16 --dim-rows 4 --iterations 1 --skip-shardloom-native --no-markdown --shardloom-build-profile debug --output target\codex-p744-fixtures-shardloom-unsupported.json --data-dir target\codex-p744-fixtures-shardloom-unsupported-data --regenerate`
+  - Runtime stance: local benchmark fixture generation and local baseline execution only. This does
+    not add native ShardLoom support for the expanded scenarios, write-path benchmark claims,
+    incremental-state certification, comparative performance claims, external engine invocation, or
+    fallback execution.
+
 - [x] Session label: P7.4.4 benchmark taxonomy and source-backed measured-row smoke bundle
   - Primary files:
     - `benchmarks/common/scenario_catalog.json`

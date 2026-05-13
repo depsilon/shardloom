@@ -75,6 +75,14 @@ The opt-in taxonomy-expanded local analytics scenarios are available with
 - `multi-key group by`
 - `join + aggregate`
 - `row number window`
+- `partition pruning`
+- `many-small-files scan`
+- `null-heavy aggregate`
+- `high-cardinality string group/distinct`
+- `top-N per group`
+- `malformed timestamp / dirty CSV`
+- `small change over large base`
+- `nested JSON field scan`
 
 An opt-in stress lane is available with `--include-stress`:
 
@@ -142,10 +150,13 @@ precision used by the deterministic dataset.
 
 The generated dataset profile defaults to `narrow_fact_dim`. The runnable harness currently
 supports `tiny_smoke`, `narrow_fact_dim`, `skewed_keys`, `high_cardinality_strings`, `wide_table`,
-`very_wide_table`, `null_heavy`, `partitioned_by_date`, `poorly_clustered`, and
-`well_clustered`; additional profiles such as `many_small_files`, `few_large_files`,
-`schema_drift`, `dirty_csv`, `nested_json`, and `cdc_delta_overlay` remain declared in the catalog
-until their fixture generation and engine-specific behavior are implemented.
+`very_wide_table`, `null_heavy`, `many_small_files`, `few_large_files`, `partitioned_by_date`,
+`poorly_clustered`, `well_clustered`, `schema_drift`, `dirty_csv`, `nested_json`, and
+`cdc_delta_overlay`. Advanced profiles emit local fixture sidecars where needed: split CSV/JSONL
+fact parts, malformed timestamp/numeric columns, nested JSON payloads, and deterministic CDC
+overlay rows. Engines that have not implemented a scenario now record an unsupported coverage row
+instead of aborting the run; these fixture rows remain claim-blocked until ShardLoom-native support
+and comparative reruns are promoted.
 
 ShardLoom traditional analytics rows call the workspace-local native Rust
 command `shardloom traditional-analytics-run`. Build time is excluded from
@@ -268,6 +279,12 @@ Run with a skewed local dataset profile:
 
 ```powershell
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --dataset-profile skewed_keys --include-taxonomy-extra --rows 100000 --iterations 3
+```
+
+Run a specific advanced fixture profile:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "many-small-files scan" --dataset-profile many_small_files --rows 100000 --iterations 1
 ```
 
 Artifacts are written to `benchmarks/traditional_analytics/results/` by default.

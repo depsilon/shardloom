@@ -99,8 +99,9 @@ Implemented or actively wired surfaces include:
   preview/display diagnostics
 - local traditional-analytics benchmark harness support with a machine-readable scenario catalog,
   taxonomy metadata, benchmark constitution fields, executable generated profiles for wide,
-  very-wide, null-heavy, date-partitioned, clustered, and skewed local data shapes, and
-  support/coverage output separate from timing rows
+  very-wide, null-heavy, many/few file-shape, date-partitioned, clustered, schema-drift, dirty CSV,
+  nested JSON, CDC overlay, and skewed local data shapes, plus support/coverage output separate from
+  timing rows
 - source-backed benchmark matrix smoke measurement for eligible prepared, source-bound, and
   reader-backed constant/dictionary/run-end encoded filter/projection/filter-project rows, with
   provider refs, certificate refs, Native I/O refs, representation transitions, reproducibility
@@ -120,7 +121,8 @@ Still planned or gated:
 - claim-grade compute-engine completion: source-backed measured rows beyond fixture-smoke evidence,
   sink/write/replay proof, local scheduler and memory/spill maturity, Vortex layout/write advisor
   feedback, and a workload-certified compute workflow
-- full comparative benchmark reruns and claim-grade source-backed benchmark promotion
+- full comparative benchmark reruns, ShardLoom-native support for the expanded taxonomy scenarios,
+  write/incremental benchmark promotion, and claim-grade source-backed benchmark promotion
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
 - Foundry proof-of-use certification that preserves Foundry as an optional integration boundary
 - any external engine execution as ShardLoom fallback

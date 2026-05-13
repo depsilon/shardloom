@@ -99,7 +99,7 @@
       "default": true,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "wide_table", "very_wide_table", "null_heavy", "partitioned_by_date"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "wide_table", "very_wide_table", "null_heavy", "many_small_files", "few_large_files", "partitioned_by_date", "schema_drift", "dirty_csv", "nested_json", "cdc_delta_overlay"],
       "description": "Project a subset of columns from the fact table."
     },
     {
@@ -180,6 +180,61 @@
       "description": "Rank rows within each group and return the top row per group."
     },
     {
+      "id": "partition_pruning",
+      "name": "partition pruning",
+      "suite": "layout_and_pruning",
+      "category": "scan_and_pruning",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["partitioned_by_date", "well_clustered", "poorly_clustered"],
+      "description": "Filter rows by generated event_date partition fields and record local coverage before native pruning claims."
+    },
+    {
+      "id": "many_small_files_scan",
+      "name": "many-small-files scan",
+      "suite": "local_analytics",
+      "category": "scan_and_pruning",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["many_small_files", "few_large_files"],
+      "description": "Read deterministic split fact-file fixtures to expose file-count-sensitive scan behavior."
+    },
+    {
+      "id": "null_heavy_aggregate",
+      "name": "null-heavy aggregate",
+      "suite": "local_analytics",
+      "category": "aggregation",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["null_heavy"],
+      "description": "Aggregate nullable generated metric columns while preserving null-heavy coverage metadata."
+    },
+    {
+      "id": "high_cardinality_string_group_distinct",
+      "name": "high-cardinality string group/distinct",
+      "suite": "local_analytics",
+      "category": "aggregation",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["high_cardinality_strings"],
+      "description": "Group and count distinct high-cardinality string categories."
+    },
+    {
+      "id": "top_n_per_group",
+      "name": "top-N per group",
+      "suite": "local_analytics",
+      "category": "sort_and_window",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys", "null_heavy", "well_clustered", "poorly_clustered"],
+      "description": "Rank and return the top rows inside each generated group."
+    },
+    {
       "id": "scale_stress_skewed_join_aggregation",
       "name": "scale stress skewed join aggregation",
       "suite": "stress",
@@ -219,9 +274,9 @@
       "category": "messy_lakehouse_data",
       "default": false,
       "stress": false,
-      "executable": false,
+      "executable": true,
       "dataset_profiles": ["dirty_csv"],
-      "description": "Future messy-data diagnostics scenario; declared in the catalog but not yet executed by the local runner."
+      "description": "Parse deterministic malformed timestamp and numeric fixture columns, counting valid rows without promoting write-path support."
     },
     {
       "id": "small_change_over_large_base",
@@ -230,9 +285,20 @@
       "category": "incremental_state",
       "default": false,
       "stress": false,
-      "executable": false,
+      "executable": true,
       "dataset_profiles": ["cdc_delta_overlay"],
-      "description": "Future incremental/state scenario; declared in the catalog but not yet executed by the local runner."
+      "description": "Apply a deterministic small CDC overlay to a generated local base table for incremental fixture coverage."
+    },
+    {
+      "id": "nested_json_field_scan",
+      "name": "nested JSON field scan",
+      "suite": "etl_workflows",
+      "category": "messy_lakehouse_data",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["nested_json"],
+      "description": "Read generated nested JSON payload fields from local fixture rows and summarize nested metrics."
     }
   ]
 }
