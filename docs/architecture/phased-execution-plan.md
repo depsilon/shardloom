@@ -359,6 +359,80 @@ from the merged code and tests.
     certified local path without relying on unpublished assumptions or hidden local state.
   - Slice rule: package/release PRs must include an install or proof artifact. Documentation-only
     edits are acceptable only when they are tied to runnable smoke commands or release gate fixtures.
+  - [ ] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle.
+    - Outcome: make ShardLoom's security posture release-ready enough that P8.1/P8.2/P8.4 can build
+      on a clear threat model, vulnerability process, dependency-audit policy, artifact provenance
+      plan, and malicious-input safety tests.
+    - Runtime rule: this bundle may add docs, tests, audit tooling, workflow hardening, and release
+      gates. It must not publish packages, create tags, add secrets, add external fallback engines,
+      start REST servers, add object-store runtime, or weaken no-fallback policy.
+    - [x] P8.0A security RFC and threat model.
+      - User-visible surface: RFC 0043 and `docs/security/threat-model.md`.
+      - Completed proof: RFC 0043 defines SEC-0 through SEC-9, threat boundaries for malicious
+        files/artifacts/compatibility inputs/path traversal/resource exhaustion/credential leakage/
+        poisoned benchmarks/compromised CI or publishing, required security evidence reports, and
+        release blockers. The threat-model doc maps threats to evidence, tests, and release blockers.
+      - Verification: release-readiness metadata contract tests reference RFC 0043 from phase
+        traceability and require the threat-model report vocabulary.
+    - [x] P8.0B vulnerability disclosure and incident response.
+      - User-visible surface: expanded `SECURITY.md` and
+        `docs/security/supply-chain-response.md`.
+      - Completed proof: `SECURITY.md` now covers supported versions, reporting channel, private
+        advisory guidance, acknowledgement/triage targets, severity categories, advisory/CVE
+        policy, disclosure policy, security release policy, user notification policy, and
+        compromised package/dependency response. The response doc covers freeze/revoke/verify/yank/
+        advisory/rebuild/rotate behavior for dependency, package, registry, CI, release, and
+        maintainer-account compromise.
+      - Verification: security policy contract tests require incident response fields and
+        no-fallback security language.
+    - [ ] P8.0C dependency, license, and advisory gate hardening.
+      - User-visible surface: hardened dependency audit report and release gate.
+      - Acceptance: `cargo deny check licenses advisories bans sources` is a hard release gate;
+        `cargo audit` passes or has an explicit maintainer waiver; packaging/dev `pip-audit` runs
+        where applicable; unknown git/registry sources and yanked crates remain denied; runtime
+        package dependency audit proves no fallback-engine dependencies; benchmark-only
+        dependencies remain separated from runtime dependencies.
+      - Verification: `python scripts/check_dependency_audit.py --strict-missing`, `cargo deny
+        check licenses advisories bans sources`, `cargo audit`, and Python packaging audit where
+        available.
+    - [ ] P8.0D runtime exploit and malicious-input regression suite.
+      - User-visible surface: deterministic security regression tests.
+      - Acceptance: tests cover path traversal rejection, unsafe symlink/hardlink workspace writes
+        or deterministic blockers, malformed Vortex/local compatibility inputs, invalid UTF-8 or
+        malformed text inputs where supported, oversized/deeply nested inputs where supported,
+        credential-like redaction in diagnostics/evidence, no external engine invocation,
+        `fallback_attempted=false`, and no panic for unsupported/malicious inputs.
+      - Verification: dedicated Rust contract tests, CLI malicious-input fixtures, and Python client
+        diagnostic preservation tests where applicable.
+    - [ ] P8.0E release provenance, SBOM, checksum, and workflow hardening.
+      - User-visible surface: release provenance dry-run report and hardened publish workflow
+        posture.
+      - Acceptance: SBOM generation produces Rust workspace, Python artifact, and CLI binary SBOMs;
+        checksum manifest is generated; artifact attestation/provenance generation is documented
+        and dry-run where supported; PyPI Trusted Publisher workflow remains tokenless/protected;
+        publishing workflow is manual/protected and cannot run accidentally; workflows use
+        least-privilege permissions; third-party publish actions are pinned to SHAs before real
+        publication or explicitly waived; protected branch/tag/environment requirements are
+        documented.
+      - Verification: release dry-run proof, SBOM files under `target/`, checksum manifest,
+        workflow policy snapshot.
+    - [ ] P8.0F open-source security posture checks.
+      - User-visible surface: Scorecard/CodeQL/Dependabot posture.
+      - Acceptance: CodeQL or equivalent SAST workflow exists or is documented as manually run
+        before release; OpenSSF Scorecard workflow or manual command exists; Dependabot or Renovate
+        config exists for Cargo, Python, and GitHub Actions where practical; GitHub secret scanning/
+        push protection settings are documented for maintainers; branch protection and required
+        checks are documented for release branches/tags.
+      - Verification: workflow syntax tests where feasible, Scorecard manual command documented,
+        Dependabot config parsed by GitHub.
+    - [ ] P8.0G security evidence integration into hard release gate.
+      - User-visible surface: P8.4 release gate includes security evidence.
+      - Acceptance: P8.4 blocks if threat model, `SECURITY.md`, dependency audit, SBOM, checksum,
+        provenance, malicious-input tests, workflow-hardening checks, and known unsupported paths
+        are missing. Release readiness report emits `SecurityThreatModelReport`,
+        `DependencyAuditReport`, `SupplyChainReleaseEvidence`, and `RuntimeInputSafetyReport` refs
+        where available. Public claims cannot pass release readiness without security gates.
+      - Verification: release gate snapshot tests and negative tests for missing security evidence.
   - [x] P8.1 release identity, packaging contract, and artifact integrity bundle.
     - User-visible surface: public release identity and versioning policy for PyPI `shardloom`,
       conda-forge `shardloom-cli`, `shardloom-python`, `shardloom` metapackage, GitHub Release

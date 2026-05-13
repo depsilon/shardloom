@@ -16,6 +16,35 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P8.0A/P8.0B security RFC, threat model, and incident-response bundle
+  - Primary files:
+    - `docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md`
+    - `docs/security/threat-model.md`
+    - `docs/security/supply-chain-response.md`
+    - `SECURITY.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: add the security, vulnerability, exploit, and supply-chain RFC as the P8.0 release
+    security contract, add the initial threat-model and supply-chain response docs, and expand the
+    public security policy.
+  - Checklist:
+    - [x] Add RFC 0043 because RFC 0041 and RFC 0042 are already allocated.
+    - [x] Define SEC-0 through SEC-9, required security evidence reports, malicious input/path/
+          credential/supply-chain requirements, package compromise response, and release blockers.
+    - [x] Add `docs/security/threat-model.md` mapping threat classes to required evidence, tests,
+          and release blockers.
+    - [x] Expand `SECURITY.md` with supported versions, reporting channel, private advisory
+          guidance, triage targets, severity categories, advisory/CVE policy, disclosure policy,
+          security release policy, user notification policy, and compromise response.
+    - [x] Add `docs/security/supply-chain-response.md` with freeze/revoke/verify/yank/advisory/
+          rebuild/rotate response steps for dependency, package, registry, CI, release, and
+          maintainer-account compromise.
+    - [x] Add contract tests for RFC/phase traceability, security policy fields, threat-model
+          report vocabulary, supply-chain response, and no-fallback security language.
+  - Runtime stance: docs and contract tests only. No packages, tags, secrets, runtime dependencies,
+    external engines, REST server, object-store runtime, or fallback execution were added.
+
 - [x] Session label: P8.3 external examples and baseline boundary bundle
   - Primary files:
     - `examples/local-python-smoke/`
