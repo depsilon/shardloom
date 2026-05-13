@@ -481,6 +481,9 @@ print(result.field("combined_output_digest"))
 print(result.field("output_replay_native_io_certificate_status"))
 print(result.field("computed_result_sink_replay_verified"))
 print(result.field("computed_result_sink_native_io_certificate_status"))
+print(result.field("runtime_task_graph_executed"))
+print(result.field("runtime_execution_certificate_status"))
+print(result.field("runtime_memory_reservations_released"))
 print(result.fallback.attempted)
 ```
 
@@ -503,6 +506,14 @@ checks the stored result JSON and materialized-row count, and returns result-sin
 digest, schema, replay, Native I/O certificate, and write-timing fields. A
 workflow is reported as `workload_certified` only when source replay and computed
 result-sink replay both pass.
+
+The same response now includes local runtime closeout fields for the certified
+workflow: deterministic task-graph scheduler refs, bounded queue/backpressure
+status, cancellation and retry gate status, memory reservation/request/grant/
+release counts, fail-before-OOM status, operator spill claim blockers, and the
+runtime execution certificate status. These fields remain workload-scoped
+evidence for `local_vortex_analytics_v1`, not broad SQL/DataFrame runtime
+claims.
 
 For the current compatibility-file universal-I/O path, use the replay helper
 when you want to see both parts separately: boundary import into Vortex, then

@@ -112,7 +112,10 @@ request count, and a correctness digest. ShardLoom rows also retain the emitted
 native I/O evidence fields for per-path certificate id/status, source
 capability, pushdown, sink requirement, adapter fidelity, materialization
 boundary, decode, materialization, row reads, Arrow conversion, writes, spill,
-auto-derived resource sizing, and NativeIoCertificate status.
+auto-derived resource sizing, NativeIoCertificate status, local runtime task
+graph/scheduler refs, bounded queue/backpressure status, memory reservation
+request/grant/release counts, retry/cancellation gate status, operator spill
+blockers, and runtime execution certificate status.
 
 ShardLoom's reported benchmark version appends `-dirty` when the workspace has
 uncommitted tracked changes, so local bring-up reports do not look like clean
@@ -178,10 +181,15 @@ commit/cleanup status, and no-fallback policy fields. Add
 `--write-result-vortex` to write the computed result envelope as `result.vortex`,
 re-open it, compare the stored result JSON and materialized-row count, and emit
 result-sink digest/schema/replay/certificate fields plus
-`scenario_compute_micros` and `computed_result_sink_write_micros`. The harness
-option `--shardloom-result-sink` enables both replay and result-sink proof for
-ShardLoom rows; default benchmark timings stay focused on the normal harness path
-unless the caller opts into certification evidence.
+`scenario_compute_micros` and `computed_result_sink_write_micros`. The same
+workflow emits P7.4.6 local scheduler/runtime evidence: deterministic task graph
+refs, scheduled/completed task counts, bounded queue/backpressure fields,
+retry/cancellation gate status, memory reservation release counts,
+fail-before-OOM status, operator spill claim blockers, and a runtime execution
+certificate. The harness option `--shardloom-result-sink` enables replay,
+result-sink proof, and certified runtime evidence for ShardLoom rows; default
+benchmark timings stay focused on the normal harness path unless the caller opts
+into certification evidence.
 
 ShardLoom native Vortex rows call `shardloom traditional-analytics-vortex-run`
 against `.vortex` files produced before scenario timing. This separates native

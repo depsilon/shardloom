@@ -1131,6 +1131,13 @@ def shardloom_runner() -> EngineRunner:
             "materialization_boundary_report_emitted",
             "native_io_per_path_certificate_emitted",
             "native_io_materializing_transitions_have_boundaries",
+            "runtime_task_graph_created",
+            "runtime_task_graph_executed",
+            "runtime_queue_limit_enforced",
+            "runtime_backpressure_bounded",
+            "runtime_cancellation_testable",
+            "runtime_retry_testable",
+            "runtime_fail_before_oom_enforced",
         ]
         missing_evidence = [
             field for field in required_true_fields if fields.get(field) != "true"
@@ -1166,6 +1173,23 @@ def shardloom_runner() -> EngineRunner:
                             "computed_result_sink_native_io_certificate_status", "missing"
                         )
                     )
+                )
+            if fields.get("runtime_execution_certificate_status") != "certified":
+                raise RuntimeError(
+                    "ShardLoom runtime execution certificate was not certified: "
+                    + str(fields.get("runtime_execution_certificate_status", "missing"))
+                )
+            if fields.get("runtime_fallback_attempted") != "false":
+                raise RuntimeError("ShardLoom runtime fallback_attempted was not false")
+            if fields.get("runtime_external_query_engine_invoked") != "false":
+                raise RuntimeError(
+                    "ShardLoom runtime external query engine invocation was not false"
+                )
+            if fields.get("runtime_memory_reservations_requested") != fields.get(
+                "runtime_memory_reservations_released"
+            ):
+                raise RuntimeError(
+                    "ShardLoom runtime memory reservations were not released"
                 )
         if (
             fields.get("native_io_certificate_path_id")
@@ -2964,7 +2988,7 @@ def benchmark_constitution(
         "conversion_included": engine == "shardloom" and data_format != SHARDLOOM_VORTEX_FORMAT,
         "staging_included": engine.startswith("shardloom"),
         "result_delivery_included": True,
-        "write_included": False,
+        "write_included": engine == "shardloom" and SHARDLOOM_RESULT_SINK,
         "cache_mode": cache_mode,
         "iterations": result["iterations"],
         "warmup_policy": "engine startup/warmup recorded separately",
