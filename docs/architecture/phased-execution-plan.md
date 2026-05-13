@@ -147,28 +147,6 @@ threads. Before release readiness, re-query PR #360 and up, classify each still-
 as fixed, stale, intentionally deferred, or still actionable, and resolve/comment only with evidence
 from the merged code and tests.
 
-- [ ] Audit-F9 / CG-21 RFC 0033 workflow API parity sweep.
-  - Source findings: RFC 0033 still names workflow/API affordances that are not covered by P7.0:
-    `from_pandas`, Arrow table/IPC import/export boundaries, NumPy/Python-object materialization
-    boundaries, named schema/data-quality methods, quarantine behavior, and notebook preview/display
-    boundaries.
-  - Required fixes: add report-only unsupported diagnostics plus CLI/Python/capability parity for
-    the missing RFC 0033 workflow methods and materialization boundaries, with stable blocker IDs,
-    required evidence, next actions, and no read/write/runtime/fallback effects.
-  - Verification: workflow unsupported snapshots, Python query/client/context tests, capability
-    discovery parity snapshots, typed-envelope compatibility coverage, and no-effect smoke checks.
-- [ ] Audit-F10 / RFC 0036 Foundry unstructured boundary traceability repair.
-  - Source findings: RFC 0036 names exact Foundry unstructured surfaces such as
-    `FoundryVirtualMediaSetSource`, `FoundryMediaExtractionBoundaryReport`,
-    `FoundryModelCallBoundaryReport`, `FoundryEmbeddingBoundaryReport`,
-    `FoundryAipLogicBoundaryReport`, and `FoundryUnstructuredWorkflowCertificate`, while P9.4/P9.5
-    only track broader media/model/AIP wording and core already has related report-only posture in
-    `unstructured_workflow.rs`.
-  - Required fixes: inventory existing pre-P9 Foundry unstructured posture code and update P9.4/P9.5
-    or an explicit pre-P9 boundary subsection with the exact RFC/core surface names, preserving
-    report-only, no-effect, and no-fallback status.
-  - Verification: traceability/doc checks plus any existing unstructured workflow boundary tests
-    needed to prove the names map to current report-only code.
 - [ ] Priority 7 - CG-21/CG-22/CG-23 integrated certification closeout
   - Outcome: prove that workflow UX, engine-mode evidence, and remote/API posture agree across CLI,
     Python, and API contracts before any broader support claim is made.
@@ -268,8 +246,10 @@ from the merged code and tests.
   - [ ] P9.4 virtual table, S3/Iceberg/media, and external-compute boundary bundle.
     - User-visible surface: `FoundryS3DatasetAdapter`, `FoundryVirtualTableSource`,
       `FoundryVirtualTableSink`, `FoundryVirtualTableRef`, `FoundryExternalComputeBoundaryReport`,
-      `FoundryIcebergTableSource`, `FoundryIcebergTableSink`, `FoundryMediaSetSource`, and
-      `FoundryMediaSetSink`.
+      `FoundryIcebergTableSource`, `FoundryIcebergTableSink`, `FoundryMediaSetSource`,
+      `FoundryVirtualMediaSetSource`, `FoundryMediaSetSink`,
+      `FoundryMediaExtractionBoundaryReport`, `FoundryModelCallBoundaryReport`, and
+      `FoundryEmbeddingBoundaryReport`.
     - Acceptance: S3-compatible dataset access records dataset RID, branch, object key, range-read
       support, multipart/write posture, bytes/request counts, credential mode, and Native I/O
       certificates. Virtual tables for Snowflake, Databricks, BigQuery, S3, ADLS, GCS, Iceberg, and
@@ -283,8 +263,9 @@ from the merged code and tests.
       credential-mode fixtures, media no-silent-model-call tests, and no-fallback policy checks.
   - [ ] P9.5 ontology/functions/model, Compute Module/BYOC, marketplace, and benchmark bundle.
     - User-visible surface: `FoundryOntologyMappingReport`, `FoundryFunctionSurface`,
-      `FoundryAipLogicBridge`, `FoundryModelBoundaryReport`, `FoundryScenarioBoundaryReport`,
-      `FoundryByocImageReport`, `FoundryComputeModuleSurface`,
+      `FoundryAipLogicBridge`, `FoundryAipLogicBoundaryReport`,
+      `FoundryModelBoundaryReport`, `FoundryUnstructuredWorkflowCertificate`,
+      `FoundryScenarioBoundaryReport`, `FoundryByocImageReport`, `FoundryComputeModuleSurface`,
       `FoundryComputeModuleReadinessReport`, `FoundryMarketplaceStarterProduct`, and Foundry
       benchmark schema.
     - Acceptance: Compute Modules remain blocked until CG-23 API/security/package evidence exists;

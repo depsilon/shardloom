@@ -93,11 +93,34 @@ fn certify_surfaces_json_remain_report_only_for_lazy_workflows() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     let collect = run_command_json(
         &[
             "workflow-unsupported-plan",
             "collect",
+            "read_csv(events.csv)",
+            "none",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let from_pandas = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "from-pandas",
+            "read_pandas(pandas:DataFrame)",
+            "pandas:DataFrame",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let to_numpy = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "to-numpy",
             "read_csv(events.csv)",
             "none",
             "--format",
@@ -127,8 +150,38 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         ],
         false,
     );
+    let schema = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "describe-schema",
+            "read_csv(events.csv)",
+            "none",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let preview = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "preview",
+            "read_vortex(orders.vortex)",
+            "20",
+            "--format",
+            "json",
+        ],
+        false,
+    );
 
-    for output in [&collect, &write, &sql] {
+    for output in [
+        &collect,
+        &from_pandas,
+        &to_numpy,
+        &write,
+        &sql,
+        &schema,
+        &preview,
+    ] {
         assert!(output.contains("\"command\":\"workflow-unsupported-plan\""));
         assert!(output.contains("\"status\":\"unsupported\""));
         assert!(output.contains(&field("mode", "workflow_unsupported_plan")));
@@ -162,6 +215,17 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     )));
     assert!(collect.contains(&field("materialization_required", "true")));
     assert!(collect.contains(&field("write_required", "false")));
+    assert!(from_pandas.contains(&field("workflow_operation", "from_pandas")));
+    assert!(from_pandas.contains(&field(
+        "blocker_id",
+        "cg21.workflow.from_pandas.materialized_input_unsupported"
+    )));
+    assert!(from_pandas.contains(&field("runtime_required", "false")));
+    assert!(to_numpy.contains(&field("workflow_operation", "to_numpy")));
+    assert!(to_numpy.contains(&field(
+        "blocker_id",
+        "cg21.workflow.to_numpy.python_array_unsupported"
+    )));
     assert!(write.contains(&field("workflow_operation", "write_parquet")));
     assert!(write.contains(&field(
         "blocker_id",
@@ -174,4 +238,16 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         "cg21.workflow.sql.frontend_unsupported"
     )));
     assert!(sql.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
+    assert!(schema.contains(&field("workflow_operation", "describe_schema")));
+    assert!(schema.contains(&field(
+        "blocker_id",
+        "cg21.workflow.describe_schema.report_unsupported"
+    )));
+    assert!(schema.contains(&field("runtime_required", "false")));
+    assert!(preview.contains(&field("workflow_operation", "preview")));
+    assert!(preview.contains(&field(
+        "blocker_id",
+        "cg21.workflow.preview.materialization_unsupported"
+    )));
+    assert!(preview.contains(&field("target_ref", "20")));
 }

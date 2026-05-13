@@ -251,21 +251,42 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 workflow_summary = parts[2]
                 target_ref = parts[3] if len(parts) == 4 else "none"
                 canonical = {
+                    "from-pandas": "from_pandas",
+                    "from-arrow-table": "from_arrow_table",
+                    "from-arrow-ipc": "from_arrow_ipc",
                     "to-pandas": "to_pandas",
                     "to-arrow": "to_arrow",
+                    "to-arrow-table": "to_arrow_table",
+                    "to-arrow-ipc": "to_arrow_ipc",
+                    "to-numpy": "to_numpy",
+                    "to-python-objects": "to_python_objects",
                     "write-vortex": "write_vortex",
                     "write-parquet": "write_parquet",
                     "schema-contract": "schema_contract",
+                    "describe-schema": "describe_schema",
+                    "validate-schema": "validate_schema",
                     "data-quality": "data_quality",
+                    "data-quality-summary": "data_quality_summary",
                 }.get(operation, operation)
-                write_required = operation.startswith("write-")
+                write_required = operation.startswith("write-") or operation == "quarantine"
                 materialization_required = operation in {
-                    "collect", "to-pandas", "to-arrow", "write-vortex", "write-parquet"
+                    "collect", "from-pandas", "from-arrow-table", "from-arrow-ipc",
+                    "to-pandas", "to-arrow", "to-arrow-table", "to-arrow-ipc",
+                    "to-numpy", "to-python-objects", "write-vortex", "write-parquet",
+                    "quarantine", "preview", "display",
                 }
-                runtime_required = operation not in {"schema-contract", "data-quality"}
+                runtime_required = operation not in {
+                    "from-pandas", "from-arrow-table", "from-arrow-ipc",
+                    "schema-contract", "schema", "describe-schema", "validate-schema",
+                    "data-quality",
+                }
                 code = (
                     "SL_UNSUPPORTED_SQL"
                     if operation in {"sql", "join", "aggregate", "window"}
+                    else "SL_UNSUPPORTED_EFFECT"
+                    if operation == "quarantine"
+                    else "SL_MATERIALIZATION_REQUIRED"
+                    if materialization_required
                     else "SL_NOT_IMPLEMENTED"
                 )
                 print(json.dumps({
@@ -316,8 +337,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         reports = (
             workflow.profile(),
             workflow.collect(),
+            sl.from_pandas(object(), client=ShardLoomClient(binary=binary)),
+            sl.from_arrow_table(object(), client=ShardLoomClient(binary=binary)),
+            sl.from_arrow_ipc("events.arrow", client=ShardLoomClient(binary=binary)),
             workflow.to_pandas(),
             workflow.to_arrow(),
+            workflow.to_arrow_table(),
+            workflow.to_arrow_ipc(),
+            workflow.to_numpy(),
+            workflow.to_python_objects(),
             workflow.write_vortex("out.vortex"),
             workflow.write_parquet("out.parquet"),
             workflow.sql("select * from events"),
@@ -325,18 +353,28 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.aggregate("sum(amount)"),
             workflow.window("row_number() over (partition by id)"),
             workflow.schema_contract({"id": "int64"}),
+            workflow.schema(),
+            workflow.describe_schema(),
+            workflow.validate_schema({"id": "int64"}),
             workflow.data_quality_check("not_null:id"),
+            workflow.data_quality_summary(),
+            workflow.quarantine("bad.vortex"),
+            workflow.preview(limit=5),
+            workflow.display(),
         )
 
-        self.assertEqual(len(reports), 12)
+        self.assertEqual(len(reports), 26)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
             self.assertTrue(report.blocker_id and report.blocker_id.startswith("cg21.workflow."))
-            self.assertEqual(
-                report.envelope.field("workflow_summary"),
-                "read_csv(events.csv) -> filter(id > 0) -> select(id,amount)",
-            )
+            if report.operation in {"from-pandas", "from-arrow-table", "from-arrow-ipc"}:
+                self.assertTrue(report.envelope.field("workflow_summary", "").startswith("read_"))
+            else:
+                self.assertEqual(
+                    report.envelope.field("workflow_summary"),
+                    "read_csv(events.csv) -> filter(id > 0) -> select(id,amount)",
+                )
             self.assertEqual(
                 report.required_evidence,
                 ("execution_certificate", "native_io_certificate"),
@@ -349,12 +387,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             self.assertFalse(report.runtime_execution)
             self.assertFalse(report.data_read)
             self.assertFalse(report.write_io)
-        self.assertEqual(reports[4].envelope.field("target_ref"), "out.vortex")
-        self.assertTrue(reports[4].envelope.field_bool("write_required"))
-        self.assertEqual(reports[6].envelope.field("target_ref"), "select * from events")
-        self.assertEqual(reports[9].envelope.field("workflow_operation"), "window")
-        self.assertFalse(reports[10].envelope.field_bool("runtime_required"))
-        self.assertFalse(reports[11].envelope.field_bool("runtime_required"))
+        self.assertEqual(reports[11].envelope.field("target_ref"), "out.vortex")
+        self.assertTrue(reports[11].envelope.field_bool("write_required"))
+        self.assertEqual(reports[13].envelope.field("target_ref"), "select * from events")
+        self.assertEqual(reports[16].envelope.field("workflow_operation"), "window")
+        self.assertFalse(reports[17].envelope.field_bool("runtime_required"))
+        self.assertFalse(reports[18].envelope.field_bool("runtime_required"))
+        self.assertFalse(reports[19].envelope.field_bool("runtime_required"))
+        self.assertFalse(reports[20].envelope.field_bool("runtime_required"))
+        self.assertFalse(reports[21].envelope.field_bool("runtime_required"))
+        self.assertEqual(reports[23].envelope.field("target_ref"), "bad.vortex")
+        self.assertTrue(reports[23].envelope.field_bool("write_required"))
+        self.assertTrue(reports[24].envelope.field_bool("materialization_required"))
+        self.assertEqual(reports[25].envelope.field("workflow_operation"), "display")
 
     def test_engine_capability_matrix_view_exposes_blocked_live_hybrid_claims(self) -> None:
         binary = self.fake_cli(

@@ -684,8 +684,17 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
     match normalized.as_str() {
         "profile" => Some(workflow_unsupported_profile()),
         "collect" => Some(workflow_unsupported_collect()),
+        "from-pandas" => Some(workflow_unsupported_from_pandas()),
+        "from-arrow-table" => Some(workflow_unsupported_from_arrow_table()),
+        "from-arrow-ipc" => Some(workflow_unsupported_from_arrow_ipc()),
         "to-pandas" => Some(workflow_unsupported_to_pandas()),
         "to-arrow" => Some(workflow_unsupported_to_arrow()),
+        "to-arrow-table" => Some(workflow_unsupported_to_arrow_table()),
+        "to-arrow-ipc" => Some(workflow_unsupported_to_arrow_ipc()),
+        "to-numpy" => Some(workflow_unsupported_to_numpy()),
+        "to-python-objects" | "to-py" | "to-pylist" => {
+            Some(workflow_unsupported_to_python_objects())
+        }
         "write-vortex" => Some(workflow_unsupported_write_vortex()),
         "write-parquet" => Some(workflow_unsupported_write_parquet()),
         "sql" => Some(workflow_unsupported_sql()),
@@ -694,10 +703,19 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
             Some(workflow_unsupported_aggregate())
         }
         "window" | "windows" => Some(workflow_unsupported_window()),
-        "schema-contract" | "schema" => Some(workflow_unsupported_schema_contract()),
+        "schema-contract" => Some(workflow_unsupported_schema_contract()),
+        "schema" | "schema-discovery" => Some(workflow_unsupported_schema_discovery()),
+        "describe-schema" => Some(workflow_unsupported_describe_schema()),
+        "validate-schema" => Some(workflow_unsupported_validate_schema()),
         "data-quality" | "data-quality-check" | "quality" => {
             Some(workflow_unsupported_data_quality())
         }
+        "data-quality-summary" | "quality-summary" => {
+            Some(workflow_unsupported_data_quality_summary())
+        }
+        "quarantine" => Some(workflow_unsupported_quarantine()),
+        "preview" => Some(workflow_unsupported_preview()),
+        "display" | "notebook-display" => Some(workflow_unsupported_display()),
         _ => None,
     }
 }
@@ -734,6 +752,54 @@ fn workflow_unsupported_collect() -> WorkflowUnsupportedOperation {
     }
 }
 
+fn workflow_unsupported_from_pandas() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "from_pandas",
+        label: "pandas input conversion",
+        surface: "materialized_python_input_boundary",
+        feature: "cg21.workflow.from_pandas",
+        blocker_id: "cg21.workflow.from_pandas.materialized_input_unsupported",
+        required_evidence: "python_object_boundary,decoded_columnar_boundary,native_io_certificate",
+        suggested_next_action: "Declare a file-backed source or wait for a certified pandas input-boundary report before importing in-memory data.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_from_arrow_table() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "from_arrow_table",
+        label: "Arrow table input conversion",
+        surface: "decoded_columnar_input_boundary",
+        feature: "cg21.workflow.from_arrow_table",
+        blocker_id: "cg21.workflow.from_arrow_table.decoded_columnar_input_unsupported",
+        required_evidence: "arrow_table_boundary,adapter_fidelity_report,native_io_certificate",
+        suggested_next_action: "Use a file-backed native Vortex or compatibility-source plan until Arrow table import is certified.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_from_arrow_ipc() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "from_arrow_ipc",
+        label: "Arrow IPC input conversion",
+        surface: "decoded_columnar_ipc_input_boundary",
+        feature: "cg21.workflow.from_arrow_ipc",
+        blocker_id: "cg21.workflow.from_arrow_ipc.decoded_ipc_input_unsupported",
+        required_evidence: "arrow_ipc_boundary,adapter_fidelity_report,native_io_certificate",
+        suggested_next_action: "Use input-plan arrow-ipc for report-only adapter posture until Arrow IPC import is certified.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
 fn workflow_unsupported_to_pandas() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "to_pandas",
@@ -759,6 +825,70 @@ fn workflow_unsupported_to_arrow() -> WorkflowUnsupportedOperation {
         blocker_id: "cg21.workflow.to_arrow.decoded_columnar_unsupported",
         required_evidence: "decoded_columnar_boundary,native_io_certificate,adapter_fidelity_report",
         suggested_next_action: "Use native Vortex artifact planning until Arrow IPC materialization is certified.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_to_arrow_table() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "to_arrow_table",
+        label: "Arrow table materialization",
+        surface: "decoded_columnar_table_materialization",
+        feature: "cg21.workflow.to_arrow_table",
+        blocker_id: "cg21.workflow.to_arrow_table.decoded_table_unsupported",
+        required_evidence: "decoded_columnar_boundary,native_io_certificate,adapter_fidelity_report",
+        suggested_next_action: "Use native Vortex artifact planning until Arrow table materialization is certified.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_to_arrow_ipc() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "to_arrow_ipc",
+        label: "Arrow IPC materialization",
+        surface: "decoded_columnar_ipc_materialization",
+        feature: "cg21.workflow.to_arrow_ipc",
+        blocker_id: "cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported",
+        required_evidence: "decoded_columnar_boundary,arrow_ipc_fidelity_report,native_io_certificate",
+        suggested_next_action: "Use REST data-plane artifact-reference reports until Arrow IPC output is certified.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_to_numpy() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "to_numpy",
+        label: "NumPy materialization",
+        surface: "python_array_materialization",
+        feature: "cg21.workflow.to_numpy",
+        blocker_id: "cg21.workflow.to_numpy.python_array_unsupported",
+        required_evidence: "python_object_boundary,decoded_columnar_boundary,materialization_policy",
+        suggested_next_action: "Use native artifacts or Arrow boundary reports before requesting NumPy materialization.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_to_python_objects() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "to_python_objects",
+        label: "Python object materialization",
+        surface: "python_object_materialization",
+        feature: "cg21.workflow.to_python_objects",
+        blocker_id: "cg21.workflow.to_python_objects.object_materialization_unsupported",
+        required_evidence: "python_object_boundary,materialization_policy,decoded_reference_check",
+        suggested_next_action: "Keep results as certified native artifacts until Python-object materialization is certified.",
         diagnostic_code: DiagnosticCode::MaterializationRequired,
         materialization_required: true,
         write_required: false,
@@ -878,6 +1008,54 @@ fn workflow_unsupported_schema_contract() -> WorkflowUnsupportedOperation {
     }
 }
 
+fn workflow_unsupported_schema_discovery() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "schema",
+        label: "workflow schema discovery",
+        surface: "schema_discovery",
+        feature: "cg21.workflow.schema",
+        blocker_id: "cg21.workflow.schema.discovery_unsupported",
+        required_evidence: "schema_metadata_report,input_adapter_certificate,native_io_certificate",
+        suggested_next_action: "Use input-plan and schema-plan report surfaces until workflow schema discovery is certified.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_describe_schema() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "describe_schema",
+        label: "workflow schema description",
+        surface: "schema_description",
+        feature: "cg21.workflow.describe_schema",
+        blocker_id: "cg21.workflow.describe_schema.report_unsupported",
+        required_evidence: "schema_metadata_report,schema_evolution_report,input_adapter_certificate",
+        suggested_next_action: "Use schema-plan for report-only schema posture before requesting rich schema descriptions.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_validate_schema() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "validate_schema",
+        label: "workflow schema validation",
+        surface: "schema_validation",
+        feature: "cg21.workflow.validate_schema",
+        blocker_id: "cg21.workflow.validate_schema.validation_unsupported",
+        required_evidence: "schema_contract,validation_certificate,table_compatibility_report",
+        suggested_next_action: "Use schema-plan compatibility reports until workflow schema validation is certified.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
 fn workflow_unsupported_data_quality() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "data_quality",
@@ -891,6 +1069,70 @@ fn workflow_unsupported_data_quality() -> WorkflowUnsupportedOperation {
         materialization_required: false,
         write_required: false,
         runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_data_quality_summary() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "data_quality_summary",
+        label: "data-quality summary reporting",
+        surface: "data_quality_summary",
+        feature: "cg21.workflow.data_quality_summary",
+        blocker_id: "cg21.workflow.data_quality_summary.report_unsupported",
+        required_evidence: "quality_rule_contract,quality_summary_schema,correctness_harness",
+        suggested_next_action: "Use data-quality unsupported reports and correctness harness plans before requesting quality summaries.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_quarantine() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "quarantine",
+        label: "data-quality quarantine output",
+        surface: "quarantine_output",
+        feature: "cg21.workflow.quarantine",
+        blocker_id: "cg21.workflow.quarantine.output_unsupported",
+        required_evidence: "quality_rule_contract,quarantine_manifest,write_intent,recovery_certificate",
+        suggested_next_action: "Use report-only quality diagnostics until quarantine output manifests and write policies are certified.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
+        materialization_required: true,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_preview() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "preview",
+        label: "notebook preview materialization",
+        surface: "notebook_preview",
+        feature: "cg21.workflow.preview",
+        blocker_id: "cg21.workflow.preview.materialization_unsupported",
+        required_evidence: "preview_materialization_policy,decoded_boundary_report,notebook_display_boundary",
+        suggested_next_action: "Use explain and estimate reports until bounded preview materialization is certified.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_display() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "display",
+        label: "notebook rich display",
+        surface: "notebook_display",
+        feature: "cg21.workflow.display",
+        blocker_id: "cg21.workflow.display.rich_display_unsupported",
+        required_evidence: "notebook_display_boundary,diagnostic_rendering_contract,materialization_policy",
+        suggested_next_action: "Use explicit CLI/Python report objects; rich notebook display must not hide unsupported behavior.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
     }
 }
 

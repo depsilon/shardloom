@@ -75,12 +75,22 @@ Implemented or actively wired surfaces include:
 - modular CLI handler families for status/capabilities, input planning, REST planning,
   packaging/deployment, benchmark planning/runtime, diagnostics, evidence/certificates,
   workflow/table planning, engine/runtime planning, and operational hardening
+- report-only CG-21/CG-22/CG-23 parity surfaces: `workflow-unsupported-plan`, scoped
+  `capabilities workflow|engines|remote-api|cross-cg`, and `workload-certification-dossier`
+  explain which workflow, engine-mode, API, certificate, Native I/O, correctness, and benchmark
+  evidence exists or is still blocked without running workloads
+- Python lazy workflow helpers for current report-only UX, including source declaration, explain,
+  estimate, certification inspection, unsupported pandas/Arrow/NumPy/Python-object materialization
+  boundaries, schema/data-quality/quarantine reports, and notebook preview/display diagnostics
 - local traditional-analytics benchmark harness support with a machine-readable scenario catalog,
   taxonomy metadata, benchmark constitution fields, generated dataset profiles, and support/coverage
   output separate from timing rows
 - Vortex-first guardrails and runtime-utilization audit docs covering arrays, layouts, Scan
   Source/Sink/Split concepts, field masks, predicate ordering, I/O evidence, sessions/registries,
   device posture, and extension-type posture
+- pre-P9 report-only Foundry unstructured/media posture that names media-set, virtual media-set,
+  extraction, model-call, embedding, AIP, and unstructured workflow certificate boundaries without
+  invoking Foundry or model/media runtimes
 
 Still planned or gated:
 
@@ -160,6 +170,12 @@ preserves typed result/artifact/certificate payloads, diagnostics, fallback
 status, and the temporary legacy field mirror. It is not a native binding,
 DataFrame runtime, SQL engine, UDF runtime, package publication, or fallback
 execution path.
+
+It also exposes current report-only workflow diagnostics that are useful before broader DataFrame
+runtime support exists: `workflow-unsupported-plan` and Python `LazyFrame` helpers return stable
+blocker IDs, required evidence, next actions, and no-runtime/no-fallback fields for pandas/Arrow
+interop, NumPy/Python-object materialization, schema/data-quality/quarantine behavior, and notebook
+preview/display boundaries.
 
 It also exposes the current local live ETL smoke commands for explicit testing:
 CSV-to-Vortex through `traditional-analytics-run` and existing native Vortex

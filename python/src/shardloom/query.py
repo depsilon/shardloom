@@ -311,6 +311,26 @@ class LazyFrame:
 
         return self._unsupported_operation("to-arrow", check=check)
 
+    def to_arrow_table(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for Arrow table materialization."""
+
+        return self._unsupported_operation("to-arrow-table", check=check)
+
+    def to_arrow_ipc(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for Arrow IPC materialization."""
+
+        return self._unsupported_operation("to-arrow-ipc", check=check)
+
+    def to_numpy(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for NumPy materialization."""
+
+        return self._unsupported_operation("to-numpy", check=check)
+
+    def to_python_objects(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for Python-object materialization."""
+
+        return self._unsupported_operation("to-python-objects", check=check)
+
     def write_vortex(
         self,
         target_uri: str | os.PathLike[str],
@@ -397,6 +417,30 @@ class LazyFrame:
         target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
         return self._unsupported_operation("schema-contract", target, check=check)
 
+    def schema(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for workflow schema discovery."""
+
+        return self._unsupported_operation("schema", check=check)
+
+    def describe_schema(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for rich schema description."""
+
+        return self._unsupported_operation("describe-schema", check=check)
+
+    def validate_schema(
+        self,
+        schema: Mapping[str, object],
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for workflow schema validation."""
+
+        normalized = _normalize_schema(schema)
+        if not normalized:
+            raise ValueError("schema validation contract must not be empty")
+        target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
+        return self._unsupported_operation("validate-schema", target, check=check)
+
     def data_quality_check(
         self,
         *checks: object,
@@ -418,6 +462,41 @@ class LazyFrame:
         """Alias for data-quality check unsupported reporting."""
 
         return self.data_quality_check(*checks, check=check)
+
+    def data_quality_summary(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for data-quality summary output."""
+
+        return self._unsupported_operation("data-quality-summary", check=check)
+
+    def quarantine(
+        self,
+        target_uri: str | os.PathLike[str] | None = None,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for data-quality quarantine output."""
+
+        target = "none" if target_uri is None else str(target_uri)
+        return self._unsupported_operation("quarantine", target, check=check)
+
+    def preview(
+        self,
+        limit: int = 20,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for bounded notebook previews."""
+
+        if isinstance(limit, bool) or not isinstance(limit, int):
+            raise TypeError("preview limit must be an integer")
+        if limit <= 0:
+            raise ValueError("preview limit must be positive")
+        return self._unsupported_operation("preview", str(limit), check=check)
+
+    def display(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for rich notebook display."""
+
+        return self._unsupported_operation("display", check=check)
 
     def certify(self, *, check: bool = False) -> WorkflowCertificationReport:
         """Return report-only certificate surfaces for this workflow."""
@@ -564,6 +643,71 @@ def read_parquet(
     )
 
 
+def from_pandas(
+    dataframe: object,
+    *,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    check: bool = False,
+    **client_config: object,
+) -> UnsupportedWorkflowOperationReport:
+    """Return the unsupported report for a pandas in-memory input boundary."""
+
+    workflow = _materialized_boundary_workflow(
+        "pandas",
+        _python_object_boundary_ref("pandas", dataframe),
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
+    return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
+
+
+def from_arrow_table(
+    table: object,
+    *,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    check: bool = False,
+    **client_config: object,
+) -> UnsupportedWorkflowOperationReport:
+    """Return the unsupported report for an Arrow table input boundary."""
+
+    workflow = _materialized_boundary_workflow(
+        "arrow_table",
+        _python_object_boundary_ref("arrow_table", table),
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
+    return workflow._unsupported_operation("from-arrow-table", workflow.uri, check=check)
+
+
+def from_arrow_ipc(
+    source: object,
+    *,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    check: bool = False,
+    **client_config: object,
+) -> UnsupportedWorkflowOperationReport:
+    """Return the unsupported report for an Arrow IPC input boundary."""
+
+    target = (
+        str(source)
+        if isinstance(source, (str, os.PathLike))
+        else _python_object_boundary_ref("arrow_ipc", source)
+    )
+    workflow = _materialized_boundary_workflow(
+        "arrow_ipc",
+        target,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
+    return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
+
+
 def _read_source(
     source_format: str,
     uri: str | os.PathLike[str],
@@ -587,6 +731,29 @@ def _read_source(
         client=_client_from_config(client, client_config),
         engine_mode=_normalize_engine_mode(engine_mode),
     )
+
+
+def _materialized_boundary_workflow(
+    source_format: str,
+    uri: str,
+    *,
+    client: ShardLoomClient | None,
+    engine_mode: str,
+    **client_config: object,
+) -> LazyFrame:
+    return LazyFrame(
+        source=WorkflowSource(
+            source_format=source_format,
+            uri=uri,
+        ),
+        client=_client_from_config(client, client_config),
+        engine_mode=_normalize_engine_mode(engine_mode),
+    )
+
+
+def _python_object_boundary_ref(kind: str, value: object) -> str:
+    value_type = type(value)
+    return f"{kind}:{value_type.__module__}.{value_type.__qualname__}"
 
 
 def _client_from_config(
