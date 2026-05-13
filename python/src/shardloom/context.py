@@ -20,6 +20,7 @@ from .client import (
     RestApiEventStream,
     RestApiLocalLifecycle,
     RestApiPlanPreview,
+    RestApiSecurityGovernance,
     ShardLoomClient,
 )
 from .models import Diagnostic, OutputEnvelope
@@ -392,6 +393,16 @@ class ShardLoomContext:
         """Return the live/hybrid REST event stream contract bundle."""
 
         return self.client.rest_api_event_stream(scenario, check=check)
+
+    def rest_api_security_governance(
+        self,
+        scenario: str = "safe-local-default",
+        *,
+        check: bool = True,
+    ) -> RestApiSecurityGovernance:
+        """Return the REST security/governance/observability/agent contract bundle."""
+
+        return self.client.rest_api_security_governance(scenario, check=check)
 
     def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
         """Return the CG-22 live change contract."""

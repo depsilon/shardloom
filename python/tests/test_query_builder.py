@@ -299,6 +299,33 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "execution_delegated", "value": "false"},
                     ]
+                elif args == ["rest-api-security-governance", "safe-local-default", "--format", "json"]:
+                    fields = [
+                        {"key": "scenario", "value": "safe-local-default"},
+                        {"key": "governance_status", "value": "available_contract"},
+                        {"key": "auth_postures", "value": "local_only:available_default,token:reference_only_contract"},
+                        {"key": "api_scopes", "value": "read:allowed_local_metadata,write:policy_required,agent:dry_run_explain_estimate_certify_only"},
+                        {"key": "mcp_tools", "value": "dry_run:allowed,explain:allowed,estimate:allowed,certify_preview:allowed,execute:blocked_policy_required"},
+                        {"key": "evidence_model_signals", "value": "opentelemetry_traces,openlineage_facets,problem_details_errors,cloudevents,certificate_refs"},
+                        {"key": "credential_references_only", "value": "true"},
+                        {"key": "secrets_redacted", "value": "true"},
+                        {"key": "raw_secret_values_present", "value": "false"},
+                        {"key": "destructive_policy_required", "value": "true"},
+                        {"key": "destructive_policy_present", "value": "false"},
+                        {"key": "destructive_operations_allowed", "value": "false"},
+                        {"key": "mcp_dry_run_default", "value": "true"},
+                        {"key": "mcp_effectful_tools_allowed", "value": "false"},
+                        {"key": "mcp_discovery_side_effect_free", "value": "true"},
+                        {"key": "opentelemetry_exporter_enabled", "value": "false"},
+                        {"key": "openlineage_facets_mapped", "value": "true"},
+                        {"key": "problem_details_mapped", "value": "true"},
+                        {"key": "cloudevents_mapped", "value": "true"},
+                        {"key": "certificate_refs_mapped", "value": "true"},
+                        {"key": "credential_resolution", "value": "false"},
+                        {"key": "secret_resolution", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"},
+                    ]
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -321,6 +348,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         preview = ctx.rest_api_plan_preview()
         lifecycle = ctx.rest_api_local_lifecycle()
         event_stream = ctx.rest_api_event_stream()
+        security = ctx.rest_api_security_governance()
 
         self.assertEqual(contract.api_version, "v1")
         self.assertEqual(contract.openapi_version, "3.2.0")
@@ -362,6 +390,24 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(event_stream.broker_io)
         self.assertFalse(event_stream.object_store_io)
         self.assertFalse(event_stream.fallback_attempted)
+        self.assertEqual(security.governance_status, "available_contract")
+        self.assertIn("token:reference_only_contract", security.auth_postures)
+        self.assertIn("write:policy_required", security.api_scopes)
+        self.assertIn("certify_preview:allowed", security.mcp_tools)
+        self.assertIn("opentelemetry_traces", security.evidence_model_signals)
+        self.assertTrue(security.credential_references_only)
+        self.assertTrue(security.secrets_redacted)
+        self.assertFalse(security.raw_secret_values_present)
+        self.assertTrue(security.destructive_policy_required)
+        self.assertFalse(security.destructive_operations_allowed)
+        self.assertTrue(security.mcp_dry_run_default)
+        self.assertFalse(security.mcp_effectful_tools_allowed)
+        self.assertFalse(security.opentelemetry_exporter_enabled)
+        self.assertTrue(security.openlineage_facets_mapped)
+        self.assertTrue(security.problem_details_mapped)
+        self.assertFalse(security.credential_resolution)
+        self.assertFalse(security.secret_resolution)
+        self.assertFalse(security.fallback_attempted)
 
     def test_live_and_hybrid_fixture_reports_are_explicit(self) -> None:
         binary = self.fake_cli(

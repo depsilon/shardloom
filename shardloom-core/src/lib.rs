@@ -246,13 +246,16 @@ pub use release::{
     plan_workspace_feature_build_matrix,
 };
 pub use remote_api::{
-    RestApiContractReport, RestApiDiscoveryModeReport, RestApiEndpointContract,
-    RestApiEventStreamEventContract, RestApiEventStreamReport, RestApiEventStreamScenario,
-    RestApiEventStreamStatus, RestApiLifecycleEvent, RestApiLocalLifecycleReport,
+    RestApiAuditPolicyContract, RestApiAuthPostureContract, RestApiContractReport,
+    RestApiDiscoveryModeReport, RestApiEndpointContract, RestApiEventStreamEventContract,
+    RestApiEventStreamReport, RestApiEventStreamScenario, RestApiEventStreamStatus,
+    RestApiEvidenceModelSignal, RestApiLifecycleEvent, RestApiLocalLifecycleReport,
     RestApiLocalLifecycleScenario, RestApiLocalLifecycleStatus, RestApiMaturityStage,
-    RestApiMaturityStatus, RestApiPlanPreviewReport, RestApiPlanPreviewScenario,
-    RestApiPlanPreviewStage, RestApiPlanPreviewStatus, RestApiPlanStageStatus,
-    RestApiProblemDetailsPreview, RestApiResultPolicyContract,
+    RestApiMaturityStatus, RestApiMcpContract, RestApiPlanPreviewReport,
+    RestApiPlanPreviewScenario, RestApiPlanPreviewStage, RestApiPlanPreviewStatus,
+    RestApiPlanStageStatus, RestApiProblemDetailsPreview, RestApiResultPolicyContract,
+    RestApiScopeContract, RestApiSecurityGovernanceReport, RestApiSecurityGovernanceScenario,
+    RestApiSecurityGovernanceStatus,
 };
 pub use rfc_coverage::{
     RfcCoverageFollowThroughArea, RfcCoverageFollowThroughEntry, RfcCoverageFollowThroughReport,

@@ -91,6 +91,7 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
             | "rest-api-plan-preview"
             | "rest-api-local-lifecycle"
             | "rest-api-event-stream"
+            | "rest-api-security-governance"
             | "serve"
     ) {
         CommandFamily::RestApiPlanning
@@ -362,6 +363,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn classifies_representative_priority_39_families() {
         assert_eq!(
             classify_command("status"),
@@ -433,6 +435,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("rest-api-event-stream"),
+            CommandFamily::RestApiPlanning
+        );
+        assert_eq!(
+            classify_command("rest-api-security-governance"),
             CommandFamily::RestApiPlanning
         );
         assert_eq!(classify_command("serve"), CommandFamily::RestApiPlanning);

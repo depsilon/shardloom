@@ -26,6 +26,7 @@ from shardloom import (
     RestApiEventStream,
     RestApiLocalLifecycle,
     RestApiPlanPreview,
+    RestApiSecurityGovernance,
     WorkflowReadinessSmokeReport,
 )
 
@@ -1119,6 +1120,81 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.broker_required)
         self.assertFalse(result.broker_io)
         self.assertFalse(result.object_store_io)
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.execution_delegated)
+
+    def test_rest_api_security_governance_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "rest-api-security-governance", "safe-local-default", "--format", "json"
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "rest-api-security-governance",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "scenario", "value": "safe-local-default"},
+                        {"key": "governance_status", "value": "available_contract"},
+                        {"key": "auth_postures", "value": "local_only:available_default,token:reference_only_contract"},
+                        {"key": "api_scopes", "value": "read:allowed_local_metadata,write:policy_required,agent:dry_run_explain_estimate_certify_only"},
+                        {"key": "mcp_tools", "value": "dry_run:allowed,explain:allowed,estimate:allowed,certify_preview:allowed,execute:blocked_policy_required"},
+                        {"key": "evidence_model_signals", "value": "opentelemetry_traces,openlineage_facets,problem_details_errors,cloudevents,certificate_refs"},
+                        {"key": "credential_references_only", "value": "true"},
+                        {"key": "secrets_redacted", "value": "true"},
+                        {"key": "raw_secret_values_present", "value": "false"},
+                        {"key": "destructive_policy_required", "value": "true"},
+                        {"key": "destructive_policy_present", "value": "false"},
+                        {"key": "destructive_operations_allowed", "value": "false"},
+                        {"key": "mcp_dry_run_default", "value": "true"},
+                        {"key": "mcp_effectful_tools_allowed", "value": "false"},
+                        {"key": "mcp_discovery_side_effect_free", "value": "true"},
+                        {"key": "opentelemetry_exporter_enabled", "value": "false"},
+                        {"key": "openlineage_facets_mapped", "value": "true"},
+                        {"key": "problem_details_mapped", "value": "true"},
+                        {"key": "cloudevents_mapped", "value": "true"},
+                        {"key": "certificate_refs_mapped", "value": "true"},
+                        {"key": "credential_resolution", "value": "false"},
+                        {"key": "secret_resolution", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).rest_api_security_governance()
+
+        self.assertIsInstance(result, RestApiSecurityGovernance)
+        self.assertEqual(result.scenario, "safe-local-default")
+        self.assertEqual(result.governance_status, "available_contract")
+        self.assertIn("token:reference_only_contract", result.auth_postures)
+        self.assertIn("write:policy_required", result.api_scopes)
+        self.assertIn("certify_preview:allowed", result.mcp_tools)
+        self.assertIn("opentelemetry_traces", result.evidence_model_signals)
+        self.assertTrue(result.credential_references_only)
+        self.assertTrue(result.secrets_redacted)
+        self.assertFalse(result.raw_secret_values_present)
+        self.assertTrue(result.destructive_policy_required)
+        self.assertFalse(result.destructive_policy_present)
+        self.assertFalse(result.destructive_operations_allowed)
+        self.assertTrue(result.mcp_dry_run_default)
+        self.assertFalse(result.mcp_effectful_tools_allowed)
+        self.assertTrue(result.mcp_discovery_side_effect_free)
+        self.assertFalse(result.opentelemetry_exporter_enabled)
+        self.assertTrue(result.openlineage_facets_mapped)
+        self.assertTrue(result.problem_details_mapped)
+        self.assertTrue(result.cloudevents_mapped)
+        self.assertTrue(result.certificate_refs_mapped)
+        self.assertFalse(result.credential_resolution)
+        self.assertFalse(result.secret_resolution)
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.execution_delegated)
 

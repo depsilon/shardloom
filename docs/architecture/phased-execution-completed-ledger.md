@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P6.5 security, governance, observability, and agent API bundle
+  - Primary files:
+    - `docs/api/shardloom-openapi-v1.yaml`
+    - `shardloom-core/src/remote_api.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add the CG-23 A8 security/governance/observability/agent API contract bundle with
+    local-only, token, mTLS, OIDC, and service-account auth posture; read, plan, execute, write,
+    cancel, admin, benchmark, migration, and agent scopes; audit/redaction policy; safe MCP
+    resources/tools; and a unified OpenTelemetry/OpenLineage/problem-details/CloudEvents/
+    certificate-ref evidence model.
+  - Checklist:
+    - [x] Add `RestApiSecurityGovernanceReport` with safe-local-default,
+          destructive-policy-required, and agent-mcp-discovery scenarios.
+    - [x] Add `rest-api-security-governance` CLI output with auth posture, scope matrix, audit
+          policy, MCP resources/tools, evidence-model mapping, redaction, destructive-policy, and
+          no-secret/no-effect fields.
+    - [x] Extend `docs/api/shardloom-openapi-v1.yaml` with security, governance, observability
+          evidence-model, and MCP discovery endpoints plus security/governance schemas.
+    - [x] Expose Python `RestApiSecurityGovernance`,
+          `ShardLoomClient.rest_api_security_governance()`, and
+          `ShardLoomContext.rest_api_security_governance()`.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-core remote_api --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test api_protocol_snapshots --test typed_envelope_compatibility_lock`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client python.tests.test_query_builder`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-security-governance-smoke'; cargo run -q -p shardloom-cli -- rest-api-security-governance safe-local-default --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-security-governance-smoke'; cargo run -q -p shardloom-cli -- rest-api-security-governance destructive-policy-required --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-security-governance-smoke'; cargo run -q -p shardloom-cli -- rest-api-security-governance agent-mcp-discovery --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-security-governance-clippy'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-security-governance-test'; cargo test --workspace --all-targets`
+    - [x] `$env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-security-governance-stable-clippy'; cargo +stable clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Runtime stance: contract/report-only security lane. The command does not start a server, open a
+    listener, probe datasets/catalogs, read/write object stores, resolve credentials or secret
+    material, emit raw secrets, write audit records, execute MCP tools, run plans, invoke external
+    engines, delegate execution, or attempt fallback execution.
+
 - [x] Session label: P6.4 live/hybrid event API and streaming evidence bundle
   - Primary files:
     - `docs/api/shardloom-openapi-v1.yaml`
