@@ -71,6 +71,303 @@ const REMOTE_API_BLOCKER_IDS: &str = concat!(
 );
 const REMOTE_API_REQUIRED_EVIDENCE: &str = "openapi_contract,asyncapi_contract,execution_certificate,native_io_certificate,security_governance_policy,data_plane_fidelity_report";
 const REMOTE_API_SUGGESTED_NEXT_ACTION: &str = "Use rest-api-contract-plan and rest-api-plan-preview for scenario-specific blockers before enabling remote execution.";
+const COMPUTE_CAPABILITY_COMMAND: &str = "compute-capability-matrix";
+const COMPUTE_CAPABILITY_USAGE: &str = "usage: shardloom compute-capability-matrix";
+const COMPUTE_SUPPORT_STATUS_VOCABULARY: &str = "unsupported,planned,report_only,executable_uncertified,fixture_certified,workload_certified,production_certified";
+const COMPUTE_PROVIDER_KIND_VOCABULARY: &str = "shardloom_kernel,vortex_array_kernel,vortex_scan,vortex_source,vortex_sink,compatibility_boundary,external_baseline_only";
+const COMPUTE_ENGINE_MODE_VOCABULARY: &str = "batch,live,hybrid,auto";
+
+const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
+    ComputeCapabilityRow {
+        id: "local_vortex_count",
+        surface: "count_all",
+        family: "aggregates",
+        support_status: "fixture_certified",
+        engine_mode: "batch",
+        provider_kind: "vortex_scan",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "metadata_or_encoded_count_no_row_materialization",
+        memory_spill_requirement: "streaming_constant_memory_no_spill",
+        correctness_refs: "cg5.local_vortex_count,query_primitive_correctness",
+        benchmark_refs: "vortex-count-benchmark.local_fixture_smoke",
+        execution_certificate_refs: "certificates/cg16/local-vortex-count/execution.json",
+        native_io_refs: "certificates/cg19/local-vortex-count/native-io.json",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "none",
+        required_future_evidence: "claim_grade_benchmark_rows",
+    },
+    ComputeCapabilityRow {
+        id: "local_vortex_filtered_count",
+        surface: "count_where",
+        family: "predicates",
+        support_status: "executable_uncertified",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "selection_vector_no_row_materialization",
+        memory_spill_requirement: "bounded_selection_vector_no_spill",
+        correctness_refs: "query_primitive_correctness.filtered_count",
+        benchmark_refs: "benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "p74.compute.filtered_count.certification_incomplete",
+        required_future_evidence: "benchmark_row,execution_certificate,native_io_certificate",
+    },
+    ComputeCapabilityRow {
+        id: "local_vortex_projection",
+        surface: "project_columns",
+        family: "projection",
+        support_status: "executable_uncertified",
+        engine_mode: "batch",
+        provider_kind: "vortex_array_kernel",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "column_projection_no_row_materialization",
+        memory_spill_requirement: "bounded_column_refs_no_spill",
+        correctness_refs: "query_primitive_correctness.projection",
+        benchmark_refs: "benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "p74.compute.projection.certification_incomplete",
+        required_future_evidence: "benchmark_row,execution_certificate,native_io_certificate",
+    },
+    ComputeCapabilityRow {
+        id: "local_vortex_filter_project",
+        surface: "filter_project",
+        family: "filter_project_fusion",
+        support_status: "executable_uncertified",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "selection_vector_plus_projection_no_row_materialization",
+        memory_spill_requirement: "bounded_selection_vector_no_spill",
+        correctness_refs: "query_primitive_correctness.filter_project",
+        benchmark_refs: "benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "p74.compute.filter_project.certification_incomplete",
+        required_future_evidence: "benchmark_row,execution_certificate,native_io_certificate",
+    },
+    ComputeCapabilityRow {
+        id: "prepared_encoded_filter",
+        surface: "prepared_encoded_filter",
+        family: "predicates",
+        support_status: "fixture_certified",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "encoded_predicate_no_row_materialization",
+        memory_spill_requirement: "bounded_batch_no_spill",
+        correctness_refs: "prepared_encoded_correctness_fixture",
+        benchmark_refs: "source_backed_benchmark_row_required",
+        execution_certificate_refs: "prepared_encoded_execution_certificate",
+        native_io_refs: "native_io_certificate_required_for_source_bound_data",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "p74.compute.prepared_encoded_filter.source_backed_rows_missing",
+        required_future_evidence: "measured_source_backed_benchmark_row,reproducibility_manifest",
+    },
+    ComputeCapabilityRow {
+        id: "reader_backed_dictionary_filter",
+        surface: "reader_backed_dictionary_filter",
+        family: "predicates",
+        support_status: "executable_uncertified",
+        engine_mode: "batch",
+        provider_kind: "vortex_source",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "reader_chunk_kernel_input_no_full_decode",
+        memory_spill_requirement: "reader_chunk_bounded_no_spill",
+        correctness_refs: "reader_backed_dictionary_fixture",
+        benchmark_refs: "source_backed_benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "p74.compute.reader_backed_dictionary_filter.measurement_missing",
+        required_future_evidence: "measured_source_backed_benchmark_row,provider_version",
+    },
+    ComputeCapabilityRow {
+        id: "compatibility_csv_import",
+        surface: "csv_compatibility_import",
+        family: "sources",
+        support_status: "executable_uncertified",
+        engine_mode: "batch",
+        provider_kind: "compatibility_boundary",
+        semantic_profile: "compatibility_boundary",
+        materialization_decode_requirement: "compatibility_import_to_native_vortex",
+        memory_spill_requirement: "bounded_local_import_no_spill_claim",
+        correctness_refs: "traditional_analytics_csv_smoke",
+        benchmark_refs: "traditional_analytics_taxonomy_row",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required_after_native_vortex_stage",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "p74.compute.compatibility_import.certification_incomplete",
+        required_future_evidence: "adapter_fidelity_report,native_io_certificate,benchmark_row",
+    },
+    ComputeCapabilityRow {
+        id: "vortex_sink_write",
+        surface: "write_vortex",
+        family: "sink_write_operators",
+        support_status: "report_only",
+        engine_mode: "batch",
+        provider_kind: "vortex_sink",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "sink_requirement_known_before_execution",
+        memory_spill_requirement: "write_buffer_policy_required",
+        correctness_refs: "write_intent_report",
+        benchmark_refs: "write_benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        unsupported_diagnostic_code: "SL_NOT_IMPLEMENTED",
+        blocker_id: "p74.compute.vortex_sink.write_execution_missing",
+        required_future_evidence: "sink_execution,commit_recovery,artifact_replay",
+    },
+    ComputeCapabilityRow {
+        id: "grouped_aggregate",
+        surface: "group_by_aggregate",
+        family: "grouped_aggregates",
+        support_status: "planned",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "group_state_materialization_policy_required",
+        memory_spill_requirement: "hash_group_state_spill_required",
+        correctness_refs: "semantic_fixture_required",
+        benchmark_refs: "benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required_for_source_bound_data",
+        unsupported_diagnostic_code: "SL_NOT_IMPLEMENTED",
+        blocker_id: "cg21.workflow.aggregate.operator_unsupported",
+        required_future_evidence: "operator_capability,semantic_fixture,memory_spill_declaration",
+    },
+    ComputeCapabilityRow {
+        id: "join",
+        surface: "join",
+        family: "joins",
+        support_status: "planned",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "join_build_probe_materialization_policy_required",
+        memory_spill_requirement: "join_state_spill_required",
+        correctness_refs: "semantic_fixture_required",
+        benchmark_refs: "benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required_for_source_bound_data",
+        unsupported_diagnostic_code: "SL_NOT_IMPLEMENTED",
+        blocker_id: "cg21.workflow.join.operator_unsupported",
+        required_future_evidence: "join_operator_capability,semantic_fixture,memory_spill_declaration",
+    },
+    ComputeCapabilityRow {
+        id: "window_row_number",
+        surface: "row_number_window",
+        family: "window_functions",
+        support_status: "planned",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "window_frame_materialization_policy_required",
+        memory_spill_requirement: "sort_partition_spill_required",
+        correctness_refs: "semantic_fixture_required",
+        benchmark_refs: "benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required_for_source_bound_data",
+        unsupported_diagnostic_code: "SL_NOT_IMPLEMENTED",
+        blocker_id: "cg21.workflow.window.operator_unsupported",
+        required_future_evidence: "window_operator_capability,sort_capability,semantic_fixture",
+    },
+    ComputeCapabilityRow {
+        id: "sql_frontend",
+        surface: "sql_parse_bind_plan_execute",
+        family: "sql_frontend",
+        support_status: "unsupported",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "logical_plan_lowering_required",
+        memory_spill_requirement: "depends_on_lowered_operator_family",
+        correctness_refs: "semantic_fixture_required",
+        benchmark_refs: "benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required_for_source_bound_data",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
+        blocker_id: "cg21.workflow.sql.frontend_unsupported",
+        required_future_evidence: "sql_parser,binder,semantic_profile,operator_capability_matrix",
+    },
+];
+
+const OPERATOR_FAMILY_ROWS: &[OperatorFamilyCoverageRow] = &[
+    OperatorFamilyCoverageRow {
+        id: "scalar_expressions",
+        support_status: "planned",
+        next_evidence: "expression_registry,semantic_fixtures",
+    },
+    OperatorFamilyCoverageRow {
+        id: "predicates",
+        support_status: "fixture_certified",
+        next_evidence: "source_backed_measured_rows,semantic_edge_cases",
+    },
+    OperatorFamilyCoverageRow {
+        id: "projection",
+        support_status: "executable_uncertified",
+        next_evidence: "benchmark_rows,execution_certificates",
+    },
+    OperatorFamilyCoverageRow {
+        id: "filter_project_fusion",
+        support_status: "executable_uncertified",
+        next_evidence: "benchmark_rows,execution_certificates",
+    },
+    OperatorFamilyCoverageRow {
+        id: "aggregates",
+        support_status: "fixture_certified",
+        next_evidence: "grouped_aggregate_semantics,claim_grade_benchmarks",
+    },
+    OperatorFamilyCoverageRow {
+        id: "grouped_aggregates",
+        support_status: "planned",
+        next_evidence: "hash_group_state,memory_spill,semantic_fixtures",
+    },
+    OperatorFamilyCoverageRow {
+        id: "approx_sketch_aggregates",
+        support_status: "report_only",
+        next_evidence: "sketch_semantics,error_bounds,benchmarks",
+    },
+    OperatorFamilyCoverageRow {
+        id: "sort_topn_limit",
+        support_status: "planned",
+        next_evidence: "ordering_semantics,memory_spill,benchmarks",
+    },
+    OperatorFamilyCoverageRow {
+        id: "joins",
+        support_status: "planned",
+        next_evidence: "join_null_semantics,build_probe_memory,benchmarks",
+    },
+    OperatorFamilyCoverageRow {
+        id: "semi_anti_joins",
+        support_status: "planned",
+        next_evidence: "join_operator_capability,semantic_fixtures",
+    },
+    OperatorFamilyCoverageRow {
+        id: "window_functions",
+        support_status: "planned",
+        next_evidence: "window_frame_semantics,sort_spill,benchmarks",
+    },
+    OperatorFamilyCoverageRow {
+        id: "set_operations",
+        support_status: "planned",
+        next_evidence: "distinct_semantics,memory_spill",
+    },
+    OperatorFamilyCoverageRow {
+        id: "nested_extension_type_operations",
+        support_status: "planned",
+        next_evidence: "nested_equality,extension_dtype_semantics",
+    },
+    OperatorFamilyCoverageRow {
+        id: "sink_write_operators",
+        support_status: "report_only",
+        next_evidence: "write_execution,commit_recovery,replay_verification",
+    },
+];
 
 pub(crate) fn handle_status(format: OutputFormat) -> ExitCode {
     let status = shardloom_exec::status();
@@ -104,6 +401,33 @@ pub(crate) fn handle_status(format: OutputFormat) -> ExitCode {
                 "true".to_string(),
             ),
         ],
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_compute_capability_matrix(
+    mut args: IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            COMPUTE_CAPABILITY_COMMAND,
+            format,
+            "compute capability matrix failed",
+            &ShardLoomError::InvalidOperation(format!(
+                "unexpected compute-capability-matrix argument: {extra}; {COMPUTE_CAPABILITY_USAGE}"
+            )),
+        );
+    }
+
+    emit(
+        COMPUTE_CAPABILITY_COMMAND,
+        format,
+        CommandStatus::Success,
+        "compute capability coverage matrix".to_string(),
+        compute_capability_matrix_human_text(),
+        vec![],
+        compute_capability_matrix_fields(),
     );
     ExitCode::SUCCESS
 }
@@ -447,6 +771,268 @@ fn emit_cross_cg_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         vec![],
         fields,
     );
+}
+
+struct ComputeCapabilityRow {
+    id: &'static str,
+    surface: &'static str,
+    family: &'static str,
+    support_status: &'static str,
+    engine_mode: &'static str,
+    provider_kind: &'static str,
+    semantic_profile: &'static str,
+    materialization_decode_requirement: &'static str,
+    memory_spill_requirement: &'static str,
+    correctness_refs: &'static str,
+    benchmark_refs: &'static str,
+    execution_certificate_refs: &'static str,
+    native_io_refs: &'static str,
+    unsupported_diagnostic_code: &'static str,
+    blocker_id: &'static str,
+    required_future_evidence: &'static str,
+}
+
+struct OperatorFamilyCoverageRow {
+    id: &'static str,
+    support_status: &'static str,
+    next_evidence: &'static str,
+}
+
+fn compute_capability_matrix_human_text() -> String {
+    format!(
+        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
+        COMPUTE_ROWS.len(),
+        OPERATOR_FAMILY_ROWS.len()
+    )
+}
+
+#[allow(clippy::too_many_lines)]
+fn compute_capability_matrix_fields() -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", "compute_capability_matrix");
+    push_field(
+        &mut fields,
+        "schema_version",
+        "shardloom.compute_capability_matrix.v1",
+    );
+    push_field(&mut fields, "report_id", "p74.compute_capability_matrix");
+    push_field(&mut fields, "matrix_status", "report_only");
+    push_field(&mut fields, "claim_grade_status", "evidence_incomplete");
+    push_count_field(&mut fields, "compute_row_count", COMPUTE_ROWS.len());
+    push_count_field(
+        &mut fields,
+        "operator_family_count",
+        OPERATOR_FAMILY_ROWS.len(),
+    );
+    push_field(
+        &mut fields,
+        "support_status_vocabulary",
+        COMPUTE_SUPPORT_STATUS_VOCABULARY,
+    );
+    push_field(
+        &mut fields,
+        "provider_kind_vocabulary",
+        COMPUTE_PROVIDER_KIND_VOCABULARY,
+    );
+    push_field(
+        &mut fields,
+        "engine_mode_vocabulary",
+        COMPUTE_ENGINE_MODE_VOCABULARY,
+    );
+    push_field(&mut fields, "compute_row_order", &compute_row_order());
+    push_field(
+        &mut fields,
+        "operator_family_order",
+        &operator_family_order(),
+    );
+    push_count_field(
+        &mut fields,
+        "fixture_certified_count",
+        compute_support_status_count("fixture_certified"),
+    );
+    push_count_field(
+        &mut fields,
+        "executable_uncertified_count",
+        compute_support_status_count("executable_uncertified"),
+    );
+    push_count_field(
+        &mut fields,
+        "report_only_count",
+        compute_support_status_count("report_only"),
+    );
+    push_count_field(
+        &mut fields,
+        "planned_count",
+        compute_support_status_count("planned"),
+    );
+    push_count_field(
+        &mut fields,
+        "unsupported_count",
+        compute_support_status_count("unsupported"),
+    );
+    push_count_field(
+        &mut fields,
+        "workload_certified_count",
+        compute_support_status_count("workload_certified"),
+    );
+    push_count_field(
+        &mut fields,
+        "production_certified_count",
+        compute_support_status_count("production_certified"),
+    );
+    push_bool_field(&mut fields, "claim_grade_compute_engine_complete", false);
+    push_bool_field(&mut fields, "performance_claim_allowed", false);
+    push_bool_field(&mut fields, "best_default_claim_allowed", false);
+    push_bool_field(&mut fields, "spark_displacement_claim_allowed", false);
+    push_bool_field(&mut fields, "production_claim_allowed", false);
+    push_bool_field(&mut fields, "all_rows_fallback_attempted_false", true);
+    push_bool_field(&mut fields, "all_rows_external_engine_invoked_false", true);
+    push_field(
+        &mut fields,
+        "matrix_consuming_views_status",
+        "planned_alignment",
+    );
+    push_field(
+        &mut fields,
+        "matrix_consumer_views",
+        "capabilities operators,capabilities workflow,capabilities engines,benchmark-plan,workload-certification-dossier,rest-api-plan-preview",
+    );
+    push_field(
+        &mut fields,
+        "next_required_slice",
+        "P7.4.2 semantic conformance and unsupported API parity",
+    );
+    for row in COMPUTE_ROWS {
+        append_compute_capability_row_fields(&mut fields, row);
+    }
+    for row in OPERATOR_FAMILY_ROWS {
+        append_operator_family_row_fields(&mut fields, row);
+    }
+    push_bool_field(&mut fields, "plan_only", true);
+    push_bool_field(&mut fields, "runtime_execution", false);
+    push_bool_field(&mut fields, "query_execution", false);
+    push_bool_field(&mut fields, "data_read", false);
+    push_bool_field(&mut fields, "data_materialized", false);
+    push_bool_field(&mut fields, "write_io", false);
+    push_bool_field(&mut fields, "object_store_io", false);
+    push_bool_field(&mut fields, "network_probe", false);
+    push_bool_field(&mut fields, "catalog_probe", false);
+    push_bool_field(&mut fields, "external_engine_invoked", false);
+    push_bool_field(&mut fields, "external_effects_executed", false);
+    push_bool_field(&mut fields, "fallback_execution_allowed", false);
+    push_bool_field(&mut fields, "fallback_attempted", false);
+    push_bool_field(&mut fields, "no_runtime", true);
+    push_bool_field(&mut fields, "no_fallback", true);
+    push_bool_field(&mut fields, "no_effects", true);
+    fields
+}
+
+fn append_compute_capability_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &ComputeCapabilityRow,
+) {
+    let prefix = format!("compute_row_{}", row.id);
+    push_field(fields, &format!("{prefix}_surface"), row.surface);
+    push_field(fields, &format!("{prefix}_family"), row.family);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_field(fields, &format!("{prefix}_engine_mode"), row.engine_mode);
+    push_field(
+        fields,
+        &format!("{prefix}_provider_kind"),
+        row.provider_kind,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_semantic_profile"),
+        row.semantic_profile,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_materialization_decode_requirement"),
+        row.materialization_decode_requirement,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_memory_spill_requirement"),
+        row.memory_spill_requirement,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_correctness_refs"),
+        row.correctness_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_benchmark_refs"),
+        row.benchmark_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_execution_certificate_refs"),
+        row.execution_certificate_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_native_io_refs"),
+        row.native_io_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_code"),
+        row.unsupported_diagnostic_code,
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_required_future_evidence"),
+        row.required_future_evidence,
+    );
+    push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+    push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+}
+
+fn append_operator_family_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &OperatorFamilyCoverageRow,
+) {
+    let prefix = format!("operator_family_{}", row.id);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_next_evidence"),
+        row.next_evidence,
+    );
+}
+
+fn compute_support_status_count(status: &str) -> usize {
+    COMPUTE_ROWS
+        .iter()
+        .filter(|row| row.support_status == status)
+        .count()
+}
+
+fn compute_row_order() -> String {
+    COMPUTE_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn operator_family_order() -> String {
+    OPERATOR_FAMILY_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {

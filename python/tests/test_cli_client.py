@@ -12,6 +12,7 @@ from shardloom import (
     __version__,
     context as shardloom_context,
     ClaimGateCloseoutReport,
+    ComputeCapabilityMatrix,
     CompatibilitySourceSmokeReport,
     ContextCapabilities,
     CapabilityView,
@@ -1242,6 +1243,95 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("public_package_release", result.blocked_claims)
         self.assertIn("external_engine_fallback", result.out_of_scope_claims)
         self.assertIn("p8.release.package_artifacts_missing", result.blocker_ids)
+        self.assertTrue(result.no_runtime)
+        self.assertTrue(result.no_fallback)
+        self.assertTrue(result.no_effects)
+
+    def test_compute_capability_matrix_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["compute-capability-matrix", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "compute-capability-matrix",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "matrix_status", "value": "report_only"},
+                        {"key": "claim_grade_status", "value": "evidence_incomplete"},
+                        {"key": "compute_row_order", "value": "local_vortex_count,sql_frontend"},
+                        {"key": "compute_row_local_vortex_count_surface", "value": "vortex_file_scan_count"},
+                        {"key": "compute_row_local_vortex_count_family", "value": "scan"},
+                        {"key": "compute_row_local_vortex_count_support_status", "value": "fixture_certified"},
+                        {"key": "compute_row_local_vortex_count_engine_mode", "value": "batch"},
+                        {"key": "compute_row_local_vortex_count_provider_kind", "value": "vortex_scan"},
+                        {"key": "compute_row_local_vortex_count_semantic_profile", "value": "ShardLoomNative"},
+                        {"key": "compute_row_local_vortex_count_materialization_decode_requirement", "value": "metadata_or_scan_count_no_row_materialization"},
+                        {"key": "compute_row_local_vortex_count_memory_spill_requirement", "value": "streaming_bounded_memory"},
+                        {"key": "compute_row_local_vortex_count_correctness_refs", "value": "tests/local_vortex_count"},
+                        {"key": "compute_row_local_vortex_count_benchmark_refs", "value": "benchmarks/local_vortex_count_smoke"},
+                        {"key": "compute_row_local_vortex_count_execution_certificate_refs", "value": "certificates/cg16/local-vortex-count/execution.json"},
+                        {"key": "compute_row_local_vortex_count_native_io_refs", "value": "certificates/cg19/local-vortex-count/native-io.json"},
+                        {"key": "compute_row_local_vortex_count_unsupported_diagnostic_code", "value": "none"},
+                        {"key": "compute_row_local_vortex_count_blocker_id", "value": "none"},
+                        {"key": "compute_row_local_vortex_count_required_future_evidence", "value": "none"},
+                        {"key": "compute_row_local_vortex_count_fallback_attempted", "value": "false"},
+                        {"key": "compute_row_local_vortex_count_external_engine_invoked", "value": "false"},
+                        {"key": "compute_row_sql_frontend_surface", "value": "sql_parse_bind_plan_execute"},
+                        {"key": "compute_row_sql_frontend_family", "value": "sql"},
+                        {"key": "compute_row_sql_frontend_support_status", "value": "unsupported"},
+                        {"key": "compute_row_sql_frontend_engine_mode", "value": "batch"},
+                        {"key": "compute_row_sql_frontend_provider_kind", "value": "shardloom_kernel"},
+                        {"key": "compute_row_sql_frontend_semantic_profile", "value": "ShardLoomNative"},
+                        {"key": "compute_row_sql_frontend_materialization_decode_requirement", "value": "unsupported_no_materialization"},
+                        {"key": "compute_row_sql_frontend_memory_spill_requirement", "value": "unsupported"},
+                        {"key": "compute_row_sql_frontend_correctness_refs", "value": "none"},
+                        {"key": "compute_row_sql_frontend_benchmark_refs", "value": "none"},
+                        {"key": "compute_row_sql_frontend_execution_certificate_refs", "value": "none"},
+                        {"key": "compute_row_sql_frontend_native_io_refs", "value": "none"},
+                        {"key": "compute_row_sql_frontend_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_SQL"},
+                        {"key": "compute_row_sql_frontend_blocker_id", "value": "cg21.workflow.sql.frontend_unsupported"},
+                        {"key": "compute_row_sql_frontend_required_future_evidence", "value": "parser,binder,planner,semantic_fixtures"},
+                        {"key": "compute_row_sql_frontend_fallback_attempted", "value": "false"},
+                        {"key": "compute_row_sql_frontend_external_engine_invoked", "value": "false"},
+                        {"key": "operator_family_order", "value": "predicates,joins"},
+                        {"key": "operator_family_predicates_support_status", "value": "fixture_certified"},
+                        {"key": "operator_family_predicates_next_evidence", "value": "semantic_fixture_expansion,benchmark_rows"},
+                        {"key": "operator_family_joins_support_status", "value": "planned"},
+                        {"key": "operator_family_joins_next_evidence", "value": "join_null_semantics,build_probe_memory,benchmarks"},
+                        {"key": "all_rows_fallback_attempted_false", "value": "true"},
+                        {"key": "no_runtime", "value": "true"},
+                        {"key": "no_fallback", "value": "true"},
+                        {"key": "no_effects", "value": "true"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).compute_capability_matrix()
+
+        self.assertIsInstance(result, ComputeCapabilityMatrix)
+        self.assertEqual(result.matrix_status, "report_only")
+        self.assertEqual(result.claim_grade_status, "evidence_incomplete")
+        rows = {row.row_id: row for row in result.rows}
+        self.assertEqual(rows["local_vortex_count"].support_status, "fixture_certified")
+        self.assertEqual(rows["local_vortex_count"].provider_kind, "vortex_scan")
+        self.assertEqual(
+            rows["local_vortex_count"].native_io_refs,
+            ("certificates/cg19/local-vortex-count/native-io.json",),
+        )
+        self.assertFalse(rows["local_vortex_count"].fallback_attempted)
+        self.assertEqual(rows["sql_frontend"].unsupported_diagnostic_code, "SL_UNSUPPORTED_SQL")
+        self.assertIn("parser", rows["sql_frontend"].required_future_evidence)
+        families = {row.family_id: row for row in result.operator_families}
+        self.assertEqual(families["joins"].support_status, "planned")
+        self.assertIn("build_probe_memory", families["joins"].next_evidence)
         self.assertTrue(result.no_runtime)
         self.assertTrue(result.no_fallback)
         self.assertTrue(result.no_effects)

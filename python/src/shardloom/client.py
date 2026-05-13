@@ -590,6 +590,149 @@ class ClaimGateCloseoutReport:
 
 
 @dataclass(frozen=True, slots=True)
+class ComputeCapabilityRow:
+    """One row in the report-only compute capability matrix."""
+
+    row_id: str
+    surface: str
+    family: str
+    support_status: str
+    engine_mode: str
+    provider_kind: str
+    semantic_profile: str
+    materialization_decode_requirement: str
+    memory_spill_requirement: str
+    correctness_refs: tuple[str, ...]
+    benchmark_refs: tuple[str, ...]
+    execution_certificate_refs: tuple[str, ...]
+    native_io_refs: tuple[str, ...]
+    unsupported_diagnostic_code: str
+    blocker_id: str
+    required_future_evidence: tuple[str, ...]
+    fallback_attempted: bool
+    external_engine_invoked: bool
+
+
+@dataclass(frozen=True, slots=True)
+class OperatorFamilyCoverageRow:
+    """One operator-family coverage row in the compute matrix."""
+
+    family_id: str
+    support_status: str
+    next_evidence: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ComputeCapabilityMatrix:
+    """Typed view over the report-only compute capability coverage matrix."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def matrix_status(self) -> str:
+        """Return the matrix report status."""
+
+        return _required_field(self.envelope, "matrix_status")
+
+    @property
+    def claim_grade_status(self) -> str:
+        """Return whether the matrix allows claim-grade compute-engine claims."""
+
+        return _required_field(self.envelope, "claim_grade_status")
+
+    @property
+    def rows(self) -> tuple[ComputeCapabilityRow, ...]:
+        """Return matrix rows in declared order."""
+
+        rows: list[ComputeCapabilityRow] = []
+        for row_id in _csv_values(self.envelope.field("compute_row_order")):
+            prefix = f"compute_row_{row_id}_"
+            rows.append(
+                ComputeCapabilityRow(
+                    row_id=row_id,
+                    surface=_required_field(self.envelope, f"{prefix}surface"),
+                    family=_required_field(self.envelope, f"{prefix}family"),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    engine_mode=_required_field(self.envelope, f"{prefix}engine_mode"),
+                    provider_kind=_required_field(self.envelope, f"{prefix}provider_kind"),
+                    semantic_profile=_required_field(self.envelope, f"{prefix}semantic_profile"),
+                    materialization_decode_requirement=_required_field(
+                        self.envelope,
+                        f"{prefix}materialization_decode_requirement",
+                    ),
+                    memory_spill_requirement=_required_field(
+                        self.envelope,
+                        f"{prefix}memory_spill_requirement",
+                    ),
+                    correctness_refs=_csv_values(self.envelope.field(f"{prefix}correctness_refs")),
+                    benchmark_refs=_csv_values(self.envelope.field(f"{prefix}benchmark_refs")),
+                    execution_certificate_refs=_csv_values(
+                        self.envelope.field(f"{prefix}execution_certificate_refs")
+                    ),
+                    native_io_refs=_csv_values(self.envelope.field(f"{prefix}native_io_refs")),
+                    unsupported_diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}unsupported_diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def operator_families(self) -> tuple[OperatorFamilyCoverageRow, ...]:
+        """Return operator-family ladder rows in declared order."""
+
+        rows: list[OperatorFamilyCoverageRow] = []
+        for family_id in _csv_values(self.envelope.field("operator_family_order")):
+            prefix = f"operator_family_{family_id}_"
+            rows.append(
+                OperatorFamilyCoverageRow(
+                    family_id=family_id,
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    next_evidence=_csv_values(self.envelope.field(f"{prefix}next_evidence")),
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def no_runtime(self) -> bool:
+        """Whether the matrix command avoided runtime execution."""
+
+        return self.envelope.field_bool("no_runtime", False) is True
+
+    @property
+    def no_fallback(self) -> bool:
+        """Whether the matrix declares and preserves no fallback execution."""
+
+        return (
+            self.envelope.field_bool("no_fallback", False) is True
+            and self.envelope.field_bool("all_rows_fallback_attempted_false", False) is True
+            and not self.envelope.fallback.attempted
+            and not self.envelope.fallback.allowed
+        )
+
+    @property
+    def no_effects(self) -> bool:
+        """Whether the matrix command performed no external effects."""
+
+        return self.envelope.field_bool("no_effects", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class RestApiContractPlan:
     """Typed convenience view over the CG-23 REST/OpenAPI contract report."""
 
@@ -1892,6 +2035,11 @@ class ShardLoomClient:
         """Return the P7 claim-gate and release-readiness closeout report."""
 
         return ClaimGateCloseoutReport(self.run(["claim-gate-closeout"], check=check))
+
+    def compute_capability_matrix(self, *, check: bool = True) -> ComputeCapabilityMatrix:
+        """Return the P7.4 report-only compute capability coverage matrix."""
+
+        return ComputeCapabilityMatrix(self.run(["compute-capability-matrix"], check=check))
 
     def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
         """Return the CG-22 report-only live change contract."""

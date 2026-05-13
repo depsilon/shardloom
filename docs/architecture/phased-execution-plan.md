@@ -158,21 +158,6 @@ from the merged code and tests.
     execution certificates, Native I/O evidence where data is read/written,
     materialization/decode-boundary evidence, `fallback_attempted=false`, and
     `external_engine_invoked=false`.
-  - [ ] P7.4.1 compute capability coverage matrix and operator-family ladder bundle.
-    - User-visible surface: a machine-readable compute capability matrix across operator,
-      expression, source, sink, and engine-mode surfaces, plus a family ladder for scalar
-      expressions, predicates, projection, filter-project fusion, aggregates, grouped aggregates,
-      approximate/sketch aggregates, sort/top-N/limit, joins, semi/anti joins, windows, set
-      operations, nested/extension operations, and sink/write operators.
-    - Acceptance: every row records support status (`unsupported`, `planned`, `report_only`,
-      `executable_uncertified`, `fixture_certified`, `workload_certified`,
-      `production_certified`), engine mode, provider kind (`shardloom_kernel`,
-      `vortex_array_kernel`, `vortex_scan`, `vortex_source`, `vortex_sink`,
-      `compatibility_boundary`, `external_baseline_only`), semantic profile,
-      materialization/decode requirement, memory/spill requirement, correctness/benchmark/
-      certificate/Native I/O refs, unsupported diagnostic code, and no-fallback evidence.
-    - Verification: CLI/Python capability snapshots, matrix schema tests, no-fallback invariants,
-      and benchmark/workflow/API view consistency checks.
   - [ ] P7.4.2 ShardLoomNative semantic conformance and unsupported API parity bundle.
     - User-visible surface: executable semantic conformance tests for supported operators plus
       complete report-only diagnostics for planned DataFrame and SQL surfaces before broad runtime

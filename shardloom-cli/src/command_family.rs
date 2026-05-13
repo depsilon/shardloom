@@ -112,7 +112,10 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
 }
 
 fn is_status_capabilities_command(command: &str) -> bool {
-    matches!(command, "status" | "capabilities")
+    matches!(
+        command,
+        "status" | "capabilities" | "compute-capability-matrix"
+    )
 }
 
 fn is_vortex_primitive_command(command: &str) -> bool {
@@ -420,6 +423,10 @@ mod tests {
         assert_eq!(
             classify_command("claim-gate-closeout"),
             CommandFamily::EvidenceCertificates
+        );
+        assert_eq!(
+            classify_command("compute-capability-matrix"),
+            CommandFamily::StatusCapabilities
         );
         assert_eq!(
             classify_command("benchmark-plan"),

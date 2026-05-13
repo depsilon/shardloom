@@ -336,6 +336,30 @@ This maps to `shardloom claim-gate-closeout --format json`. It is report-only:
 it does not run workloads, publish packages, probe APIs, run benchmarks, invoke
 Foundry, or permit external-engine fallback.
 
+For P7.4 compute-engine closeout, the client exposes the report-only compute
+capability matrix and operator-family ladder:
+
+```python
+from shardloom import ShardLoomClient
+
+client = ShardLoomClient.from_repo()
+matrix = client.compute_capability_matrix()
+
+for row in matrix.rows:
+    print(row.row_id, row.support_status, row.provider_kind, row.blocker_id)
+
+for family in matrix.operator_families:
+    print(family.family_id, family.support_status, family.next_evidence)
+
+print(matrix.matrix_status)
+print(matrix.claim_grade_status)
+print(matrix.no_runtime, matrix.no_fallback, matrix.no_effects)
+```
+
+This maps to `shardloom compute-capability-matrix --format json`. It performs
+no runtime execution, data reads, writes, benchmark execution, external effects,
+external engine invocation, or fallback execution.
+
 ## Package Build Smoke
 
 The current package is pure Python and has no runtime dependencies. Release
