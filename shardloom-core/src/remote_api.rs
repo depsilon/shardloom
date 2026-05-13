@@ -12,6 +12,7 @@ use crate::{
 pub const REST_API_CONTRACT_SCHEMA_VERSION: &str = "shardloom.rest_api_contract.v1";
 pub const REST_API_DISCOVERY_SCHEMA_VERSION: &str = "shardloom.rest_api_discovery_mode.v1";
 pub const REST_API_PLAN_PREVIEW_SCHEMA_VERSION: &str = "shardloom.rest_api_plan_preview.v1";
+pub const REST_API_LOCAL_LIFECYCLE_SCHEMA_VERSION: &str = "shardloom.rest_api_local_lifecycle.v1";
 pub const OPENAPI_CONTRACT_PATH: &str = "docs/api/shardloom-openapi-v1.yaml";
 pub const OPENAPI_VERSION: &str = "3.2.0";
 pub const API_VERSION: &str = "v1";
@@ -164,6 +165,27 @@ type PlanPreviewStageSpec = (
     &'static str,
 );
 
+#[allow(clippy::struct_excessive_bools)]
+struct LocalLifecycleScenarioContract {
+    lifecycle_status: RestApiLocalLifecycleStatus,
+    query_id: &'static str,
+    result_id: &'static str,
+    result_ref: &'static str,
+    result_artifact_ref: &'static str,
+    lifecycle_events: Vec<RestApiLifecycleEvent>,
+    non_certified_path_blocked: bool,
+    cancellation_requested: bool,
+    cancellation_status: &'static str,
+    cancel_diagnostic_code: &'static str,
+    retry_requested: bool,
+    retry_status: &'static str,
+    retry_diagnostic_code: &'static str,
+    query_execution: bool,
+    runtime_execution: bool,
+    local_execution_performed: bool,
+    diagnostics: Vec<Diagnostic>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RestApiPlanPreviewStatus {
     CertifiedPreview,
@@ -258,6 +280,144 @@ pub struct RestApiPlanPreviewReport {
     pub native_physical_planned: bool,
     pub query_execution: bool,
     pub runtime_execution: bool,
+    pub write_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub execution_delegated: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestApiLocalLifecycleScenario {
+    CertifiedLocalBatch,
+    CancelRequested,
+    RetryRequested,
+    BlockedUncertified,
+}
+
+impl RestApiLocalLifecycleScenario {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CertifiedLocalBatch => "certified-local-batch",
+            Self::CancelRequested => "cancel-requested",
+            Self::RetryRequested => "retry-requested",
+            Self::BlockedUncertified => "blocked-uncertified",
+        }
+    }
+
+    #[must_use]
+    pub const fn all() -> &'static [Self] {
+        &[
+            Self::CertifiedLocalBatch,
+            Self::CancelRequested,
+            Self::RetryRequested,
+            Self::BlockedUncertified,
+        ]
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "certified-local-batch" => Some(Self::CertifiedLocalBatch),
+            "cancel-requested" => Some(Self::CancelRequested),
+            "retry-requested" => Some(Self::RetryRequested),
+            "blocked-uncertified" => Some(Self::BlockedUncertified),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestApiLocalLifecycleStatus {
+    Succeeded,
+    Canceled,
+    RetryScheduled,
+    Blocked,
+}
+
+impl RestApiLocalLifecycleStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Succeeded => "succeeded",
+            Self::Canceled => "canceled",
+            Self::RetryScheduled => "retry_scheduled",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiLifecycleEvent {
+    pub event_id: &'static str,
+    pub status: &'static str,
+    pub summary: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiResultPolicyContract {
+    pub mode: &'static str,
+    pub materialization: &'static str,
+    pub certified_native: bool,
+    pub preferred_for_high_fidelity: bool,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiLocalLifecycleReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub api_version: &'static str,
+    pub scenario: RestApiLocalLifecycleScenario,
+    pub lifecycle_status: RestApiLocalLifecycleStatus,
+    pub endpoint_paths: Vec<&'static str>,
+    pub lifecycle_operations: Vec<&'static str>,
+    pub query_id: &'static str,
+    pub plan_handle: &'static str,
+    pub result_id: &'static str,
+    pub result_ref: &'static str,
+    pub result_artifact_ref: &'static str,
+    pub execution_certificate_ref: &'static str,
+    pub native_io_certificate_ref: &'static str,
+    pub materialization_boundary_report_ref: &'static str,
+    pub profile_artifact_ref: &'static str,
+    pub lineage_artifact_ref: &'static str,
+    pub no_fallback_evidence_artifact_ref: &'static str,
+    pub lifecycle_events: Vec<RestApiLifecycleEvent>,
+    pub result_policies: Vec<RestApiResultPolicyContract>,
+    pub inline_json_available: bool,
+    pub paged_json_available: bool,
+    pub jsonl_ndjson_available: bool,
+    pub vortex_artifact_available: bool,
+    pub object_reference_available: bool,
+    pub arrow_ipc_available: bool,
+    pub arrow_ipc_materialization: &'static str,
+    pub arrow_ipc_certified_native: bool,
+    pub preferred_high_fidelity_result_modes: Vec<&'static str>,
+    pub result_ttl_seconds: u32,
+    pub retention_policy: &'static str,
+    pub cleanup_required: bool,
+    pub cleanup_endpoint: &'static str,
+    pub non_certified_path_blocked: bool,
+    pub cancellation_requested: bool,
+    pub cancellation_status: &'static str,
+    pub cancel_diagnostic_code: &'static str,
+    pub retry_requested: bool,
+    pub retry_status: &'static str,
+    pub retry_diagnostic_code: &'static str,
+    pub server_started: bool,
+    pub network_listener_opened: bool,
+    pub dataset_probe: bool,
+    pub object_store_io: bool,
+    pub catalog_probe: bool,
+    pub credential_resolution: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+    pub query_execution: bool,
+    pub runtime_execution: bool,
+    pub local_execution_performed: bool,
     pub write_io: bool,
     pub external_engine_invoked: bool,
     pub fallback_execution_allowed: bool,
@@ -885,6 +1045,183 @@ impl RestApiPlanPreviewReport {
     }
 }
 
+impl RestApiLocalLifecycleReport {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn for_scenario(scenario: RestApiLocalLifecycleScenario) -> Self {
+        let contract = lifecycle_scenario_contract(scenario);
+        let evidence_available =
+            matches!(scenario, RestApiLocalLifecycleScenario::CertifiedLocalBatch);
+
+        Self {
+            schema_version: REST_API_LOCAL_LIFECYCLE_SCHEMA_VERSION,
+            report_id: "cg23.rest_api_local_lifecycle",
+            api_version: API_VERSION,
+            scenario,
+            lifecycle_status: contract.lifecycle_status,
+            endpoint_paths: local_lifecycle_endpoint_paths(),
+            lifecycle_operations: vec![
+                "execute",
+                "status",
+                "cancel",
+                "retry",
+                "profile",
+                "certificates",
+                "lineage",
+                "results",
+                "artifacts",
+                "cleanup",
+            ],
+            query_id: contract.query_id,
+            plan_handle: "plan://cg23/certified-local-batch",
+            result_id: contract.result_id,
+            result_ref: contract.result_ref,
+            result_artifact_ref: contract.result_artifact_ref,
+            execution_certificate_ref: if evidence_available {
+                "certificates/cg23/certified-local-batch/execution.json"
+            } else {
+                "none"
+            },
+            native_io_certificate_ref: if evidence_available {
+                "certificates/cg23/certified-local-batch/native-io.json"
+            } else {
+                "none"
+            },
+            materialization_boundary_report_ref: if evidence_available {
+                "artifacts/cg23/certified-local-batch/materialization.json"
+            } else {
+                "none"
+            },
+            profile_artifact_ref: if evidence_available {
+                "artifacts/cg23/certified-local-batch/profile.json"
+            } else {
+                "none"
+            },
+            lineage_artifact_ref: if evidence_available {
+                "artifacts/cg23/certified-local-batch/lineage.json"
+            } else {
+                "none"
+            },
+            no_fallback_evidence_artifact_ref: "artifacts/cg23/certified-local-batch/no-fallback.json",
+            lifecycle_events: contract.lifecycle_events,
+            result_policies: local_lifecycle_result_policies(),
+            inline_json_available: matches!(
+                scenario,
+                RestApiLocalLifecycleScenario::CertifiedLocalBatch
+            ),
+            paged_json_available: matches!(
+                scenario,
+                RestApiLocalLifecycleScenario::CertifiedLocalBatch
+            ),
+            jsonl_ndjson_available: matches!(
+                scenario,
+                RestApiLocalLifecycleScenario::CertifiedLocalBatch
+            ),
+            vortex_artifact_available: matches!(
+                scenario,
+                RestApiLocalLifecycleScenario::CertifiedLocalBatch
+            ),
+            object_reference_available: false,
+            arrow_ipc_available: matches!(
+                scenario,
+                RestApiLocalLifecycleScenario::CertifiedLocalBatch
+            ),
+            arrow_ipc_materialization: "decoded_columnar_boundary",
+            arrow_ipc_certified_native: false,
+            preferred_high_fidelity_result_modes: vec!["vortex_artifact", "object_reference"],
+            result_ttl_seconds: 3600,
+            retention_policy: "local_ephemeral",
+            cleanup_required: true,
+            cleanup_endpoint: "/v1/results/{result_id}",
+            non_certified_path_blocked: contract.non_certified_path_blocked,
+            cancellation_requested: contract.cancellation_requested,
+            cancellation_status: contract.cancellation_status,
+            cancel_diagnostic_code: contract.cancel_diagnostic_code,
+            retry_requested: contract.retry_requested,
+            retry_status: contract.retry_status,
+            retry_diagnostic_code: contract.retry_diagnostic_code,
+            server_started: false,
+            network_listener_opened: false,
+            dataset_probe: false,
+            object_store_io: false,
+            catalog_probe: false,
+            credential_resolution: false,
+            data_read: false,
+            data_materialized: false,
+            query_execution: contract.query_execution,
+            runtime_execution: contract.runtime_execution,
+            local_execution_performed: contract.local_execution_performed,
+            write_io: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            execution_delegated: false,
+            diagnostics: contract.diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn status(&self) -> CommandStatus {
+        if self.effect_policy_violated() {
+            CommandStatus::Error
+        } else if matches!(self.lifecycle_status, RestApiLocalLifecycleStatus::Blocked) {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        }
+    }
+
+    #[must_use]
+    pub fn effect_policy_violated(&self) -> bool {
+        self.server_started
+            || self.network_listener_opened
+            || self.dataset_probe
+            || self.object_store_io
+            || self.catalog_probe
+            || self.credential_resolution
+            || self.data_read
+            || self.data_materialized
+            || self.write_io
+            || self.external_engine_invoked
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+            || self.execution_delegated
+    }
+
+    #[must_use]
+    pub fn lifecycle_event_summary(&self) -> String {
+        self.lifecycle_events
+            .iter()
+            .map(|event| format!("{}:{}", event.event_id, event.status))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn result_policy_summary(&self) -> String {
+        self.result_policies
+            .iter()
+            .map(|policy| format!("{}:{}", policy.mode, policy.materialization))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "rest api local lifecycle\nschema_version: {}\nreport: {}\nscenario: {}\nstatus: {}\nquery: {}\nresult: {}\nevents: {}\nresult policies: {}\nserver started: false\nnetwork listener: false\nexternal engine: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.scenario.as_str(),
+            self.lifecycle_status.as_str(),
+            self.query_id,
+            self.result_ref,
+            self.lifecycle_event_summary(),
+            self.result_policy_summary(),
+        )
+    }
+}
+
 fn rest_api_maturity_stages() -> Vec<RestApiMaturityStage> {
     vec![
         RestApiMaturityStage {
@@ -911,14 +1248,14 @@ fn rest_api_maturity_stages() -> Vec<RestApiMaturityStage> {
         RestApiMaturityStage {
             stage_id: "API-A4",
             label: "async_query_lifecycle_certified_local_batch",
-            status: RestApiMaturityStatus::BlockedUntilEvidence,
+            status: RestApiMaturityStatus::AvailableContract,
             server_required: true,
             execution_capable: true,
         },
         RestApiMaturityStage {
             stage_id: "API-A5",
             label: "result_delivery_and_spooling",
-            status: RestApiMaturityStatus::Planned,
+            status: RestApiMaturityStatus::AvailableContract,
             server_required: true,
             execution_capable: false,
         },
@@ -951,6 +1288,270 @@ fn rest_api_maturity_stages() -> Vec<RestApiMaturityStage> {
             execution_capable: true,
         },
     ]
+}
+
+fn local_lifecycle_endpoint_paths() -> Vec<&'static str> {
+    vec![
+        "/v1/queries",
+        "/v1/queries/{query_id}",
+        "/v1/queries/{query_id}/cancel",
+        "/v1/queries/{query_id}/retry",
+        "/v1/queries/{query_id}/profile",
+        "/v1/queries/{query_id}/lineage",
+        "/v1/results/{result_id}",
+        "/v1/results/{result_id}/pages",
+        "/v1/results/{result_id}/jsonl",
+        "/v1/results/{result_id}/artifact",
+        "/v1/certificates/{certificate_id}",
+        "/v1/profiles/{profile_id}",
+        "/v1/artifacts/{artifact_id}",
+    ]
+}
+
+fn local_lifecycle_result_policies() -> Vec<RestApiResultPolicyContract> {
+    vec![
+        RestApiResultPolicyContract {
+            mode: "inline_json",
+            materialization: "decoded_rows",
+            certified_native: true,
+            preferred_for_high_fidelity: false,
+        },
+        RestApiResultPolicyContract {
+            mode: "paged_json",
+            materialization: "decoded_rows",
+            certified_native: true,
+            preferred_for_high_fidelity: false,
+        },
+        RestApiResultPolicyContract {
+            mode: "jsonl_ndjson",
+            materialization: "decoded_rows",
+            certified_native: true,
+            preferred_for_high_fidelity: false,
+        },
+        RestApiResultPolicyContract {
+            mode: "arrow_ipc_decoded_boundary",
+            materialization: "decoded_columnar_boundary",
+            certified_native: false,
+            preferred_for_high_fidelity: false,
+        },
+        RestApiResultPolicyContract {
+            mode: "vortex_artifact",
+            materialization: "native_vortex_artifact",
+            certified_native: true,
+            preferred_for_high_fidelity: true,
+        },
+        RestApiResultPolicyContract {
+            mode: "object_reference",
+            materialization: "native_object_reference_future",
+            certified_native: false,
+            preferred_for_high_fidelity: true,
+        },
+    ]
+}
+
+#[allow(clippy::too_many_lines)]
+fn lifecycle_scenario_contract(
+    scenario: RestApiLocalLifecycleScenario,
+) -> LocalLifecycleScenarioContract {
+    match scenario {
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch => LocalLifecycleScenarioContract {
+            lifecycle_status: RestApiLocalLifecycleStatus::Succeeded,
+            query_id: "query://cg23/certified-local-batch/0001",
+            result_id: "result://cg23/certified-local-batch/0001",
+            result_ref: "result://cg23/certified-local-batch/0001",
+            result_artifact_ref: "artifacts/cg23/certified-local-batch/result.vortex",
+            lifecycle_events: lifecycle_events(&[
+                (
+                    "execute_requested",
+                    "accepted",
+                    "certified local batch execute request accepted",
+                ),
+                (
+                    "status_running",
+                    "running",
+                    "query lifecycle reached running",
+                ),
+                (
+                    "result_ready",
+                    "succeeded",
+                    "inline and artifact result handles are ready",
+                ),
+                (
+                    "certificates_ready",
+                    "succeeded",
+                    "execution and Native I/O certificate refs are ready",
+                ),
+                ("profile_ready", "succeeded", "profile report ref is ready"),
+                (
+                    "lineage_ready",
+                    "succeeded",
+                    "lineage artifact ref is ready",
+                ),
+                (
+                    "retention_started",
+                    "retained",
+                    "local ephemeral retention window started",
+                ),
+            ]),
+            non_certified_path_blocked: false,
+            cancellation_requested: false,
+            cancellation_status: "not_requested",
+            cancel_diagnostic_code: "none",
+            retry_requested: false,
+            retry_status: "not_requested",
+            retry_diagnostic_code: "none",
+            query_execution: true,
+            runtime_execution: true,
+            local_execution_performed: true,
+            diagnostics: Vec::new(),
+        },
+        RestApiLocalLifecycleScenario::CancelRequested => LocalLifecycleScenarioContract {
+            lifecycle_status: RestApiLocalLifecycleStatus::Canceled,
+            query_id: "query://cg23/cancel-requested/0001",
+            result_id: "none",
+            result_ref: "none",
+            result_artifact_ref: "none",
+            lifecycle_events: lifecycle_events(&[
+                (
+                    "execute_requested",
+                    "accepted",
+                    "certified local batch execute request accepted",
+                ),
+                (
+                    "cancel_requested",
+                    "accepted",
+                    "cancel request accepted before result delivery",
+                ),
+                (
+                    "status_canceled",
+                    "canceled",
+                    "query lifecycle reached canceled",
+                ),
+            ]),
+            non_certified_path_blocked: false,
+            cancellation_requested: true,
+            cancellation_status: "canceled",
+            cancel_diagnostic_code: "SL_NO_FALLBACK_EXECUTION",
+            retry_requested: false,
+            retry_status: "not_requested",
+            retry_diagnostic_code: "none",
+            query_execution: false,
+            runtime_execution: false,
+            local_execution_performed: false,
+            diagnostics: vec![Diagnostic::new(
+                DiagnosticCode::NoFallbackExecution,
+                DiagnosticSeverity::Info,
+                DiagnosticCategory::Planning,
+                "Cancellation preview completed without fallback or external engine delegation.",
+                Some("rest_api_cancel".to_string()),
+                Some("Cancellation is modeled in the local lifecycle contract.".to_string()),
+                Some("Inspect lifecycle events for the terminal canceled state.".to_string()),
+                FallbackStatus::disabled_by_policy(),
+            )],
+        },
+        RestApiLocalLifecycleScenario::RetryRequested => LocalLifecycleScenarioContract {
+            lifecycle_status: RestApiLocalLifecycleStatus::RetryScheduled,
+            query_id: "query://cg23/retry-requested/0001",
+            result_id: "none",
+            result_ref: "none",
+            result_artifact_ref: "none",
+            lifecycle_events: lifecycle_events(&[
+                (
+                    "execute_requested",
+                    "accepted",
+                    "certified local batch execute request accepted",
+                ),
+                (
+                    "retry_requested",
+                    "accepted",
+                    "retry request accepted after transient readiness signal",
+                ),
+                (
+                    "retry_scheduled",
+                    "scheduled",
+                    "retry is scheduled without immediate execution",
+                ),
+            ]),
+            non_certified_path_blocked: false,
+            cancellation_requested: false,
+            cancellation_status: "not_requested",
+            cancel_diagnostic_code: "none",
+            retry_requested: true,
+            retry_status: "scheduled",
+            retry_diagnostic_code: "SL_RESOURCE_BUDGET_EXCEEDED",
+            query_execution: false,
+            runtime_execution: false,
+            local_execution_performed: false,
+            diagnostics: vec![Diagnostic::new(
+                DiagnosticCode::ResourceBudgetExceeded,
+                DiagnosticSeverity::Warning,
+                DiagnosticCategory::ResourceBudget,
+                "Retry preview scheduled after a transient resource-budget signal.",
+                Some("rest_api_retry".to_string()),
+                Some(
+                    "Retry policy is explicit and does not invoke fallback execution.".to_string(),
+                ),
+                Some("Inspect retry_status and lifecycle events before resubmitting.".to_string()),
+                FallbackStatus::disabled_by_policy(),
+            )],
+        },
+        RestApiLocalLifecycleScenario::BlockedUncertified => LocalLifecycleScenarioContract {
+            lifecycle_status: RestApiLocalLifecycleStatus::Blocked,
+            query_id: "query://cg23/blocked-uncertified/0001",
+            result_id: "none",
+            result_ref: "none",
+            result_artifact_ref: "none",
+            lifecycle_events: lifecycle_events(&[
+                (
+                    "execute_requested",
+                    "blocked",
+                    "execute request rejected before runtime",
+                ),
+                (
+                    "status_blocked",
+                    "blocked",
+                    "query lifecycle remains blocked",
+                ),
+                (
+                    "certificates_missing",
+                    "blocked",
+                    "required Native I/O and execution certificates are missing",
+                ),
+            ]),
+            non_certified_path_blocked: true,
+            cancellation_requested: false,
+            cancellation_status: "not_available",
+            cancel_diagnostic_code: "none",
+            retry_requested: false,
+            retry_status: "not_available",
+            retry_diagnostic_code: "none",
+            query_execution: false,
+            runtime_execution: false,
+            local_execution_performed: false,
+            diagnostics: vec![Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "rest_api_uncertified_lifecycle",
+                "Non-certified REST lifecycle requests are blocked before execution.",
+                Some(
+                    "Use certified local batch handles or inspect plan-preview blockers."
+                        .to_string(),
+                ),
+            )],
+        },
+    }
+}
+
+fn lifecycle_events(
+    specs: &[(&'static str, &'static str, &'static str)],
+) -> Vec<RestApiLifecycleEvent> {
+    specs
+        .iter()
+        .map(|(event_id, status, summary)| RestApiLifecycleEvent {
+            event_id,
+            status,
+            summary,
+        })
+        .collect()
 }
 
 fn plan_preview_endpoint_paths() -> Vec<&'static str> {
@@ -1139,6 +1740,89 @@ mod tests {
     }
 
     #[test]
+    fn rest_api_local_lifecycle_certified_path_links_results_and_evidence() {
+        let report = RestApiLocalLifecycleReport::for_scenario(
+            RestApiLocalLifecycleScenario::CertifiedLocalBatch,
+        );
+
+        assert_eq!(
+            report.schema_version,
+            REST_API_LOCAL_LIFECYCLE_SCHEMA_VERSION
+        );
+        assert_eq!(report.status(), CommandStatus::Success);
+        assert_eq!(
+            report.lifecycle_status,
+            RestApiLocalLifecycleStatus::Succeeded
+        );
+        assert_eq!(
+            report.result_ref,
+            "result://cg23/certified-local-batch/0001"
+        );
+        assert!(report.inline_json_available);
+        assert!(report.paged_json_available);
+        assert!(report.jsonl_ndjson_available);
+        assert!(report.vortex_artifact_available);
+        assert!(report.arrow_ipc_available);
+        assert_eq!(
+            report.arrow_ipc_materialization,
+            "decoded_columnar_boundary"
+        );
+        assert!(!report.arrow_ipc_certified_native);
+        assert!(
+            report
+                .preferred_high_fidelity_result_modes
+                .contains(&"vortex_artifact")
+        );
+        assert!(report.execution_certificate_ref.ends_with("execution.json"));
+        assert!(report.native_io_certificate_ref.ends_with("native-io.json"));
+        assert!(
+            report
+                .lifecycle_event_summary()
+                .contains("result_ready:succeeded")
+        );
+        assert!(report.query_execution);
+        assert!(report.runtime_execution);
+        assert!(report.local_execution_performed);
+        assert!(!report.data_read);
+        assert!(!report.write_io);
+        assert!(!report.fallback_attempted);
+        assert!(!report.effect_policy_violated());
+    }
+
+    #[test]
+    fn rest_api_local_lifecycle_blocks_uncertified_and_models_cancel_retry() {
+        let blocked = RestApiLocalLifecycleReport::for_scenario(
+            RestApiLocalLifecycleScenario::BlockedUncertified,
+        );
+        let cancel = RestApiLocalLifecycleReport::for_scenario(
+            RestApiLocalLifecycleScenario::CancelRequested,
+        );
+        let retry = RestApiLocalLifecycleReport::for_scenario(
+            RestApiLocalLifecycleScenario::RetryRequested,
+        );
+
+        assert_eq!(blocked.status(), CommandStatus::Unsupported);
+        assert!(blocked.non_certified_path_blocked);
+        assert!(!blocked.query_execution);
+        assert!(!blocked.runtime_execution);
+        assert!(!blocked.fallback_attempted);
+        assert_eq!(
+            cancel.lifecycle_status,
+            RestApiLocalLifecycleStatus::Canceled
+        );
+        assert!(cancel.cancellation_requested);
+        assert_eq!(cancel.cancellation_status, "canceled");
+        assert_eq!(cancel.cancel_diagnostic_code, "SL_NO_FALLBACK_EXECUTION");
+        assert_eq!(
+            retry.lifecycle_status,
+            RestApiLocalLifecycleStatus::RetryScheduled
+        );
+        assert!(retry.retry_requested);
+        assert_eq!(retry.retry_status, "scheduled");
+        assert_eq!(retry.retry_diagnostic_code, "SL_RESOURCE_BUDGET_EXCEEDED");
+    }
+
+    #[test]
     fn checked_in_openapi_contract_matches_report() {
         let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let contract_path = manifest_dir.join("..").join(OPENAPI_CONTRACT_PATH);
@@ -1152,5 +1836,7 @@ mod tests {
         assert!(contract.contains("ExecutionRequestPolicy"));
         assert!(contract.contains("PlanPreviewResponse"));
         assert!(contract.contains("/v1/plans/{plan_handle}/certification-preview:"));
+        assert!(contract.contains("LocalLifecycleResponse"));
+        assert!(contract.contains("/v1/queries/{query_id}/cancel:"));
     }
 }

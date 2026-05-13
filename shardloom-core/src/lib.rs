@@ -247,9 +247,11 @@ pub use release::{
 };
 pub use remote_api::{
     RestApiContractReport, RestApiDiscoveryModeReport, RestApiEndpointContract,
-    RestApiMaturityStage, RestApiMaturityStatus, RestApiPlanPreviewReport,
-    RestApiPlanPreviewScenario, RestApiPlanPreviewStage, RestApiPlanPreviewStatus,
-    RestApiPlanStageStatus, RestApiProblemDetailsPreview,
+    RestApiLifecycleEvent, RestApiLocalLifecycleReport, RestApiLocalLifecycleScenario,
+    RestApiLocalLifecycleStatus, RestApiMaturityStage, RestApiMaturityStatus,
+    RestApiPlanPreviewReport, RestApiPlanPreviewScenario, RestApiPlanPreviewStage,
+    RestApiPlanPreviewStatus, RestApiPlanStageStatus, RestApiProblemDetailsPreview,
+    RestApiResultPolicyContract,
 };
 pub use rfc_coverage::{
     RfcCoverageFollowThroughArea, RfcCoverageFollowThroughEntry, RfcCoverageFollowThroughReport,

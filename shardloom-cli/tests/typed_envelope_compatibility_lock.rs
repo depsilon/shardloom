@@ -187,6 +187,33 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fragments: &["\"code\":\"SL_UNSUPPORTED_SQL\""],
         },
         EnvelopeCase {
+            name: "rest api local lifecycle certified",
+            args: &[
+                "rest-api-local-lifecycle",
+                "certified-local-batch",
+                "--format",
+                "json",
+            ],
+            command: "rest-api-local-lifecycle",
+            status: "success",
+            family: "rest_api_planning",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                ("mode", "rest_api_local_lifecycle"),
+                ("lifecycle_status", "succeeded"),
+                ("runtime_execution", "true"),
+                ("local_execution_performed", "true"),
+                ("data_read", "false"),
+                ("fallback_attempted", "false"),
+            ],
+            fragments: &[
+                "\"result_refs\":[{\"id\":\"result://cg23/certified-local-batch/0001\"",
+                "\"kind\":\"execution_certificate\"",
+                "\"kind\":\"native_io_certificate\"",
+            ],
+        },
+        EnvelopeCase {
             name: "input planning success",
             args: &["input-adapters", "--format", "json"],
             command: "input-adapters",

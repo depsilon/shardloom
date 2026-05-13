@@ -289,7 +289,7 @@ paths:
     post:
       tags: [planning]
       operationId: submitQuery
-      summary: Future execution lifecycle entrypoint for certified local paths.
+      summary: Submit a certified local lifecycle request for already-certified local batch paths.
       x-shardloom-maturity: API-A4
       requestBody:
         required: true
@@ -299,18 +299,103 @@ paths:
               $ref: "#/components/schemas/QueryRequest"
       responses:
         "202":
-          description: Query accepted when the execution lane is certified.
+          description: Query accepted for certified local lifecycle handling.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryLifecycleResponse"
+                $ref: "#/components/schemas/LocalLifecycleResponse"
         "422":
+          $ref: "#/components/responses/Problem"
+  /v1/queries/{query_id}:
+    get:
+      tags: [planning]
+      operationId: getQueryLifecycle
+      summary: Fetch query lifecycle state, result handles, and evidence refs.
+      x-shardloom-maturity: API-A4
+      parameters:
+        - $ref: "#/components/parameters/QueryId"
+      responses:
+        "200":
+          description: Query lifecycle state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalLifecycleResponse"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/queries/{query_id}/cancel:
+    post:
+      tags: [planning]
+      operationId: cancelQueryLifecycle
+      summary: Request cancellation for a local lifecycle query without external delegation.
+      x-shardloom-maturity: API-A4
+      parameters:
+        - $ref: "#/components/parameters/QueryId"
+      responses:
+        "202":
+          description: Cancellation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalLifecycleResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/queries/{query_id}/retry:
+    post:
+      tags: [planning]
+      operationId: retryQueryLifecycle
+      summary: Request explicit retry for a blocked or transient local lifecycle state.
+      x-shardloom-maturity: API-A4
+      parameters:
+        - $ref: "#/components/parameters/QueryId"
+      responses:
+        "202":
+          description: Retry accepted or scheduled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalLifecycleResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/queries/{query_id}/profile:
+    get:
+      tags: [evidence]
+      operationId: getQueryProfile
+      summary: Fetch profile artifact refs for a local lifecycle query.
+      x-shardloom-maturity: API-A4
+      parameters:
+        - $ref: "#/components/parameters/QueryId"
+      responses:
+        "200":
+          description: Profile refs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceArtifactEnvelope"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/queries/{query_id}/lineage:
+    get:
+      tags: [evidence]
+      operationId: getQueryLineage
+      summary: Fetch lineage artifact refs for a local lifecycle query.
+      x-shardloom-maturity: API-A4
+      parameters:
+        - $ref: "#/components/parameters/QueryId"
+      responses:
+        "200":
+          description: Lineage refs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceArtifactEnvelope"
+        "404":
           $ref: "#/components/responses/Problem"
   /v1/results/{result_id}:
     get:
       tags: [evidence]
       operationId: getResult
-      summary: Future result delivery endpoint with explicit fidelity policy.
+      summary: Fetch result delivery metadata with explicit fidelity and retention policy.
       x-shardloom-maturity: API-A5
       parameters:
         - $ref: "#/components/parameters/ResultId"
@@ -321,6 +406,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResultResponse"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/results/{result_id}/pages:
+    get:
+      tags: [evidence]
+      operationId: getResultPage
+      summary: Fetch paged decoded JSON rows for a local result handle.
+      x-shardloom-maturity: API-A5
+      parameters:
+        - $ref: "#/components/parameters/ResultId"
+      responses:
+        "200":
+          description: Paged JSON result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultResponse"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/results/{result_id}/jsonl:
+    get:
+      tags: [evidence]
+      operationId: getResultJsonLines
+      summary: Fetch JSON Lines or NDJSON rows for a local result handle.
+      x-shardloom-maturity: API-A5
+      parameters:
+        - $ref: "#/components/parameters/ResultId"
+      responses:
+        "200":
+          description: JSON Lines result stream.
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/results/{result_id}/artifact:
+    get:
+      tags: [evidence]
+      operationId: getResultArtifact
+      summary: Fetch high-fidelity native artifact refs for a local result handle.
+      x-shardloom-maturity: API-A5
+      parameters:
+        - $ref: "#/components/parameters/ResultId"
+      responses:
+        "200":
+          description: Result artifact envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceArtifactEnvelope"
         "404":
           $ref: "#/components/responses/Problem"
   /v1/certificates/{certificate_id}:
@@ -349,6 +485,23 @@ paths:
       responses:
         "200":
           description: Profile evidence envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceArtifactEnvelope"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/artifacts/{artifact_id}:
+    get:
+      tags: [evidence]
+      operationId: getEvidenceArtifact
+      summary: Fetch a profile, lineage, materialization, result, or no-fallback artifact ref.
+      x-shardloom-maturity: API-A5
+      parameters:
+        - $ref: "#/components/parameters/ArtifactId"
+      responses:
+        "200":
+          description: Evidence artifact envelope.
           content:
             application/json:
               schema:
@@ -419,6 +572,18 @@ components:
         type: string
     ResultId:
       name: result_id
+      in: path
+      required: true
+      schema:
+        type: string
+    QueryId:
+      name: query_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ArtifactId:
+      name: artifact_id
       in: path
       required: true
       schema:
@@ -656,6 +821,78 @@ components:
           enum: [accepted, blocked, running, succeeded, failed, canceled]
         fallback:
           $ref: "#/components/schemas/FallbackStatus"
+    LocalLifecycleEvent:
+      type: object
+      required: [event_id, status, summary]
+      properties:
+        event_id:
+          type: string
+        status:
+          type: string
+        summary:
+          type: string
+    ResultPolicyContract:
+      type: object
+      required: [mode, materialization, certified_native, preferred_for_high_fidelity]
+      properties:
+        mode:
+          type: string
+          enum:
+            - inline_json
+            - paged_json
+            - jsonl_ndjson
+            - arrow_ipc_decoded_boundary
+            - vortex_artifact
+            - object_reference
+        materialization:
+          type: string
+        certified_native:
+          type: boolean
+        preferred_for_high_fidelity:
+          type: boolean
+    LocalLifecycleResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+        - type: object
+          required:
+            - query_id
+            - status
+            - result_ref
+            - result_policies
+            - certificates
+            - fallback
+          properties:
+            query_id:
+              type: string
+            status:
+              type: string
+              enum: [succeeded, canceled, retry_scheduled, blocked]
+            result_ref:
+              type: [string, "null"]
+            lifecycle_events:
+              type: array
+              items:
+                $ref: "#/components/schemas/LocalLifecycleEvent"
+            result_policies:
+              type: array
+              items:
+                $ref: "#/components/schemas/ResultPolicyContract"
+            certificates:
+              type: array
+              items:
+                type: string
+            profile_ref:
+              type: [string, "null"]
+            lineage_ref:
+              type: [string, "null"]
+            ttl_seconds:
+              type: integer
+            retention_policy:
+              type: string
+            cleanup_required:
+              type: boolean
+            fallback:
+              $ref: "#/components/schemas/FallbackStatus"
     EvidenceArtifactEnvelope:
       type: object
       required: [artifact_id, artifact_kind, status, payload]
@@ -670,7 +907,14 @@ components:
           type: object
     ResultResponse:
       type: object
-      required: [result_id, result_policy, materialization, fallback]
+      required:
+        - result_id
+        - result_policy
+        - materialization
+        - ttl_seconds
+        - retention_policy
+        - cleanup_required
+        - fallback
       properties:
         result_id:
           type: string
@@ -678,6 +922,16 @@ components:
           type: string
         materialization:
           type: string
+        ttl_seconds:
+          type: integer
+        retention_policy:
+          type: string
+        cleanup_required:
+          type: boolean
+        certificate_refs:
+          type: array
+          items:
+            type: string
         fallback:
           $ref: "#/components/schemas/FallbackStatus"
     HealthResponse:

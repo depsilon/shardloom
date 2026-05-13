@@ -29,6 +29,10 @@ fn run_rest_api_plan_preview(scenario: &str) -> String {
     run_cli_json(&["rest-api-plan-preview", scenario, "--format", "json"])
 }
 
+fn run_rest_api_local_lifecycle(scenario: &str) -> String {
+    run_cli_json(&["rest-api-local-lifecycle", scenario, "--format", "json"])
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
@@ -201,6 +205,121 @@ fn rest_api_plan_preview_json_preserves_no_server_no_probe_no_fallback_policy() 
         assert!(output.contains(&field("credential_resolution", "false")));
         assert!(output.contains(&field("query_execution", "false")));
         assert!(output.contains(&field("runtime_execution", "false")));
+        assert!(output.contains(&field("write_io", "false")));
+        assert!(output.contains(&field("external_engine_invoked", "false")));
+        assert!(output.contains(&field("fallback_execution_allowed", "false")));
+        assert!(output.contains(&field("fallback_attempted", "false")));
+        assert!(output.contains(&field("execution_delegated", "false")));
+        assert!(output.contains(&field("effect_policy_violated", "false")));
+    }
+}
+
+#[test]
+fn rest_api_local_lifecycle_json_exposes_certified_result_and_evidence_refs() {
+    let output = run_rest_api_local_lifecycle("certified-local-batch");
+
+    assert!(output.contains("\"command\":\"rest-api-local-lifecycle\""));
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("mode", "rest_api_local_lifecycle")));
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.rest_api_local_lifecycle.v1"
+    )));
+    assert!(output.contains(&field("scenario", "certified-local-batch")));
+    assert!(output.contains(&field("lifecycle_status", "succeeded")));
+    assert!(output.contains(&field(
+        "lifecycle_operations",
+        "execute,status,cancel,retry,profile,certificates,lineage,results,artifacts,cleanup"
+    )));
+    assert!(output.contains(&field(
+        "result_ref",
+        "result://cg23/certified-local-batch/0001"
+    )));
+    assert!(output.contains(&field(
+        "result_artifact_ref",
+        "artifacts/cg23/certified-local-batch/result.vortex"
+    )));
+    assert!(output.contains(&field("inline_json_available", "true")));
+    assert!(output.contains(&field("paged_json_available", "true")));
+    assert!(output.contains(&field("jsonl_ndjson_available", "true")));
+    assert!(output.contains(&field("vortex_artifact_available", "true")));
+    assert!(output.contains(&field(
+        "arrow_ipc_materialization",
+        "decoded_columnar_boundary"
+    )));
+    assert!(output.contains(&field("arrow_ipc_certified_native", "false")));
+    assert!(output.contains(&field(
+        "preferred_high_fidelity_result_modes",
+        "vortex_artifact,object_reference"
+    )));
+    assert!(output.contains(&field("result_ttl_seconds", "3600")));
+    assert!(output.contains(&field("retention_policy", "local_ephemeral")));
+    assert!(output.contains(&field("cleanup_required", "true")));
+    assert!(output.contains(&field(
+        "execution_certificate_ref",
+        "certificates/cg23/certified-local-batch/execution.json"
+    )));
+    assert!(output.contains(&field(
+        "native_io_certificate_ref",
+        "certificates/cg23/certified-local-batch/native-io.json"
+    )));
+    assert!(output.contains(&field(
+        "materialization_boundary_report_ref",
+        "artifacts/cg23/certified-local-batch/materialization.json"
+    )));
+    assert!(output.contains("\"certificates\":["));
+    assert!(output.contains("\"result_refs\":["));
+    assert!(output.contains("\"artifact_refs\":["));
+}
+
+#[test]
+fn rest_api_local_lifecycle_json_covers_cancel_retry_and_blocked_diagnostics() {
+    let cancel = run_rest_api_local_lifecycle("cancel-requested");
+    let retry = run_rest_api_local_lifecycle("retry-requested");
+    let blocked = run_rest_api_local_lifecycle("blocked-uncertified");
+
+    assert!(cancel.contains("\"status\":\"success\""));
+    assert!(cancel.contains(&field("lifecycle_status", "canceled")));
+    assert!(cancel.contains(&field("cancellation_requested", "true")));
+    assert!(cancel.contains(&field("cancellation_status", "canceled")));
+    assert!(cancel.contains(&field("cancel_diagnostic_code", "SL_NO_FALLBACK_EXECUTION")));
+
+    assert!(retry.contains("\"status\":\"success\""));
+    assert!(retry.contains(&field("lifecycle_status", "retry_scheduled")));
+    assert!(retry.contains(&field("retry_requested", "true")));
+    assert!(retry.contains(&field("retry_status", "scheduled")));
+    assert!(retry.contains(&field(
+        "retry_diagnostic_code",
+        "SL_RESOURCE_BUDGET_EXCEEDED"
+    )));
+
+    assert!(blocked.contains("\"status\":\"unsupported\""));
+    assert!(blocked.contains(&field("lifecycle_status", "blocked")));
+    assert!(blocked.contains(&field("non_certified_path_blocked", "true")));
+    assert!(blocked.contains(&field("query_execution", "false")));
+    assert!(blocked.contains(&field("runtime_execution", "false")));
+    assert!(blocked.contains("\"code\":\"SL_NOT_IMPLEMENTED\""));
+}
+
+#[test]
+fn rest_api_local_lifecycle_json_preserves_no_external_effects_and_no_fallback_policy() {
+    for scenario in [
+        "certified-local-batch",
+        "cancel-requested",
+        "retry-requested",
+        "blocked-uncertified",
+    ] {
+        let output = run_rest_api_local_lifecycle(scenario);
+
+        assert!(output.contains(&field("server_started", "false")));
+        assert!(output.contains(&field("network_listener_opened", "false")));
+        assert!(output.contains(&field("network_probe", "false")));
+        assert!(output.contains(&field("dataset_probe", "false")));
+        assert!(output.contains(&field("object_store_io", "false")));
+        assert!(output.contains(&field("catalog_probe", "false")));
+        assert!(output.contains(&field("credential_resolution", "false")));
+        assert!(output.contains(&field("data_read", "false")));
+        assert!(output.contains(&field("data_materialized", "false")));
         assert!(output.contains(&field("write_io", "false")));
         assert!(output.contains(&field("external_engine_invoked", "false")));
         assert!(output.contains(&field("fallback_execution_allowed", "false")));

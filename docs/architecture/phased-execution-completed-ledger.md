@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P6.3 certified local lifecycle, result delivery, and evidence refs
+  - Primary files:
+    - `docs/api/shardloom-openapi-v1.yaml`
+    - `shardloom-core/src/remote_api.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add the CG-23 A4/A5 certified local lifecycle and result-delivery bundle for
+    already-certified local batch paths, including execute/status/cancel/retry/profile/certificate/
+    lineage/result/artifact/cleanup contract surfaces, without starting an HTTP server or weakening
+    no-fallback policy.
+  - Checklist:
+    - [x] Add `RestApiLocalLifecycleReport` with certified-local-batch, cancel-requested,
+          retry-requested, and blocked-uncertified scenarios.
+    - [x] Add `rest-api-local-lifecycle` CLI output with lifecycle state, result refs, result
+          policies, TTL/retention/cleanup, cancellation/retry diagnostics, and typed-envelope
+          result/certificate/artifact refs.
+    - [x] Extend `docs/api/shardloom-openapi-v1.yaml` with query status/cancel/retry/profile/
+          lineage endpoints, result page/JSON Lines/artifact endpoints, artifact lookup, local
+          lifecycle schemas, and result policy schemas.
+    - [x] Expose Python `RestApiLocalLifecycle`,
+          `ShardLoomClient.rest_api_local_lifecycle()`, and
+          `ShardLoomContext.rest_api_local_lifecycle()`.
+    - [x] Keep non-certified lifecycle paths blocked before runtime, classify Arrow IPC as decoded
+          columnar materialization, and prefer Vortex artifact/object-reference policies for
+          high-fidelity results.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-core remote_api --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test api_protocol_snapshots --test typed_envelope_compatibility_lock`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom rest_api -- --nocapture`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-local-lifecycle certified-local-batch --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-local-lifecycle blocked-uncertified --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-local-lifecycle retry-requested --format json`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client python.tests.test_query_builder`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-local-lifecycle-clippy'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-local-lifecycle-test'; cargo test --workspace --all-targets`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-local-lifecycle-stable-clippy'; cargo +stable clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Runtime stance: certified local lifecycle fixture only. The command may report the already
+    certified local-batch execution lane, but it does not start serving, open sockets, probe
+    datasets, contact object stores/catalogs, resolve credentials, write data, invoke external
+    engines, delegate execution, or attempt fallback execution.
+
 - [x] Session label: P6.2 plan preview, validation, problem-details, and certification-preview API bundle
   - Primary files:
     - `docs/api/shardloom-openapi-v1.yaml`

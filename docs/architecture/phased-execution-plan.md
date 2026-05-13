@@ -356,17 +356,20 @@ actionable work.
       readiness, and certification stages remain separately inspectable; blocked, invalid-input,
       and unsupported previews emit deterministic diagnostics/problem-details fields without
       execution delegation.
-  - [ ] P6.3 certified local async lifecycle, result delivery, and certificate bundle.
-    - User-visible surface: execute/status/cancel/retry/profile/certificates/lineage/results/
-      artifacts lifecycle for already-certified local batch paths, plus inline JSON, paged JSON,
-      JSON Lines, artifact refs, TTL, retention, cleanup, and result fidelity policy.
-    - Acceptance: non-certified paths remain blocked or explicitly uncertified; result handles link
-      to execution certificates, Native I/O certificates, materialization reports, profile reports,
-      and no-fallback evidence. Arrow IPC is reported as decoded-columnar materialization unless
-      future evidence certifies otherwise, while Vortex artifacts or object refs are preferred for
-      high-fidelity analytical outputs.
-    - Verification: lifecycle state-machine tests, result policy snapshots, cancellation/retry
-      diagnostics, certificate-ref assertions, and focused local execution smoke.
+  - [x] P6.3 certified local async lifecycle, result delivery, and certificate bundle.
+    - Added `RestApiLocalLifecycleReport` and `rest-api-local-lifecycle` for certified-local-batch,
+      cancel-requested, retry-requested, and blocked-uncertified scenarios.
+    - Extended the OpenAPI contract with query lifecycle status/cancel/retry/profile/lineage
+      endpoints, result pages/JSON Lines/artifact endpoints, artifact lookup, local lifecycle
+      schemas, result policy schemas, TTL, retention, cleanup, and evidence refs.
+    - Exposed Python `RestApiLocalLifecycle`, `ShardLoomClient.rest_api_local_lifecycle()`, and
+      `ShardLoomContext.rest_api_local_lifecycle()` typed views.
+    - Verified certified local lifecycle output links result handles to execution certificates,
+      Native I/O certificates, materialization reports, profile reports, lineage artifacts, and
+      no-fallback evidence; non-certified lifecycle requests remain blocked before runtime; cancel
+      and retry fixtures emit deterministic diagnostics; Arrow IPC is classified as a decoded
+      columnar boundary while Vortex artifact/object-reference modes stay preferred for
+      high-fidelity results.
   - [ ] P6.4 live/hybrid event API and streaming evidence bundle.
     - User-visible surface: SSE-first event stream contracts, optional WebSocket posture where
       bidirectional interaction is required, AsyncAPI event contracts, and CloudEvents-style
