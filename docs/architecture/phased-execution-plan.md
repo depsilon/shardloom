@@ -167,14 +167,17 @@ actionable work.
       helpers are owned by their command-family modules with no duplicated manual JSON policy.
     - Verification: focused engine/runtime, optimizer, operational, and typed-envelope tests plus
       full workspace fmt/clippy/test.
-  - [ ] P3.9C Vortex primitive and readiness CLI ownership closeout.
+  - [x] P3.9C Vortex primitive and readiness CLI ownership closeout.
     - User-visible surface: existing Vortex planning/readiness commands and feature-gated local
       primitive execution commands stay runnable with the same explicit opt-in flags.
     - Acceptance: Vortex primitive execution, Vortex planning/readiness, prepared/source-backed
-      execution, and Vortex runtime-readiness helpers are module-owned; certificate and Native I/O
-      field groups use shared typed-envelope helpers.
+      execution, and Vortex runtime-readiness helpers are module-owned; certificate, Native I/O,
+      encoded-read spike, count/project/filter, metadata-kernel, and readiness field groups no
+      longer live in `main.rs`.
     - Slice boundary: this is the next single Vortex-facing ownership PR; do not split it into
-      per-command helper moves unless a real regression forces a narrower repair.
+      per-command helper moves unless a real regression forces a narrower repair. Output, write,
+      and commit UX helpers remain grouped with P4.6 instead of being mixed into this readiness
+      closeout.
     - Verification: feature-gated local primitive tests, Vortex readiness/planning snapshots,
       typed-envelope snapshots, and full workspace validation.
   - [ ] P3.9D typed envelope compatibility lock.

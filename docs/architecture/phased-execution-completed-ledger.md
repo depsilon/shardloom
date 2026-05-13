@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P3.9C Vortex primitive and readiness CLI ownership closeout
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/prepared_source_backed_execution.rs`
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `shardloom-cli/src/vortex_primitive_execution.rs`
+    - `shardloom-cli/src/vortex_runtime_planning.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: complete the Vortex primitive/readiness ownership closeout as one Vortex-facing
+    Priority 3.9 slice while preserving command output, explicit local-execution gates, and the
+    no-fallback/report-only boundary for planning surfaces.
+  - Checklist:
+    - [x] Move encoded-read boundary, metadata-probe, spike parsing, spike field construction, and
+          spike local-count bridge helpers into `prepared_source_backed_execution.rs`.
+    - [x] Move metadata physical-kernel planning, layout-driver approval parsing, projection
+          readiness fields, and metadata filter/count admission fields into `vortex_planning.rs`.
+    - [x] Move Vortex count/count-where/project/filter/filter-project/local-exec evidence,
+          certificate, Native I/O, work-avoided, readiness, and local encoded-count field builders
+          into `vortex_primitive_execution.rs`.
+    - [x] Keep runtime-readiness helper ownership in `vortex_runtime_planning.rs` and route
+          benchmark local encoded-count helpers through the primitive execution module.
+    - [x] Leave output/write/commit UX parsing and helper ownership for the P4.6 output bundle
+          instead of mixing it into the P3.9C readiness slice.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --bin shardloom --tests -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --features vortex-local-primitives --bin shardloom vortex_count_local_encoded`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test encoded_path_selection_snapshots --test generalized_encoded_primitive_gate_snapshots --test typed_envelope_contract_snapshots --test input_adapters_snapshots --test native_io_envelope_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: this is ownership cleanup and contract-preserving routing only. It does not add
+    new dataset probing, materialization, writes, package publishing, server startup,
+    object-store/catalog access, external engine execution, or fallback execution.
+
 - [x] Session label: P3.9B runtime/optimizer/operational CLI ownership closeout
   - Primary files:
     - `shardloom-cli/src/engine_runtime_planning.rs`

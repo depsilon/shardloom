@@ -20,7 +20,8 @@ use shardloom_vortex::VortexLocalExecutionReport;
 use crate::{
     cli_output::{emit, emit_error},
     cli_time::{duration_micros, micros_to_millis, saturating_u128_to_u64},
-    cli_unknown_arg_error, local_encoded_count_correctness_fixture_for_target,
+    cli_unknown_arg_error,
+    vortex_primitive_execution::local_encoded_count_correctness_fixture_for_target,
 };
 
 #[allow(clippy::too_many_lines)]
@@ -293,21 +294,22 @@ pub(crate) fn handle_vortex_count_benchmark(
     let mut iterations = Vec::new();
     for _ in 0..iteration_count {
         let started = Instant::now();
-        let (encoded_report, local_report) = match crate::run_vortex_approved_local_encoded_count(
-            uri.clone(),
-            memory_gb,
-            max_parallelism,
-        ) {
-            Ok(reports) => reports,
-            Err(error) => {
-                return emit_error(
-                    "vortex-count-benchmark",
-                    format,
-                    "vortex count benchmark failed",
-                    &error,
-                );
-            }
-        };
+        let (encoded_report, local_report) =
+            match crate::vortex_primitive_execution::run_vortex_approved_local_encoded_count(
+                uri.clone(),
+                memory_gb,
+                max_parallelism,
+            ) {
+                Ok(reports) => reports,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-count-benchmark",
+                        format,
+                        "vortex count benchmark failed",
+                        &error,
+                    );
+                }
+            };
         let duration = started.elapsed();
         iterations.push(VortexCountBenchmarkIterationSummary::from_reports(
             duration,

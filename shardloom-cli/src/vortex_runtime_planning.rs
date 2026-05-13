@@ -9,17 +9,26 @@ use std::process::ExitCode;
 use shardloom_core::{CommandStatus, DatasetUri, OutputFormat, ShardLoomError};
 use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
 use shardloom_vortex::{
-    VortexAdaptiveSizingReport, VortexMemoryBridgeReport, VortexSchedulerBridgeReport,
-    build_vortex_runtime_task_graph, evaluate_vortex_execution_readiness,
-    plan_native_vortex_universal_input, plan_vortex_memory_safety,
-    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
+    VortexAdaptiveSizingReport, VortexExecutionReadinessStatus, VortexMemoryBridgeReport,
+    VortexSchedulerBridgeReport, build_vortex_runtime_task_graph,
+    evaluate_vortex_execution_readiness, plan_native_vortex_universal_input,
+    plan_vortex_memory_safety, plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     size_vortex_runtime_task_graph,
 };
 
-use crate::{
-    cli_output::{emit, emit_error},
-    readiness_is_blocked,
-};
+use crate::cli_output::{emit, emit_error};
+
+pub(crate) fn readiness_is_blocked(status: VortexExecutionReadinessStatus) -> bool {
+    matches!(
+        status,
+        VortexExecutionReadinessStatus::BlockedByUnsupportedInput
+            | VortexExecutionReadinessStatus::BlockedByMissingMetadata
+            | VortexExecutionReadinessStatus::BlockedByMissingEstimate
+            | VortexExecutionReadinessStatus::BlockedByMemoryPolicy
+            | VortexExecutionReadinessStatus::BlockedBySpillPolicy
+            | VortexExecutionReadinessStatus::BlockedByFeatureGate
+    )
+}
 
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_vortex_adaptive_sizing(
