@@ -30,6 +30,7 @@ from shardloom import (
     RestApiLocalLifecycle,
     RestApiPlanPreview,
     RestApiSecurityGovernance,
+    SemanticConformanceSuite,
     WorkloadCertificationDossier,
     WorkflowReadinessSmokeReport,
 )
@@ -1332,6 +1333,80 @@ class ShardLoomClientTests(unittest.TestCase):
         families = {row.family_id: row for row in result.operator_families}
         self.assertEqual(families["joins"].support_status, "planned")
         self.assertIn("build_probe_memory", families["joins"].next_evidence)
+        self.assertTrue(result.no_runtime)
+        self.assertTrue(result.no_fallback)
+        self.assertTrue(result.no_effects)
+
+    def test_semantic_conformance_suite_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["semantic-conformance-suite", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "semantic-conformance-suite",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "semantic_profile", "value": "ShardLoomNative"},
+                        {"key": "suite_status", "value": "partial_fixture_passed_planned_remaining"},
+                        {"key": "executed_fixture_count", "value": "2"},
+                        {"key": "passed_fixture_count", "value": "2"},
+                        {"key": "failed_fixture_count", "value": "0"},
+                        {"key": "row_order", "value": "null_comparison,join_null_semantics"},
+                        {"key": "semantic_row_null_comparison_dimension", "value": "null comparison"},
+                        {"key": "semantic_row_null_comparison_operator_family", "value": "predicates"},
+                        {"key": "semantic_row_null_comparison_fixture_status", "value": "passed"},
+                        {"key": "semantic_row_null_comparison_current_support", "value": "fixture_certified"},
+                        {"key": "semantic_row_null_comparison_assertion", "value": "IS NULL preserves null identity"},
+                        {"key": "semantic_row_null_comparison_blocker_id", "value": "none"},
+                        {"key": "semantic_row_null_comparison_required_future_evidence", "value": "none"},
+                        {"key": "semantic_row_null_comparison_fixture_executed", "value": "true"},
+                        {"key": "semantic_row_null_comparison_passed", "value": "true"},
+                        {"key": "semantic_row_null_comparison_fallback_attempted", "value": "false"},
+                        {"key": "semantic_row_null_comparison_external_oracle_used", "value": "false"},
+                        {"key": "semantic_row_join_null_semantics_dimension", "value": "join null semantics"},
+                        {"key": "semantic_row_join_null_semantics_operator_family", "value": "joins"},
+                        {"key": "semantic_row_join_null_semantics_fixture_status", "value": "blocked"},
+                        {"key": "semantic_row_join_null_semantics_current_support", "value": "blocked_pending_operator"},
+                        {"key": "semantic_row_join_null_semantics_assertion", "value": "operator family unsupported for semantic certification"},
+                        {"key": "semantic_row_join_null_semantics_blocker_id", "value": "cg21.workflow.join.operator_unsupported"},
+                        {"key": "semantic_row_join_null_semantics_required_future_evidence", "value": "join_operator,join_null_semantics_fixture"},
+                        {"key": "semantic_row_join_null_semantics_fixture_executed", "value": "false"},
+                        {"key": "semantic_row_join_null_semantics_passed", "value": "false"},
+                        {"key": "semantic_row_join_null_semantics_fallback_attempted", "value": "false"},
+                        {"key": "semantic_row_join_null_semantics_external_oracle_used", "value": "false"},
+                        {"key": "no_runtime", "value": "true"},
+                        {"key": "no_fallback", "value": "true"},
+                        {"key": "no_effects", "value": "true"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).semantic_conformance_suite()
+
+        self.assertIsInstance(result, SemanticConformanceSuite)
+        self.assertEqual(result.semantic_profile, "ShardLoomNative")
+        self.assertEqual(result.executed_fixture_count, 2)
+        self.assertEqual(result.passed_fixture_count, 2)
+        self.assertEqual(result.failed_fixture_count, 0)
+        rows = {row.row_id: row for row in result.rows}
+        self.assertEqual(rows["null_comparison"].fixture_status, "passed")
+        self.assertTrue(rows["null_comparison"].fixture_executed)
+        self.assertTrue(rows["null_comparison"].passed)
+        self.assertFalse(rows["null_comparison"].fallback_attempted)
+        self.assertEqual(
+            rows["join_null_semantics"].blocker_id,
+            "cg21.workflow.join.operator_unsupported",
+        )
+        self.assertIn("join_operator", rows["join_null_semantics"].required_future_evidence)
+        self.assertFalse(rows["join_null_semantics"].external_oracle_used)
         self.assertTrue(result.no_runtime)
         self.assertTrue(result.no_fallback)
         self.assertTrue(result.no_effects)

@@ -293,6 +293,10 @@ reports = [
     workflow.to_arrow_ipc(),
     workflow.to_numpy(),
     workflow.to_python_objects(),
+    workflow.with_column("event_date", "to_date(ts)"),
+    workflow.group_by("customer_id").agg(total="sum(amount)"),
+    workflow.agg("count(*)"),
+    workflow.sort("event_date"),
     workflow.schema(),
     workflow.describe_schema(),
     workflow.validate_schema({"id": "int64"}),
@@ -300,6 +304,10 @@ reports = [
     workflow.quarantine("bad-events.vortex"),
     workflow.preview(limit=20),
     workflow.display(),
+    ctx.sql_parse("select * from events"),
+    ctx.sql_bind("select * from events"),
+    ctx.sql_plan("select * from events"),
+    ctx.sql_execute("select * from events"),
 ]
 
 for report in reports:
@@ -313,8 +321,9 @@ for report in reports:
 Every report above is generated through `workflow-unsupported-plan` and returns
 `status="unsupported"` with `fallback_attempted=false`. The methods do not
 import pandas or pyarrow, inspect the passed Python object, materialize rows,
-write quarantine outputs, render notebook display output, invoke Foundry/model
-services, or use another engine as fallback.
+write quarantine outputs, parse SQL, execute DataFrame expressions, render
+notebook display output, invoke Foundry/model services, or use another engine
+as fallback.
 
 The client also exposes the P7 claim gate closeout report:
 
@@ -359,6 +368,29 @@ print(matrix.no_runtime, matrix.no_fallback, matrix.no_effects)
 This maps to `shardloom compute-capability-matrix --format json`. It performs
 no runtime execution, data reads, writes, benchmark execution, external effects,
 external engine invocation, or fallback execution.
+
+The first ShardLoomNative semantic conformance surface is executable, but only
+over side-effect-free in-memory fixtures. It records passed, planned, and
+blocked semantic dimensions before any broad SQL/DataFrame runtime claims:
+
+```python
+from shardloom import ShardLoomClient
+
+client = ShardLoomClient.from_repo()
+suite = client.semantic_conformance_suite()
+
+print(suite.semantic_profile)
+print(suite.suite_status)
+print(suite.executed_fixture_count, suite.passed_fixture_count)
+
+for row in suite.rows:
+    print(row.row_id, row.fixture_status, row.blocker_id)
+```
+
+This maps to `shardloom semantic-conformance-suite --format json`. Current
+fixtures cover the supported in-memory semantic dimensions and keep external
+oracles, dataset reads, SQL parsing, runtime execution, writes, and fallback
+disabled.
 
 ## Package Build Smoke
 

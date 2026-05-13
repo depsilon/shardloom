@@ -85,9 +85,14 @@ Implemented or actively wired surfaces include:
   production-certified compute surfaces across provider kind, engine mode, semantic profile,
   materialization/decode boundaries, memory/spill requirements, evidence refs, and no-fallback
   status
+- `semantic-conformance-suite`, a P7.4 ShardLoomNative semantic fixture surface that executes the
+  currently supported in-memory semantic checks, records planned/blocked dimensions, and preserves
+  external-oracle-free/no-fallback evidence in the typed CLI envelope
 - Python lazy workflow helpers for current report-only UX, including source declaration, explain,
   estimate, certification inspection, unsupported pandas/Arrow/NumPy/Python-object materialization
-  boundaries, schema/data-quality/quarantine reports, and notebook preview/display diagnostics
+  boundaries, DataFrame `with_column`/`group_by`/`agg`/`sort` diagnostics, SQL
+  parse/bind/plan/execute diagnostics, schema/data-quality/quarantine reports, and notebook
+  preview/display diagnostics
 - local traditional-analytics benchmark harness support with a machine-readable scenario catalog,
   taxonomy metadata, benchmark constitution fields, generated dataset profiles, and support/coverage
   output separate from timing rows
@@ -103,9 +108,9 @@ Still planned or gated:
 - broad SQL, DataFrame, notebook, UDF, adapter, object-store, catalog/table, live/hybrid, REST
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
-- claim-grade compute-engine completion: semantic conformance, operator-family certification,
-  measured source-backed benchmark rows, sink/write/replay proof, local scheduler and memory/spill
-  maturity, and a workload-certified compute workflow
+- claim-grade compute-engine completion: remaining semantic conformance expansion,
+  operator-family certification, measured source-backed benchmark rows, sink/write/replay proof,
+  local scheduler and memory/spill maturity, and a workload-certified compute workflow
 - full comparative benchmark reruns and claim-grade source-backed benchmark rows
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
 - Foundry proof-of-use certification that preserves Foundry as an optional integration boundary
@@ -185,12 +190,17 @@ execution path.
 It also exposes current report-only workflow diagnostics that are useful before broader DataFrame
 runtime support exists: `workflow-unsupported-plan` and Python `LazyFrame` helpers return stable
 blocker IDs, required evidence, next actions, and no-runtime/no-fallback fields for pandas/Arrow
-interop, NumPy/Python-object materialization, schema/data-quality/quarantine behavior, and notebook
-preview/display boundaries.
+interop, NumPy/Python-object materialization, DataFrame expression/grouping/sort gaps, SQL
+parse/bind/plan/execute stages, schema/data-quality/quarantine behavior, and notebook preview and
+display boundaries.
 
 For release posture, `claim-gate-closeout` and `ShardLoomClient.claim_gate_closeout()` summarize the
 allowed report/local fixture claims, blocked production/API/package/benchmark claims, and
 out-of-scope integration claims before Priority 8/9 evidence exists.
+
+For P7.4 compute closeout, `compute-capability-matrix` and `semantic-conformance-suite` expose the
+current capability ladder and ShardLoomNative semantic fixture status without reading data, running
+SQL/DataFrame workloads, invoking external engines, or attempting fallback.
 
 It also exposes the current local live ETL smoke commands for explicit testing:
 CSV-to-Vortex through `traditional-analytics-run` and existing native Vortex

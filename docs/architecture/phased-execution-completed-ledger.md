@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.2 ShardLoomNative semantic conformance and unsupported API parity bundle
+  - Primary files:
+    - `shardloom-cli/src/semantic_conformance.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/tests/semantic_conformance_suite_snapshots.rs`
+    - `shardloom-cli/tests/workflow_query_builder_plan_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add the first executable `semantic-conformance-suite` for the ShardLoomNative profile
+    and close the planned DataFrame/SQL unsupported parity gap before broad runtime execution.
+  - Checklist:
+    - [x] Add a side-effect-free semantic suite command that executes current in-memory fixtures for
+          null comparison, three-valued logic, NaN behavior, signed zero, integer overflow, string
+          case sensitivity, empty aggregate behavior, and count-null behavior.
+    - [x] Represent planned and blocked semantic dimensions explicitly, including null sort order,
+          decimal precision/scale, timestamp/timezone, date parsing, binary equality, join null
+          semantics, window defaults, duplicate columns, nested/list equality, and schema field
+          identity.
+    - [x] Preserve semantic rows through the typed CLI envelope as a
+          `semantic_conformance_report` artifact with no runtime, no data read/write,
+          no external oracle, and no fallback execution.
+    - [x] Expand workflow unsupported diagnostics for `with_column`, `group_by`, `agg`, `sort`,
+          `limit`, and SQL parse/bind/plan/execute, including stable blocker IDs and required
+          future evidence.
+    - [x] Add Python typed views and helper methods for semantic conformance, grouped aggregation
+          diagnostics, and SQL-stage unsupported reports.
+    - [x] Refresh README/Python README and move P7.4.2 out of the active planned queue.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `cargo test -p shardloom-cli --test semantic_conformance_suite_snapshots`
+    - [x] `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots`
+    - [x] `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - [x] `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - [x] `cargo test -p shardloom-cli --bin shardloom`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m unittest python.tests.test_cli_client python.tests.test_query_builder`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m compileall -q python\src python\tests`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m unittest discover python\tests`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: semantic fixtures are in-memory and side-effect-free; DataFrame/SQL parity is
+    unsupported/report-only. No data reads, writes, benchmark execution, SQL parser/runtime,
+    external oracle execution, external engine invocation, or fallback execution.
+
 - [x] Session label: P7.4.1 compute capability matrix and operator-family ladder bundle
   - Primary files:
     - `shardloom-cli/src/status_capabilities.rs`
