@@ -144,8 +144,7 @@ actionable work.
 Execution slice rule for autonomy: parent priority checkboxes stay unchecked until every child
 bundle under that priority is complete. Work proceeds from the first unchecked child bundle, but PRs
 should be large enough to ship a usable command/API/report surface with schema, tests, smoke
-commands, and docs. Current large-slice order is P6.4, P6.5, P6.6, P7.1-P7.3, P8.1-P8.3, then
-P9.1-P9.5.
+commands, and docs. Current large-slice order is P6.6, P7.1-P7.3, P8.1-P8.3, then P9.1-P9.5.
 
 - [x] Priority 3.9 - CLI contract closeout and ownership cleanup
   - Outcome: finish the typed command/result envelope and CLI modularity work only to the point that
@@ -391,16 +390,21 @@ P9.1-P9.5.
     - Verified event delivery stays report/contract-only in this lane: no server start, network
       listener, broker I/O, object-store I/O, dataset/catalog probing, credential resolution,
       runtime execution, write I/O, external-engine invocation, delegation, or fallback execution.
-  - [ ] P6.5 security, governance, observability, and agent API bundle.
-    - User-visible surface: local-only, token, mTLS, OIDC, and service-account auth posture; scopes
-      for read, plan, execute, write, cancel, admin, benchmark, migration, and agent operations;
-      audit policy; MCP resources/tools for safe agent discovery.
-    - Acceptance: credentials stay references, secrets are redacted, destructive operations require
-      explicit policy, and MCP tools remain dry-run/explain/estimate/certify by default. OpenTelemetry
-      traces/metrics/logs, OpenLineage facets, problem-details errors, CloudEvents, and certificate
-      refs map into one evidence model.
-    - Verification: policy schema tests, redaction snapshots, audit fixture checks, MCP contract
-      fixtures, and no-external-effect diagnostics.
+  - [x] P6.5 security, governance, observability, and agent API bundle.
+    - Added `RestApiSecurityGovernanceReport` and `rest-api-security-governance` for
+      safe-local-default, destructive-policy-required, and agent-mcp-discovery scenarios.
+    - Exposed local-only, token, mTLS, OIDC, and service-account auth posture; read, plan, execute,
+      write, cancel, admin, benchmark, migration, and agent scopes; redaction and audit policy;
+      safe MCP resources/tools; and a unified OpenTelemetry/OpenLineage/problem-details/CloudEvents/
+      certificate-ref evidence model.
+    - Extended the OpenAPI contract with security, governance, observability evidence-model, and MCP
+      discovery endpoints plus `SecurityGovernanceResponse` schemas.
+    - Exposed Python `RestApiSecurityGovernance`,
+      `ShardLoomClient.rest_api_security_governance()`, and
+      `ShardLoomContext.rest_api_security_governance()`.
+    - Verified credentials remain references, raw secrets are not emitted, destructive operations are
+      blocked without explicit policy, MCP tools remain dry-run/explain/estimate/certify by default,
+      and no server/listener/probe/credential resolution/audit write/runtime/fallback effects occur.
   - [ ] P6.6 columnar data-plane and ecosystem standards boundary bundle.
     - User-visible surface: optional Flight/ADBC posture, large-payload transfer policy, and standards
       classification for Iceberg REST Catalog, Polaris, Gravitino, Delta Sharing, Substrait,

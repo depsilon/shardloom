@@ -14,6 +14,8 @@ pub const REST_API_DISCOVERY_SCHEMA_VERSION: &str = "shardloom.rest_api_discover
 pub const REST_API_PLAN_PREVIEW_SCHEMA_VERSION: &str = "shardloom.rest_api_plan_preview.v1";
 pub const REST_API_LOCAL_LIFECYCLE_SCHEMA_VERSION: &str = "shardloom.rest_api_local_lifecycle.v1";
 pub const REST_API_EVENT_STREAM_SCHEMA_VERSION: &str = "shardloom.rest_api_event_stream.v1";
+pub const REST_API_SECURITY_GOVERNANCE_SCHEMA_VERSION: &str =
+    "shardloom.rest_api_security_governance.v1";
 pub const OPENAPI_CONTRACT_PATH: &str = "docs/api/shardloom-openapi-v1.yaml";
 pub const ASYNCAPI_EVENT_CONTRACT_PATH: &str = "docs/api/shardloom-asyncapi-events-v1.yaml";
 pub const OPENAPI_VERSION: &str = "3.2.0";
@@ -226,6 +228,16 @@ struct EventStreamScenarioContract {
     native_io_certificate_ref: &'static str,
     lineage_artifact_ref: &'static str,
     benchmark_event_ref: &'static str,
+    diagnostics: Vec<Diagnostic>,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+struct SecurityGovernanceScenarioContract {
+    governance_status: RestApiSecurityGovernanceStatus,
+    destructive_operation_requested: bool,
+    destructive_policy_present: bool,
+    agent_discovery_requested: bool,
+    problem_details: Option<RestApiProblemDetailsPreview>,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -451,6 +463,61 @@ impl RestApiEventStreamStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestApiSecurityGovernanceScenario {
+    SafeLocalDefault,
+    DestructivePolicyRequired,
+    AgentMcpDiscovery,
+}
+
+impl RestApiSecurityGovernanceScenario {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::SafeLocalDefault => "safe-local-default",
+            Self::DestructivePolicyRequired => "destructive-policy-required",
+            Self::AgentMcpDiscovery => "agent-mcp-discovery",
+        }
+    }
+
+    #[must_use]
+    pub const fn all() -> &'static [Self] {
+        &[
+            Self::SafeLocalDefault,
+            Self::DestructivePolicyRequired,
+            Self::AgentMcpDiscovery,
+        ]
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "safe-local-default" => Some(Self::SafeLocalDefault),
+            "destructive-policy-required" => Some(Self::DestructivePolicyRequired),
+            "agent-mcp-discovery" => Some(Self::AgentMcpDiscovery),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestApiSecurityGovernanceStatus {
+    AvailableContract,
+    BlockedPolicyRequired,
+    AgentDryRunOnly,
+}
+
+impl RestApiSecurityGovernanceStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AvailableContract => "available_contract",
+            Self::BlockedPolicyRequired => "blocked_policy_required",
+            Self::AgentDryRunOnly => "agent_dry_run_only",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestApiLifecycleEvent {
     pub event_id: &'static str,
@@ -475,6 +542,55 @@ pub struct RestApiEventStreamEventContract {
     pub data_schema_ref: &'static str,
     pub evidence_ref: &'static str,
     pub certificate_ref: &'static str,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiAuthPostureContract {
+    pub auth_kind: &'static str,
+    pub status: &'static str,
+    pub credential_ref: &'static str,
+    pub credential_reference_only: bool,
+    pub secret_material_allowed: bool,
+    pub runtime_resolution_allowed: bool,
+    pub local_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiScopeContract {
+    pub scope: &'static str,
+    pub default_access: &'static str,
+    pub policy_required: bool,
+    pub destructive: bool,
+    pub audit_required: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiAuditPolicyContract {
+    pub event_type: &'static str,
+    pub action: &'static str,
+    pub required: bool,
+    pub redaction_required: bool,
+    pub evidence_ref: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiMcpContract {
+    pub name: &'static str,
+    pub contract_kind: &'static str,
+    pub default_operation: &'static str,
+    pub dry_run_only: bool,
+    pub effectful: bool,
+    pub output_schema_ref: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiEvidenceModelSignal {
+    pub signal: &'static str,
+    pub standard: &'static str,
+    pub schema_ref: &'static str,
+    pub redaction_required: bool,
+    pub certificate_ref_required: bool,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -615,6 +731,72 @@ pub struct RestApiEventStreamReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiSecurityGovernanceReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub api_version: &'static str,
+    pub scenario: RestApiSecurityGovernanceScenario,
+    pub governance_status: RestApiSecurityGovernanceStatus,
+    pub endpoint_paths: Vec<&'static str>,
+    pub governance_operations: Vec<&'static str>,
+    pub auth_postures: Vec<RestApiAuthPostureContract>,
+    pub scopes: Vec<RestApiScopeContract>,
+    pub audit_policies: Vec<RestApiAuditPolicyContract>,
+    pub mcp_resources: Vec<RestApiMcpContract>,
+    pub mcp_tools: Vec<RestApiMcpContract>,
+    pub evidence_model: Vec<RestApiEvidenceModelSignal>,
+    pub openapi_contract_path: &'static str,
+    pub problem_details_media_type: &'static str,
+    pub problem_details: Option<RestApiProblemDetailsPreview>,
+    pub local_only_default: bool,
+    pub credential_references_only: bool,
+    pub credentials_resolved: bool,
+    pub token_secret_ref: &'static str,
+    pub mtls_certificate_ref: &'static str,
+    pub oidc_issuer_ref: &'static str,
+    pub service_account_ref: &'static str,
+    pub raw_secret_values_present: bool,
+    pub secrets_redacted: bool,
+    pub redaction_policy: &'static str,
+    pub destructive_operation_requested: bool,
+    pub destructive_policy_required: bool,
+    pub destructive_policy_present: bool,
+    pub destructive_operations_allowed: bool,
+    pub audit_required: bool,
+    pub audit_evidence_ref: &'static str,
+    pub mcp_dry_run_default: bool,
+    pub mcp_effectful_tools_allowed: bool,
+    pub mcp_discovery_side_effect_free: bool,
+    pub opentelemetry_exporter_enabled: bool,
+    pub runtime_collection_enabled: bool,
+    pub openlineage_facets_mapped: bool,
+    pub problem_details_mapped: bool,
+    pub cloudevents_mapped: bool,
+    pub certificate_refs_mapped: bool,
+    pub server_started: bool,
+    pub network_listener_opened: bool,
+    pub dataset_probe: bool,
+    pub object_store_io: bool,
+    pub catalog_probe: bool,
+    pub credential_resolution: bool,
+    pub secret_resolution: bool,
+    pub raw_secret_emitted: bool,
+    pub audit_write_io: bool,
+    pub mcp_tool_execution: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+    pub query_execution: bool,
+    pub runtime_execution: bool,
+    pub write_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub execution_delegated: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
 impl RestApiContractReport {
     #[must_use]
     pub fn contract_only() -> Self {
@@ -642,6 +824,9 @@ impl RestApiContractReport {
                 "migration",
                 "lineage",
                 "governance",
+                "security",
+                "observability",
+                "agents",
             ],
             execution_policy_fields: vec![
                 "engine_mode",
@@ -1605,6 +1790,215 @@ impl RestApiEventStreamReport {
     }
 }
 
+impl RestApiSecurityGovernanceReport {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn for_scenario(scenario: RestApiSecurityGovernanceScenario) -> Self {
+        let contract = security_governance_scenario_contract(scenario);
+
+        Self {
+            schema_version: REST_API_SECURITY_GOVERNANCE_SCHEMA_VERSION,
+            report_id: "cg23.rest_api_security_governance",
+            api_version: API_VERSION,
+            scenario,
+            governance_status: contract.governance_status,
+            endpoint_paths: security_governance_endpoint_paths(),
+            governance_operations: vec![
+                "auth_posture",
+                "scope_matrix",
+                "audit_policy",
+                "redaction_policy",
+                "mcp_resource_discovery",
+                "mcp_tool_discovery",
+                "observability_evidence_model",
+            ],
+            auth_postures: security_governance_auth_postures(),
+            scopes: security_governance_scopes(),
+            audit_policies: security_governance_audit_policies(),
+            mcp_resources: security_governance_mcp_resources(),
+            mcp_tools: security_governance_mcp_tools(),
+            evidence_model: security_governance_evidence_model(),
+            openapi_contract_path: OPENAPI_CONTRACT_PATH,
+            problem_details_media_type: PROBLEM_DETAILS_MEDIA_TYPE,
+            problem_details: contract.problem_details,
+            local_only_default: true,
+            credential_references_only: true,
+            credentials_resolved: false,
+            token_secret_ref: "secret-ref://shardloom/rest/token",
+            mtls_certificate_ref: "cert-ref://shardloom/rest/mtls-client",
+            oidc_issuer_ref: "issuer-ref://shardloom/rest/oidc",
+            service_account_ref: "service-account-ref://shardloom/rest/local-agent",
+            raw_secret_values_present: false,
+            secrets_redacted: true,
+            redaction_policy: "strict_reference_only",
+            destructive_operation_requested: contract.destructive_operation_requested,
+            destructive_policy_required: true,
+            destructive_policy_present: contract.destructive_policy_present,
+            destructive_operations_allowed: false,
+            audit_required: true,
+            audit_evidence_ref: "artifacts/cg23/security-governance/audit-policy.json",
+            mcp_dry_run_default: true,
+            mcp_effectful_tools_allowed: false,
+            mcp_discovery_side_effect_free: contract.agent_discovery_requested
+                || matches!(
+                    scenario,
+                    RestApiSecurityGovernanceScenario::SafeLocalDefault
+                        | RestApiSecurityGovernanceScenario::DestructivePolicyRequired
+                ),
+            opentelemetry_exporter_enabled: false,
+            runtime_collection_enabled: false,
+            openlineage_facets_mapped: true,
+            problem_details_mapped: true,
+            cloudevents_mapped: true,
+            certificate_refs_mapped: true,
+            server_started: false,
+            network_listener_opened: false,
+            dataset_probe: false,
+            object_store_io: false,
+            catalog_probe: false,
+            credential_resolution: false,
+            secret_resolution: false,
+            raw_secret_emitted: false,
+            audit_write_io: false,
+            mcp_tool_execution: false,
+            data_read: false,
+            data_materialized: false,
+            query_execution: false,
+            runtime_execution: false,
+            write_io: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            execution_delegated: false,
+            diagnostics: contract.diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn status(&self) -> CommandStatus {
+        if self.effect_policy_violated() {
+            CommandStatus::Error
+        } else {
+            match self.governance_status {
+                RestApiSecurityGovernanceStatus::AvailableContract
+                | RestApiSecurityGovernanceStatus::AgentDryRunOnly => CommandStatus::Success,
+                RestApiSecurityGovernanceStatus::BlockedPolicyRequired => {
+                    CommandStatus::Unsupported
+                }
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.effect_policy_violated()
+            || self.raw_secret_values_present
+            || !self.secrets_redacted
+            || self
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+    }
+
+    #[must_use]
+    pub const fn effect_policy_violated(&self) -> bool {
+        self.server_started
+            || self.network_listener_opened
+            || self.dataset_probe
+            || self.object_store_io
+            || self.catalog_probe
+            || self.credential_resolution
+            || self.secret_resolution
+            || self.raw_secret_emitted
+            || self.audit_write_io
+            || self.mcp_tool_execution
+            || self.data_read
+            || self.data_materialized
+            || self.query_execution
+            || self.runtime_execution
+            || self.write_io
+            || self.external_engine_invoked
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+            || self.execution_delegated
+    }
+
+    #[must_use]
+    pub fn auth_posture_summary(&self) -> String {
+        self.auth_postures
+            .iter()
+            .map(|auth| format!("{}:{}", auth.auth_kind, auth.status))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn scope_summary(&self) -> String {
+        self.scopes
+            .iter()
+            .map(|scope| format!("{}:{}", scope.scope, scope.default_access))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn audit_policy_summary(&self) -> String {
+        self.audit_policies
+            .iter()
+            .map(|policy| format!("{}:{}", policy.event_type, policy.action))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn mcp_resource_summary(&self) -> String {
+        self.mcp_resources
+            .iter()
+            .map(|contract| contract.name)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn mcp_tool_summary(&self) -> String {
+        self.mcp_tools
+            .iter()
+            .map(|contract| format!("{}:{}", contract.name, contract.default_operation))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn evidence_signal_summary(&self) -> String {
+        self.evidence_model
+            .iter()
+            .map(|signal| signal.signal)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn problem_details_emitted(&self) -> bool {
+        self.problem_details.is_some()
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "rest api security governance\nschema_version: {}\nreport: {}\nscenario: {}\nstatus: {}\nauth: {}\nscopes: {}\nmcp tools: {}\nevidence model: {}\nsecrets redacted: {}\ndestructive operations allowed: false\nserver started: false\nnetwork listener: false\ncredential resolution: false\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.scenario.as_str(),
+            self.governance_status.as_str(),
+            self.auth_posture_summary(),
+            self.scope_summary(),
+            self.mcp_tool_summary(),
+            self.evidence_signal_summary(),
+            self.secrets_redacted,
+        )
+    }
+}
+
 fn rest_api_maturity_stages() -> Vec<RestApiMaturityStage> {
     vec![
         RestApiMaturityStage {
@@ -1659,7 +2053,7 @@ fn rest_api_maturity_stages() -> Vec<RestApiMaturityStage> {
         RestApiMaturityStage {
             stage_id: "API-A8",
             label: "security_governance_quotas_audit",
-            status: RestApiMaturityStatus::Planned,
+            status: RestApiMaturityStatus::AvailableContract,
             server_required: true,
             execution_capable: false,
         },
@@ -2199,6 +2593,358 @@ fn event_stream_scenario_contract(
     }
 }
 
+fn security_governance_endpoint_paths() -> Vec<&'static str> {
+    vec![
+        "/v1/governance",
+        "/v1/security/auth",
+        "/v1/security/scopes",
+        "/v1/security/audit-policy",
+        "/v1/observability/evidence-model",
+        "/v1/mcp/resources",
+        "/v1/mcp/tools",
+    ]
+}
+
+fn security_governance_auth_postures() -> Vec<RestApiAuthPostureContract> {
+    vec![
+        RestApiAuthPostureContract {
+            auth_kind: "local_only",
+            status: "available_default",
+            credential_ref: "none",
+            credential_reference_only: true,
+            secret_material_allowed: false,
+            runtime_resolution_allowed: false,
+            local_only: true,
+        },
+        RestApiAuthPostureContract {
+            auth_kind: "token",
+            status: "reference_only_contract",
+            credential_ref: "secret-ref://shardloom/rest/token",
+            credential_reference_only: true,
+            secret_material_allowed: false,
+            runtime_resolution_allowed: false,
+            local_only: false,
+        },
+        RestApiAuthPostureContract {
+            auth_kind: "mtls",
+            status: "reference_only_contract",
+            credential_ref: "cert-ref://shardloom/rest/mtls-client",
+            credential_reference_only: true,
+            secret_material_allowed: false,
+            runtime_resolution_allowed: false,
+            local_only: false,
+        },
+        RestApiAuthPostureContract {
+            auth_kind: "oidc",
+            status: "reference_only_contract",
+            credential_ref: "issuer-ref://shardloom/rest/oidc",
+            credential_reference_only: true,
+            secret_material_allowed: false,
+            runtime_resolution_allowed: false,
+            local_only: false,
+        },
+        RestApiAuthPostureContract {
+            auth_kind: "service_account",
+            status: "reference_only_contract",
+            credential_ref: "service-account-ref://shardloom/rest/local-agent",
+            credential_reference_only: true,
+            secret_material_allowed: false,
+            runtime_resolution_allowed: false,
+            local_only: false,
+        },
+    ]
+}
+
+fn security_governance_scopes() -> Vec<RestApiScopeContract> {
+    vec![
+        RestApiScopeContract {
+            scope: "read",
+            default_access: "allowed_local_metadata",
+            policy_required: false,
+            destructive: false,
+            audit_required: true,
+        },
+        RestApiScopeContract {
+            scope: "plan",
+            default_access: "allowed_dry_run",
+            policy_required: false,
+            destructive: false,
+            audit_required: true,
+        },
+        RestApiScopeContract {
+            scope: "execute",
+            default_access: "policy_required",
+            policy_required: true,
+            destructive: false,
+            audit_required: true,
+        },
+        RestApiScopeContract {
+            scope: "write",
+            default_access: "policy_required",
+            policy_required: true,
+            destructive: true,
+            audit_required: true,
+        },
+        RestApiScopeContract {
+            scope: "cancel",
+            default_access: "policy_required",
+            policy_required: true,
+            destructive: false,
+            audit_required: true,
+        },
+        RestApiScopeContract {
+            scope: "admin",
+            default_access: "policy_required",
+            policy_required: true,
+            destructive: true,
+            audit_required: true,
+        },
+        RestApiScopeContract {
+            scope: "benchmark",
+            default_access: "dry_run_only",
+            policy_required: true,
+            destructive: false,
+            audit_required: true,
+        },
+        RestApiScopeContract {
+            scope: "migration",
+            default_access: "plan_only",
+            policy_required: true,
+            destructive: false,
+            audit_required: true,
+        },
+        RestApiScopeContract {
+            scope: "agent",
+            default_access: "dry_run_explain_estimate_certify_only",
+            policy_required: true,
+            destructive: false,
+            audit_required: true,
+        },
+    ]
+}
+
+fn security_governance_audit_policies() -> Vec<RestApiAuditPolicyContract> {
+    vec![
+        RestApiAuditPolicyContract {
+            event_type: "auth_attempt",
+            action: "record_redacted_subject_and_auth_kind",
+            required: true,
+            redaction_required: true,
+            evidence_ref: "artifacts/cg23/security-governance/audit/auth-attempt.json",
+        },
+        RestApiAuditPolicyContract {
+            event_type: "scope_decision",
+            action: "record_allow_or_block_with_policy_ref",
+            required: true,
+            redaction_required: true,
+            evidence_ref: "artifacts/cg23/security-governance/audit/scope-decision.json",
+        },
+        RestApiAuditPolicyContract {
+            event_type: "destructive_operation",
+            action: "block_without_explicit_policy",
+            required: true,
+            redaction_required: true,
+            evidence_ref: "artifacts/cg23/security-governance/audit/destructive-operation.json",
+        },
+        RestApiAuditPolicyContract {
+            event_type: "agent_tool",
+            action: "record_dry_run_tool_invocation",
+            required: true,
+            redaction_required: true,
+            evidence_ref: "artifacts/cg23/security-governance/audit/agent-tool.json",
+        },
+    ]
+}
+
+fn security_governance_mcp_resources() -> Vec<RestApiMcpContract> {
+    vec![
+        RestApiMcpContract {
+            name: "shardloom://capabilities",
+            contract_kind: "resource",
+            default_operation: "read",
+            dry_run_only: true,
+            effectful: false,
+            output_schema_ref: "shardloom.capability_certification.v1",
+        },
+        RestApiMcpContract {
+            name: "shardloom://api/openapi",
+            contract_kind: "resource",
+            default_operation: "read",
+            dry_run_only: true,
+            effectful: false,
+            output_schema_ref: "shardloom.rest_api_contract.v1",
+        },
+        RestApiMcpContract {
+            name: "shardloom://evidence/model",
+            contract_kind: "resource",
+            default_operation: "read",
+            dry_run_only: true,
+            effectful: false,
+            output_schema_ref: "shardloom.rest_api_security_governance.v1",
+        },
+        RestApiMcpContract {
+            name: "shardloom://security/policy",
+            contract_kind: "resource",
+            default_operation: "read",
+            dry_run_only: true,
+            effectful: false,
+            output_schema_ref: "shardloom.security_governance_evidence_gate.v1",
+        },
+    ]
+}
+
+fn security_governance_mcp_tools() -> Vec<RestApiMcpContract> {
+    vec![
+        RestApiMcpContract {
+            name: "dry_run",
+            contract_kind: "tool",
+            default_operation: "allowed",
+            dry_run_only: true,
+            effectful: false,
+            output_schema_ref: "shardloom.output.v2",
+        },
+        RestApiMcpContract {
+            name: "explain",
+            contract_kind: "tool",
+            default_operation: "allowed",
+            dry_run_only: true,
+            effectful: false,
+            output_schema_ref: "shardloom.output.v2",
+        },
+        RestApiMcpContract {
+            name: "estimate",
+            contract_kind: "tool",
+            default_operation: "allowed",
+            dry_run_only: true,
+            effectful: false,
+            output_schema_ref: "shardloom.output.v2",
+        },
+        RestApiMcpContract {
+            name: "certify_preview",
+            contract_kind: "tool",
+            default_operation: "allowed",
+            dry_run_only: true,
+            effectful: false,
+            output_schema_ref: "shardloom.rest_api_plan_preview.v1",
+        },
+        RestApiMcpContract {
+            name: "execute",
+            contract_kind: "tool",
+            default_operation: "blocked_policy_required",
+            dry_run_only: true,
+            effectful: true,
+            output_schema_ref: "shardloom.rest_api_local_lifecycle.v1",
+        },
+        RestApiMcpContract {
+            name: "write",
+            contract_kind: "tool",
+            default_operation: "blocked_destructive_policy_required",
+            dry_run_only: true,
+            effectful: true,
+            output_schema_ref: "shardloom.output.v2",
+        },
+    ]
+}
+
+fn security_governance_evidence_model() -> Vec<RestApiEvidenceModelSignal> {
+    vec![
+        RestApiEvidenceModelSignal {
+            signal: "opentelemetry_traces",
+            standard: "opentelemetry",
+            schema_ref: "schemas/observability/opentelemetry-trace-span.json",
+            redaction_required: true,
+            certificate_ref_required: true,
+        },
+        RestApiEvidenceModelSignal {
+            signal: "opentelemetry_metrics",
+            standard: "opentelemetry",
+            schema_ref: "schemas/observability/opentelemetry-metric.json",
+            redaction_required: true,
+            certificate_ref_required: true,
+        },
+        RestApiEvidenceModelSignal {
+            signal: "opentelemetry_logs",
+            standard: "opentelemetry",
+            schema_ref: "schemas/observability/opentelemetry-log.json",
+            redaction_required: true,
+            certificate_ref_required: true,
+        },
+        RestApiEvidenceModelSignal {
+            signal: "openlineage_facets",
+            standard: "openlineage",
+            schema_ref: "schemas/lineage/openlineage-facet.json",
+            redaction_required: true,
+            certificate_ref_required: true,
+        },
+        RestApiEvidenceModelSignal {
+            signal: "problem_details_errors",
+            standard: "rfc9457_problem_details",
+            schema_ref: "#/components/schemas/ProblemDetails",
+            redaction_required: true,
+            certificate_ref_required: false,
+        },
+        RestApiEvidenceModelSignal {
+            signal: "cloudevents",
+            standard: "cloudevents_1_0",
+            schema_ref: "#/components/schemas/CloudEventEnvelope",
+            redaction_required: true,
+            certificate_ref_required: true,
+        },
+        RestApiEvidenceModelSignal {
+            signal: "certificate_refs",
+            standard: "shardloom_certificate_refs",
+            schema_ref: "schemas/evidence/certificate-ref.json",
+            redaction_required: true,
+            certificate_ref_required: true,
+        },
+    ]
+}
+
+fn security_governance_scenario_contract(
+    scenario: RestApiSecurityGovernanceScenario,
+) -> SecurityGovernanceScenarioContract {
+    match scenario {
+        RestApiSecurityGovernanceScenario::SafeLocalDefault => SecurityGovernanceScenarioContract {
+            governance_status: RestApiSecurityGovernanceStatus::AvailableContract,
+            destructive_operation_requested: false,
+            destructive_policy_present: false,
+            agent_discovery_requested: false,
+            problem_details: None,
+            diagnostics: Vec::new(),
+        },
+        RestApiSecurityGovernanceScenario::DestructivePolicyRequired => {
+            SecurityGovernanceScenarioContract {
+                governance_status: RestApiSecurityGovernanceStatus::BlockedPolicyRequired,
+                destructive_operation_requested: true,
+                destructive_policy_present: false,
+                agent_discovery_requested: false,
+                problem_details: Some(RestApiProblemDetailsPreview {
+                    problem_type: "https://shardloom.dev/problems/destructive-policy-required",
+                    title: "Explicit destructive-operation policy is required",
+                    http_status: 403,
+                    detail: "The requested REST operation is destructive and no explicit policy evidence was supplied.",
+                    diagnostic_code: "SL_EXTERNAL_EFFECT_DISABLED",
+                    unsupported_reason: Some("destructive operations stay blocked until policy, audit, and redaction evidence are present"),
+                }),
+                diagnostics: vec![Diagnostic::unsupported(
+                    DiagnosticCode::ExternalEffectDisabled,
+                    "rest_api_destructive_operation",
+                    "REST destructive operations are blocked unless explicit policy, audit, and redaction evidence are present.",
+                    Some("Attach an explicit destructive-operation policy reference and re-run as a dry-run certification preview.".to_string()),
+                )],
+            }
+        }
+        RestApiSecurityGovernanceScenario::AgentMcpDiscovery => SecurityGovernanceScenarioContract {
+            governance_status: RestApiSecurityGovernanceStatus::AgentDryRunOnly,
+            destructive_operation_requested: false,
+            destructive_policy_present: false,
+            agent_discovery_requested: true,
+            problem_details: None,
+            diagnostics: Vec::new(),
+        },
+    }
+}
+
 fn plan_preview_endpoint_paths() -> Vec<&'static str> {
     vec![
         "/v1/plans",
@@ -2566,6 +3312,117 @@ mod tests {
     }
 
     #[test]
+    fn rest_api_security_governance_exposes_auth_scopes_mcp_and_evidence_model() {
+        let report = RestApiSecurityGovernanceReport::for_scenario(
+            RestApiSecurityGovernanceScenario::SafeLocalDefault,
+        );
+
+        assert_eq!(
+            report.schema_version,
+            REST_API_SECURITY_GOVERNANCE_SCHEMA_VERSION
+        );
+        assert_eq!(report.status(), CommandStatus::Success);
+        assert_eq!(
+            report.governance_status,
+            RestApiSecurityGovernanceStatus::AvailableContract
+        );
+        assert!(report.endpoint_paths.contains(&"/v1/security/auth"));
+        assert!(report.auth_posture_summary().contains("local_only"));
+        assert!(report.auth_posture_summary().contains("token"));
+        assert!(report.auth_posture_summary().contains("mtls"));
+        assert!(report.auth_posture_summary().contains("oidc"));
+        assert!(report.auth_posture_summary().contains("service_account"));
+        assert!(
+            report
+                .scope_summary()
+                .contains("read:allowed_local_metadata")
+        );
+        assert!(report.scope_summary().contains("write:policy_required"));
+        assert!(
+            report
+                .mcp_resource_summary()
+                .contains("shardloom://api/openapi")
+        );
+        assert!(
+            report
+                .mcp_tool_summary()
+                .contains("certify_preview:allowed")
+        );
+        assert!(
+            report
+                .evidence_signal_summary()
+                .contains("opentelemetry_traces")
+        );
+        assert!(
+            report
+                .evidence_signal_summary()
+                .contains("openlineage_facets")
+        );
+        assert!(
+            report
+                .evidence_signal_summary()
+                .contains("problem_details_errors")
+        );
+        assert!(report.evidence_signal_summary().contains("cloudevents"));
+        assert!(
+            report
+                .evidence_signal_summary()
+                .contains("certificate_refs")
+        );
+        assert!(report.credential_references_only);
+        assert!(report.secrets_redacted);
+        assert!(!report.raw_secret_values_present);
+        assert!(!report.credentials_resolved);
+        assert!(!report.secret_resolution);
+        assert!(!report.effect_policy_violated());
+    }
+
+    #[test]
+    fn rest_api_security_governance_blocks_destructive_and_keeps_agent_dry_run() {
+        let blocked = RestApiSecurityGovernanceReport::for_scenario(
+            RestApiSecurityGovernanceScenario::DestructivePolicyRequired,
+        );
+        let agent = RestApiSecurityGovernanceReport::for_scenario(
+            RestApiSecurityGovernanceScenario::AgentMcpDiscovery,
+        );
+
+        assert_eq!(blocked.status(), CommandStatus::Unsupported);
+        assert_eq!(
+            blocked.governance_status,
+            RestApiSecurityGovernanceStatus::BlockedPolicyRequired
+        );
+        assert!(blocked.destructive_operation_requested);
+        assert!(blocked.destructive_policy_required);
+        assert!(!blocked.destructive_policy_present);
+        assert!(!blocked.destructive_operations_allowed);
+        assert!(blocked.problem_details_emitted());
+        assert_eq!(
+            blocked
+                .problem_details
+                .as_ref()
+                .map(|problem| problem.diagnostic_code),
+            Some("SL_EXTERNAL_EFFECT_DISABLED")
+        );
+        assert_eq!(
+            blocked.diagnostics[0].code,
+            DiagnosticCode::ExternalEffectDisabled
+        );
+        assert!(!blocked.effect_policy_violated());
+
+        assert_eq!(agent.status(), CommandStatus::Success);
+        assert_eq!(
+            agent.governance_status,
+            RestApiSecurityGovernanceStatus::AgentDryRunOnly
+        );
+        assert!(agent.mcp_dry_run_default);
+        assert!(!agent.mcp_effectful_tools_allowed);
+        assert!(agent.mcp_discovery_side_effect_free);
+        assert!(!agent.mcp_tool_execution);
+        assert!(!agent.fallback_attempted);
+        assert!(!agent.effect_policy_violated());
+    }
+
+    #[test]
     fn checked_in_openapi_contract_matches_report() {
         let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let contract_path = manifest_dir.join("..").join(OPENAPI_CONTRACT_PATH);
@@ -2583,6 +3440,10 @@ mod tests {
         assert!(contract.contains("/v1/queries/{query_id}/cancel:"));
         assert!(contract.contains("EventStreamResponse"));
         assert!(contract.contains("/v1/events/streams/{stream_id}/sse:"));
+        assert!(contract.contains("SecurityGovernanceResponse"));
+        assert!(contract.contains("/v1/security/auth:"));
+        assert!(contract.contains("/v1/observability/evidence-model:"));
+        assert!(contract.contains("/v1/mcp/tools:"));
 
         let asyncapi_path = manifest_dir.join("..").join(ASYNCAPI_EVENT_CONTRACT_PATH);
         let asyncapi = fs::read_to_string(&asyncapi_path)

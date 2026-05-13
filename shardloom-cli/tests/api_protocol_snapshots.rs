@@ -37,6 +37,10 @@ fn run_rest_api_event_stream(scenario: &str) -> String {
     run_cli_json(&["rest-api-event-stream", scenario, "--format", "json"])
 }
 
+fn run_rest_api_security_governance(scenario: &str) -> String {
+    run_cli_json(&["rest-api-security-governance", scenario, "--format", "json"])
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
@@ -59,7 +63,7 @@ fn rest_api_contract_plan_json_exposes_openapi_discovery_contract() {
         "problem_details_media_type",
         "application/problem+json"
     )));
-    assert!(output.contains(&field("represented_resource_count", "16")));
+    assert!(output.contains(&field("represented_resource_count", "19")));
     assert!(output.contains(&field(
         "execution_policy_fields",
         "engine_mode,fallback_policy,materialization_policy,result_policy,evidence_policy"
@@ -442,6 +446,113 @@ fn rest_api_event_stream_json_preserves_no_broker_object_store_or_fallback_effec
         assert!(output.contains(&field("credential_resolution", "false")));
         assert!(output.contains(&field("data_read", "false")));
         assert!(output.contains(&field("data_materialized", "false")));
+        assert!(output.contains(&field("runtime_execution", "false")));
+        assert!(output.contains(&field("write_io", "false")));
+        assert!(output.contains(&field("external_engine_invoked", "false")));
+        assert!(output.contains(&field("fallback_execution_allowed", "false")));
+        assert!(output.contains(&field("fallback_attempted", "false")));
+        assert!(output.contains(&field("execution_delegated", "false")));
+        assert!(output.contains(&field("effect_policy_violated", "false")));
+    }
+}
+
+#[test]
+fn rest_api_security_governance_json_exposes_auth_scope_mcp_and_evidence_contracts() {
+    let output = run_rest_api_security_governance("safe-local-default");
+
+    assert!(output.contains("\"command\":\"rest-api-security-governance\""));
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("mode", "rest_api_security_governance")));
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.rest_api_security_governance.v1"
+    )));
+    assert!(output.contains(&field("scenario", "safe-local-default")));
+    assert!(output.contains(&field("governance_status", "available_contract")));
+    assert!(output.contains(&field(
+        "auth_postures",
+        "local_only:available_default,token:reference_only_contract,mtls:reference_only_contract,oidc:reference_only_contract,service_account:reference_only_contract"
+    )));
+    assert!(output.contains(&field(
+        "api_scopes",
+        "read:allowed_local_metadata,plan:allowed_dry_run,execute:policy_required,write:policy_required,cancel:policy_required,admin:policy_required,benchmark:dry_run_only,migration:plan_only,agent:dry_run_explain_estimate_certify_only"
+    )));
+    assert!(output.contains(&field("credential_references_only", "true")));
+    assert!(output.contains(&field("credentials_resolved", "false")));
+    assert!(output.contains(&field(
+        "token_secret_ref",
+        "secret-ref://shardloom/rest/token"
+    )));
+    assert!(output.contains(&field("raw_secret_values_present", "false")));
+    assert!(output.contains(&field("secrets_redacted", "true")));
+    assert!(output.contains(&field("redaction_policy", "strict_reference_only")));
+    assert!(output.contains(&field(
+        "mcp_tools",
+        "dry_run:allowed,explain:allowed,estimate:allowed,certify_preview:allowed,execute:blocked_policy_required,write:blocked_destructive_policy_required"
+    )));
+    assert!(output.contains(&field("mcp_dry_run_default", "true")));
+    assert!(output.contains(&field("mcp_effectful_tools_allowed", "false")));
+    assert!(output.contains(&field(
+        "evidence_model_signals",
+        "opentelemetry_traces,opentelemetry_metrics,opentelemetry_logs,openlineage_facets,problem_details_errors,cloudevents,certificate_refs"
+    )));
+    assert!(output.contains(&field("opentelemetry_exporter_enabled", "false")));
+    assert!(output.contains(&field("openlineage_facets_mapped", "true")));
+    assert!(output.contains(&field("problem_details_mapped", "true")));
+    assert!(output.contains(&field("cloudevents_mapped", "true")));
+    assert!(output.contains(&field("certificate_refs_mapped", "true")));
+}
+
+#[test]
+fn rest_api_security_governance_json_blocks_destructive_and_keeps_agent_tools_dry_run() {
+    let blocked = run_rest_api_security_governance("destructive-policy-required");
+    let agent = run_rest_api_security_governance("agent-mcp-discovery");
+
+    assert!(blocked.contains("\"status\":\"unsupported\""));
+    assert!(blocked.contains(&field("governance_status", "blocked_policy_required")));
+    assert!(blocked.contains(&field("destructive_operation_requested", "true")));
+    assert!(blocked.contains(&field("destructive_policy_required", "true")));
+    assert!(blocked.contains(&field("destructive_policy_present", "false")));
+    assert!(blocked.contains(&field("destructive_operations_allowed", "false")));
+    assert!(blocked.contains(&field("problem_details_emitted", "true")));
+    assert!(blocked.contains(&field(
+        "problem_details_diagnostic_code",
+        "SL_EXTERNAL_EFFECT_DISABLED"
+    )));
+    assert!(blocked.contains("\"code\":\"SL_EXTERNAL_EFFECT_DISABLED\""));
+
+    assert!(agent.contains("\"status\":\"success\""));
+    assert!(agent.contains(&field("scenario", "agent-mcp-discovery")));
+    assert!(agent.contains(&field("governance_status", "agent_dry_run_only")));
+    assert!(agent.contains(&field("mcp_dry_run_default", "true")));
+    assert!(agent.contains(&field("mcp_effectful_tools_allowed", "false")));
+    assert!(agent.contains(&field("mcp_discovery_side_effect_free", "true")));
+    assert!(agent.contains(&field("mcp_tool_execution", "false")));
+}
+
+#[test]
+fn rest_api_security_governance_json_preserves_no_secret_resolution_or_effects() {
+    for scenario in [
+        "safe-local-default",
+        "destructive-policy-required",
+        "agent-mcp-discovery",
+    ] {
+        let output = run_rest_api_security_governance(scenario);
+
+        assert!(output.contains(&field("server_started", "false")));
+        assert!(output.contains(&field("network_listener_opened", "false")));
+        assert!(output.contains(&field("network_probe", "false")));
+        assert!(output.contains(&field("dataset_probe", "false")));
+        assert!(output.contains(&field("object_store_io", "false")));
+        assert!(output.contains(&field("catalog_probe", "false")));
+        assert!(output.contains(&field("credential_resolution", "false")));
+        assert!(output.contains(&field("secret_resolution", "false")));
+        assert!(output.contains(&field("raw_secret_emitted", "false")));
+        assert!(output.contains(&field("audit_write_io", "false")));
+        assert!(output.contains(&field("mcp_tool_execution", "false")));
+        assert!(output.contains(&field("data_read", "false")));
+        assert!(output.contains(&field("data_materialized", "false")));
+        assert!(output.contains(&field("query_execution", "false")));
         assert!(output.contains(&field("runtime_execution", "false")));
         assert!(output.contains(&field("write_io", "false")));
         assert!(output.contains(&field("external_engine_invoked", "false")));

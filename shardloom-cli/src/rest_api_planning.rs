@@ -9,7 +9,8 @@ use shardloom_core::{
     CliApiJsonProtocolReport, OutputFormat, ReleasePlan, RestApiContractReport,
     RestApiDiscoveryModeReport, RestApiEventStreamReport, RestApiEventStreamScenario,
     RestApiLocalLifecycleReport, RestApiLocalLifecycleScenario, RestApiPlanPreviewReport,
-    RestApiPlanPreviewScenario, ShardLoomError,
+    RestApiPlanPreviewScenario, RestApiSecurityGovernanceReport, RestApiSecurityGovernanceScenario,
+    ShardLoomError,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -191,6 +192,56 @@ pub(crate) fn handle_rest_api_event_stream(
         report.to_human_text(),
         report.diagnostics.clone(),
         rest_api_event_stream_fields(&report),
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_rest_api_security_governance(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let scenario = match args.next() {
+        Some(token) => {
+            let Some(parsed) = RestApiSecurityGovernanceScenario::parse(&token) else {
+                return emit_error(
+                    "rest-api-security-governance",
+                    format,
+                    "rest api security governance argument parsing failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "unknown security governance scenario: {token}; expected one of {}",
+                        RestApiSecurityGovernanceScenario::all()
+                            .iter()
+                            .map(|scenario| scenario.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    )),
+                );
+            };
+            parsed
+        }
+        None => RestApiSecurityGovernanceScenario::SafeLocalDefault,
+    };
+
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "rest-api-security-governance",
+            format,
+            "rest api security governance argument parsing failed",
+            &ShardLoomError::InvalidOperation(format!(
+                "unexpected rest-api-security-governance argument: {extra}; pass at most one scenario"
+            )),
+        );
+    }
+
+    let report = RestApiSecurityGovernanceReport::for_scenario(scenario);
+    emit(
+        "rest-api-security-governance",
+        format,
+        report.status(),
+        "rest api security, governance, observability, and agent contract".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        rest_api_security_governance_fields(&report),
     );
     ExitCode::SUCCESS
 }
@@ -1102,6 +1153,240 @@ fn append_event_stream_effect_fields(
         "credential_resolution",
         report.credential_resolution,
     );
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "query_execution", report.query_execution);
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(fields, "execution_delegated", report.execution_delegated);
+    push_bool_field(
+        fields,
+        "effect_policy_violated",
+        report.effect_policy_violated(),
+    );
+}
+
+fn rest_api_security_governance_fields(
+    report: &RestApiSecurityGovernanceReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_security_governance_identity_fields(&mut fields, report);
+    append_security_governance_auth_scope_fields(&mut fields, report);
+    append_security_governance_agent_evidence_fields(&mut fields, report);
+    append_security_governance_problem_fields(&mut fields, report);
+    append_security_governance_effect_fields(&mut fields, report);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn append_security_governance_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiSecurityGovernanceReport,
+) {
+    push_field(fields, "mode", "rest_api_security_governance");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "api_version", report.api_version);
+    push_field(fields, "scenario", report.scenario.as_str());
+    push_field(
+        fields,
+        "governance_status",
+        report.governance_status.as_str(),
+    );
+    push_field(fields, "endpoint_paths", &report.endpoint_paths.join(","));
+    push_field(
+        fields,
+        "governance_operations",
+        &report.governance_operations.join(","),
+    );
+    push_field(
+        fields,
+        "openapi_contract_path",
+        report.openapi_contract_path,
+    );
+    push_field(
+        fields,
+        "problem_details_media_type",
+        report.problem_details_media_type,
+    );
+}
+
+fn append_security_governance_auth_scope_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiSecurityGovernanceReport,
+) {
+    push_bool_field(fields, "local_only_default", report.local_only_default);
+    push_field(fields, "auth_postures", &report.auth_posture_summary());
+    push_field(fields, "api_scopes", &report.scope_summary());
+    push_count_field(fields, "auth_posture_count", report.auth_postures.len());
+    push_count_field(fields, "api_scope_count", report.scopes.len());
+    push_bool_field(
+        fields,
+        "credential_references_only",
+        report.credential_references_only,
+    );
+    push_bool_field(fields, "credentials_resolved", report.credentials_resolved);
+    push_field(fields, "token_secret_ref", report.token_secret_ref);
+    push_field(fields, "mtls_certificate_ref", report.mtls_certificate_ref);
+    push_field(fields, "oidc_issuer_ref", report.oidc_issuer_ref);
+    push_field(fields, "service_account_ref", report.service_account_ref);
+    push_bool_field(
+        fields,
+        "raw_secret_values_present",
+        report.raw_secret_values_present,
+    );
+    push_bool_field(fields, "secrets_redacted", report.secrets_redacted);
+    push_field(fields, "redaction_policy", report.redaction_policy);
+    push_bool_field(
+        fields,
+        "destructive_operation_requested",
+        report.destructive_operation_requested,
+    );
+    push_bool_field(
+        fields,
+        "destructive_policy_required",
+        report.destructive_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "destructive_policy_present",
+        report.destructive_policy_present,
+    );
+    push_bool_field(
+        fields,
+        "destructive_operations_allowed",
+        report.destructive_operations_allowed,
+    );
+    push_bool_field(fields, "audit_required", report.audit_required);
+    push_field(fields, "audit_policies", &report.audit_policy_summary());
+    push_field(fields, "audit_evidence_ref", report.audit_evidence_ref);
+}
+
+fn append_security_governance_agent_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiSecurityGovernanceReport,
+) {
+    push_field(fields, "mcp_resources", &report.mcp_resource_summary());
+    push_field(fields, "mcp_tools", &report.mcp_tool_summary());
+    push_count_field(fields, "mcp_resource_count", report.mcp_resources.len());
+    push_count_field(fields, "mcp_tool_count", report.mcp_tools.len());
+    push_bool_field(fields, "mcp_dry_run_default", report.mcp_dry_run_default);
+    push_bool_field(
+        fields,
+        "mcp_effectful_tools_allowed",
+        report.mcp_effectful_tools_allowed,
+    );
+    push_bool_field(
+        fields,
+        "mcp_discovery_side_effect_free",
+        report.mcp_discovery_side_effect_free,
+    );
+    push_field(
+        fields,
+        "evidence_model_signals",
+        &report.evidence_signal_summary(),
+    );
+    push_count_field(fields, "evidence_signal_count", report.evidence_model.len());
+    push_bool_field(
+        fields,
+        "opentelemetry_exporter_enabled",
+        report.opentelemetry_exporter_enabled,
+    );
+    push_bool_field(
+        fields,
+        "runtime_collection_enabled",
+        report.runtime_collection_enabled,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facets_mapped",
+        report.openlineage_facets_mapped,
+    );
+    push_bool_field(
+        fields,
+        "problem_details_mapped",
+        report.problem_details_mapped,
+    );
+    push_bool_field(fields, "cloudevents_mapped", report.cloudevents_mapped);
+    push_bool_field(
+        fields,
+        "certificate_refs_mapped",
+        report.certificate_refs_mapped,
+    );
+}
+
+fn append_security_governance_problem_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiSecurityGovernanceReport,
+) {
+    push_bool_field(
+        fields,
+        "problem_details_emitted",
+        report.problem_details_emitted(),
+    );
+    if let Some(problem) = &report.problem_details {
+        push_field(fields, "problem_details_type", problem.problem_type);
+        push_field(fields, "problem_details_title", problem.title);
+        push_field(
+            fields,
+            "problem_details_status",
+            &problem.http_status.to_string(),
+        );
+        push_field(fields, "problem_details_detail", problem.detail);
+        push_field(
+            fields,
+            "problem_details_diagnostic_code",
+            problem.diagnostic_code,
+        );
+        push_field(
+            fields,
+            "unsupported_reason",
+            problem.unsupported_reason.unwrap_or("none"),
+        );
+    } else {
+        push_field(fields, "problem_details_type", "none");
+        push_field(fields, "problem_details_title", "none");
+        push_field(fields, "problem_details_status", "none");
+        push_field(fields, "problem_details_detail", "none");
+        push_field(fields, "problem_details_diagnostic_code", "none");
+        push_field(fields, "unsupported_reason", "none");
+    }
+}
+
+fn append_security_governance_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiSecurityGovernanceReport,
+) {
+    push_bool_field(fields, "server_started", report.server_started);
+    push_bool_field(
+        fields,
+        "network_listener_opened",
+        report.network_listener_opened,
+    );
+    push_bool_field(fields, "network_probe", report.network_listener_opened);
+    push_bool_field(fields, "dataset_probe", report.dataset_probe);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(
+        fields,
+        "credential_resolution",
+        report.credential_resolution,
+    );
+    push_bool_field(fields, "secret_resolution", report.secret_resolution);
+    push_bool_field(fields, "raw_secret_emitted", report.raw_secret_emitted);
+    push_bool_field(fields, "audit_write_io", report.audit_write_io);
+    push_bool_field(fields, "mcp_tool_execution", report.mcp_tool_execution);
     push_bool_field(fields, "data_read", report.data_read);
     push_bool_field(fields, "data_materialized", report.data_materialized);
     push_bool_field(fields, "query_execution", report.query_execution);

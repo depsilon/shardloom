@@ -909,6 +909,164 @@ class RestApiEventStream:
 
 
 @dataclass(frozen=True, slots=True)
+class RestApiSecurityGovernance:
+    """Typed view over the CG-23 security/governance/agent API contract."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def scenario(self) -> str | None:
+        """Return the deterministic security/governance scenario."""
+
+        return self.envelope.field("scenario")
+
+    @property
+    def governance_status(self) -> str | None:
+        """Return the governance status."""
+
+        return self.envelope.field("governance_status")
+
+    @property
+    def auth_postures(self) -> tuple[str, ...]:
+        """Return declared auth posture entries."""
+
+        value = self.envelope.field("auth_postures", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def api_scopes(self) -> tuple[str, ...]:
+        """Return API scope posture entries."""
+
+        value = self.envelope.field("api_scopes", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def mcp_tools(self) -> tuple[str, ...]:
+        """Return MCP tool posture entries."""
+
+        value = self.envelope.field("mcp_tools", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def evidence_model_signals(self) -> tuple[str, ...]:
+        """Return unified evidence-model signal names."""
+
+        value = self.envelope.field("evidence_model_signals", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def credential_references_only(self) -> bool:
+        """Whether credentials stay as references."""
+
+        return self.envelope.field_bool("credential_references_only", False) is True
+
+    @property
+    def secrets_redacted(self) -> bool:
+        """Whether secret material is redacted from output."""
+
+        return self.envelope.field_bool("secrets_redacted", False) is True
+
+    @property
+    def raw_secret_values_present(self) -> bool:
+        """Whether raw secret values were emitted."""
+
+        return self.envelope.field_bool("raw_secret_values_present", False) is True
+
+    @property
+    def destructive_policy_required(self) -> bool:
+        """Whether destructive operations require an explicit policy."""
+
+        return self.envelope.field_bool("destructive_policy_required", False) is True
+
+    @property
+    def destructive_policy_present(self) -> bool:
+        """Whether an explicit destructive-operation policy was present."""
+
+        return self.envelope.field_bool("destructive_policy_present", False) is True
+
+    @property
+    def destructive_operations_allowed(self) -> bool:
+        """Whether destructive operations are allowed."""
+
+        return self.envelope.field_bool("destructive_operations_allowed", False) is True
+
+    @property
+    def mcp_dry_run_default(self) -> bool:
+        """Whether MCP tools default to dry-run-safe behavior."""
+
+        return self.envelope.field_bool("mcp_dry_run_default", False) is True
+
+    @property
+    def mcp_effectful_tools_allowed(self) -> bool:
+        """Whether effectful MCP tools are allowed by default."""
+
+        return self.envelope.field_bool("mcp_effectful_tools_allowed", False) is True
+
+    @property
+    def mcp_discovery_side_effect_free(self) -> bool:
+        """Whether MCP discovery is side-effect-free."""
+
+        return self.envelope.field_bool("mcp_discovery_side_effect_free", False) is True
+
+    @property
+    def opentelemetry_exporter_enabled(self) -> bool:
+        """Whether OpenTelemetry export was enabled."""
+
+        return self.envelope.field_bool("opentelemetry_exporter_enabled", False) is True
+
+    @property
+    def openlineage_facets_mapped(self) -> bool:
+        """Whether OpenLineage facets are represented in the evidence model."""
+
+        return self.envelope.field_bool("openlineage_facets_mapped", False) is True
+
+    @property
+    def problem_details_mapped(self) -> bool:
+        """Whether problem-details errors are represented in the evidence model."""
+
+        return self.envelope.field_bool("problem_details_mapped", False) is True
+
+    @property
+    def cloudevents_mapped(self) -> bool:
+        """Whether CloudEvents are represented in the evidence model."""
+
+        return self.envelope.field_bool("cloudevents_mapped", False) is True
+
+    @property
+    def certificate_refs_mapped(self) -> bool:
+        """Whether certificate refs are represented in the evidence model."""
+
+        return self.envelope.field_bool("certificate_refs_mapped", False) is True
+
+    @property
+    def credential_resolution(self) -> bool:
+        """Whether credentials were resolved."""
+
+        return self.envelope.field_bool("credential_resolution", False) is True
+
+    @property
+    def secret_resolution(self) -> bool:
+        """Whether secret material was resolved."""
+
+        return self.envelope.field_bool("secret_resolution", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether fallback execution was attempted."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def execution_delegated(self) -> bool:
+        """Whether security/governance handling delegated execution."""
+
+        return self.envelope.field_bool("execution_delegated", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class LiveChangeContractPlan:
     """Typed convenience view over the CG-22 live change contract."""
 
@@ -1341,6 +1499,18 @@ class ShardLoomClient:
 
         return RestApiEventStream(
             self.run(["rest-api-event-stream", scenario], check=check)
+        )
+
+    def rest_api_security_governance(
+        self,
+        scenario: str = "safe-local-default",
+        *,
+        check: bool = True,
+    ) -> RestApiSecurityGovernance:
+        """Return a CG-23 security/governance/agent contract envelope."""
+
+        return RestApiSecurityGovernance(
+            self.run(["rest-api-security-governance", scenario], check=check)
         )
 
     def python_wrapper_plan(self, *, check: bool = True) -> OutputEnvelope:

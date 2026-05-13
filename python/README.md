@@ -185,6 +185,7 @@ discovery = ctx.serve_discovery_contract()
 preview = ctx.rest_api_plan_preview("certified-local-batch")
 lifecycle = ctx.rest_api_local_lifecycle("certified-local-batch")
 events = ctx.rest_api_event_stream("certified-live-fixture")
+security = ctx.rest_api_security_governance("safe-local-default")
 
 print(api.openapi_contract_path)
 print(api.represented_resources)
@@ -205,6 +206,12 @@ print(events.delivery_protocols)
 print(events.event_types)
 print(events.asyncapi_contract_path)
 print(events.broker_io)
+print(security.governance_status)
+print(security.auth_postures)
+print(security.api_scopes)
+print(security.mcp_tools)
+print(security.evidence_model_signals)
+print(security.secrets_redacted)
 ```
 
 Equivalent CLI commands:
@@ -217,6 +224,9 @@ shardloom rest-api-local-lifecycle certified-local-batch --format json
 shardloom rest-api-local-lifecycle blocked-uncertified --format json
 shardloom rest-api-event-stream certified-live-fixture --format json
 shardloom rest-api-event-stream broker-requested --format json
+shardloom rest-api-security-governance safe-local-default --format json
+shardloom rest-api-security-governance destructive-policy-required --format json
+shardloom rest-api-security-governance agent-mcp-discovery --format json
 shardloom serve --mode discovery --format json
 ```
 

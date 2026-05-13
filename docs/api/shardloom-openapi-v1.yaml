@@ -17,7 +17,10 @@ tags:
   - name: planning
   - name: evidence
   - name: events
+  - name: security
   - name: governance
+  - name: observability
+  - name: agents
 paths:
   /v1/health:
     get:
@@ -654,7 +657,79 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GovernanceResponse"
+                $ref: "#/components/schemas/SecurityGovernanceResponse"
+  /v1/security/auth:
+    get:
+      tags: [security]
+      operationId: getSecurityAuthPosture
+      summary: Report local-only, token, mTLS, OIDC, and service-account auth posture without resolving credentials.
+      responses:
+        "200":
+          description: Auth posture contract.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityGovernanceResponse"
+  /v1/security/scopes:
+    get:
+      tags: [security]
+      operationId: getSecurityScopes
+      summary: Report scope posture for read, plan, execute, write, cancel, admin, benchmark, migration, and agent operations.
+      responses:
+        "200":
+          description: Scope posture contract.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityGovernanceResponse"
+  /v1/security/audit-policy:
+    get:
+      tags: [security]
+      operationId: getSecurityAuditPolicy
+      summary: Report audit and redaction policy without writing audit records.
+      responses:
+        "200":
+          description: Audit policy contract.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityGovernanceResponse"
+  /v1/observability/evidence-model:
+    get:
+      tags: [observability]
+      operationId: getObservabilityEvidenceModel
+      summary: Map OpenTelemetry, OpenLineage, problem-details, CloudEvents, and certificate refs into one evidence model.
+      responses:
+        "200":
+          description: Observability evidence model contract.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityGovernanceResponse"
+  /v1/mcp/resources:
+    get:
+      tags: [agents]
+      operationId: listMcpResources
+      summary: List safe MCP resources for agent discovery without probing runtime state.
+      responses:
+        "200":
+          description: MCP resource contract.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityGovernanceResponse"
+  /v1/mcp/tools:
+    get:
+      tags: [agents]
+      operationId: listMcpTools
+      summary: List MCP tools with dry-run, explain, estimate, and certify defaults.
+      responses:
+        "200":
+          description: MCP tool contract.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityGovernanceResponse"
 components:
   parameters:
     CertificateId:
@@ -1116,6 +1191,182 @@ components:
             object_store_required:
               type: boolean
             production_claim_allowed:
+              type: boolean
+              const: false
+            fallback:
+              $ref: "#/components/schemas/FallbackStatus"
+    AuthPostureContract:
+      type: object
+      required:
+        - auth_kind
+        - status
+        - credential_ref
+        - credential_reference_only
+        - secret_material_allowed
+        - runtime_resolution_allowed
+      properties:
+        auth_kind:
+          type: string
+          enum: [local_only, token, mtls, oidc, service_account]
+        status:
+          type: string
+        credential_ref:
+          type: string
+        credential_reference_only:
+          type: boolean
+          const: true
+        secret_material_allowed:
+          type: boolean
+          const: false
+        runtime_resolution_allowed:
+          type: boolean
+          const: false
+        local_only:
+          type: boolean
+    ScopeContract:
+      type: object
+      required: [scope, default_access, policy_required, destructive, audit_required]
+      properties:
+        scope:
+          type: string
+          enum: [read, plan, execute, write, cancel, admin, benchmark, migration, agent]
+        default_access:
+          type: string
+        policy_required:
+          type: boolean
+        destructive:
+          type: boolean
+        audit_required:
+          type: boolean
+          const: true
+    AuditPolicyContract:
+      type: object
+      required: [event_type, action, required, redaction_required, evidence_ref]
+      properties:
+        event_type:
+          type: string
+        action:
+          type: string
+        required:
+          type: boolean
+          const: true
+        redaction_required:
+          type: boolean
+          const: true
+        evidence_ref:
+          type: string
+    McpContract:
+      type: object
+      required: [name, contract_kind, default_operation, dry_run_only, effectful, output_schema_ref]
+      properties:
+        name:
+          type: string
+        contract_kind:
+          type: string
+          enum: [resource, tool]
+        default_operation:
+          type: string
+        dry_run_only:
+          type: boolean
+          const: true
+        effectful:
+          type: boolean
+        output_schema_ref:
+          type: string
+    EvidenceModelSignal:
+      type: object
+      required:
+        - signal
+        - standard
+        - schema_ref
+        - redaction_required
+        - certificate_ref_required
+      properties:
+        signal:
+          type: string
+          enum:
+            - opentelemetry_traces
+            - opentelemetry_metrics
+            - opentelemetry_logs
+            - openlineage_facets
+            - problem_details_errors
+            - cloudevents
+            - certificate_refs
+        standard:
+          type: string
+        schema_ref:
+          type: string
+        redaction_required:
+          type: boolean
+          const: true
+        certificate_ref_required:
+          type: boolean
+    SecurityGovernanceResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+        - type: object
+          required:
+            - status
+            - auth_postures
+            - scopes
+            - audit_policies
+            - mcp_resources
+            - mcp_tools
+            - evidence_model
+            - fallback
+          properties:
+            status:
+              type: string
+              enum: [available_contract, blocked_policy_required, agent_dry_run_only]
+            auth_postures:
+              type: array
+              items:
+                $ref: "#/components/schemas/AuthPostureContract"
+            scopes:
+              type: array
+              items:
+                $ref: "#/components/schemas/ScopeContract"
+            audit_policies:
+              type: array
+              items:
+                $ref: "#/components/schemas/AuditPolicyContract"
+            mcp_resources:
+              type: array
+              items:
+                $ref: "#/components/schemas/McpContract"
+            mcp_tools:
+              type: array
+              items:
+                $ref: "#/components/schemas/McpContract"
+            evidence_model:
+              type: array
+              items:
+                $ref: "#/components/schemas/EvidenceModelSignal"
+            credential_references_only:
+              type: boolean
+              const: true
+            secrets_redacted:
+              type: boolean
+              const: true
+            raw_secret_values_present:
+              type: boolean
+              const: false
+            destructive_policy_required:
+              type: boolean
+              const: true
+            destructive_operations_allowed:
+              type: boolean
+              const: false
+            mcp_dry_run_default:
+              type: boolean
+              const: true
+            mcp_effectful_tools_allowed:
+              type: boolean
+              const: false
+            opentelemetry_exporter_enabled:
+              type: boolean
+              const: false
+            runtime_collection_enabled:
               type: boolean
               const: false
             fallback:
