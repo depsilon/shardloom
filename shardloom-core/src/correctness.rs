@@ -1746,11 +1746,13 @@ pub fn plan_correctness_differential_harness(
         covered_required_edge_case_count,
         required_edge_case_count,
         baseline_count,
+        deferred_fixture_family_count,
         deferred_fixture_family_artifact_count,
         deferred_fixture_family_artifact_populated_count,
         external_oracle_result_artifact_count,
         generated_property_fixture_count,
         fuzz_seed_count,
+        property_fuzz_execution_performed,
         &benchmark_claim_blocker_order,
         baselines_fallback_free,
         deferred_fixture_family_artifacts_test_only,
@@ -1857,11 +1859,13 @@ fn correctness_harness_blocked_surfaces(
     covered_required_edge_case_count: usize,
     required_edge_case_count: usize,
     baseline_count: usize,
+    deferred_fixture_family_count: usize,
     deferred_fixture_family_artifact_count: usize,
     deferred_fixture_family_artifact_populated_count: usize,
     external_oracle_result_artifact_count: usize,
     generated_property_fixture_count: usize,
     fuzz_seed_count: usize,
+    property_fuzz_execution_performed: bool,
     benchmark_claim_blocker_order: &[String],
     baselines_fallback_free: bool,
     deferred_fixture_family_artifacts_test_only: bool,
@@ -1883,9 +1887,11 @@ fn correctness_harness_blocked_surfaces(
     if baseline_count == 0 || !baselines_fallback_free {
         blocked.push("differential_oracles".to_string());
     }
-    if deferred_fixture_family_artifact_count == 0
-        || deferred_fixture_family_artifact_populated_count < deferred_fixture_family_artifact_count
-        || !deferred_fixture_family_artifacts_test_only
+    if deferred_fixture_family_count > 0
+        && (deferred_fixture_family_artifact_count == 0
+            || deferred_fixture_family_artifact_populated_count
+                < deferred_fixture_family_artifact_count
+            || !deferred_fixture_family_artifacts_test_only)
     {
         blocked.push("deferred_fixture_family_artifacts".to_string());
     }
@@ -1898,7 +1904,10 @@ fn correctness_harness_blocked_surfaces(
     if unsupported_diagnostic_fixture_count == 0 {
         blocked.push("unsupported_diagnostics".to_string());
     }
-    if generated_property_fixture_count == 0 || fuzz_seed_count == 0 {
+    if generated_property_fixture_count == 0
+        || fuzz_seed_count == 0
+        || !property_fuzz_execution_performed
+    {
         blocked.push("property_fuzzing".to_string());
     }
     if !benchmark_claim_blocker_order.is_empty() {
@@ -2341,12 +2350,13 @@ mod tests {
         assert!(report.external_oracle_execution_required);
         assert!(report.deferred_fixture_family_artifact_population_required);
         assert!(!report.property_fuzz_execution_performed);
-        assert_eq!(report.planned_surface_count, 9);
-        assert_eq!(report.blocked_surface_count, 2);
+        assert_eq!(report.planned_surface_count, 8);
+        assert_eq!(report.blocked_surface_count, 3);
         assert_eq!(
             report.blocked_surface_order,
             vec![
                 "deferred_fixture_family_artifacts".to_string(),
+                "property_fuzzing".to_string(),
                 "benchmark_claim_gate".to_string()
             ]
         );
@@ -2356,6 +2366,33 @@ mod tests {
         assert!(!report.has_errors());
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_execution);
+    }
+    #[test]
+    fn deferred_artifact_surface_does_not_block_when_no_deferred_families_exist() {
+        let blocked = correctness_harness_blocked_surfaces(
+            1,
+            1,
+            1,
+            true,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            true,
+            &[],
+            true,
+            true,
+            true,
+        );
+
+        assert!(!blocked.contains(&"deferred_fixture_family_artifacts".to_string()));
+        assert!(blocked.is_empty());
     }
     #[test]
     fn correctness_harness_records_required_validation_modes() {

@@ -2816,7 +2816,7 @@ mod tests {
         assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]
-    fn engine_selection_plan_live_changelog_returns_success() {
+    fn engine_selection_plan_live_changelog_returns_non_zero() {
         let code = run(vec![
             "engine-selection-plan".to_string(),
             "live".to_string(),
@@ -2824,7 +2824,7 @@ mod tests {
             "append-only".to_string(),
             "changelog".to_string(),
         ]);
-        assert_eq!(code, ExitCode::SUCCESS);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
     #[test]
     fn engine_selection_plan_hybrid_changelog_returns_success() {
@@ -6287,11 +6287,11 @@ mod tests {
             "cg5.correctness_differential_harness.aggregate"
         );
         assert_eq!(output_field(&fields, "harness_status"), "needs_evidence");
-        assert_eq!(output_field(&fields, "planned_surface_count"), "9");
-        assert_eq!(output_field(&fields, "blocked_surface_count"), "2");
+        assert_eq!(output_field(&fields, "planned_surface_count"), "8");
+        assert_eq!(output_field(&fields, "blocked_surface_count"), "3");
         assert_eq!(
             output_field(&fields, "blocked_surface_order"),
-            "deferred_fixture_family_artifacts,benchmark_claim_gate"
+            "deferred_fixture_family_artifacts,property_fuzzing,benchmark_claim_gate"
         );
         assert_eq!(output_field(&fields, "baseline_count"), "7");
         assert!(output_field(&fields, "baseline_engine_order").contains("dask"));

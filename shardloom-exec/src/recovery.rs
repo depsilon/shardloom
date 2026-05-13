@@ -1309,8 +1309,6 @@ impl FaultTolerancePromotionGateReport {
     pub fn side_effect_free(&self) -> bool {
         self.execution_promotions_blocked()
             && self.exactly_once_resumability_recovery_claims_blocked()
-            && !self.side_effect_boundaries_certified
-            && !self.commit_semantics_certified
             && !self.runtime_execution_performed
             && !self.object_store_io
             && !self.output_dataset_write
@@ -4275,6 +4273,20 @@ mod tests {
         assert!(!report.external_effects_executed);
         assert!(!report.fallback_attempted);
         assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn fault_tolerance_promotion_gate_decouples_certification_evidence_from_side_effects() {
+        let mut report = plan_fault_tolerance_promotion_gate();
+        report.side_effect_boundaries_certified = true;
+        report.commit_semantics_certified = true;
+
+        assert!(report.exactly_once_resumability_recovery_claims_blocked());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert!(!report.runtime_execution_performed);
+        assert!(!report.object_store_io);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_attempted);
     }
     #[test]
     fn commit_execution_promotion_gate_tracks_broader_surfaces() {

@@ -511,11 +511,20 @@ API-A5 result delivery: inline JSON, paged JSON, JSONL, Arrow IPC, Vortex artifa
 API-A6 source/sink adapter API with Native I/O certificates
 API-A7 live/hybrid event APIs with AsyncAPI + CloudEvents
 API-A8 security/governance/quotas/audit
-API-A9 production-certified API for declared workload constitution
+API-A9 columnar data-plane and ecosystem standards boundary
+API-A10 production-certified API for declared workload constitution
 ```
 
 An endpoint existing does not mean production support. Maturity is evidence
-scoped.
+scoped. The current Priority 6 implementation exposes API-A1 through API-A9 as
+contract/report-only surfaces. API-A2 discovery is currently represented by a
+side-effect-free `serve --mode discovery` contract report and does not start a
+listener; a future loopback server slice must still prove health, version,
+capability, and adapter endpoints without dataset, object-store, catalog,
+execution, broker, external-engine, or fallback effects. API-A10 remains blocked
+until a declared workload constitution has correctness, benchmark,
+execution-certificate, Native I/O, security, observability, and no-fallback
+evidence.
 
 ## Proposed implementation lanes
 
@@ -570,6 +579,16 @@ Acceptance:
 - No object-store access.
 - No catalog access.
 - No fallback.
+```
+
+Current implementation stance:
+
+```text
+`shardloom serve --mode discovery` is a contract/report-only planning surface.
+It emits the intended discovery posture and explicitly records that no listener
+was started. It does not satisfy the future server-backed API-A2 acceptance
+criteria until the local loopback endpoints exist and preserve the same
+side-effect-free boundary.
 ```
 
 ### CG-23C: Plan/explain/validate API

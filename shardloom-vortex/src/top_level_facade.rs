@@ -1,6 +1,8 @@
 //! Provider-side bridge from top-level `ShardLoom` plans to Vortex-native reports.
 
-use shardloom_core::{ColumnRef, ComparisonOp, Diagnostic, DiagnosticCode, Result, StatValue};
+use shardloom_core::{
+    ColumnRef, ComparisonOp, Diagnostic, DiagnosticCode, ExecutionProviderKind, Result, StatValue,
+};
 use shardloom_exec::{
     ShardLoomExecutionProvider, ShardLoomExecutionResult, ShardLoomExecutionStatus,
 };
@@ -13,8 +15,8 @@ use shardloom_plan::{
 use crate::{
     VortexEncodedValuePredicateBatch, VortexGeneralizedEncodedFilterExecutionReport,
     VortexGeneralizedEncodedProjectionExecutionReport, VortexLocalEnginePrimitive,
-    VortexLocalEngineReport, VortexLocalEngineRequest, VortexPreparedEncodedProjectionColumn,
-    VortexReaderBackedEncodedFilterExecutionReport,
+    VortexLocalEngineReport, VortexLocalEngineRequest, VortexNativeProviderBoundary,
+    VortexPreparedEncodedProjectionColumn, VortexReaderBackedEncodedFilterExecutionReport,
     VortexReaderBackedEncodedProjectionExecutionReport, VortexReaderBackedSplitEvidence,
     VortexSourceBackedEncodedFilterExecutionReport, VortexSourceBackedEncodedProjectionColumn,
     VortexSourceBackedEncodedProjectionExecutionReport,
@@ -436,7 +438,7 @@ fn reader_backed_splits(
     plan.reader_splits
         .iter()
         .map(|split| {
-            VortexReaderBackedSplitEvidence::new(
+            let mut evidence = VortexReaderBackedSplitEvidence::new(
                 split.source_uri.clone(),
                 split.split_ref.clone(),
                 split.row_count,
@@ -444,9 +446,45 @@ fn reader_backed_splits(
                 split.encoding_id.clone(),
                 split.child_count,
                 split.buffer_count,
-            )
+            )?;
+            evidence.provider_kind = split.provider_kind.as_str();
+            evidence.provider_api_surface =
+                static_provider_api_surface(&split.provider_api_surface);
+            evidence.provider_boundary =
+                reader_provider_boundary(split.provider_kind, evidence.provider_api_surface);
+            Ok(evidence)
         })
         .collect()
+}
+
+fn reader_provider_boundary(
+    provider_kind: ExecutionProviderKind,
+    provider_api_surface: &'static str,
+) -> VortexNativeProviderBoundary {
+    let mut boundary = VortexNativeProviderBoundary::local_scan();
+    boundary.provider_kind = provider_kind.as_str();
+    boundary.provider_api_surface = provider_api_surface;
+    boundary
+}
+
+fn static_provider_api_surface(value: &str) -> &'static str {
+    match value {
+        "vortex_reader_backed_encoded_filter" => "vortex_reader_backed_encoded_filter",
+        "vortex_reader_backed_encoded_projection" => "vortex_reader_backed_encoded_projection",
+        "vortex_reader_backed_encoded_filter_project" => {
+            "vortex_reader_backed_encoded_filter_project"
+        }
+        "vortex_local_primitive" => "vortex_local_primitive",
+        "vortex_prepared_encoded_filter" => "vortex_prepared_encoded_filter",
+        "vortex_prepared_encoded_projection" => "vortex_prepared_encoded_projection",
+        "vortex_prepared_encoded_filter_project" => "vortex_prepared_encoded_filter_project",
+        "vortex_source_backed_encoded_filter" => "vortex_source_backed_encoded_filter",
+        "vortex_source_backed_encoded_projection" => "vortex_source_backed_encoded_projection",
+        "vortex_source_backed_encoded_filter_project" => {
+            "vortex_source_backed_encoded_filter_project"
+        }
+        other => Box::leak(other.to_string().into_boxed_str()),
+    }
 }
 
 fn result_from_local_engine_report(
@@ -690,15 +728,16 @@ fn unsupported_bridge_diagnostic(feature: &str, reason: &str) -> Box<Diagnostic>
 mod tests {
     use shardloom_core::{
         ColumnRef, ComparisonOp, DatasetUri, EncodedSegment, EncodedValueBatch, EncodingKind,
-        LayoutKind, LogicalDType, Nullability, PredicateExpr, SegmentId, SegmentLayout,
-        SegmentStats, StatValue,
+        ExecutionProviderKind, LayoutKind, LogicalDType, Nullability, PredicateExpr, SegmentId,
+        SegmentLayout, SegmentStats, StatValue, UniversalInputSource,
     };
     use shardloom_exec::{ShardLoomExecutionStatus, execute_with_provider};
     use shardloom_plan::{
-        Plan, PlanId, PreparedEncodedBatch, PreparedEncodedPlan, VortexPrimitivePlan,
+        Plan, PlanId, PreparedEncodedBatch, PreparedEncodedPlan, ReaderBackedEncodedPlan,
+        ReaderBackedSplitRef, VortexPrimitivePlan,
     };
 
-    use super::VortexTopLevelExecutionProvider;
+    use super::{VortexTopLevelExecutionProvider, reader_backed_splits};
 
     fn column_ref(name: &str) -> ColumnRef {
         ColumnRef::new(name).expect("column")
@@ -779,5 +818,47 @@ mod tests {
         assert!(!result.native_io_certificate_refs.is_empty());
         assert!(!result.fallback_attempted());
         assert!(!result.external_engine_invoked);
+    }
+
+    #[test]
+    fn reader_backed_split_conversion_preserves_provider_evidence() {
+        let source_uri = DatasetUri::new("file:///tmp/orders.vortex").expect("uri");
+        let split = ReaderBackedSplitRef::new(
+            source_uri.clone(),
+            "reader-split-1",
+            "upstream-reader-boundary-1",
+            ExecutionProviderKind::VortexSource,
+            "vortex_reader_backed_encoded_projection",
+            3,
+            "struct(metric=int64)",
+            "vortex.dictionary",
+            1,
+            2,
+        )
+        .expect("split");
+        let source = UniversalInputSource::from_dataset_uri(source_uri).expect("source");
+        let plan = ReaderBackedEncodedPlan::projection(
+            source,
+            vec![split],
+            vec![column_ref("metric")],
+            vec![],
+        );
+
+        let converted = reader_backed_splits(&plan).expect("reader splits");
+
+        assert_eq!(converted.len(), 1);
+        assert_eq!(converted[0].provider_kind, "vortex_source");
+        assert_eq!(
+            converted[0].provider_api_surface,
+            "vortex_reader_backed_encoded_projection"
+        );
+        assert_eq!(
+            converted[0].provider_boundary.provider_kind,
+            "vortex_source"
+        );
+        assert_eq!(
+            converted[0].provider_boundary.provider_api_surface,
+            "vortex_reader_backed_encoded_projection"
+        );
     }
 }

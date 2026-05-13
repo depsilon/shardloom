@@ -45,11 +45,11 @@ fn correctness_harness_json_exposes_aggregate_status_and_surfaces() {
         "surface_order",
         "fixture_manifest,golden_fixtures,source_backed_edge_fixtures,decoded_reference_outputs,deferred_fixture_family_artifacts,differential_oracles,external_oracle_result_artifacts,semantic_edge_cases,unsupported_diagnostics,property_fuzzing,benchmark_claim_gate"
     )));
-    assert!(output.contains(&field("planned_surface_count", "9")));
-    assert!(output.contains(&field("blocked_surface_count", "2")));
+    assert!(output.contains(&field("planned_surface_count", "8")));
+    assert!(output.contains(&field("blocked_surface_count", "3")));
     assert!(output.contains(&field(
         "blocked_surface_order",
-        "deferred_fixture_family_artifacts,benchmark_claim_gate"
+        "deferred_fixture_family_artifacts,property_fuzzing,benchmark_claim_gate"
     )));
 }
 

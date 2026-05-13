@@ -292,10 +292,7 @@ impl EngineSelectionRequest {
                 | UpdateMode::Changelog
         ) && matches!(
             self.output_mode,
-            OutputMode::Append
-                | OutputMode::Update
-                | OutputMode::Changelog
-                | OutputMode::ContinuousView
+            OutputMode::Update | OutputMode::ContinuousView
         )
     }
 
@@ -706,12 +703,7 @@ fn live_row() -> EngineCapabilityRow {
         unbounded_join_supported: false,
         state_required: true,
         checkpoint_required: true,
-        output_modes: vec![
-            OutputMode::Append,
-            OutputMode::Update,
-            OutputMode::Changelog,
-            OutputMode::ContinuousView,
-        ],
+        output_modes: vec![OutputMode::Update, OutputMode::ContinuousView],
         production_claim_allowed: false,
         blockers: vec![
             "external_broker_adapters",
@@ -820,15 +812,10 @@ fn append_live_fixture_compatibility_reasons(
     }
     if !matches!(
         request.output_mode,
-        OutputMode::Append
-            | OutputMode::Update
-            | OutputMode::Changelog
-            | OutputMode::ContinuousView
+        OutputMode::Update | OutputMode::ContinuousView
     ) {
-        rejection_reasons.push(
-            "live fixture requires append/update/changelog/continuous-view output modes"
-                .to_string(),
-        );
+        rejection_reasons
+            .push("live fixture requires update or continuous-view output modes".to_string());
     }
 }
 
@@ -960,13 +947,32 @@ mod tests {
             EngineMode::Live,
             Boundedness::Unbounded,
             UpdateMode::AppendOnly,
-            OutputMode::Changelog,
+            OutputMode::Update,
         ));
         assert_eq!(live.status, EngineSelectionStatus::Selected);
         assert_eq!(live.selected, Some(EngineMode::Live));
         assert!(live.rejected_modes.contains(&EngineMode::Hybrid));
         assert!(!live.fallback_attempted());
         assert!(live.diagnostics().is_empty());
+    }
+
+    #[test]
+    fn live_fixture_rejects_output_modes_it_cannot_emit() {
+        for output_mode in [OutputMode::Append, OutputMode::Changelog] {
+            let live = EngineSelectionReport::evaluate(EngineSelectionRequest::new(
+                EngineMode::Live,
+                Boundedness::Unbounded,
+                UpdateMode::AppendOnly,
+                output_mode,
+            ));
+            assert_eq!(live.status, EngineSelectionStatus::Rejected);
+            assert_eq!(live.selected, None);
+            assert!(!live.fallback_attempted());
+            assert!(
+                live.rejection_reason_text()
+                    .contains("live fixture requires update or continuous-view output modes")
+            );
+        }
     }
 
     #[test]
@@ -998,6 +1004,10 @@ mod tests {
         );
         assert!(matrix.row(EngineMode::Live).unwrap().state_required);
         assert!(matrix.row(EngineMode::Live).unwrap().changelog_support);
+        assert_eq!(
+            matrix.row(EngineMode::Live).unwrap().output_modes,
+            vec![OutputMode::Update, OutputMode::ContinuousView]
+        );
         assert!(matrix.row(EngineMode::Hybrid).unwrap().checkpoint_required);
         assert!(matrix.row(EngineMode::Hybrid).unwrap().changelog_support);
         assert!(!matrix.fallback_attempted());

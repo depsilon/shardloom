@@ -649,16 +649,7 @@ pub struct OperatorMemorySpillDeclaration {
 }
 impl OperatorMemorySpillDeclaration {
     pub fn missing_required(operator_class: OperatorMemoryClass) -> Self {
-        let spill_support_required = matches!(
-            operator_class,
-            OperatorMemoryClass::Aggregate
-                | OperatorMemoryClass::Sort
-                | OperatorMemoryClass::Join
-                | OperatorMemoryClass::Window
-                | OperatorMemoryClass::Repartition
-                | OperatorMemoryClass::Shuffle
-                | OperatorMemoryClass::Sink
-        );
+        let spill_support_required = operator_class_requires_spill_support(operator_class);
         let effect_boundary_required = matches!(
             operator_class,
             OperatorMemoryClass::Udf | OperatorMemoryClass::ExternalEffect
@@ -707,7 +698,13 @@ impl OperatorMemorySpillDeclaration {
         spill_policy: SpillPolicy,
         evidence_ref: impl Into<String>,
     ) -> Result<Self> {
-        let spill_support_required = spill_policy.requires_spill_support();
+        let spill_support_required = operator_class_requires_spill_support(operator_class);
+        if spill_support_required && !spill_policy.requires_spill_support() {
+            return Err(invalid_operation(format!(
+                "operator_class={} requires native spill support before certification",
+                operator_class.as_str()
+            )));
+        }
         let effect_boundary_required = matches!(
             operator_class,
             OperatorMemoryClass::Udf | OperatorMemoryClass::ExternalEffect
@@ -751,6 +748,19 @@ impl OperatorMemorySpillDeclaration {
     pub const fn blocks_large_workload_claim(&self) -> bool {
         !self.can_satisfy_large_workload_claim()
     }
+}
+
+const fn operator_class_requires_spill_support(operator_class: OperatorMemoryClass) -> bool {
+    matches!(
+        operator_class,
+        OperatorMemoryClass::Aggregate
+            | OperatorMemoryClass::Sort
+            | OperatorMemoryClass::Join
+            | OperatorMemoryClass::Window
+            | OperatorMemoryClass::Repartition
+            | OperatorMemoryClass::Shuffle
+            | OperatorMemoryClass::Sink
+    )
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1868,6 +1878,20 @@ mod tests {
             report
                 .to_human_text()
                 .contains("large_workload_claim_allowed=false")
+        );
+    }
+    #[test]
+    fn certified_spill_required_operator_rejects_disabled_spill_policy() {
+        let err = OperatorMemorySpillDeclaration::certified(
+            OperatorMemoryClass::Join,
+            SpillPolicy::DisabledForOperator,
+            "join_cert",
+        )
+        .expect_err("join certification must require spill support");
+
+        assert!(
+            err.to_string()
+                .contains("requires native spill support before certification")
         );
     }
     #[test]
