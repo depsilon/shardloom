@@ -33,10 +33,29 @@ pub(crate) fn handle_status(format: OutputFormat) -> ExitCode {
         "engine status".to_string(),
         format!("{}\nfallback execution: disabled", status.summary),
         vec![],
-        vec![(
-            "fallback_execution_allowed".to_string(),
-            "false".to_string(),
-        )],
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "cli_binary_version".to_string(),
+                env!("CARGO_PKG_VERSION").to_string(),
+            ),
+            (
+                "protocol_version".to_string(),
+                "shardloom.output.v2".to_string(),
+            ),
+            ("platform_os".to_string(), std::env::consts::OS.to_string()),
+            (
+                "platform_arch".to_string(),
+                std::env::consts::ARCH.to_string(),
+            ),
+            (
+                "runtime_discovery_side_effect_free".to_string(),
+                "true".to_string(),
+            ),
+        ],
     );
     ExitCode::SUCCESS
 }

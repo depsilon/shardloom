@@ -63,10 +63,12 @@ fn success_fixture_routes_status_into_typed_envelope() {
 
     assert_common_typed_slots(&output, "status", "success");
     assert!(output.contains(&field("command_family", "status_capabilities")));
-    assert!(output.contains("\"result\":{\"fields\":[]}"));
     assert!(output.contains("\"capability_snapshot\":{\"fields\":[]}"));
     assert!(output.contains("\"policy\":{\"fields\":[{\"key\":\"fallback_execution_allowed\""));
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
+    assert!(output.contains(&field("cli_binary_version", env!("CARGO_PKG_VERSION"))));
+    assert!(output.contains(&field("protocol_version", "shardloom.output.v2")));
+    assert!(output.contains(&field("runtime_discovery_side_effect_free", "true")));
 }
 
 #[test]

@@ -1,0 +1,343 @@
+"""Side-effect-free user context helpers for the ShardLoom Python client."""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from typing import Mapping, Sequence
+
+from .client import Binary, DEFAULT_PROFILE_ORDER, PythonClientSmokeReport, ShardLoomClient
+from .models import Diagnostic, OutputEnvelope
+
+DEFAULT_CAPABILITY_SCOPES = (
+    "python",
+    "deployment",
+    "adapters",
+    "functions",
+    "operators",
+    "sql",
+    "certification",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class CapabilityView:
+    """Typed convenience view over one capability-discovery envelope."""
+
+    scope: str
+    envelope: OutputEnvelope
+
+    @property
+    def status(self) -> str:
+        """Return the capability envelope status."""
+
+        return self.envelope.status
+
+    @property
+    def fields(self) -> Mapping[str, str]:
+        """Return capability fields as a mapping."""
+
+        return self.envelope.field_map
+
+    @property
+    def diagnostics(self) -> tuple[Diagnostic, ...]:
+        """Return capability diagnostics."""
+
+        return self.envelope.diagnostics
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether this capability command attempted fallback execution."""
+
+        return self.envelope.fallback.attempted
+
+    @property
+    def capability_state(self) -> str | None:
+        """Return the best available support or certification state field."""
+
+        for key in (
+            "capability_status",
+            "certification_status",
+            "support_status",
+            "status",
+            "maturity",
+        ):
+            value = self.envelope.field(key)
+            if value:
+                return value
+        return None
+
+    @property
+    def required_gates(self) -> tuple[str, ...]:
+        """Return required/blocking gate field names that are explicitly true."""
+
+        gates: list[str] = []
+        for key, value in self.fields.items():
+            normalized = value.strip().lower()
+            if normalized != "true":
+                continue
+            if (
+                key.endswith("_required")
+                or key.endswith("_required_before_claim")
+                or key.endswith("_blocked")
+                or "required_gate" in key
+            ):
+                gates.append(key)
+        return tuple(gates)
+
+    @property
+    def materialization_boundaries(self) -> tuple[str, ...]:
+        """Return materialization-related field names emitted by the capability surface."""
+
+        return tuple(
+            key
+            for key, value in self.fields.items()
+            if "materialization" in key and value not in {"", "false", "none"}
+        )
+
+    def field(self, key: str, default: str | None = None) -> str | None:
+        """Return a capability field value."""
+
+        return self.envelope.field(key, default)
+
+
+@dataclass(frozen=True, slots=True)
+class ContextCapabilities:
+    """Aggregated side-effect-free capability discovery results."""
+
+    status: OutputEnvelope
+    views: Mapping[str, CapabilityView]
+    input_adapters: OutputEnvelope | None = None
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether any capability/discovery command attempted fallback execution."""
+
+        adapter_fallback = (
+            self.input_adapters.fallback.attempted
+            if self.input_adapters is not None
+            else False
+        )
+        return (
+            self.status.fallback.attempted
+            or adapter_fallback
+            or any(view.fallback_attempted for view in self.views.values())
+        )
+
+    @property
+    def python(self) -> CapabilityView:
+        """Return Python wrapper capability state."""
+
+        return self.scope("python")
+
+    @property
+    def deployment(self) -> CapabilityView:
+        """Return packaging/deployment capability state."""
+
+        return self.scope("deployment")
+
+    @property
+    def adapters(self) -> CapabilityView:
+        """Return adapter capability state."""
+
+        return self.scope("adapters")
+
+    @property
+    def functions(self) -> CapabilityView:
+        """Return function capability state."""
+
+        return self.scope("functions")
+
+    @property
+    def operators(self) -> CapabilityView:
+        """Return operator capability state."""
+
+        return self.scope("operators")
+
+    @property
+    def sql_support(self) -> CapabilityView:
+        """Return SQL capability state."""
+
+        return self.scope("sql")
+
+    @property
+    def certification(self) -> CapabilityView:
+        """Return certification capability state."""
+
+        return self.scope("certification")
+
+    def scope(self, name: str) -> CapabilityView:
+        """Return a capability view by scope name."""
+
+        key = _normalize_scope_name(name)
+        try:
+            return self.views[key]
+        except KeyError as exc:
+            raise KeyError(f"capability scope {name!r} was not collected") from exc
+
+
+class ShardLoomContext:
+    """High-level Python context for side-effect-free discovery and explicit work.
+
+    Constructing a context does not run the ShardLoom CLI, inspect datasets, probe
+    catalogs, touch object stores, or invoke external engines. Methods run only
+    explicit ShardLoom CLI JSON commands through the wrapped client.
+    """
+
+    def __init__(self, client: ShardLoomClient | None = None) -> None:
+        self.client = client if client is not None else ShardLoomClient.from_env()
+
+    @classmethod
+    def from_env(
+        cls,
+        env: Mapping[str, str] | None = None,
+        *,
+        profile_order: Sequence[str] | None = None,
+        **kwargs: object,
+    ) -> "ShardLoomContext":
+        """Create a context from environment configuration without running commands."""
+
+        return cls(
+            ShardLoomClient.from_env(
+                env=env,
+                profile_order=profile_order,
+                **kwargs,
+            )
+        )
+
+    @classmethod
+    def from_repo(
+        cls,
+        repo_root: str | os.PathLike[str] | None = None,
+        *,
+        profile_order: Sequence[str] = DEFAULT_PROFILE_ORDER,
+        **kwargs: object,
+    ) -> "ShardLoomContext":
+        """Create a source-tree context without running commands."""
+
+        return cls(
+            ShardLoomClient.from_repo(
+                repo_root=repo_root,
+                profile_order=profile_order,
+                **kwargs,
+            )
+        )
+
+    def smoke_check(self, *, check: bool = True) -> PythonClientSmokeReport:
+        """Run the no-dataset Python client smoke check."""
+
+        return self.client.smoke_check(check=check)
+
+    def capabilities(
+        self,
+        scopes: Sequence[str] | None = None,
+        *,
+        include_input_adapters: bool = True,
+        check: bool = True,
+    ) -> ContextCapabilities:
+        """Collect side-effect-free capability envelopes for common workflow scopes."""
+
+        selected_scopes = tuple(scopes or DEFAULT_CAPABILITY_SCOPES)
+        views = {
+            _normalize_scope_name(scope): self._capability_view(scope, check=check)
+            for scope in selected_scopes
+        }
+        input_adapters = (
+            self.client.input_adapters(check=check) if include_input_adapters else None
+        )
+        return ContextCapabilities(
+            status=self.client.status(check=check),
+            views=views,
+            input_adapters=input_adapters,
+        )
+
+    def adapters(self, *, check: bool = True) -> CapabilityView:
+        """Return adapter capability discovery without probing adapters."""
+
+        return self._capability_view("adapters", check=check)
+
+    def adapter_registry(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the no-probe input adapter registry envelope."""
+
+        return self.client.input_adapters(check=check)
+
+    def functions(self, *, check: bool = True) -> CapabilityView:
+        """Return function capability discovery."""
+
+        return self._capability_view("functions", check=check)
+
+    def operators(self, *, check: bool = True) -> CapabilityView:
+        """Return operator capability discovery."""
+
+        return self._capability_view("operators", check=check)
+
+    def sql_support(self, *, check: bool = True) -> CapabilityView:
+        """Return SQL capability discovery."""
+
+        return self._capability_view("sql", check=check)
+
+    def deployment(self, *, check: bool = True) -> CapabilityView:
+        """Return deployment/package capability discovery."""
+
+        return self._capability_view("deployment", check=check)
+
+    def certification(self, *, check: bool = True) -> CapabilityView:
+        """Return certification capability discovery."""
+
+        return self._capability_view("certification", check=check)
+
+    def _capability_view(self, scope: str, *, check: bool) -> CapabilityView:
+        normalized = _normalize_scope_name(scope)
+        return CapabilityView(
+            scope=normalized,
+            envelope=self.client.capabilities(normalized, check=check),
+        )
+
+
+def context(
+    *,
+    client: ShardLoomClient | None = None,
+    binary: Binary | None = None,
+    env: Mapping[str, str] | None = None,
+    cwd: str | os.PathLike[str] | None = None,
+    repo_root: str | os.PathLike[str] | None = None,
+    profile_order: Sequence[str] | None = None,
+    timeout: float | None = None,
+) -> ShardLoomContext:
+    """Return a side-effect-free ShardLoom context.
+
+    Passing `repo_root` selects source-tree binary resolution; otherwise the
+    context uses environment/PATH resolution. The function only constructs a
+    client and does not run the CLI.
+    """
+
+    if client is not None:
+        if any(
+            value is not None
+            for value in (binary, env, cwd, repo_root, profile_order, timeout)
+        ):
+            raise ValueError("client cannot be combined with client configuration arguments")
+        return ShardLoomContext(client)
+    if repo_root is not None:
+        return ShardLoomContext.from_repo(
+            repo_root,
+            binary=binary,
+            env=env,
+            cwd=cwd,
+            profile_order=profile_order or DEFAULT_PROFILE_ORDER,
+            timeout=timeout,
+        )
+    return ShardLoomContext.from_env(
+        env=env,
+        binary=binary,
+        cwd=cwd,
+        profile_order=profile_order,
+        timeout=timeout,
+    )
+
+
+def _normalize_scope_name(scope: str) -> str:
+    normalized = scope.strip().lower().replace("_", "-")
+    if normalized == "sql-support":
+        return "sql"
+    return normalized

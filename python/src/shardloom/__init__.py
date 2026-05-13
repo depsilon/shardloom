@@ -10,6 +10,12 @@ from .client import (
     PythonClientSmokeReport,
     ShardLoomClient,
 )
+from .context import (
+    CapabilityView,
+    ContextCapabilities,
+    ShardLoomContext,
+    context,
+)
 from ._version import __version__
 from .errors import (
     ShardLoomBinaryNotFoundError,
@@ -25,9 +31,13 @@ __all__ = [
     "FieldEntry",
     "OutputEnvelope",
     "ETL_INPUT_FORMATS",
+    "CapabilityView",
+    "ContextCapabilities",
     "LiveEtlReplayResult",
     "PythonClientSmokeReport",
     "ShardLoomClient",
+    "ShardLoomContext",
+    "context",
     "ShardLoomBinaryNotFoundError",
     "ShardLoomCommandError",
     "ShardLoomProtocolError",
