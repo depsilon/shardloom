@@ -41,6 +41,10 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"write_timing_present\""));
     assert!(script.contains("\"computed_result_sink_write_millis\""));
     assert!(script.contains("\"scenario_compute_millis\""));
+    assert!(script.contains("\"reproducible_benchmark_row\""));
+    assert!(script.contains("\"correctness_digest_stable\""));
+    assert!(script.contains("MIN_CLAIM_GRADE_ITERATIONS = 3"));
+    assert!(script.contains("--claim-readiness-rerun"));
     assert!(script.contains("def render_shardloom_result_sink_table("));
     assert!(script.contains("\"fixture_smoke_only\""));
     assert!(script.contains("\"not_claim_grade\""));
@@ -131,6 +135,9 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"write_timing_present\"",
         "\"computed_result_sink_write_millis\"",
         "\"scenario_compute_millis\"",
+        "\"reproducible_benchmark_row\"",
+        "\"correctness_digest_stable\"",
+        "\"claim_readiness_rerun_profile\"",
         "\"taxonomy_extra_included\"",
         "\"stress_lane_included\"",
         "\"shardloom_build_profile\"",

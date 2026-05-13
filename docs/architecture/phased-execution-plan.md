@@ -239,6 +239,11 @@ from the merged code and tests.
       `computed_result_sink_write_millis`, `computed_result_sink_bytes`, `write_timing_present`,
       and `timing_row_claim_grade`, keeping local Vortex result-write timing separate from scenario
       compute timing.
+    - Completed sub-slice in ledger: `--claim-readiness-rerun` now captures the selected local
+      comparative P7.4.4 rerun preset, and ShardLoom timing rows require stable correctness digests
+      across at least three iterations before `reproducible_benchmark_row=true` and
+      `timing_row_claim_grade=true`. One-iteration smoke rows remain useful evidence but stay
+      `not_claim_grade`.
     - Promotion rule: do not force ShardLoom-native support for every messy/nested/CDC/file-shape
       scenario before benchmarking. Unsupported expanded taxonomy scenarios are useful evidence
       when they emit deterministic unsupported/blocked rows with `fallback_attempted=false` and

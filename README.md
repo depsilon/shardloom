@@ -110,7 +110,8 @@ Implemented or actively wired surfaces include:
   very-wide, null-heavy, many/few file-shape, date-partitioned, clustered, schema-drift, dirty CSV,
   nested JSON, CDC overlay, and skewed local data shapes, plus support/coverage output separate from
   timing rows with explicit claim-grade, not-claim-grade, fixture-smoke, unsupported, blocked, and
-  external-baseline-only classification, and result-sink write timing separated from scenario
+  external-baseline-only classification, reproducible claim-readiness promotion gates for stable
+  three-iteration ShardLoom timing rows, and result-sink write timing separated from scenario
   compute timing when certification evidence is enabled
 - opt-in `local_vortex_analytics_v1` replay and result-sink verification for the current local
   traditional analytics path, including Vortex source/result artifact digests, schema summaries,
