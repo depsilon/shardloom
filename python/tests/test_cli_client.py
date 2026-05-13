@@ -11,6 +11,7 @@ from pathlib import Path
 from shardloom import (
     __version__,
     context as shardloom_context,
+    ClaimGateCloseoutReport,
     CompatibilitySourceSmokeReport,
     ContextCapabilities,
     CapabilityView,
@@ -1196,6 +1197,51 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.unsupported_evidence, ())
         self.assertIn("cg23.api.workload_mapping_planned", result.blocker_ids)
         self.assertIn("benchmark-claim-evidence-plan", result.suggested_next_action or "")
+        self.assertTrue(result.no_runtime)
+        self.assertTrue(result.no_fallback)
+        self.assertTrue(result.no_effects)
+
+    def test_claim_gate_closeout_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["claim-gate-closeout", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "claim-gate-closeout",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "p7_closeout_status", "value": "complete_report_only"},
+                        {"key": "claim_gate_status", "value": "blocked_for_broad_claims"},
+                        {"key": "release_readiness_status", "value": "blocked_until_priority_8"},
+                        {"key": "allowed_claims", "value": "report_only_workflow_diagnostics,local_vortex_count_fixture_evidence"},
+                        {"key": "blocked_claims", "value": "production_workflow_certification,public_package_release,comparative_performance_claims"},
+                        {"key": "out_of_scope_claims", "value": "external_engine_fallback,foundry_platform_execution"},
+                        {"key": "blocker_ids", "value": "p7.claim_gate.broad_claims_blocked,p8.release.package_artifacts_missing"},
+                        {"key": "no_runtime", "value": "true"},
+                        {"key": "no_fallback", "value": "true"},
+                        {"key": "no_effects", "value": "true"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).claim_gate_closeout()
+
+        self.assertIsInstance(result, ClaimGateCloseoutReport)
+        self.assertEqual(result.claim_gate_status, "blocked_for_broad_claims")
+        self.assertEqual(result.release_readiness_status, "blocked_until_priority_8")
+        self.assertEqual(result.p7_closeout_status, "complete_report_only")
+        self.assertIn("local_vortex_count_fixture_evidence", result.allowed_claims)
+        self.assertIn("public_package_release", result.blocked_claims)
+        self.assertIn("external_engine_fallback", result.out_of_scope_claims)
+        self.assertIn("p8.release.package_artifacts_missing", result.blocker_ids)
         self.assertTrue(result.no_runtime)
         self.assertTrue(result.no_fallback)
         self.assertTrue(result.no_effects)

@@ -629,6 +629,23 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fragments: &[],
         },
         EnvelopeCase {
+            name: "claim gate closeout",
+            args: &["claim-gate-closeout", "--format", "json"],
+            command: "claim-gate-closeout",
+            status: "success",
+            family: "evidence_certificates",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                ("schema_version", "shardloom.claim_gate_closeout.v1"),
+                ("claim_gate_status", "blocked_for_broad_claims"),
+                ("release_readiness_status", "blocked_until_priority_8"),
+                ("public_package_claim_allowed", "false"),
+                ("no_fallback", "true"),
+            ],
+            fragments: &["\"artifact_kind\":\"claim_gate_closeout_report\""],
+        },
+        EnvelopeCase {
             name: "evidence incomplete benchmark success",
             args: &["benchmark-plan", "foundation", "--format", "json"],
             command: "benchmark-plan",

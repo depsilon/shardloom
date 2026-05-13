@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.3 claim gate and release-readiness closeout bundle
+  - Primary files:
+    - `shardloom-cli/src/workload_certification.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/claim_gate_closeout_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: finish Priority 7 by adding the single report-only `claim-gate-closeout` surface that
+    summarizes which local, API, package, benchmark, and integration claims are currently allowed,
+    blocked, or explicitly out of scope.
+  - Checklist:
+    - [x] Add `claim-gate-closeout` CLI output with stable allowed/blocked/out-of-scope claim
+          fields, blocker IDs, required evidence, source evidence surfaces, and next-priority
+          guidance.
+    - [x] Add typed-envelope inline artifact coverage for the closeout report.
+    - [x] Add Python `ShardLoomClient.claim_gate_closeout()` and context helper support with typed
+          accessors for claim status, release-readiness status, claims, blockers, and no-effect
+          flags.
+    - [x] Update README/Python README and move Priority 7 out of the active planned queue so
+          Priority 8 is the next autonomous slice.
+    - [x] Promote the follow-on compute-engine completion layer into the active plan as P7.4, with
+          concrete P8.4 hard release gates and P9.6 Foundry proof-of-use certification rather than a
+          duplicate architecture category.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `cargo test -p shardloom-cli --test claim_gate_closeout_snapshots`
+    - [x] `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m unittest python.tests.test_cli_client`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m compileall -q python\src\shardloom`
+    - [x] `cargo test -p shardloom-cli --bin shardloom`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m unittest discover python\tests`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: closeout reporting only; no workload execution, data reads, writes,
+    object-store/network/catalog probes, benchmark execution, package publishing, Foundry
+    invocation, external engine invocation, or fallback execution.
+
 - [x] Session label: Audit-F9/F10 workflow parity and Foundry traceability repair
   - Primary files:
     - `shardloom-cli/src/workflow_planning.rs`
