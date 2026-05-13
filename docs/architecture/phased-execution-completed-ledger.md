@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 partition-pruning execution bundle
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: continue P7.4.4 by promoting the local `partition pruning` taxonomy row from
+    unsupported ShardLoom coverage into the existing local Vortex import/replay/result-sink path.
+  - Checklist:
+    - [x] Add `partition pruning` to ShardLoom's admitted taxonomy-extra scenario list.
+    - [x] Preserve generated `event_date` fixture columns through compatibility import into local
+          Vortex files.
+    - [x] Add ShardLoom partition-pruning execution over the generated `event_date` fixture
+          predicate with deterministic missing-column diagnostics.
+    - [x] Add runtime memory class and report-only layout-advisor recommendations for `event_date`
+          statistics.
+    - [x] Update benchmark docs, benchmark catalog, phase plan, completed ledger, and RFC
+          traceability.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-vortex expanded_taxonomy_scenarios_run_against_local_vortex_outputs --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom,pandas --formats csv --scenario "partition pruning" --dataset-profile partitioned_by_date --rows 64 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\codex-p744-partition-pruning.json --regenerate`
+    - [x] `git diff --check`
+  - Runtime stance: local generated `event_date` fixture coverage only. This does not certify
+    object-store partition pruning, table/catalog partition metadata pruning, managed baselines,
+    public performance claims, or fallback execution.
+
 - [x] Session label: P7.4.4 dataset-profile gated comparative rerun bundle
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

@@ -96,6 +96,7 @@ SHARDLOOM_TAXONOMY_EXTRA_SCENARIOS = (
     "multi-key group by",
     "join + aggregate",
     "row number window",
+    "partition pruning",
     "high-cardinality string group/distinct",
     "top-N per group",
     "clean/cast/filter/write",
