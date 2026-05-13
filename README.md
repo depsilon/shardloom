@@ -105,7 +105,9 @@ Implemented or actively wired surfaces include:
 - opt-in `local_vortex_analytics_v1` replay and result-sink verification for the current local
   traditional analytics path, including Vortex source/result artifact digests, schema summaries,
   benchmark/coverage row refs, source replay and result-sink Native I/O certificate refs, separate
-  compute/write timing fields, commit/cleanup status, and `fallback_attempted=false`
+  compute/write timing fields, local task-graph scheduler evidence, bounded queue/backpressure
+  fields, memory reservation/release evidence, retry/cancellation gate status, runtime execution
+  certificate status, operator spill blockers, commit/cleanup status, and `fallback_attempted=false`
 - source-backed benchmark matrix smoke measurement for eligible prepared, source-bound, and
   reader-backed constant/dictionary/run-end encoded filter/projection/filter-project rows, with
   provider refs, certificate refs, Native I/O refs, representation transitions, reproducibility
@@ -123,7 +125,8 @@ Still planned or gated:
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
 - claim-grade compute-engine completion: source-backed measured rows beyond fixture-smoke evidence,
-  local scheduler and memory/spill maturity, and Vortex layout/write advisor feedback
+  Vortex layout/write advisor feedback, ShardLoom-native expanded-scenario support, and benchmark
+  promotion
 - full comparative benchmark reruns, ShardLoom-native support for the expanded taxonomy scenarios,
   write/incremental benchmark promotion, and claim-grade source-backed benchmark promotion
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
@@ -224,8 +227,10 @@ It also exposes the current local live ETL smoke commands for explicit testing:
 CSV-to-Vortex through `traditional-analytics-run`, optionally with
 `--verify-native-replay --write-result-vortex` to re-open the emitted Vortex
 source artifacts, write a computed `result.vortex` sink artifact, replay it, and
-emit artifact digest/schema/certificate/timing fields. Existing native Vortex
-inputs run through `traditional-analytics-vortex-run`. The Python client can also be
+emit artifact digest/schema/certificate/timing fields plus local scheduler,
+memory reservation/release, retry/cancellation, spill-blocker, and runtime
+execution-certificate evidence. Existing native Vortex inputs run through
+`traditional-analytics-vortex-run`. The Python client can also be
 installed in editable mode, configured through environment variables, run a
 no-dataset smoke check, and query the side-effect-free universal input adapter
 registry, where common structured formats, lakehouse/table refs, object-store

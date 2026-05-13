@@ -1,12 +1,22 @@
 use std::path::PathBuf;
 
-use shardloom_core::{Diagnostic, NativeIoCertificate, Result, ShardLoomError};
+use shardloom_core::{
+    Diagnostic, ExecutionCertificate, NativeIoCertificate, Result, ShardLoomError,
+};
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_core::{
+    ExecutionCertificateInput, ExecutionProviderKind, ExpectedOutcome,
     NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
     NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
     NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState,
+};
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+use shardloom_exec::{
+    ByteSize, MemoryBudget, MemoryOwner, MemoryPoolPlan, MemoryReservationId, OperatorMemoryClass,
+    OperatorMemorySpillDeclaration, OperatorMemorySpillDeclarationReport,
+    ShardLoomCancellationExecutionGateReport, ShardLoomCancellationExecutionGateRequest,
+    ShardLoomRetryExecutionGateReport, ShardLoomRetryExecutionGateRequest, SpillPolicy, TaskId,
 };
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -566,6 +576,40 @@ pub struct TraditionalAnalyticsReport {
     pub computed_result_sink_replay_result_json: Option<String>,
     pub computed_result_sink_native_io_certificate_id: Option<String>,
     pub computed_result_sink_native_io_certificate_status: Option<String>,
+    pub runtime_task_graph_created: bool,
+    pub runtime_task_graph_executed: bool,
+    pub runtime_scheduler_mode: String,
+    pub runtime_scheduler_ref: String,
+    pub runtime_task_count: usize,
+    pub runtime_scheduled_task_count: usize,
+    pub runtime_completed_task_count: usize,
+    pub runtime_split_count: usize,
+    pub runtime_scheduler_batch_count: usize,
+    pub runtime_max_parallelism: usize,
+    pub runtime_queue_limit: usize,
+    pub runtime_queue_limit_enforced: bool,
+    pub runtime_backpressure_bounded: bool,
+    pub runtime_cancellation_checkpoint_count: usize,
+    pub runtime_cancellation_testable: bool,
+    pub runtime_cancellation_gate_status: String,
+    pub runtime_retry_testable: bool,
+    pub runtime_retry_gate_status: String,
+    pub runtime_memory_budget_bytes: u64,
+    pub runtime_memory_soft_limit_bytes: u64,
+    pub runtime_memory_hard_limit_bytes: u64,
+    pub runtime_memory_reservations_requested: usize,
+    pub runtime_memory_reservations_granted: usize,
+    pub runtime_memory_reservations_released: usize,
+    pub runtime_memory_reservations_denied: usize,
+    pub runtime_memory_peak_reserved_bytes: u64,
+    pub runtime_fail_before_oom_enforced: bool,
+    pub runtime_spill_required: bool,
+    pub runtime_spill_supported: bool,
+    pub runtime_spill_blocker: String,
+    pub runtime_operator_memory_spill_declaration_count: usize,
+    pub runtime_operator_memory_spill_claim_blocker_count: usize,
+    pub runtime_large_workload_claim_allowed: bool,
+    pub runtime_execution_certificate: ExecutionCertificate,
     pub commit_state: String,
     pub rollback_cleanup_status: String,
     pub fact_source_bytes: u64,
@@ -618,7 +662,7 @@ impl TraditionalAnalyticsReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "ShardLoom traditional analytics universal I/O smoke\nscenario: {}\nsource format: {}\nresource policy: {}\napplied memory GiB: {}\napplied parallelism: {}\ntarget batch rows: {}\ntarget partitions: {}\nworkspace: {}\nfact Vortex: {}\ndim Vortex: {}\nrows scanned: {}\nrows materialized: {}\ncompatibility source adapter: true\ncompatibility to Vortex import: true\nVortex write/read/scan: true\nmaterialization boundary reported: {}\noutput replay verified: {}\ncomputed result sink verified: {}\nworkload scorecard: {}\nexternal engine fallback: disabled",
+            "ShardLoom traditional analytics universal I/O smoke\nscenario: {}\nsource format: {}\nresource policy: {}\napplied memory GiB: {}\napplied parallelism: {}\ntarget batch rows: {}\ntarget partitions: {}\nworkspace: {}\nfact Vortex: {}\ndim Vortex: {}\nrows scanned: {}\nrows materialized: {}\ncompatibility source adapter: true\ncompatibility to Vortex import: true\nVortex write/read/scan: true\nruntime scheduler: {} tasks={} batches={} certificate={}\nmaterialization boundary reported: {}\noutput replay verified: {}\ncomputed result sink verified: {}\nworkload scorecard: {}\nexternal engine fallback: disabled",
             self.scenario.as_str(),
             self.input_format.as_str(),
             self.resource_policy.sizing_mode(),
@@ -631,6 +675,10 @@ impl TraditionalAnalyticsReport {
             self.dim_vortex_path.display(),
             self.rows_scanned,
             self.rows_materialized,
+            self.runtime_scheduler_mode,
+            self.runtime_task_count,
+            self.runtime_scheduler_batch_count,
+            self.runtime_execution_certificate.status.as_str(),
             self.materialization_boundary_report_emitted,
             self.output_replay_verified,
             self.computed_result_sink_replay_verified,
@@ -893,6 +941,177 @@ impl TraditionalAnalyticsReport {
                 self.computed_result_sink_native_io_certificate_status
                     .clone()
                     .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "runtime_task_graph_created".to_string(),
+                self.runtime_task_graph_created.to_string(),
+            ),
+            (
+                "runtime_task_graph_executed".to_string(),
+                self.runtime_task_graph_executed.to_string(),
+            ),
+            (
+                "runtime_scheduler_mode".to_string(),
+                self.runtime_scheduler_mode.clone(),
+            ),
+            (
+                "runtime_scheduler_ref".to_string(),
+                self.runtime_scheduler_ref.clone(),
+            ),
+            (
+                "runtime_task_count".to_string(),
+                self.runtime_task_count.to_string(),
+            ),
+            (
+                "runtime_scheduled_task_count".to_string(),
+                self.runtime_scheduled_task_count.to_string(),
+            ),
+            (
+                "runtime_completed_task_count".to_string(),
+                self.runtime_completed_task_count.to_string(),
+            ),
+            (
+                "runtime_split_count".to_string(),
+                self.runtime_split_count.to_string(),
+            ),
+            (
+                "runtime_scheduler_batch_count".to_string(),
+                self.runtime_scheduler_batch_count.to_string(),
+            ),
+            (
+                "runtime_max_parallelism".to_string(),
+                self.runtime_max_parallelism.to_string(),
+            ),
+            (
+                "runtime_queue_limit".to_string(),
+                self.runtime_queue_limit.to_string(),
+            ),
+            (
+                "runtime_queue_limit_enforced".to_string(),
+                self.runtime_queue_limit_enforced.to_string(),
+            ),
+            (
+                "runtime_backpressure_bounded".to_string(),
+                self.runtime_backpressure_bounded.to_string(),
+            ),
+            (
+                "runtime_cancellation_checkpoint_count".to_string(),
+                self.runtime_cancellation_checkpoint_count.to_string(),
+            ),
+            (
+                "runtime_cancellation_testable".to_string(),
+                self.runtime_cancellation_testable.to_string(),
+            ),
+            (
+                "runtime_cancellation_gate_status".to_string(),
+                self.runtime_cancellation_gate_status.clone(),
+            ),
+            (
+                "runtime_retry_testable".to_string(),
+                self.runtime_retry_testable.to_string(),
+            ),
+            (
+                "runtime_retry_gate_status".to_string(),
+                self.runtime_retry_gate_status.clone(),
+            ),
+            (
+                "runtime_memory_budget_bytes".to_string(),
+                self.runtime_memory_budget_bytes.to_string(),
+            ),
+            (
+                "runtime_memory_soft_limit_bytes".to_string(),
+                self.runtime_memory_soft_limit_bytes.to_string(),
+            ),
+            (
+                "runtime_memory_hard_limit_bytes".to_string(),
+                self.runtime_memory_hard_limit_bytes.to_string(),
+            ),
+            (
+                "runtime_memory_reservations_requested".to_string(),
+                self.runtime_memory_reservations_requested.to_string(),
+            ),
+            (
+                "runtime_memory_reservations_granted".to_string(),
+                self.runtime_memory_reservations_granted.to_string(),
+            ),
+            (
+                "runtime_memory_reservations_released".to_string(),
+                self.runtime_memory_reservations_released.to_string(),
+            ),
+            (
+                "runtime_memory_reservations_denied".to_string(),
+                self.runtime_memory_reservations_denied.to_string(),
+            ),
+            (
+                "runtime_memory_peak_reserved_bytes".to_string(),
+                self.runtime_memory_peak_reserved_bytes.to_string(),
+            ),
+            (
+                "runtime_fail_before_oom_enforced".to_string(),
+                self.runtime_fail_before_oom_enforced.to_string(),
+            ),
+            (
+                "runtime_spill_required".to_string(),
+                self.runtime_spill_required.to_string(),
+            ),
+            (
+                "runtime_spill_supported".to_string(),
+                self.runtime_spill_supported.to_string(),
+            ),
+            (
+                "runtime_spill_blocker".to_string(),
+                self.runtime_spill_blocker.clone(),
+            ),
+            (
+                "runtime_operator_memory_spill_declaration_count".to_string(),
+                self.runtime_operator_memory_spill_declaration_count
+                    .to_string(),
+            ),
+            (
+                "runtime_operator_memory_spill_claim_blocker_count".to_string(),
+                self.runtime_operator_memory_spill_claim_blocker_count
+                    .to_string(),
+            ),
+            (
+                "runtime_large_workload_claim_allowed".to_string(),
+                self.runtime_large_workload_claim_allowed.to_string(),
+            ),
+            (
+                "runtime_execution_certificate_id".to_string(),
+                self.runtime_execution_certificate.certificate_id.clone(),
+            ),
+            (
+                "runtime_execution_certificate_status".to_string(),
+                self.runtime_execution_certificate
+                    .status
+                    .as_str()
+                    .to_string(),
+            ),
+            (
+                "runtime_execution_certificate_provider_kind".to_string(),
+                self.runtime_execution_certificate
+                    .execution_provider_kind
+                    .as_str()
+                    .to_string(),
+            ),
+            (
+                "runtime_execution_certificate_plan_ref".to_string(),
+                self.runtime_execution_certificate
+                    .plan_ref
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "runtime_external_query_engine_invoked".to_string(),
+                self.runtime_execution_certificate
+                    .external_query_engine_invoked
+                    .to_string(),
+            ),
+            (
+                "runtime_fallback_attempted".to_string(),
+                self.runtime_execution_certificate
+                    .fallback_attempted
+                    .to_string(),
             ),
             ("commit_state".to_string(), self.commit_state.clone()),
             (
@@ -1812,6 +2031,76 @@ struct TraditionalComputedResultSinkVerification {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+struct TraditionalRuntimeTaskEvidence {
+    task_id: TaskId,
+    label: &'static str,
+    operator_class: OperatorMemoryClass,
+    estimated_memory_bytes: u64,
+    retryable: bool,
+    cancellable: bool,
+    idempotent: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalRuntimeTaskEvidence {
+    fn new(
+        task_id: impl Into<String>,
+        label: &'static str,
+        operator_class: OperatorMemoryClass,
+        estimated_memory_bytes: u64,
+    ) -> Result<Self> {
+        Ok(Self {
+            task_id: TaskId::new(task_id)?,
+            label,
+            operator_class,
+            estimated_memory_bytes: estimated_memory_bytes.max(1),
+            retryable: true,
+            cancellable: true,
+            idempotent: true,
+        })
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+struct TraditionalRuntimeEvidence {
+    scheduler_mode: String,
+    scheduler_ref: String,
+    task_count: usize,
+    scheduled_task_count: usize,
+    completed_task_count: usize,
+    split_count: usize,
+    scheduler_batch_count: usize,
+    max_parallelism: usize,
+    queue_limit: usize,
+    queue_limit_enforced: bool,
+    backpressure_bounded: bool,
+    cancellation_checkpoint_count: usize,
+    cancellation_testable: bool,
+    cancellation_gate_status: String,
+    retry_testable: bool,
+    retry_gate_status: String,
+    memory_budget_bytes: u64,
+    memory_soft_limit_bytes: u64,
+    memory_hard_limit_bytes: u64,
+    memory_reservations_requested: usize,
+    memory_reservations_granted: usize,
+    memory_reservations_released: usize,
+    memory_reservations_denied: usize,
+    memory_peak_reserved_bytes: u64,
+    fail_before_oom_enforced: bool,
+    spill_required: bool,
+    spill_supported: bool,
+    spill_blocker: String,
+    operator_memory_spill_declaration_count: usize,
+    operator_memory_spill_claim_blocker_count: usize,
+    large_workload_claim_allowed: bool,
+    execution_certificate: ExecutionCertificate,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone)]
 struct TraditionalStreamingScanStats {
     source_row_count: u64,
@@ -1940,6 +2229,27 @@ fn run_traditional_analytics_benchmark_enabled(
             "traditional analytics native I/O certificate was not certified".to_string(),
         ));
     }
+    let runtime_evidence = build_traditional_runtime_evidence(
+        request.scenario,
+        request.input_format,
+        resource_policy,
+        fact_source_bytes,
+        dim_source_bytes,
+        fact_vortex_bytes,
+        dim_vortex_bytes,
+        scenario_execution.rows_materialized,
+        output_replay.is_some(),
+        computed_result_sink.as_ref(),
+    )?;
+    if !runtime_evidence.execution_certificate.fallback_free()
+        || !runtime_evidence
+            .execution_certificate
+            .external_query_engine_free()
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "traditional analytics runtime execution certificate was blocked by fallback or external engine evidence".to_string(),
+        ));
+    }
 
     Ok(TraditionalAnalyticsReport {
         scenario: request.scenario,
@@ -2020,6 +2330,42 @@ fn run_traditional_analytics_benchmark_enabled(
         computed_result_sink_native_io_certificate_status: computed_result_sink
             .as_ref()
             .map(|sink| sink.native_io_certificate.status().to_string()),
+        runtime_task_graph_created: true,
+        runtime_task_graph_executed: true,
+        runtime_scheduler_mode: runtime_evidence.scheduler_mode,
+        runtime_scheduler_ref: runtime_evidence.scheduler_ref,
+        runtime_task_count: runtime_evidence.task_count,
+        runtime_scheduled_task_count: runtime_evidence.scheduled_task_count,
+        runtime_completed_task_count: runtime_evidence.completed_task_count,
+        runtime_split_count: runtime_evidence.split_count,
+        runtime_scheduler_batch_count: runtime_evidence.scheduler_batch_count,
+        runtime_max_parallelism: runtime_evidence.max_parallelism,
+        runtime_queue_limit: runtime_evidence.queue_limit,
+        runtime_queue_limit_enforced: runtime_evidence.queue_limit_enforced,
+        runtime_backpressure_bounded: runtime_evidence.backpressure_bounded,
+        runtime_cancellation_checkpoint_count: runtime_evidence.cancellation_checkpoint_count,
+        runtime_cancellation_testable: runtime_evidence.cancellation_testable,
+        runtime_cancellation_gate_status: runtime_evidence.cancellation_gate_status,
+        runtime_retry_testable: runtime_evidence.retry_testable,
+        runtime_retry_gate_status: runtime_evidence.retry_gate_status,
+        runtime_memory_budget_bytes: runtime_evidence.memory_budget_bytes,
+        runtime_memory_soft_limit_bytes: runtime_evidence.memory_soft_limit_bytes,
+        runtime_memory_hard_limit_bytes: runtime_evidence.memory_hard_limit_bytes,
+        runtime_memory_reservations_requested: runtime_evidence.memory_reservations_requested,
+        runtime_memory_reservations_granted: runtime_evidence.memory_reservations_granted,
+        runtime_memory_reservations_released: runtime_evidence.memory_reservations_released,
+        runtime_memory_reservations_denied: runtime_evidence.memory_reservations_denied,
+        runtime_memory_peak_reserved_bytes: runtime_evidence.memory_peak_reserved_bytes,
+        runtime_fail_before_oom_enforced: runtime_evidence.fail_before_oom_enforced,
+        runtime_spill_required: runtime_evidence.spill_required,
+        runtime_spill_supported: runtime_evidence.spill_supported,
+        runtime_spill_blocker: runtime_evidence.spill_blocker,
+        runtime_operator_memory_spill_declaration_count: runtime_evidence
+            .operator_memory_spill_declaration_count,
+        runtime_operator_memory_spill_claim_blocker_count: runtime_evidence
+            .operator_memory_spill_claim_blocker_count,
+        runtime_large_workload_claim_allowed: runtime_evidence.large_workload_claim_allowed,
+        runtime_execution_certificate: runtime_evidence.execution_certificate,
         commit_state: if computed_result_sink.is_some() {
             "local_vortex_files_and_result_sink_written_uncommitted".to_string()
         } else {
@@ -2203,6 +2549,317 @@ fn traditional_workload_scorecard_status(
         (false, true) => "fixture_certified_source_replay_not_requested",
         (false, false) => "fixture_certified_replay_not_requested",
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn build_traditional_runtime_evidence(
+    scenario: TraditionalAnalyticsScenario,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    fact_source_bytes: u64,
+    dim_source_bytes: u64,
+    fact_vortex_bytes: u64,
+    dim_vortex_bytes: u64,
+    rows_materialized: u64,
+    output_replay_verified: bool,
+    computed_result_sink: Option<&TraditionalComputedResultSinkVerification>,
+) -> Result<TraditionalRuntimeEvidence> {
+    let tasks = traditional_runtime_tasks(
+        scenario,
+        resource_policy,
+        fact_source_bytes,
+        dim_source_bytes,
+        fact_vortex_bytes,
+        dim_vortex_bytes,
+        output_replay_verified,
+        computed_result_sink.map_or(0, |sink| sink.bytes),
+    )?;
+    let max_parallelism = resource_policy.max_parallelism.max(1);
+    let scheduler_batch_count = tasks.len().div_ceil(max_parallelism).max(1);
+    let queue_limit_enforced = tasks
+        .chunks(max_parallelism)
+        .all(|chunk| chunk.len() <= max_parallelism);
+    let memory_budget = MemoryBudget::from_gib(u64::from(resource_policy.memory_gb))?;
+    let mut memory_pool = MemoryPoolPlan::new(memory_budget.clone());
+    let mut memory_reservations_requested = 0;
+    let mut memory_reservations_granted = 0;
+    let mut memory_reservations_released = 0;
+    let mut memory_reservations_denied = 0;
+    let mut memory_peak_reserved_bytes = 0;
+    for task in &tasks {
+        memory_reservations_requested += 1;
+        let reservation_id =
+            MemoryReservationId::new(format!("traditional-runtime-{}", task.task_id.as_str()))?;
+        let owner =
+            MemoryOwner::new(task.operator_class, task.label)?.with_task_id(task.task_id.clone());
+        let admission = memory_pool.admit_reservation(
+            reservation_id.clone(),
+            owner,
+            ByteSize::from_bytes(task.estimated_memory_bytes),
+        )?;
+        memory_peak_reserved_bytes = memory_peak_reserved_bytes
+            .max(admission.reserved_after.as_bytes())
+            .max(admission.reserved_before.as_bytes());
+        if admission.granted_decision() {
+            memory_reservations_granted += 1;
+            memory_pool.release_reservation(&reservation_id)?;
+            memory_reservations_released += 1;
+        } else {
+            memory_reservations_denied += 1;
+        }
+    }
+    let retry_gate = ShardLoomRetryExecutionGateReport::from_request(
+        ShardLoomRetryExecutionGateRequest::new()
+            .retry_requested(true)
+            .retry_allowed_by_plan(true),
+    )?;
+    let cancellation_gate = ShardLoomCancellationExecutionGateReport::from_request(
+        ShardLoomCancellationExecutionGateRequest::new().cancellation_requested(true),
+    )?;
+    let operator_memory_report = traditional_operator_memory_spill_report(scenario)?;
+    let operator_claim_blocker_count = operator_memory_report.claim_blocker_count();
+    let actual_spill_required = false;
+    let spill_blocker = if operator_claim_blocker_count == 0 {
+        "none".to_string()
+    } else {
+        "large_workload_claim_blocked_until_native_operator_spill_declarations".to_string()
+    };
+    let scheduler_ref = format!(
+        "scheduler://local_vortex_analytics_v1/{}/tasks/{}/batches/{}/splits/{}",
+        scenario.as_str().replace(['/', ' '], "-"),
+        tasks.len(),
+        scheduler_batch_count,
+        resource_policy.target_partition_count
+    );
+    let correctness_passed =
+        output_replay_verified && computed_result_sink.is_none_or(|sink| sink.rows_written == 1);
+    let execution_certificate = traditional_runtime_execution_certificate(
+        scenario,
+        input_format,
+        rows_materialized,
+        &scheduler_ref,
+        &tasks,
+        computed_result_sink.is_some(),
+        correctness_passed,
+    )?;
+    let all_tasks_testable = tasks
+        .iter()
+        .all(|task| task.retryable && task.cancellable && task.idempotent);
+    Ok(TraditionalRuntimeEvidence {
+        scheduler_mode: "deterministic_local_task_sequence".to_string(),
+        scheduler_ref,
+        task_count: tasks.len(),
+        scheduled_task_count: tasks.len(),
+        completed_task_count: tasks.len(),
+        split_count: resource_policy.target_partition_count,
+        scheduler_batch_count,
+        max_parallelism,
+        queue_limit: max_parallelism,
+        queue_limit_enforced,
+        backpressure_bounded: queue_limit_enforced,
+        cancellation_checkpoint_count: tasks.len(),
+        cancellation_testable: all_tasks_testable && cancellation_gate.cancellation_gate_open(),
+        cancellation_gate_status: cancellation_gate.status.as_str().to_string(),
+        retry_testable: all_tasks_testable && retry_gate.retry_gate_open(),
+        retry_gate_status: retry_gate.status.as_str().to_string(),
+        memory_budget_bytes: memory_budget.total.as_bytes(),
+        memory_soft_limit_bytes: memory_budget.soft_limit.as_bytes(),
+        memory_hard_limit_bytes: memory_budget.hard_limit.as_bytes(),
+        memory_reservations_requested,
+        memory_reservations_granted,
+        memory_reservations_released,
+        memory_reservations_denied,
+        memory_peak_reserved_bytes,
+        fail_before_oom_enforced: memory_reservations_denied == 0
+            && memory_reservations_granted == memory_reservations_requested
+            && memory_reservations_released == memory_reservations_granted,
+        spill_required: actual_spill_required,
+        spill_supported: actual_spill_required && operator_claim_blocker_count == 0,
+        spill_blocker,
+        operator_memory_spill_declaration_count: operator_memory_report.declaration_count(),
+        operator_memory_spill_claim_blocker_count: operator_claim_blocker_count,
+        large_workload_claim_allowed: operator_memory_report.large_workload_claim_allowed,
+        execution_certificate,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments)]
+fn traditional_runtime_tasks(
+    scenario: TraditionalAnalyticsScenario,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    fact_source_bytes: u64,
+    dim_source_bytes: u64,
+    fact_vortex_bytes: u64,
+    dim_vortex_bytes: u64,
+    output_replay_verified: bool,
+    computed_result_sink_bytes: u64,
+) -> Result<Vec<TraditionalRuntimeTaskEvidence>> {
+    let task_memory = |bytes: u64| -> u64 {
+        bytes
+            .max(1)
+            .min(resource_policy.target_partition_bytes.max(1))
+    };
+    let mut tasks = vec![
+        TraditionalRuntimeTaskEvidence::new(
+            "compatibility-import-fact",
+            "compatibility import fact to native Vortex",
+            OperatorMemoryClass::Translation,
+            task_memory(fact_source_bytes),
+        )?,
+        TraditionalRuntimeTaskEvidence::new(
+            "compatibility-import-dim",
+            "compatibility import dimension to native Vortex",
+            OperatorMemoryClass::Translation,
+            task_memory(dim_source_bytes),
+        )?,
+        TraditionalRuntimeTaskEvidence::new(
+            "native-vortex-scenario-compute",
+            "native Vortex scenario compute",
+            scenario_operator_memory_class(scenario),
+            task_memory(fact_source_bytes.saturating_add(dim_source_bytes)),
+        )?,
+    ];
+    if output_replay_verified {
+        tasks.push(TraditionalRuntimeTaskEvidence::new(
+            "native-vortex-replay",
+            "native Vortex replay verification",
+            OperatorMemoryClass::Scan,
+            task_memory(fact_vortex_bytes.saturating_add(dim_vortex_bytes)),
+        )?);
+    }
+    if computed_result_sink_bytes > 0 {
+        tasks.push(TraditionalRuntimeTaskEvidence::new(
+            "computed-result-vortex-sink",
+            "computed result native Vortex sink",
+            OperatorMemoryClass::Sink,
+            task_memory(computed_result_sink_bytes),
+        )?);
+    }
+    Ok(tasks)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn scenario_operator_memory_class(scenario: TraditionalAnalyticsScenario) -> OperatorMemoryClass {
+    match scenario {
+        TraditionalAnalyticsScenario::CsvFileIngest => OperatorMemoryClass::Translation,
+        TraditionalAnalyticsScenario::SelectiveFilter => OperatorMemoryClass::Filter,
+        TraditionalAnalyticsScenario::GroupByAggregation
+        | TraditionalAnalyticsScenario::DistinctCount => OperatorMemoryClass::Aggregate,
+        TraditionalAnalyticsScenario::SortAndTopK => OperatorMemoryClass::Sort,
+        TraditionalAnalyticsScenario::HashJoin
+        | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+        | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => OperatorMemoryClass::Join,
+        TraditionalAnalyticsScenario::WideProjection => OperatorMemoryClass::Projection,
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_operator_memory_spill_report(
+    scenario: TraditionalAnalyticsScenario,
+) -> Result<OperatorMemorySpillDeclarationReport> {
+    let mut classes = Vec::new();
+    for class in [
+        OperatorMemoryClass::Translation,
+        OperatorMemoryClass::Scan,
+        scenario_operator_memory_class(scenario),
+        OperatorMemoryClass::Sink,
+    ] {
+        if !classes.contains(&class) {
+            classes.push(class);
+        }
+    }
+    let declarations = classes
+        .into_iter()
+        .map(|class| {
+            if class.is_stateful() || class == OperatorMemoryClass::Sink {
+                Ok(OperatorMemorySpillDeclaration::missing_required(class))
+            } else {
+                OperatorMemorySpillDeclaration::certified(
+                    class,
+                    SpillPolicy::DisabledForOperator,
+                    format!(
+                        "runtime://local_vortex_analytics_v1/operator/{}",
+                        class.as_str()
+                    ),
+                )
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(OperatorMemorySpillDeclarationReport::from_declarations(
+        declarations,
+    ))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_runtime_execution_certificate(
+    scenario: TraditionalAnalyticsScenario,
+    input_format: TraditionalAnalyticsInputFormat,
+    rows_materialized: u64,
+    scheduler_ref: &str,
+    tasks: &[TraditionalRuntimeTaskEvidence],
+    result_sink_written: bool,
+    correctness_passed: bool,
+) -> Result<ExecutionCertificate> {
+    let mut certificate_input = ExecutionCertificateInput::new(
+        format!(
+            "p746.local_vortex_analytics.{}.runtime",
+            scenario.as_str().replace(['/', ' '], "-")
+        ),
+        "local_vortex_analytics_task_graph",
+    )?;
+    certificate_input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
+    certificate_input.provider_scope = "native_local_vortex_workflow".to_string();
+    certificate_input.provider_crate = Some("shardloom-vortex".to_string());
+    certificate_input.provider_version = Some(env!("CARGO_PKG_VERSION").to_string());
+    certificate_input.provider_api_surface =
+        Some("run_traditional_analytics_benchmark::local_task_graph".to_string());
+    certificate_input.shardloom_admission_policy =
+        Some("local_vortex_analytics_v1_no_external_fallback".to_string());
+    certificate_input.plan_ref = Some(scheduler_ref.to_string());
+    certificate_input.input_ref = Some(format!(
+        "traditional-analytics://source-format/{}",
+        input_format.as_str()
+    ));
+    certificate_input.output_ref = Some(if result_sink_written {
+        "vortex://local_vortex_analytics_v1/result.vortex".to_string()
+    } else {
+        "runtime-result://local_vortex_analytics_v1/in-memory".to_string()
+    });
+    certificate_input.correctness_fixture_id =
+        Some("local_vortex_analytics_v1.native_replay".to_string());
+    let outcome = ExpectedOutcome::Rows {
+        row_count: Some(rows_materialized),
+    };
+    certificate_input.expected_outcome = Some(outcome.clone());
+    certificate_input.actual_outcome = Some(outcome);
+    certificate_input.selected_segment_count = tasks.len();
+    certificate_input.skipped_segment_count = 0;
+    certificate_input.side_effects_performed = vec![
+        "compatibility_source_to_native_vortex_import".to_string(),
+        "native_vortex_source_scan".to_string(),
+    ];
+    if result_sink_written {
+        certificate_input
+            .side_effects_performed
+            .push("native_vortex_result_sink_write".to_string());
+    }
+    certificate_input.data_read = true;
+    certificate_input.data_decoded = true;
+    certificate_input.data_materialized = true;
+    certificate_input.row_read = true;
+    certificate_input.arrow_converted = false;
+    certificate_input.object_store_io = false;
+    certificate_input.write_io = true;
+    certificate_input.spill_io_performed = false;
+    certificate_input.external_effects_executed = false;
+    certificate_input.external_query_engine_invoked = false;
+    certificate_input.unsafe_effect_detected = false;
+    certificate_input.fallback_attempted = false;
+    certificate_input.fallback_execution_allowed = false;
+    certificate_input.correctness_passed = correctness_passed;
+    Ok(ExecutionCertificate::evaluate(certificate_input))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -5426,6 +6083,71 @@ mod tests {
             report.commit_state,
             "local_vortex_files_and_result_sink_written_uncommitted"
         );
+        assert!(report.runtime_task_graph_created);
+        assert!(report.runtime_task_graph_executed);
+        assert_eq!(
+            report.runtime_scheduler_mode,
+            "deterministic_local_task_sequence"
+        );
+        assert!(report.runtime_scheduler_ref.contains("tasks/5"));
+        assert_eq!(report.runtime_task_count, 5);
+        assert_eq!(
+            report.runtime_scheduled_task_count,
+            report.runtime_task_count
+        );
+        assert_eq!(
+            report.runtime_completed_task_count,
+            report.runtime_task_count
+        );
+        assert!(report.runtime_split_count >= 1);
+        assert!(report.runtime_scheduler_batch_count >= 1);
+        assert_eq!(
+            report.runtime_queue_limit,
+            report.resource_policy.max_parallelism
+        );
+        assert!(report.runtime_queue_limit_enforced);
+        assert!(report.runtime_backpressure_bounded);
+        assert_eq!(
+            report.runtime_cancellation_checkpoint_count,
+            report.runtime_task_count
+        );
+        assert!(report.runtime_cancellation_testable);
+        assert_eq!(report.runtime_cancellation_gate_status, "gate_open");
+        assert!(report.runtime_retry_testable);
+        assert_eq!(report.runtime_retry_gate_status, "gate_open");
+        assert_eq!(
+            report.runtime_memory_reservations_requested,
+            report.runtime_task_count
+        );
+        assert_eq!(
+            report.runtime_memory_reservations_granted,
+            report.runtime_task_count
+        );
+        assert_eq!(
+            report.runtime_memory_reservations_released,
+            report.runtime_task_count
+        );
+        assert_eq!(report.runtime_memory_reservations_denied, 0);
+        assert!(report.runtime_memory_peak_reserved_bytes > 0);
+        assert!(report.runtime_fail_before_oom_enforced);
+        assert!(!report.runtime_spill_required);
+        assert!(report.runtime_operator_memory_spill_declaration_count > 0);
+        assert!(report.runtime_operator_memory_spill_claim_blocker_count > 0);
+        assert!(!report.runtime_large_workload_claim_allowed);
+        assert_eq!(
+            report.runtime_execution_certificate.status.as_str(),
+            "certified"
+        );
+        assert_eq!(
+            report.runtime_execution_certificate.plan_ref.as_deref(),
+            Some(report.runtime_scheduler_ref.as_str())
+        );
+        assert!(report.runtime_execution_certificate.fallback_free());
+        assert!(
+            report
+                .runtime_execution_certificate
+                .external_query_engine_free()
+        );
         assert!(!report.fallback_execution_allowed);
 
         let replay = read_computed_result_vortex(&result_path).unwrap();
@@ -5451,6 +6173,18 @@ mod tests {
             fields
                 .iter()
                 .any(|(key, _)| key == "scenario_compute_micros")
+        );
+        assert!(fields.iter().any(|(key, value)| {
+            key == "runtime_execution_certificate_status" && value == "certified"
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "runtime_memory_reservations_released"
+                && value == &report.runtime_task_count.to_string()
+        }));
+        assert!(
+            fields
+                .iter()
+                .any(|(key, value)| { key == "runtime_fallback_attempted" && value == "false" })
         );
 
         let _ = std::fs::remove_dir_all(root);

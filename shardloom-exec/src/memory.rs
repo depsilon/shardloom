@@ -496,6 +496,22 @@ impl MemoryPoolPlan {
             diagnostic,
         ))
     }
+    pub fn release_reservation(&mut self, id: &MemoryReservationId) -> Result<MemoryReservation> {
+        let Some(index) = self
+            .reservations
+            .iter()
+            .position(|reservation| reservation.id == *id && reservation.is_granted())
+        else {
+            return Err(invalid_operation(format!(
+                "memory reservation '{}' is not currently granted",
+                id.as_str()
+            )));
+        };
+        let released = self.reservations[index].clone().released();
+        self.reservations[index] = released.clone();
+        self.recompute_snapshot();
+        Ok(released)
+    }
     pub fn reserved_bytes(&self) -> ByteSize {
         ByteSize::from_bytes(
             self.reservations
@@ -1835,6 +1851,34 @@ mod tests {
         assert!(report.has_errors());
         assert!(pool.has_errors());
         assert_eq!(pool.reserved_bytes(), bs(80));
+    }
+    #[test]
+    fn pool_releases_granted_reservation() {
+        let mut pool = MemoryPoolPlan::new(MemoryBudget::new(bs(100)).unwrap());
+        let owner = MemoryOwner::new(OperatorMemoryClass::Scan, "scan").unwrap();
+        let reservation_id = MemoryReservationId::new("r1").unwrap();
+        let report = pool
+            .admit_reservation(reservation_id.clone(), owner, bs(40))
+            .expect("admission report");
+        assert_eq!(report.decision, MemoryAdmissionDecisionKind::Granted);
+        assert_eq!(pool.reserved_bytes(), bs(40));
+
+        let released = pool
+            .release_reservation(&reservation_id)
+            .expect("release report");
+
+        assert_eq!(released.status, MemoryReservationStatus::Released);
+        assert_eq!(pool.reserved_bytes(), bs(0));
+        assert_eq!(pool.pressure(), MemoryPressureLevel::Normal);
+    }
+    #[test]
+    fn pool_rejects_unknown_release() {
+        let mut pool = MemoryPoolPlan::new(MemoryBudget::new(bs(100)).unwrap());
+        let err = pool
+            .release_reservation(&MemoryReservationId::new("missing").unwrap())
+            .expect_err("missing reservation should fail");
+
+        assert!(err.to_string().contains("not currently granted"));
     }
     #[test]
     fn policy_best_effort_allows() {

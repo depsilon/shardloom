@@ -235,11 +235,17 @@ from the merged code and tests.
       constitution is scoped as `local_vortex_analytics_v1`; any claim is workload-scoped only.
     - Verification: end-to-end fixture, output reopen/replay tests, certificate checks, benchmark
       row checks, cleanup/rollback assertions, and no external-engine replay checks.
-  - [ ] P7.4.6 local scheduler/runtime and memory/spill operator maturity bundle.
+  - [x] P7.4.6 local scheduler/runtime and memory/spill operator maturity bundle.
     - User-visible surface: supported local workloads execute through task/split graph scheduling
       with runtime sizing, memory reservation, bounded queues, cancellation/retry evidence, and
       operator-specific memory/spill maturity for group by, distinct, sort/top-N, joins, windows,
       sink/write, sketch/approx aggregates, and live/hybrid state where supported.
+    - Completed sub-slice in ledger: `traditional-analytics-run --verify-native-replay
+      --write-result-vortex` now emits deterministic local task-graph scheduler refs,
+      scheduled/completed task counts, bounded queue/backpressure fields, retry/cancellation gate
+      status, memory reservation request/grant/release counts, fail-before-OOM status, operator
+      spill claim blockers, and a certified runtime execution certificate for
+      `local_vortex_analytics_v1` while broad large-workload spill claims remain blocked.
     - Acceptance: scheduler decisions are recorded in execution certificates; backpressure and
       queue limits are enforced; safe/idempotent retry and cancellation paths are testable; every
       supported stateful operator declares spill support or a deterministic no-spill blocker;

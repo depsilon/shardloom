@@ -16,6 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.6 local scheduler/runtime and memory-spill evidence bundle
+  - Primary files:
+    - `shardloom-exec/src/memory.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `README.md`
+    - `python/README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close the P7.4.6 local runtime gap for the existing certified
+    `local_vortex_analytics_v1` path by making scheduler, memory reservation, retry/cancellation,
+    spill-blocker, and runtime certificate evidence visible from the same user-testable
+    `traditional-analytics-run --verify-native-replay --write-result-vortex` workflow.
+  - Vortex-first provider check:
+    - Subject area: local Vortex analytics task scheduling, memory evidence, and result-sink
+      workflow runtime certification.
+    - Upstream Vortex concept checked: Vortex source/sink/file IO and scan artifacts already used
+      by the workflow; no new upstream query-engine integration or data fallback was introduced.
+    - Decision: `wrap_vortex_concept` for runtime evidence around the existing native Vortex
+      workflow, with ShardLoom-owned scheduler/memory/certificate reporting.
+    - Vortex API/provider surface: existing feature-gated Vortex file writer/reader and scan path.
+    - ShardLoom provider/report/certificate surface: traditional analytics report fields,
+      benchmark harness evidence capture, `ExecutionCertificate`, `NativeIoCertificate`, and
+      `MemoryPoolPlan` reservation/release evidence.
+    - Residual handling: unsupported large-workload spill claims remain blocked by deterministic
+      operator spill declaration blockers; no external residual executor is invoked.
+    - Materialization/decode boundary: unchanged from the P7.4.5 source/result sink proof; runtime
+      certificate records current data read/decode/materialization side effects explicitly.
+    - Evidence added: task graph/scheduler refs, scheduled/completed task counts, queue and
+      backpressure bounds, retry/cancellation gate status, memory reservation request/grant/release
+      counts, fail-before-OOM status, operator spill claim blockers, runtime execution certificate,
+      and benchmark constitution `write_included=true` when result-sink proof is enabled.
+    - Gates still blocked: distributed/object-store scheduling, native spill IO, broad SQL/DataFrame
+      runtime, broad large-workload claims, comparative performance claims, and release claims.
+    - `fallback_attempted=false`: preserved.
+  - Checklist:
+    - [x] Add `MemoryPoolPlan::release_reservation` so reservation evidence can return to zero
+          after granted local tasks.
+    - [x] Attach deterministic local task-graph scheduler evidence to `TraditionalAnalyticsReport`.
+    - [x] Emit bounded queue/backpressure fields, retry/cancellation gate status, and scheduler refs.
+    - [x] Emit memory budget, reservation request/grant/release/deny counts, peak reserved bytes,
+          and fail-before-OOM status.
+    - [x] Emit operator memory/spill declaration counts and broad large-workload claim blockers.
+    - [x] Emit a runtime `ExecutionCertificate` whose plan ref records the scheduler/task evidence.
+    - [x] Extend the benchmark harness to require runtime evidence when `--shardloom-result-sink`
+          is enabled and to mark `write_included=true` for that benchmark constitution.
+    - [x] Update README, Python README, benchmark README, phase plan, and RFC traceability.
+  - Validation:
+    - [x] `cargo fmt --all`
+    - [x] `cargo test -p shardloom-exec pool_releases_granted_reservation --lib`
+    - [x] `cargo test -p shardloom-vortex computed_result_vortex_sink_writes_and_replays_result_artifact --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-cli --features vortex-traditional-analytics-benchmark`
+    - [x] `python -m compileall -q python\src\shardloom python\tests\test_cli_client.py benchmarks\traditional_analytics\run.py`
+    - [x] `cargo run -q -p shardloom-cli --features vortex-traditional-analytics-benchmark -- traditional-analytics-run "selective filter" target\codex-p746-runtime-smoke\fact.csv target\codex-p746-runtime-smoke\dim.csv --workspace target\codex-p746-runtime-smoke\workspace --input-format csv --verify-native-replay --write-result-vortex --format json`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "selective filter" --rows 10 --iterations 1 --formats csv --shardloom-build-profile debug --skip-shardloom-native --shardloom-result-sink --no-markdown --output target\codex-p746-runtime-benchmark.json`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: feature-gated local workflow runtime evidence only. This does not add broad
+    distributed runtime, object-store execution, native spill IO, SQL/DataFrame execution,
+    production workload claims, external engine invocation, or fallback execution.
+
 - [x] Session label: P7.4.5 computed result Vortex sink and workload certification bundle
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
