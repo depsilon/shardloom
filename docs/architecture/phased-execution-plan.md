@@ -141,7 +141,7 @@ Completed checked-off work that used to live in this section is recorded in
 `docs/architecture/phased-execution-completed-ledger.md`. Keep this section focused on remaining
 actionable work.
 
-- [ ] Priority 3.9 - CLI contract closeout and ownership cleanup
+- [x] Priority 3.9 - CLI contract closeout and ownership cleanup
   - Outcome: finish the typed command/result envelope and CLI modularity work only to the point that
     every user-facing command emits the same `shardloom.output.v2` contract, no-fallback status,
     side-effect policy, diagnostics, and typed refs/payloads through shared helpers.
@@ -229,7 +229,7 @@ actionable work.
       materialization and no-fallback evidence.
     - Verification: Python builder unit tests, golden CLI JSON for explain/estimate/certify paths,
       unsupported-diagnostic parity tests, and no external-engine dependency checks.
-  - [ ] P4.4 first executable local Vortex workflow.
+  - [x] P4.4 first executable local Vortex workflow.
     - User-visible surface: a documented local `.vortex` fixture workflow that can run count,
       count-where, filter, project, and filter-project only through existing explicit local
       primitive flags and the Python client wrappers.
@@ -242,7 +242,7 @@ actionable work.
       uncertified maturity level.
     - Verification: feature-gated local primitive tests, Python wrapper smoke over repository
       fixtures, typed-envelope certified execution snapshots, and full workspace validation.
-  - [ ] P4.5 local compatibility-source planning and explicit materialization smoke.
+  - [x] P4.5 local compatibility-source planning and explicit materialization smoke.
     - User-visible surface: CSV, JSON/NDJSON, Parquet, and Arrow IPC planning/smoke helpers that
       can describe schema expectations, decode/materialization boundaries, adapter maturity, and
       Vortex conversion/write prerequisites before any execution claim.

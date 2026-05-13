@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P4.4/P4.5 local Vortex workflow and compatibility-source planning smoke
+  - Primary files:
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/examples/local_vortex_primitives_smoke.py`
+    - `python/examples/compatibility_source_smoke.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add user-testable Python smoke workflows for the first certified local Vortex primitive
+    execution lane and the adjacent report-only compatibility-source planning lane.
+  - Checklist:
+    - [x] Add `LocalVortexPrimitiveSmokeReport` and
+          `ShardLoomClient.local_vortex_primitive_smoke()` to run count, count-where, filter,
+          project, and filter-project over the checked-in struct `.vortex` fixture through explicit
+          local execution flags.
+    - [x] Add `python/examples/local_vortex_primitives_smoke.py` so users can run the checked-in
+          fixture workflow and see command, status, certificate, Native I/O, work-metric,
+          materialization, evidence-artifact, and no-fallback fields.
+    - [x] Add `CompatibilitySourceSmokeReport` and
+          `ShardLoomClient.compatibility_source_smoke()` to aggregate `input-adapters`,
+          `native-io-envelope-plan`, and per-source `input-plan` envelopes for CSV, JSONL/NDJSON,
+          Parquet, and Arrow IPC compatibility-source paths.
+    - [x] Add `python/examples/compatibility_source_smoke.py` so users can inspect structured
+          compatibility sources as report-only/planned inputs without reading files, writing files,
+          materializing rows, invoking external engines, or allowing fallback.
+    - [x] Update Python README commands and mark P3.9, P4.4, and P4.5 plan status accurately.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo build -p shardloom-cli --features vortex-local-primitives --bin shardloom`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom python\examples\local_vortex_primitives_smoke.py python\examples\compatibility_source_smoke.py`
+    - [x] `$env:PYTHONPATH='python/src'; python python\examples\local_vortex_primitives_smoke.py --repo-root .`
+    - [x] `$env:PYTHONPATH='python/src'; python python\examples\compatibility_source_smoke.py --repo-root .`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test input_adapters_snapshots --test native_io_envelope_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --features vortex-local-primitives --test typed_envelope_contract_snapshots certified_runtime_execution_fixture_routes_inline_certificates`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: local Vortex execution remains limited to existing certified explicit primitive
+    paths. Compatibility-source smoke is report-only and performs no dataset probing, reads, writes,
+    materialization, object-store/catalog access, external engine invocation, or fallback execution.
+
 - [x] Session label: P3.9D typed envelope compatibility lock
   - Primary files:
     - `shardloom-core/src/output.rs`
