@@ -159,7 +159,7 @@ actionable work.
     - Verification: focused workflow/table CLI snapshot tests, the
       `cargo test -p shardloom-cli --bin shardloom` command, full workspace fmt/clippy/test, and
       `git diff --check`.
-  - [ ] P3.9B runtime/optimizer/operational CLI ownership closeout.
+  - [x] P3.9B runtime/optimizer/operational CLI ownership closeout.
     - User-visible surface: `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`,
       `dynamic-work-shaping-plan`, `optimizer-*`, `kernel-registry`, `memory-*`, `retry-*`,
       `cancellation-*`, `commit-*`, and operational gate commands keep stable output.
@@ -173,6 +173,8 @@ actionable work.
     - Acceptance: Vortex primitive execution, Vortex planning/readiness, prepared/source-backed
       execution, and Vortex runtime-readiness helpers are module-owned; certificate and Native I/O
       field groups use shared typed-envelope helpers.
+    - Slice boundary: this is the next single Vortex-facing ownership PR; do not split it into
+      per-command helper moves unless a real regression forces a narrower repair.
     - Verification: feature-gated local primitive tests, Vortex readiness/planning snapshots,
       typed-envelope snapshots, and full workspace validation.
   - [ ] P3.9D typed envelope compatibility lock.
@@ -181,6 +183,8 @@ actionable work.
     - Acceptance: snapshot coverage exists for success, invalid input, unsupported, blocked,
       evidence-incomplete, certified local execution, missing-binary Python parity, and concrete
       Foundry boundary reports once those report surfaces exist.
+    - Slice boundary: treat this as the final contract-lock PR before prioritizing user-testable
+      P4 workflow execution; only add Foundry fixtures here if the matching report surface exists.
     - Verification: `typed_envelope_contract_snapshots`, Python client protocol tests, CLI API
       protocol snapshots, and full workspace validation.
 - [ ] Priority 4 - CG-21 user-testable workflow and ETL execution lane
@@ -225,6 +229,9 @@ actionable work.
     - User-visible surface: a documented local `.vortex` fixture workflow that can run count,
       count-where, filter, project, and filter-project only through existing explicit local
       primitive flags and the Python client wrappers.
+    - Runnable smoke: add or update a repository-local Python smoke path that a user can run against
+      checked-in `.vortex` fixtures and that prints command, status, certificates, work metrics, and
+      no-fallback fields.
     - Acceptance: execution emits execution certificates, Native I/O certificates, source/pushdown/
       sink/adapter-fidelity evidence, materialization state, rows/segments work metrics, and
       `fallback_attempted=false`; arbitrary non-fixture targets stay usable only at the current
@@ -235,6 +242,8 @@ actionable work.
     - User-visible surface: CSV, JSON/NDJSON, Parquet, and Arrow IPC planning/smoke helpers that
       can describe schema expectations, decode/materialization boundaries, adapter maturity, and
       Vortex conversion/write prerequisites before any execution claim.
+    - Runnable smoke: one documented Python/CLI path must plan at least CSV, JSON/NDJSON, and
+      Parquet inputs, showing why each is report-only, compatibility-source, or blocked.
     - Acceptance: compatibility inputs are never described as Vortex-native execution; every output
       includes representation state, fidelity/metadata-loss risk, Native I/O certificate
       requirements, and deterministic blockers for unsupported reads or writes.
@@ -244,6 +253,8 @@ actionable work.
     - User-visible surface: `write_vortex`, compatibility export planning, output target preview,
       temporary-path policy, overwrite/append blockers, commit/recovery readiness, and certificate
       refs exposed consistently through CLI and Python.
+    - Runnable smoke: a no-write/default smoke must preview output and commit readiness, while any
+      actual local artifact write remains explicit, policy-gated, and certifiable.
     - Acceptance: safe write planning is usable before execution; any actual local write path must
       be policy-gated, idempotency-aware, rollback-aware, and certificate-linked. Object-store and
       catalog writes remain blocked until their lower-level gates prove them.

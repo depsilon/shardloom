@@ -16,8 +16,10 @@ use shardloom_exec::{
     CommitExecutionPromotionGateReport, FaultTolerancePromotionGateReport, MemoryBudget,
     MemoryOwner, MemoryPoolPlan, MemoryRuntimeHardeningGateReport, OomSafetyPlan,
     OperatorMemoryClass, OperatorMemorySpillDeclarationReport, RecoveryPlan, RetryPlan,
-    ShardLoomCancellationExecutionGateReport, ShardLoomCleanupExecutionRequest,
-    ShardLoomRetryExecutionGateReport, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId,
+    ShardLoomCancellationExecutionGateReport, ShardLoomCancellationExecutionGateRequest,
+    ShardLoomCancellationExecutionGateSignal, ShardLoomCleanupExecutionRequest,
+    ShardLoomRetryExecutionGateReport, ShardLoomRetryExecutionGateRequest,
+    ShardLoomRetryExecutionGateSignal, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId,
     SpillPayloadPath, SpillPayloadRef, SpillPayloadRoundTripReport, SpillPayloadRoundTripRequest,
     SpillPayloadWriteRequest, SpillPlan, SpillPolicy, SpillReservationIntegrationRequest,
     SpillWorkspaceId, SpillWorkspacePath, SyntheticSpillPayload, TaskAttemptRecord,
@@ -27,13 +29,7 @@ use shardloom_exec::{
     plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 
-use crate::{
-    cancellation_gate_plan_fields,
-    cli_output::{emit, emit_error},
-    commit_execution_promotion_gate_fields, fault_tolerance_promotion_gate_fields,
-    memory_runtime_hardening_gate_fields, operator_memory_spill_declaration_fields,
-    retry_gate_plan_fields,
-};
+use crate::cli_output::{emit, emit_error};
 
 pub(crate) fn handle_security_plan(format: OutputFormat) -> ExitCode {
     let plan = SecurityPlan::default_safe();
@@ -822,7 +818,7 @@ pub(crate) fn handle_retry_gate_plan(
     if args.next().is_some() {
         return emit_retry_gate_signal_error(format, "too many arguments for retry-gate-plan");
     }
-    let request = match crate::parse_retry_gate_signals(&raw) {
+    let request = match parse_retry_gate_signals(&raw) {
         Ok(v) => v,
         Err(error) => {
             return emit_error(
@@ -869,7 +865,7 @@ pub(crate) fn handle_cancellation_gate_plan(
             "too many arguments for cancellation-gate-plan",
         );
     }
-    let request = match crate::parse_cancellation_gate_signals(&raw) {
+    let request = match parse_cancellation_gate_signals(&raw) {
         Ok(v) => v,
         Err(error) => {
             return emit_error(
@@ -1129,6 +1125,1020 @@ fn exit_for_errors(has_errors: bool) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn operator_memory_spill_declaration_fields(
+    report: &OperatorMemorySpillDeclarationReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(
+        &mut fields,
+        "mode",
+        "operator_memory_spill_declaration_gate",
+    );
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_count_field(
+        &mut fields,
+        "operator_declaration_count",
+        report.declaration_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "declared_required_operator_count",
+        report.declared_required_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "missing_required_operator_count",
+        report.missing_required_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "omitted_required_operator_count",
+        report.omitted_required_class_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "claim_blocker_count",
+        report.claim_blocker_count(),
+    );
+    push_bool_field(
+        &mut fields,
+        "large_workload_claim_allowed",
+        report.large_workload_claim_allowed,
+    );
+    push_bool_field(&mut fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    for (index, declaration) in report.declarations.iter().enumerate() {
+        let prefix = format!("operator_declaration_{index}");
+        push_field(
+            &mut fields,
+            &format!("{prefix}_class"),
+            declaration.operator_class.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_status"),
+            declaration.status.as_str(),
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_bounded_memory_required"),
+            declaration.bounded_memory_required,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_spill_support_required"),
+            declaration.spill_support_required,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_spill_policy"),
+            declaration.spill_policy.as_str(),
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_effect_boundary_required"),
+            declaration.effect_boundary_required,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_claim_blocked"),
+            declaration.blocks_large_workload_claim(),
+        );
+    }
+    fields
+}
+
+fn memory_runtime_hardening_gate_fields(
+    report: &MemoryRuntimeHardeningGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_memory_runtime_hardening_identity_fields(&mut fields, report);
+    append_memory_runtime_hardening_existing_fields(&mut fields, report);
+    append_memory_runtime_hardening_gate_fields(&mut fields, report);
+    append_memory_runtime_hardening_requirement_fields(&mut fields, report);
+    append_memory_runtime_hardening_side_effect_fields(&mut fields, report);
+    append_memory_runtime_hardening_surface_fields(&mut fields, report);
+    fields
+}
+
+fn append_memory_runtime_hardening_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_field(fields, "mode", "cg14_memory_runtime_hardening_gate");
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_count_field(fields, "surface_count", report.surface_count());
+    push_count_field(
+        fields,
+        "existing_evidence_surface_count",
+        report.existing_evidence_surface_count(),
+    );
+    push_count_field(
+        fields,
+        "blocked_surface_count",
+        report.blocked_surface_count(),
+    );
+    push_field(fields, "surface_order", &report.surface_order().join(","));
+}
+
+fn append_memory_runtime_hardening_existing_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_bool_field(
+        fields,
+        "existing_memory_reservation_admission_present",
+        report.existing_memory_reservation_admission_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_operator_memory_spill_declaration_gate_present",
+        report.existing_operator_memory_spill_declaration_gate_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_spill_reservation_integration_present",
+        report.existing_spill_reservation_integration_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_spill_lifecycle_plan_present",
+        report.existing_spill_lifecycle_plan_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_dynamic_runtime_promotion_gate_present",
+        report.existing_dynamic_runtime_promotion_gate_present,
+    );
+}
+
+fn append_memory_runtime_hardening_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_bool_field(
+        fields,
+        "resource_derived_chunk_sizing_allowed",
+        report.resource_derived_chunk_sizing_allowed,
+    );
+    push_bool_field(
+        fields,
+        "adaptive_parallelism_allowed",
+        report.adaptive_parallelism_allowed,
+    );
+    push_bool_field(
+        fields,
+        "memory_reservation_release_allowed",
+        report.memory_reservation_release_allowed,
+    );
+    push_bool_field(
+        fields,
+        "pressure_reaction_runtime_allowed",
+        report.pressure_reaction_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "native_spill_write_allowed",
+        report.native_spill_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        "native_spill_read_allowed",
+        report.native_spill_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        "spill_cleanup_execution_allowed",
+        report.spill_cleanup_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "allocator_runtime_allowed",
+        report.allocator_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "runtime_policy_mutation_allowed",
+        report.runtime_policy_mutation_allowed,
+    );
+    push_bool_field(
+        fields,
+        "large_workload_claim_allowed",
+        report.large_workload_claim_allowed,
+    );
+}
+
+fn append_memory_runtime_hardening_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_bool_field(
+        fields,
+        "runtime_metrics_required",
+        report.runtime_metrics_required,
+    );
+    push_bool_field(
+        fields,
+        "memory_budget_required",
+        report.memory_budget_required,
+    );
+    push_bool_field(
+        fields,
+        "reservation_lifecycle_required",
+        report.reservation_lifecycle_required,
+    );
+    push_bool_field(
+        fields,
+        "spill_policy_required",
+        report.spill_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "cleanup_recovery_required",
+        report.cleanup_recovery_required,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "no_fallback_evidence_required",
+        report.no_fallback_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "runtime_promotions_blocked",
+        report.runtime_promotions_blocked(),
+    );
+    push_bool_field(fields, "claim_blocked", report.claim_blocked());
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+}
+
+fn append_memory_runtime_hardening_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "tasks_executed", report.tasks_executed);
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn append_memory_runtime_hardening_surface_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    for (index, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("runtime_hardening_surface_{index}");
+        push_field(fields, &format!("{prefix}_name"), entry.surface.as_str());
+        push_field(fields, &format!("{prefix}_status"), entry.status.as_str());
+        push_bool_field(
+            fields,
+            &format!("{prefix}_runtime_allowed"),
+            entry.runtime_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_spill_io_allowed"),
+            entry.spill_io_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_fallback_execution_allowed"),
+            entry.fallback_execution_allowed,
+        );
+    }
+}
+
+fn commit_execution_promotion_gate_fields(
+    report: &CommitExecutionPromotionGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_commit_execution_promotion_gate_summary_fields(&mut fields, report);
+    append_commit_execution_promotion_gate_evidence_fields(&mut fields, report);
+    append_commit_execution_promotion_gate_execution_fields(&mut fields, report);
+    append_commit_execution_promotion_gate_entry_fields(&mut fields, report);
+    fields
+}
+
+fn append_commit_execution_promotion_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
+    push_field(fields, "mode", "commit_execution_promotion_gate");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_count_field(fields, "surface_count", report.surface_count());
+    push_count_field(
+        fields,
+        "existing_limited_surface_count",
+        report.existing_limited_surface_count(),
+    );
+    push_count_field(
+        fields,
+        "blocked_surface_count",
+        report.blocked_surface_count(),
+    );
+    push_count_field(
+        fields,
+        "broader_execution_ready_surface_count",
+        report.broader_execution_ready_surface_count(),
+    );
+    push_field(fields, "surface_order", &report.surface_order().join(","));
+    push_bool_field(
+        fields,
+        "existing_local_commit_execution_present",
+        report.existing_local_commit_execution_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_local_rollback_execution_present",
+        report.existing_local_rollback_execution_present,
+    );
+    push_bool_field(
+        fields,
+        "broader_execution_promotions_blocked",
+        report.broader_execution_promotions_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "commit_claims_blocked",
+        report.commit_claims_blocked(),
+    );
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn append_commit_execution_promotion_gate_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "output_manifest_required",
+        report.output_manifest_required,
+    );
+    push_bool_field(
+        fields,
+        "sink_requirement_report_required",
+        report.sink_requirement_report_required,
+    );
+    push_bool_field(
+        fields,
+        "materialization_fidelity_report_required",
+        report.materialization_fidelity_report_required,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "idempotency_key_required",
+        report.idempotency_key_required,
+    );
+    push_bool_field(
+        fields,
+        "rollback_recovery_proof_required",
+        report.rollback_recovery_proof_required,
+    );
+    push_bool_field(
+        fields,
+        "ambiguous_commit_diagnostics_required",
+        report.ambiguous_commit_diagnostics_required,
+    );
+    push_bool_field(
+        fields,
+        "object_store_atomicity_policy_required",
+        report.object_store_atomicity_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "table_catalog_transaction_policy_required",
+        report.table_catalog_transaction_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "credential_effect_policy_required",
+        report.credential_effect_policy_required,
+    );
+}
+
+fn append_commit_execution_promotion_gate_execution_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "broader_commit_execution_allowed",
+        report.broader_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_sink_commit_allowed",
+        report.generalized_local_sink_commit_allowed,
+    );
+    push_bool_field(
+        fields,
+        "object_store_commit_execution_allowed",
+        report.object_store_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "table_catalog_commit_execution_allowed",
+        report.table_catalog_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "native_source_sink_commit_execution_allowed",
+        report.native_source_sink_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "foundry_dataset_commit_execution_allowed",
+        report.foundry_dataset_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "live_hybrid_checkpoint_commit_execution_allowed",
+        report.live_hybrid_checkpoint_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "runtime_execution",
+        report.runtime_execution_performed,
+    );
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "catalog_io", report.catalog_io);
+    push_bool_field(
+        fields,
+        "external_effects_executed",
+        report.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "exactly_once_claim_allowed",
+        report.exactly_once_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "atomic_commit_claim_allowed",
+        report.atomic_commit_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "recovery_claim_allowed",
+        report.recovery_claim_allowed,
+    );
+}
+
+fn append_commit_execution_promotion_gate_entry_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
+    for (idx, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("commit_promotion_surface_{idx}");
+        push_field(fields, &format!("{prefix}_name"), entry.surface.as_str());
+        push_field(fields, &format!("{prefix}_status"), entry.status.as_str());
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            entry.required_evidence,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_existing_limited_local_path"),
+            entry.existing_limited_local_path,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_execution_certificate"),
+            entry.requires_execution_certificate,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_native_io_certificate"),
+            entry.requires_native_io_certificate,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_output_manifest"),
+            entry.requires_output_manifest,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_sink_requirement_report"),
+            entry.requires_sink_requirement_report,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_materialization_fidelity_report"),
+            entry.requires_materialization_fidelity_report,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_idempotency_key"),
+            entry.requires_idempotency_key,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_recovery_rollback_proof"),
+            entry.requires_recovery_rollback_proof,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_ambiguous_commit_diagnostics"),
+            entry.requires_ambiguous_commit_diagnostics,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_backend_atomicity_policy"),
+            entry.requires_backend_atomicity_policy,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_table_catalog_transaction_policy"),
+            entry.requires_table_catalog_transaction_policy,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_foundry_transaction_context"),
+            entry.requires_foundry_transaction_context,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_broader_execution_allowed"),
+            entry.broader_execution_allowed,
+        );
+    }
+}
+
+fn fault_tolerance_promotion_gate_fields(
+    report: &FaultTolerancePromotionGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_fault_tolerance_promotion_gate_summary_fields(&mut fields, report);
+    append_fault_tolerance_promotion_gate_entry_fields(&mut fields, report);
+    fields
+}
+
+fn append_fault_tolerance_promotion_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    push_field(fields, "mode", "fault_tolerance_promotion_gate");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_count_field(
+        fields,
+        "promotion_area_count",
+        report.promotion_area_count(),
+    );
+    push_count_field(fields, "blocked_area_count", report.blocked_area_count());
+    push_count_field(
+        fields,
+        "execution_ready_area_count",
+        report.execution_ready_area_count(),
+    );
+    push_field(fields, "area_order", &report.area_order().join(","));
+    append_fault_tolerance_promotion_gate_evidence_fields(fields, report);
+    append_fault_tolerance_promotion_gate_execution_fields(fields, report);
+    append_fault_tolerance_promotion_gate_claim_fields(fields, report);
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn append_fault_tolerance_promotion_gate_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "side_effect_boundaries_certified",
+        report.side_effect_boundaries_certified,
+    );
+    push_bool_field(
+        fields,
+        "commit_semantics_certified",
+        report.commit_semantics_certified,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "cg4_output_commit_evidence_required",
+        report.cg4_output_commit_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "cg8_write_recovery_evidence_required",
+        report.cg8_write_recovery_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "cg10_object_store_evidence_required",
+        report.cg10_object_store_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "cg16_execution_certificate_evidence_required",
+        report.cg16_execution_certificate_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "cg22_engine_mode_evidence_required",
+        report.cg22_engine_mode_evidence_required,
+    );
+}
+
+fn append_fault_tolerance_promotion_gate_execution_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "retry_execution_allowed",
+        report.retry_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "cancellation_execution_allowed",
+        report.cancellation_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "cleanup_execution_allowed",
+        report.cleanup_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "ambiguous_commit_resolution_allowed",
+        report.ambiguous_commit_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "idempotent_write_claim_allowed",
+        report.idempotent_write_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "execution_promotions_blocked",
+        report.execution_promotions_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "runtime_execution",
+        report.runtime_execution_performed,
+    );
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "output_dataset_write", report.output_dataset_write);
+    push_bool_field(
+        fields,
+        "external_effects_executed",
+        report.external_effects_executed,
+    );
+}
+
+fn append_fault_tolerance_promotion_gate_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "exactly_once_claim_allowed",
+        report.exactly_once_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "resumability_claim_allowed",
+        report.resumability_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "recovery_claim_allowed",
+        report.recovery_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "execution_promotions_blocked",
+        report.execution_promotions_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "exactly_once_resumability_recovery_claims_blocked",
+        report.exactly_once_resumability_recovery_claims_blocked(),
+    );
+}
+
+fn append_fault_tolerance_promotion_gate_entry_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    for (idx, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("fault_tolerance_promotion_area_{idx}");
+        push_field(fields, &format!("{prefix}_name"), entry.area.as_str());
+        push_field(fields, &format!("{prefix}_status"), entry.status.as_str());
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            entry.required_evidence,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_side_effect_boundary"),
+            entry.requires_side_effect_boundary,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_commit_semantics"),
+            entry.requires_commit_semantics,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_execution_allowed"),
+            entry.execution_allowed,
+        );
+    }
+}
+
+pub(crate) fn parse_retry_gate_signals(
+    value: &str,
+) -> Result<ShardLoomRetryExecutionGateRequest, ShardLoomError> {
+    let mut signals = Vec::new();
+    for token in value
+        .split(',')
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+    {
+        let signal = match token {
+            "retry-requested" => ShardLoomRetryExecutionGateSignal::RetryRequested,
+            "retry-allowed" => ShardLoomRetryExecutionGateSignal::RetryAllowedByPlan,
+            "retry-requires-cleanup" => ShardLoomRetryExecutionGateSignal::RetryRequiresCleanup,
+            "cleanup-completed" => ShardLoomRetryExecutionGateSignal::CleanupCompleted,
+            "unknown-artifact" => ShardLoomRetryExecutionGateSignal::UnknownArtifactPresent,
+            "external-effects" => ShardLoomRetryExecutionGateSignal::ExternalEffectsPresent,
+            "object-store-recovery" => {
+                ShardLoomRetryExecutionGateSignal::ObjectStoreRecoveryRequired
+            }
+            "output-recovery" => ShardLoomRetryExecutionGateSignal::OutputRecoveryRequired,
+            "cancellation-requested" => ShardLoomRetryExecutionGateSignal::CancellationRequested,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "invalid retry gate signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    if signals.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "retry-gate-plan requires <signals>".to_string(),
+        ));
+    }
+
+    let mut request = ShardLoomRetryExecutionGateRequest::new();
+    for signal in signals {
+        request.add_signal(signal);
+    }
+    Ok(request)
+}
+
+pub(crate) fn retry_gate_plan_fields(
+    report: &ShardLoomRetryExecutionGateReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), "retry_gate_plan".to_string()),
+        (
+            "retry_requested".to_string(),
+            report.retry_requested().to_string(),
+        ),
+        (
+            "retry_allowed_by_plan".to_string(),
+            report.retry_allowed_by_plan().to_string(),
+        ),
+        (
+            "retry_gate_open".to_string(),
+            report.retry_gate_open().to_string(),
+        ),
+        (
+            "retry_requires_cleanup".to_string(),
+            report.retry_requires_cleanup().to_string(),
+        ),
+        (
+            "cleanup_completed".to_string(),
+            report.cleanup_completed().to_string(),
+        ),
+        (
+            "unknown_artifact_present".to_string(),
+            report.unknown_artifact_present().to_string(),
+        ),
+        (
+            "external_effects_present".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomRetryExecutionGateSignal::ExternalEffectsPresent)
+                .to_string(),
+        ),
+        (
+            "object_store_recovery_required".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomRetryExecutionGateSignal::ObjectStoreRecoveryRequired)
+                .to_string(),
+        ),
+        (
+            "output_recovery_required".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomRetryExecutionGateSignal::OutputRecoveryRequired)
+                .to_string(),
+        ),
+        (
+            "cancellation_requested".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomRetryExecutionGateSignal::CancellationRequested)
+                .to_string(),
+        ),
+        ("retry_executed".to_string(), "false".to_string()),
+        ("cleanup_executed_by_gate".to_string(), "false".to_string()),
+        ("cancellation_executed".to_string(), "false".to_string()),
+        ("external_effects_executed".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("output_dataset_write".to_string(), "false".to_string()),
+        ("execution".to_string(), "not_performed".to_string()),
+    ]
+}
+
+pub(crate) fn parse_cancellation_gate_signals(
+    value: &str,
+) -> Result<ShardLoomCancellationExecutionGateRequest, ShardLoomError> {
+    let mut signals = Vec::new();
+    for token in value
+        .split(',')
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+    {
+        let signal = match token {
+            "cancellation-requested" => {
+                ShardLoomCancellationExecutionGateSignal::CancellationRequested
+            }
+            "cleanup-required" => ShardLoomCancellationExecutionGateSignal::CleanupRequired,
+            "cleanup-completed" => ShardLoomCancellationExecutionGateSignal::CleanupCompleted,
+            "unknown-artifact" => ShardLoomCancellationExecutionGateSignal::UnknownArtifactPresent,
+            "external-effects" => ShardLoomCancellationExecutionGateSignal::ExternalEffectsPresent,
+            "object-store-recovery" => {
+                ShardLoomCancellationExecutionGateSignal::ObjectStoreRecoveryRequired
+            }
+            "output-recovery" => ShardLoomCancellationExecutionGateSignal::OutputRecoveryRequired,
+            "retry-in-progress" => ShardLoomCancellationExecutionGateSignal::RetryInProgress,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "invalid cancellation gate signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    if signals.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "cancellation-gate-plan requires <signals>".to_string(),
+        ));
+    }
+    let mut request = ShardLoomCancellationExecutionGateRequest::new();
+    for signal in signals {
+        request.add_signal(signal);
+    }
+    Ok(request)
+}
+
+pub(crate) fn cancellation_gate_plan_fields(
+    report: &ShardLoomCancellationExecutionGateReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), "cancellation_gate_plan".to_string()),
+        (
+            "cancellation_requested".to_string(),
+            report.cancellation_requested().to_string(),
+        ),
+        (
+            "cancellation_gate_open".to_string(),
+            report.cancellation_gate_open().to_string(),
+        ),
+        (
+            "cleanup_required".to_string(),
+            report.cleanup_required().to_string(),
+        ),
+        (
+            "cleanup_completed".to_string(),
+            report.cleanup_completed().to_string(),
+        ),
+        (
+            "unknown_artifact_present".to_string(),
+            report.unknown_artifact_present().to_string(),
+        ),
+        (
+            "external_effects_present".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomCancellationExecutionGateSignal::ExternalEffectsPresent)
+                .to_string(),
+        ),
+        (
+            "object_store_recovery_required".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomCancellationExecutionGateSignal::ObjectStoreRecoveryRequired)
+                .to_string(),
+        ),
+        (
+            "output_recovery_required".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomCancellationExecutionGateSignal::OutputRecoveryRequired)
+                .to_string(),
+        ),
+        (
+            "retry_in_progress".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomCancellationExecutionGateSignal::RetryInProgress)
+                .to_string(),
+        ),
+        ("cancellation_executed".to_string(), "false".to_string()),
+        ("retry_executed".to_string(), "false".to_string()),
+        ("cleanup_executed_by_gate".to_string(), "false".to_string()),
+        ("external_effects_executed".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("output_dataset_write".to_string(), "false".to_string()),
+        ("execution".to_string(), "not_performed".to_string()),
+    ]
 }
 
 pub(crate) fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, String)> {

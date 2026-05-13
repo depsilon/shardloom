@@ -16,6 +16,40 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P3.9B runtime/optimizer/operational CLI ownership closeout
+  - Primary files:
+    - `shardloom-cli/src/engine_runtime_planning.rs`
+    - `shardloom-cli/src/optimizer_planning.rs`
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: complete the runtime, optimizer, and operational command-family helper ownership move
+    for Priority 3.9B without changing command behavior, adding execution, or weakening the
+    no-fallback/report-only policy.
+  - Checklist:
+    - [x] Move streaming, streaming-batch, backpressure, sizing feedback, dynamic work shaping, and
+          CG-8 runtime promotion field/parsing helpers into `engine_runtime_planning.rs`.
+    - [x] Move adaptive optimizer memory and CPU specialization field helpers into
+          `optimizer_planning.rs`.
+    - [x] Move operator memory/spill declaration, CG-14 memory hardening, commit/fault-tolerance
+          promotion, retry gate, and cancellation gate helpers into `operational_hardening.rs`.
+    - [x] Keep `main.rs` focused on routing and shared Vortex helpers needed by remaining P3.9C
+          work.
+    - [x] Restructure the active plan notes so remaining work is grouped into larger runnable
+          ownership/workflow slices with explicit smoke expectations.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test streaming_plan_snapshots --test streaming_batch_plan_snapshots --test backpressure_plan_snapshots --test dynamic_work_shaping_plan_snapshots --test sizing_feedback_plan_snapshots --test cg8_runtime_promotion_gate --test adaptive_optimizer_memory_snapshots --test cpu_specialization_snapshots --test operator_memory_spill_declarations --test cg14_memory_runtime_hardening_gate --test commit_execution_promotion_gate --test fault_tolerance_promotion_gate`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: this is an ownership and plan-structure change only. It does not add dataset
+    probing, materialization, writes, package publishing, external engine execution, server startup,
+    object-store/catalog access, or fallback execution.
+
 - [x] Session label: P4.3 lazy workflow/query-builder planning MVP
   - Primary files:
     - `python/src/shardloom/query.py`

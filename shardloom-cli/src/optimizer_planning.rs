@@ -7,11 +7,14 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CommandStatus, KernelRegistrySnapshot, OutputFormat, PhysicalKernelRegistryPlan,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix,
-    plan_cpu_operator_specialization,
+    CommandStatus, CpuOperatorSpecializationReport, KernelRegistrySnapshot, OutputFormat,
+    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, plan_cpu_operator_specialization,
 };
-use shardloom_plan::{OptimizerPhase, OptimizerPlanSkeleton, plan_adaptive_optimizer_memory};
+use shardloom_plan::{
+    AdaptiveOptimizerMemoryReport, OptimizerPhase, OptimizerPlanSkeleton,
+    plan_adaptive_optimizer_memory,
+};
 
 use crate::cli_output::emit;
 
@@ -595,7 +598,7 @@ pub(crate) fn handle_optimizer_adaptive_memory_plan(format: OutputFormat) -> Exi
         "adaptive optimizer memory plan".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        crate::adaptive_optimizer_memory_fields(&report),
+        adaptive_optimizer_memory_fields(&report),
     );
     if report.has_errors() {
         ExitCode::from(1)
@@ -618,11 +621,331 @@ pub(crate) fn handle_cpu_specialization_plan(format: OutputFormat) -> ExitCode {
         "cpu operator specialization plan".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        crate::cpu_operator_specialization_fields(&report),
+        cpu_operator_specialization_fields(&report),
     );
     if report.has_errors() {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn adaptive_optimizer_memory_fields(
+    report: &AdaptiveOptimizerMemoryReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_adaptive_optimizer_memory_identity_fields(&mut fields, report);
+    append_adaptive_optimizer_memory_gate_fields(&mut fields, report);
+    append_adaptive_optimizer_memory_side_effect_fields(&mut fields, report);
+    fields
+}
+
+fn append_adaptive_optimizer_memory_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &AdaptiveOptimizerMemoryReport,
+) {
+    push_field(fields, "mode", "optimizer_adaptive_memory_plan");
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "plan_only", "true");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", &report.report_id);
+    push_field(fields, "adaptive_optimizer_status", report.status.as_str());
+    push_field(fields, "optimizer_phase", report.optimizer_phase.as_str());
+    push_count_field(fields, "rule_decision_count", report.rule_decision_count());
+    push_count_field(fields, "deferred_rule_count", report.deferred_rule_count());
+    push_count_field(
+        fields,
+        "runtime_filter_count",
+        report.runtime_filter_count(),
+    );
+    push_count_field(
+        fields,
+        "conservative_runtime_filter_count",
+        report.conservative_runtime_filter_count(),
+    );
+    push_count_field(
+        fields,
+        "adaptive_decision_count",
+        report.adaptive_decision_count(),
+    );
+    push_count_field(fields, "skew_signal_count", report.skew_signal_count());
+    push_field(
+        fields,
+        "dynamic_pruning_decision",
+        report.dynamic_pruning_decision.summary().as_str(),
+    );
+}
+
+fn append_adaptive_optimizer_memory_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &AdaptiveOptimizerMemoryReport,
+) {
+    push_bool_field(
+        fields,
+        "conservative_runtime_filter_required",
+        report.conservative_runtime_filter_required,
+    );
+    push_bool_field(
+        fields,
+        "dynamic_pruning_requires_proof",
+        report.dynamic_pruning_requires_proof,
+    );
+    push_bool_field(
+        fields,
+        "memory_budget_required",
+        report.memory_budget_required,
+    );
+    push_bool_field(
+        fields,
+        "bounded_memory_required",
+        report.bounded_memory_required,
+    );
+    push_bool_field(
+        fields,
+        "spill_policy_required",
+        report.spill_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "deterministic_oom_boundary",
+        report.deterministic_oom_boundary,
+    );
+    push_bool_field(
+        fields,
+        "sink_requirement_boundary_required",
+        report.sink_requirement_boundary_required,
+    );
+    push_bool_field(
+        fields,
+        "runtime_fact_required_before_adaptation",
+        report.runtime_fact_required_before_adaptation,
+    );
+}
+
+fn append_adaptive_optimizer_memory_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &AdaptiveOptimizerMemoryReport,
+) {
+    push_bool_field(fields, "optimizer_execution", report.optimizer_execution);
+    push_bool_field(
+        fields,
+        "runtime_adaptation_applied",
+        report.runtime_adaptation_applied,
+    );
+    push_bool_field(fields, "runtime_filter_built", report.runtime_filter_built);
+    push_bool_field(
+        fields,
+        "runtime_filter_applied",
+        report.runtime_filter_applied,
+    );
+    push_bool_field(fields, "plan_rewritten", report.plan_rewritten);
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_decoded", report.data_decoded);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "row_read", report.row_read);
+    push_bool_field(fields, "arrow_converted", report.arrow_converted);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(
+        fields,
+        "external_engine_execution",
+        report.external_engine_execution,
+    );
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(fields, "side_effect_free", report.is_side_effect_free());
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn cpu_operator_specialization_fields(
+    report: &CpuOperatorSpecializationReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_cpu_specialization_identity_fields(&mut fields, report);
+    append_cpu_specialization_evidence_fields(&mut fields, report);
+    append_cpu_specialization_accelerator_fields(&mut fields, report);
+    append_cpu_specialization_side_effect_fields(&mut fields, report);
+    fields
+}
+
+fn append_cpu_specialization_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CpuOperatorSpecializationReport,
+) {
+    push_field(fields, "mode", "cpu_operator_specialization_plan");
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "plan_only", "true");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", &report.report_id);
+    push_field(fields, "cpu_specialization_status", report.status.as_str());
+    push_count_field(fields, "entry_count", report.entry_count());
+    push_count_field(
+        fields,
+        "specialization_candidate_count",
+        report.specialization_candidate_count(),
+    );
+    push_count_field(
+        fields,
+        "simd_candidate_count",
+        report.simd_candidate_count(),
+    );
+    push_count_field(
+        fields,
+        "cache_aware_candidate_count",
+        report.cache_aware_candidate_count(),
+    );
+    push_count_field(
+        fields,
+        "encoded_layout_aware_candidate_count",
+        report.encoded_layout_aware_candidate_count(),
+    );
+    push_field(fields, "operator_order", &report.operator_order());
+    push_field(fields, "kernel_kind_order", &report.kernel_kind_order());
+}
+
+fn append_cpu_specialization_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CpuOperatorSpecializationReport,
+) {
+    push_bool_field(
+        fields,
+        "correctness_evidence_required",
+        report.correctness_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "certified_primitive_kernel_required",
+        report.certified_primitive_kernel_required,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_workload_evidence_required",
+        report.benchmark_workload_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "correctness_gate_open",
+        report.correctness_gate_open,
+    );
+    push_bool_field(fields, "benchmark_gate_open", report.benchmark_gate_open);
+    push_bool_field(
+        fields,
+        "specialization_admission_open",
+        report.specialization_admission_open(),
+    );
+    push_bool_field(
+        fields,
+        "dispatch_classes_blocked",
+        report.dispatch_classes_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "cpu_feature_guard_required",
+        report.cpu_feature_guard_required,
+    );
+    push_bool_field(
+        fields,
+        "portable_native_baseline_required",
+        report.portable_native_baseline_required,
+    );
+    push_bool_field(
+        fields,
+        "deterministic_dispatch_required",
+        report.deterministic_dispatch_required,
+    );
+}
+
+fn append_cpu_specialization_accelerator_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CpuOperatorSpecializationReport,
+) {
+    push_bool_field(fields, "host_cpu_probe", report.host_cpu_probe);
+    push_bool_field(
+        fields,
+        "runtime_dispatch_implemented",
+        report.runtime_dispatch_implemented,
+    );
+    push_bool_field(
+        fields,
+        "simd_dispatch_allowed",
+        report.simd_dispatch_allowed,
+    );
+    push_bool_field(
+        fields,
+        "cache_aware_dispatch_allowed",
+        report.cache_aware_dispatch_allowed,
+    );
+    push_bool_field(
+        fields,
+        "encoded_layout_dispatch_allowed",
+        report.encoded_layout_dispatch_allowed,
+    );
+    push_bool_field(
+        fields,
+        "specialization_runtime_allowed",
+        report.specialization_runtime_allowed,
+    );
+    push_bool_field(fields, "unsafe_code_required", report.unsafe_code_required);
+    push_bool_field(fields, "gpu_required", report.gpu_required);
+    push_bool_field(fields, "fpga_required", report.fpga_required);
+}
+
+fn append_cpu_specialization_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CpuOperatorSpecializationReport,
+) {
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_decoded", report.data_decoded);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "row_read", report.row_read);
+    push_bool_field(fields, "arrow_converted", report.arrow_converted);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(
+        fields,
+        "external_engine_execution",
+        report.external_engine_execution,
+    );
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(fields, "side_effect_free", report.is_side_effect_free());
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
+    fields.push((key.to_string(), value.to_string()));
 }
