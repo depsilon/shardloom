@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.7 Vortex layout/write advisor feedback loop bundle
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: attach a report-only Vortex layout/write advisor evidence object to the certified
+    `local_vortex_analytics_v1` workflow so benchmark/runtime evidence can produce explicit layout
+    recommendations without applying a layout rewrite or publishing an improvement claim.
+  - Vortex-first provider check:
+    - Subject area: Vortex layout/write advice for the current local analytics workflow.
+    - Upstream Vortex concept checked: Vortex layouts, encodings, statistics, scan/source/sink
+      evidence, and file writer/readback boundaries already used by the workflow.
+    - Decision: `wrap_vortex_concept`.
+    - Vortex API/provider surface: existing feature-gated Vortex writer/reader/source/result-sink
+      replay evidence; no new upstream Vortex API is invoked for layout execution.
+    - ShardLoom provider/report/certificate surface: `TraditionalVortexLayoutAdvisorReport`
+      embedded in `TraditionalAnalyticsReport` and surfaced through CLI/benchmark fields.
+    - Residual handling: layout execution, compaction execution, and claimed improvements remain
+      blocked; no external residual executor is invoked.
+    - Materialization/decode boundary: advisor consumes existing evidence refs and does not change
+      data read, decode, materialization, or write behavior.
+    - Evidence added: workload constitution id, benchmark/coverage refs, runtime certificate ref,
+      Native I/O refs, source/result size basis, scheduler ref, chunk row/byte recommendation,
+      encoding/statistics/dictionary/cluster recommendations, micro-segment flush policy,
+      compaction trigger, read/write tradeoff, measured/simulated/blocked evidence counts, and
+      no-claim/no-write/no-fallback status.
+    - Gates still blocked: executable layout strategy application, compaction execution, object-store
+      write layout policies, comparative layout benchmark claims, and production write-layout
+      certification.
+    - `fallback_attempted=false`: preserved.
+  - Checklist:
+    - [x] Add `TraditionalVortexLayoutAdvisorReport` to the local analytics workflow report.
+    - [x] Generate advisor recommendations from workload constitution, benchmark refs, runtime
+          certificate, Native I/O refs, source/result sizes, scheduler refs, and result-sink status.
+    - [x] Surface advisor fields through CLI/benchmark output.
+    - [x] Enforce report-only/no-improvement-claim/no-write/no-fallback status in the benchmark
+          harness when result-sink evidence is requested.
+    - [x] Update README, benchmark README, phase plan, and RFC traceability.
+  - Validation:
+    - [x] `cargo fmt --all`
+    - [x] `cargo test -p shardloom-vortex computed_result_vortex_sink_writes_and_replays_result_artifact --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-vortex expanded_taxonomy_scenarios_run_against_local_vortex_outputs --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-cli --features vortex-traditional-analytics-benchmark`
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "selective filter" --rows 20 --iterations 1 --formats csv --shardloom-build-profile debug --skip-shardloom-native --shardloom-result-sink --no-markdown --output target\codex-p747-layout-advisor-benchmark.json`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets -j 1` with `CARGO_INCREMENTAL=0` after the
+          parallel workspace run hit a Windows `LNK1201` PDB write error during link.
+    - [x] `git diff --check`
+  - Runtime stance: report-only advisor evidence only. This does not add layout rewrite execution,
+    compaction execution, object-store writes, comparative performance claims, external engine
+    invocation, or fallback execution.
+
 - [x] Session label: P7.4.4 ShardLoom expanded taxonomy scenario execution bundle
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

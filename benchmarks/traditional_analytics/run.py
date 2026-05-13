@@ -1149,6 +1149,7 @@ def shardloom_runner() -> EngineRunner:
             "runtime_cancellation_testable",
             "runtime_retry_testable",
             "runtime_fail_before_oom_enforced",
+            "layout_advisor_report_emitted",
         ]
         missing_evidence = [
             field for field in required_true_fields if fields.get(field) != "true"
@@ -1201,6 +1202,23 @@ def shardloom_runner() -> EngineRunner:
             ):
                 raise RuntimeError(
                     "ShardLoom runtime memory reservations were not released"
+                )
+            if fields.get("layout_advisor_status") != "report_only":
+                raise RuntimeError(
+                    "ShardLoom layout advisor status was not report_only: "
+                    + str(fields.get("layout_advisor_status", "missing"))
+                )
+            if fields.get("layout_advisor_improvement_claim_allowed") != "false":
+                raise RuntimeError("ShardLoom layout advisor allowed an improvement claim")
+            if fields.get("layout_advisor_write_layout_execution_allowed") != "false":
+                raise RuntimeError(
+                    "ShardLoom layout advisor allowed write-layout execution"
+                )
+            if fields.get("layout_advisor_fallback_attempted") != "false":
+                raise RuntimeError("ShardLoom layout advisor fallback_attempted was not false")
+            if fields.get("layout_advisor_external_engine_invoked") != "false":
+                raise RuntimeError(
+                    "ShardLoom layout advisor external engine invocation was not false"
                 )
         if (
             fields.get("native_io_certificate_path_id")

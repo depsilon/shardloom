@@ -185,6 +185,16 @@ from the merged code and tests.
     carry benchmark/source-backed rows, sink/replay/workload certification,
     scheduler/memory/spill maturity, and Vortex advisor feedback. P8.4 and P9.6 carry the matching
     release-readiness and Foundry proof-of-use closeout.
+  - Current read: with P7.4.5 and P7.4.6 complete, ShardLoom now has a credible local
+    workload-certified compute-engine slice for `local_vortex_analytics_v1`: source import,
+    supported compute, Vortex result sink, native replay verification, result-sink replay,
+    certificates, scheduler/runtime fields, memory reservation evidence, spill blockers, and
+    no-fallback evidence. That remains a scoped workload claim, not broad SQL/DataFrame,
+    production, Spark-displacement, live/hybrid, object-store, or Foundry execution support.
+  - Sequencing note: P7.4.4 remains the next open compute-engine closeout item even though P7.4.5,
+    P7.4.6, and P7.4.7 have completed sub-slices. Do not move to P8 release readiness until the
+    benchmark taxonomy, comparative local rerun, and claim-grade/not-claim-grade row promotion
+    boundary is explicit.
   - Unsupported-path rule: every unsupported compute path must expose a stable diagnostic code,
     blocker identifier, required future evidence, suggested next action, no-fallback status, and no
     external engine invocation. Report-only unsupported coverage is valid intake evidence; it is not
@@ -211,6 +221,16 @@ from the merged code and tests.
       result-sink smoke, ShardLoom-native extra-column/multi-file/dirty/nested/CDC/partition
       scenarios, comparative reruns across selected baselines, and promotion from fixture-smoke
       measurements to reproducible claim-grade benchmark rows.
+    - Immediate closeout slice: run selected local comparative taxonomy reruns across ShardLoom and
+      local optional baselines, keep managed platforms out, emit coverage and timing tables
+      separately, and classify each row as supported, unsupported, blocked,
+      external-baseline-only, fixture-smoke-only, claim-grade, or not-claim-grade based on visible
+      correctness, benchmark, certificate, Native I/O, materialization/decode, and no-fallback
+      evidence.
+    - Promotion rule: do not force ShardLoom-native support for every messy/nested/CDC/file-shape
+      scenario before benchmarking. Unsupported expanded taxonomy scenarios are useful evidence
+      when they emit deterministic unsupported/blocked rows with `fallback_attempted=false` and
+      `external_engine_invoked=false`.
     - Acceptance: add executable dataset profiles such as wide/very-wide tables, null-heavy data,
       many-small/few-large files, date partitioning, clustered/unclustered layouts, schema drift,
       dirty CSV, nested JSON, and CDC delta overlay where supported. Add executable scenarios for
@@ -220,7 +240,8 @@ from the merged code and tests.
       projection, and top-N per group. Blocked source-backed rows remain deterministic unsupported
       diagnostics with required future evidence.
     - Verification: benchmark catalog/schema tests, measured-row manifests, coverage-table
-      snapshots, reproducibility checks, and external-baseline-local-only assertions.
+      snapshots, claim-grade/not-claim-grade row assertions, reproducibility checks, selected local
+      comparative reruns, and external-baseline-local-only assertions.
   - [x] P7.4.5 sink/write, replayability, and first workload-certified compute workflow bundle.
     - User-visible surface: at least one complete source -> supported compute -> Vortex sink path
       with inspectable output artifact, commit/recovery status, replay verification, execution
@@ -258,10 +279,17 @@ from the merged code and tests.
       fail-before-OOM diagnostics are tested; spill cleanup/recovery semantics are explicit.
     - Verification: scheduler integration tests, cancellation/retry tests, memory reservation
       assertions, spill lifecycle tests, benchmark task metrics, and no large-workload claim checks.
-  - [ ] P7.4.7 Vortex layout/write advisor feedback loop bundle.
+  - [x] P7.4.7 Vortex layout/write advisor feedback loop bundle.
     - User-visible surface: report-only advisor that consumes workload constitutions and benchmark/
       runtime evidence to recommend Vortex layout, encoding, chunking, statistics, clustering,
       micro-segment flush, and compaction strategies.
+    - Completed sub-slice in ledger: `traditional-analytics-run --verify-native-replay
+      --write-result-vortex` now emits report-only layout advisor fields derived from
+      `local_vortex_analytics_v1` workload, benchmark row refs, Native I/O evidence, runtime
+      certificate, scheduler refs, source/result sizes, and result-sink status. The advisor
+      recommends chunk rows/bytes, encoding, statistics, dictionary strategy, cluster key,
+      micro-segment flush policy, compaction trigger, read/write tradeoff, and measured/simulated/
+      blocked evidence counts while keeping improvement claims and write-layout execution disabled.
     - Acceptance: advisor reports read/write tradeoffs, required evidence, and whether each
       recommendation is measured, simulated, or blocked. It does not claim improvement without
       evidence and remains report-only until write/layout execution is certified.
