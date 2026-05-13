@@ -25,6 +25,10 @@ fn run_api_compat_plan() -> String {
     run_cli_json(&["api-compat-plan", "--format", "json"])
 }
 
+fn run_rest_api_plan_preview(scenario: &str) -> String {
+    run_cli_json(&["rest-api-plan-preview", scenario, "--format", "json"])
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
@@ -106,6 +110,104 @@ fn serve_discovery_mode_json_is_contract_only_without_listener() {
     assert!(output.contains(&field("dataset_probe", "false")));
     assert!(output.contains(&field("query_execution", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
+}
+
+#[test]
+fn rest_api_plan_preview_json_exposes_stage_by_stage_contract() {
+    let output = run_rest_api_plan_preview("certified-local-batch");
+
+    assert!(output.contains("\"command\":\"rest-api-plan-preview\""));
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("mode", "rest_api_plan_preview")));
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.rest_api_plan_preview.v1"
+    )));
+    assert!(output.contains(&field("scenario", "certified-local-batch")));
+    assert!(output.contains(&field("preview_status", "certified_preview")));
+    assert!(output.contains(&field("plan_handle", "plan://cg23/certified-local-batch")));
+    assert!(output.contains(&field(
+        "preview_operations",
+        "plan_handle,validate,explain,estimate,unsupported_report,certification_preview"
+    )));
+    assert!(output.contains(&field(
+        "stage_order",
+        "parser,binder,native_logical,native_physical,execution_readiness,evidence_readiness,certification"
+    )));
+    assert!(output.contains(&field("parser_stage_status", "ready")));
+    assert!(output.contains(&field("binder_stage_status", "ready")));
+    assert!(output.contains(&field("native_logical_stage_status", "ready")));
+    assert!(output.contains(&field("native_physical_stage_status", "ready")));
+    assert!(output.contains(&field("execution_readiness_stage_status", "ready")));
+    assert!(output.contains(&field("evidence_readiness_stage_status", "ready")));
+    assert!(output.contains(&field("certification_stage_status", "certified")));
+    assert!(output.contains(&field("problem_details_emitted", "false")));
+}
+
+#[test]
+fn rest_api_plan_preview_json_covers_partial_blocked_invalid_and_unsupported_fixtures() {
+    let partial = run_rest_api_plan_preview("partial-hybrid-fixture");
+    let blocked = run_rest_api_plan_preview("blocked-remote-object-store");
+    let invalid = run_rest_api_plan_preview("invalid-input");
+    let unsupported = run_rest_api_plan_preview("unsupported-operator");
+
+    assert!(partial.contains("\"status\":\"warning\""));
+    assert!(partial.contains(&field("preview_status", "partial_preview")));
+    assert!(partial.contains(&field("native_physical_stage_status", "partial")));
+    assert!(partial.contains(&field("certification_stage_status", "partial")));
+
+    assert!(blocked.contains("\"status\":\"warning\""));
+    assert!(blocked.contains(&field("preview_status", "blocked")));
+    assert!(blocked.contains(&field("native_physical_stage_status", "blocked")));
+    assert!(blocked.contains(&field("problem_details_emitted", "true")));
+    assert!(blocked.contains(&field(
+        "problem_details_diagnostic_code",
+        "SL_OBJECT_STORE_UNSUPPORTED"
+    )));
+
+    assert!(invalid.contains("\"status\":\"error\""));
+    assert!(invalid.contains(&field("preview_status", "invalid_input")));
+    assert!(invalid.contains(&field("parser_stage_status", "invalid_input")));
+    assert!(invalid.contains(&field("problem_details_status", "422")));
+    assert!(invalid.contains("\"code\":\"SL_INVALID_INPUT\""));
+
+    assert!(unsupported.contains("\"status\":\"unsupported\""));
+    assert!(unsupported.contains(&field("preview_status", "unsupported")));
+    assert!(unsupported.contains(&field("native_logical_stage_status", "unsupported")));
+    assert!(unsupported.contains(&field(
+        "problem_details_diagnostic_code",
+        "SL_UNSUPPORTED_SQL"
+    )));
+    assert!(unsupported.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
+}
+
+#[test]
+fn rest_api_plan_preview_json_preserves_no_server_no_probe_no_fallback_policy() {
+    for scenario in [
+        "certified-local-batch",
+        "partial-hybrid-fixture",
+        "blocked-remote-object-store",
+        "invalid-input",
+        "unsupported-operator",
+    ] {
+        let output = run_rest_api_plan_preview(scenario);
+
+        assert!(output.contains(&field("server_started", "false")));
+        assert!(output.contains(&field("network_listener_opened", "false")));
+        assert!(output.contains(&field("network_probe", "false")));
+        assert!(output.contains(&field("dataset_probe", "false")));
+        assert!(output.contains(&field("object_store_io", "false")));
+        assert!(output.contains(&field("catalog_probe", "false")));
+        assert!(output.contains(&field("credential_resolution", "false")));
+        assert!(output.contains(&field("query_execution", "false")));
+        assert!(output.contains(&field("runtime_execution", "false")));
+        assert!(output.contains(&field("write_io", "false")));
+        assert!(output.contains(&field("external_engine_invoked", "false")));
+        assert!(output.contains(&field("fallback_execution_allowed", "false")));
+        assert!(output.contains(&field("fallback_attempted", "false")));
+        assert!(output.contains(&field("execution_delegated", "false")));
+        assert!(output.contains(&field("effect_policy_violated", "false")));
+    }
 }
 
 #[test]

@@ -23,6 +23,7 @@ from shardloom import (
     OutputEnvelope,
     RestApiContractPlan,
     RestApiDiscoveryContract,
+    RestApiPlanPreview,
     WorkflowReadinessSmokeReport,
 )
 
@@ -903,6 +904,86 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.server_started)
         self.assertFalse(result.network_listener_opened)
         self.assertFalse(result.fallback_attempted)
+
+    def test_rest_api_plan_preview_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "rest-api-plan-preview", "unsupported-operator", "--format", "json"
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "rest-api-plan-preview",
+                    "status": "unsupported",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [{
+                        "code": "SL_UNSUPPORTED_SQL",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "unsupported",
+                        "feature": "rest_api_plan_operator",
+                        "reason": "unsupported operator rejected without fallback execution",
+                        "suggested_next_step": "rewrite",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                    }],
+                    "fields": [
+                        {"key": "scenario", "value": "unsupported-operator"},
+                        {"key": "preview_status", "value": "unsupported"},
+                        {"key": "plan_handle", "value": "plan://cg23/unsupported-operator"},
+                        {"key": "preview_operations", "value": "plan_handle,validate,explain,estimate,unsupported_report,certification_preview"},
+                        {"key": "stage_order", "value": "parser,binder,native_logical,native_physical,execution_readiness,evidence_readiness,certification"},
+                        {"key": "parser_stage_status", "value": "ready"},
+                        {"key": "binder_stage_status", "value": "ready"},
+                        {"key": "native_logical_stage_status", "value": "unsupported"},
+                        {"key": "native_physical_stage_status", "value": "not_evaluated"},
+                        {"key": "execution_readiness_stage_status", "value": "not_evaluated"},
+                        {"key": "evidence_readiness_stage_status", "value": "not_evaluated"},
+                        {"key": "certification_stage_status", "value": "not_evaluated"},
+                        {"key": "problem_details_emitted", "value": "true"},
+                        {"key": "problem_details_type", "value": "https://shardloom.dev/problems/unsupported-plan-operator"},
+                        {"key": "problem_details_status", "value": "422"},
+                        {"key": "problem_details_diagnostic_code", "value": "SL_UNSUPPORTED_SQL"},
+                        {"key": "unsupported_reason", "value": "unsupported operator rejected without fallback execution"},
+                        {"key": "server_started", "value": "false"},
+                        {"key": "network_listener_opened", "value": "false"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).rest_api_plan_preview(
+            "unsupported-operator",
+            check=False,
+        )
+
+        self.assertIsInstance(result, RestApiPlanPreview)
+        self.assertEqual(result.scenario, "unsupported-operator")
+        self.assertEqual(result.preview_status, "unsupported")
+        self.assertEqual(result.plan_handle, "plan://cg23/unsupported-operator")
+        self.assertIn("certification_preview", result.operations)
+        self.assertEqual(result.stage_order[2], "native_logical")
+        self.assertEqual(result.stage_statuses["native_logical"], "unsupported")
+        self.assertTrue(result.problem_details_emitted)
+        self.assertEqual(
+            result.problem_details_type,
+            "https://shardloom.dev/problems/unsupported-plan-operator",
+        )
+        self.assertEqual(result.problem_details_status, 422)
+        self.assertEqual(result.problem_details_diagnostic_code, "SL_UNSUPPORTED_SQL")
+        self.assertIn("without fallback", result.unsupported_reason or "")
+        self.assertFalse(result.server_started)
+        self.assertFalse(result.network_listener_opened)
+        self.assertFalse(result.runtime_execution)
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.execution_delegated)
 
     def test_env_binary_is_resolved_from_client_environment(self) -> None:
         client = ShardLoomClient(env={"SHARDLOOM_BIN": sys.executable, "PATH": ""})

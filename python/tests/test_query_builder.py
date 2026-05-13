@@ -236,6 +236,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "network_listener_opened", "value": "false"},
                         {"key": "fallback_attempted", "value": "false"},
                     ]
+                elif args == ["rest-api-plan-preview", "certified-local-batch", "--format", "json"]:
+                    fields = [
+                        {"key": "scenario", "value": "certified-local-batch"},
+                        {"key": "preview_status", "value": "certified_preview"},
+                        {"key": "plan_handle", "value": "plan://cg23/certified-local-batch"},
+                        {"key": "preview_operations", "value": "plan_handle,validate,explain,estimate,unsupported_report,certification_preview"},
+                        {"key": "stage_order", "value": "parser,binder,native_logical,native_physical,execution_readiness,evidence_readiness,certification"},
+                        {"key": "parser_stage_status", "value": "ready"},
+                        {"key": "binder_stage_status", "value": "ready"},
+                        {"key": "native_logical_stage_status", "value": "ready"},
+                        {"key": "native_physical_stage_status", "value": "ready"},
+                        {"key": "execution_readiness_stage_status", "value": "ready"},
+                        {"key": "evidence_readiness_stage_status", "value": "ready"},
+                        {"key": "certification_stage_status", "value": "certified"},
+                        {"key": "problem_details_emitted", "value": "false"},
+                        {"key": "server_started", "value": "false"},
+                        {"key": "network_listener_opened", "value": "false"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"},
+                    ]
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -255,6 +276,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         contract = ctx.rest_api_contract_plan()
         discovery = ctx.serve_discovery_contract()
+        preview = ctx.rest_api_plan_preview()
 
         self.assertEqual(contract.api_version, "v1")
         self.assertEqual(contract.openapi_version, "3.2.0")
@@ -268,6 +290,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(discovery.contract_only)
         self.assertFalse(discovery.server_started)
         self.assertFalse(discovery.network_listener_opened)
+        self.assertEqual(preview.preview_status, "certified_preview")
+        self.assertEqual(preview.plan_handle, "plan://cg23/certified-local-batch")
+        self.assertEqual(preview.stage_statuses["certification"], "certified")
+        self.assertFalse(preview.problem_details_emitted)
+        self.assertFalse(preview.runtime_execution)
+        self.assertFalse(preview.fallback_attempted)
+        self.assertFalse(preview.execution_delegated)
 
     def test_live_and_hybrid_fixture_reports_are_explicit(self) -> None:
         binary = self.fake_cli(

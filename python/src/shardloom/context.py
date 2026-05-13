@@ -17,6 +17,7 @@ from .client import (
     PythonClientSmokeReport,
     RestApiContractPlan,
     RestApiDiscoveryContract,
+    RestApiPlanPreview,
     ShardLoomClient,
 )
 from .models import Diagnostic, OutputEnvelope
@@ -359,6 +360,16 @@ class ShardLoomContext:
         """Return `serve --mode discovery` contract output without starting a server."""
 
         return self.client.serve_discovery_contract(bind=bind, check=check)
+
+    def rest_api_plan_preview(
+        self,
+        scenario: str = "certified-local-batch",
+        *,
+        check: bool = True,
+    ) -> RestApiPlanPreview:
+        """Return a side-effect-free REST plan preview scenario."""
+
+        return self.client.rest_api_plan_preview(scenario, check=check)
 
     def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
         """Return the CG-22 live change contract."""
