@@ -301,11 +301,13 @@ benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_ana
 
 Treat these as claim-readiness inputs, not public performance claims. The preset keeps managed
 platforms out, enables ShardLoom result-sink evidence, includes taxonomy-extra scenarios when no
-explicit scenario list is provided, and requires at least three iterations. The expected behavior for
-supported ShardLoom rows is an explicit `claim_gate_status` plus missing-evidence detail when a
-timing row is still `not_claim_grade`. Claim-grade ShardLoom timing rows require stable correctness
-digests across the reproducibility window, and coverage rows expose `reproducible_benchmark_row`,
-`correctness_digest_stable`, `reproducibility_min_iterations`, and
+explicit scenario list is provided, and requires at least three iterations. Scenario catalog
+`dataset_profiles` are enforced before engine execution, so an incompatible scenario/profile pair
+produces a deterministic blocked coverage row instead of an engine-specific error or accidental
+success. The expected behavior for supported ShardLoom rows is an explicit `claim_gate_status` plus
+missing-evidence detail when a timing row is still `not_claim_grade`. Claim-grade ShardLoom timing
+rows require stable correctness digests across the reproducibility window, and coverage rows expose
+`reproducible_benchmark_row`, `correctness_digest_stable`, `reproducibility_min_iterations`, and
 `reproducibility_iterations_met`. The expected behavior for unsupported ShardLoom taxonomy scenarios
 is an unsupported/blocked row, a coverage row, no crash, `fallback_attempted=false`, and
 `external_engine_invoked=false`.

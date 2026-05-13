@@ -255,6 +255,11 @@ from the merged code and tests.
       taxonomy scenario with a pandas baseline and ShardLoom local Vortex import/replay/result-sink
       path. The ShardLoom row preserves dirty-column import evidence, runtime certificate evidence,
       result-sink write timing, stable-digest reproducibility, and no-fallback/no-external evidence.
+    - Completed sub-slice in ledger: selected local comparative reruns now enforce scenario catalog
+      `dataset_profiles` before engine execution. Incompatible taxonomy scenario/profile pairs emit
+      deterministic blocked coverage rows with `fallback_attempted=false` and
+      `external_engine_invoked=false`, preventing accidental ShardLoom success rows or
+      engine-specific errors from being confused with support evidence.
     - Promotion rule: do not force ShardLoom-native support for every messy/nested/CDC/file-shape
       scenario before benchmarking. Unsupported expanded taxonomy scenarios are useful evidence
       when they emit deterministic unsupported/blocked rows with `fallback_attempted=false` and

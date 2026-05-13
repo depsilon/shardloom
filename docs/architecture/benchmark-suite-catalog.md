@@ -50,7 +50,10 @@ visible separately from scenario compute timing. The harness also exposes a
 ShardLoom Vortex fixture smoke, pandas, Polars, DuckDB, and DataFusion; CSV and Parquet; taxonomy
 extras; ShardLoom result-sink proof; no managed platforms; and at least three iterations. ShardLoom
 timing rows cannot promote to claim-grade unless `reproducible_benchmark_row=true`, which requires
-stable correctness digests and the configured reproducibility iteration floor.
+stable correctness digests and the configured reproducibility iteration floor. The harness also
+uses each catalog scenario's `dataset_profiles` list to block incompatible scenario/profile pairs
+before engine execution, preserving coverage rows without letting profile mismatch look like a
+runtime failure or support claim.
 
 The default local run remains conservative. `--include-taxonomy-extra` adds executable local
 taxonomy scenarios for:
