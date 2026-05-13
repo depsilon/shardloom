@@ -227,6 +227,13 @@ from the merged code and tests.
       external-baseline-only, fixture-smoke-only, claim-grade, or not-claim-grade based on visible
       correctness, benchmark, certificate, Native I/O, materialization/decode, and no-fallback
       evidence.
+    - Completed sub-slice in ledger: the traditional analytics harness now adds
+      `claim_gate_status`, `claim_grade_requirements_met`, `claim_grade_missing_evidence`, and
+      `timing_row_claim_grade` to every coverage row. `shardloom-vortex` is classified as
+      ShardLoom-native fixture smoke rather than an external baseline; ShardLoom result-sink rows
+      can promote to `claim_grade` only when workload scorecard, benchmark/coverage refs,
+      execution certificate, source/result Native I/O certificates, materialization boundaries,
+      and no-fallback/no-external evidence are present.
     - Promotion rule: do not force ShardLoom-native support for every messy/nested/CDC/file-shape
       scenario before benchmarking. Unsupported expanded taxonomy scenarios are useful evidence
       when they emit deterministic unsupported/blocked rows with `fallback_attempted=false` and
@@ -240,8 +247,8 @@ from the merged code and tests.
       projection, and top-N per group. Blocked source-backed rows remain deterministic unsupported
       diagnostics with required future evidence.
     - Verification: benchmark catalog/schema tests, measured-row manifests, coverage-table
-      snapshots, claim-grade/not-claim-grade row assertions, reproducibility checks, selected local
-      comparative reruns, and external-baseline-local-only assertions.
+      snapshots, claim-grade/not-claim-grade row assertions, reproducibility checks, larger selected
+      local comparative reruns, and external-baseline-local-only assertions.
   - [x] P7.4.5 sink/write, replayability, and first workload-certified compute workflow bundle.
     - User-visible surface: at least one complete source -> supported compute -> Vortex sink path
       with inspectable output artifact, commit/recovery status, replay verification, execution

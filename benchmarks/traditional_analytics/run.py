@@ -128,6 +128,20 @@ DASK_BLOCKSIZE = "16MB"
 DASK_SCHEDULER = "threads"
 SHARDLOOM_BUILD_PROFILE = "release"
 SHARDLOOM_RESULT_SINK = False
+SHARDLOOM_CLAIM_GRADE_REQUIRED_EVIDENCE = (
+    ("workload_scorecard_status", "workload_certified"),
+    ("native_io_certificate_status", "certified"),
+    ("output_replay_verified", "true"),
+    ("computed_result_sink_replay_verified", "true"),
+    ("computed_result_sink_native_io_certificate_status", "certified"),
+    ("runtime_execution_certificate_status", "certified"),
+    ("runtime_fallback_attempted", "false"),
+    ("runtime_external_query_engine_invoked", "false"),
+    ("layout_advisor_fallback_attempted", "false"),
+    ("layout_advisor_external_engine_invoked", "false"),
+    ("materialization_boundary_report_emitted", "true"),
+    ("native_io_materializing_transitions_have_boundaries", "true"),
+)
 CORRECTNESS_FLOAT_DIGITS = 4
 
 
@@ -248,6 +262,10 @@ def engine_role(engine: str) -> str:
     if engine.startswith("shardloom"):
         return "shardloom_native"
     return "local_baseline"
+
+
+def is_shardloom_engine(engine: str) -> bool:
+    return engine.startswith("shardloom")
 
 
 def expand_engine_aliases(engine_names: tuple[str, ...]) -> tuple[str, ...]:
@@ -2991,6 +3009,56 @@ def native_vortex_or_compatibility_import(engine: str, data_format: str) -> str:
     return "compatibility_format_baseline"
 
 
+def shardloom_claim_grade_missing_evidence(result: dict[str, Any]) -> list[str]:
+    evidence = result.get("shardloom_evidence", {})
+    missing: list[str] = []
+    for field, expected in SHARDLOOM_CLAIM_GRADE_REQUIRED_EVIDENCE:
+        actual = str(evidence.get(field, "missing")).lower()
+        if actual != expected:
+            missing.append(f"{field}!={expected} (actual={actual})")
+    if not evidence.get("benchmark_row_ref"):
+        missing.append("benchmark_row_ref missing")
+    if not evidence.get("coverage_row_ref"):
+        missing.append("coverage_row_ref missing")
+    if result.get("fallback_attempted", False):
+        missing.append("result fallback_attempted was true")
+    return missing
+
+
+def claim_grade_readiness(result: dict[str, Any]) -> dict[str, Any]:
+    engine = result["engine"]
+    status = result["status"]
+    if not is_shardloom_engine(engine):
+        return {
+            "claim_gate_status": "external_baseline_only",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": [
+                "external baseline rows are comparison-only"
+            ],
+        }
+    if status != "success":
+        return {
+            "claim_gate_status": "unsupported" if status == "unsupported" else "blocked",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": [result.get("reason", status)],
+        }
+    if engine == "shardloom-vortex":
+        return {
+            "claim_gate_status": "fixture_smoke_only",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": [
+                "native Vortex lane lacks workload scorecard/result-sink replay evidence"
+            ],
+        }
+    missing = shardloom_claim_grade_missing_evidence(result)
+    claim_grade = not missing
+    return {
+        "claim_gate_status": "claim_grade" if claim_grade else "not_claim_grade",
+        "claim_grade_requirements_met": claim_grade,
+        "claim_grade_missing_evidence": missing,
+    }
+
+
 def benchmark_constitution(
     result: dict[str, Any],
     cache_mode: str,
@@ -3024,7 +3092,7 @@ def benchmark_constitution(
         "correctness_oracle": "first successful digest per formatted scenario",
         "materialization_policy": materialization_policy(engine, data_format),
         "resource_policy": "engine defaults; ShardLoom auto sizing recorded in evidence",
-        "claim_level": "local_smoke_not_claim_grade",
+        "claim_level": result.get("claim_gate_status", "not_claim_grade"),
     }
 
 
@@ -3034,11 +3102,15 @@ def annotate_result(
     dataset_profile: str,
 ) -> dict[str, Any]:
     metadata = scenario_metadata(result["scenario_base"])
+    readiness = claim_grade_readiness(result)
     result["benchmark_suite"] = metadata.suite
     result["scenario_id"] = metadata.scenario_id
     result["scenario_category"] = metadata.category
     result["dataset_profile"] = dataset_profile
     result["engine_role"] = engine_role(result["engine"])
+    result["claim_gate_status"] = readiness["claim_gate_status"]
+    result["claim_grade_requirements_met"] = readiness["claim_grade_requirements_met"]
+    result["claim_grade_missing_evidence"] = readiness["claim_grade_missing_evidence"]
     result["benchmark_constitution"] = benchmark_constitution(
         result, cache_mode, dataset_profile
     )
@@ -3052,11 +3124,10 @@ def coverage_status(result: dict[str, Any]) -> str:
         if result["status"] == "missing_dependency":
             return "blocked"
         return "blocked"
-    if result["engine"].startswith("shardloom"):
-        evidence = result.get("shardloom_evidence", {})
-        if evidence.get("native_io_certificate_status") == "certified":
-            return "certified"
-        return "supported"
+    if result["engine"] == "shardloom-vortex":
+        return "fixture_smoke_only"
+    if result["engine"] == "shardloom":
+        return str(result.get("claim_gate_status", "not_claim_grade"))
     return "external_baseline_only"
 
 
@@ -3074,15 +3145,22 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "engine_role": result["engine_role"],
                 "status": coverage_status(result),
                 "timing_row_present": result["metrics"]["query_runtime_millis"] is not None,
+                "claim_gate_status": result["claim_gate_status"],
+                "claim_grade_requirements_met": result["claim_grade_requirements_met"],
+                "claim_grade_missing_evidence": result["claim_grade_missing_evidence"],
+                "timing_row_claim_grade": (
+                    result["metrics"]["query_runtime_millis"] is not None
+                    and result["claim_grade_requirements_met"]
+                ),
                 "benchmark_constitution_id": constitution["constitution_id"],
                 "certificate_status": result.get("shardloom_evidence", {}).get(
                     "native_io_certificate_status"
                 ),
-                "native_io_status_required": result["engine"].startswith("shardloom"),
+                "native_io_status_required": is_shardloom_engine(result["engine"]),
                 "materialization_policy": constitution["materialization_policy"],
                 "fallback_attempted": result.get("fallback_attempted", False),
                 "external_engine_invoked": (
-                    not result["engine"].startswith("shardloom")
+                    not is_shardloom_engine(result["engine"])
                     and result["status"] == "success"
                 ),
             }
@@ -3148,7 +3226,7 @@ def failed_result(
         "output_preview": None,
         "shardloom_evidence": {},
         "fallback_attempted": False,
-        "external_baseline_only": engine != "shardloom",
+        "external_baseline_only": not is_shardloom_engine(engine),
     }
 
 
@@ -3255,7 +3333,7 @@ def run_one(
         "output_preview": values[-1] if not isinstance(values[-1], list) else values[-1][:5],
         "shardloom_evidence": evidence,
         "fallback_attempted": False,
-        "external_baseline_only": runner.name != "shardloom",
+        "external_baseline_only": not is_shardloom_engine(runner.name),
     }
 
 
@@ -3978,6 +4056,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom rows use compatibility source adapters into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
         "ShardLoom native Vortex rows start timing from existing `.vortex` inputs prepared before scenario timing; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
+        "Coverage rows now carry claim_gate_status so fixture-smoke, unsupported, external-baseline-only, not-claim-grade, and claim-grade rows stay distinct from timing rows.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
         "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
@@ -4019,6 +4098,12 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 row["engine_role"],
                 row["status"],
                 str(row["timing_row_present"]),
+                row["claim_gate_status"],
+                str(row["claim_grade_requirements_met"]),
+                str(row["timing_row_claim_grade"]),
+                "; ".join(row["claim_grade_missing_evidence"][:2])
+                if row["claim_grade_missing_evidence"]
+                else "none",
                 str(row["native_io_status_required"]),
                 str(row["certificate_status"] or "n/a"),
                 str(row["fallback_attempted"]),
@@ -4033,6 +4118,10 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Role",
             "Coverage",
             "Timing row",
+            "Claim gate",
+            "Claim-grade",
+            "Timing claim-grade",
+            "Missing claim evidence",
             "Native I/O req",
             "Certificate",
             "Fallback",

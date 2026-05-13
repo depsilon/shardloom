@@ -46,7 +46,9 @@ Every result row now records:
 - `benchmark_constitution`
 
 The JSON artifact also includes a `coverage_table` so functional support/coverage remains visible
-even when timing rows fail, are unsupported, or belong to external baselines.
+even when timing rows fail, are unsupported, or belong to external baselines. Coverage rows carry a
+separate `claim_gate_status` so `claim_grade`, `not_claim_grade`, `fixture_smoke_only`,
+`unsupported`, `blocked`, and `external_baseline_only` rows are not confused with raw timing rows.
 
 ## Workloads
 
@@ -295,8 +297,10 @@ benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_ana
 ```
 
 Treat these as claim-readiness inputs, not public performance claims. The expected behavior for
-unsupported ShardLoom taxonomy scenarios is an unsupported/blocked row, a coverage row, no crash,
-`fallback_attempted=false`, and `external_engine_invoked=false`.
+supported ShardLoom rows is an explicit `claim_gate_status` plus missing-evidence detail when a
+timing row is still `not_claim_grade`. The expected behavior for unsupported ShardLoom taxonomy
+scenarios is an unsupported/blocked row, a coverage row, no crash, `fallback_attempted=false`, and
+`external_engine_invoked=false`.
 
 Run one engine or one scenario while troubleshooting:
 

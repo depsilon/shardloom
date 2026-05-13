@@ -109,7 +109,8 @@ Implemented or actively wired surfaces include:
   taxonomy metadata, benchmark constitution fields, executable generated profiles for wide,
   very-wide, null-heavy, many/few file-shape, date-partitioned, clustered, schema-drift, dirty CSV,
   nested JSON, CDC overlay, and skewed local data shapes, plus support/coverage output separate from
-  timing rows
+  timing rows with explicit claim-grade, not-claim-grade, fixture-smoke, unsupported, blocked, and
+  external-baseline-only classification
 - opt-in `local_vortex_analytics_v1` replay and result-sink verification for the current local
   traditional analytics path, including Vortex source/result artifact digests, schema summaries,
   benchmark/coverage row refs, source replay and result-sink Native I/O certificate refs, separate

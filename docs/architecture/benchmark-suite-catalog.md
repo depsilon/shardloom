@@ -38,8 +38,11 @@ benchmark_constitution
 ```
 
 The JSON artifact also emits a `coverage_table` separate from timing rows. Coverage rows classify
-ShardLoom rows as certified/supported/unsupported/blocked based on visible evidence, and classify
-external local engines as `external_baseline_only`.
+ShardLoom rows as `claim_grade`, `not_claim_grade`, `fixture_smoke_only`, `unsupported`, or
+`blocked` based on visible evidence, and classify external local engines as
+`external_baseline_only`. The rows also expose `claim_gate_status`,
+`claim_grade_requirements_met`, `claim_grade_missing_evidence`, and `timing_row_claim_grade` so raw
+timings cannot be mistaken for promoted benchmark claims.
 
 The default local run remains conservative. `--include-taxonomy-extra` adds executable local
 taxonomy scenarios for:
