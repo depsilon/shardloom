@@ -178,3 +178,63 @@ fn conda_recipes_keep_apache_2_license_metadata() {
         assert_no_incompatible_license_metadata(&recipe, &content);
     }
 }
+
+#[test]
+fn contributor_policy_requires_future_cla_or_approved_dco_route() {
+    let root = repo_root();
+    assert!(
+        !root.join("DCO-1.1.txt").exists(),
+        "DCO text should not be added until DCO is activated as an accepted route"
+    );
+
+    let contributing = read_repo_file("CONTRIBUTING.md");
+    assert!(contributing.starts_with("<!-- SPDX-License-Identifier: Apache-2.0 -->"));
+    assert!(contributing.contains("Outside contributions are not automatically accepted"));
+    assert!(
+        contributing
+            .contains("acceptance of the ShardLoom Individual Contributor License Agreement")
+    );
+    assert!(contributing.contains("future DCO policy"));
+    assert!(contributing.contains("No external CLA Assistant"));
+    assert!(contributing.contains("AI/Codex-generated content was reviewed"));
+    assert!(contributing.contains("no Spark, DataFusion, DuckDB, Polars, Velox"));
+
+    let cla = read_repo_file("CLA.md");
+    assert!(cla.starts_with("<!-- SPDX-License-Identifier: Apache-2.0 -->"));
+    assert!(cla.contains("Individual Contributor License Agreement"));
+    assert!(cla.contains("You retain ownership of Your Contribution"));
+    assert!(cla.contains("use, reproduce, modify, prepare derivative works"));
+    assert!(cla.contains("distribute, sublicense"));
+    assert!(cla.contains("relicense Your Contribution as part of Apache-2.0 ShardLoom"));
+    assert!(cla.contains("copyright and patent grants"));
+    assert!(cla.contains("use, distribute, sublicense, modify, and relicense"));
+    assert!(cla.contains("patent license"));
+    assert!(cla.contains("You have the legal right to submit"));
+    assert!(cla.contains("employer, client, university"));
+    assert!(cla.contains("AI-assisted and Codex-generated contributions"));
+    assert!(cla.contains("does not change the project license away from Apache-2.0"));
+    assert!(cla.contains("No external CLA Assistant is active"));
+
+    let policy = read_repo_file("docs/legal/contributor-policy.md");
+    assert!(policy.starts_with("<!-- SPDX-License-Identifier: Apache-2.0 -->"));
+    assert!(policy.contains("sole maintainer using"));
+    assert!(policy.contains("Codex-assisted development"));
+    assert!(
+        policy.contains("acceptance of the ShardLoom Individual Contributor License Agreement")
+    );
+    assert!(policy.contains("maintainer-approved DCO policy"));
+    assert!(policy.contains("Bots, dependency update services"));
+    assert!(policy.contains("exempted only by explicit maintainer policy"));
+    assert!(policy.contains("must not include copied implementation code from GPL, AGPL, SSPL,"));
+    assert!(policy.contains("No external CLA Assistant is active"));
+    assert!(policy.contains("does not"));
+    assert!(policy.contains("change the project license away from Apache-2.0"));
+
+    let template = read_repo_file(".github/PULL_REQUEST_TEMPLATE.md");
+    assert!(template.starts_with("<!-- SPDX-License-Identifier: Apache-2.0 -->"));
+    assert!(template.contains("- [ ] I have the right to submit this contribution."));
+    assert!(template.contains("does not include copied implementation code"));
+    assert!(template.contains("AI/Codex-assisted content"));
+    assert!(template.contains("runtime fallback dependency"));
+    assert!(template.contains("Tests Run"));
+}
