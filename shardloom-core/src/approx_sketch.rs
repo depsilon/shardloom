@@ -309,6 +309,7 @@ impl ApproxSketchFunctionGateReport {
             && !self.encoded_run_length_strategy_allowed
             && !self.selection_vector_strategy_allowed
             && !self.partial_decode_execution_allowed
+            && !self.materialization_without_report_allowed
             && !self.generic_sketch_dependency_allowed
             && !self.external_engine_invoked
             && self
@@ -543,5 +544,15 @@ mod tests {
         assert!(report.claim_blocked());
         assert!(report.side_effect_free());
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn approx_sketch_gate_rejects_materialization_without_report() {
+        let mut report = plan_approx_sketch_function_gate();
+        report.materialization_without_report_allowed = true;
+
+        assert!(!report.runtime_promotions_blocked());
+        assert!(!report.side_effect_free());
+        assert!(report.has_errors());
     }
 }

@@ -444,6 +444,7 @@ impl CpuOperatorSpecializationReport {
             && self.benchmark_gate_open
             && self.specialization_runtime_allowed
             && self.runtime_dispatch_implemented
+            && !self.dispatch_classes_blocked()
     }
 
     /// Returns whether all specialized dispatch classes remain blocked.
@@ -458,9 +459,6 @@ impl CpuOperatorSpecializationReport {
     #[must_use]
     pub const fn is_side_effect_free(&self) -> bool {
         !self.host_cpu_probe
-            && !self.runtime_dispatch_implemented
-            && !self.specialization_runtime_allowed
-            && self.dispatch_classes_blocked()
             && !self.runtime_execution
             && !self.data_read
             && !self.data_decoded
@@ -567,5 +565,24 @@ mod tests {
         assert!(CpuInstructionClass::CacheTiled.is_cache_aware());
         assert!(CpuInstructionClass::DictionaryAware.is_encoded_layout_aware());
         assert!(!CpuInstructionClass::ScalarPortable.is_simd_candidate());
+    }
+
+    #[test]
+    fn cpu_specialization_requires_unblocked_dispatch_class_for_admission() {
+        let mut report = CpuOperatorSpecializationReport::cg15_foundation();
+        report.correctness_gate_open = true;
+        report.benchmark_gate_open = true;
+        report.specialization_runtime_allowed = true;
+        report.runtime_dispatch_implemented = true;
+
+        assert!(report.dispatch_classes_blocked());
+        assert!(!report.specialization_admission_open());
+        assert!(report.is_side_effect_free());
+
+        report.simd_dispatch_allowed = true;
+
+        assert!(!report.dispatch_classes_blocked());
+        assert!(report.specialization_admission_open());
+        assert!(report.is_side_effect_free());
     }
 }

@@ -220,7 +220,11 @@ class LazyFrame:
 
         if self.source.source_format == "vortex":
             return self.client.vortex_read_plan(self.source.uri, check=check)
-        return self.client.input_plan(self.source.uri, check=check)
+        return self.client.input_plan(
+            self.source.uri,
+            source_format=self.source.source_format,
+            check=check,
+        )
 
     def explain(self, *, check: bool = False) -> OutputEnvelope:
         """Return the CLI explain envelope for this logical workflow summary."""

@@ -447,9 +447,21 @@ impl BenchmarkSuiteCatalogReport {
 
     #[must_use]
     pub fn has_required_taxonomy_coverage(&self) -> bool {
-        self.suite_order.len() == all_suite_kinds().len()
-            && self.scenario_category_order.len() == all_scenario_categories().len()
-            && self.dataset_profile_order.len() == all_dataset_profiles().len()
+        let suite_kinds = all_suite_kinds();
+        let scenario_categories = all_scenario_categories();
+        let dataset_profiles = all_dataset_profiles();
+        self.suite_order.len() == suite_kinds.len()
+            && suite_kinds
+                .iter()
+                .all(|kind| self.suite_order.contains(kind))
+            && self.scenario_category_order.len() == scenario_categories.len()
+            && scenario_categories
+                .iter()
+                .all(|category| self.scenario_category_order.contains(category))
+            && self.dataset_profile_order.len() == dataset_profiles.len()
+            && dataset_profiles
+                .iter()
+                .all(|profile| self.dataset_profile_order.contains(profile))
     }
 
     #[must_use]
@@ -579,6 +591,21 @@ mod tests {
         assert!(report.external_engines_benchmark_only);
         assert!(!report.benchmark_execution_performed);
         assert!(!report.fallback_attempted);
+    }
+
+    #[test]
+    fn benchmark_suite_taxonomy_coverage_requires_canonical_members() {
+        let mut report = plan_benchmark_suite_catalog();
+        report.suite_order[0] = BenchmarkSuiteKind::Stress;
+        assert!(!report.has_required_taxonomy_coverage());
+
+        let mut report = plan_benchmark_suite_catalog();
+        report.scenario_category_order[0] = BenchmarkScenarioCategory::Joins;
+        assert!(!report.has_required_taxonomy_coverage());
+
+        let mut report = plan_benchmark_suite_catalog();
+        report.dataset_profile_order[0] = BenchmarkSuiteDatasetProfileKind::CdcDeltaOverlay;
+        assert!(!report.has_required_taxonomy_coverage());
     }
 
     #[test]

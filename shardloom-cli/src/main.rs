@@ -3956,7 +3956,7 @@ mod tests {
         assert_eq!(output_field(&fields, "conda_certified_package_count"), "0");
         assert_eq!(
             output_field(&fields, "conda_release_gate_blocking_count"),
-            "5"
+            "8"
         );
         assert_eq!(
             output_field(&fields, "conda_clean_build_certified"),

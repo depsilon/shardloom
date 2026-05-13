@@ -1192,6 +1192,8 @@ impl SecurityGovernanceEvidenceGateReport {
             && self.credential_references_only
             && !self.credentials_resolved
             && !self.secrets_loaded
+            && self.redaction_required
+            && self.audit_required
             && !self.external_effects_executed
             && !self.external_effect_claims_allowed
             && !self.destructive_operations_allowed
@@ -1459,5 +1461,18 @@ mod tests {
         assert!(!report.agent_execute_write_cancel_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn security_governance_evidence_gate_requires_redaction_and_audit() {
+        let mut report = plan_security_governance_evidence_gate();
+        report.redaction_required = false;
+        assert!(!report.side_effect_free());
+        assert!(report.has_errors());
+
+        let mut report = plan_security_governance_evidence_gate();
+        report.audit_required = false;
+        assert!(!report.side_effect_free());
+        assert!(report.has_errors());
     }
 }

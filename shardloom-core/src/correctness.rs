@@ -1733,9 +1733,11 @@ pub fn plan_correctness_differential_harness(
         external_oracle_artifacts_test_only,
     );
     let claim_grade_correctness_closeout_allowed = benchmark_claim_blocker_order.is_empty();
-    let external_oracle_execution_required = external_oracle_result_artifact_count > 0;
-    let deferred_fixture_family_artifact_population_required =
-        deferred_fixture_family_artifact_count > 0;
+    let external_oracle_execution_required = external_oracle_result_artifact_count > 0
+        || benchmark_claim_blocker_order
+            .iter()
+            .any(|blocker| blocker.starts_with("external_oracle_"));
+    let deferred_fixture_family_artifact_population_required = deferred_fixture_family_count > 0;
 
     let blocked_surface_order = correctness_harness_blocked_surfaces(
         fixture_count,
@@ -2394,6 +2396,40 @@ mod tests {
         assert!(!blocked.contains(&"deferred_fixture_family_artifacts".to_string()));
         assert!(blocked.is_empty());
     }
+
+    #[test]
+    fn correctness_harness_requires_missing_oracle_and_deferred_artifact_work() {
+        let mut plan = CorrectnessValidationPlan::new(
+            "missing-oracle-and-deferred-artifacts",
+            CorrectnessValidationMode::NotYetDefined,
+        )
+        .expect("plan");
+        plan.add_fixture(generated_fixture(
+            "deferred-null-semantics",
+            SemanticArea::Nulls,
+            EdgeCase::AllNull,
+            deferred_fixture_family("null semantics fixture family"),
+        ));
+
+        let report = plan_correctness_differential_harness(plan);
+
+        assert_eq!(report.deferred_fixture_family_count, 1);
+        assert_eq!(report.deferred_fixture_family_artifact_count, 0);
+        assert_eq!(report.external_oracle_result_artifact_count, 0);
+        assert!(report.external_oracle_execution_required);
+        assert!(report.deferred_fixture_family_artifact_population_required);
+        assert!(
+            report
+                .benchmark_claim_blocker_order
+                .contains(&"external_oracle_result_artifacts_missing".to_string())
+        );
+        assert!(
+            report
+                .benchmark_claim_blocker_order
+                .contains(&"deferred_fixture_family_artifacts_missing".to_string())
+        );
+    }
+
     #[test]
     fn correctness_harness_records_required_validation_modes() {
         let report = plan_correctness_differential_harness(

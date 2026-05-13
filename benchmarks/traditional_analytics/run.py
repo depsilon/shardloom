@@ -744,12 +744,12 @@ def shardloom_runner() -> EngineRunner:
                     completed["stderr"] or completed["stdout"] or "unknown failure"
                 ) from exc
             raise RuntimeError(f"ShardLoom emitted invalid JSON: {exc}") from exc
+        if completed["returncode"] != 0:
+            raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
         fields = parse_output_fields(payload)
         if payload.get("status") != "success":
             reason = fields.get("reason") or payload.get("human_text") or "unsupported"
             raise BenchmarkUnsupported(str(reason))
-        if completed["returncode"] != 0:
-            raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
         required_true_fields = [
             "native_work_envelope_created",
             "native_work_stream_created",
@@ -885,12 +885,12 @@ def shardloom_vortex_runner() -> EngineRunner:
                     completed["stderr"] or completed["stdout"] or "unknown failure"
                 ) from exc
             raise RuntimeError(f"ShardLoom emitted invalid JSON: {exc}") from exc
+        if completed["returncode"] != 0:
+            raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
         fields = parse_output_fields(payload)
         if payload.get("status") != "success":
             reason = fields.get("reason") or payload.get("human_text") or "unsupported"
             raise BenchmarkUnsupported(str(reason))
-        if completed["returncode"] != 0:
-            raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
         required_true_fields = [
             "native_work_envelope_created",
             "native_work_stream_created",

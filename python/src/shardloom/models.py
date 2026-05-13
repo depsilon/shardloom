@@ -115,7 +115,11 @@ class OutputEnvelope:
 
     @classmethod
     def from_json(cls, payload: Mapping[str, Any]) -> "OutputEnvelope":
-        missing = sorted(REQUIRED_OUTPUT_ENVELOPE_FIELDS.difference(payload.keys()))
+        missing = sorted(
+            (REQUIRED_OUTPUT_ENVELOPE_FIELDS | TYPED_OUTPUT_PAYLOAD_FIELDS).difference(
+                payload.keys()
+            )
+        )
         if missing:
             raise ValueError(f"ShardLoom output envelope missing required fields: {missing}")
         schema_version = str(payload.get("schema_version", ""))

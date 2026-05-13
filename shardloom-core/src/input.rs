@@ -330,49 +330,17 @@ impl UniversalInputSource {
     /// # Errors
     /// Returns an error when the inferred `InputSourceId` is invalid.
     pub fn from_dataset_uri(uri: DatasetUri) -> Result<Self> {
-        let id = InputSourceId::new(uri.as_str())?;
         let format = DatasetFormat::infer_from_uri(&uri);
-        let (source_kind, adapter_kind) = match format {
-            DatasetFormat::Vortex => (
-                InputSourceKind::VortexFile,
-                InputAdapterKind::NativeVortexAdapter,
-            ),
-            DatasetFormat::Parquet => (
-                InputSourceKind::Parquet,
-                InputAdapterKind::CompatibilityFileAdapter,
-            ),
-            DatasetFormat::ArrowIpc => (
-                InputSourceKind::ArrowIpc,
-                InputAdapterKind::CompatibilityFileAdapter,
-            ),
-            DatasetFormat::Avro => (
-                InputSourceKind::Avro,
-                InputAdapterKind::CompatibilityFileAdapter,
-            ),
-            DatasetFormat::Orc => (
-                InputSourceKind::Orc,
-                InputAdapterKind::CompatibilityFileAdapter,
-            ),
-            DatasetFormat::Csv => (
-                InputSourceKind::Csv,
-                InputAdapterKind::CompatibilityFileAdapter,
-            ),
-            DatasetFormat::JsonLines => (
-                InputSourceKind::JsonLines,
-                InputAdapterKind::CompatibilityFileAdapter,
-            ),
-            DatasetFormat::IcebergCompatible => (
-                InputSourceKind::IcebergCompatible,
-                InputAdapterKind::CompatibilityFileAdapter,
-            ),
-            DatasetFormat::DeltaCompatible => (
-                InputSourceKind::DeltaCompatible,
-                InputAdapterKind::CompatibilityFileAdapter,
-            ),
-            DatasetFormat::Unknown | DatasetFormat::Extension(_) => {
-                (InputSourceKind::Unknown, InputAdapterKind::Unsupported)
-            }
-        };
+        Self::from_dataset_uri_with_format(uri, format)
+    }
+
+    /// Builds a source from a URI and an explicitly declared format.
+    ///
+    /// # Errors
+    /// Returns an error when the derived `InputSourceId` is invalid.
+    pub fn from_dataset_uri_with_format(uri: DatasetUri, format: DatasetFormat) -> Result<Self> {
+        let id = InputSourceId::new(uri.as_str())?;
+        let (source_kind, adapter_kind) = input_source_kinds_for_format(&format);
         Ok(Self {
             id,
             uri: Some(uri),
@@ -416,6 +384,50 @@ impl UniversalInputSource {
             self.source_kind.as_str(),
             self.dataset_format.as_str()
         )
+    }
+}
+
+fn input_source_kinds_for_format(format: &DatasetFormat) -> (InputSourceKind, InputAdapterKind) {
+    match format {
+        DatasetFormat::Vortex => (
+            InputSourceKind::VortexFile,
+            InputAdapterKind::NativeVortexAdapter,
+        ),
+        DatasetFormat::Parquet => (
+            InputSourceKind::Parquet,
+            InputAdapterKind::CompatibilityFileAdapter,
+        ),
+        DatasetFormat::ArrowIpc => (
+            InputSourceKind::ArrowIpc,
+            InputAdapterKind::CompatibilityFileAdapter,
+        ),
+        DatasetFormat::Avro => (
+            InputSourceKind::Avro,
+            InputAdapterKind::CompatibilityFileAdapter,
+        ),
+        DatasetFormat::Orc => (
+            InputSourceKind::Orc,
+            InputAdapterKind::CompatibilityFileAdapter,
+        ),
+        DatasetFormat::Csv => (
+            InputSourceKind::Csv,
+            InputAdapterKind::CompatibilityFileAdapter,
+        ),
+        DatasetFormat::JsonLines => (
+            InputSourceKind::JsonLines,
+            InputAdapterKind::CompatibilityFileAdapter,
+        ),
+        DatasetFormat::IcebergCompatible => (
+            InputSourceKind::IcebergCompatible,
+            InputAdapterKind::CompatibilityFileAdapter,
+        ),
+        DatasetFormat::DeltaCompatible => (
+            InputSourceKind::DeltaCompatible,
+            InputAdapterKind::CompatibilityFileAdapter,
+        ),
+        DatasetFormat::Unknown | DatasetFormat::Extension(_) => {
+            (InputSourceKind::Unknown, InputAdapterKind::Unsupported)
+        }
     }
 }
 
@@ -995,6 +1007,23 @@ mod tests {
             .expect("ok");
         assert_eq!(orc.source_kind, InputSourceKind::Orc);
     }
+
+    #[test]
+    fn declared_format_overrides_uri_suffix_for_planning() {
+        let source = UniversalInputSource::from_dataset_uri_with_format(
+            DatasetUri::new("events.data").expect("uri"),
+            DatasetFormat::Parquet,
+        )
+        .expect("source");
+
+        assert_eq!(source.dataset_format, DatasetFormat::Parquet);
+        assert_eq!(source.source_kind, InputSourceKind::Parquet);
+        assert_eq!(
+            source.adapter_kind,
+            InputAdapterKind::CompatibilityFileAdapter
+        );
+    }
+
     #[test]
     fn report_behaviors() {
         let v = UniversalInputSource::from_dataset_uri(DatasetUri::new("x.vortex").expect("uri"))

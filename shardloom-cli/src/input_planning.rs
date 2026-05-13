@@ -7,7 +7,8 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CommandStatus, DatasetUri, InputAdapterRegistrySnapshot, OutputFormat, UniversalInputSource,
+    CommandStatus, DatasetFormat, DatasetUri, InputAdapterRegistrySnapshot, OutputFormat,
+    ShardLoomError, UniversalInputSource,
 };
 use shardloom_plan::{UniversalInputPlanningReport, plan_universal_input_source};
 use shardloom_vortex::{
@@ -15,7 +16,10 @@ use shardloom_vortex::{
     plan_vortex_read_from_universal_input,
 };
 
-use crate::cli_output::{emit, emit_error};
+use crate::{
+    cli_output::{emit, emit_error},
+    cli_unknown_arg_error,
+};
 
 pub(crate) fn handle_input_adapters(format: OutputFormat) -> ExitCode {
     let snapshot = InputAdapterRegistrySnapshot::foundation();
@@ -36,14 +40,19 @@ pub(crate) fn handle_input_plan(
     format: OutputFormat,
 ) -> ExitCode {
     let Some(dataset_uri) = args.next() else {
-        eprintln!("usage: shardloom input-plan <dataset_uri>");
+        eprintln!("usage: shardloom input-plan <dataset_uri> [--source-format <format>]");
         return ExitCode::from(2);
+    };
+    let declared_format = match parse_declared_source_format("input-plan", &mut args, format) {
+        Ok(value) => value,
+        Err(code) => return code,
     };
     let source = match universal_input_source_from_dataset_uri(
         "input-plan",
         format,
         "input plan failed",
         dataset_uri,
+        declared_format,
     ) {
         Ok(source) => source,
         Err(code) => return code,
@@ -183,6 +192,7 @@ pub(crate) fn handle_vortex_input_plan(
         format,
         "vortex input plan failed",
         dataset_uri,
+        None,
     ) {
         Ok(source) => source,
         Err(code) => return code,
@@ -232,6 +242,7 @@ pub(crate) fn handle_vortex_read_plan(
         format,
         "vortex read plan failed",
         dataset_uri,
+        None,
     ) {
         Ok(source) => source,
         Err(code) => return code,
@@ -297,6 +308,7 @@ pub(crate) fn handle_vortex_task_graph(
         format,
         "vortex task graph plan failed",
         dataset_uri,
+        None,
     ) {
         Ok(source) => source,
         Err(code) => return code,
@@ -372,11 +384,74 @@ fn universal_input_source_from_dataset_uri(
     format: OutputFormat,
     failure_summary: &str,
     dataset_uri: String,
+    declared_format: Option<DatasetFormat>,
 ) -> Result<UniversalInputSource, ExitCode> {
     let uri = DatasetUri::new(dataset_uri)
         .map_err(|error| emit_error(command, format, failure_summary, &error))?;
-    UniversalInputSource::from_dataset_uri(uri)
-        .map_err(|error| emit_error(command, format, failure_summary, &error))
+    if let Some(format) = declared_format {
+        UniversalInputSource::from_dataset_uri_with_format(uri, format)
+    } else {
+        UniversalInputSource::from_dataset_uri(uri)
+    }
+    .map_err(|error| emit_error(command, format, failure_summary, &error))
+}
+
+fn parse_declared_source_format(
+    command: &str,
+    args: &mut std::vec::IntoIter<String>,
+    output_format: OutputFormat,
+) -> Result<Option<DatasetFormat>, ExitCode> {
+    let mut declared_format = None;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--source-format" => {
+                let Some(value) = args.next() else {
+                    return Err(emit_error(
+                        command,
+                        output_format,
+                        "input plan failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--source-format requires a value".to_string(),
+                        ),
+                    ));
+                };
+                declared_format = Some(parse_source_format(command, output_format, &value)?);
+            }
+            other => {
+                return Err(emit_error(
+                    command,
+                    output_format,
+                    "input plan failed",
+                    &cli_unknown_arg_error(command, other),
+                ));
+            }
+        }
+    }
+    Ok(declared_format)
+}
+
+fn parse_source_format(
+    command: &str,
+    output_format: OutputFormat,
+    value: &str,
+) -> Result<DatasetFormat, ExitCode> {
+    match value.trim().to_ascii_lowercase().replace('_', "-").as_str() {
+        "vortex" => Ok(DatasetFormat::Vortex),
+        "parquet" => Ok(DatasetFormat::Parquet),
+        "arrow" | "arrow-ipc" | "ipc" => Ok(DatasetFormat::ArrowIpc),
+        "avro" => Ok(DatasetFormat::Avro),
+        "orc" => Ok(DatasetFormat::Orc),
+        "csv" => Ok(DatasetFormat::Csv),
+        "json" | "jsonl" | "json-lines" | "ndjson" => Ok(DatasetFormat::JsonLines),
+        "iceberg" | "iceberg-compatible" => Ok(DatasetFormat::IcebergCompatible),
+        "delta" | "delta-compatible" => Ok(DatasetFormat::DeltaCompatible),
+        other => Err(emit_error(
+            command,
+            output_format,
+            "input plan failed",
+            &ShardLoomError::InvalidOperation(format!("unsupported --source-format {other:?}")),
+        )),
+    }
 }
 
 fn input_adapter_registry_fields(snapshot: &InputAdapterRegistrySnapshot) -> Vec<(String, String)> {

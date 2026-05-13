@@ -53,11 +53,9 @@ pandas
 Polars
 DuckDB
 DataFusion
-Dask
 local Spark default
 local Spark tuned
 optional local ClickHouse
-optional local Trino/dev cluster
 optional Vortex+DataFusion integration
 optional Vortex+DuckDB integration
 ```
@@ -69,6 +67,11 @@ external_integration_baseline_only
 not_shardloom_execution
 not_fallback
 ```
+
+Dask, Trino, and other distributed SQL or task engines are design references for workload shape,
+fairness metadata, and optional externally managed comparison environments only. This RFC does not
+authorize ShardLoom to add them as benchmark dependencies, dev-cluster requirements, runtime
+providers, or fallback execution paths.
 
 ## Scenario Taxonomy
 

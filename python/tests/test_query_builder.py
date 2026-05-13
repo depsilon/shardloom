@@ -10,13 +10,43 @@ from pathlib import Path
 import shardloom as sl
 from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
 
+_FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
+    """
+    import json as _shardloom_json
+
+    _shardloom_original_json_dumps = _shardloom_json.dumps
+
+    def _shardloom_fill_typed_envelope(value):
+        if isinstance(value, dict) and value.get("schema_version") == "shardloom.output.v2":
+            value = dict(value)
+            value.setdefault("result", {"fields": value.get("fields", [])})
+            value.setdefault("result_refs", [])
+            value.setdefault("artifacts", [])
+            value.setdefault("artifact_refs", [])
+            value.setdefault("certificates", [])
+            value.setdefault("policy", {"fields": []})
+            value.setdefault("lifecycle", {"fields": []})
+            value.setdefault("capability_snapshot", {"fields": []})
+        return value
+
+    def _shardloom_json_dumps(value, *args, **kwargs):
+        return _shardloom_original_json_dumps(
+            _shardloom_fill_typed_envelope(value),
+            *args,
+            **kwargs,
+        )
+
+    _shardloom_json.dumps = _shardloom_json_dumps
+    """
+)
+
 
 class LazyWorkflowBuilderTests(unittest.TestCase):
     def fake_cli(self, body: str) -> list[str]:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"
-        path.write_text(body, encoding="utf-8")
+        path.write_text(_FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
         return [sys.executable, str(path)]
 
     def test_top_level_readers_are_lazy_and_build_operation_summary(self) -> None:
@@ -72,6 +102,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert sys.argv[1:] == [
                     "input-plan",
                     "customers.parquet",
+                    "--source-format",
+                    "parquet",
                     "--format",
                     "json",
                 ], sys.argv
@@ -100,6 +132,42 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(plan.field_bool("plan_only"))
         self.assertFalse(plan.field_bool("data_read"))
         self.assertFalse(plan.fallback.attempted)
+
+    def test_non_vortex_plan_uses_declared_source_format_not_uri_suffix(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "input-plan",
+                    "events.data",
+                    "--source-format",
+                    "csv",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "input-plan",
+                    "status": "success",
+                    "summary": "input plan report",
+                    "human_text": "input plan",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "dataset_format", "value": "csv"},
+                        {"key": "plan_only", "value": "true"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        plan = sl.read_csv("events.data", binary=binary).plan()
+
+        self.assertEqual(plan.command, "input-plan")
+        self.assertEqual(plan.field("dataset_format"), "csv")
 
     def test_context_engine_intent_is_lazy_and_flows_to_lazy_frame(self) -> None:
         ctx = ShardLoomContext(

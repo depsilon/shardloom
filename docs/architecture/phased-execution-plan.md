@@ -142,6 +142,11 @@ until each finding is fixed, proven already fixed, or folded into a named child 
 threads must be re-read with `gh` before implementation because later merged work may already have
 made some comments stale even when GitHub still shows them unresolved.
 
+Thread-state rule: code fixes and doc reconciliation do not automatically close GitHub review
+threads. Before release readiness, re-query PR #360 and up, classify each still-unresolved thread
+as fixed, stale, intentionally deferred, or still actionable, and resolve/comment only with evidence
+from the merged code and tests.
+
 - [x] Audit-F1 schema-breaking REST/OpenAPI status-field repair bundle.
   - Source findings: unresolved P1 review comments on PR #520 and PR #521; related REST API schema
     review should also cover PR #517, PR #518, and PR #519.
@@ -211,11 +216,102 @@ made some comments stale even when GitHub still shows them unresolved.
     #384, #385, #386, #391, #393, #396, #420, #424, #426, #428, #433, #436, #437, #438, #439,
     #445, #446, #448, #449, #451, #452, #457, #459, #461, #473, #482, #506, #507, #515, #517,
     #518, #519, and #520.
-  - Required fixes: re-read each unresolved thread with `gh`/GraphQL, then batch fixes by area:
-    report/schema consistency, no-fallback and certification accuracy, fixture provenance, path
-    handling, Python protocol behavior, command taxonomy, and benchmark/error classification.
-  - Verification: each batch needs targeted regression tests for the reviewed behavior and a final
-    thread-state audit before release readiness.
+  - Required core/report gate fixes:
+    - PR #362 `agent_contract.rs`: verify the agent-safe capability surface points at
+      `capabilities certification`; current code may already make this thread stale.
+    - PR #366 `benchmark.rs`: block `external_comparison_results` when external rows exist but
+      required metrics are missing, not only when entire external result rows are absent.
+    - PR #428 `release.rs`: aggregate artifact status across all matching artifacts instead of
+      order-dependent `.find(...)`.
+    - PR #433 `security.rs`: enforce `redaction_required` and `audit_required` in validation.
+    - PR #436 `cpu_specialization.rs`: require an unblocked dispatch class before opening
+      specialization admission, and keep side-effect checks independent from admission-policy
+      flags.
+    - PR #437 `release.rs`: make `release_gate_blocking_count()` count every condition that
+      `release_gated()` treats as blocking.
+    - PR #438 `correctness.rs`: require external-oracle execution when oracle evidence is missing
+      even before artifacts exist, and require deferred fixture-family artifact population when
+      deferred families exist even if artifact count is zero.
+    - PR #439 `benchmark.rs`: decouple benchmark closeout eligibility from unrelated claim-gate
+      state, or list the extra blockers explicitly in the closeout blocker set.
+    - PR #445 `approx_sketch.rs`: make runtime-promotion blocking include
+      `materialization_without_report_allowed`.
+    - PR #452 `benchmark_suite.rs`: verify canonical benchmark taxonomy members, not only vector
+      lengths.
+  - Required CLI/Python/protocol fixes:
+    - PR #381 `main.rs`: when local primitive execution has no certificate, emit the full
+      uncertified execution-certificate field set, including fixture ID and side-effect/
+      no-fallback fields.
+    - PR #384 `main.rs`: enforce requested `memory_gb` in local `CountWhere` execution.
+    - PR #385 `python/src/shardloom/client.py`: resolve relative `SHARDLOOM_BIN` paths against
+      the client `cwd`, not the Python process cwd.
+    - PR #386 `main.rs`: let `vortex-filter` report `rows_selected=0` when metadata proves the
+      predicate is false even without execution.
+    - PR #446 `main.rs`: include `existing_report_refs` in CG-14 CLI gate output.
+    - PR #457 `python/src/shardloom/models.py`: require typed `shardloom.output.v2` slots such as
+      `result`, `policy`, certificates, artifacts, lifecycle, and capability snapshot instead of
+      defaulting missing keys to empty values.
+    - PR #459 `typed_envelope.rs`: restrict execution-certificate reference matching to actual
+      certificate keys and avoid matching `*_input_ref`, `*_output_ref`, or fixture IDs.
+    - PR #461 `command_family.rs`: classify runtime planning commands such as
+      `vortex-memory-plan`, `vortex-adaptive-sizing`, and `vortex-schedule-plan` as runtime
+      planning instead of prepared source-backed execution.
+    - PR #482 `vortex_primitive_execution.rs`: preserve `emit_error` exit code `2` when forwarding
+      parse failures.
+    - PR #506 `python/src/shardloom/context.py`: treat `capabilities(scopes=[])` as an explicit
+      empty selection, distinct from default scopes.
+    - PR #507 `python/src/shardloom/query.py`: honor declared source format for non-Vortex lazy
+      sources instead of inferring solely from URI suffix.
+  - Required Vortex execution/evidence fixes:
+    - PR #376 `traditional_analytics.rs`: preserve nonzero sink chunk size for streaming Vortex
+      runs instead of passing `materialization_boundary_rows=0` as sink max chunk size.
+    - PR #380 `local_primitives.rs`: allow primitive projection passthrough for primitive dtypes
+      without requiring `projection_pushdown_applied`.
+    - PR #391 `generalized_filter_execution.rs`: compute `fallback_attempted` from diagnostics in
+      unsupported reports instead of hardcoding `false`.
+    - PR #393 `local_primitives.rs`: resolve relative request source paths from execution
+      context/workspace consistently with fixture matching.
+    - PR #396 `encoded_predicate_evaluation.rs`: avoid cloning encoded batches in the one-batch
+      bridge and preserve the intended zero-copy behavior.
+    - PR #420 `source_backed_encoded_execution.rs`: short-circuit invalid source envelopes before
+      filter execution and before projection execution.
+    - PR #426 `source_backed_encoded_execution.rs`: report certificate presence independently from
+      certification result for execution and Native I/O certificate fields.
+    - PR #449 `top_level_facade.rs`: append filter Native I/O transitions for filter-project
+      results.
+    - PR #451 `runtime_utilization.rs`: include `execute_step_evidence.external_engine_invoked`
+      and `fallback_attempted` in aggregate no-fallback checks, and block
+      `VortexLayoutAdvisorReport::claim_blocked()` when fallback was attempted.
+    - PR #452 `source_backed_benchmark_matrix.rs`: require executable/non-blocked status for
+      required lane operations.
+  - Required benchmark/docs/API fixes:
+    - PR #424 `phased-execution-completed-ledger.md`: remove or close unchecked checklist items
+      from the completed-only ledger so it cannot become a second planned queue.
+    - PR #448 `docs/rfcs/0040-benchmark-suite-platform-learning-hardening.md`: restate Dask/Trino
+      baseline dependency targets as non-implementation design references.
+    - PR #473 `benchmarks/traditional_analytics/run.py`: check CLI exit code before treating JSON
+      `status` as unsupported, including the duplicated `shardloom_vortex_runner` path.
+    - PR #515 `live_engine.rs`: compute late-record counts with a non-impossible predicate under
+      `reject_past_watermark`.
+    - PR #517 `rest_api_planning.rs`: keep discovery-mode envelope `schema_version` and
+      `report_id` canonical to discovery, not the nested contract report.
+    - PR #518 `remote_api.rs`: mark unsupported logical stages as unplanned instead of setting
+      `native_logical_planned=true` for every non-invalid input.
+    - PR #519 `remote_api.rs`: use scenario-specific lifecycle plan handles and avoid emitting
+      certified no-fallback artifacts for blocked/non-certified scenarios.
+    - PR #520 `remote_api.rs`: reconcile hybrid fixture `event_count` with the detailed counters.
+  - Implementation batching: land these as sizeable area slices, not one PR per comment. Start with
+    core/report-gate plus CLI/Python/protocol consistency, then Vortex execution/evidence, then
+    benchmark/docs/API cleanup.
+  - Progress: Batch A fixes are implemented for core/report gates, Python/CLI protocol contracts,
+    benchmark harness exit-code handling, CG-14 report output, completed-ledger hygiene, and RFC
+    0040 benchmark dependency wording. The current batch addresses PR #366, #424, #428, #433,
+    #436, #437, #438, #439, #445, #446, #448, #452, #457, #459, #461, #473, #482, #506, and
+    #507, with PR #385 verified stale against the existing client `cwd` resolution behavior.
+    Leave Audit-F3 open for the Vortex execution/evidence and API cleanup groups.
+  - Verification: each batch needs targeted regression tests for the reviewed behavior, focused CLI
+    and Python protocol tests where contracts change, broad fmt/clippy/workspace validation for
+    shared surfaces, and a final PR #360+ review-thread state audit before release readiness.
 - [x] Audit-F4 RFC 0035 API maturity and REST/server drift reconciliation bundle.
   - Source findings: RFC 0035 defines `API-A9` as production-certified API for a declared workload,
     while implementation now uses `API-A9` for columnar data-plane/standards boundary and `API-A10`
