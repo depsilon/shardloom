@@ -161,6 +161,15 @@ SHARDLOOM_CLAIM_GRADE_REQUIRED_EVIDENCE = (
     ("materialization_boundary_report_emitted", "true"),
     ("native_io_materializing_transitions_have_boundaries", "true"),
 )
+ROW_CLASSIFICATIONS = (
+    "claim_grade",
+    "not_claim_grade",
+    "fixture_smoke_only",
+    "supported",
+    "unsupported",
+    "blocked",
+    "external_baseline_only",
+)
 CORRECTNESS_FLOAT_DIGITS = 4
 
 
@@ -3168,6 +3177,17 @@ def reproducible_benchmark_row(result: dict[str, Any]) -> bool:
 def claim_grade_readiness(result: dict[str, Any]) -> dict[str, Any]:
     engine = result["engine"]
     status = result["status"]
+    if status != "success":
+        status_classification = (
+            "unsupported"
+            if status in ("unsupported", "unsupported_format")
+            else "blocked"
+        )
+        return {
+            "claim_gate_status": status_classification,
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": [result.get("reason", status)],
+        }
     if not is_shardloom_engine(engine):
         return {
             "claim_gate_status": "external_baseline_only",
@@ -3175,12 +3195,6 @@ def claim_grade_readiness(result: dict[str, Any]) -> dict[str, Any]:
             "claim_grade_missing_evidence": [
                 "external baseline rows are comparison-only"
             ],
-        }
-    if status != "success":
-        return {
-            "claim_gate_status": "unsupported" if status == "unsupported" else "blocked",
-            "claim_grade_requirements_met": False,
-            "claim_grade_missing_evidence": [result.get("reason", status)],
         }
     if engine == "shardloom-vortex":
         return {
@@ -3261,7 +3275,7 @@ def annotate_result(
 
 def coverage_status(result: dict[str, Any]) -> str:
     if result["status"] != "success":
-        if result["status"] == "unsupported":
+        if result["status"] in ("unsupported", "unsupported_format"):
             return "unsupported"
         if result["status"] == "missing_dependency":
             return "blocked"
@@ -3273,11 +3287,32 @@ def coverage_status(result: dict[str, Any]) -> str:
     return "external_baseline_only"
 
 
+def support_status(result: dict[str, Any]) -> str:
+    if result["status"] == "success":
+        if not is_shardloom_engine(result["engine"]):
+            return "external_baseline_only"
+        return "supported"
+    if result["status"] in ("unsupported", "unsupported_format"):
+        return "unsupported"
+    return "blocked"
+
+
+def materialization_decode_evidence_present(evidence: dict[str, Any]) -> bool:
+    return (
+        evidence.get("materialization_boundary_report_emitted") == "true"
+        and evidence.get("native_io_materializing_transitions_have_boundaries") == "true"
+    )
+
+
 def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = []
     for result in results:
         constitution = result["benchmark_constitution"]
         reproducible_row = reproducible_benchmark_row(result)
+        evidence = result.get("shardloom_evidence", {})
+        row_classification = coverage_status(result)
+        if row_classification not in ROW_CLASSIFICATIONS:
+            raise RuntimeError(f"unrecognized coverage row classification: {row_classification}")
         rows.append(
             {
                 "scenario_name": result["scenario_name"],
@@ -3286,7 +3321,10 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "dataset_profile": result["dataset_profile"],
                 "engine": result["engine"],
                 "engine_role": result["engine_role"],
-                "status": coverage_status(result),
+                "status": row_classification,
+                "row_classification": row_classification,
+                "support_status": support_status(result),
+                "supported_status": support_status(result),
                 "timing_row_present": result["metrics"]["query_runtime_millis"] is not None,
                 "claim_gate_status": result["claim_gate_status"],
                 "claim_grade_requirements_met": result["claim_grade_requirements_met"],
@@ -3307,8 +3345,20 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "computed_result_sink_write_millis"
                 ),
                 "benchmark_constitution_id": constitution["constitution_id"],
-                "certificate_status": result.get("shardloom_evidence", {}).get(
+                "benchmark_row_ref": evidence.get("benchmark_row_ref"),
+                "coverage_row_ref": evidence.get("coverage_row_ref"),
+                "certificate_status": evidence.get("native_io_certificate_status"),
+                "execution_certificate_status": evidence.get(
+                    "runtime_execution_certificate_status"
+                ),
+                "source_native_io_certificate_status": evidence.get(
                     "native_io_certificate_status"
+                ),
+                "result_native_io_certificate_status": evidence.get(
+                    "computed_result_sink_native_io_certificate_status"
+                ),
+                "materialization_decode_evidence_present": (
+                    materialization_decode_evidence_present(evidence)
                 ),
                 "native_io_status_required": is_shardloom_engine(result["engine"]),
                 "materialization_policy": constitution["materialization_policy"],
@@ -4287,6 +4337,7 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 row["scenario_category"],
                 row["engine_role"],
                 row["status"],
+                row["support_status"],
                 str(row["timing_row_present"]),
                 row["claim_gate_status"],
                 str(row["claim_grade_requirements_met"]),
@@ -4300,6 +4351,9 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 else "none",
                 str(row["native_io_status_required"]),
                 str(row["certificate_status"] or "n/a"),
+                str(row["execution_certificate_status"] or "n/a"),
+                str(row["result_native_io_certificate_status"] or "n/a"),
+                str(row["materialization_decode_evidence_present"]),
                 str(row["fallback_attempted"]),
                 str(row["external_engine_invoked"]),
             ]
@@ -4311,6 +4365,7 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Category",
             "Role",
             "Coverage",
+            "Support",
             "Timing row",
             "Claim gate",
             "Claim-grade",
@@ -4321,7 +4376,10 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Result write",
             "Missing claim evidence",
             "Native I/O req",
-            "Certificate",
+            "Source Native I/O",
+            "Exec cert",
+            "Result Native I/O",
+            "Materialization evidence",
             "Fallback",
             "External engine invoked",
         ],

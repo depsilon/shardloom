@@ -16,6 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P8.1/P8.2 release dry-run and first-10-minutes proof bundle
+  - Primary files:
+    - `scripts/release_dry_run_proof.py`
+    - `docs/release/release-dry-run-proof.md`
+    - `docs/release/first-10-minutes-smoke-snapshot.md`
+    - `docs/release/package-name-readiness.md`
+    - `docs/release/package-metadata-audit.md`
+    - `docs/legal/dependency-audit.md`
+    - `docs/getting-started/install.md`
+    - `docs/getting-started/first-10-minutes.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: convert the package/release scaffolding from PR #554 into executable source-local
+    dry-run proof without publishing artifacts.
+  - Checklist:
+    - [x] Add `scripts/release_dry_run_proof.py` to build the local CLI, build Python wheel/sdist,
+          create a clean venv, install the local wheel, resolve the built CLI through
+          `SHARDLOOM_BIN`, run wheel import/client smoke, run CLI status/capabilities JSON, run the
+          local Python smoke example, run the local Vortex benchmark smoke, and write a transcript
+          under `target/`.
+    - [x] Keep transcript safety fields for `publication_attempted=false`, `tag_created=false`,
+          `secrets_required=false`, `external_runtime_dependencies_added=false`, and
+          `fallback_engine_dependency_added=false`.
+    - [x] Document the dry-run proof, expected first-10-minutes transcript shape, package-name
+          readiness flow, dependency-audit boundary, and clean install path.
+    - [x] Add contract tests that pin the dry-run script, clean venv install posture, no-secret/no-
+          publication posture, examples, and docs.
+  - Runtime stance: local release proof only. No package publication, tag creation, secret
+    creation, feedstock submission, crates.io publication, OCI push, external runtime dependency,
+    managed platform lane, or fallback execution was added.
+
+- [x] Session label: P7.4.4 claim-readiness benchmark closeout bundle
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: close the P7.4.4 parent item without adding architecture categories by making the
+    selected local comparative taxonomy rerun and coverage/timing classification boundary explicit.
+  - Checklist:
+    - [x] Run the selected local `--claim-readiness-rerun` smoke with three iterations and
+          ShardLoom result-sink proof.
+    - [x] Preserve `coverage_table` separately from timing rows.
+    - [x] Add explicit `row_classification`, `support_status`, benchmark/coverage refs, runtime
+          execution certificate status, source/result Native I/O certificate status, and
+          materialization/decode evidence fields to coverage rows.
+    - [x] Classify rows as claim-grade, not-claim-grade, fixture-smoke-only, supported,
+          unsupported, blocked, or external-baseline-only without treating external baselines as
+          ShardLoom execution.
+    - [x] Require stable correctness digests across at least three iterations plus certificate,
+          Native I/O, materialization/decode, benchmark/coverage ref, no-fallback, and
+          no-external-engine evidence before ShardLoom rows promote to claim-grade.
+    - [x] Keep unsupported or incompatible scenario/profile rows deterministic and no-fallback
+          rather than crashing or delegating to external engines.
+  - Validation evidence:
+    - [x] Small local rerun produced `target\p744-claim-readiness-smoke.json` with 220 coverage
+          rows, separated coverage/timing tables, 24 ShardLoom claim-grade timing rows, blocked
+          profile-mismatch rows, no fallback attempts, and external rows classified as baselines.
+  - Runtime stance: local benchmark evidence only. No managed platform benchmark lane, public
+    performance claim, external runtime dependency, broad object-store/table/catalog claim, general
+    JSON/incremental-state claim, or fallback execution was added.
+
 - [x] Session label: P7.4.4 CDC overlay execution bundle
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

@@ -42,3 +42,15 @@ $env:SHARDLOOM_BIN = "target\debug\shardloom.exe"
 Do not assume PyPI, Conda-forge, or crates.io packages are available until a
 tagged release says so. Package-name readiness docs live in
 `docs/release/package-name-readiness.md`.
+
+## Local Wheel Dry Run
+
+Release-readiness proof uses a locally built wheel and a clean virtual
+environment before any publication is approved:
+
+```powershell
+python scripts\release_dry_run_proof.py --rows 64 --iterations 1
+```
+
+The proof installs from `python/dist` with `pip --no-index`, resolves the local
+CLI through `SHARDLOOM_BIN`, and writes a transcript under `target/`.

@@ -27,6 +27,7 @@ Before publication, run:
 
 ```powershell
 python -m build python
+python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 python -m twine check python/dist/*
 ```
 

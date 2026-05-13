@@ -26,6 +26,7 @@ Before enabling publication:
 - configure PyPI Trusted Publisher for the repository, workflow, and `pypi`
   environment
 - verify package metadata with `python -m build python`
+- run `python scripts\release_dry_run_proof.py --rows 64 --iterations 1`
 - verify `twine check python/dist/*`
 - ensure the release has maintainer approval
 - ensure no runtime fallback dependencies were added
@@ -88,3 +89,20 @@ cargo publish --dry-run -p shardloom-client
 
 These commands are not currently applicable because the candidate crates have
 not been extracted.
+
+## Local Dry-Run Proof
+
+The current package-name readiness proof is source-local:
+
+```powershell
+python scripts\release_dry_run_proof.py --rows 64 --iterations 1
+```
+
+It builds the local CLI, builds wheel/sdist artifacts, installs the local wheel
+in a clean virtual environment, resolves the built CLI through `SHARDLOOM_BIN`,
+runs the first-10-minutes smoke path, and executes the local benchmark smoke.
+The transcript lives at `target/release-dry-run-proof/transcript.json`.
+
+This proof is intentionally not a publish workflow. It does not create tags,
+submit Conda feedstocks, upload to PyPI/TestPyPI, publish crates, push OCI
+images, or add secrets.

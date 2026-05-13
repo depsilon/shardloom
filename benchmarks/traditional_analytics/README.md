@@ -294,6 +294,18 @@ iterations. Scenario catalog `dataset_profiles` are enforced before engine execu
 incompatible scenario/profile pair records a coverage row instead of an engine-specific error or
 accidental success.
 
+P7.4.4 claim-readiness coverage is separated from timing. Each coverage row carries
+`row_classification`, `support_status`, `claim_gate_status`,
+`claim_grade_requirements_met`, `claim_grade_missing_evidence`,
+`reproducible_benchmark_row`, and `timing_row_claim_grade`. ShardLoom rows can promote to
+`claim_grade` only when at least three iterations produce a stable correctness digest and the row
+contains benchmark/coverage refs, runtime execution certificate evidence, source Native I/O
+certificate evidence, result Native I/O certificate evidence when result-sink proof is enabled,
+materialization/decode boundary evidence, `fallback_attempted=false`, and
+`external_engine_invoked=false`. External engines remain `external_baseline_only`, fixture lanes
+remain `fixture_smoke_only`, and incompatible scenario/profile combinations remain deterministic
+`blocked` or `unsupported` coverage rows.
+
 Run one engine or one scenario while troubleshooting:
 
 ```powershell

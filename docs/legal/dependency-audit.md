@@ -81,6 +81,16 @@ The Python package currently has no runtime dependencies, so pip-audit output
 must not be treated as evidence that ShardLoom has Python runtime dependency
 requirements.
 
+The release dry-run proof installs only the local ShardLoom wheel into a clean
+virtual environment and resolves a local CLI binary:
+
+```powershell
+python scripts\release_dry_run_proof.py --rows 64 --iterations 1
+```
+
+That proof must not install Spark, DataFusion, DuckDB, Polars, pandas, Dask,
+Velox, or any other fallback execution engine as a runtime dependency.
+
 ## Current Duplicate-Crate Posture
 
 The all-features Rust tree currently includes duplicate transitive versions
