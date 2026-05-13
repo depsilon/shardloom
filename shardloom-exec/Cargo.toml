@@ -17,8 +17,8 @@ publish = false
 workspace = true
 
 [dependencies]
-shardloom-core = { path = "../shardloom-core" }
-shardloom-plan = { path = "../shardloom-plan" }
+shardloom-core = { version = "0.1.0", path = "../shardloom-core" }
+shardloom-plan = { version = "0.1.0", path = "../shardloom-plan" }
 
 [features]
 spill-lifecycle-fs = []

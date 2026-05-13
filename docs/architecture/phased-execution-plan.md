@@ -385,16 +385,20 @@ from the merged code and tests.
         maintainer-account compromise.
       - Verification: security policy contract tests require incident response fields and
         no-fallback security language.
-    - [ ] P8.0C dependency, license, and advisory gate hardening.
+    - [x] P8.0C dependency, license, and advisory gate hardening.
       - User-visible surface: hardened dependency audit report and release gate.
-      - Acceptance: `cargo deny check licenses advisories bans sources` is a hard release gate;
-        `cargo audit` passes or has an explicit maintainer waiver; packaging/dev `pip-audit` runs
-        where applicable; unknown git/registry sources and yanked crates remain denied; runtime
-        package dependency audit proves no fallback-engine dependencies; benchmark-only
-        dependencies remain separated from runtime dependencies.
-      - Verification: `python scripts/check_dependency_audit.py --strict-missing`, `cargo deny
-        check licenses advisories bans sources`, `cargo audit`, and Python packaging audit where
-        available.
+      - Completed proof: `scripts/check_dependency_audit.py --release-gate` now fails closed for
+        missing audit tools, runs `cargo deny check licenses advisories bans sources`, `cargo audit`,
+        and packaging/dev `pip-audit`, emits `shardloom.dependency_audit_report.v1`, checks runtime
+        Cargo/Python metadata for forbidden fallback-engine dependencies, and classifies benchmark
+        external engines as benchmark-only baselines. `docs/security/dependency-audit-release-gate.md`
+        documents the release-gate command, report fields, tool installs, and no-fallback dependency
+        rule. The cargo-deny config now uses the current schema, explicit internal path dependency
+        versions, documented permissive transitive license admissions, and a tracked upstream
+        Vortex/Arrow `paste` unmaintained-dependency waiver.
+      - Verification: release-readiness contract tests, script py-compile/report smoke,
+        non-release dependency audit smoke, strict/release-gate fail-closed smoke when tools are
+        absent, and full workspace validation.
     - [ ] P8.0D runtime exploit and malicious-input regression suite.
       - User-visible surface: deterministic security regression tests.
       - Acceptance: tests cover path traversal rejection, unsafe symlink/hardlink workspace writes
