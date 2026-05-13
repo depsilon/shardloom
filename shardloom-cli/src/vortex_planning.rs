@@ -8,8 +8,9 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CommandStatus, DatasetUri, OutputFormat, OutputTarget, PhysicalOperatorKind, ShardLoomError,
-    TranslationPlan, UniversalInputSource,
+    BenchmarkEvidenceState, BenchmarkFallbackState, CommandStatus, DatasetUri,
+    OperatorMemoryCertification, OutputFormat, OutputTarget, PhysicalOperatorKind, PredicateExpr,
+    ShardLoomError, TranslationPlan, UniversalInputSource,
 };
 use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
 use shardloom_vortex::{
@@ -18,10 +19,15 @@ use shardloom_vortex::{
     VortexEncodedExecutionPathSelectionReport, VortexEncodingLayoutMappingReport,
     VortexExecutionReadinessReport, VortexFileRef, VortexFilteredCountCandidateSource,
     VortexFilteredCountReadinessSignal, VortexGeneralizedEncodedPrimitiveGateReport,
-    VortexLayoutReaderDriverApprovalInput, VortexMetadataOpenRequest, VortexMetadataProbeReport,
-    VortexProjectionCandidateSource, VortexProjectionReadinessSignal, VortexQueryPrimitiveSignal,
-    VortexReadPlan, VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
+    VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
+    VortexMetadataCountKernelAdmissionReport, VortexMetadataFilterKernelAdmissionReport,
+    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexProjectionCandidateSource,
+    VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
+    VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue, VortexReadPlan,
+    VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
+    admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
     build_vortex_runtime_task_graph, evaluate_vortex_execution_readiness,
+    evaluate_vortex_metadata_physical_kernels,
     execute_vortex_count_all_from_encoded_count_data_path_approval, execute_vortex_metadata_only,
     metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
     metadata_summary_is_plan_only, open_vortex_metadata_only, plan_from_vortex_metadata_summary,
@@ -31,12 +37,671 @@ use shardloom_vortex::{
     plan_vortex_encoded_execution_path_selection, plan_vortex_filtered_count_readiness,
     plan_vortex_generalized_encoded_primitive_gate, plan_vortex_layout_reader_driver_approval,
     plan_vortex_metadata_pruning, plan_vortex_projection_readiness, plan_vortex_query_primitive,
+    plan_vortex_query_primitive_result_physical_operators_with_evidence,
     plan_vortex_read_from_universal_input, probe_vortex_metadata_only,
     summarize_vortex_metadata_probe, vortex_encoded_read_public_api_boundary,
     vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
 };
 
-use crate::cli_output::{emit, emit_error};
+use crate::{
+    cli_missing_arg_error,
+    cli_output::{emit, emit_error},
+    cli_unknown_arg_error, cli_unknown_signal_error,
+};
+
+fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn safe_metadata_kernel_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: true,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: true,
+    }
+}
+
+#[must_use]
+fn metadata_kernel_memory_safe(memory: OperatorMemoryCertification) -> bool {
+    memory.oom_safe
+        && !memory.requires_full_materialization
+        && (memory.streaming || memory.bounded_memory || memory.spillable)
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn run_vortex_metadata_physical_kernel_plan(
+    format: OutputFormat,
+    args: Vec<String>,
+) -> ExitCode {
+    let command = "vortex-metadata-physical-kernel-plan";
+    let mut args = args.into_iter();
+    let Some(primitive_arg) = args.next() else {
+        return emit_error(
+            command,
+            format,
+            "missing primitive",
+            &cli_missing_arg_error(command, "primitive"),
+        );
+    };
+    let Some(uri_arg) = args.next() else {
+        return emit_error(
+            command,
+            format,
+            "missing dataset uri",
+            &cli_missing_arg_error(command, "dataset_uri"),
+        );
+    };
+    let Some(value_arg) = args.next() else {
+        return emit_error(
+            command,
+            format,
+            "missing metadata value",
+            &cli_missing_arg_error(command, "metadata_value"),
+        );
+    };
+    let uri = match DatasetUri::new(uri_arg) {
+        Ok(uri) => uri,
+        Err(error) => return emit_error(command, format, "invalid dataset uri", &error),
+    };
+    let (request, value) = match primitive_arg.as_str() {
+        "count" | "count-all" | "count_all" => {
+            let Ok(count) = value_arg.parse::<u64>() else {
+                return emit_error(
+                    command,
+                    format,
+                    "invalid count metadata value",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "count metadata value must be u64: {value_arg}"
+                    )),
+                );
+            };
+            (
+                VortexQueryPrimitiveRequest::count_all(uri),
+                VortexQueryPrimitiveValue::Count(count),
+            )
+        }
+        "filtered-count" | "filtered_count" => {
+            let Ok(count) = value_arg.parse::<u64>() else {
+                return emit_error(
+                    command,
+                    format,
+                    "invalid filtered count metadata value",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "filtered count metadata value must be u64: {value_arg}"
+                    )),
+                );
+            };
+            (
+                VortexQueryPrimitiveRequest::count_where(uri, PredicateExpr::AlwaysTrue),
+                VortexQueryPrimitiveValue::Count(count),
+            )
+        }
+        "filter" | "predicate-filter" | "predicate_filter" => {
+            let value = match value_arg.as_str() {
+                "true" => true,
+                "false" => false,
+                _ => {
+                    return emit_error(
+                        command,
+                        format,
+                        "invalid filter metadata value",
+                        &ShardLoomError::InvalidOperation(format!(
+                            "filter metadata value must be true or false: {value_arg}"
+                        )),
+                    );
+                }
+            };
+            (
+                VortexQueryPrimitiveRequest::filter(uri, PredicateExpr::AlwaysFalse),
+                VortexQueryPrimitiveValue::Boolean(value),
+            )
+        }
+        _ => {
+            return emit_error(
+                command,
+                format,
+                "invalid primitive",
+                &ShardLoomError::InvalidOperation(format!("invalid primitive: {primitive_arg}")),
+            );
+        }
+    };
+    let mut correctness_evidence = BenchmarkEvidenceState::Missing;
+    let mut benchmark_evidence = BenchmarkEvidenceState::Missing;
+    let mut memory = OperatorMemoryCertification::unsupported();
+    let mut fallback = BenchmarkFallbackState::NotAttempted;
+    for token in args {
+        match token.as_str() {
+            "--correctness-evidence" | "--correctness-passed" => {
+                correctness_evidence = BenchmarkEvidenceState::Present;
+            }
+            "--benchmark-evidence" | "--benchmark-passed" => {
+                benchmark_evidence = BenchmarkEvidenceState::Present;
+            }
+            "--memory-safe" => {
+                memory = safe_metadata_kernel_memory();
+            }
+            "--fallback-attempted" => {
+                fallback = BenchmarkFallbackState::Attempted;
+            }
+            _ => {
+                return emit_error(
+                    command,
+                    format,
+                    "unknown option",
+                    &cli_unknown_arg_error(command, &token),
+                );
+            }
+        }
+    }
+    let result = VortexQueryPrimitiveResult::metadata_answered(request, value);
+    let bridge = match plan_vortex_query_primitive_result_physical_operators_with_evidence(
+        &result,
+        correctness_evidence,
+        benchmark_evidence,
+        memory,
+        fallback,
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(command, format, "physical bridge planning failed", &error);
+        }
+    };
+    let report = evaluate_vortex_metadata_physical_kernels(&result, &bridge);
+    let count_admission = if matches!(
+        report.primitive_kind,
+        shardloom_vortex::VortexQueryPrimitiveKind::CountAll
+            | shardloom_vortex::VortexQueryPrimitiveKind::CountWhere
+    ) {
+        match admit_vortex_metadata_count_kernel(&report) {
+            Ok(admission) => Some(admission),
+            Err(error) => {
+                return emit_error(command, format, "count kernel admission failed", &error);
+            }
+        }
+    } else {
+        None
+    };
+    let filter_admission =
+        if report.primitive_kind == shardloom_vortex::VortexQueryPrimitiveKind::FilterPredicate {
+            match admit_vortex_metadata_filter_kernel(&report) {
+                Ok(admission) => Some(admission),
+                Err(error) => {
+                    return emit_error(command, format, "filter kernel admission failed", &error);
+                }
+            }
+        } else {
+            None
+        };
+    let report_has_errors = report.has_errors()
+        || count_admission
+            .as_ref()
+            .is_some_and(VortexMetadataCountKernelAdmissionReport::has_errors)
+        || filter_admission
+            .as_ref()
+            .is_some_and(VortexMetadataFilterKernelAdmissionReport::has_errors);
+    let mut diagnostics = report.diagnostics.clone();
+    if let Some(count_admission) = &count_admission {
+        diagnostics.extend(count_admission.diagnostics.clone());
+    }
+    if let Some(filter_admission) = &filter_admission {
+        diagnostics.extend(filter_admission.diagnostics.clone());
+    }
+    let mut fields = vec![
+        (
+            "primitive".to_string(),
+            report.primitive_kind.as_str().to_string(),
+        ),
+        ("status".to_string(), report.status.as_str().to_string()),
+        (
+            "certificate_status".to_string(),
+            report.certificate_status.as_str().to_string(),
+        ),
+        (
+            "metadata_kernel_count".to_string(),
+            report.metadata_kernel_count.to_string(),
+        ),
+        (
+            "kernel_kind".to_string(),
+            report.kernel_kind.as_str().to_string(),
+        ),
+        ("value".to_string(), report.value.as_str()),
+        (
+            "correctness_evidence".to_string(),
+            correctness_evidence.as_str().to_string(),
+        ),
+        (
+            "benchmark_evidence".to_string(),
+            benchmark_evidence.as_str().to_string(),
+        ),
+        (
+            "memory_safe".to_string(),
+            metadata_kernel_memory_safe(memory).to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            fallback.attempted().to_string(),
+        ),
+        ("data_read".to_string(), report.data_read.to_string()),
+        ("data_decoded".to_string(), report.data_decoded.to_string()),
+        (
+            "data_materialized".to_string(),
+            report.data_materialized.to_string(),
+        ),
+        (
+            "object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        ("write_io".to_string(), report.write_io.to_string()),
+        (
+            "spill_io_performed".to_string(),
+            report.spill_io_performed.to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "side_effect_free".to_string(),
+            report.is_side_effect_free().to_string(),
+        ),
+    ];
+    if let Some(count_admission) = &count_admission {
+        append_metadata_count_kernel_admission_fields(&mut fields, count_admission);
+    }
+    if let Some(filter_admission) = &filter_admission {
+        append_metadata_filter_kernel_admission_fields(&mut fields, filter_admission);
+    }
+    emit(
+        command,
+        format,
+        if report_has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex metadata physical kernel report".to_string(),
+        report.to_human_text(),
+        diagnostics,
+        fields,
+    );
+    if report_has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn parse_vortex_layout_driver_approval_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexLayoutReaderDriverApprovalSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "layout driver approval signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "layout driver approval signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "local-fixture-only" => VortexLayoutReaderDriverApprovalSignal::LocalFixtureOnly,
+            "caller-session-allowed" => {
+                VortexLayoutReaderDriverApprovalSignal::CallerSessionAllowed
+            }
+            "runtime-driver-start-allowed" => {
+                VortexLayoutReaderDriverApprovalSignal::RuntimeDriverStartAllowed
+            }
+            "layout-row-count-only-intent" => {
+                VortexLayoutReaderDriverApprovalSignal::LayoutRowCountOnlyIntent
+            }
+            "scan-forbidden" => VortexLayoutReaderDriverApprovalSignal::ScanForbidden,
+            "evaluation-forbidden" => VortexLayoutReaderDriverApprovalSignal::EvaluationForbidden,
+            "data-read-forbidden" => VortexLayoutReaderDriverApprovalSignal::DataReadForbidden,
+            "decode-forbidden" => VortexLayoutReaderDriverApprovalSignal::DecodeForbidden,
+            "materialization-forbidden" => {
+                VortexLayoutReaderDriverApprovalSignal::MaterializationForbidden
+            }
+            "arrow-forbidden" => VortexLayoutReaderDriverApprovalSignal::ArrowForbidden,
+            "object-store-forbidden" => {
+                VortexLayoutReaderDriverApprovalSignal::ObjectStoreForbidden
+            }
+            "write-forbidden" => VortexLayoutReaderDriverApprovalSignal::WriteForbidden,
+            "fallback-forbidden" => VortexLayoutReaderDriverApprovalSignal::FallbackForbidden,
+            _ => {
+                return Err(cli_unknown_signal_error(
+                    "vortex-layout-driver-approval-plan",
+                    "layout-driver-approval",
+                    token,
+                ));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
+pub(crate) fn vortex_projection_readiness_fields(
+    report: &shardloom_vortex::VortexProjectionReadinessReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "candidate_source".to_string(),
+            report.request.candidate_source.as_str().to_string(),
+        ),
+        ("status".to_string(), report.status.as_str().to_string()),
+        ("mode".to_string(), report.mode.as_str().to_string()),
+        (
+            "projection_ready".to_string(),
+            report.projection_ready().to_string(),
+        ),
+        (
+            "projection_executed".to_string(),
+            report.projection_executed().to_string(),
+        ),
+        (
+            "projection_applied".to_string(),
+            report.projection_applied().to_string(),
+        ),
+        (
+            "feature_gate_enabled".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::FeatureGateEnabled)
+                .to_string(),
+        ),
+        (
+            "query_primitive_ready".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::QueryPrimitiveReady)
+                .to_string(),
+        ),
+        (
+            "metadata_footer_ready".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::MetadataFooterReady)
+                .to_string(),
+        ),
+        (
+            "encoded_data_path_ready".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::EncodedDataPathReady)
+                .to_string(),
+        ),
+        (
+            "projection_primitive".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::ProjectionPrimitive)
+                .to_string(),
+        ),
+        (
+            "projection_provided".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::ProjectionProvided)
+                .to_string(),
+        ),
+        (
+            "projection_supported".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::ProjectionSupported)
+                .to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("metadata_read".to_string(), "false".to_string()),
+        ("encoded_data_read".to_string(), "false".to_string()),
+        ("row_read".to_string(), "false".to_string()),
+        ("array_decoded".to_string(), "false".to_string()),
+        ("values_materialized".to_string(), "false".to_string()),
+        ("arrow_converted".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("data_written".to_string(), "false".to_string()),
+        ("upstream_scan_called".to_string(), "false".to_string()),
+    ]
+}
+
+fn append_metadata_filter_kernel_admission_fields(
+    fields: &mut Vec<(String, String)>,
+    filter_admission: &VortexMetadataFilterKernelAdmissionReport,
+) {
+    push_bool_field(fields, "metadata_filter_kernel_admission_emitted", true);
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_schema_version",
+        filter_admission.schema_version,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_id",
+        &filter_admission.admission_id,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_kernel_report_id",
+        &filter_admission.metadata_kernel_report_id,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_slot_id",
+        &filter_admission.slot_id,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_operator_kind",
+        filter_admission.operator_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_required_kernel_kind",
+        filter_admission.required_kernel_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_candidate_kernel_kind",
+        filter_admission.candidate_kernel_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_status",
+        filter_admission.status.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_correctness_evidence",
+        filter_admission.correctness_evidence.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_benchmark_evidence",
+        filter_admission.benchmark_evidence.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_memory_streaming",
+        filter_admission.memory.streaming,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_memory_bounded",
+        filter_admission.memory.bounded_memory,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_memory_oom_safe",
+        filter_admission.memory.oom_safe,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_requires_full_materialization",
+        filter_admission.memory.requires_full_materialization,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_fallback_state",
+        filter_admission.fallback.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_slot_marked_present",
+        filter_admission.slot_marked_present,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_production_claim_allowed",
+        filter_admission.production_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_runtime_execution",
+        filter_admission.runtime_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_fallback_execution_allowed",
+        filter_admission.fallback_execution_allowed,
+    );
+}
+
+fn append_metadata_count_kernel_admission_fields(
+    fields: &mut Vec<(String, String)>,
+    count_admission: &VortexMetadataCountKernelAdmissionReport,
+) {
+    push_bool_field(fields, "metadata_count_kernel_admission_emitted", true);
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_schema_version",
+        count_admission.schema_version,
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_id",
+        &count_admission.admission_id,
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_kernel_report_id",
+        &count_admission.metadata_kernel_report_id,
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_primitive_kind",
+        count_admission.primitive_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_slot_id",
+        &count_admission.slot_id,
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_operator_kind",
+        count_admission.operator_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_required_kernel_kind",
+        count_admission.required_kernel_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_candidate_kernel_kind",
+        count_admission.candidate_kernel_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_status",
+        count_admission.status.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_correctness_evidence",
+        count_admission.correctness_evidence.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_benchmark_evidence",
+        count_admission.benchmark_evidence.as_str(),
+    );
+    append_metadata_count_kernel_admission_resource_fields(fields, count_admission);
+    append_metadata_count_kernel_admission_outcome_fields(fields, count_admission);
+}
+
+fn append_metadata_count_kernel_admission_resource_fields(
+    fields: &mut Vec<(String, String)>,
+    count_admission: &VortexMetadataCountKernelAdmissionReport,
+) {
+    push_bool_field(
+        fields,
+        "metadata_count_kernel_admission_memory_streaming",
+        count_admission.memory.streaming,
+    );
+    push_bool_field(
+        fields,
+        "metadata_count_kernel_admission_memory_bounded",
+        count_admission.memory.bounded_memory,
+    );
+    push_bool_field(
+        fields,
+        "metadata_count_kernel_admission_memory_oom_safe",
+        count_admission.memory.oom_safe,
+    );
+    push_bool_field(
+        fields,
+        "metadata_count_kernel_admission_requires_full_materialization",
+        count_admission.memory.requires_full_materialization,
+    );
+    push_field(
+        fields,
+        "metadata_count_kernel_admission_fallback_state",
+        count_admission.fallback.as_str(),
+    );
+}
+
+fn append_metadata_count_kernel_admission_outcome_fields(
+    fields: &mut Vec<(String, String)>,
+    count_admission: &VortexMetadataCountKernelAdmissionReport,
+) {
+    push_bool_field(
+        fields,
+        "metadata_count_kernel_admission_slot_marked_present",
+        count_admission.slot_marked_present,
+    );
+    push_bool_field(
+        fields,
+        "metadata_count_kernel_admission_production_claim_allowed",
+        count_admission.production_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "metadata_count_kernel_admission_runtime_execution",
+        count_admission.runtime_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "metadata_count_kernel_admission_fallback_execution_allowed",
+        count_admission.fallback_execution_allowed,
+    );
+}
 
 pub(crate) fn handle_vortex_metadata_plan(
     mut args: std::vec::IntoIter<String>,
@@ -400,7 +1065,9 @@ pub(crate) fn handle_vortex_dry_run(
     emit(
         command,
         format,
-        if readiness_report.has_errors() || crate::readiness_is_blocked(readiness_report.status) {
+        if readiness_report.has_errors()
+            || crate::vortex_runtime_planning::readiness_is_blocked(readiness_report.status)
+        {
             CommandStatus::Unsupported
         } else {
             CommandStatus::Success
@@ -429,7 +1096,9 @@ pub(crate) fn handle_vortex_dry_run(
             ("max_parallelism".to_string(), max_parallelism.to_string()),
         ],
     );
-    if readiness_report.has_errors() || crate::readiness_is_blocked(readiness_report.status) {
+    if readiness_report.has_errors()
+        || crate::vortex_runtime_planning::readiness_is_blocked(readiness_report.status)
+    {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
@@ -1019,7 +1688,7 @@ pub(crate) fn handle_vortex_metadata_physical_kernel_plan(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
-    crate::run_vortex_metadata_physical_kernel_plan(format, args.collect())
+    run_vortex_metadata_physical_kernel_plan(format, args.collect())
 }
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_vortex_count_readiness_plan(
@@ -1519,7 +2188,7 @@ pub(crate) fn handle_vortex_layout_driver_approval_plan(
             &ShardLoomError::InvalidOperation(format!("unknown option: {extra}")),
         );
     }
-    let signals = match crate::parse_vortex_layout_driver_approval_signals(&signals_raw) {
+    let signals = match parse_vortex_layout_driver_approval_signals(&signals_raw) {
         Ok(signals) => signals,
         Err(error) => {
             return emit_error(command, format, "invalid signals", &error);
@@ -1970,7 +2639,7 @@ pub(crate) fn handle_vortex_projection_readiness_plan(
         "vortex projection readiness planning report".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        crate::vortex_projection_readiness_fields(&report),
+        vortex_projection_readiness_fields(&report),
     );
     if report.has_errors() {
         ExitCode::from(1)
