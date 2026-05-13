@@ -29,6 +29,7 @@ from .errors import (
     ShardLoomProtocolError,
 )
 from .models import Diagnostic, FieldEntry, FallbackStatus, OutputEnvelope
+from .quickstart import QuickstartProofReport, quickstart_proof
 from .query import (
     LazyFrame,
     UnsupportedWorkflowReport,
@@ -47,6 +48,7 @@ __all__ = [
     "FallbackStatus",
     "FieldEntry",
     "OutputEnvelope",
+    "QuickstartProofReport",
     "DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS",
     "ETL_INPUT_FORMATS",
     "CapabilityView",
@@ -61,6 +63,7 @@ __all__ = [
     "WorkflowReadinessSmokeReport",
     "ShardLoomContext",
     "context",
+    "quickstart_proof",
     "LazyFrame",
     "UnsupportedWorkflowReport",
     "WorkflowCertificationReport",

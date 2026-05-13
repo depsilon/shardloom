@@ -269,7 +269,7 @@ actionable work.
     - Verification: Vortex output/commit/staged artifact tests, table/catalog/object-store planning
       tests, Python workflow-readiness tests and smoke script, write/remote/evidence blocker
       diagnostics, and full workspace validation.
-  - [ ] P4.7 end-to-end quickstart and proof bundle.
+  - [x] P4.7 end-to-end quickstart and proof bundle.
     - User-visible surface: `python/README.md`, a local quickstart example, and repository smoke
       scripts show the exact install/import/smoke/capability/source-plan/output-readiness/
       execute-supported/diagnose-blocked flow a user can run on the same checkout.

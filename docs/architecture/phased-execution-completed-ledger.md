@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P4.7 end-to-end quickstart and proof bundle
+  - Primary files:
+    - `python/src/shardloom/quickstart.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/examples/quickstart_proof.py`
+    - `python/tests/test_quickstart_proof.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add a single local quickstart proof path that a user can run from the checkout to see
+    import/CLI smoke, capability discovery, lazy source planning, unsupported explain/estimate
+    diagnostics, compatibility-source planning, workflow readiness, and optional certified local
+    Vortex primitive execution.
+  - Checklist:
+    - [x] Add `QuickstartProofReport` and `quickstart_proof()` to aggregate the existing Python
+          smoke, capability, lazy workflow, compatibility-source, workflow-readiness, and optional
+          local Vortex primitive evidence surfaces.
+    - [x] Add `python/examples/quickstart_proof.py` with a planning-only default path and an
+          explicit `--run-local-vortex` opt-in for the checked-in certified fixture.
+    - [x] Update `python/README.md` with exact quickstart commands, including the required
+          `vortex-local-primitives` feature build before optional local execution.
+    - [x] Add Python tests proving the quickstart proof preserves no-write planning, collects
+          unsupported diagnostics, and can include certified local primitive execution when
+          requested.
+  - Validation:
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_quickstart_proof`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom python\examples\quickstart_proof.py python\examples\workflow_readiness_smoke.py python\examples\local_vortex_primitives_smoke.py python\examples\compatibility_source_smoke.py`
+    - [x] `$env:PYTHONPATH='python/src'; python python\examples\quickstart_proof.py --repo-root .`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo build -p shardloom-cli --features vortex-local-primitives --bin shardloom`
+    - [x] `$env:PYTHONPATH='python/src'; python python\examples\quickstart_proof.py --repo-root . --run-local-vortex`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: the quickstart proof defaults to no-write planning and diagnostics. The only
+    optional execution is the existing certified local Vortex primitive fixture workflow behind an
+    explicit flag and feature-built CLI; unsupported SQL/DataFrame, object-store/catalog, remote
+    service, production write, package publication, external-engine, and fallback claims remain
+    blocked.
+
 - [x] Session label: P4.6 workflow readiness, output/remote blockers, and evidence UX bundle
   - Primary files:
     - `python/src/shardloom/client.py`

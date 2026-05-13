@@ -306,6 +306,35 @@ materialize rows, or invoke fallback engines. Actual write and commit commands
 remain separate explicit CLI calls gated by their readiness signals and feature
 flags.
 
+## Quickstart Proof
+
+The quickstart proof script stitches the local user flow together: import and
+CLI smoke, capability discovery, lazy source planning, unsupported
+explain/estimate diagnostics, compatibility-source planning, workflow
+readiness, and optional certified local Vortex primitive execution.
+
+```powershell
+$env:PYTHONPATH = "python\src"
+python python\examples\quickstart_proof.py --repo-root .
+```
+
+To include the currently certified fixture execution path, build the CLI with
+the local primitive feature and opt in explicitly:
+
+```powershell
+$env:RUSTUP_TOOLCHAIN = "1.91.1"
+cargo build -p shardloom-cli --features vortex-local-primitives --bin shardloom
+
+$env:PYTHONPATH = "python\src"
+python python\examples\quickstart_proof.py --repo-root . --run-local-vortex
+```
+
+The optional execution path runs only the checked-in
+`local_primitive_struct_five.vortex` fixture through explicit local Vortex
+primitive flags. The planning portions remain no-write/no-probe, and the script
+exits nonzero if fallback is attempted, planning writes occur, or requested
+local primitive evidence is not certified.
+
 Universal I/O is broader than local compatibility files. The current adapter
 registry also makes object-store, catalog, effectful, and unstructured queues
 visible from Python:
