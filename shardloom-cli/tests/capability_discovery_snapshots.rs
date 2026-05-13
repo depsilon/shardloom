@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const ENGINE_FIELD_KEYS: [&str; 33] = [
+const ENGINE_FIELD_KEYS: [&str; 65] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -57,6 +57,12 @@ const ENGINE_FIELD_KEYS: [&str; 33] = [
     "adapter_probe",
     "parser_executed",
     "runtime_execution",
+    "external_effects_executed",
+    "data_read",
+    "write_io",
+    "no_runtime",
+    "no_fallback",
+    "no_effects",
     "engine_capability_schema_version",
     "engine_capability_report_id",
     "engine_mode_vocabulary",
@@ -67,18 +73,165 @@ const ENGINE_FIELD_KEYS: [&str; 33] = [
     "partially_supported_engine_count",
     "planned_engine_count",
     "live_hybrid_claim_blocked_count",
+    "severity",
+    "blocker_ids",
+    "required_evidence",
+    "suggested_next_action",
+    "future_rest_view",
     "batch_support_status",
     "batch_production_claim_allowed",
     "batch_state_required",
     "batch_checkpoint_required",
+    "batch_blocker_ids",
+    "batch_severity",
+    "batch_required_evidence",
+    "batch_suggested_next_action",
+    "batch_no_runtime",
+    "batch_no_fallback",
+    "batch_no_effects",
     "live_support_status",
     "live_production_claim_allowed",
     "live_state_required",
     "live_checkpoint_required",
+    "live_blocker_ids",
+    "live_severity",
+    "live_required_evidence",
+    "live_suggested_next_action",
+    "live_no_runtime",
+    "live_no_fallback",
+    "live_no_effects",
     "hybrid_support_status",
     "hybrid_production_claim_allowed",
     "hybrid_state_required",
     "hybrid_checkpoint_required",
+    "hybrid_blocker_ids",
+    "hybrid_severity",
+    "hybrid_required_evidence",
+    "hybrid_suggested_next_action",
+    "hybrid_no_runtime",
+    "hybrid_no_fallback",
+    "hybrid_no_effects",
+];
+
+const WORKFLOW_FIELD_KEYS: [&str; 30] = [
+    "scope",
+    "schema_version",
+    "report_id",
+    "capability_status",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+    "side_effect_free",
+    "filesystem_probe",
+    "network_probe",
+    "catalog_probe",
+    "adapter_probe",
+    "parser_executed",
+    "runtime_execution",
+    "external_effects_executed",
+    "data_read",
+    "write_io",
+    "no_runtime",
+    "no_fallback",
+    "no_effects",
+    "represented_gates",
+    "represented_surfaces",
+    "future_rest_view",
+    "workflow_state",
+    "workflow_operation_count",
+    "workflow_operation_names",
+    "severity",
+    "blocker_ids",
+    "required_evidence",
+    "suggested_next_action",
+    "unsupported_diagnostic_surface",
+];
+
+const REMOTE_API_FIELD_KEYS: [&str; 32] = [
+    "scope",
+    "schema_version",
+    "report_id",
+    "capability_status",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+    "side_effect_free",
+    "filesystem_probe",
+    "network_probe",
+    "catalog_probe",
+    "adapter_probe",
+    "parser_executed",
+    "runtime_execution",
+    "external_effects_executed",
+    "data_read",
+    "write_io",
+    "no_runtime",
+    "no_fallback",
+    "no_effects",
+    "represented_gates",
+    "represented_surfaces",
+    "future_rest_view",
+    "remote_api_state",
+    "remote_api_surface_count",
+    "remote_api_surface_names",
+    "severity",
+    "blocker_ids",
+    "required_evidence",
+    "suggested_next_action",
+    "unsupported_diagnostic_surface",
+    "contract_surface",
+    "event_surface",
+];
+
+const CROSS_CG_FIELD_KEYS: [&str; 50] = [
+    "scope",
+    "schema_version",
+    "report_id",
+    "capability_status",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+    "side_effect_free",
+    "filesystem_probe",
+    "network_probe",
+    "catalog_probe",
+    "adapter_probe",
+    "parser_executed",
+    "runtime_execution",
+    "external_effects_executed",
+    "data_read",
+    "write_io",
+    "no_runtime",
+    "no_fallback",
+    "no_effects",
+    "represented_gates",
+    "represented_surfaces",
+    "future_rest_view",
+    "parity_surface_count",
+    "cg21_workflow_state",
+    "cg21_workflow_severity",
+    "cg21_workflow_blocker_ids",
+    "cg21_workflow_required_evidence",
+    "cg21_workflow_suggested_next_action",
+    "cg21_workflow_diagnostic_surface",
+    "cg21_workflow_no_runtime",
+    "cg21_workflow_no_fallback",
+    "cg21_workflow_no_effects",
+    "cg22_engine_modes_state",
+    "cg22_engine_modes_severity",
+    "cg22_engine_modes_blocker_ids",
+    "cg22_engine_modes_required_evidence",
+    "cg22_engine_modes_suggested_next_action",
+    "cg22_engine_modes_diagnostic_surface",
+    "cg22_engine_modes_no_runtime",
+    "cg22_engine_modes_no_fallback",
+    "cg22_engine_modes_no_effects",
+    "cg23_remote_api_state",
+    "cg23_remote_api_severity",
+    "cg23_remote_api_blocker_ids",
+    "cg23_remote_api_required_evidence",
+    "cg23_remote_api_suggested_next_action",
+    "cg23_remote_api_diagnostic_surface",
+    "cg23_remote_api_no_runtime",
+    "cg23_remote_api_no_fallback",
+    "cg23_remote_api_no_effects",
 ];
 
 const OPERATOR_FIELD_KEYS: [&str; 180] = [
@@ -385,6 +538,9 @@ fn capability_discovery_json_field_keys_are_stable() {
         ("migration", MIGRATION_FIELD_KEYS.as_slice()),
         ("certification", CERTIFICATION_FIELD_KEYS.as_slice()),
         ("engines", ENGINE_FIELD_KEYS.as_slice()),
+        ("workflow", WORKFLOW_FIELD_KEYS.as_slice()),
+        ("remote-api", REMOTE_API_FIELD_KEYS.as_slice()),
+        ("cross-cg", CROSS_CG_FIELD_KEYS.as_slice()),
     ] {
         let output = run_capabilities_scope(scope);
         let keys = field_keys(&output);
@@ -425,6 +581,9 @@ fn capability_discovery_json_fields_remain_report_only() {
         "extensions",
         "security-governance",
         "engines",
+        "workflow",
+        "remote-api",
+        "cross-cg",
     ] {
         let output = run_capabilities_scope(scope);
         for key in REPORT_ONLY_BOOL_FIELD_KEYS {
@@ -465,6 +624,9 @@ fn capability_discovery_scope_values_are_stable() {
         ("extensions", "extensions"),
         ("security-governance", "security_governance"),
         ("engines", "engines"),
+        ("workflow", "workflow"),
+        ("remote-api", "remote_api"),
+        ("cross-cg", "cross_cg"),
     ] {
         let output = run_capabilities_scope(scope);
         assert!(
@@ -580,6 +742,64 @@ fn engine_capability_discovery_exposes_cg22_contract_without_runtime_claims() {
     assert!(output.contains(&field_pair("hybrid_production_claim_allowed", false)));
     assert!(output.contains(&field_pair("live_state_required", true)));
     assert!(output.contains(&field_pair("hybrid_checkpoint_required", true)));
+    assert!(output.contains(&string_field_pair("severity", "error")));
+    assert!(output.contains(&string_field_pair(
+        "batch_blocker_ids",
+        "cg22.engine.batch.workload_correctness_evidence,cg22.engine.batch.benchmark_evidence,cg22.engine.batch.broad_source_sink_certification"
+    )));
+    assert!(output.contains(&field_pair("batch_no_runtime", true)));
+    assert!(output.contains(&field_pair("live_no_fallback", true)));
+    assert!(output.contains(&field_pair("hybrid_no_effects", true)));
+}
+
+#[test]
+fn cross_cg_capability_parity_surfaces_shared_blocker_contracts() {
+    let workflow = run_capabilities_scope("workflow");
+    let remote_api = run_capabilities_scope("remote-api");
+    let cross_cg = run_capabilities_scope("cross-cg");
+
+    assert!(workflow.contains(&string_field_pair(
+        "schema_version",
+        "shardloom.workflow_capability_parity.v1"
+    )));
+    assert!(workflow.contains(&string_field_pair(
+        "blocker_ids",
+        "cg21.workflow.profile.runtime_profile_unsupported,cg21.workflow.collect.materialization_unsupported,cg21.workflow.to_pandas.decoded_dataframe_unsupported,cg21.workflow.to_arrow.decoded_columnar_unsupported,cg21.workflow.write_vortex.write_policy_unsupported,cg21.workflow.write_parquet.compatibility_export_unsupported,cg21.workflow.sql.frontend_unsupported,cg21.workflow.join.operator_unsupported,cg21.workflow.aggregate.operator_unsupported,cg21.workflow.window.operator_unsupported,cg21.workflow.schema_contract.enforcement_unsupported,cg21.workflow.data_quality.checks_unsupported"
+    )));
+    assert!(workflow.contains(&string_field_pair("severity", "error")));
+    assert!(workflow.contains(&field_pair("no_runtime", true)));
+    assert!(workflow.contains(&field_pair("no_fallback", true)));
+    assert!(workflow.contains(&field_pair("no_effects", true)));
+
+    assert!(remote_api.contains(&string_field_pair(
+        "schema_version",
+        "shardloom.remote_api_capability_parity.v1"
+    )));
+    assert!(remote_api.contains(&string_field_pair(
+        "blocker_ids",
+        "cg23.remote_api.plan_preview.unsupported_operator,cg23.remote_api.remote_object_store.unsupported,cg23.remote_api.lifecycle.uncertified_blocked,cg23.remote_api.data_plane.materialization_boundary_required"
+    )));
+    assert!(remote_api.contains(&string_field_pair(
+        "suggested_next_action",
+        "Use rest-api-contract-plan and rest-api-plan-preview for scenario-specific blockers before enabling remote execution."
+    )));
+
+    assert!(cross_cg.contains(&string_field_pair("represented_gates", "cg21,cg22,cg23")));
+    assert!(cross_cg.contains(&string_field_pair(
+        "cg21_workflow_diagnostic_surface",
+        "workflow-unsupported-plan"
+    )));
+    assert!(cross_cg.contains(&string_field_pair(
+        "cg22_engine_modes_diagnostic_surface",
+        "engine-capability-matrix"
+    )));
+    assert!(cross_cg.contains(&string_field_pair(
+        "cg23_remote_api_diagnostic_surface",
+        "rest-api-plan-preview"
+    )));
+    assert!(cross_cg.contains(&field_pair("cg21_workflow_no_runtime", true)));
+    assert!(cross_cg.contains(&field_pair("cg22_engine_modes_no_fallback", true)));
+    assert!(cross_cg.contains(&field_pair("cg23_remote_api_no_effects", true)));
 }
 
 fn assert_operator_discovery_physical_plan(output: &str) {

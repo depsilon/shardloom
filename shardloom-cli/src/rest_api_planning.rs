@@ -378,6 +378,7 @@ pub(crate) fn handle_serve_command(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "mode", "api_compat_plan");
@@ -475,10 +476,20 @@ pub(crate) fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(Str
         report.fallback_execution_allowed,
     );
     push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    append_rest_no_effect_parity_fields(
+        &mut fields,
+        report.runtime_execution,
+        false,
+        report.write_io,
+        report.fallback_attempted,
+        false,
+        report.external_publish,
+    );
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
 }
 
+#[allow(clippy::too_many_lines)]
 fn rest_api_contract_fields(
     report: &RestApiContractReport,
     mode: &'static str,
@@ -573,6 +584,15 @@ fn rest_api_contract_fields(
         report.fallback_execution_allowed,
     );
     push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    append_rest_no_effect_parity_fields(
+        &mut fields,
+        report.runtime_execution,
+        false,
+        report.write_io,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        false,
+    );
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
 }
@@ -769,6 +789,15 @@ fn append_plan_preview_effect_fields(
         "effect_policy_violated",
         report.effect_policy_violated(),
     );
+    append_rest_no_effect_parity_fields(
+        fields,
+        report.runtime_execution,
+        false,
+        report.write_io,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        report.effect_policy_violated(),
+    );
 }
 
 fn rest_api_local_lifecycle_fields(report: &RestApiLocalLifecycleReport) -> Vec<(String, String)> {
@@ -963,6 +992,15 @@ fn append_local_lifecycle_effect_fields(
     push_bool_field(
         fields,
         "effect_policy_violated",
+        report.effect_policy_violated(),
+    );
+    append_rest_no_effect_parity_fields(
+        fields,
+        report.runtime_execution,
+        report.data_read,
+        report.write_io,
+        report.fallback_attempted,
+        report.external_engine_invoked,
         report.effect_policy_violated(),
     );
 }
@@ -1237,6 +1275,15 @@ fn append_event_stream_effect_fields(
         "effect_policy_violated",
         report.effect_policy_violated(),
     );
+    append_rest_no_effect_parity_fields(
+        fields,
+        report.runtime_execution,
+        report.data_read,
+        report.write_io,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        report.effect_policy_violated(),
+    );
 }
 
 fn rest_api_security_governance_fields(
@@ -1469,6 +1516,15 @@ fn append_security_governance_effect_fields(
     push_bool_field(
         fields,
         "effect_policy_violated",
+        report.effect_policy_violated(),
+    );
+    append_rest_no_effect_parity_fields(
+        fields,
+        report.runtime_execution,
+        report.data_read,
+        report.write_io,
+        report.fallback_attempted,
+        report.external_engine_invoked,
         report.effect_policy_violated(),
     );
 }
@@ -1714,6 +1770,15 @@ fn append_data_plane_effect_fields(
         "effect_policy_violated",
         report.effect_policy_violated(),
     );
+    append_rest_no_effect_parity_fields(
+        fields,
+        report.runtime_execution,
+        report.data_read,
+        report.write_io,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        report.effect_policy_violated(),
+    );
 }
 
 fn append_api_protocol_compatibility_lock_fields(
@@ -1765,6 +1830,30 @@ fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize)
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     push_field(fields, key, &value.to_string());
+}
+
+#[allow(clippy::fn_params_excessive_bools)]
+fn append_rest_no_effect_parity_fields(
+    fields: &mut Vec<(String, String)>,
+    runtime_execution: bool,
+    data_read: bool,
+    write_io: bool,
+    fallback_attempted: bool,
+    external_engine_invoked: bool,
+    effect_policy_violated: bool,
+) {
+    push_bool_field(fields, "external_effects_executed", effect_policy_violated);
+    push_bool_field(fields, "no_runtime", !runtime_execution);
+    push_bool_field(
+        fields,
+        "no_fallback",
+        !fallback_attempted && !external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "no_effects",
+        !data_read && !write_io && !effect_policy_violated,
+    );
 }
 
 #[cfg(test)]

@@ -1206,6 +1206,7 @@ fn common_engine_contract_fields(
     );
     push_bool_field(&mut fields, "fallback_execution_allowed", false);
     push_bool_field(&mut fields, "fallback_attempted", fallback_attempted);
+    push_bool_field(&mut fields, "side_effect_free", true);
     push_bool_field(
         &mut fields,
         "external_engine_invoked",
@@ -1214,9 +1215,18 @@ fn common_engine_contract_fields(
     push_bool_field(&mut fields, "runtime_execution", runtime_execution);
     push_bool_field(&mut fields, "data_read", data_read);
     push_bool_field(&mut fields, "write_io", write_io);
+    push_bool_field(&mut fields, "external_effects_executed", false);
+    push_bool_field(&mut fields, "no_runtime", !runtime_execution);
+    push_bool_field(
+        &mut fields,
+        "no_fallback",
+        !fallback_attempted && !external_engine_invoked,
+    );
+    push_bool_field(&mut fields, "no_effects", !data_read && !write_io);
     fields
 }
 
+#[allow(clippy::too_many_lines)]
 fn append_engine_capability_row_fields(
     fields: &mut Vec<(String, String)>,
     row: &EngineCapabilityRow,
@@ -1307,6 +1317,54 @@ fn append_engine_capability_row_fields(
         &format!("{prefix}_blockers"),
         &row.blockers.join(","),
     );
+    push_field(
+        fields,
+        &format!("{prefix}_blocker_ids"),
+        &engine_row_blocker_ids(row),
+    );
+    push_field(fields, &format!("{prefix}_severity"), "error");
+    push_field(
+        fields,
+        &format!("{prefix}_required_evidence"),
+        engine_row_required_evidence(row),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_suggested_next_action"),
+        engine_mode_suggested_next_action(),
+    );
+    push_bool_field(fields, &format!("{prefix}_no_runtime"), true);
+    push_bool_field(fields, &format!("{prefix}_no_fallback"), true);
+    push_bool_field(fields, &format!("{prefix}_no_effects"), true);
+}
+
+fn engine_row_blocker_ids(row: &EngineCapabilityRow) -> String {
+    row.blockers
+        .iter()
+        .map(|blocker| format!("cg22.engine.{}.{}", row.engine_mode.as_str(), blocker))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn engine_row_required_evidence(row: &EngineCapabilityRow) -> &'static str {
+    match row.engine_mode.as_str() {
+        "batch" => {
+            "workload_correctness_evidence,benchmark_evidence,broad_source_sink_certification"
+        }
+        "live" => {
+            "durable_checkpoint_store,unbounded_runtime_scheduler,workload_correctness_evidence,benchmark_evidence"
+        }
+        "hybrid" => {
+            "durable_micro_segment_flush_writes,object_store_commit_protocol,external_catalog_snapshot_discovery,workload_correctness_evidence,benchmark_evidence"
+        }
+        _ => {
+            "workload_correctness_evidence,benchmark_evidence,broad_source_sink_certification,durable_checkpoint_store,object_store_commit_protocol"
+        }
+    }
+}
+
+const fn engine_mode_suggested_next_action() -> &'static str {
+    "Use engine-selection-plan and engine-capability-matrix before making engine-mode execution claims."
 }
 
 fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
