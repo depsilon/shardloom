@@ -436,6 +436,95 @@ class EngineCapabilityMatrix:
 
 
 @dataclass(frozen=True, slots=True)
+class RestApiContractPlan:
+    """Typed convenience view over the CG-23 REST/OpenAPI contract report."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def api_version(self) -> str | None:
+        """Return the REST API version."""
+
+        return self.envelope.field("api_version")
+
+    @property
+    def openapi_version(self) -> str | None:
+        """Return the declared OpenAPI version."""
+
+        return self.envelope.field("openapi_version")
+
+    @property
+    def openapi_contract_path(self) -> str | None:
+        """Return the checked-in OpenAPI contract path."""
+
+        return self.envelope.field("openapi_contract_path")
+
+    @property
+    def represented_resources(self) -> tuple[str, ...]:
+        """Return represented REST resource groups."""
+
+        value = self.envelope.field("represented_resources", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def discovery_endpoint_paths(self) -> tuple[str, ...]:
+        """Return contract-only discovery endpoint paths."""
+
+        value = self.envelope.field("discovery_endpoint_paths", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def contract_artifact_checked_in(self) -> bool:
+        """Whether the checked-in OpenAPI contract artifact is reported present."""
+
+        return self.envelope.field_bool("openapi_contract_artifact_checked_in", False) is True
+
+    @property
+    def server_started(self) -> bool:
+        """Whether the command started a server."""
+
+        return self.envelope.field_bool("server_started", False) is True
+
+    @property
+    def network_listener_opened(self) -> bool:
+        """Whether the command opened a network listener."""
+
+        return self.envelope.field_bool("network_listener_opened", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the command attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RestApiDiscoveryContract(RestApiContractPlan):
+    """Typed view over `serve --mode discovery` contract-only output."""
+
+    @property
+    def bind(self) -> str | None:
+        """Return the requested bind address."""
+
+        return self.envelope.field("bind")
+
+    @property
+    def server_mode(self) -> str | None:
+        """Return the requested server mode."""
+
+        return self.envelope.field("server_mode")
+
+    @property
+    def contract_only(self) -> bool:
+        """Whether `serve` stayed in contract-only mode."""
+
+        return self.envelope.field_bool("serve_command_contract_only", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class LiveChangeContractPlan:
     """Typed convenience view over the CG-22 live change contract."""
 
@@ -816,6 +905,23 @@ class ShardLoomClient:
         """Return the CLI/API JSON compatibility plan envelope."""
 
         return self.run(["api-compat-plan"], check=check)
+
+    def rest_api_contract_plan(self, *, check: bool = True) -> RestApiContractPlan:
+        """Return the CG-23 REST/OpenAPI contract plan envelope."""
+
+        return RestApiContractPlan(self.run(["rest-api-contract-plan"], check=check))
+
+    def serve_discovery_contract(
+        self,
+        *,
+        bind: str = "127.0.0.1:8787",
+        check: bool = True,
+    ) -> RestApiDiscoveryContract:
+        """Return `serve --mode discovery` contract output without starting a server."""
+
+        return RestApiDiscoveryContract(
+            self.run(["serve", "--mode", "discovery", "--bind", bind], check=check)
+        )
 
     def python_wrapper_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the Python wrapper foundation plan envelope."""

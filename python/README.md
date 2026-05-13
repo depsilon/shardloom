@@ -174,6 +174,30 @@ Equivalent CLI command:
 shardloom hybrid-overlay-run group-count metric --format json
 ```
 
+The first CG-23 REST/API surface is contract-first. It checks the versioned
+OpenAPI `/v1` contract and the discovery-mode `serve` contract without starting
+a server, opening a listener, probing datasets, touching object stores, or
+executing queries:
+
+```python
+api = ctx.rest_api_contract_plan()
+discovery = ctx.serve_discovery_contract()
+
+print(api.openapi_contract_path)
+print(api.represented_resources)
+print(api.discovery_endpoint_paths)
+print(api.server_started)
+print(discovery.server_mode)
+print(discovery.contract_only)
+```
+
+Equivalent CLI commands:
+
+```powershell
+shardloom rest-api-contract-plan --format json
+shardloom serve --mode discovery --format json
+```
+
 Lazy workflow planning is also available without adding pandas, Polars, Spark,
 DataFusion, or any other execution dependency:
 

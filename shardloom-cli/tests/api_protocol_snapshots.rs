@@ -1,10 +1,10 @@
 use std::process::Command;
 
-fn run_api_compat_plan() -> String {
+fn run_cli_json(args: &[&str]) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["api-compat-plan", "--format", "json"])
+        .args(args)
         .output()
-        .expect("api-compat-plan command runs");
+        .expect("shardloom command runs");
 
     assert!(
         output.status.success(),
@@ -21,8 +21,91 @@ fn run_api_compat_plan() -> String {
     String::from_utf8(output.stdout).expect("stdout is utf8")
 }
 
+fn run_api_compat_plan() -> String {
+    run_cli_json(&["api-compat-plan", "--format", "json"])
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
+}
+
+#[test]
+fn rest_api_contract_plan_json_exposes_openapi_discovery_contract() {
+    let output = run_cli_json(&["rest-api-contract-plan", "--format", "json"]);
+
+    assert!(output.contains("\"command\":\"rest-api-contract-plan\""));
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("mode", "rest_api_contract_plan")));
+    assert!(output.contains(&field("schema_version", "shardloom.rest_api_contract.v1")));
+    assert!(output.contains(&field("api_version", "v1")));
+    assert!(output.contains(&field("openapi_version", "3.2.0")));
+    assert!(output.contains(&field(
+        "openapi_contract_path",
+        "docs/api/shardloom-openapi-v1.yaml"
+    )));
+    assert!(output.contains(&field(
+        "problem_details_media_type",
+        "application/problem+json"
+    )));
+    assert!(output.contains(&field("represented_resource_count", "15")));
+    assert!(output.contains(&field(
+        "execution_policy_fields",
+        "engine_mode,fallback_policy,materialization_policy,result_policy,evidence_policy"
+    )));
+    assert!(output.contains(&field(
+        "discovery_endpoint_paths",
+        "/v1/health,/v1/version,/v1/capabilities,/v1/capabilities/engines,/v1/capabilities/operators,/v1/capabilities/functions,/v1/capabilities/sql,/v1/capabilities/adapters,/v1/capabilities/deployment,/v1/adapters,/v1/sources,/v1/sinks"
+    )));
+    assert!(output.contains(&field("discovery_endpoints_side_effect_free", "true")));
+    assert!(output.contains(
+        "\"lifecycle\":{\"fields\":[{\"key\":\"command_family\",\"value\":\"rest_api_planning\""
+    ));
+}
+
+#[test]
+fn rest_api_contract_plan_json_preserves_no_server_no_probe_policy() {
+    let output = run_cli_json(&["rest-api-contract-plan", "--format", "json"]);
+
+    assert!(output.contains(&field("server_started", "false")));
+    assert!(output.contains(&field("network_listener_opened", "false")));
+    assert!(output.contains(&field("network_probe", "false")));
+    assert!(output.contains(&field("dataset_probe", "false")));
+    assert!(output.contains(&field("object_store_io", "false")));
+    assert!(output.contains(&field("catalog_probe", "false")));
+    assert!(output.contains(&field("credential_resolution", "false")));
+    assert!(output.contains(&field("query_execution", "false")));
+    assert!(output.contains(&field("runtime_execution", "false")));
+    assert!(output.contains(&field("write_io", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(output.contains(&field("fallback_execution_allowed", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+}
+
+#[test]
+fn serve_discovery_mode_json_is_contract_only_without_listener() {
+    let output = run_cli_json(&[
+        "serve",
+        "--mode",
+        "discovery",
+        "--bind",
+        "127.0.0.1:8787",
+        "--format",
+        "json",
+    ]);
+
+    assert!(output.contains("\"command\":\"serve\""));
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("mode", "rest_api_discovery_mode")));
+    assert!(output.contains(&field("server_mode", "discovery")));
+    assert!(output.contains(&field("bind", "127.0.0.1:8787")));
+    assert!(output.contains(&field("health_endpoint", "/v1/health")));
+    assert!(output.contains(&field("capabilities_endpoint", "/v1/capabilities")));
+    assert!(output.contains(&field("serve_command_contract_only", "true")));
+    assert!(output.contains(&field("server_started", "false")));
+    assert!(output.contains(&field("network_listener_opened", "false")));
+    assert!(output.contains(&field("dataset_probe", "false")));
+    assert!(output.contains(&field("query_execution", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
 }
 
 #[test]

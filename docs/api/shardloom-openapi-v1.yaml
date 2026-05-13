@@ -1,0 +1,543 @@
+openapi: 3.2.0
+info:
+  title: ShardLoom REST API
+  version: 0.1.0
+  summary: Contract-first ShardLoom control-plane API.
+  description: >
+    This checked-in contract describes the CG-23 /v1 control plane before any
+    HTTP server is required. Discovery endpoints are side-effect-free; execution
+    capable requests must carry explicit engine, fallback, materialization,
+    result, and evidence policy.
+servers:
+  - url: http://127.0.0.1:8787
+    description: Planned local loopback discovery server.
+tags:
+  - name: discovery
+  - name: capabilities
+  - name: planning
+  - name: evidence
+  - name: governance
+paths:
+  /v1/health:
+    get:
+      tags: [discovery]
+      operationId: getHealth
+      summary: Report process and protocol health without probing datasets.
+      responses:
+        "200":
+          description: Side-effect-free health status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /v1/version:
+    get:
+      tags: [discovery]
+      operationId: getVersion
+      summary: Report ShardLoom version and protocol version.
+      responses:
+        "200":
+          description: Version details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionResponse"
+  /v1/capabilities:
+    get:
+      tags: [capabilities]
+      operationId: listCapabilities
+      summary: List capability posture across local ShardLoom surfaces.
+      responses:
+        "200":
+          description: Capability snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilityResponse"
+  /v1/capabilities/engines:
+    get:
+      tags: [capabilities]
+      operationId: listEngineCapabilities
+      summary: Report batch, live, hybrid, and auto engine-mode posture.
+      responses:
+        "200":
+          description: Engine capability snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilityResponse"
+  /v1/capabilities/operators:
+    get:
+      tags: [capabilities]
+      operationId: listOperatorCapabilities
+      summary: Report operator capability posture.
+      responses:
+        "200":
+          description: Operator capability snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilityResponse"
+  /v1/capabilities/functions:
+    get:
+      tags: [capabilities]
+      operationId: listFunctionCapabilities
+      summary: Report function capability posture.
+      responses:
+        "200":
+          description: Function capability snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilityResponse"
+  /v1/capabilities/sql:
+    get:
+      tags: [capabilities]
+      operationId: listSqlCapabilities
+      summary: Report SQL parser/binder/runtime posture without execution.
+      responses:
+        "200":
+          description: SQL capability snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilityResponse"
+  /v1/capabilities/adapters:
+    get:
+      tags: [capabilities]
+      operationId: listAdapterCapabilities
+      summary: Report adapter capability posture without probing sources.
+      responses:
+        "200":
+          description: Adapter capability snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilityResponse"
+  /v1/capabilities/deployment:
+    get:
+      tags: [capabilities]
+      operationId: listDeploymentCapabilities
+      summary: Report package and deployment readiness posture.
+      responses:
+        "200":
+          description: Deployment capability snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilityResponse"
+  /v1/adapters:
+    get:
+      tags: [discovery]
+      operationId: listAdapters
+      summary: List declared adapter surfaces without opening sources.
+      responses:
+        "200":
+          description: Adapter declarations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceListResponse"
+  /v1/sources:
+    get:
+      tags: [discovery]
+      operationId: listSources
+      summary: List source contract posture without reading data.
+      responses:
+        "200":
+          description: Source declarations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceListResponse"
+  /v1/sinks:
+    get:
+      tags: [discovery]
+      operationId: listSinks
+      summary: List sink contract posture without writing data.
+      responses:
+        "200":
+          description: Sink declarations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceListResponse"
+  /v1/plans:
+    post:
+      tags: [planning]
+      operationId: createPlanPreview
+      summary: Future plan/validate preview endpoint.
+      x-shardloom-maturity: API-A3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanPreviewRequest"
+      responses:
+        "202":
+          description: Plan preview accepted when implemented.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutputEnvelope"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/queries:
+    post:
+      tags: [planning]
+      operationId: submitQuery
+      summary: Future execution lifecycle entrypoint for certified local paths.
+      x-shardloom-maturity: API-A4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryRequest"
+      responses:
+        "202":
+          description: Query accepted when the execution lane is certified.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryLifecycleResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/results/{result_id}:
+    get:
+      tags: [evidence]
+      operationId: getResult
+      summary: Future result delivery endpoint with explicit fidelity policy.
+      x-shardloom-maturity: API-A5
+      parameters:
+        - $ref: "#/components/parameters/ResultId"
+      responses:
+        "200":
+          description: Result handle or inline result when implemented.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultResponse"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/certificates/{certificate_id}:
+    get:
+      tags: [evidence]
+      operationId: getCertificate
+      summary: Fetch certificate metadata or artifact refs.
+      parameters:
+        - $ref: "#/components/parameters/CertificateId"
+      responses:
+        "200":
+          description: Certificate evidence envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceArtifactEnvelope"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/profiles/{profile_id}:
+    get:
+      tags: [evidence]
+      operationId: getProfile
+      summary: Fetch profile metadata or artifact refs.
+      parameters:
+        - $ref: "#/components/parameters/ProfileId"
+      responses:
+        "200":
+          description: Profile evidence envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceArtifactEnvelope"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/benchmarks:
+    get:
+      tags: [evidence]
+      operationId: listBenchmarks
+      summary: Report benchmark evidence posture without running benchmarks.
+      responses:
+        "200":
+          description: Benchmark evidence snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceListResponse"
+  /v1/migration:
+    get:
+      tags: [planning]
+      operationId: getMigrationPosture
+      summary: Report migration evidence posture.
+      responses:
+        "200":
+          description: Migration posture.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceListResponse"
+  /v1/lineage:
+    get:
+      tags: [evidence]
+      operationId: getLineagePosture
+      summary: Report lineage evidence posture.
+      responses:
+        "200":
+          description: Lineage posture.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceListResponse"
+  /v1/governance:
+    get:
+      tags: [governance]
+      operationId: getGovernancePosture
+      summary: Report governance and policy posture.
+      responses:
+        "200":
+          description: Governance posture.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceResponse"
+components:
+  parameters:
+    CertificateId:
+      name: certificate_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ProfileId:
+      name: profile_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ResultId:
+      name: result_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Problem:
+      description: Problem Details with ShardLoom diagnostic extensions.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+  schemas:
+    FieldEntry:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+    FallbackStatus:
+      type: object
+      required: [attempted, allowed, engine, reason]
+      properties:
+        attempted:
+          type: boolean
+          const: false
+        allowed:
+          type: boolean
+          const: false
+        engine:
+          type: [string, "null"]
+        reason:
+          type: string
+    Diagnostic:
+      type: object
+      required: [code, severity, category, message, fallback]
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+        category:
+          type: string
+        message:
+          type: string
+        feature:
+          type: [string, "null"]
+        reason:
+          type: [string, "null"]
+        suggested_next_step:
+          type: [string, "null"]
+        fallback:
+          $ref: "#/components/schemas/FallbackStatus"
+    OutputEnvelope:
+      type: object
+      required:
+        - schema_version
+        - command
+        - status
+        - summary
+        - human_text
+        - fallback
+        - diagnostics
+        - result
+        - policy
+        - lifecycle
+        - fields
+      properties:
+        schema_version:
+          type: string
+          const: shardloom.output.v2
+        command:
+          type: string
+        status:
+          type: string
+          enum: [success, warning, error, unsupported]
+        summary:
+          type: string
+        human_text:
+          type: string
+        fallback:
+          $ref: "#/components/schemas/FallbackStatus"
+        diagnostics:
+          type: array
+          items:
+            $ref: "#/components/schemas/Diagnostic"
+        result:
+          type: object
+        policy:
+          $ref: "#/components/schemas/FieldGroup"
+        lifecycle:
+          $ref: "#/components/schemas/FieldGroup"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldEntry"
+    FieldGroup:
+      type: object
+      required: [fields]
+      properties:
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldEntry"
+    ExecutionRequestPolicy:
+      type: object
+      required:
+        - engine_mode
+        - fallback_policy
+        - materialization_policy
+        - result_policy
+        - evidence_policy
+      properties:
+        engine_mode:
+          type: string
+          enum: [auto, batch, live, hybrid]
+        fallback_policy:
+          type: object
+          required: [allowed]
+          properties:
+            allowed:
+              type: boolean
+              const: false
+        materialization_policy:
+          type: string
+          enum: [preserve_native, explicit_decoded_boundary, reject_if_uncertified]
+        result_policy:
+          type: string
+          enum:
+            - inline_json
+            - paged_json
+            - jsonl_ndjson
+            - arrow_ipc_decoded_boundary
+            - vortex_artifact
+            - object_reference
+        evidence_policy:
+          type: string
+          enum: [required, preview_only, reject_without_certificates]
+    PlanPreviewRequest:
+      type: object
+      required: [plan, policy]
+      properties:
+        plan:
+          type: object
+        policy:
+          $ref: "#/components/schemas/ExecutionRequestPolicy"
+    QueryRequest:
+      type: object
+      required: [plan_ref, policy]
+      properties:
+        plan_ref:
+          type: string
+        policy:
+          $ref: "#/components/schemas/ExecutionRequestPolicy"
+    QueryLifecycleResponse:
+      type: object
+      required: [query_id, status, fallback]
+      properties:
+        query_id:
+          type: string
+        status:
+          type: string
+          enum: [accepted, blocked, running, succeeded, failed, canceled]
+        fallback:
+          $ref: "#/components/schemas/FallbackStatus"
+    EvidenceArtifactEnvelope:
+      type: object
+      required: [artifact_id, artifact_kind, status, payload]
+      properties:
+        artifact_id:
+          type: string
+        artifact_kind:
+          type: string
+        status:
+          type: string
+        payload:
+          type: object
+    ResultResponse:
+      type: object
+      required: [result_id, result_policy, materialization, fallback]
+      properties:
+        result_id:
+          type: string
+        result_policy:
+          type: string
+        materialization:
+          type: string
+        fallback:
+          $ref: "#/components/schemas/FallbackStatus"
+    HealthResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+    VersionResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+    CapabilityResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+    ResourceListResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+    GovernanceResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+    ProblemDetails:
+      type: object
+      required: [type, title, status, detail, fallback]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        diagnostic:
+          $ref: "#/components/schemas/Diagnostic"
+        fallback:
+          $ref: "#/components/schemas/FallbackStatus"

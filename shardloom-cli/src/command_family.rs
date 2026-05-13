@@ -84,7 +84,10 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
         CommandFamily::OperationalHardening
     } else if is_diagnostics_command(command) {
         CommandFamily::Diagnostics
-    } else if command == "api-compat-plan" {
+    } else if matches!(
+        command,
+        "api-compat-plan" | "rest-api-contract-plan" | "serve"
+    ) {
         CommandFamily::RestApiPlanning
     } else if is_input_planning_command(command) {
         CommandFamily::InputPlanning
@@ -411,6 +414,11 @@ mod tests {
             classify_command("api-compat-plan"),
             CommandFamily::RestApiPlanning
         );
+        assert_eq!(
+            classify_command("rest-api-contract-plan"),
+            CommandFamily::RestApiPlanning
+        );
+        assert_eq!(classify_command("serve"), CommandFamily::RestApiPlanning);
         assert_eq!(
             classify_command("input-adapters"),
             CommandFamily::InputPlanning

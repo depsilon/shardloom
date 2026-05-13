@@ -328,16 +328,20 @@ actionable work.
   - Runtime rule: no server may probe datasets, access object stores/catalogs, delegate execution to
     external engines, weaken materialization reporting, or hide fallback status. Discovery and
     plan/validate surfaces stay side-effect-free until an explicit execution lane is certified.
-  - [ ] P6.1 REST contract, discovery mode, and API maturity bundle.
-    - User-visible surface: versioned `/v1` OpenAPI or approved-successor contract files, problem
-      details errors, API maturity ladder, and optional `shardloom serve --mode discovery` contract.
-    - Acceptance: health, version, capabilities, adapters, sources, sinks, plans, queries, results,
-      certificates, profiles, benchmarks, migration, lineage, governance, engine mode, fallback
-      policy, materialization policy, result policy, and evidence policy are represented together.
-      Discovery serves only health/capability/deployment/no-dataset smoke data and reports
-      `fallback_attempted=false`.
-    - Verification: schema validation, CLI/Python capability parity snapshots, discovery-mode smoke
-      with no dataset probes, protocol compatibility locks, and full workspace validation.
+  - [x] P6.1 REST contract, discovery mode, and API maturity bundle.
+    - Added `docs/api/shardloom-openapi-v1.yaml` as the checked-in OpenAPI 3.2 `/v1` contract with
+      health, version, capabilities, adapters, sources, sinks, plans, queries, results,
+      certificates, profiles, benchmarks, migration, lineage, governance, problem-details errors,
+      and execution request policy schemas.
+    - Added `RestApiContractReport`, `RestApiDiscoveryModeReport`, `rest-api-contract-plan`, and
+      contract-only `serve --mode discovery` output. These surfaces report API maturity stages,
+      discovery endpoints, represented resources, result policy modes, and
+      `fallback_attempted=false` without starting a listener, probing datasets, touching object
+      stores/catalogs, resolving credentials, executing queries, writing data, or invoking external
+      engines.
+    - Exposed Python `ShardLoomClient.rest_api_contract_plan()`,
+      `ShardLoomClient.serve_discovery_contract()`, and matching context helpers so users can test
+      the CG-23 contract lane from Python or CLI.
   - [ ] P6.2 plan/explain/validate/certification-preview API bundle.
     - User-visible surface: plan handles and validate, explain, estimate, unsupported-report, and
       certification-preview endpoints that mirror the local Python/query-builder workflow.

@@ -39,6 +39,7 @@ pub mod operational_contracts;
 pub mod operator;
 pub mod output;
 pub mod release;
+pub mod remote_api;
 pub mod rfc_coverage;
 pub mod schema;
 pub mod security;
@@ -243,6 +244,10 @@ pub use release::{
     SchemaStability, WorkspaceFeatureBuildMatrixFeatureSet, WorkspaceFeatureBuildMatrixReport,
     WorkspaceFeatureBuildMatrixRow, WorkspaceFeatureBuildMatrixRowStatus,
     plan_workspace_feature_build_matrix,
+};
+pub use remote_api::{
+    RestApiContractReport, RestApiDiscoveryModeReport, RestApiEndpointContract,
+    RestApiMaturityStage, RestApiMaturityStatus,
 };
 pub use rfc_coverage::{
     RfcCoverageFollowThroughArea, RfcCoverageFollowThroughEntry, RfcCoverageFollowThroughReport,
