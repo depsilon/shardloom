@@ -80,6 +80,11 @@ Implemented or actively wired surfaces include:
   `claim-gate-closeout` explain which workflow, engine-mode, API, package, integration,
   certificate, Native I/O, correctness, and benchmark evidence exists or is still blocked without
   running workloads
+- `compute-capability-matrix`, a report-only P7.4 matrix that distinguishes unsupported, planned,
+  report-only, executable-uncertified, fixture-certified, workload-certified, and
+  production-certified compute surfaces across provider kind, engine mode, semantic profile,
+  materialization/decode boundaries, memory/spill requirements, evidence refs, and no-fallback
+  status
 - Python lazy workflow helpers for current report-only UX, including source declaration, explain,
   estimate, certification inspection, unsupported pandas/Arrow/NumPy/Python-object materialization
   boundaries, schema/data-quality/quarantine reports, and notebook preview/display diagnostics
@@ -98,9 +103,9 @@ Still planned or gated:
 - broad SQL, DataFrame, notebook, UDF, adapter, object-store, catalog/table, live/hybrid, REST
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
-- claim-grade compute-engine completion: coverage matrix, semantic conformance, operator-family
-  certification, measured source-backed benchmark rows, sink/write/replay proof, local scheduler and
-  memory/spill maturity, and a workload-certified compute workflow
+- claim-grade compute-engine completion: semantic conformance, operator-family certification,
+  measured source-backed benchmark rows, sink/write/replay proof, local scheduler and memory/spill
+  maturity, and a workload-certified compute workflow
 - full comparative benchmark reruns and claim-grade source-backed benchmark rows
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
 - Foundry proof-of-use certification that preserves Foundry as an optional integration boundary

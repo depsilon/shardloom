@@ -9,6 +9,7 @@ from typing import Mapping, Sequence
 from .client import (
     Binary,
     ClaimGateCloseoutReport,
+    ComputeCapabilityMatrix,
     DEFAULT_PROFILE_ORDER,
     EngineCapabilityMatrix,
     EngineSelectionPlan,
@@ -491,6 +492,11 @@ class ShardLoomContext:
         """Return the P7 claim-gate and release-readiness closeout report."""
 
         return self.client.claim_gate_closeout(check=check)
+
+    def compute_capability_matrix(self, *, check: bool = True) -> ComputeCapabilityMatrix:
+        """Return the P7.4 report-only compute capability coverage matrix."""
+
+        return self.client.compute_capability_matrix(check=check)
 
     def rest_api_contract_plan(self, *, check: bool = True) -> RestApiContractPlan:
         """Return the CG-23 REST/OpenAPI contract plan."""

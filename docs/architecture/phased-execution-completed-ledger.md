@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.1 compute capability matrix and operator-family ladder bundle
+  - Primary files:
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/compute_capability_matrix_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add the report-only P7.4 `compute-capability-matrix` surface so users and agents can
+    inspect current, planned, report-only, unsupported, and future certification states across
+    compute rows and operator families before broad SQL/DataFrame or performance claims.
+  - Checklist:
+    - [x] Add `compute-capability-matrix` CLI output with a stable schema version, support-status
+          vocabulary, provider-kind vocabulary, compute row order, operator-family order,
+          claim-grade blockers, broad-claim blockers, and no-runtime/no-effect/no-fallback fields.
+    - [x] Populate initial compute rows for local Vortex count, filtered count, projection,
+          filter-project, prepared encoded filter, reader-backed dictionary filter, compatibility
+          CSV import, Vortex sink write, grouped aggregate, join, row-number window, and SQL
+          frontend support state.
+    - [x] Populate the operator-family ladder for scalar expressions, predicates, projection,
+          filter-project fusion, aggregates, grouped aggregates, approximate/sketch aggregates,
+          sort/top-N/limit, joins, semi/anti joins, windows, set operations,
+          nested/extension-type operations, and sink/write operators.
+    - [x] Add typed-envelope inline artifact coverage for `compute_capability_matrix_report`.
+    - [x] Add Python `ShardLoomClient.compute_capability_matrix()` and context helper support with
+          typed matrix row and operator-family views.
+    - [x] Refresh README/Python README and move P7.4.1 out of the active planned queue.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `cargo test -p shardloom-cli --test compute_capability_matrix_snapshots`
+    - [x] `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m unittest python.tests.test_cli_client`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m compileall -q python\src\shardloom`
+    - [x] `cargo test -p shardloom-cli --bin shardloom`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m unittest discover python\tests`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: report-only capability discovery surface; no workload execution, data reads,
+    writes, benchmark execution, object-store/network/catalog probes, external engine invocation,
+    or fallback execution.
+
 - [x] Session label: P7.3 claim gate and release-readiness closeout bundle
   - Primary files:
     - `shardloom-cli/src/workload_certification.rs`

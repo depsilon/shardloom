@@ -6,6 +6,8 @@ It invokes explicit ShardLoom CLI commands and parses their JSON envelopes.
 
 from .client import (
     ClaimGateCloseoutReport,
+    ComputeCapabilityMatrix,
+    ComputeCapabilityRow,
     CompatibilitySourcePlan,
     CompatibilitySourceSmokeReport,
     DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS,
@@ -17,6 +19,7 @@ from .client import (
     LiveEtlReplayResult,
     LiveFixtureRunReport,
     LocalVortexPrimitiveSmokeReport,
+    OperatorFamilyCoverageRow,
     PythonClientSmokeReport,
     RestApiContractPlan,
     RestApiDataPlane,
@@ -68,6 +71,8 @@ __all__ = [
     "OutputEnvelope",
     "QuickstartProofReport",
     "ClaimGateCloseoutReport",
+    "ComputeCapabilityMatrix",
+    "ComputeCapabilityRow",
     "DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS",
     "ETL_INPUT_FORMATS",
     "EngineCapabilityMatrix",
@@ -81,6 +86,7 @@ __all__ = [
     "ContextCapabilities",
     "LiveEtlReplayResult",
     "LocalVortexPrimitiveSmokeReport",
+    "OperatorFamilyCoverageRow",
     "PythonClientSmokeReport",
     "RestApiContractPlan",
     "RestApiDataPlane",
