@@ -191,6 +191,14 @@ from the merged code and tests.
     certificates, scheduler/runtime fields, memory reservation evidence, spill blockers, and
     no-fallback evidence. That remains a scoped workload claim, not broad SQL/DataFrame,
     production, Spark-displacement, live/hybrid, object-store, or Foundry execution support.
+  - Maturity snapshot: as an internal planning heuristic, ShardLoom is roughly 64% complete across
+    the full broad vision. Architecture/roadmap coherence, no-fallback evidence policy, local
+    Vortex-native compute, CLI/protocol/Python workflow, and benchmark taxonomy are the strongest
+    areas. Release/general availability, Foundry proof-of-use, broad SQL/DataFrame execution,
+    object-store/table/catalog runtime, live/hybrid behavior, and public claim publication remain
+    the weaker areas. Planned-plus-completed compute-engine architecture is approximately 9.0/10;
+    implemented local compute-engine runtime is approximately 7.3/10. These numbers are planning
+    estimates only and must not be used as public product or performance claims.
   - Sequencing note: P7.4.4 remains the next open compute-engine closeout item even though P7.4.5,
     P7.4.6, and P7.4.7 have completed sub-slices. Do not move to P8 release readiness until the
     benchmark taxonomy, comparative local rerun, and claim-grade/not-claim-grade row promotion
@@ -217,10 +225,9 @@ from the merged code and tests.
       `row number window`, `high-cardinality string group/distinct`, and `top-N per group` through
       the local Vortex import/replay/result-sink path with Native I/O and runtime certificate
       evidence.
-    - Remaining taxonomy gap: clean/cast/filter/write and real write-path timing beyond current
-      result-sink smoke, ShardLoom-native extra-column/multi-file/dirty/nested/CDC/partition
-      scenarios, comparative reruns across selected baselines, and promotion from fixture-smoke
-      measurements to reproducible claim-grade benchmark rows.
+    - Remaining taxonomy gap: ShardLoom-native multi-file/nested/CDC/partition scenarios,
+      comparative reruns across selected baselines, and promotion from fixture-smoke measurements
+      to reproducible claim-grade benchmark rows.
     - Immediate closeout slice: run selected local comparative taxonomy reruns across ShardLoom and
       local optional baselines, keep managed platforms out, emit coverage and timing tables
       separately, and classify each row as supported, unsupported, blocked,
@@ -244,6 +251,10 @@ from the merged code and tests.
       across at least three iterations before `reproducible_benchmark_row=true` and
       `timing_row_claim_grade=true`. One-iteration smoke rows remain useful evidence but stay
       `not_claim_grade`.
+    - Completed sub-slice in ledger: dirty-CSV `clean/cast/filter/write` is now an executable
+      taxonomy scenario with a pandas baseline and ShardLoom local Vortex import/replay/result-sink
+      path. The ShardLoom row preserves dirty-column import evidence, runtime certificate evidence,
+      result-sink write timing, stable-digest reproducibility, and no-fallback/no-external evidence.
     - Promotion rule: do not force ShardLoom-native support for every messy/nested/CDC/file-shape
       scenario before benchmarking. Unsupported expanded taxonomy scenarios are useful evidence
       when they emit deterministic unsupported/blocked rows with `fallback_attempted=false` and

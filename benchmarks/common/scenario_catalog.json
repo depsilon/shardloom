@@ -263,9 +263,9 @@
       "category": "etl_write",
       "default": false,
       "stress": false,
-      "executable": false,
+      "executable": true,
       "dataset_profiles": ["dirty_csv", "schema_drift"],
-      "description": "Future write-path scenario; declared in the catalog but not yet executed by the local runner."
+      "description": "Clean malformed fixture columns, cast dirty numeric values, filter valid rows, and write a local result artifact for ETL/write-path coverage."
     },
     {
       "id": "malformed_timestamp_dirty_csv",

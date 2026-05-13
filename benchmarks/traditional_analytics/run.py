@@ -78,6 +78,7 @@ TAXONOMY_EXTRA_SCENARIO_ORDER = (
     "null-heavy aggregate",
     "high-cardinality string group/distinct",
     "top-N per group",
+    "clean/cast/filter/write",
     "malformed timestamp / dirty CSV",
     "small change over large base",
     "nested JSON field scan",
@@ -97,6 +98,7 @@ SHARDLOOM_TAXONOMY_EXTRA_SCENARIOS = (
     "row number window",
     "high-cardinality string group/distinct",
     "top-N per group",
+    "clean/cast/filter/write",
 )
 SHARDLOOM_EXECUTABLE_SCENARIOS = (
     SCENARIO_ORDER + SHARDLOOM_TAXONOMY_EXTRA_SCENARIOS + STRESS_SCENARIO_ORDER
@@ -118,6 +120,7 @@ SCENARIO_BYTES = {
     "null-heavy aggregate": ("fact",),
     "high-cardinality string group/distinct": ("fact",),
     "top-N per group": ("fact",),
+    "clean/cast/filter/write": ("fact",),
     "malformed timestamp / dirty CSV": ("fact",),
     "small change over large base": ("fact",),
     "nested JSON field scan": ("fact",),
@@ -1736,6 +1739,14 @@ def fact_part_paths(paths: DatasetPaths, data_format: str) -> tuple[Path, ...]:
     return ()
 
 
+def scenario_output_path(
+    paths: DatasetPaths, engine: str, data_format: str, scenario: str, extension: str
+) -> Path:
+    output_dir = paths.root / "scenario_outputs" / engine / data_format / scenario_slug(scenario)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir / f"part-00000.{extension}"
+
+
 def scenario_display_name(data_format: str, scenario: str) -> str:
     return f"{data_format}: {scenario}"
 
@@ -1943,6 +1954,33 @@ def pandas_runner() -> EngineRunner:
         )
         return normalize_top_group_rows(rows)
 
+    def clean_cast_filter_write(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        required = {"raw_event_time", "dirty_numeric", "dirty_flag"}
+        missing = sorted(required - set(frame.columns))
+        if missing:
+            raise BenchmarkUnsupported(
+                "clean/cast/filter/write requires dirty fixture columns: "
+                + ",".join(missing)
+            )
+        parsed = pd.to_datetime(
+            frame["raw_event_time"],
+            format="%Y-%m-%dT%H:%M:%SZ",
+            errors="coerce",
+            utc=True,
+        )
+        numeric = pd.to_numeric(frame["dirty_numeric"], errors="coerce")
+        valid = parsed.notna() & numeric.notna() & (frame["dirty_flag"].astype(str) == "Y")
+        filtered = frame[valid & (numeric >= 500)].copy()
+        filtered["clean_numeric"] = numeric[filtered.index]
+        output_path = scenario_output_path(
+            paths, "pandas", data_format, "clean/cast/filter/write", "csv"
+        )
+        filtered[["id", "raw_event_time", "clean_numeric", "category"]].to_csv(
+            output_path, index=False
+        )
+        return normalize_scalar_result(len(filtered), filtered["clean_numeric"].sum())
+
     def malformed_timestamp_dirty_csv(paths: DatasetPaths, data_format: str) -> Any:
         frame = read_fact(paths, data_format)
         if "raw_event_time" not in frame.columns:
@@ -2038,6 +2076,7 @@ def pandas_runner() -> EngineRunner:
             "null-heavy aggregate": null_heavy_aggregate,
             "high-cardinality string group/distinct": high_cardinality_string_group_distinct,
             "top-N per group": top_n_per_group,
+            "clean/cast/filter/write": clean_cast_filter_write,
             "malformed timestamp / dirty CSV": malformed_timestamp_dirty_csv,
             "small change over large base": small_change_over_large_base,
             "nested JSON field scan": nested_json_field_scan,

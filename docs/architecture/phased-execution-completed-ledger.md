@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 clean/cast/filter/write execution bundle
+  - Primary files:
+    - `benchmarks/common/scenario_catalog.json`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: continue P7.4.4 by promoting dirty-CSV `clean/cast/filter/write` from a declared future
+    row into an executable local taxonomy scenario for pandas and ShardLoom.
+  - Checklist:
+    - [x] Mark `clean/cast/filter/write` executable in the benchmark scenario catalog.
+    - [x] Add the scenario to taxonomy-extra execution order and ShardLoom executable scenario
+          admission.
+    - [x] Add a pandas baseline implementation that cleans malformed timestamp/numeric fields,
+          casts dirty numeric values, filters valid rows, writes a local cleaned CSV artifact, and
+          returns deterministic normalized results.
+    - [x] Extend ShardLoom's traditional analytics Vortex path to preserve dirty CSV fixture columns
+          through compatibility import into local Vortex files.
+    - [x] Add ShardLoom `clean/cast/filter/write` execution, result-sink replay, runtime
+          certificate, layout-advisor, and no-fallback coverage for the dirty CSV workflow.
+    - [x] Update README, benchmark README, benchmark catalog, phase plan, completed ledger, RFC
+          traceability, and contract tests.
+  - Validation:
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-vortex expanded_taxonomy_scenarios_run_against_local_vortex_outputs --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-contract-tests traditional_benchmark`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom,pandas --formats csv --scenario "clean/cast/filter/write" --dataset-profile dirty_csv --rows 64 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\codex-p744-clean-cast-filter-write.json --regenerate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets -j 1` with `CARGO_INCREMENTAL=0`
+    - [x] `git diff --check`
+  - Runtime stance: local benchmark scenario execution only. This does not add broad dirty-data
+    SQL/DataFrame support, multi-file/nested/CDC/partition ShardLoom execution, managed baselines,
+    public performance claims, or fallback execution.
+
 - [x] Session label: P7.4.4 reproducible claim-readiness rerun bundle
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`
