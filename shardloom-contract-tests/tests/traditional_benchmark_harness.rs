@@ -294,7 +294,7 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(normalized.contains("never execute unsupported ShardLoom plans as fallback engines"));
     assert!(readme.contains("shardloom traditional-analytics-run"));
     assert!(readme.contains("vortex-traditional-analytics-benchmark"));
-    assert!(readme.contains("universal-I/O smoke path"));
+    assert!(readme.contains("universal-I/O path"));
     assert!(readme.contains("--shardloom-build-profile"));
     assert!(readme.contains("--scenario \"group by aggregation\""));
     assert!(readme.contains("--include-stress"));
@@ -310,9 +310,10 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(normalized.contains("final `vortex-run` runtime effects"));
     assert!(readme.contains("decision-trace counts"));
     assert!(readme.contains("claim blockers"));
-    assert!(readme.contains("Segment-prune and bytes-not-read values remain `unknown`"));
+    assert!(normalized.contains("segment prune count"));
+    assert!(readme.contains("bytes not read"));
     assert!(readme.contains("average commit latency"));
-    assert!(readme.contains("object-store commit"));
+    assert!(readme.contains("It is a local smoke benchmark only"));
     assert!(readme.contains("timing scope"));
     assert!(readme.contains("benchmarks\\traditional_analytics\\.venv\\Scripts\\python"));
 }
