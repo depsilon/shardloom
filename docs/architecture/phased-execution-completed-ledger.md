@@ -16,6 +16,126 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Audit-F7/F8 PR #527/#528 review repair bundle
+  - Primary files:
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: address the two still-actionable review comments found by the PR #360+ review-thread
+    subagent after PR #527 and PR #528.
+  - Checklist:
+    - [x] Default direct `ShardLoomClient.workflow_unsupported_plan()` calls to non-raising
+          report-only unsupported mode so users receive the unsupported envelope without passing
+          `check=False`.
+    - [x] Add top-level `severity`, `blocker_ids`, `required_evidence`, and
+          `suggested_next_action` fields to `capabilities cross-cg` so Python `CapabilityView`
+          exposes the same parity contract as per-surface fields.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - [x] `PYTHONPATH=C:\Users\djhei\Projects\shardloom-active\python\src python -m unittest python.tests.test_cli_client python.tests.test_query_builder`
+  - Runtime stance: Python/default and capability-report contract repair only; no runtime
+    execution, data reads, writes, network/catalog/object-store probes, external engine invocation,
+    or fallback execution.
+
+- [x] Session label: P7.2 workload certification dossier bundle
+  - Primary files:
+    - `shardloom-cli/src/workload_certification.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/workload_certification_dossier_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add the report-only `workload-certification-dossier` CLI surface plus Python
+    `WorkloadCertificationDossier` typed view/context helper for local Vortex count,
+    planned-live-hybrid, blocked remote API, and unsupported SQL scenarios.
+  - Checklist:
+    - [x] Index CG-5 correctness, CG-6 benchmark posture, CG-16 execution certificates, CG-19
+          Native I/O certificates, CG-20 capability evidence, CG-21 workflow evidence, CG-22
+          engine evidence, and CG-23 API evidence in one workload-scoped dossier.
+    - [x] Distinguish partial, planned, blocked, and unsupported workload posture while keeping
+          `certified` in the status vocabulary for individual evidence slots.
+    - [x] Expose certificate refs, missing evidence, blocked evidence, unsupported evidence,
+          stable blocker IDs, suggested next action, and no-runtime/no-fallback/no-effect fields.
+    - [x] Add Python typed helpers and contract tests so users can inspect dossiers from
+          `ShardLoomClient` and `ShardLoomContext`.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `cargo test -p shardloom-cli --test workload_certification_dossier_snapshots`
+    - [x] `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - [x] `cargo test -p shardloom-cli --bin shardloom`
+    - [x] `PYTHONPATH=C:\Users\djhei\Projects\shardloom-active\python\src python -m unittest python.tests.test_cli_client`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: report-only dossier lane. It does not execute workloads, read or materialize
+    data, write outputs, touch object stores, probe networks/catalogs, invoke external engines, or
+    attempt fallback execution.
+
+- [x] Session label: P7.0/P7.1 workflow and cross-CG capability parity closeout
+  - Primary files:
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/workflow_query_builder_plan_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add report-only unsupported diagnostics for the first CG-21 workflow API gaps and align
+    CG-21 workflow, CG-22 engine, and CG-23 remote/API capability posture across CLI and Python.
+  - Checklist:
+    - [x] Add `workflow-unsupported-plan` and Python `LazyFrame` unsupported report methods for
+          profile, collect, pandas/Arrow conversion, writes, SQL, joins, aggregations, windows,
+          schema contracts, and data-quality checks.
+    - [x] Add `capabilities workflow`, `capabilities remote-api`, and `capabilities cross-cg`
+          scopes with stable blocker IDs, severity, required evidence, suggested next actions,
+          no-runtime/no-fallback/no-effect fields, and future REST-view paths.
+    - [x] Expose Python capability parity accessors and default scope coverage for workflow,
+          dataframe, API surfaces, remote API, and cross-CG parity.
+  - Validation:
+    - [x] `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots`
+    - [x] `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - [x] `cargo test -p shardloom-cli --test cg22_engine_fabric_snapshots`
+    - [x] `cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - [x] `PYTHONPATH=C:\Users\djhei\Projects\shardloom-active\python\src python -m unittest python.tests.test_cli_client python.tests.test_query_builder python.tests.test_quickstart_proof`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: report-only parity lane. It introduces no parser/runtime execution, data reads,
+    materialization, writes, network/catalog/object-store probes, external engine invocation, or
+    fallback execution.
+
+- [x] Session label: Audit-F1 through Audit-F6 review and architecture intake closeout
+  - Scope: move completed review/RFC audit findings out of the active phase plan and preserve their
+    provenance in the completed ledger. These findings covered REST/OpenAPI status-field repair,
+    PR #360+ P1/P2 review-thread repair batches, RFC 0035 maturity drift, RFC/architecture
+    traceability drift, and P7.1 cross-CG capability parity findings.
+  - Completed outcome:
+    - [x] REST/OpenAPI domain status fields no longer collide with inherited
+          `shardloom.output.v2` command status.
+    - [x] Previously actionable PR #360+ review comments through PR #526 were fixed or verified
+          stale against current `main` with regression coverage.
+    - [x] RFC 0035 API-A9/API-A10 terminology and contract-only/no-listener posture were
+          reconciled.
+    - [x] RFC traceability distinguishes completed CG-21/CG-22/CG-23 report-only lanes from
+          blocked runtime/certification claims.
+    - [x] Cross-CG capability parity findings were folded into P7.1.
+  - Runtime stance: bookkeeping/provenance only; no runtime behavior, dependency expansion, claim
+    publication, external engine invocation, or fallback execution.
+
 - [x] Session label: P6.6 columnar data-plane and ecosystem standards boundary bundle
   - Primary files:
     - `docs/api/shardloom-openapi-v1.yaml`

@@ -28,6 +28,7 @@ from shardloom import (
     RestApiLocalLifecycle,
     RestApiPlanPreview,
     RestApiSecurityGovernance,
+    WorkloadCertificationDossier,
     WorkflowReadinessSmokeReport,
 )
 
@@ -1092,6 +1093,112 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.runtime_execution)
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.execution_delegated)
+
+    def test_workflow_unsupported_plan_direct_view_defaults_to_non_raising(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "workflow-unsupported-plan", "collect", "read_csv(events.csv)", "--format", "json"
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported",
+                    "human_text": "unsupported",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [{
+                        "code": "SL_UNSUPPORTED_SQL",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "unsupported",
+                        "feature": "workflow_unsupported_plan",
+                        "reason": "unsupported report",
+                        "suggested_next_step": "inspect capability report",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                    }],
+                    "fields": [
+                        {"key": "workflow_operation", "value": "collect"},
+                        {"key": "blocker_id", "value": "cg21.workflow.collect.materialization_unsupported"},
+                        {"key": "fallback_attempted", "value": "false"}
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).workflow_unsupported_plan(
+            "collect",
+            "read_csv(events.csv)",
+        )
+
+        self.assertEqual(result.command, "workflow-unsupported-plan")
+        self.assertEqual(result.status, "unsupported")
+        self.assertEqual(
+            result.field("blocker_id"),
+            "cg21.workflow.collect.materialization_unsupported",
+        )
+        self.assertFalse(result.fallback.attempted)
+
+    def test_workload_certification_dossier_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "workload-certification-dossier", "local-vortex-count", "--format", "json"
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workload-certification-dossier",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "scenario", "value": "local-vortex-count"},
+                        {"key": "workload_id", "value": "workload://cg7/local-vortex-count"},
+                        {"key": "overall_status", "value": "partial"},
+                        {"key": "certificate_refs", "value": "certificates/cg16/local-vortex-count/execution.json,certificates/cg19/local-vortex-count/native-io.json"},
+                        {"key": "missing_evidence", "value": "claim_grade_benchmark_results,api_contract_workload_mapping"},
+                        {"key": "blocked_evidence", "value": "cg6.benchmark.claim_grade_results_missing"},
+                        {"key": "unsupported_evidence", "value": "none"},
+                        {"key": "blocker_ids", "value": "cg6.benchmark.claim_grade_results_missing,cg23.api.workload_mapping_planned"},
+                        {"key": "suggested_next_action", "value": "Run benchmark-claim-evidence-plan and rest-api-contract-plan before publishing this workload as certified."},
+                        {"key": "no_runtime", "value": "true"},
+                        {"key": "no_fallback", "value": "true"},
+                        {"key": "no_effects", "value": "true"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).workload_certification_dossier()
+
+        self.assertIsInstance(result, WorkloadCertificationDossier)
+        self.assertEqual(result.scenario, "local-vortex-count")
+        self.assertEqual(result.workload_id, "workload://cg7/local-vortex-count")
+        self.assertEqual(result.overall_status, "partial")
+        self.assertIn(
+            "certificates/cg16/local-vortex-count/execution.json",
+            result.certificate_refs,
+        )
+        self.assertIn("claim_grade_benchmark_results", result.missing_evidence)
+        self.assertEqual(
+            result.blocked_evidence,
+            ("cg6.benchmark.claim_grade_results_missing",),
+        )
+        self.assertEqual(result.unsupported_evidence, ())
+        self.assertIn("cg23.api.workload_mapping_planned", result.blocker_ids)
+        self.assertIn("benchmark-claim-evidence-plan", result.suggested_next_action or "")
+        self.assertTrue(result.no_runtime)
+        self.assertTrue(result.no_fallback)
+        self.assertTrue(result.no_effects)
 
     def test_rest_api_local_lifecycle_view(self) -> None:
         binary = self.fake_cli(

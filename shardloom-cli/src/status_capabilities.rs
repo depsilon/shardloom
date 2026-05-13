@@ -361,6 +361,19 @@ fn emit_remote_api_capability_parity(scope: CapabilityDiscoveryScope, format: Ou
 fn emit_cross_cg_capability_parity(scope: CapabilityDiscoveryScope, format: OutputFormat) {
     let matrix = EngineCapabilityMatrixReport::cg22_contract();
     let engine_blocker_ids = engine_mode_blocker_ids(&matrix);
+    let blocker_ids =
+        format!("{WORKFLOW_BLOCKER_IDS},{engine_blocker_ids},{REMOTE_API_BLOCKER_IDS}");
+    let required_evidence = format!(
+        "{WORKFLOW_REQUIRED_EVIDENCE},{},{}",
+        engine_mode_required_evidence(),
+        REMOTE_API_REQUIRED_EVIDENCE
+    );
+    let suggested_next_action = format!(
+        "{} {} {}",
+        WORKFLOW_SUGGESTED_NEXT_ACTION,
+        engine_mode_suggested_next_action(),
+        REMOTE_API_SUGGESTED_NEXT_ACTION
+    );
     let mut fields = parity_common_fields(
         scope,
         "shardloom.cross_cg_capability_parity.v1",
@@ -370,6 +383,10 @@ fn emit_cross_cg_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         "/v1/capabilities/cross-cg",
     );
     push_count_field(&mut fields, "parity_surface_count", 3);
+    push_field(&mut fields, "severity", "error");
+    push_field(&mut fields, "blocker_ids", &blocker_ids);
+    push_field(&mut fields, "required_evidence", &required_evidence);
+    push_field(&mut fields, "suggested_next_action", &suggested_next_action);
     append_cross_cg_surface_fields(
         &mut fields,
         "cg21_workflow",

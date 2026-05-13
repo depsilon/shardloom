@@ -436,6 +436,89 @@ class EngineCapabilityMatrix:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkloadCertificationDossier:
+    """Typed view over a workload-scoped certification dossier."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def scenario(self) -> str | None:
+        """Return the deterministic dossier scenario."""
+
+        return self.envelope.field("scenario")
+
+    @property
+    def workload_id(self) -> str:
+        """Return the workload identifier represented by this dossier."""
+
+        return _required_field(self.envelope, "workload_id")
+
+    @property
+    def overall_status(self) -> str:
+        """Return the cross-CG dossier status."""
+
+        return _required_field(self.envelope, "overall_status")
+
+    @property
+    def certificate_refs(self) -> tuple[str, ...]:
+        """Return available certificate references."""
+
+        return _csv_values(self.envelope.field("certificate_refs"))
+
+    @property
+    def blocker_ids(self) -> tuple[str, ...]:
+        """Return stable blocker IDs preventing certification claims."""
+
+        return _csv_values(self.envelope.field("blocker_ids"))
+
+    @property
+    def missing_evidence(self) -> tuple[str, ...]:
+        """Return evidence surfaces not present for the workload."""
+
+        return _csv_values(self.envelope.field("missing_evidence"))
+
+    @property
+    def blocked_evidence(self) -> tuple[str, ...]:
+        """Return blocked evidence entries."""
+
+        return _csv_values(self.envelope.field("blocked_evidence"))
+
+    @property
+    def unsupported_evidence(self) -> tuple[str, ...]:
+        """Return unsupported evidence entries."""
+
+        return _csv_values(self.envelope.field("unsupported_evidence"))
+
+    @property
+    def suggested_next_action(self) -> str | None:
+        """Return the next action suggested by the dossier."""
+
+        return self.envelope.field("suggested_next_action")
+
+    @property
+    def no_runtime(self) -> bool:
+        """Whether the dossier avoided runtime execution."""
+
+        return self.envelope.field_bool("no_runtime", False) is True
+
+    @property
+    def no_fallback(self) -> bool:
+        """Whether the dossier declares and preserves no fallback execution."""
+
+        return (
+            self.envelope.field_bool("no_fallback", False) is True
+            and not self.envelope.fallback.attempted
+            and not self.envelope.fallback.allowed
+        )
+
+    @property
+    def no_effects(self) -> bool:
+        """Whether the dossier performed no external effects."""
+
+        return self.envelope.field_bool("no_effects", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class RestApiContractPlan:
     """Typed convenience view over the CG-23 REST/OpenAPI contract report."""
 
@@ -1722,6 +1805,18 @@ class ShardLoomClient:
 
         return EngineCapabilityMatrix(self.run(["engine-capability-matrix"], check=check))
 
+    def workload_certification_dossier(
+        self,
+        scenario: str = "local-vortex-count",
+        *,
+        check: bool = True,
+    ) -> WorkloadCertificationDossier:
+        """Return a workload-scoped cross-CG certification dossier."""
+
+        return WorkloadCertificationDossier(
+            self.run(["workload-certification-dossier", scenario], check=check)
+        )
+
     def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
         """Return the CG-22 report-only live change contract."""
 
@@ -1771,7 +1866,7 @@ class ShardLoomClient:
         workflow_summary: str,
         target_ref: str | os.PathLike[str] | None = None,
         *,
-        check: bool = True,
+        check: bool = False,
     ) -> OutputEnvelope:
         """Return a report-only unsupported workflow-operation envelope."""
 
@@ -2806,6 +2901,12 @@ def _required_field(envelope: OutputEnvelope, key: str) -> str:
             f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
         )
     return value
+
+
+def _csv_values(value: str | None) -> tuple[str, ...]:
+    if value is None or value == "" or value == "none":
+        return ()
+    return tuple(part.strip() for part in value.split(",") if part.strip())
 
 
 LOCAL_VORTEX_FALLBACK_ATTEMPTED_FIELDS = (
