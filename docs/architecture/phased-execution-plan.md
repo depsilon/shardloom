@@ -147,6 +147,10 @@ threads. Before release readiness, re-query PR #360 and up, classify each still-
 as fixed, stale, intentionally deferred, or still actionable, and resolve/comment only with evidence
 from the merged code and tests.
 
+- [x] Codex review sweep for PR #520 through PR #536: no additional implementation findings were
+      found beyond already-landed fixes. Several GitHub threads remain unresolved but appear fixed
+      in `main`; before release readiness they need evidence-backed human resolution/commentary,
+      not new code by default.
 - [x] Codex review finding from PR #534 thread `PRRT_kwDOSScs_c6BxJU1`
       (`shardloom-exec/src/lib.rs:500`): `ShardLoomExecutionResult::to_output_envelope()` emits
       lifecycle status from the stored `lifecycle_status`, but Vortex provider bridge paths can
@@ -215,6 +219,13 @@ from the merged code and tests.
     - User-visible surface: at least one complete source -> supported compute -> Vortex sink path
       with inspectable output artifact, commit/recovery status, replay verification, execution
       certificate, Native I/O certificate, benchmark row, coverage row, and CLI/Python invocation.
+    - Completed sub-slice in ledger: `local_vortex_analytics_v1` can now opt into native Vortex
+      replay verification from CLI and Python, with content digests for emitted Vortex artifacts,
+      schema summary, benchmark/coverage refs, replay Native I/O certificate status,
+      commit/cleanup status, and no-fallback fields.
+    - Remaining sink gap: promote at least one computed result output, not only imported source
+      Vortex artifacts plus scalar result JSON, into an inspectable/replayable native Vortex sink
+      artifact with write timing separated from compute timing.
     - Acceptance: output artifacts include digest/hash, schema/dtype summary, Native I/O
       certificate, expected row/stat/schema replay evidence, materialization/decode evidence, and
       deterministic failure when replay verification fails. The first candidate workload

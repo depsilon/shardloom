@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.5 native replay workflow proof and benchmark-feature CLI matrix bundle
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: start P7.4.5 by making the local traditional analytics workflow replayable and
+    inspectable from CLI and Python while preserving no-fallback execution policy.
+  - Checklist:
+    - [x] Add opt-in `--verify-native-replay` for `traditional-analytics-run`.
+    - [x] Re-open emitted native Vortex artifacts, replay the selected scenario, compare replay
+          result JSON with the initial compatibility-file execution, and fail deterministically if
+          replay diverges.
+    - [x] Emit `local_vortex_analytics_v1` workflow evidence fields: workload scorecard status,
+          benchmark row ref, coverage row ref, schema summary, artifact digest algorithm,
+          per-artifact digests, combined content digest, replay request/verification status,
+          replay rows scanned/materialized, replay Native I/O certificate status, commit state,
+          cleanup status, and no-fallback policy fields.
+    - [x] Add Python `traditional_analytics_run(..., verify_native_replay=True)` and
+          `live_etl_smoke(..., verify_native_replay=True)` invocation support, with deterministic
+          rejection for existing native Vortex inputs that do not produce fresh import artifacts.
+    - [x] Repair benchmark-feature CLI test fixtures so feature-enabled staged-output filesystem
+          paths use real temporary workspaces instead of hard-coded missing `/tmp` paths.
+    - [x] Keep the remaining P7.4.5 sink gap explicit: this slice verifies emitted source Vortex
+          artifacts and scalar workflow output; a later slice must promote a computed result output
+          into a replayable native Vortex sink artifact with write timing separated from compute
+          timing.
+    - [x] Record the PR #520 through PR #536 Codex review sweep result in the phase plan: no new
+          implementation fixes were found, but unresolved GitHub review threads still need
+          evidence-backed human resolution before release readiness.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `python -m compileall -q python\src\shardloom python\tests\test_cli_client.py`
+    - [x] `cargo test -p shardloom-vortex native_replay_verification_certifies_local_vortex_analytics_workflow --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-cli`
+    - [x] `cargo test -p shardloom-cli --features vortex-traditional-analytics-benchmark`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client`
+    - [x] `cargo run -q -p shardloom-cli --features vortex-traditional-analytics-benchmark -- traditional-analytics-run "selective filter" target\codex-p745-workflow-smoke\fact.csv target\codex-p745-workflow-smoke\dim.csv --workspace target\codex-p745-workflow-smoke\workspace --input-format csv --verify-native-replay --format json`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: local Vortex replay verification and feature-gated local artifact inspection
+    only. This does not add SQL/DataFrame execution, external engine invocation, production sink
+    claims, comparative performance claims, object-store writes, release publication, or fallback
+    execution.
+
 - [x] Session label: P7.4.4 benchmark taxonomy advanced fixture profiles bundle
   - Primary files:
     - `benchmarks/common/scenario_catalog.json`

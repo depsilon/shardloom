@@ -2585,6 +2585,7 @@ class ShardLoomClient:
         workspace: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
         compatibility_output_format: str | None = None,
+        verify_native_replay: bool = False,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -2603,6 +2604,8 @@ class ShardLoomClient:
             args.extend(["--input-format", input_format])
         if compatibility_output_format is not None:
             args.extend(["--compat-output-format", compatibility_output_format])
+        if verify_native_replay:
+            args.append("--verify-native-replay")
         if memory_gb is not None:
             args.extend(["--memory-gb", str(memory_gb)])
         if max_parallelism is not None:
@@ -2638,6 +2641,7 @@ class ShardLoomClient:
         input_format: str = "csv",
         workspace: str | os.PathLike[str] | None = None,
         compatibility_output_format: str | None = None,
+        verify_native_replay: bool = False,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -2665,12 +2669,17 @@ class ShardLoomClient:
                 workspace=workspace,
                 input_format=normalized_format,
                 compatibility_output_format=compatibility_output_format,
+                verify_native_replay=verify_native_replay,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
             )
         if workspace is not None:
             raise ValueError("workspace is only supported for compatibility-file live ETL smoke runs")
+        if verify_native_replay:
+            raise ValueError(
+                "verify_native_replay is only supported for compatibility-file live ETL smoke runs"
+            )
         return self.traditional_analytics_vortex_run(
             scenario,
             fact_input,
