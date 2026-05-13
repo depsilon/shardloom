@@ -79,14 +79,14 @@ phase note. They are not active queue state and do not override `phased-executio
 
 P7.4.4 expanded-scenario update: the ShardLoom traditional analytics lane now executes the
 base-schema expanded taxonomy scenarios `filter + projection + limit`, `multi-key group by`,
-`join + aggregate`, `row number window`, `partition pruning`,
-`high-cardinality string group/distinct`, and `top-N per group` through the local Vortex
-import/replay/result-sink path. The update preserves Native I/O certificate, runtime execution
-certificate, materialization/decode-boundary, and `fallback_attempted=false` evidence. Dirty CSV
-`clean/cast/filter/write` now executes through the same local Vortex path with dirty-column
-clean/cast/filter evidence. Many-file, nested JSON, and CDC support remain blocked until those
-input contracts are certified; broader table/catalog/object-store partition-pruning claims remain
-separately blocked.
+`join + aggregate`, `row number window`, `partition pruning`, `many-small-files scan`,
+`null-heavy aggregate`, `high-cardinality string group/distinct`, and `top-N per group` through the
+local Vortex import/replay/result-sink path. The update preserves Native I/O certificate, runtime
+execution certificate, materialization/decode-boundary, and `fallback_attempted=false` evidence.
+Dirty CSV `clean/cast/filter/write` now executes through the same local Vortex path with
+dirty-column clean/cast/filter evidence. Nested JSON and CDC support remain blocked until those
+input contracts are certified; broader table/catalog/object-store partition-pruning and object-store
+multi-file claims remain separately blocked.
 
 P7.4.4 closeout sequence: the next benchmark step should run selected local comparative taxonomy
 reruns, preserve coverage rows separately from timing rows, and promote rows only when the artifact
