@@ -169,6 +169,15 @@ feature-gated universal-I/O smoke path for CSV, JSONL/NDJSON, Parquet, Arrow
 IPC, Avro, and ORC, not the future SQL parser/DataFrame API or mature
 encoded-native operator surface.
 
+For workflow replay proof, the same command accepts `--verify-native-replay`.
+That mode re-opens the emitted Vortex artifacts, compares native replay output
+against the compatibility-file execution result, and emits
+`local_vortex_analytics_v1` evidence fields: artifact digests, schema summary,
+benchmark and coverage row refs, replay Native I/O certificate status,
+commit/cleanup status, and no-fallback policy fields. The flag is intended for
+certification smoke and user workflow inspection; default benchmark timings stay
+focused on the normal harness path unless the caller opts into replay proof.
+
 ShardLoom native Vortex rows call `shardloom traditional-analytics-vortex-run`
 against `.vortex` files produced before scenario timing. This separates native
 Vortex input timing from compatibility-file import timing, while still reporting that the
@@ -261,6 +270,13 @@ Vortex artifacts:
 
 ```powershell
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "group by aggregation" --rows 10000 --iterations 1
+```
+
+Run the direct CLI workflow replay proof when you want the per-command evidence
+fields rather than comparative harness output:
+
+```powershell
+cargo run -p shardloom-cli --features vortex-traditional-analytics-benchmark -- traditional-analytics-run "selective filter" benchmarks\traditional_analytics\data\fact.csv benchmarks\traditional_analytics\data\dim.csv --workspace target\shardloom-traditional-replay --input-format csv --verify-native-replay --format json
 ```
 
 Run ShardLoom across all currently supported local compatibility formats:

@@ -478,14 +478,13 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
         EnvelopeCase {
             name: "vortex runtime success",
             args: &[
-                "vortex-schedule-plan",
+                "vortex-memory-plan",
                 "file://tmp/data.vortex",
                 "8",
-                "2",
                 "--format",
                 "json",
             ],
-            command: "vortex-schedule-plan",
+            command: "vortex-memory-plan",
             status: "success",
             family: "vortex_runtime_planning",
             success: true,

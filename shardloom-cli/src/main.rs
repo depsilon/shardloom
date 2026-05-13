@@ -1249,6 +1249,28 @@ mod tests {
         run_with_larger_stack("cli-test", args)
     }
 
+    struct CliTempWorkspace {
+        root: std::path::PathBuf,
+        workspace: std::path::PathBuf,
+    }
+
+    impl Drop for CliTempWorkspace {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn cli_temp_workspace(label: &str) -> CliTempWorkspace {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("shardloom-cli-{label}-{nanos}"));
+        let workspace = root.join("stage");
+        std::fs::create_dir_all(&workspace).unwrap();
+        CliTempWorkspace { root, workspace }
+    }
+
     fn fake_vortex_file_plans_should_succeed() -> bool {
         !cfg!(any(
             feature = "vortex-encoded-read-spike",
@@ -2293,10 +2315,11 @@ mod tests {
     }
     #[test]
     fn vortex_output_payload_artifact_write_ready_default_build_reports_not_written() {
+        let temp = cli_temp_workspace("output-payload-artifact-write-ready");
         let code = run(vec![
             "vortex-output-payload-artifact-write".to_string(),
             "file://tmp/out.vortex".to_string(),
-            "/tmp/stage".to_string(),
+            temp.workspace.to_string_lossy().to_string(),
             "write-intent-ready,staged-output-ready,finalized-manifest-ready,payload-content-available,local-workspace,feature-gate-enabled".to_string(),
             "none".to_string(),
         ]);
@@ -2354,10 +2377,11 @@ mod tests {
     }
     #[test]
     fn vortex_output_payload_artifact_write_json_format_includes_required_fields() {
+        let temp = cli_temp_workspace("output-payload-artifact-write-json");
         let code = run(vec![
             "vortex-output-payload-artifact-write".to_string(),
             "file://tmp/out.vortex".to_string(),
-            "/tmp/stage".to_string(),
+            temp.workspace.to_string_lossy().to_string(),
             "write-intent-ready,staged-output-ready,finalized-manifest-ready,payload-content-available,local-workspace,feature-gate-enabled".to_string(),
             "none".to_string(),
             "--format".to_string(),
@@ -2652,9 +2676,10 @@ mod tests {
     }
     #[test]
     fn vortex_commit_marker_write_ready_returns_success_by_default_feature_disabled() {
+        let temp = cli_temp_workspace("commit-marker-write-ready");
         let code = run(vec![
             "vortex-commit-marker-write".to_string(),
-            "/tmp/stage".to_string(),
+            temp.workspace.to_string_lossy().to_string(),
             "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled".to_string(),
             "none".to_string(),
         ]);
@@ -2727,19 +2752,25 @@ mod tests {
     }
     #[test]
     fn vortex_commit_marker_write_missing_feature_gate_returns_success_when_feature_disabled() {
+        let temp = cli_temp_workspace("commit-marker-write-missing-feature");
         let code = run(vec![
             "vortex-commit-marker-write".to_string(),
-            "/tmp/stage".to_string(),
+            temp.workspace.to_string_lossy().to_string(),
             "commit-protocol-ready,manifest-finalization-available,local-workspace".to_string(),
             "none".to_string(),
         ]);
-        assert_eq!(code, ExitCode::SUCCESS);
+        if cfg!(feature = "vortex-traditional-analytics-benchmark") {
+            assert_ne!(code, ExitCode::SUCCESS);
+        } else {
+            assert_eq!(code, ExitCode::SUCCESS);
+        }
     }
     #[test]
     fn vortex_commit_marker_write_json_format_returns_success() {
+        let temp = cli_temp_workspace("commit-marker-write-json");
         let code = run(vec![
             "vortex-commit-marker-write".to_string(),
-            "/tmp/stage".to_string(),
+            temp.workspace.to_string_lossy().to_string(),
             "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled".to_string(),
             "none".to_string(),
             "--format".to_string(),
@@ -3735,10 +3766,11 @@ mod tests {
 
     #[test]
     fn vortex_staged_marker_write_missing_options_uses_no_overwrite_default() {
+        let temp = cli_temp_workspace("staged-marker-write-default");
         let code = run(vec![
             "vortex-staged-marker-write".to_string(),
             "stage1".to_string(),
-            "/tmp/shardloom-stage".to_string(),
+            temp.workspace.to_string_lossy().to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
@@ -3756,10 +3788,11 @@ mod tests {
 
     #[test]
     fn vortex_staged_marker_write_valid_args_default_build_returns_success() {
+        let temp = cli_temp_workspace("staged-marker-write-valid");
         let code = run(vec![
             "vortex-staged-marker-write".to_string(),
             "stage1".to_string(),
-            "/tmp/shardloom-stage".to_string(),
+            temp.workspace.to_string_lossy().to_string(),
             "allow-overwrite".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -3807,9 +3840,10 @@ mod tests {
     #[test]
     fn vortex_staged_manifest_file_write_valid_args_returns_success_report_only_when_feature_disabled()
      {
+        let temp = cli_temp_workspace("staged-manifest-file-write");
         let code = run(vec![
             "vortex-staged-manifest-file-write".to_string(),
-            "/tmp/stage".to_string(),
+            temp.workspace.to_string_lossy().to_string(),
             "file-plan-ready,workspace-known,feature-gate-enabled".to_string(),
             "allow-overwrite".to_string(),
         ]);
@@ -3861,10 +3895,11 @@ mod tests {
 
     #[test]
     fn vortex_finalized_manifest_artifact_write_default_build_returns_success() {
+        let temp = cli_temp_workspace("finalized-manifest-artifact-write");
         let code = run(vec![
             "vortex-finalized-manifest-artifact-write".to_string(),
             "file:///tmp/out.vortex".to_string(),
-            "/tmp/stage".to_string(),
+            temp.workspace.to_string_lossy().to_string(),
             "draft-manifest-written,commit-marker-written,commit-protocol-ready,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,local-workspace,feature-gate-enabled".to_string(),
             "none".to_string(),
         ]);
