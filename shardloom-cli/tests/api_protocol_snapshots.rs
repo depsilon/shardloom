@@ -255,6 +255,10 @@ fn rest_api_plan_preview_json_preserves_no_server_no_probe_no_fallback_policy() 
         assert!(output.contains(&field("fallback_attempted", "false")));
         assert!(output.contains(&field("execution_delegated", "false")));
         assert!(output.contains(&field("effect_policy_violated", "false")));
+        assert!(output.contains(&field("external_effects_executed", "false")));
+        assert!(output.contains(&field("no_runtime", "true")));
+        assert!(output.contains(&field("no_fallback", "true")));
+        assert!(output.contains(&field("no_effects", "true")));
     }
 }
 
@@ -370,6 +374,15 @@ fn rest_api_local_lifecycle_json_preserves_no_external_effects_and_no_fallback_p
         assert!(output.contains(&field("fallback_attempted", "false")));
         assert!(output.contains(&field("execution_delegated", "false")));
         assert!(output.contains(&field("effect_policy_violated", "false")));
+        assert!(output.contains(&field("external_effects_executed", "false")));
+        let no_runtime = if scenario == "certified-local-batch" {
+            "false"
+        } else {
+            "true"
+        };
+        assert!(output.contains(&field("no_runtime", no_runtime)));
+        assert!(output.contains(&field("no_fallback", "true")));
+        assert!(output.contains(&field("no_effects", "true")));
     }
 }
 
@@ -489,6 +502,10 @@ fn rest_api_event_stream_json_preserves_no_broker_object_store_or_fallback_effec
         assert!(output.contains(&field("fallback_attempted", "false")));
         assert!(output.contains(&field("execution_delegated", "false")));
         assert!(output.contains(&field("effect_policy_violated", "false")));
+        assert!(output.contains(&field("external_effects_executed", "false")));
+        assert!(output.contains(&field("no_runtime", "true")));
+        assert!(output.contains(&field("no_fallback", "true")));
+        assert!(output.contains(&field("no_effects", "true")));
     }
 }
 
@@ -596,6 +613,10 @@ fn rest_api_security_governance_json_preserves_no_secret_resolution_or_effects()
         assert!(output.contains(&field("fallback_attempted", "false")));
         assert!(output.contains(&field("execution_delegated", "false")));
         assert!(output.contains(&field("effect_policy_violated", "false")));
+        assert!(output.contains(&field("external_effects_executed", "false")));
+        assert!(output.contains(&field("no_runtime", "true")));
+        assert!(output.contains(&field("no_fallback", "true")));
+        assert!(output.contains(&field("no_effects", "true")));
     }
 }
 
@@ -696,6 +717,10 @@ fn rest_api_data_plane_json_preserves_no_transport_catalog_broker_or_fallback_ef
         assert!(output.contains(&field("fallback_attempted", "false")));
         assert!(output.contains(&field("execution_delegated", "false")));
         assert!(output.contains(&field("effect_policy_violated", "false")));
+        assert!(output.contains(&field("external_effects_executed", "false")));
+        assert!(output.contains(&field("no_runtime", "true")));
+        assert!(output.contains(&field("no_fallback", "true")));
+        assert!(output.contains(&field("no_effects", "true")));
     }
 }
 

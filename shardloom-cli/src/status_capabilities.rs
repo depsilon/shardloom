@@ -26,6 +26,32 @@ use crate::{
     cli_unknown_arg_error,
 };
 
+const WORKFLOW_OPERATION_NAMES: &str = "profile,collect,to_pandas,to_arrow,write_vortex,write_parquet,sql,join,aggregate,window,schema_contract,data_quality";
+const WORKFLOW_BLOCKER_IDS: &str = concat!(
+    "cg21.workflow.profile.runtime_profile_unsupported,",
+    "cg21.workflow.collect.materialization_unsupported,",
+    "cg21.workflow.to_pandas.decoded_dataframe_unsupported,",
+    "cg21.workflow.to_arrow.decoded_columnar_unsupported,",
+    "cg21.workflow.write_vortex.write_policy_unsupported,",
+    "cg21.workflow.write_parquet.compatibility_export_unsupported,",
+    "cg21.workflow.sql.frontend_unsupported,",
+    "cg21.workflow.join.operator_unsupported,",
+    "cg21.workflow.aggregate.operator_unsupported,",
+    "cg21.workflow.window.operator_unsupported,",
+    "cg21.workflow.schema_contract.enforcement_unsupported,",
+    "cg21.workflow.data_quality.checks_unsupported"
+);
+const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,write_intent,rest_api_contract";
+const WORKFLOW_SUGGESTED_NEXT_ACTION: &str = "Use workflow-unsupported-plan for method-specific blocker details before requesting execution.";
+const REMOTE_API_BLOCKER_IDS: &str = concat!(
+    "cg23.remote_api.plan_preview.unsupported_operator,",
+    "cg23.remote_api.remote_object_store.unsupported,",
+    "cg23.remote_api.lifecycle.uncertified_blocked,",
+    "cg23.remote_api.data_plane.materialization_boundary_required"
+);
+const REMOTE_API_REQUIRED_EVIDENCE: &str = "openapi_contract,asyncapi_contract,execution_certificate,native_io_certificate,security_governance_policy,data_plane_fidelity_report";
+const REMOTE_API_SUGGESTED_NEXT_ACTION: &str = "Use rest-api-contract-plan and rest-api-plan-preview for scenario-specific blockers before enabling remote execution.";
+
 pub(crate) fn handle_status(format: OutputFormat) -> ExitCode {
     let status = shardloom_exec::status();
     emit(
@@ -82,8 +108,20 @@ pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputForm
             &cli_unknown_arg_error("capabilities", &extra),
         );
     }
+    if scope == CapabilityDiscoveryScope::Workflow {
+        emit_workflow_capability_parity(scope, format);
+        return ExitCode::SUCCESS;
+    }
     if scope == CapabilityDiscoveryScope::Engines {
         emit_engine_mode_capabilities(scope, format);
+        return ExitCode::SUCCESS;
+    }
+    if scope == CapabilityDiscoveryScope::RemoteApi {
+        emit_remote_api_capability_parity(scope, format);
+        return ExitCode::SUCCESS;
+    }
+    if scope == CapabilityDiscoveryScope::CrossCg {
+        emit_cross_cg_capability_parity(scope, format);
         return ExitCode::SUCCESS;
     }
     if scope.world_class_dimension().is_some() {
@@ -116,10 +154,12 @@ pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputForm
     ExitCode::SUCCESS
 }
 
+#[allow(clippy::too_many_lines)]
 fn emit_engine_mode_capabilities(scope: CapabilityDiscoveryScope, format: OutputFormat) {
     let matrix = EngineCapabilityMatrixReport::cg22_contract();
     let mut fields =
         certification_common_fields(&CapabilityCertificationReport::contract_only(), scope);
+    append_no_effect_parity_fields(&mut fields);
     push_field(
         &mut fields,
         "engine_capability_schema_version",
@@ -158,6 +198,23 @@ fn emit_engine_mode_capabilities(scope: CapabilityDiscoveryScope, format: Output
         "live_hybrid_claim_blocked_count",
         matrix.live_hybrid_claim_blocked_count(),
     );
+    push_field(&mut fields, "severity", "error");
+    push_field(
+        &mut fields,
+        "blocker_ids",
+        &engine_mode_blocker_ids(&matrix),
+    );
+    push_field(
+        &mut fields,
+        "required_evidence",
+        engine_mode_required_evidence(),
+    );
+    push_field(
+        &mut fields,
+        "suggested_next_action",
+        engine_mode_suggested_next_action(),
+    );
+    push_field(&mut fields, "future_rest_view", "/v1/capabilities/engines");
     for row in &matrix.rows {
         let prefix = row.engine_mode.as_str();
         push_field(
@@ -180,6 +237,25 @@ fn emit_engine_mode_capabilities(scope: CapabilityDiscoveryScope, format: Output
             &format!("{prefix}_checkpoint_required"),
             row.checkpoint_required,
         );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_blocker_ids"),
+            &engine_row_blocker_ids(row),
+        );
+        push_field(&mut fields, &format!("{prefix}_severity"), "error");
+        push_field(
+            &mut fields,
+            &format!("{prefix}_required_evidence"),
+            engine_row_required_evidence(row),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_suggested_next_action"),
+            engine_mode_suggested_next_action(),
+        );
+        push_bool_field(&mut fields, &format!("{prefix}_no_runtime"), true);
+        push_bool_field(&mut fields, &format!("{prefix}_no_fallback"), true);
+        push_bool_field(&mut fields, &format!("{prefix}_no_effects"), true);
     }
     emit(
         "capabilities",
@@ -187,6 +263,150 @@ fn emit_engine_mode_capabilities(scope: CapabilityDiscoveryScope, format: Output
         CommandStatus::Success,
         "engine mode capabilities".to_string(),
         matrix.to_human_text(),
+        vec![],
+        fields,
+    );
+}
+
+fn emit_workflow_capability_parity(scope: CapabilityDiscoveryScope, format: OutputFormat) {
+    let mut fields = parity_common_fields(
+        scope,
+        "shardloom.workflow_capability_parity.v1",
+        "cg21.workflow_capability_parity",
+        "cg21",
+        "workflow_api,query_builder,dataframe_etl_affordances",
+        "/v1/capabilities/workflow",
+    );
+    push_field(&mut fields, "workflow_state", "unsupported_report_only");
+    push_count_field(&mut fields, "workflow_operation_count", 12);
+    push_field(
+        &mut fields,
+        "workflow_operation_names",
+        WORKFLOW_OPERATION_NAMES,
+    );
+    push_field(&mut fields, "severity", "error");
+    push_field(&mut fields, "blocker_ids", WORKFLOW_BLOCKER_IDS);
+    push_field(&mut fields, "required_evidence", WORKFLOW_REQUIRED_EVIDENCE);
+    push_field(
+        &mut fields,
+        "suggested_next_action",
+        WORKFLOW_SUGGESTED_NEXT_ACTION,
+    );
+    push_field(
+        &mut fields,
+        "unsupported_diagnostic_surface",
+        "workflow-unsupported-plan",
+    );
+    emit(
+        "capabilities",
+        format,
+        CommandStatus::Success,
+        "workflow capability parity".to_string(),
+        parity_human_text(
+            scope,
+            "workflow unsupported diagnostics",
+            WORKFLOW_BLOCKER_IDS,
+        ),
+        vec![],
+        fields,
+    );
+}
+
+fn emit_remote_api_capability_parity(scope: CapabilityDiscoveryScope, format: OutputFormat) {
+    let mut fields = parity_common_fields(
+        scope,
+        "shardloom.remote_api_capability_parity.v1",
+        "cg23.remote_api_capability_parity",
+        "cg23",
+        "rest_contract,plan_preview,lifecycle,event_stream,security_governance,data_plane",
+        "/v1/capabilities/remote-api",
+    );
+    push_field(&mut fields, "remote_api_state", "contract_only_report_only");
+    push_count_field(&mut fields, "remote_api_surface_count", 6);
+    push_field(
+        &mut fields,
+        "remote_api_surface_names",
+        "contract,plan_preview,local_lifecycle,event_stream,security_governance,data_plane",
+    );
+    push_field(&mut fields, "severity", "error");
+    push_field(&mut fields, "blocker_ids", REMOTE_API_BLOCKER_IDS);
+    push_field(
+        &mut fields,
+        "required_evidence",
+        REMOTE_API_REQUIRED_EVIDENCE,
+    );
+    push_field(
+        &mut fields,
+        "suggested_next_action",
+        REMOTE_API_SUGGESTED_NEXT_ACTION,
+    );
+    push_field(
+        &mut fields,
+        "unsupported_diagnostic_surface",
+        "rest-api-plan-preview",
+    );
+    push_field(&mut fields, "contract_surface", "rest-api-contract-plan");
+    push_field(&mut fields, "event_surface", "rest-api-event-stream");
+    emit(
+        "capabilities",
+        format,
+        CommandStatus::Success,
+        "remote api capability parity".to_string(),
+        parity_human_text(scope, "remote api blockers", REMOTE_API_BLOCKER_IDS),
+        vec![],
+        fields,
+    );
+}
+
+fn emit_cross_cg_capability_parity(scope: CapabilityDiscoveryScope, format: OutputFormat) {
+    let matrix = EngineCapabilityMatrixReport::cg22_contract();
+    let engine_blocker_ids = engine_mode_blocker_ids(&matrix);
+    let mut fields = parity_common_fields(
+        scope,
+        "shardloom.cross_cg_capability_parity.v1",
+        "cg21_cg22_cg23.cross_cg_capability_parity",
+        "cg21,cg22,cg23",
+        "workflow_api,engine_modes,remote_api",
+        "/v1/capabilities/cross-cg",
+    );
+    push_count_field(&mut fields, "parity_surface_count", 3);
+    append_cross_cg_surface_fields(
+        &mut fields,
+        "cg21_workflow",
+        "unsupported_report_only",
+        WORKFLOW_BLOCKER_IDS,
+        WORKFLOW_REQUIRED_EVIDENCE,
+        WORKFLOW_SUGGESTED_NEXT_ACTION,
+        "workflow-unsupported-plan",
+    );
+    append_cross_cg_surface_fields(
+        &mut fields,
+        "cg22_engine_modes",
+        "partial_support_report_only",
+        &engine_blocker_ids,
+        engine_mode_required_evidence(),
+        engine_mode_suggested_next_action(),
+        "engine-capability-matrix",
+    );
+    append_cross_cg_surface_fields(
+        &mut fields,
+        "cg23_remote_api",
+        "contract_only_report_only",
+        REMOTE_API_BLOCKER_IDS,
+        REMOTE_API_REQUIRED_EVIDENCE,
+        REMOTE_API_SUGGESTED_NEXT_ACTION,
+        "rest-api-plan-preview",
+    );
+    emit(
+        "capabilities",
+        format,
+        CommandStatus::Success,
+        "cross-CG capability parity".to_string(),
+        parity_human_text(
+            scope,
+            "workflow, engine, and remote api parity",
+            WORKFLOW_BLOCKER_IDS,
+        ),
         vec![],
         fields,
     );
@@ -202,6 +422,130 @@ fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize)
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     push_field(fields, key, if value { "true" } else { "false" });
+}
+
+fn append_no_effect_parity_fields(fields: &mut Vec<(String, String)>) {
+    push_bool_field(fields, "external_effects_executed", false);
+    push_bool_field(fields, "data_read", false);
+    push_bool_field(fields, "write_io", false);
+    push_bool_field(fields, "no_runtime", true);
+    push_bool_field(fields, "no_fallback", true);
+    push_bool_field(fields, "no_effects", true);
+}
+
+fn parity_common_fields(
+    scope: CapabilityDiscoveryScope,
+    schema_version: &str,
+    report_id: &str,
+    represented_gates: &str,
+    represented_surfaces: &str,
+    future_rest_view: &str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![
+        ("scope".to_string(), scope.as_str().to_string()),
+        ("schema_version".to_string(), schema_version.to_string()),
+        ("report_id".to_string(), report_id.to_string()),
+        ("capability_status".to_string(), "report_only".to_string()),
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        ("side_effect_free".to_string(), "true".to_string()),
+        ("filesystem_probe".to_string(), "false".to_string()),
+        ("network_probe".to_string(), "false".to_string()),
+        ("catalog_probe".to_string(), "false".to_string()),
+        ("adapter_probe".to_string(), "false".to_string()),
+        ("parser_executed".to_string(), "false".to_string()),
+        ("runtime_execution".to_string(), "false".to_string()),
+    ];
+    append_no_effect_parity_fields(&mut fields);
+    push_field(&mut fields, "represented_gates", represented_gates);
+    push_field(&mut fields, "represented_surfaces", represented_surfaces);
+    push_field(&mut fields, "future_rest_view", future_rest_view);
+    fields
+}
+
+#[allow(clippy::too_many_arguments)]
+fn append_cross_cg_surface_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    state: &str,
+    blocker_ids: &str,
+    required_evidence: &str,
+    suggested_next_action: &str,
+    diagnostic_surface: &str,
+) {
+    push_field(fields, &format!("{prefix}_state"), state);
+    push_field(fields, &format!("{prefix}_severity"), "error");
+    push_field(fields, &format!("{prefix}_blocker_ids"), blocker_ids);
+    push_field(
+        fields,
+        &format!("{prefix}_required_evidence"),
+        required_evidence,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_suggested_next_action"),
+        suggested_next_action,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_diagnostic_surface"),
+        diagnostic_surface,
+    );
+    push_bool_field(fields, &format!("{prefix}_no_runtime"), true);
+    push_bool_field(fields, &format!("{prefix}_no_fallback"), true);
+    push_bool_field(fields, &format!("{prefix}_no_effects"), true);
+}
+
+fn parity_human_text(scope: CapabilityDiscoveryScope, summary: &str, blocker_ids: &str) -> String {
+    format!(
+        "capability discovery: {}\nsummary: {}\nblocker_ids: {}\nfallback execution: disabled\nruntime execution: false\nside effects: none",
+        scope.as_str(),
+        summary,
+        blocker_ids
+    )
+}
+
+fn engine_row_blocker_ids(row: &shardloom_core::EngineCapabilityRow) -> String {
+    row.blockers
+        .iter()
+        .map(|blocker| format!("cg22.engine.{}.{}", row.engine_mode.as_str(), blocker))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn engine_mode_blocker_ids(matrix: &EngineCapabilityMatrixReport) -> String {
+    matrix
+        .rows
+        .iter()
+        .map(engine_row_blocker_ids)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn engine_row_required_evidence(row: &shardloom_core::EngineCapabilityRow) -> &'static str {
+    match row.engine_mode.as_str() {
+        "batch" => {
+            "workload_correctness_evidence,benchmark_evidence,broad_source_sink_certification"
+        }
+        "live" => {
+            "durable_checkpoint_store,unbounded_runtime_scheduler,workload_correctness_evidence,benchmark_evidence"
+        }
+        "hybrid" => {
+            "durable_micro_segment_flush_writes,object_store_commit_protocol,external_catalog_snapshot_discovery,workload_correctness_evidence,benchmark_evidence"
+        }
+        _ => engine_mode_required_evidence(),
+    }
+}
+
+const fn engine_mode_required_evidence() -> &'static str {
+    "workload_correctness_evidence,benchmark_evidence,broad_source_sink_certification,durable_checkpoint_store,object_store_commit_protocol"
+}
+
+const fn engine_mode_suggested_next_action() -> &'static str {
+    "Use engine-selection-plan and engine-capability-matrix before making engine-mode execution claims."
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -228,6 +572,9 @@ pub(crate) enum CapabilityDiscoveryScope {
     Extensions,
     SecurityGovernance,
     Engines,
+    Workflow,
+    RemoteApi,
+    CrossCg,
 }
 
 impl CapabilityDiscoveryScope {
@@ -255,6 +602,15 @@ impl CapabilityDiscoveryScope {
             Some("extensions") => Ok(Self::Extensions),
             Some("security-governance") => Ok(Self::SecurityGovernance),
             Some("engines" | "engine-modes" | "engine_modes") => Ok(Self::Engines),
+            Some("workflow" | "workflows" | "cg21-workflow" | "cg21_workflow") => {
+                Ok(Self::Workflow)
+            }
+            Some("remote-api" | "remote_api" | "api-remote" | "cg23-remote-api") => {
+                Ok(Self::RemoteApi)
+            }
+            Some("cross-cg" | "cross_cg" | "integrated" | "integrated-certification") => {
+                Ok(Self::CrossCg)
+            }
             Some(value) => Err(cli_unknown_arg_error("capabilities", value)),
         }
     }
@@ -284,6 +640,9 @@ impl CapabilityDiscoveryScope {
             Self::Extensions => "extensions",
             Self::SecurityGovernance => "security_governance",
             Self::Engines => "engines",
+            Self::Workflow => "workflow",
+            Self::RemoteApi => "remote_api",
+            Self::CrossCg => "cross_cg",
         }
     }
 
@@ -371,7 +730,10 @@ pub(crate) fn certification_fields(
         | CapabilityDiscoveryScope::Deployment
         | CapabilityDiscoveryScope::Extensions
         | CapabilityDiscoveryScope::SecurityGovernance
-        | CapabilityDiscoveryScope::Engines => {}
+        | CapabilityDiscoveryScope::Engines
+        | CapabilityDiscoveryScope::Workflow
+        | CapabilityDiscoveryScope::RemoteApi
+        | CapabilityDiscoveryScope::CrossCg => {}
         CapabilityDiscoveryScope::Sql => append_sql_certification_fields(report, &mut fields),
         CapabilityDiscoveryScope::Functions => {
             append_function_certification_fields(report, &mut fields);
@@ -1442,6 +1804,11 @@ fn certification_text(
         }
         CapabilityDiscoveryScope::Engines => {
             unreachable!("engine-mode scope uses EngineCapabilityMatrixReport")
+        }
+        CapabilityDiscoveryScope::Workflow
+        | CapabilityDiscoveryScope::RemoteApi
+        | CapabilityDiscoveryScope::CrossCg => {
+            unreachable!("cross-CG parity scopes use dedicated parity reports")
         }
     }
 }

@@ -139,6 +139,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         assert!(output.contains(&field("unsupported_status", "unsupported")));
         assert!(output.contains(&field("severity", "error")));
         assert!(output.contains(&field("plan_only", "true")));
+        assert!(output.contains(&field("side_effect_free", "true")));
         assert!(output.contains(&field("execution", "not_performed")));
         assert!(output.contains(&field("query_execution", "false")));
         assert!(output.contains(&field("runtime_execution", "false")));
@@ -149,6 +150,9 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         assert!(output.contains(&field("external_engine_invoked", "false")));
         assert!(output.contains(&field("fallback_execution_allowed", "false")));
         assert!(output.contains(&field("fallback_attempted", "false")));
+        assert!(output.contains(&field("no_runtime", "true")));
+        assert!(output.contains(&field("no_fallback", "true")));
+        assert!(output.contains(&field("no_effects", "true")));
         assert!(output.contains("\"attempted\":false"));
     }
     assert!(collect.contains(&field("workflow_operation", "collect")));

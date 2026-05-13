@@ -932,6 +932,7 @@ fn workflow_unsupported_fields(
     push_bool_field(&mut fields, "write_required", operation.write_required);
     push_bool_field(&mut fields, "runtime_required", operation.runtime_required);
     push_bool_field(&mut fields, "plan_only", true);
+    push_bool_field(&mut fields, "side_effect_free", true);
     push_field(&mut fields, "execution", "not_performed");
     push_bool_field(&mut fields, "query_execution", false);
     push_bool_field(&mut fields, "runtime_execution", false);
@@ -946,6 +947,9 @@ fn workflow_unsupported_fields(
     push_bool_field(&mut fields, "external_effects_executed", false);
     push_bool_field(&mut fields, "fallback_execution_allowed", false);
     push_bool_field(&mut fields, "fallback_attempted", false);
+    push_bool_field(&mut fields, "no_runtime", true);
+    push_bool_field(&mut fields, "no_fallback", true);
+    push_bool_field(&mut fields, "no_effects", true);
     fields
 }
 

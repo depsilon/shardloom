@@ -147,6 +147,25 @@ threads. Before release readiness, re-query PR #360 and up, classify each still-
 as fixed, stale, intentionally deferred, or still actionable, and resolve/comment only with evidence
 from the merged code and tests.
 
+- [x] Audit-F6 / P7.1 subagent cross-CG capability parity findings.
+  - Source findings: the P7.1 subagent audit found that capability discovery lacks a first-class
+    CG-21 workflow scope, Python default capability discovery omits workflow/dataframe/API/remote
+    breadth, CG-23 remote/API states exist only as separate REST commands, CG-22/CG-23 blocked
+    paths do not expose the same stable blocker/evidence/next-action contract as CG-21 workflow
+    unsupported reports, no-runtime/no-fallback/no-effect fields are not named consistently across
+    CG-21/CG-22/CG-23, and Python lacks a shared typed parity view.
+  - Required fixes: add workflow, remote/API, and cross-CG capability discovery scopes; surface the
+    same blocker identifier, severity, required evidence, suggested next action, and no-fallback
+    stance across CLI fields, Python capability views, and future REST-view fields; align
+    no-runtime/no-fallback/no-effect fields on workflow unsupported, engine capability, and REST/API
+    report-only surfaces; add snapshot/Python/typed-envelope verification.
+  - Verification: cross-CG capability snapshots, workflow unsupported snapshots, CG-22 and CG-23
+    no-effect assertions, Python capability parity tests, typed-envelope/API compatibility locks,
+    fmt/clippy, and workspace tests.
+  - Completed: folded into P7.1 by adding first-class `capabilities workflow`,
+    `capabilities remote-api`, and `capabilities cross-cg` scopes, Python capability parity access,
+    aligned no-runtime/no-fallback/no-effect fields on CG-21/CG-22/CG-23 surfaces, and snapshot/API
+    protocol/typed-envelope/Python coverage.
 - [x] Audit-F1 schema-breaking REST/OpenAPI status-field repair bundle.
   - Source findings: unresolved P1 review comments on PR #520 and PR #521; related REST API schema
     review should also cover PR #517, PR #518, and PR #519.
@@ -687,13 +706,18 @@ P9.1-P9.5.
       Each method returns stable CG-21 blocker IDs, required evidence, next actions, unsupported
       diagnostics, and no-runtime/no-read/no-write/no-fallback fields instead of silently missing
       from the workflow API.
-  - [ ] P7.1 cross-CG capability and unsupported-diagnostic parity bundle.
+  - [x] P7.1 cross-CG capability and unsupported-diagnostic parity bundle.
     - User-visible surface: capability discovery shows CG-21 workflow, CG-22 engine mode, and CG-23
       remote API states through CLI, Python, and future REST views.
     - Acceptance: the same blocker has the same identifier, severity, no-fallback stance, required
       evidence, and suggested next action across all surfaces.
     - Verification: cross-CG capability snapshots, unsupported-diagnostic golden fixtures, Python
       parity tests, and typed-envelope/API compatibility locks.
+    - Completed: added report-only capability parity scopes for CG-21 workflow unsupported methods,
+      CG-22 engine-mode claim blockers, and CG-23 remote/API contract blockers. The CLI surfaces now
+      expose stable blocker IDs, severity, required evidence, suggested next actions,
+      no-runtime/no-fallback/no-effect fields, and future REST-view paths; Python context capability
+      views now include the same parity properties and default scope coverage.
   - [ ] P7.2 workload certification dossier bundle.
     - User-visible surface: workload-scoped certification dossiers that combine CG-5 correctness,
       CG-6 benchmarks, CG-16 execution certificates, CG-19 Native I/O certificates, CG-20 capability

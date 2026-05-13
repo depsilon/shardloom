@@ -395,6 +395,16 @@ class ShardLoomClientTests(unittest.TestCase):
                         fields.append({"key": "adapter_certification_required", "value": "true"})
                     if scope == "operators":
                         fields.append({"key": "materialization_boundary_reported", "value": "true"})
+                    if scope in {"workflow", "remote-api", "cross-cg"}:
+                        fields.extend([
+                            {"key": "severity", "value": "error"},
+                            {"key": "blocker_ids", "value": f"cg.{scope}.blocked"},
+                            {"key": "required_evidence", "value": "execution_certificate,native_io_certificate"},
+                            {"key": "suggested_next_action", "value": "inspect parity report"},
+                            {"key": "no_runtime", "value": "true"},
+                            {"key": "no_fallback", "value": "true"},
+                            {"key": "no_effects", "value": "true"},
+                        ])
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -419,6 +429,9 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.python.field("scope"), "python")
         self.assertEqual(capabilities.deployment.field("scope"), "deployment")
         self.assertEqual(capabilities.engines.field("scope"), "engines")
+        self.assertEqual(capabilities.workflow.field("scope"), "workflow")
+        self.assertEqual(capabilities.remote_api.field("scope"), "remote-api")
+        self.assertEqual(capabilities.cross_cg.field("scope"), "cross-cg")
         self.assertEqual(capabilities.functions.capability_state, "planned")
         self.assertEqual(capabilities.sql_support.scope, "sql")
         self.assertIn("adapter_certification_required", capabilities.adapters.required_gates)
@@ -428,7 +441,20 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(capabilities.input_adapters.field_bool("plan_only"))
         self.assertFalse(capabilities.fallback_attempted)
+        self.assertEqual(capabilities.cross_cg.severity, "error")
+        self.assertEqual(capabilities.cross_cg.blocker_ids, ("cg.cross-cg.blocked",))
+        self.assertEqual(
+            capabilities.cross_cg.required_evidence,
+            ("execution_certificate", "native_io_certificate"),
+        )
+        self.assertEqual(capabilities.cross_cg.suggested_next_action, "inspect parity report")
+        self.assertTrue(capabilities.cross_cg.no_runtime)
+        self.assertTrue(capabilities.cross_cg.no_fallback)
+        self.assertTrue(capabilities.cross_cg.no_effects)
         self.assertEqual(ctx.functions().field("scope"), "functions")
+        self.assertEqual(ctx.workflow_capabilities().field("scope"), "workflow")
+        self.assertEqual(ctx.remote_api_capabilities().field("scope"), "remote-api")
+        self.assertEqual(ctx.cross_cg_capability_parity().field("scope"), "cross-cg")
 
     def test_context_capabilities_empty_scope_list_is_explicit(self) -> None:
         binary = self.fake_cli(

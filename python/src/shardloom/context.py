@@ -30,12 +30,18 @@ from .query import LazyFrame, read_csv, read_json, read_parquet, read_vortex
 DEFAULT_CAPABILITY_SCOPES = (
     "python",
     "deployment",
+    "data-etl",
+    "dataframe",
     "adapters",
     "functions",
     "operators",
     "sql",
     "certification",
     "engines",
+    "workflow",
+    "remote-api",
+    "api-surfaces",
+    "cross-cg",
 )
 SUPPORTED_ENGINE_MODES = ("auto", "batch", "live", "hybrid")
 
@@ -70,6 +76,62 @@ class CapabilityView:
         """Whether this capability command attempted fallback execution."""
 
         return self.envelope.fallback.attempted
+
+    @property
+    def blocker_ids(self) -> tuple[str, ...]:
+        """Return stable blocker IDs surfaced by this capability view."""
+
+        values: list[str] = []
+        for key, value in self.fields.items():
+            if key == "blocker_id" or key.endswith("_blocker_id"):
+                values.append(value)
+            elif key == "blocker_ids" or key.endswith("_blocker_ids"):
+                values.extend(_split_csv(value))
+        return tuple(dict.fromkeys(part for part in values if part))
+
+    @property
+    def severity(self) -> str | None:
+        """Return the top-level unsupported/blocked severity when present."""
+
+        return self.envelope.field("severity")
+
+    @property
+    def required_evidence(self) -> tuple[str, ...]:
+        """Return required evidence surfaces named by the capability view."""
+
+        values: list[str] = []
+        for key, value in self.fields.items():
+            if key == "required_evidence" or key.endswith("_required_evidence"):
+                values.extend(_split_csv(value))
+        return tuple(dict.fromkeys(part for part in values if part))
+
+    @property
+    def suggested_next_action(self) -> str | None:
+        """Return the top-level suggested next action when present."""
+
+        return self.envelope.field("suggested_next_action")
+
+    @property
+    def no_runtime(self) -> bool:
+        """Whether this view declares no runtime execution."""
+
+        return self.envelope.field_bool("no_runtime", False) is True
+
+    @property
+    def no_fallback(self) -> bool:
+        """Whether this view declares no fallback execution."""
+
+        return (
+            self.envelope.field_bool("no_fallback", False) is True
+            and not self.envelope.fallback.attempted
+            and not self.envelope.fallback.allowed
+        )
+
+    @property
+    def no_effects(self) -> bool:
+        """Whether this view declares no external effects."""
+
+        return self.envelope.field_bool("no_effects", False) is True
 
     @property
     def capability_state(self) -> str | None:
@@ -191,6 +253,42 @@ class ContextCapabilities:
         """Return CG-22 engine-mode capability state."""
 
         return self.scope("engines")
+
+    @property
+    def workflow(self) -> CapabilityView:
+        """Return CG-21 workflow capability parity state."""
+
+        return self.scope("workflow")
+
+    @property
+    def data_etl(self) -> CapabilityView:
+        """Return data/ETL surface capability state."""
+
+        return self.scope("data-etl")
+
+    @property
+    def dataframe(self) -> CapabilityView:
+        """Return DataFrame/query-builder capability state."""
+
+        return self.scope("dataframe")
+
+    @property
+    def api_surfaces(self) -> CapabilityView:
+        """Return API-surface capability state."""
+
+        return self.scope("api-surfaces")
+
+    @property
+    def remote_api(self) -> CapabilityView:
+        """Return CG-23 remote/API capability parity state."""
+
+        return self.scope("remote-api")
+
+    @property
+    def cross_cg(self) -> CapabilityView:
+        """Return CG-21/CG-22/CG-23 parity state."""
+
+        return self.scope("cross-cg")
 
     def scope(self, name: str) -> CapabilityView:
         """Return a capability view by scope name."""
@@ -328,6 +426,21 @@ class ShardLoomContext:
         """Return CG-22 engine-mode capability discovery."""
 
         return self._capability_view("engines", check=check)
+
+    def workflow_capabilities(self, *, check: bool = True) -> CapabilityView:
+        """Return CG-21 workflow capability parity discovery."""
+
+        return self._capability_view("workflow", check=check)
+
+    def remote_api_capabilities(self, *, check: bool = True) -> CapabilityView:
+        """Return CG-23 remote/API capability parity discovery."""
+
+        return self._capability_view("remote-api", check=check)
+
+    def cross_cg_capability_parity(self, *, check: bool = True) -> CapabilityView:
+        """Return integrated CG-21/CG-22/CG-23 capability parity discovery."""
+
+        return self._capability_view("cross-cg", check=check)
 
     def engine_selection(
         self,
@@ -537,6 +650,12 @@ def _normalize_scope_name(scope: str) -> str:
     if normalized == "sql-support":
         return "sql"
     return normalized
+
+
+def _split_csv(value: str | None) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    return tuple(part.strip() for part in value.split(",") if part.strip())
 
 
 def _normalize_engine_mode(engine: str) -> str:
