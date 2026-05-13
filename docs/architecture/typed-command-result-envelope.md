@@ -274,15 +274,18 @@ specialization planning report without running optimizer execution, physical ker
 CPU-specialized kernels, writes, materialization, external engines, or fallback execution.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
-typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
-prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,
-operational-hardening, diagnostic, REST/API-planning, workflow-planning, engine-runtime, and
-extension-planning commands a stable family taxonomy before their handlers are physically split.
+typed lifecycle payload as `command_family`. The compatibility-lock taxonomy now matches the current
+handler modules: status/capabilities, input planning, workflow planning, object-store planning,
+engine-runtime planning, Vortex runtime planning, Vortex metadata/readiness planning,
+prepared/source-backed execution, Vortex primitive execution, Vortex output/commit, optimizer
+planning, evidence/certificate, benchmark, packaging/deployment, Foundry, operational-hardening,
+diagnostic, REST/API-planning, and extension-planning commands have stable family labels.
 
 Golden typed-envelope contract snapshots now live in:
 
 ```text
 shardloom-cli/tests/typed_envelope_contract_snapshots.rs
+shardloom-cli/tests/typed_envelope_compatibility_lock.rs
 ```
 
 The current fixture coverage spans:
@@ -300,6 +303,12 @@ certified runtime execution with inline certificates
 missing-binary protocol parity through the Python binary-resolution layer
 Foundry-adjacent optional universal harness report
 ```
+
+The compatibility lock also runs a representative command-family matrix over JSON success,
+invalid-input, unknown-command, unsupported, blocked, evidence-incomplete, optional Foundry, Vortex
+runtime/planning/output, object-store, input, optimizer, and extension paths. The matrix checks the
+required `shardloom.output.v2` slots, no-fallback envelope, lifecycle `command_family`, and selected
+typed field/artifact evidence.
 
 First-class Foundry boundary-report fixtures remain planned because those surfaces are not yet
 represented by a concrete CLI Foundry boundary command.
@@ -333,7 +342,6 @@ Remaining work is organized as outcome-oriented closeout slices rather than one-
 ```text
 Runtime/optimizer/operational CLI ownership closeout.
 Vortex primitive and readiness CLI ownership closeout.
-Typed envelope compatibility lock across success, unsupported, blocked, certified, and error paths.
 Concrete Foundry boundary fixtures once those command surfaces exist.
 ```
 

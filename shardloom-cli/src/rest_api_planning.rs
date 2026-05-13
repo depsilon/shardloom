@@ -81,6 +81,7 @@ pub(crate) fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(Str
         "command_status_values",
         &report.command_status_values.join(","),
     );
+    append_api_protocol_compatibility_lock_fields(&mut fields, report);
     push_field(
         &mut fields,
         "output_formats",
@@ -124,6 +125,37 @@ pub(crate) fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(Str
     push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
+}
+
+fn append_api_protocol_compatibility_lock_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CliApiJsonProtocolReport,
+) {
+    push_field(
+        fields,
+        "compatibility_lock_status",
+        report.compatibility_lock_status,
+    );
+    push_field(
+        fields,
+        "compatibility_lock_fixture_statuses",
+        &report.compatibility_lock_fixture_statuses.join(","),
+    );
+    push_bool_field(
+        fields,
+        "json_error_paths_enveloped",
+        report.json_error_paths_enveloped,
+    );
+    push_bool_field(
+        fields,
+        "unknown_command_json_enveloped",
+        report.unknown_command_json_enveloped,
+    );
+    push_bool_field(
+        fields,
+        "missing_binary_error_payload_shaped",
+        report.missing_binary_error_payload_shaped,
+    );
 }
 
 fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
