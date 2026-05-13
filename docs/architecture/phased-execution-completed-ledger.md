@@ -16,6 +16,43 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 reproducible claim-readiness rerun bundle
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: continue P7.4.4 by making the selected local comparative benchmark rerun executable as
+    a harness preset and by preventing one-iteration smoke rows from promoting to claim-grade
+    ShardLoom timing rows.
+  - Checklist:
+    - [x] Add `--claim-readiness-rerun` for the selected local P7.4.4 comparative preset.
+    - [x] Keep the preset local-only: ShardLoom, ShardLoom Vortex fixture smoke, pandas, Polars,
+          DuckDB, and DataFusion; CSV and Parquet; taxonomy extras; no managed platforms.
+    - [x] Enable ShardLoom result-sink evidence in the preset.
+    - [x] Require at least three iterations for the preset and for ShardLoom claim-grade timing
+          promotion.
+    - [x] Add `correctness_digest_stable`, `reproducibility_min_iterations`,
+          `reproducibility_iterations_met`, and `reproducible_benchmark_row` to coverage evidence.
+    - [x] Keep one-iteration smoke rows as useful evidence but `not_claim_grade`.
+    - [x] Update README, benchmark README, benchmark catalog, phase plan, and RFC traceability.
+  - Validation:
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `cargo test -p shardloom-contract-tests traditional_benchmark`
+    - [x] `python benchmarks\traditional_analytics\run.py --claim-readiness-rerun --engines shardloom,pandas --formats csv --scenario "selective filter" --dataset-profile narrow_fact_dim --rows 64 --iterations 3 --shardloom-build-profile debug --skip-shardloom-native --no-markdown --output target\codex-p744-reproducible-claim-readiness.json`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "selective filter" --dataset-profile narrow_fact_dim --rows 64 --iterations 1 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\codex-p744-one-iteration-not-claim-grade.json`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets -j 1` with `CARGO_INCREMENTAL=0`
+    - [x] `git diff --check`
+  - Runtime stance: benchmark harness/promotion gating only. This does not add dirty CSV
+    extra-column execution, many-file ShardLoom native input, managed baselines, public performance
+    claims, or fallback execution.
+
 - [x] Session label: P7.4.4 result-sink write timing promotion bundle
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

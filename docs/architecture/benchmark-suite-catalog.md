@@ -45,7 +45,12 @@ ShardLoom rows as `claim_grade`, `not_claim_grade`, `fixture_smoke_only`, `unsup
 timings cannot be mistaken for promoted benchmark claims. When ShardLoom result-sink proof is
 enabled, rows also expose `scenario_compute_millis`, `computed_result_sink_write_millis`,
 `computed_result_sink_bytes`, and coverage-table `write_timing_present` so local write-path cost is
-visible separately from scenario compute timing.
+visible separately from scenario compute timing. The harness also exposes a
+`--claim-readiness-rerun` preset for the selected P7.4.4 local comparative rerun: ShardLoom,
+ShardLoom Vortex fixture smoke, pandas, Polars, DuckDB, and DataFusion; CSV and Parquet; taxonomy
+extras; ShardLoom result-sink proof; no managed platforms; and at least three iterations. ShardLoom
+timing rows cannot promote to claim-grade unless `reproducible_benchmark_row=true`, which requires
+stable correctness digests and the configured reproducibility iteration floor.
 
 The default local run remains conservative. `--include-taxonomy-extra` adds executable local
 taxonomy scenarios for:

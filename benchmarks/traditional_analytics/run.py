@@ -128,6 +128,16 @@ DASK_BLOCKSIZE = "16MB"
 DASK_SCHEDULER = "threads"
 SHARDLOOM_BUILD_PROFILE = "release"
 SHARDLOOM_RESULT_SINK = False
+MIN_CLAIM_GRADE_ITERATIONS = 3
+CLAIM_READINESS_RERUN_ENGINES = (
+    "shardloom",
+    "shardloom-vortex",
+    "pandas",
+    "polars",
+    "duckdb",
+    "datafusion",
+)
+CLAIM_READINESS_RERUN_FORMATS = ("csv", "parquet")
 SHARDLOOM_CLAIM_GRADE_REQUIRED_EVIDENCE = (
     ("workload_scorecard_status", "workload_certified"),
     ("native_io_certificate_status", "certified"),
@@ -277,6 +287,10 @@ def expand_engine_aliases(engine_names: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(expanded)
 
 
+def option_was_provided(option: str, argv: list[str]) -> bool:
+    return option in argv or any(arg.startswith(f"{option}=") for arg in argv)
+
+
 class MemorySampler:
     def __init__(self) -> None:
         self._running = False
@@ -364,6 +378,11 @@ def parse_args() -> argparse.Namespace:
         help="Include opt-in scale/shuffle stress scenarios. These are intended for Spark/Dask-style scale testing and may be inappropriate for small local runs.",
     )
     parser.add_argument(
+        "--claim-readiness-rerun",
+        action="store_true",
+        help="Use the P7.4.4 selected local comparative rerun preset: ShardLoom plus local optional baselines, csv/parquet, taxonomy extras, result-sink evidence, no managed platforms, and at least three iterations.",
+    )
+    parser.add_argument(
         "--data-dir",
         type=Path,
         default=Path(__file__).resolve().parent / ".generated" / "data",
@@ -430,6 +449,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Return nonzero after writing artifacts if any selected engine dependency is missing.",
     )
+    argv = sys.argv[1:]
     args = parser.parse_args()
     if args.rows <= 0:
         parser.error("--rows must be greater than zero")
@@ -437,17 +457,37 @@ def parse_args() -> argparse.Namespace:
         parser.error("--dim-rows must be greater than zero")
     if args.iterations <= 0:
         parser.error("--iterations must be greater than zero")
+    explicit_engines = option_was_provided("--engines", argv)
+    explicit_formats = option_was_provided("--formats", argv)
+    explicit_scenario = option_was_provided("--scenario", argv)
+    explicit_skip_native = option_was_provided("--skip-shardloom-native", argv)
+    if args.claim_readiness_rerun and args.iterations < MIN_CLAIM_GRADE_ITERATIONS:
+        parser.error(
+            f"--claim-readiness-rerun requires --iterations >= {MIN_CLAIM_GRADE_ITERATIONS}"
+        )
+    requested_engine_source = (
+        ",".join(CLAIM_READINESS_RERUN_ENGINES)
+        if args.claim_readiness_rerun and not explicit_engines
+        else args.engines
+    )
     requested_engines = tuple(
-        engine.strip().lower() for engine in args.engines.split(",") if engine.strip()
+        engine.strip().lower()
+        for engine in requested_engine_source.split(",")
+        if engine.strip()
     )
     engines = expand_engine_aliases(requested_engines)
     unknown = sorted(set(engines) - set(ENGINE_ORDER))
     if unknown:
         parser.error(f"unknown engines: {','.join(unknown)}")
     args.engine_list = engines
+    requested_format_source = (
+        ",".join(CLAIM_READINESS_RERUN_FORMATS)
+        if args.claim_readiness_rerun and not explicit_formats
+        else args.formats
+    )
     requested_formats = tuple(
         data_format.strip().lower()
-        for data_format in args.formats.split(",")
+        for data_format in requested_format_source.split(",")
         if data_format.strip()
     )
     unknown_formats = sorted(set(requested_formats) - set(FORMAT_ORDER))
@@ -456,6 +496,12 @@ def parse_args() -> argparse.Namespace:
     if not requested_formats:
         parser.error("--formats must include at least one format")
     args.format_list = requested_formats
+    if args.claim_readiness_rerun and not explicit_scenario:
+        args.include_taxonomy_extra = True
+    if args.claim_readiness_rerun:
+        args.shardloom_result_sink = True
+        if not explicit_skip_native:
+            args.skip_shardloom_native = True
     if args.scenario:
         args.scenario_list = tuple(args.scenario)
     else:
@@ -3022,7 +3068,25 @@ def shardloom_claim_grade_missing_evidence(result: dict[str, Any]) -> list[str]:
         missing.append("coverage_row_ref missing")
     if result.get("fallback_attempted", False):
         missing.append("result fallback_attempted was true")
+    if result.get("iterations", 0) < MIN_CLAIM_GRADE_ITERATIONS:
+        missing.append(
+            f"iterations<{MIN_CLAIM_GRADE_ITERATIONS} "
+            f"(actual={result.get('iterations', 'missing')})"
+        )
+    if result.get("correctness_digest_stable") is not True:
+        missing.append("correctness_digest_stable!=true")
+    if result["metrics"].get("query_runtime_millis") is None:
+        missing.append("timing row missing")
     return missing
+
+
+def reproducible_benchmark_row(result: dict[str, Any]) -> bool:
+    return (
+        result["status"] == "success"
+        and result.get("iterations", 0) >= MIN_CLAIM_GRADE_ITERATIONS
+        and result.get("correctness_digest_stable") is True
+        and result["metrics"].get("query_runtime_millis") is not None
+    )
 
 
 def claim_grade_readiness(result: dict[str, Any]) -> dict[str, Any]:
@@ -3088,6 +3152,8 @@ def benchmark_constitution(
         "write_included": engine == "shardloom" and SHARDLOOM_RESULT_SINK,
         "cache_mode": cache_mode,
         "iterations": result["iterations"],
+        "reproducibility_min_iterations": MIN_CLAIM_GRADE_ITERATIONS,
+        "correctness_digest_stable": result.get("correctness_digest_stable"),
         "warmup_policy": "engine startup/warmup recorded separately",
         "correctness_oracle": "first successful digest per formatted scenario",
         "materialization_policy": materialization_policy(engine, data_format),
@@ -3135,6 +3201,7 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = []
     for result in results:
         constitution = result["benchmark_constitution"]
+        reproducible_row = reproducible_benchmark_row(result)
         rows.append(
             {
                 "scenario_name": result["scenario_name"],
@@ -3148,9 +3215,13 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "claim_gate_status": result["claim_gate_status"],
                 "claim_grade_requirements_met": result["claim_grade_requirements_met"],
                 "claim_grade_missing_evidence": result["claim_grade_missing_evidence"],
+                "correctness_digest_stable": result.get("correctness_digest_stable"),
+                "reproducibility_min_iterations": MIN_CLAIM_GRADE_ITERATIONS,
+                "reproducibility_iterations_met": result.get("iterations", 0)
+                >= MIN_CLAIM_GRADE_ITERATIONS,
+                "reproducible_benchmark_row": reproducible_row,
                 "timing_row_claim_grade": (
-                    result["metrics"]["query_runtime_millis"] is not None
-                    and result["claim_grade_requirements_met"]
+                    reproducible_row and result["claim_grade_requirements_met"]
                 ),
                 "write_timing_present": result["metrics"].get(
                     "computed_result_sink_write_millis"
@@ -3233,6 +3304,7 @@ def failed_result(
         "iteration_wall_time_millis": [] if elapsed_millis is None else [round(elapsed_millis, 4)],
         "metrics": metrics,
         "correctness_digest": None,
+        "correctness_digest_stable": False,
         "output_preview": None,
         "shardloom_evidence": {},
         "fallback_attempted": False,
@@ -3367,6 +3439,7 @@ def run_one(
             "computed_result_sink_bytes": computed_result_sink_bytes,
         },
         "correctness_digest": digest,
+        "correctness_digest_stable": stable,
         "output_preview": values[-1] if not isinstance(values[-1], list) else values[-1][:5],
         "shardloom_evidence": evidence,
         "fallback_attempted": False,
@@ -3897,6 +3970,8 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "shardloom_build_time_excluded": True,
         "shardloom_feature_gate": "vortex-traditional-analytics-benchmark",
         "shardloom_result_sink_enabled": args.shardloom_result_sink,
+        "claim_readiness_rerun_profile": args.claim_readiness_rerun,
+        "claim_grade_min_iterations": MIN_CLAIM_GRADE_ITERATIONS,
         "dask_blocksize": args.dask_blocksize,
         "dask_scheduler": args.dask_scheduler,
         "spark_requires_java": True,
@@ -4094,6 +4169,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom native Vortex rows start timing from existing `.vortex` inputs prepared before scenario timing; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Coverage rows now carry claim_gate_status so fixture-smoke, unsupported, external-baseline-only, not-claim-grade, and claim-grade rows stay distinct from timing rows.",
+        "Claim-grade ShardLoom timing rows require at least three iterations, stable correctness digests, and the full evidence set; one-iteration smoke rows remain not-claim-grade.",
         "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -4138,6 +4214,8 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 str(row["timing_row_present"]),
                 row["claim_gate_status"],
                 str(row["claim_grade_requirements_met"]),
+                str(row["reproducible_benchmark_row"]),
+                str(row["correctness_digest_stable"]),
                 str(row["timing_row_claim_grade"]),
                 str(row["write_timing_present"]),
                 format_metric(row["computed_result_sink_write_millis"], " ms"),
@@ -4160,6 +4238,8 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Timing row",
             "Claim gate",
             "Claim-grade",
+            "Repro row",
+            "Stable digest",
             "Timing claim-grade",
             "Write timing",
             "Result write",
@@ -4879,6 +4959,8 @@ def main() -> int:
         "fallback_execution_allowed": False,
         "external_engines_are_fallback": False,
         "performance_claim_allowed": False,
+        "claim_readiness_rerun_profile": args.claim_readiness_rerun,
+        "claim_grade_min_iterations": MIN_CLAIM_GRADE_ITERATIONS,
         "dataset": {
             "rows": paths.rows,
             "dim_rows": paths.dim_rows,

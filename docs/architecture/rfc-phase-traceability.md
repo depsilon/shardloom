@@ -97,6 +97,9 @@ coverage table so fixture-smoke, not-claim-grade, claim-grade, unsupported, bloc
 baseline rows are machine-distinguishable. Result-sink rows also expose
 `scenario_compute_millis`, `computed_result_sink_write_millis`, `computed_result_sink_bytes`, and
 `write_timing_present` so certified local write timing is separated from scenario compute timing.
+The P7.4.4 harness also provides `--claim-readiness-rerun` for the selected local comparative rerun
+and requires stable correctness digests across at least three iterations before a ShardLoom timing
+row can set `reproducible_benchmark_row=true` and `timing_row_claim_grade=true`.
 
 P7.4.6 update: the feature-gated `local_vortex_analytics_v1` workflow now records local
 task-graph scheduler refs, scheduled/completed task counts, bounded queue/backpressure status,
