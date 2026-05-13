@@ -5,6 +5,7 @@ It invokes explicit ShardLoom CLI commands and parses their JSON envelopes.
 """
 
 from .client import (
+    ClaimGateCloseoutReport,
     CompatibilitySourcePlan,
     CompatibilitySourceSmokeReport,
     DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS,
@@ -66,6 +67,7 @@ __all__ = [
     "FieldEntry",
     "OutputEnvelope",
     "QuickstartProofReport",
+    "ClaimGateCloseoutReport",
     "DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS",
     "ETL_INPUT_FORMATS",
     "EngineCapabilityMatrix",

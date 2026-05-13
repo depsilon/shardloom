@@ -231,6 +231,37 @@ const BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "fallback_attempted",
 ];
 
+const CLAIM_GATE_CLOSEOUT_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "mode",
+    "schema_version",
+    "report_id",
+    "scope",
+    "p7_closeout_status",
+    "claim_gate_status",
+    "release_readiness_status",
+    "claim_allowed",
+    "production_claim_allowed",
+    "public_release_claim_allowed",
+    "public_package_claim_allowed",
+    "comparative_benchmark_claim_allowed",
+    "foundry_integration_claim_allowed",
+    "allowed_claims",
+    "blocked_claims",
+    "out_of_scope_claims",
+    "local_claim_status",
+    "api_claim_status",
+    "package_claim_status",
+    "benchmark_claim_status",
+    "integration_claim_status",
+    "required_evidence_before_claims",
+    "blocker_ids",
+    "source_evidence_surfaces",
+    "next_planned_priority",
+    "runtime_execution",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+];
+
 const INPUT_PLAN_SOURCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "mode",
     "source_kind",
@@ -476,6 +507,12 @@ fn inline_report_payload_spec(command: &str) -> Option<InlineReportPayloadSpec> 
             artifact_kind: "benchmark_claim_evidence_report",
             status_key: "claim_gate_status",
             payload_keys: BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS,
+        }),
+        "claim-gate-closeout" => Some(InlineReportPayloadSpec {
+            artifact_id_fallback: "claim-gate-closeout.report",
+            artifact_kind: "claim_gate_closeout_report",
+            status_key: "claim_gate_status",
+            payload_keys: CLAIM_GATE_CLOSEOUT_REPORT_PAYLOAD_KEYS,
         }),
         "input-plan" => Some(InlineReportPayloadSpec {
             artifact_id_fallback: "input-plan.source",

@@ -76,9 +76,10 @@ Implemented or actively wired surfaces include:
   packaging/deployment, benchmark planning/runtime, diagnostics, evidence/certificates,
   workflow/table planning, engine/runtime planning, and operational hardening
 - report-only CG-21/CG-22/CG-23 parity surfaces: `workflow-unsupported-plan`, scoped
-  `capabilities workflow|engines|remote-api|cross-cg`, and `workload-certification-dossier`
-  explain which workflow, engine-mode, API, certificate, Native I/O, correctness, and benchmark
-  evidence exists or is still blocked without running workloads
+  `capabilities workflow|engines|remote-api|cross-cg`, `workload-certification-dossier`, and
+  `claim-gate-closeout` explain which workflow, engine-mode, API, package, integration,
+  certificate, Native I/O, correctness, and benchmark evidence exists or is still blocked without
+  running workloads
 - Python lazy workflow helpers for current report-only UX, including source declaration, explain,
   estimate, certification inspection, unsupported pandas/Arrow/NumPy/Python-object materialization
   boundaries, schema/data-quality/quarantine reports, and notebook preview/display diagnostics
@@ -97,7 +98,12 @@ Still planned or gated:
 - broad SQL, DataFrame, notebook, UDF, adapter, object-store, catalog/table, live/hybrid, REST
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
+- claim-grade compute-engine completion: coverage matrix, semantic conformance, operator-family
+  certification, measured source-backed benchmark rows, sink/write/replay proof, local scheduler and
+  memory/spill maturity, and a workload-certified compute workflow
 - full comparative benchmark reruns and claim-grade source-backed benchmark rows
+- hard release-readiness gates and public first-10-minutes proof from release artifacts
+- Foundry proof-of-use certification that preserves Foundry as an optional integration boundary
 - any external engine execution as ShardLoom fallback
 
 ## Core Concepts
@@ -176,6 +182,10 @@ runtime support exists: `workflow-unsupported-plan` and Python `LazyFrame` helpe
 blocker IDs, required evidence, next actions, and no-runtime/no-fallback fields for pandas/Arrow
 interop, NumPy/Python-object materialization, schema/data-quality/quarantine behavior, and notebook
 preview/display boundaries.
+
+For release posture, `claim-gate-closeout` and `ShardLoomClient.claim_gate_closeout()` summarize the
+allowed report/local fixture claims, blocked production/API/package/benchmark claims, and
+out-of-scope integration claims before Priority 8/9 evidence exists.
 
 It also exposes the current local live ETL smoke commands for explicit testing:
 CSV-to-Vortex through `traditional-analytics-run` and existing native Vortex

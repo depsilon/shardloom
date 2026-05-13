@@ -316,6 +316,26 @@ import pandas or pyarrow, inspect the passed Python object, materialize rows,
 write quarantine outputs, render notebook display output, invoke Foundry/model
 services, or use another engine as fallback.
 
+The client also exposes the P7 claim gate closeout report:
+
+```python
+from shardloom import ShardLoomClient
+
+client = ShardLoomClient.from_repo()
+closeout = client.claim_gate_closeout()
+
+print(closeout.claim_gate_status)
+print(closeout.release_readiness_status)
+print(closeout.allowed_claims)
+print(closeout.blocked_claims)
+print(closeout.out_of_scope_claims)
+print(closeout.no_runtime, closeout.no_fallback, closeout.no_effects)
+```
+
+This maps to `shardloom claim-gate-closeout --format json`. It is report-only:
+it does not run workloads, publish packages, probe APIs, run benchmarks, invoke
+Foundry, or permit external-engine fallback.
+
 ## Package Build Smoke
 
 The current package is pure Python and has no runtime dependencies. Release

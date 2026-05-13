@@ -519,6 +519,77 @@ class WorkloadCertificationDossier:
 
 
 @dataclass(frozen=True, slots=True)
+class ClaimGateCloseoutReport:
+    """Typed view over the P7 claim-gate and release-readiness closeout report."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the broad claim gate status."""
+
+        return _required_field(self.envelope, "claim_gate_status")
+
+    @property
+    def release_readiness_status(self) -> str:
+        """Return the release-readiness status."""
+
+        return _required_field(self.envelope, "release_readiness_status")
+
+    @property
+    def p7_closeout_status(self) -> str:
+        """Return the Priority 7 closeout status."""
+
+        return _required_field(self.envelope, "p7_closeout_status")
+
+    @property
+    def allowed_claims(self) -> tuple[str, ...]:
+        """Return report/local claims allowed by the closeout gate."""
+
+        return _csv_values(self.envelope.field("allowed_claims"))
+
+    @property
+    def blocked_claims(self) -> tuple[str, ...]:
+        """Return claims blocked by missing evidence."""
+
+        return _csv_values(self.envelope.field("blocked_claims"))
+
+    @property
+    def out_of_scope_claims(self) -> tuple[str, ...]:
+        """Return claims explicitly outside the current release scope."""
+
+        return _csv_values(self.envelope.field("out_of_scope_claims"))
+
+    @property
+    def blocker_ids(self) -> tuple[str, ...]:
+        """Return stable blocker IDs for blocked broad claims."""
+
+        return _csv_values(self.envelope.field("blocker_ids"))
+
+    @property
+    def no_runtime(self) -> bool:
+        """Whether the closeout report avoided runtime execution."""
+
+        return self.envelope.field_bool("no_runtime", False) is True
+
+    @property
+    def no_fallback(self) -> bool:
+        """Whether the closeout report declares and preserves no fallback execution."""
+
+        return (
+            self.envelope.field_bool("no_fallback", False) is True
+            and not self.envelope.fallback.attempted
+            and not self.envelope.fallback.allowed
+        )
+
+    @property
+    def no_effects(self) -> bool:
+        """Whether the closeout report performed no external effects."""
+
+        return self.envelope.field_bool("no_effects", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class RestApiContractPlan:
     """Typed convenience view over the CG-23 REST/OpenAPI contract report."""
 
@@ -1816,6 +1887,11 @@ class ShardLoomClient:
         return WorkloadCertificationDossier(
             self.run(["workload-certification-dossier", scenario], check=check)
         )
+
+    def claim_gate_closeout(self, *, check: bool = True) -> ClaimGateCloseoutReport:
+        """Return the P7 claim-gate and release-readiness closeout report."""
+
+        return ClaimGateCloseoutReport(self.run(["claim-gate-closeout"], check=check))
 
     def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
         """Return the CG-22 report-only live change contract."""

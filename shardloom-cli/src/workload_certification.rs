@@ -12,6 +12,8 @@ use crate::cli_output::{emit, emit_error};
 
 const COMMAND: &str = "workload-certification-dossier";
 const USAGE: &str = "usage: shardloom workload-certification-dossier [local-vortex-count|planned-live-hybrid|blocked-remote-api|unsupported-sql]";
+const CLAIM_GATE_CLOSEOUT_COMMAND: &str = "claim-gate-closeout";
+const CLAIM_GATE_CLOSEOUT_USAGE: &str = "usage: shardloom claim-gate-closeout";
 
 pub(crate) fn handle_workload_certification_dossier(
     mut args: IntoIter<String>,
@@ -55,6 +57,34 @@ pub(crate) fn handle_workload_certification_dossier(
         dossier.fields(),
     );
     dossier.exit_code()
+}
+
+pub(crate) fn handle_claim_gate_closeout(
+    mut args: IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            CLAIM_GATE_CLOSEOUT_COMMAND,
+            format,
+            "claim gate closeout failed",
+            &ShardLoomError::InvalidOperation(format!(
+                "unexpected claim-gate-closeout argument: {extra}; {CLAIM_GATE_CLOSEOUT_USAGE}"
+            )),
+        );
+    }
+
+    let report = ClaimGateCloseoutReport::p7_closeout();
+    emit(
+        CLAIM_GATE_CLOSEOUT_COMMAND,
+        format,
+        CommandStatus::Success,
+        "claim gate and release-readiness closeout".to_string(),
+        report.human_text(),
+        vec![],
+        report.fields(),
+    );
+    ExitCode::SUCCESS
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -340,6 +370,151 @@ impl WorkloadCertificationDossier {
             "source_evidence_surfaces",
             "correctness-plan,benchmark-claim-evidence-plan,execution-certificate-plan,native-io-envelope-plan,capabilities cross-cg,workflow-unsupported-plan,engine-capability-matrix,rest-api-plan-preview",
         );
+        push_bool_field(&mut fields, "plan_only", true);
+        push_bool_field(&mut fields, "runtime_execution", false);
+        push_bool_field(&mut fields, "query_execution", false);
+        push_bool_field(&mut fields, "data_read", false);
+        push_bool_field(&mut fields, "data_materialized", false);
+        push_bool_field(&mut fields, "write_io", false);
+        push_bool_field(&mut fields, "object_store_io", false);
+        push_bool_field(&mut fields, "network_probe", false);
+        push_bool_field(&mut fields, "catalog_probe", false);
+        push_bool_field(&mut fields, "external_engine_invoked", false);
+        push_bool_field(&mut fields, "external_effects_executed", false);
+        push_bool_field(&mut fields, "fallback_execution_allowed", false);
+        push_bool_field(&mut fields, "fallback_attempted", false);
+        push_bool_field(&mut fields, "no_runtime", true);
+        push_bool_field(&mut fields, "no_fallback", true);
+        push_bool_field(&mut fields, "no_effects", true);
+        fields
+    }
+}
+
+struct ClaimGateCloseoutReport {
+    report_id: &'static str,
+    claim_gate_status: &'static str,
+    release_readiness_status: &'static str,
+    p7_closeout_status: &'static str,
+    allowed_claims: &'static str,
+    blocked_claims: &'static str,
+    out_of_scope_claims: &'static str,
+    local_claim_status: &'static str,
+    api_claim_status: &'static str,
+    package_claim_status: &'static str,
+    benchmark_claim_status: &'static str,
+    integration_claim_status: &'static str,
+    required_evidence_before_claims: &'static str,
+    blocker_ids: &'static str,
+    suggested_next_action: &'static str,
+}
+
+impl ClaimGateCloseoutReport {
+    const fn p7_closeout() -> Self {
+        Self {
+            report_id: "cg21_cg22_cg23.claim_gate_release_readiness_closeout",
+            claim_gate_status: "blocked_for_broad_claims",
+            release_readiness_status: "blocked_until_priority_8",
+            p7_closeout_status: "complete_report_only",
+            allowed_claims: "report_only_workflow_diagnostics,report_only_engine_mode_capability,report_only_remote_api_contracts,workload_certification_dossier_index,local_vortex_count_fixture_evidence",
+            blocked_claims: "production_workflow_certification,live_hybrid_production,remote_api_execution,public_package_release,comparative_performance_claims",
+            out_of_scope_claims: "external_engine_fallback,foundry_platform_execution,package_publication,marketplace_publication,foundry_compute_pushdown",
+            local_claim_status: "partial_allowed_fixture_only",
+            api_claim_status: "report_only_blocked_for_remote_execution",
+            package_claim_status: "blocked_until_priority_8",
+            benchmark_claim_status: "blocked_until_comparative_results",
+            integration_claim_status: "out_of_scope_until_priority_9",
+            required_evidence_before_claims: "claim_grade_correctness,claim_grade_benchmarks,execution_certificates,native_io_certificates,capability_parity,release_artifacts,sbom_attestation,foundry_integration_certificates",
+            blocker_ids: "p7.claim_gate.broad_claims_blocked,p8.release.package_artifacts_missing,cg6.benchmark.claim_grade_results_missing,p9.foundry.integration_not_started",
+            suggested_next_action: "Start Priority 8 release/package proof-of-use work before making public release, package, comparative benchmark, or integration claims.",
+        }
+    }
+
+    fn human_text(&self) -> String {
+        format!(
+            "claim gate and release-readiness closeout\nclaim gate: {}\nrelease readiness: {}\nallowed claims: {}\nblocked claims: {}\nout of scope: {}\nfallback execution: disabled\nruntime execution: false\nside effects: none",
+            self.claim_gate_status,
+            self.release_readiness_status,
+            self.allowed_claims,
+            self.blocked_claims,
+            self.out_of_scope_claims
+        )
+    }
+
+    fn fields(&self) -> Vec<(String, String)> {
+        let mut fields = vec![];
+        push_field(&mut fields, "mode", "claim_gate_closeout");
+        push_field(
+            &mut fields,
+            "schema_version",
+            "shardloom.claim_gate_closeout.v1",
+        );
+        push_field(&mut fields, "report_id", self.report_id);
+        push_field(&mut fields, "scope", "cg21_cg22_cg23_p7_closeout");
+        push_field(&mut fields, "p7_closeout_status", self.p7_closeout_status);
+        push_field(&mut fields, "claim_gate_status", self.claim_gate_status);
+        push_field(
+            &mut fields,
+            "release_readiness_status",
+            self.release_readiness_status,
+        );
+        push_bool_field(&mut fields, "claim_allowed", false);
+        push_bool_field(&mut fields, "production_claim_allowed", false);
+        push_bool_field(&mut fields, "public_release_claim_allowed", false);
+        push_bool_field(&mut fields, "public_package_claim_allowed", false);
+        push_bool_field(&mut fields, "comparative_benchmark_claim_allowed", false);
+        push_bool_field(&mut fields, "foundry_integration_claim_allowed", false);
+        push_field(&mut fields, "allowed_claims", self.allowed_claims);
+        push_field(&mut fields, "blocked_claims", self.blocked_claims);
+        push_field(&mut fields, "out_of_scope_claims", self.out_of_scope_claims);
+        push_field(&mut fields, "local_claim_status", self.local_claim_status);
+        push_field(&mut fields, "api_claim_status", self.api_claim_status);
+        push_field(
+            &mut fields,
+            "package_claim_status",
+            self.package_claim_status,
+        );
+        push_field(
+            &mut fields,
+            "benchmark_claim_status",
+            self.benchmark_claim_status,
+        );
+        push_field(
+            &mut fields,
+            "integration_claim_status",
+            self.integration_claim_status,
+        );
+        push_field(
+            &mut fields,
+            "required_evidence_before_claims",
+            self.required_evidence_before_claims,
+        );
+        push_field(&mut fields, "blocker_ids", self.blocker_ids);
+        push_field(
+            &mut fields,
+            "suggested_next_action",
+            self.suggested_next_action,
+        );
+        push_field(
+            &mut fields,
+            "cg21_position",
+            "after_cg1_cg20_except_report_only_contract_lanes",
+        );
+        push_field(
+            &mut fields,
+            "cg22_position",
+            "after_cg1_cg20_except_report_only_contract_lanes",
+        );
+        push_field(
+            &mut fields,
+            "cg23_position",
+            "after_cg1_cg20_except_report_only_contract_lanes",
+        );
+        push_field(
+            &mut fields,
+            "source_evidence_surfaces",
+            "workflow-unsupported-plan,capabilities workflow,capabilities engines,capabilities remote-api,capabilities cross-cg,workload-certification-dossier,benchmark-claim-evidence-plan,release-plan,package-plan",
+        );
+        push_field(&mut fields, "next_planned_priority", "Priority 8");
         push_bool_field(&mut fields, "plan_only", true);
         push_bool_field(&mut fields, "runtime_execution", false);
         push_bool_field(&mut fields, "query_execution", false);

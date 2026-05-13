@@ -147,20 +147,100 @@ threads. Before release readiness, re-query PR #360 and up, classify each still-
 as fixed, stale, intentionally deferred, or still actionable, and resolve/comment only with evidence
 from the merged code and tests.
 
-- [ ] Priority 7 - CG-21/CG-22/CG-23 integrated certification closeout
-  - Outcome: prove that workflow UX, engine-mode evidence, and remote/API posture agree across CLI,
-    Python, and API contracts before any broader support claim is made.
-  - Slice rule: group closeout work by proof surface, not by source file. A slice must improve a
-    user's ability to understand what can be run, what is blocked, and what evidence is missing.
-  - Completed P7.0 through P7.2 details moved to `docs/architecture/phased-execution-completed-ledger.md`; next active closeout item is below.
-  - [ ] P7.3 claim gate and release-readiness closeout bundle.
-    - User-visible surface: one closeout command/report that explains which local, API, package,
-      benchmark, and integration claims are allowed, blocked, or explicitly out of scope.
-    - Acceptance: CG-21, CG-22, and CG-23 remain logically after CG-1 through CG-20 unless pulled
-      forward as report-only contract lanes; docs/report-only synthesis preserves no-runtime,
-      no-dependency, no-fallback, and no-claim posture.
-    - Verification: claim-gate snapshots, README/docs consistency checks, full workspace validation,
-      and `git diff --check`.
+- [ ] Priority 7.4 - claim-grade compute-engine completion
+  - Outcome: close the gap between executable/report-backed local paths and a claim-grade
+    ShardLoom compute engine, without broad SQL/DataFrame/product claims.
+  - Slice rule: group by evidence-bearing compute outcome. Each slice must either make a concrete
+    compute path more inspectable/certifiable or add deterministic unsupported diagnostics for a
+    named unsupported compute path.
+  - Claim rule: no performance, best-default, Spark-displacement, production, or broad workflow
+    claim may be emitted unless the workload constitution has correctness evidence, benchmark rows,
+    execution certificates, Native I/O evidence where data is read/written,
+    materialization/decode-boundary evidence, `fallback_attempted=false`, and
+    `external_engine_invoked=false`.
+  - [ ] P7.4.1 compute capability coverage matrix and operator-family ladder bundle.
+    - User-visible surface: a machine-readable compute capability matrix across operator,
+      expression, source, sink, and engine-mode surfaces, plus a family ladder for scalar
+      expressions, predicates, projection, filter-project fusion, aggregates, grouped aggregates,
+      approximate/sketch aggregates, sort/top-N/limit, joins, semi/anti joins, windows, set
+      operations, nested/extension operations, and sink/write operators.
+    - Acceptance: every row records support status (`unsupported`, `planned`, `report_only`,
+      `executable_uncertified`, `fixture_certified`, `workload_certified`,
+      `production_certified`), engine mode, provider kind (`shardloom_kernel`,
+      `vortex_array_kernel`, `vortex_scan`, `vortex_source`, `vortex_sink`,
+      `compatibility_boundary`, `external_baseline_only`), semantic profile,
+      materialization/decode requirement, memory/spill requirement, correctness/benchmark/
+      certificate/Native I/O refs, unsupported diagnostic code, and no-fallback evidence.
+    - Verification: CLI/Python capability snapshots, matrix schema tests, no-fallback invariants,
+      and benchmark/workflow/API view consistency checks.
+  - [ ] P7.4.2 ShardLoomNative semantic conformance and unsupported API parity bundle.
+    - User-visible surface: executable semantic conformance tests for supported operators plus
+      complete report-only diagnostics for planned DataFrame and SQL surfaces before broad runtime
+      implementation.
+    - Acceptance: supported compute operators cover null comparison, three-valued logic, null sort
+      ordering, NaN equality/order, signed zero, integer overflow, decimal precision/scale,
+      timestamp/date behavior, string collation/case sensitivity, binary equality, empty/count-null
+      aggregate behavior, join null semantics, window defaults, duplicate columns, nested/list
+      equality, and schema field identity where applicable. Unsupported DataFrame/SQL methods expose
+      stable diagnostics, blockers, required evidence, rewrite suggestions, and no-fallback status
+      across CLI, Python, and future REST views.
+    - Verification: semantic fixture suites, unsupported diagnostic snapshots, Python parity tests,
+      and external-oracle-reference-only policy checks.
+  - [ ] P7.4.3 execution artifact richness and provider-evidence preservation bundle.
+    - User-visible surface: top-level `ShardLoomExecutionResult` and typed CLI/Python envelopes
+      preserve rich provider evidence from local, Vortex primitive, prepared encoded,
+      source-backed, reader-backed, and report-only plans.
+    - Acceptance: execution results carry result refs, artifact refs, inline artifacts where
+      appropriate, execution/Native I/O certificate refs, materialization/residual boundary refs,
+      representation transitions, provider API surface/version, source refs, split refs, lifecycle
+      status, and fallback status. Missing evidence is explicit evidence-incomplete state, not an
+      omitted or flattened string.
+    - Verification: provider-result contract tests, typed-envelope golden cases, Python typed view
+      tests, and evidence-incomplete snapshots.
+  - [ ] P7.4.4 benchmark taxonomy execution and measured source-backed row population bundle.
+    - User-visible surface: benchmark taxonomy coverage that is executable enough to validate
+      common compute-engine workload shapes, plus measured source-backed rows for eligible prepared,
+      source-bound, and reader-backed encoded filter/projection/filter-project paths.
+    - Acceptance: add executable dataset profiles such as wide/very-wide tables, null-heavy data,
+      many-small/few-large files, date partitioning, clustered/unclustered layouts, schema drift,
+      dirty CSV, nested JSON, and CDC delta overlay where supported. Add executable scenarios for
+      filter/projection/limit, multi-key group by, join+aggregate, row-number window,
+      clean/cast/filter/write, dirty timestamps, small-change-over-large-base, partition pruning,
+      many-small-files scan, null-heavy aggregate, high-cardinality string group/distinct, wide
+      projection, and top-N per group. Blocked source-backed rows remain deterministic unsupported
+      diagnostics with required future evidence.
+    - Verification: benchmark catalog/schema tests, measured-row manifests, coverage-table
+      snapshots, reproducibility checks, and external-baseline-local-only assertions.
+  - [ ] P7.4.5 sink/write, replayability, and first workload-certified compute workflow bundle.
+    - User-visible surface: at least one complete source -> supported compute -> Vortex sink path
+      with inspectable output artifact, commit/recovery status, replay verification, execution
+      certificate, Native I/O certificate, benchmark row, coverage row, and CLI/Python invocation.
+    - Acceptance: output artifacts include digest/hash, schema/dtype summary, Native I/O
+      certificate, expected row/stat/schema replay evidence, materialization/decode evidence, and
+      deterministic failure when replay verification fails. The first candidate workload
+      constitution is scoped as `local_vortex_analytics_v1`; any claim is workload-scoped only.
+    - Verification: end-to-end fixture, output reopen/replay tests, certificate checks, benchmark
+      row checks, cleanup/rollback assertions, and no external-engine replay checks.
+  - [ ] P7.4.6 local scheduler/runtime and memory/spill operator maturity bundle.
+    - User-visible surface: supported local workloads execute through task/split graph scheduling
+      with runtime sizing, memory reservation, bounded queues, cancellation/retry evidence, and
+      operator-specific memory/spill maturity for group by, distinct, sort/top-N, joins, windows,
+      sink/write, sketch/approx aggregates, and live/hybrid state where supported.
+    - Acceptance: scheduler decisions are recorded in execution certificates; backpressure and
+      queue limits are enforced; safe/idempotent retry and cancellation paths are testable; every
+      supported stateful operator declares spill support or a deterministic no-spill blocker;
+      fail-before-OOM diagnostics are tested; spill cleanup/recovery semantics are explicit.
+    - Verification: scheduler integration tests, cancellation/retry tests, memory reservation
+      assertions, spill lifecycle tests, benchmark task metrics, and no large-workload claim checks.
+  - [ ] P7.4.7 Vortex layout/write advisor feedback loop bundle.
+    - User-visible surface: report-only advisor that consumes workload constitutions and benchmark/
+      runtime evidence to recommend Vortex layout, encoding, chunking, statistics, clustering,
+      micro-segment flush, and compaction strategies.
+    - Acceptance: advisor reports read/write tradeoffs, required evidence, and whether each
+      recommendation is measured, simulated, or blocked. It does not claim improvement without
+      evidence and remains report-only until write/layout execution is certified.
+    - Verification: advisor report snapshots, evidence-source validation, measured/simulated status
+      tests, and no-claim/no-write policy checks.
 - [ ] Priority 8 - general availability and external proof-of-use
   - Outcome: make a non-maintainer able to install, import, smoke, inspect capabilities, and run a
     certified local path without relying on unpublished assumptions or hidden local state.
@@ -186,7 +266,12 @@ from the merged code and tests.
       `shardloom capabilities --format json`.
     - Acceptance: CLI binary resolution, Python import, status/capability output, and
       `fallback_attempted=false` smoke evidence are documented and reproducible from a clean
-      environment.
+      environment. The scripted proof creates a clean env, installs ShardLoom from release
+      artifacts, imports `shardloom`, runs `ShardLoomClient.from_env().smoke_check()`, runs
+      `shardloom status --format json` and `shardloom capabilities --format json`, executes one
+      local Vortex fixture, inspects execution and Native I/O certificates, verifies
+      `fallback_attempted=false`, and runs a local benchmark smoke without external engines or
+      Foundry.
     - Verification: clean-env smoke transcript, Python import tests, CLI resolution diagnostics,
       install docs checks, and workspace validation.
   - [ ] P8.3 external examples, docs, and baseline-comparison boundary bundle.
@@ -199,6 +284,19 @@ from the merged code and tests.
       pandas comparison tooling stay out of the core install path and are reported as baselines only.
     - Verification: example smoke scripts, docs link checks, expected-output snapshots, dependency
       posture checks, and full workspace validation.
+  - [ ] P8.4 hard release-readiness gate bundle.
+    - User-visible surface: release gate report/command that refuses public-release readiness when
+      runtime, protocol, packaging, benchmark, provenance, and known-unsupported-path gates are
+      incomplete.
+    - Acceptance: gate covers `cargo fmt`, clippy, workspace tests, feature/build matrix
+      default/all/no-default/key combinations, Python tests, wheel/sdist build, clean venv install,
+      clean Conda env install, CLI binary resolution, smoke check, benchmark smoke, typed-envelope
+      compatibility, package metadata/license review, SBOM/provenance/checksum generation, runtime
+      package no-fallback dependency audit, and release notes with known unsupported paths. Public
+      claims are generated from evidence artifacts, not prose.
+    - Verification: release-gate snapshots, package build/install dry runs, feature/build matrix
+      checks, provenance fixtures, no-secret/no-fallback dependency checks, and docs/claim
+      consistency tests.
 - [ ] Priority 9 - RFC 0036 Foundry integration pack and platform availability
   - Outcome: make Foundry an optional integration pack with certificate-aware staging and proof
     surfaces, not a new core execution engine and not a shortcut around ShardLoom-native evidence.
@@ -278,6 +376,18 @@ from the merged code and tests.
       versions.
     - Verification: marketplace fixture smoke, benchmark schema snapshots, model/function boundary
       tests, Compute Module blocker snapshots, and release-readiness policy checks.
+  - [ ] P9.6 Foundry proof-of-use certification bundle.
+    - User-visible surface: proof that ShardLoom can be installed/imported and used inside a
+      Foundry Python code repository without making Foundry compute an execution fallback.
+    - Acceptance: proof covers Conda/internal artifact install, transform import, deterministic CLI
+      binary resolution, no-dataset smoke, explicit local/staged dataset path, supported
+      local/native ShardLoom execution, certificate/metrics dataset output, materialization/staging
+      boundary reports, and `fallback_attempted=false`. Foundry Spark, Snowflake, Databricks,
+      BigQuery, virtual tables, and external compute remain external boundaries, governed handles,
+      baselines, or migration/oracle references, not ShardLoom-native execution.
+    - Verification: Foundry-style transform fixture, package/import smoke, staged dataset fixture,
+      certificate dataset snapshots, Data Health/Data Expectations bridge checks where practical,
+      and no-fallback boundary tests.
 
 ## Completed
 

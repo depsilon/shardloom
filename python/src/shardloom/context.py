@@ -8,6 +8,7 @@ from typing import Mapping, Sequence
 
 from .client import (
     Binary,
+    ClaimGateCloseoutReport,
     DEFAULT_PROFILE_ORDER,
     EngineCapabilityMatrix,
     EngineSelectionPlan,
@@ -485,6 +486,11 @@ class ShardLoomContext:
         """Return a cross-CG workload certification dossier."""
 
         return self.client.workload_certification_dossier(scenario, check=check)
+
+    def claim_gate_closeout(self, *, check: bool = True) -> ClaimGateCloseoutReport:
+        """Return the P7 claim-gate and release-readiness closeout report."""
+
+        return self.client.claim_gate_closeout(check=check)
 
     def rest_api_contract_plan(self, *, check: bool = True) -> RestApiContractPlan:
         """Return the CG-23 REST/OpenAPI contract plan."""
