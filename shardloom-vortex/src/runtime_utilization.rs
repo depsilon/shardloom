@@ -515,7 +515,9 @@ impl VortexLayoutAdvisorReport {
 
     #[must_use]
     pub const fn claim_blocked(&self) -> bool {
-        !self.layout_support_claim_allowed || !self.advisor_runtime_allowed
+        !self.layout_support_claim_allowed
+            || !self.advisor_runtime_allowed
+            || self.fallback_attempted
     }
 }
 
@@ -625,6 +627,8 @@ impl VortexRuntimeUtilizationAuditReport {
             && self.device_residency.fallback_free()
             && self.io_backend_evidence.fallback_free()
             && self.session_model.preserves_no_runtime_expansion()
+            && !self.execute_step_evidence.external_engine_invoked
+            && !self.execute_step_evidence.fallback_attempted
             && !self.external_engine_invoked
             && !self.fallback_attempted
             && !self.runtime_expansion_authorized
@@ -681,6 +685,16 @@ mod tests {
     }
 
     #[test]
+    fn layout_advisor_claims_stay_blocked_when_fallback_was_attempted() {
+        let mut report = VortexLayoutAdvisorReport::report_only();
+        report.layout_support_claim_allowed = true;
+        report.advisor_runtime_allowed = true;
+        report.fallback_attempted = true;
+
+        assert!(report.claim_blocked());
+    }
+
+    #[test]
     fn layout_advisor_is_report_only_until_workload_and_vortex_layout_evidence_exists() {
         let report = VortexLayoutAdvisorReport::report_only();
 
@@ -716,5 +730,16 @@ mod tests {
         assert!(!report.runtime_expansion_authorized);
         assert!(!report.external_engine_invoked);
         assert!(!report.fallback_attempted);
+    }
+
+    #[test]
+    fn aggregate_audit_rejects_execute_step_external_engine_or_fallback_evidence() {
+        let mut report = plan_vortex_runtime_utilization_audit();
+        report.execute_step_evidence.external_engine_invoked = true;
+        assert!(!report.preserves_no_fallback_and_no_runtime_expansion());
+
+        let mut report = plan_vortex_runtime_utilization_audit();
+        report.execute_step_evidence.fallback_attempted = true;
+        assert!(!report.preserves_no_fallback_and_no_runtime_expansion());
     }
 }

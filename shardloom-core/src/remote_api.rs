@@ -199,7 +199,6 @@ struct EventStreamScenarioContract {
     stream_ref: &'static str,
     engine_mode: &'static str,
     workload_ref: &'static str,
-    event_count: u32,
     progress_event_count: u32,
     state_event_count: u32,
     checkpoint_event_count: u32,
@@ -1447,6 +1446,9 @@ impl RestApiPlanPreviewReport {
             ),
         };
 
+        let native_logical_planned = plan_preview_stage_planned(&stages, "native_logical");
+        let native_physical_planned = plan_preview_stage_planned(&stages, "native_physical");
+
         Self {
             schema_version: REST_API_PLAN_PREVIEW_SCHEMA_VERSION,
             report_id: "cg23.rest_api_plan_preview",
@@ -1481,12 +1483,8 @@ impl RestApiPlanPreviewReport {
             credential_resolution: false,
             parser_executed: true,
             binder_executed: !matches!(scenario, RestApiPlanPreviewScenario::InvalidInput),
-            native_logical_planned: !matches!(scenario, RestApiPlanPreviewScenario::InvalidInput),
-            native_physical_planned: matches!(
-                scenario,
-                RestApiPlanPreviewScenario::CertifiedLocalBatch
-                    | RestApiPlanPreviewScenario::PartialHybridFixture
-            ),
+            native_logical_planned,
+            native_physical_planned,
             query_execution: false,
             runtime_execution: false,
             write_io: false,
@@ -1612,7 +1610,7 @@ impl RestApiLocalLifecycleReport {
                 "cleanup",
             ],
             query_id: contract.query_id,
-            plan_handle: "plan://cg23/certified-local-batch",
+            plan_handle: local_lifecycle_plan_handle(scenario),
             result_id: contract.result_id,
             result_ref: contract.result_ref,
             result_artifact_ref: contract.result_artifact_ref,
@@ -1641,7 +1639,11 @@ impl RestApiLocalLifecycleReport {
             } else {
                 "none"
             },
-            no_fallback_evidence_artifact_ref: "artifacts/cg23/certified-local-batch/no-fallback.json",
+            no_fallback_evidence_artifact_ref: if evidence_available {
+                "artifacts/cg23/certified-local-batch/no-fallback.json"
+            } else {
+                "none"
+            },
             lifecycle_events: contract.lifecycle_events,
             result_policies: local_lifecycle_result_policies(),
             inline_json_available: matches!(
@@ -1808,7 +1810,7 @@ impl RestApiEventStreamReport {
             websocket_supported: true,
             websocket_required: false,
             bidirectional_interaction_required: false,
-            event_count: contract.event_count,
+            event_count: event_stream_detailed_event_count(&contract),
             progress_event_count: contract.progress_event_count,
             state_event_count: contract.state_event_count,
             checkpoint_event_count: contract.checkpoint_event_count,
@@ -2419,6 +2421,15 @@ fn local_lifecycle_endpoint_paths() -> Vec<&'static str> {
     ]
 }
 
+const fn local_lifecycle_plan_handle(scenario: RestApiLocalLifecycleScenario) -> &'static str {
+    match scenario {
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch => "plan://cg23/certified-local-batch",
+        RestApiLocalLifecycleScenario::CancelRequested => "plan://cg23/cancel-requested",
+        RestApiLocalLifecycleScenario::RetryRequested => "plan://cg23/retry-requested",
+        RestApiLocalLifecycleScenario::BlockedUncertified => "plan://cg23/blocked-uncertified",
+    }
+}
+
 fn local_lifecycle_result_policies() -> Vec<RestApiResultPolicyContract> {
     vec![
         RestApiResultPolicyContract {
@@ -2753,6 +2764,17 @@ fn event_stream_event_contracts() -> Vec<RestApiEventStreamEventContract> {
     ]
 }
 
+fn event_stream_detailed_event_count(contract: &EventStreamScenarioContract) -> u32 {
+    contract.progress_event_count
+        + contract.state_event_count
+        + contract.checkpoint_event_count
+        + contract.watermark_event_count
+        + contract.certificate_event_count
+        + contract.lineage_event_count
+        + contract.benchmark_event_count
+        + contract.hot_cold_contribution_event_count
+}
+
 #[allow(clippy::too_many_lines)]
 fn event_stream_scenario_contract(
     scenario: RestApiEventStreamScenario,
@@ -2764,7 +2786,6 @@ fn event_stream_scenario_contract(
             stream_ref: "event-stream://cg23/live-fixture/group-count",
             engine_mode: "live",
             workload_ref: "fixture://cg22/live/group-count",
-            event_count: 7,
             progress_event_count: 1,
             state_event_count: 1,
             checkpoint_event_count: 1,
@@ -2802,7 +2823,6 @@ fn event_stream_scenario_contract(
             stream_ref: "event-stream://cg23/hybrid-fixture/group-count",
             engine_mode: "hybrid",
             workload_ref: "fixture://cg22/hybrid/group-count",
-            event_count: 8,
             progress_event_count: 1,
             state_event_count: 0,
             checkpoint_event_count: 1,
@@ -2840,7 +2860,6 @@ fn event_stream_scenario_contract(
             stream_ref: "event-stream://cg23/production-live/blocked",
             engine_mode: "live",
             workload_ref: "workload://cg23/production-live/unscoped",
-            event_count: 0,
             progress_event_count: 0,
             state_event_count: 0,
             checkpoint_event_count: 0,
@@ -2887,7 +2906,6 @@ fn event_stream_scenario_contract(
             stream_ref: "event-stream://cg23/broker-requested/blocked",
             engine_mode: "hybrid",
             workload_ref: "workload://cg23/broker-requested/unscoped",
-            event_count: 0,
             progress_event_count: 0,
             state_event_count: 0,
             checkpoint_event_count: 0,
@@ -3589,6 +3607,20 @@ fn plan_preview_stage_bundle(
         .collect()
 }
 
+fn plan_preview_stage_planned(stages: &[RestApiPlanPreviewStage], stage_id: &str) -> bool {
+    stages
+        .iter()
+        .find(|stage| stage.stage_id == stage_id)
+        .is_some_and(|stage| {
+            matches!(
+                stage.status,
+                RestApiPlanStageStatus::Ready
+                    | RestApiPlanStageStatus::Certified
+                    | RestApiPlanStageStatus::Partial
+            )
+        })
+}
+
 fn discovery_endpoint_contracts() -> Vec<RestApiEndpointContract> {
     [
         ("GET", "/v1/health", "health"),
@@ -3675,6 +3707,12 @@ mod tests {
     fn rest_api_discovery_mode_contract_does_not_start_listener() {
         let report = RestApiDiscoveryModeReport::contract_only("127.0.0.1:8787");
 
+        assert_eq!(report.schema_version, REST_API_DISCOVERY_SCHEMA_VERSION);
+        assert_eq!(report.report_id, "cg23.rest_api_discovery_mode.contract");
+        assert_eq!(
+            report.contract_report.schema_version,
+            REST_API_CONTRACT_SCHEMA_VERSION
+        );
         assert_eq!(report.mode, "discovery");
         assert_eq!(report.health_endpoint, "/v1/health");
         assert_eq!(report.capabilities_endpoint, "/v1/capabilities");
@@ -3759,6 +3797,8 @@ mod tests {
                 .stage_status_summary()
                 .contains("native_logical:unsupported")
         );
+        assert!(!invalid.native_logical_planned);
+        assert!(!unsupported.native_logical_planned);
         assert!(!invalid.effect_policy_violated());
         assert!(!unsupported.effect_policy_violated());
     }
@@ -3799,6 +3839,10 @@ mod tests {
         );
         assert!(report.execution_certificate_ref.ends_with("execution.json"));
         assert!(report.native_io_certificate_ref.ends_with("native-io.json"));
+        assert_eq!(
+            report.no_fallback_evidence_artifact_ref,
+            "artifacts/cg23/certified-local-batch/no-fallback.json"
+        );
         assert!(
             report
                 .lifecycle_event_summary()
@@ -3827,9 +3871,13 @@ mod tests {
 
         assert_eq!(blocked.status(), CommandStatus::Unsupported);
         assert!(blocked.non_certified_path_blocked);
+        assert_eq!(blocked.plan_handle, "plan://cg23/blocked-uncertified");
+        assert_eq!(blocked.no_fallback_evidence_artifact_ref, "none");
         assert!(!blocked.query_execution);
         assert!(!blocked.runtime_execution);
         assert!(!blocked.fallback_attempted);
+        assert_eq!(cancel.plan_handle, "plan://cg23/cancel-requested");
+        assert_eq!(cancel.no_fallback_evidence_artifact_ref, "none");
         assert_eq!(
             cancel.lifecycle_status,
             RestApiLocalLifecycleStatus::Canceled
@@ -3841,6 +3889,8 @@ mod tests {
             retry.lifecycle_status,
             RestApiLocalLifecycleStatus::RetryScheduled
         );
+        assert_eq!(retry.plan_handle, "plan://cg23/retry-requested");
+        assert_eq!(retry.no_fallback_evidence_artifact_ref, "none");
         assert!(retry.retry_requested);
         assert_eq!(retry.retry_status, "scheduled");
         assert_eq!(retry.retry_diagnostic_code, "SL_RESOURCE_BUDGET_EXCEEDED");
@@ -3885,6 +3935,17 @@ mod tests {
         assert_eq!(hybrid.status(), CommandStatus::Success);
         assert!(hybrid.hybrid_fixture_certified);
         assert_eq!(hybrid.engine_mode, "hybrid");
+        assert_eq!(
+            hybrid.event_count,
+            hybrid.progress_event_count
+                + hybrid.state_event_count
+                + hybrid.checkpoint_event_count
+                + hybrid.watermark_event_count
+                + hybrid.certificate_event_count
+                + hybrid.lineage_event_count
+                + hybrid.benchmark_event_count
+                + hybrid.hot_cold_contribution_event_count
+        );
         assert_eq!(hybrid.hot_cold_contribution_event_count, 1);
         assert!(
             hybrid

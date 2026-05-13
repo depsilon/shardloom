@@ -2013,6 +2013,8 @@ fn native_vortex_sink_requirement_report(
     source_rows_materialized: u64,
     execution_evidence: &TraditionalScenarioExecutionEvidence,
 ) -> NativeIoSinkRequirementReport {
+    let max_chunk_size =
+        native_vortex_sink_max_chunk_size(source_rows_materialized, execution_evidence);
     NativeIoSinkRequirementReport {
         target_format: "benchmark_result_json".to_string(),
         accepts_encoded: false,
@@ -2023,8 +2025,20 @@ fn native_vortex_sink_requirement_report(
         requires_partitioning: false,
         requires_commit: false,
         supports_streaming: execution_evidence.streaming_vortex_execution_used,
-        max_chunk_size: Some(source_rows_materialized),
+        max_chunk_size: Some(max_chunk_size),
         backpressure_policy: "not_applicable_local_smoke".to_string(),
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_sink_max_chunk_size(
+    source_rows_materialized: u64,
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> u64 {
+    if execution_evidence.streaming_vortex_execution_used && execution_evidence.max_chunk_rows > 0 {
+        execution_evidence.max_chunk_rows as u64
+    } else {
+        source_rows_materialized
     }
 }
 
@@ -4249,9 +4263,12 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn traditional_analytics_test_root(label: &str) -> PathBuf {
+        static NEXT_TEST_ROOT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = NEXT_TEST_ROOT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "shardloom-traditional-analytics-{label}-{}-{}",
+            "shardloom-traditional-analytics-{label}-{}-{}-{}",
             std::process::id(),
+            sequence,
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -4323,6 +4340,13 @@ mod tests {
                 .native_io_certificate
                 .sink_requirement_report
                 .supports_streaming
+        );
+        assert_eq!(
+            report
+                .native_io_certificate
+                .sink_requirement_report
+                .max_chunk_size,
+            Some(report.streaming_max_chunk_rows as u64)
         );
         assert!(
             !report
