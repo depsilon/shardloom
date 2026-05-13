@@ -342,14 +342,20 @@ actionable work.
     - Exposed Python `ShardLoomClient.rest_api_contract_plan()`,
       `ShardLoomClient.serve_discovery_contract()`, and matching context helpers so users can test
       the CG-23 contract lane from Python or CLI.
-  - [ ] P6.2 plan/explain/validate/certification-preview API bundle.
-    - User-visible surface: plan handles and validate, explain, estimate, unsupported-report, and
-      certification-preview endpoints that mirror the local Python/query-builder workflow.
-    - Acceptance: parser, binder, native logical, native physical, execution readiness, evidence
-      readiness, and certification stages remain separately inspectable; unsupported paths return
-      deterministic diagnostics and problem-details responses without execution delegation.
-    - Verification: golden API fixtures for certified, partial, blocked, invalid-input, and
-      unsupported cases; CLI/Python/contract blocker parity tests; no-fallback invariant tests.
+  - [x] P6.2 plan/explain/validate/certification-preview API bundle.
+    - Added a side-effect-free `RestApiPlanPreviewReport` and `rest-api-plan-preview` CLI command
+      for certified-local-batch, partial-hybrid-fixture, blocked-remote-object-store,
+      invalid-input, and unsupported-operator scenarios.
+    - Extended the checked-in OpenAPI contract with plan handles plus validate, explain, estimate,
+      unsupported-report, and certification-preview A3 endpoints and `PlanPreviewResponse` /
+      `PlanPreviewStage` schemas.
+    - Exposed Python `ShardLoomClient.rest_api_plan_preview()` and
+      `ShardLoomContext.rest_api_plan_preview()` typed views with per-stage status,
+      problem-details, no-server, no-listener, no-runtime, no-delegation, and no-fallback accessors.
+    - Verified that parser, binder, native logical, native physical, execution readiness, evidence
+      readiness, and certification stages remain separately inspectable; blocked, invalid-input,
+      and unsupported previews emit deterministic diagnostics/problem-details fields without
+      execution delegation.
   - [ ] P6.3 certified local async lifecycle, result delivery, and certificate bundle.
     - User-visible surface: execute/status/cancel/retry/profile/certificates/lineage/results/
       artifacts lifecycle for already-certified local batch paths, plus inline JSON, paged JSON,

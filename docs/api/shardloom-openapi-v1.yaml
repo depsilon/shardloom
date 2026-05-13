@@ -166,7 +166,7 @@ paths:
     post:
       tags: [planning]
       operationId: createPlanPreview
-      summary: Future plan/validate preview endpoint.
+      summary: Create a side-effect-free plan preview and return a stable plan handle.
       x-shardloom-maturity: API-A3
       requestBody:
         required: true
@@ -175,12 +175,114 @@ paths:
             schema:
               $ref: "#/components/schemas/PlanPreviewRequest"
       responses:
-        "202":
-          description: Plan preview accepted when implemented.
+        "200":
+          description: Plan preview with inspectable planning stages.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OutputEnvelope"
+                $ref: "#/components/schemas/PlanPreviewResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/plans/{plan_handle}:
+    get:
+      tags: [planning]
+      operationId: getPlanPreview
+      summary: Fetch side-effect-free plan preview stages by handle.
+      x-shardloom-maturity: API-A3
+      parameters:
+        - $ref: "#/components/parameters/PlanHandle"
+      responses:
+        "200":
+          description: Plan preview stage bundle.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanPreviewResponse"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /v1/plans/{plan_handle}/validate:
+    post:
+      tags: [planning]
+      operationId: validatePlanPreview
+      summary: Validate parser, binder, policy, and no-fallback readiness for a plan handle.
+      x-shardloom-maturity: API-A3
+      parameters:
+        - $ref: "#/components/parameters/PlanHandle"
+      responses:
+        "200":
+          description: Validation preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanPreviewResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/plans/{plan_handle}/explain:
+    post:
+      tags: [planning]
+      operationId: explainPlanPreview
+      summary: Explain native logical and native physical preview stages without execution.
+      x-shardloom-maturity: API-A3
+      parameters:
+        - $ref: "#/components/parameters/PlanHandle"
+      responses:
+        "200":
+          description: Explain preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanPreviewResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/plans/{plan_handle}/estimate:
+    post:
+      tags: [planning]
+      operationId: estimatePlanPreview
+      summary: Estimate readiness for a plan handle without dataset probing or execution.
+      x-shardloom-maturity: API-A3
+      parameters:
+        - $ref: "#/components/parameters/PlanHandle"
+      responses:
+        "200":
+          description: Estimate preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanPreviewResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/plans/{plan_handle}/unsupported-report:
+    post:
+      tags: [planning]
+      operationId: unsupportedPlanPreviewReport
+      summary: Return deterministic unsupported diagnostics and problem-details fields.
+      x-shardloom-maturity: API-A3
+      parameters:
+        - $ref: "#/components/parameters/PlanHandle"
+      responses:
+        "200":
+          description: Unsupported-path preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanPreviewResponse"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/plans/{plan_handle}/certification-preview:
+    post:
+      tags: [planning]
+      operationId: createCertificationPreview
+      summary: Preview certification and evidence readiness for a plan handle without execution.
+      x-shardloom-maturity: API-A3
+      parameters:
+        - $ref: "#/components/parameters/PlanHandle"
+      responses:
+        "200":
+          description: Certification preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanPreviewResponse"
         "422":
           $ref: "#/components/responses/Problem"
   /v1/queries:
@@ -317,6 +419,12 @@ components:
         type: string
     ResultId:
       name: result_id
+      in: path
+      required: true
+      schema:
+        type: string
+    PlanHandle:
+      name: plan_handle
       in: path
       required: true
       schema:
@@ -464,6 +572,71 @@ components:
           type: object
         policy:
           $ref: "#/components/schemas/ExecutionRequestPolicy"
+        scenario:
+          type: string
+          enum:
+            - certified-local-batch
+            - partial-hybrid-fixture
+            - blocked-remote-object-store
+            - invalid-input
+            - unsupported-operator
+    PlanPreviewStage:
+      type: object
+      required: [stage_id, status, summary]
+      properties:
+        stage_id:
+          type: string
+          enum:
+            - parser
+            - binder
+            - native_logical
+            - native_physical
+            - execution_readiness
+            - evidence_readiness
+            - certification
+        status:
+          type: string
+          enum: [ready, certified, partial, blocked, invalid_input, unsupported, not_evaluated]
+        diagnostic_code:
+          type: [string, "null"]
+        summary:
+          type: string
+    PlanPreviewResponse:
+      allOf:
+        - $ref: "#/components/schemas/OutputEnvelope"
+        - type: object
+          required:
+            - plan_handle
+            - preview_status
+            - stages
+            - fallback
+          properties:
+            plan_handle:
+              type: string
+            preview_status:
+              type: string
+              enum: [certified_preview, partial_preview, blocked, invalid_input, unsupported]
+            operations:
+              type: array
+              items:
+                type: string
+                enum:
+                  - plan_handle
+                  - validate
+                  - explain
+                  - estimate
+                  - unsupported_report
+                  - certification_preview
+            stages:
+              type: array
+              items:
+                $ref: "#/components/schemas/PlanPreviewStage"
+            problem:
+              oneOf:
+                - $ref: "#/components/schemas/ProblemDetails"
+                - type: "null"
+            fallback:
+              $ref: "#/components/schemas/FallbackStatus"
     QueryRequest:
       type: object
       required: [plan_ref, policy]

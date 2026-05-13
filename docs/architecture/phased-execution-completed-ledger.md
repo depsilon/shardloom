@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P6.2 plan preview, validation, problem-details, and certification-preview API bundle
+  - Primary files:
+    - `docs/api/shardloom-openapi-v1.yaml`
+    - `shardloom-core/src/remote_api.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add the CG-23 A3 plan/explain/validate/estimate/unsupported-report/
+    certification-preview bundle as a contract-first lane over stable plan handles without starting
+    a server, opening a listener, probing datasets, reading object stores or catalogs, executing
+    queries, delegating to external engines, writing data, or attempting fallback execution.
+  - Checklist:
+    - [x] Add `RestApiPlanPreviewReport` with certified-local-batch, partial-hybrid-fixture,
+          blocked-remote-object-store, invalid-input, and unsupported-operator scenarios.
+    - [x] Emit separately inspectable parser, binder, native logical, native physical, execution
+          readiness, evidence readiness, and certification stages with deterministic diagnostics and
+          problem-details fields for blocked, invalid-input, and unsupported paths.
+    - [x] Add `rest-api-plan-preview` CLI output with typed-envelope routing in the
+          `rest_api_planning` family and golden fixture coverage for all five scenarios.
+    - [x] Extend `docs/api/shardloom-openapi-v1.yaml` with `/v1/plans`,
+          `/v1/plans/{plan_handle}`, validate, explain, estimate, unsupported-report, and
+          certification-preview endpoint contracts plus plan-preview response schemas.
+    - [x] Expose Python `RestApiPlanPreview`, `ShardLoomClient.rest_api_plan_preview()`, and
+          `ShardLoomContext.rest_api_plan_preview()`.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-core remote_api --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test api_protocol_snapshots --test typed_envelope_compatibility_lock`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom rest_api -- --nocapture`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-plan-preview certified-local-batch --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-plan-preview unsupported-operator --format json`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client python.tests.test_query_builder`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-plan-preview-clippy'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-plan-preview-test'; cargo test --workspace --all-targets`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-plan-preview-stable-clippy'; cargo +stable clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Runtime stance: contract/report-only. Plan preview parses fixture contracts and emits
+    inspectable readiness fields; it does not start HTTP serving, open sockets, probe data, access
+    external storage/catalogs, execute workloads, delegate execution, write data, invoke external
+    engines, or allow fallback execution.
+
 - [x] Session label: P6.1 REST contract, discovery mode, and API maturity bundle
   - Primary files:
     - `docs/api/shardloom-openapi-v1.yaml`

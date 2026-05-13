@@ -182,6 +182,7 @@ executing queries:
 ```python
 api = ctx.rest_api_contract_plan()
 discovery = ctx.serve_discovery_contract()
+preview = ctx.rest_api_plan_preview("certified-local-batch")
 
 print(api.openapi_contract_path)
 print(api.represented_resources)
@@ -189,12 +190,17 @@ print(api.discovery_endpoint_paths)
 print(api.server_started)
 print(discovery.server_mode)
 print(discovery.contract_only)
+print(preview.plan_handle)
+print(preview.stage_statuses)
+print(preview.problem_details_emitted)
 ```
 
 Equivalent CLI commands:
 
 ```powershell
 shardloom rest-api-contract-plan --format json
+shardloom rest-api-plan-preview certified-local-batch --format json
+shardloom rest-api-plan-preview unsupported-operator --format json
 shardloom serve --mode discovery --format json
 ```
 

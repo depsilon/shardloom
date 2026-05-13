@@ -525,6 +525,125 @@ class RestApiDiscoveryContract(RestApiContractPlan):
 
 
 @dataclass(frozen=True, slots=True)
+class RestApiPlanPreview:
+    """Typed view over the CG-23 plan/explain/validate/certification preview."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def scenario(self) -> str | None:
+        """Return the deterministic preview fixture scenario."""
+
+        return self.envelope.field("scenario")
+
+    @property
+    def preview_status(self) -> str | None:
+        """Return the preview status."""
+
+        return self.envelope.field("preview_status")
+
+    @property
+    def plan_handle(self) -> str | None:
+        """Return the stable plan handle."""
+
+        return self.envelope.field("plan_handle")
+
+    @property
+    def operations(self) -> tuple[str, ...]:
+        """Return supported plan-preview operations."""
+
+        value = self.envelope.field("preview_operations", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def stage_order(self) -> tuple[str, ...]:
+        """Return the preview stage order."""
+
+        value = self.envelope.field("stage_order", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def stage_statuses(self) -> Mapping[str, str]:
+        """Return per-stage status values keyed by stage id."""
+
+        statuses: dict[str, str] = {}
+        for stage in self.stage_order:
+            value = self.envelope.field(f"{stage}_stage_status")
+            if value is not None:
+                statuses[stage] = value
+        return statuses
+
+    @property
+    def problem_details_emitted(self) -> bool:
+        """Whether the preview emitted problem-details fields."""
+
+        return self.envelope.field_bool("problem_details_emitted", False) is True
+
+    @property
+    def problem_details_type(self) -> str | None:
+        """Return the problem-details type URI, if any."""
+
+        value = self.envelope.field("problem_details_type")
+        return None if value in {None, "none"} else value
+
+    @property
+    def problem_details_status(self) -> int | None:
+        """Return the problem-details HTTP status, if any."""
+
+        value = self.envelope.field("problem_details_status")
+        if value in {None, "none"}:
+            return None
+        return int(value)
+
+    @property
+    def problem_details_diagnostic_code(self) -> str | None:
+        """Return the problem-details diagnostic code, if any."""
+
+        value = self.envelope.field("problem_details_diagnostic_code")
+        return None if value in {None, "none"} else value
+
+    @property
+    def unsupported_reason(self) -> str | None:
+        """Return the deterministic unsupported reason, if any."""
+
+        value = self.envelope.field("unsupported_reason")
+        return None if value in {None, "none"} else value
+
+    @property
+    def server_started(self) -> bool:
+        """Whether the preview started a server."""
+
+        return self.envelope.field_bool("server_started", False) is True
+
+    @property
+    def network_listener_opened(self) -> bool:
+        """Whether the preview opened a listener."""
+
+        return self.envelope.field_bool("network_listener_opened", False) is True
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the preview executed runtime work."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the preview attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def execution_delegated(self) -> bool:
+        """Whether the preview delegated execution to any external engine."""
+
+        return self.envelope.field_bool("execution_delegated", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class LiveChangeContractPlan:
     """Typed convenience view over the CG-22 live change contract."""
 
@@ -921,6 +1040,18 @@ class ShardLoomClient:
 
         return RestApiDiscoveryContract(
             self.run(["serve", "--mode", "discovery", "--bind", bind], check=check)
+        )
+
+    def rest_api_plan_preview(
+        self,
+        scenario: str = "certified-local-batch",
+        *,
+        check: bool = True,
+    ) -> RestApiPlanPreview:
+        """Return a CG-23 plan/explain/validate/certification preview envelope."""
+
+        return RestApiPlanPreview(
+            self.run(["rest-api-plan-preview", scenario], check=check)
         )
 
     def python_wrapper_plan(self, *, check: bool = True) -> OutputEnvelope:

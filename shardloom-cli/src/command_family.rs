@@ -86,7 +86,7 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
         CommandFamily::Diagnostics
     } else if matches!(
         command,
-        "api-compat-plan" | "rest-api-contract-plan" | "serve"
+        "api-compat-plan" | "rest-api-contract-plan" | "rest-api-plan-preview" | "serve"
     ) {
         CommandFamily::RestApiPlanning
     } else if is_input_planning_command(command) {
@@ -416,6 +416,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("rest-api-contract-plan"),
+            CommandFamily::RestApiPlanning
+        );
+        assert_eq!(
+            classify_command("rest-api-plan-preview"),
             CommandFamily::RestApiPlanning
         );
         assert_eq!(classify_command("serve"), CommandFamily::RestApiPlanning);

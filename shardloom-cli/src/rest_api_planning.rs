@@ -7,7 +7,8 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     CliApiJsonProtocolReport, OutputFormat, ReleasePlan, RestApiContractReport,
-    RestApiDiscoveryModeReport, ShardLoomError,
+    RestApiDiscoveryModeReport, RestApiPlanPreviewReport, RestApiPlanPreviewScenario,
+    ShardLoomError,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -39,6 +40,56 @@ pub(crate) fn handle_rest_api_contract_plan(format: OutputFormat) -> ExitCode {
         report.to_human_text(),
         report.diagnostics.clone(),
         rest_api_contract_fields(&report, "rest_api_contract_plan"),
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_rest_api_plan_preview(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let scenario = match args.next() {
+        Some(token) => {
+            let Some(parsed) = RestApiPlanPreviewScenario::parse(&token) else {
+                return emit_error(
+                    "rest-api-plan-preview",
+                    format,
+                    "rest api plan preview argument parsing failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "unknown plan preview scenario: {token}; expected one of {}",
+                        RestApiPlanPreviewScenario::all()
+                            .iter()
+                            .map(|scenario| scenario.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    )),
+                );
+            };
+            parsed
+        }
+        None => RestApiPlanPreviewScenario::CertifiedLocalBatch,
+    };
+
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "rest-api-plan-preview",
+            format,
+            "rest api plan preview argument parsing failed",
+            &ShardLoomError::InvalidOperation(format!(
+                "unexpected rest-api-plan-preview argument: {extra}; pass at most one scenario"
+            )),
+        );
+    }
+
+    let report = RestApiPlanPreviewReport::for_scenario(scenario);
+    emit(
+        "rest-api-plan-preview",
+        format,
+        report.status(),
+        "rest api plan/explain/validate/certification preview".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        rest_api_plan_preview_fields(&report),
     );
     ExitCode::SUCCESS
 }
@@ -348,6 +399,162 @@ fn rest_api_discovery_fields(report: &RestApiDiscoveryModeReport) -> Vec<(String
         !report.server_started,
     );
     fields
+}
+
+fn rest_api_plan_preview_fields(report: &RestApiPlanPreviewReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_plan_preview_identity_fields(&mut fields, report);
+    append_plan_preview_stage_fields(&mut fields, report);
+    append_plan_preview_problem_fields(&mut fields, report);
+    append_plan_preview_effect_fields(&mut fields, report);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn append_plan_preview_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiPlanPreviewReport,
+) {
+    push_field(fields, "mode", "rest_api_plan_preview");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "api_version", report.api_version);
+    push_field(fields, "scenario", report.scenario.as_str());
+    push_field(fields, "preview_status", report.preview_status.as_str());
+    push_field(fields, "plan_handle", report.plan_handle);
+    push_field(fields, "endpoint_path", report.endpoint_path);
+    push_field(fields, "endpoint_paths", &report.endpoint_paths.join(","));
+    push_field(
+        fields,
+        "preview_operations",
+        &report.preview_operations.join(","),
+    );
+    push_field(
+        fields,
+        "execution_policy_fields",
+        &report.execution_policy_fields.join(","),
+    );
+}
+
+fn append_plan_preview_stage_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiPlanPreviewReport,
+) {
+    push_field(fields, "stage_order", &report.stage_order().join(","));
+    push_field(fields, "stage_statuses", &report.stage_status_summary());
+    push_field(
+        fields,
+        "stage_diagnostics",
+        &report.stage_diagnostic_summary(),
+    );
+    for stage in &report.stages {
+        push_field(
+            fields,
+            &format!("{}_stage_status", stage.stage_id),
+            stage.status.as_str(),
+        );
+        push_field(
+            fields,
+            &format!("{}_stage_summary", stage.stage_id),
+            stage.summary,
+        );
+        push_field(
+            fields,
+            &format!("{}_stage_diagnostic_code", stage.stage_id),
+            stage.diagnostic_code.unwrap_or("none"),
+        );
+    }
+}
+
+fn append_plan_preview_problem_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiPlanPreviewReport,
+) {
+    push_bool_field(
+        fields,
+        "problem_details_emitted",
+        report.problem_details_emitted(),
+    );
+    if let Some(problem) = &report.problem_details {
+        push_field(fields, "problem_details_type", problem.problem_type);
+        push_field(fields, "problem_details_title", problem.title);
+        push_field(
+            fields,
+            "problem_details_status",
+            &problem.http_status.to_string(),
+        );
+        push_field(fields, "problem_details_detail", problem.detail);
+        push_field(
+            fields,
+            "problem_details_diagnostic_code",
+            problem.diagnostic_code,
+        );
+        push_field(
+            fields,
+            "unsupported_reason",
+            problem.unsupported_reason.unwrap_or("none"),
+        );
+    } else {
+        push_field(fields, "problem_details_type", "none");
+        push_field(fields, "problem_details_title", "none");
+        push_field(fields, "problem_details_status", "none");
+        push_field(fields, "problem_details_detail", "none");
+        push_field(fields, "problem_details_diagnostic_code", "none");
+        push_field(fields, "unsupported_reason", "none");
+    }
+}
+
+fn append_plan_preview_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiPlanPreviewReport,
+) {
+    push_bool_field(fields, "server_started", report.server_started);
+    push_bool_field(
+        fields,
+        "network_listener_opened",
+        report.network_listener_opened,
+    );
+    push_bool_field(fields, "network_probe", report.network_listener_opened);
+    push_bool_field(fields, "dataset_probe", report.dataset_probe);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(
+        fields,
+        "credential_resolution",
+        report.credential_resolution,
+    );
+    push_bool_field(fields, "parser_executed", report.parser_executed);
+    push_bool_field(fields, "binder_executed", report.binder_executed);
+    push_bool_field(
+        fields,
+        "native_logical_planned",
+        report.native_logical_planned,
+    );
+    push_bool_field(
+        fields,
+        "native_physical_planned",
+        report.native_physical_planned,
+    );
+    push_bool_field(fields, "query_execution", report.query_execution);
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(fields, "execution_delegated", report.execution_delegated);
+    push_bool_field(
+        fields,
+        "effect_policy_violated",
+        report.effect_policy_violated(),
+    );
 }
 
 fn append_api_protocol_compatibility_lock_fields(
