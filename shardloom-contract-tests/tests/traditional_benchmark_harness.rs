@@ -278,7 +278,7 @@ fn traditional_benchmark_harness_includes_shardloom_native_microbenchmark() {
 #[test]
 fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     let readme = read_workspace_file("benchmarks/traditional_analytics/README.md");
-    let normalized = readme.replace('\n', " ");
+    let normalized = readme.replace(['\r', '\n'], " ");
 
     assert!(readme.contains("human-readable Markdown"));
     assert!(readme.contains("coverage_table"));
@@ -310,7 +310,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(normalized.contains("final `vortex-run` runtime effects"));
     assert!(readme.contains("decision-trace counts"));
     assert!(readme.contains("claim blockers"));
-    assert!(normalized.contains("segment prune count"));
+    assert!(readme.contains("segment prune"));
+    assert!(readme.contains("count, bytes not read"));
     assert!(readme.contains("bytes not read"));
     assert!(readme.contains("average commit latency"));
     assert!(readme.contains("It is a local smoke benchmark only"));

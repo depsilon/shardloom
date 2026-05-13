@@ -225,10 +225,11 @@ from the merged code and tests.
       `row number window`, `high-cardinality string group/distinct`, and `top-N per group` through
       the local Vortex import/replay/result-sink path with Native I/O and runtime certificate
       evidence.
-    - Remaining taxonomy gap: ShardLoom-native CDC scenario execution, broader
-      table/catalog/object-store partition-pruning, object-store multi-file, and general JSON
-      execution evidence, comparative reruns across selected baselines, and promotion from
-      fixture-smoke measurements to reproducible claim-grade benchmark rows.
+    - Remaining taxonomy gap: broader table/catalog/object-store partition-pruning,
+      object-store multi-file, general JSON execution evidence, broader incremental-state
+      execution evidence beyond the deterministic CDC overlay fixture, comparative reruns across
+      selected baselines, and promotion from fixture-smoke measurements to reproducible claim-grade
+      benchmark rows.
     - Immediate closeout slice: run selected local comparative taxonomy reruns across ShardLoom and
       local optional baselines, keep managed platforms out, emit coverage and timing tables
       separately, and classify each row as supported, unsupported, blocked,
@@ -270,6 +271,10 @@ from the merged code and tests.
       import/replay/result-sink path for generated dirty-column and nested-payload fixture
       coverage. This does not certify arbitrary JSON expression execution, nested Vortex dtype
       execution, or CDC overlay execution.
+    - Completed sub-slice in ledger: CDC-overlay `small change over large base` now executes
+      through the ShardLoom local Vortex import/replay/result-sink path using an explicit generated
+      delta sidecar imported into a separate Vortex artifact. This does not certify general
+      incremental-state execution, table-format CDC, or object-store/catalog change planning.
     - Completed sub-slice in ledger: selected local comparative reruns now enforce scenario catalog
       `dataset_profiles` before engine execution. Incompatible taxonomy scenario/profile pairs emit
       deterministic blocked coverage rows with `fallback_attempted=false` and

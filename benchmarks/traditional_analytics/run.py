@@ -103,6 +103,7 @@ SHARDLOOM_TAXONOMY_EXTRA_SCENARIOS = (
     "top-N per group",
     "clean/cast/filter/write",
     "malformed timestamp / dirty CSV",
+    "small change over large base",
     "nested JSON field scan",
 )
 SHARDLOOM_EXECUTABLE_SCENARIOS = (
@@ -1208,6 +1209,10 @@ def shardloom_runner() -> EngineRunner:
             "--format",
             "json",
         ]
+        if scenario == "small change over large base":
+            if paths.cdc_delta_csv is None or not paths.cdc_delta_csv.exists():
+                raise BenchmarkUnsupported("CDC overlay scenario requires cdc_delta.csv")
+            command.extend(["--cdc-delta", str(paths.cdc_delta_csv)])
         if SHARDLOOM_RESULT_SINK:
             command.extend(["--verify-native-replay", "--write-result-vortex"])
         completed = subprocess_run(command, root, env)
