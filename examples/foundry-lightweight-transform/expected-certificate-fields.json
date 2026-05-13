@@ -1,0 +1,13 @@
+{
+  "schema_version": "shardloom.example.expected_certificates.v1",
+  "example": "foundry-lightweight-transform",
+  "certificate_output_written": true,
+  "execution_certificate_status": "not_emitted_no_dataset_smoke",
+  "native_io_certificate_status": "not_emitted_no_dataset_smoke",
+  "materialization_boundary_status": "staged_path_declared_only",
+  "required_policy_fields": {
+    "fallback_attempted": false,
+    "external_compute_invoked": false,
+    "foundry_compute_invoked": false
+  }
+}

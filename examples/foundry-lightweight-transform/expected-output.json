@@ -1,0 +1,12 @@
+{
+  "schema_version": "shardloom.example.expected_output.v1",
+  "example": "foundry-lightweight-transform",
+  "expected_artifact_schema": "shardloom.examples.foundry_lightweight_transform.v1",
+  "foundry_runtime_invoked": false,
+  "foundry_compute_invoked": false,
+  "external_compute_invoked": false,
+  "fallback_attempted": false,
+  "staged_dataset_path_explicit": true,
+  "smoke_check_required": true,
+  "capabilities_required": true
+}

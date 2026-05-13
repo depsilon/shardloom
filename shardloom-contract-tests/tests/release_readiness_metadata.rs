@@ -184,7 +184,9 @@ fn release_package_docs_workflow_and_examples_are_present() {
     for doc in [
         "docs/getting-started/install.md",
         "docs/getting-started/first-10-minutes.md",
+        "docs/getting-started/examples.md",
         "docs/getting-started/certified-local-workload.md",
+        "docs/benchmarks/baseline-comparison-boundary.md",
         "docs/benchmarks/local-taxonomy-benchmark.md",
         "docs/release/github-topic-recommendations.md",
         "docs/release/release-dry-run-proof.md",
@@ -193,6 +195,8 @@ fn release_package_docs_workflow_and_examples_are_present() {
         "examples/local-python-smoke/run.py",
         "examples/local-vortex-benchmark/README.md",
         "examples/local-vortex-benchmark/run.py",
+        "examples/foundry-lightweight-transform/README.md",
+        "examples/foundry-lightweight-transform/run.py",
     ] {
         assert!(repo_root().join(doc).exists(), "missing {doc}");
     }
@@ -204,8 +208,10 @@ fn readme_links_website_and_first_user_docs() {
     assert!(readme.contains("https://shardloom.io"));
     assert!(readme.contains("docs/getting-started/install.md"));
     assert!(readme.contains("docs/getting-started/first-10-minutes.md"));
+    assert!(readme.contains("docs/getting-started/examples.md"));
     assert!(readme.contains("docs/getting-started/certified-local-workload.md"));
     assert!(readme.contains("docs/benchmarks/local-taxonomy-benchmark.md"));
+    assert!(readme.contains("docs/benchmarks/baseline-comparison-boundary.md"));
 }
 
 #[test]
@@ -227,4 +233,53 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     let first_ten = read_repo_file("docs/getting-started/first-10-minutes.md");
     assert!(first_ten.contains("scripts\\release_dry_run_proof.py"));
     assert!(first_ten.contains("target/release-dry-run-proof/transcript.json"));
+}
+
+#[test]
+fn external_examples_include_fixtures_expected_outputs_and_boundaries() {
+    for example in [
+        "examples/local-python-smoke",
+        "examples/local-vortex-benchmark",
+        "examples/foundry-lightweight-transform",
+    ] {
+        for file in [
+            "README.md",
+            "environment.yml",
+            "expected-output.json",
+            "expected-certificate-fields.json",
+            "known-limitations.md",
+        ] {
+            let path = format!("{example}/{file}");
+            assert!(repo_root().join(&path).exists(), "missing {path}");
+        }
+    }
+
+    assert!(
+        repo_root()
+            .join("examples/local-python-smoke/fixtures/no-dataset-smoke.json")
+            .exists()
+    );
+    assert!(
+        repo_root()
+            .join("examples/local-vortex-benchmark/fixtures/benchmark-request.json")
+            .exists()
+    );
+    assert!(
+        repo_root()
+            .join("examples/foundry-lightweight-transform/fixtures/staged_input.csv")
+            .exists()
+    );
+
+    let foundry = read_repo_file("examples/foundry-lightweight-transform/run.py");
+    assert!(foundry.contains("foundry_runtime_invoked"));
+    assert!(foundry.contains("foundry_compute_invoked"));
+    assert!(foundry.contains("external_compute_invoked"));
+    assert!(foundry.contains("fallback_attempted"));
+    assert!(foundry.contains("not_emitted_no_dataset_smoke"));
+
+    let boundary = read_repo_file("docs/benchmarks/baseline-comparison-boundary.md");
+    assert!(boundary.contains("external_baseline_only"));
+    assert!(boundary.contains("fallback_attempted=false"));
+    assert!(boundary.contains("external_engine_invoked=false"));
+    assert!(boundary.contains("never ShardLoom runtime dependencies"));
 }

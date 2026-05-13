@@ -1,0 +1,17 @@
+{
+  "schema_version": "shardloom.example.input.v1",
+  "example": "local-vortex-benchmark",
+  "engines": [
+    "shardloom"
+  ],
+  "formats": [
+    "csv"
+  ],
+  "scenario": "selective filter",
+  "dataset_profile": "tiny_smoke",
+  "rows": 64,
+  "iterations": 1,
+  "result_sink": true,
+  "fallback_allowed": false,
+  "external_engine_invocation_allowed": false
+}

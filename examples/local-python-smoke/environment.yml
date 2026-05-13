@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shardloom-local-python-smoke
+channels:
+  - conda-forge
+dependencies:
+  - python >=3.10
+  - pip
+  # Source checkout mode uses python/src and a locally built shardloom CLI.
+  # No Spark, DataFusion, DuckDB, Polars, pandas, Dask, or Velox runtime dependency is required.
