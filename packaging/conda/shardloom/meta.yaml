@@ -22,15 +22,16 @@ test:
     - python -c "from shardloom import ShardLoomClient; report = ShardLoomClient.from_env().smoke_check(); print(report.fallback_attempted)"
 
 about:
-  home: https://github.com/depsilon/shardloom
+  home: https://shardloom.io
   license: Apache-2.0
   license_file: LICENSE
-  summary: ShardLoom metapackage for the CLI and Python wrapper.
+  summary: ShardLoom metapackage for the CLI and pure Python wrapper.
   description: |
     One-command install target for ShardLoom's Rust CLI binary and pure Python
-    wrapper. This metapackage must not add Spark, DataFusion, DuckDB, Polars,
-    pandas, Dask, Velox, or another fallback execution engine as a runtime
-    dependency.
+    wrapper for local Vortex-native no-fallback workflows. This metapackage
+    must not add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, or
+    another fallback execution engine as a runtime dependency.
+  doc_url: https://github.com/depsilon/shardloom/tree/main/docs
   dev_url: https://github.com/depsilon/shardloom
 
 extra:

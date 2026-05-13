@@ -5,19 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shardloom"
 dynamic = ["version"]
-description = "Thin Python client for the ShardLoom CLI JSON protocol"
+description = "Python client for ShardLoom, a Vortex-native no-fallback evidence-certified local compute engine"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "ShardLoom contributors" }]
 dependencies = []
-keywords = ["analytics", "columnar", "vortex", "cli", "etl"]
+keywords = ["analytics", "columnar", "vortex", "data-engine", "etl", "benchmark", "no-fallback", "rust", "python"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -25,11 +24,15 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
     "Typing :: Typed",
 ]
 
 [project.urls]
-Homepage = "https://github.com/depsilon/shardloom"
+Homepage = "https://shardloom.io"
 Repository = "https://github.com/depsilon/shardloom"
 Issues = "https://github.com/depsilon/shardloom/issues"
 Documentation = "https://github.com/depsilon/shardloom/tree/main/docs"

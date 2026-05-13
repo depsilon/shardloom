@@ -32,14 +32,15 @@ test:
     - python {{ python_min }}
 
 about:
-  home: https://github.com/depsilon/shardloom
+  home: https://shardloom.io
   license: Apache-2.0
   license_file: LICENSE
-  summary: Pure Python ShardLoom CLI JSON client.
+  summary: Pure Python client for ShardLoom's no-fallback CLI JSON protocol.
   description: |
-    Pure Python wrapper for the ShardLoom CLI JSON protocol. Importing this
-    package must not execute ShardLoom, probe files, probe networks, access
-    catalogs, or invoke fallback engines.
+    Pure Python wrapper for the ShardLoom CLI JSON protocol and local
+    evidence surfaces. Importing this package must not execute ShardLoom, probe
+    files, probe networks, access catalogs, or invoke fallback engines.
+  doc_url: https://github.com/depsilon/shardloom/tree/main/docs
   dev_url: https://github.com/depsilon/shardloom
 
 extra:

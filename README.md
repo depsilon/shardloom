@@ -1,5 +1,7 @@
 # ShardLoom
 
+Website: [shardloom.io](https://shardloom.io) (domain reserved; public site content pending).
+
 ShardLoom is a standalone encoded-columnar execution engine for computing directly over
 Vortex-native layouts, preserving encoded representation where possible, and producing Vortex-native
 or lakehouse-compatible outputs without delegating execution to Spark, DataFusion, DuckDB, Polars,
@@ -113,6 +115,13 @@ session history. Supporting RFCs live in [`docs/rfcs`](docs/rfcs), and phase/RFC
 External systems lessons and technique-transfer notes live in
 [`docs/architecture/systems-learning-map.md`](docs/architecture/systems-learning-map.md). RFCs own
 deep contracts and acceptance criteria.
+
+First-user docs:
+
+- [`docs/getting-started/install.md`](docs/getting-started/install.md)
+- [`docs/getting-started/first-10-minutes.md`](docs/getting-started/first-10-minutes.md)
+- [`docs/getting-started/certified-local-workload.md`](docs/getting-started/certified-local-workload.md)
+- [`docs/benchmarks/local-taxonomy-benchmark.md`](docs/benchmarks/local-taxonomy-benchmark.md)
 
 ## No-Fallback Policy
 
