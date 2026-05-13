@@ -253,7 +253,7 @@ impl LiveOutputRow {
         }
     }
 
-    fn synthetic(key: &str, metric: &str, value: i64) -> Self {
+    pub(crate) fn synthetic(key: &str, metric: &str, value: i64) -> Self {
         Self {
             key: key.to_string(),
             metric: metric.to_string(),
@@ -261,7 +261,7 @@ impl LiveOutputRow {
         }
     }
 
-    fn summary(&self) -> String {
+    pub(crate) fn summary(&self) -> String {
         format!("{}:{}:{}", self.key, self.metric, self.value)
     }
 }
@@ -275,7 +275,7 @@ pub struct OutputChangelogEntry {
 }
 
 impl OutputChangelogEntry {
-    fn from_row(sequence: u64, row: &LiveOutputRow, mode: OutputChangelogMode) -> Self {
+    pub(crate) fn from_row(sequence: u64, row: &LiveOutputRow, mode: OutputChangelogMode) -> Self {
         Self {
             sequence,
             key: row.key.clone(),

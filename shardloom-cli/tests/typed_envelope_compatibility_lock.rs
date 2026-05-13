@@ -225,6 +225,36 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             ],
         },
         EnvelopeCase {
+            name: "hybrid overlay runtime success",
+            args: &[
+                "hybrid-overlay-run",
+                "group-count",
+                "metric",
+                "--format",
+                "json",
+            ],
+            command: "hybrid-overlay-run",
+            status: "success",
+            family: "engine_runtime_planning",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                ("fixture_operator", "group_count"),
+                ("delta_overlay_certificate_status", "certified"),
+                ("micro_segment_flush_evidence_status", "certified"),
+                ("layout_health_bundle_status", "compaction_recommended"),
+                ("runtime_execution", "true"),
+                ("data_read", "false"),
+                ("write_io", "false"),
+                ("fallback_attempted", "false"),
+            ],
+            fragments: &[
+                "\"id\":\"cg22.hybrid.fixture.delta_overlay\",\"kind\":\"certificate\"",
+                "\"id\":\"cg22.hybrid.fixture.group_count.execution\",\"kind\":\"execution_certificate\"",
+                "\"id\":\"cg22.hybrid.fixture.group_count.native_io\",\"kind\":\"native_io_certificate\"",
+            ],
+        },
+        EnvelopeCase {
             name: "vortex runtime success",
             args: &[
                 "vortex-schedule-plan",

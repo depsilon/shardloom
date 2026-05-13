@@ -203,7 +203,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(matrix.fallback_attempted)
         self.assertFalse(matrix.external_engine_invoked)
 
-    def test_live_change_contract_and_fixture_reports_are_explicit(self) -> None:
+    def test_live_and_hybrid_fixture_reports_are_explicit(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
@@ -238,6 +238,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "fallback_attempted", "value": "false"},
                     ]
+                elif args == ["hybrid-overlay-run", "group-count", "metric", "--format", "json"]:
+                    command = "hybrid-overlay-run"
+                    fields = [
+                        {"key": "fixture_operator", "value": "group_count"},
+                        {"key": "base_row_count", "value": "4"},
+                        {"key": "hot_change_record_count", "value": "6"},
+                        {"key": "merged_row_count", "value": "3"},
+                        {"key": "output_rows", "value": "east:group_count:2|west:group_count:1"},
+                        {"key": "delta_overlay_certificate_status", "value": "certified"},
+                        {"key": "micro_segment_flush_evidence_status", "value": "certified"},
+                        {"key": "layout_health_bundle_status", "value": "compaction_recommended"},
+                        {"key": "freshness_certificate_status", "value": "certified"},
+                        {"key": "execution_certificate_status", "value": "certified"},
+                        {"key": "native_io_certificate_status", "value": "certified"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                    ]
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -257,6 +277,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         contract = ctx.live_change_contract_plan()
         fixture = ctx.live_fixture_run("group-count", "metric")
+        hybrid = ctx.hybrid_overlay_run("group-count", "metric")
 
         self.assertEqual(contract.change_record_fields[0], "key")
         self.assertIn("tombstone", contract.operations)
@@ -273,6 +294,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(fixture.write_io)
         self.assertFalse(fixture.fallback_attempted)
         self.assertFalse(fixture.external_engine_invoked)
+        self.assertEqual(hybrid.operator, "group_count")
+        self.assertEqual(hybrid.base_row_count, 4)
+        self.assertEqual(hybrid.hot_change_record_count, 6)
+        self.assertEqual(hybrid.merged_row_count, 3)
+        self.assertEqual(hybrid.output_rows, ("east:group_count:2", "west:group_count:1"))
+        self.assertEqual(hybrid.layout_health_status, "compaction_recommended")
+        self.assertTrue(hybrid.all_certified)
+        self.assertTrue(hybrid.runtime_execution)
+        self.assertFalse(hybrid.data_read)
+        self.assertFalse(hybrid.write_io)
+        self.assertFalse(hybrid.fallback_attempted)
+        self.assertFalse(hybrid.external_engine_invoked)
 
     def test_lazy_workflow_report_collects_explain_estimate_and_certify_surfaces(self) -> None:
         expected_workflow = (

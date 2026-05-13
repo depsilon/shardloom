@@ -16,6 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-22E/F/G hybrid overlay, Vortex micro-segment flush, and layout-health
+      bundle
+  - Primary files:
+    - `shardloom-core/src/hybrid_engine.rs`
+    - `shardloom-core/src/live_engine.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-core/src/engine_modes.rs`
+    - `shardloom-cli/src/engine_fabric_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/cg22_engine_fabric_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add the first executable CG-22 hybrid lane as a deterministic in-memory fixture over a
+    declared local Vortex base plus hot delta changes, including overlay merge semantics,
+    deletion-vector/tombstone accounting, micro-segment flush evidence, layout-health/compaction
+    planning evidence, CLI command, Python wrappers, engine selection/capability posture, and a
+    larger-slice restructure of the remaining phased execution plan.
+  - Checklist:
+    - [x] Add `hybrid-overlay-run` for filter, project, count, count_where, and group_count over
+          declared base rows plus upsert, tombstone, append, delete, append, and retract hot deltas.
+    - [x] Emit `DeltaOverlayCertificate`, `HotColdContributionReport`,
+          `MicroSegmentFlushEvidence`, `HybridLayoutHealthBundle`, `FreshnessCertificate`,
+          execution certificate, Native I/O certificate, and typed envelope refs.
+    - [x] Report base snapshot id, merged snapshot id, snapshot epoch, hot changelog range,
+          warm/cold segment counts, deletion-vector entries, tombstone counts, freshness lag,
+          representation state, statistics records, checkpoint ref, commit ref, and no-fallback
+          policy.
+    - [x] Move hybrid engine selection and capability matrix posture from planned to fixture-level
+          partial support while keeping production claims blocked.
+    - [x] Expose Python `ShardLoomClient.hybrid_overlay_run()` and
+          `ShardLoomContext.hybrid_overlay_run()` typed convenience views.
+    - [x] Collapse the remaining CG-23, cross-CG closeout, general availability, and Foundry work
+          into larger acceptance-driven P6 through P9 slices so future PRs ship meaningful user-testable
+          bundles instead of one-checkbox fragments.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core hybrid --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core engine_modes --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom hybrid_overlay_run_returns_success`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test cg22_engine_fabric_snapshots --test typed_envelope_compatibility_lock --test capability_discovery_snapshots`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -p shardloom-cli -- hybrid-overlay-run group-count metric --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -p shardloom-cli -- engine-selection-plan hybrid snapshot upsert continuous-view --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -p shardloom-cli -- engine-capability-matrix --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-hybrid-clippy'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-hybrid-test'; cargo test --workspace --all-targets`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-hybrid-stable-clippy'; cargo +stable clippy --workspace --all-targets -- -D warnings`
+  - Runtime stance: executable only for the deterministic in-memory hybrid fixture. It does not read
+    Vortex files, decode or materialize external data, write micro-segments, checkpoints, commits,
+    or output artifacts, contact object stores or catalogs, invoke external query engines, or
+    attempt fallback execution. Production hybrid claims remain blocked on durable flush writes,
+    object-store commit protocol, external catalog snapshot discovery, workload correctness
+    evidence, and benchmark evidence.
+
 - [x] Session label: CG-22C/D/I live source/change, in-memory prototype, and state/freshness
       certification bundle
   - Primary files:

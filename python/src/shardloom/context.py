@@ -11,6 +11,7 @@ from .client import (
     DEFAULT_PROFILE_ORDER,
     EngineCapabilityMatrix,
     EngineSelectionPlan,
+    HybridOverlayRunReport,
     LiveChangeContractPlan,
     LiveFixtureRunReport,
     PythonClientSmokeReport,
@@ -357,6 +358,17 @@ class ShardLoomContext:
         """Run the explicit CG-22 in-memory live fixture."""
 
         return self.client.live_fixture_run(operator, argument, check=check)
+
+    def hybrid_overlay_run(
+        self,
+        operator: str = "filter",
+        argument: str | Sequence[str] | None = None,
+        *,
+        check: bool = True,
+    ) -> HybridOverlayRunReport:
+        """Run the explicit CG-22 in-memory hybrid overlay fixture."""
+
+        return self.client.hybrid_overlay_run(operator, argument, check=check)
 
     def read_vortex(self, uri: str | os.PathLike[str]) -> LazyFrame:
         """Declare a lazy native Vortex source using this context's client."""

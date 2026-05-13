@@ -567,6 +567,100 @@ class LiveFixtureRunReport:
 
 
 @dataclass(frozen=True, slots=True)
+class HybridOverlayRunReport:
+    """Typed convenience view over the CG-22 hybrid overlay fixture run."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def operator(self) -> str | None:
+        """Return the executed fixture operator."""
+
+        return self.envelope.field("fixture_operator")
+
+    @property
+    def base_row_count(self) -> int:
+        """Return the declared local Vortex base row count."""
+
+        return self.envelope.field_int("base_row_count", 0) or 0
+
+    @property
+    def hot_change_record_count(self) -> int:
+        """Return the hot delta change-record count."""
+
+        return self.envelope.field_int("hot_change_record_count", 0) or 0
+
+    @property
+    def merged_row_count(self) -> int:
+        """Return the merged base-plus-hot row count."""
+
+        return self.envelope.field_int("merged_row_count", 0) or 0
+
+    @property
+    def output_rows(self) -> tuple[str, ...]:
+        """Return deterministic output rows from the hybrid fixture report."""
+
+        value = self.envelope.field("output_rows", "") or ""
+        if value == "none":
+            return ()
+        return tuple(part.strip() for part in value.split("|") if part.strip())
+
+    @property
+    def all_certified(self) -> bool:
+        """Whether overlay, flush, freshness, execution, and Native I/O evidence is certified."""
+
+        return all(
+            self.envelope.field(key) == "certified"
+            for key in (
+                "delta_overlay_certificate_status",
+                "micro_segment_flush_evidence_status",
+                "freshness_certificate_status",
+                "execution_certificate_status",
+                "native_io_certificate_status",
+            )
+        )
+
+    @property
+    def layout_health_status(self) -> str | None:
+        """Return the bundled layout-health status."""
+
+        return self.envelope.field("layout_health_bundle_status")
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether this explicit fixture command performed runtime work."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the fixture command reported fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the fixture command invoked an external engine."""
+
+        return self.envelope.field_bool("external_engine_invoked", False) is True
+
+    @property
+    def data_read(self) -> bool:
+        """Whether the fixture command read external data."""
+
+        return self.envelope.field_bool("data_read", False) is True
+
+    @property
+    def write_io(self) -> bool:
+        """Whether the fixture command wrote output or checkpoints."""
+
+        return self.envelope.field_bool("write_io", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class PythonClientSmokeReport:
     """No-dataset Python client smoke-check envelopes."""
 
@@ -783,6 +877,20 @@ class ShardLoomClient:
         if argument is not None:
             args.append(str(argument) if isinstance(argument, str) else _columns_arg(argument))
         return LiveFixtureRunReport(self.run(args, check=check))
+
+    def hybrid_overlay_run(
+        self,
+        operator: str = "filter",
+        argument: str | Sequence[str] | None = None,
+        *,
+        check: bool = True,
+    ) -> HybridOverlayRunReport:
+        """Run the explicit CG-22 in-memory hybrid overlay fixture command."""
+
+        args = ["hybrid-overlay-run", operator]
+        if argument is not None:
+            args.append(str(argument) if isinstance(argument, str) else _columns_arg(argument))
+        return HybridOverlayRunReport(self.run(args, check=check))
 
     def explain(self, operation: str, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only explain envelope for an operation summary."""

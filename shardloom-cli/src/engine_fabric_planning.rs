@@ -9,10 +9,11 @@ use std::{process::ExitCode, vec::IntoIter};
 use shardloom_core::{
     Boundedness, CommandStatus, ContinuousViewCertificate, EngineCapabilityMatrixReport,
     EngineCapabilityRow, EngineMode, EngineSelectionReport, EngineSelectionRequest,
-    FreshnessCertificate, LiveChangeContractReport, LiveFixtureOperator, LiveFixtureRunInput,
-    LiveFixtureRunReport, OutputFormat, OutputMode, ShardLoomError, StateCertificate, UpdateMode,
-    boundedness_vocabulary, engine_mode_vocabulary, output_mode_vocabulary,
-    plan_live_change_contract, run_live_fixture, update_mode_vocabulary,
+    FreshnessCertificate, HybridFixtureRunInput, HybridFixtureRunReport, LiveChangeContractReport,
+    LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport, OutputFormat, OutputMode,
+    ShardLoomError, StateCertificate, UpdateMode, boundedness_vocabulary, engine_mode_vocabulary,
+    output_mode_vocabulary, plan_live_change_contract, run_hybrid_fixture, run_live_fixture,
+    update_mode_vocabulary,
 };
 
 use crate::{
@@ -29,6 +30,9 @@ const LIVE_CHANGE_CONTRACT_COMMAND: &str = "live-change-contract-plan";
 const LIVE_FIXTURE_RUN_COMMAND: &str = "live-fixture-run";
 const LIVE_FIXTURE_RUN_SUMMARY: &str = "live fixture run failed";
 const LIVE_FIXTURE_RUN_USAGE: &str = "usage: shardloom live-fixture-run [filter|project|count|count-where|group-count] [predicate|columns|group-column]";
+const HYBRID_FIXTURE_RUN_COMMAND: &str = "hybrid-overlay-run";
+const HYBRID_FIXTURE_RUN_SUMMARY: &str = "hybrid overlay run failed";
+const HYBRID_FIXTURE_RUN_USAGE: &str = "usage: shardloom hybrid-overlay-run [filter|project|count|count-where|group-count] [predicate|columns|group-column]";
 
 pub(crate) fn handle_engine_selection_plan(
     args: IntoIter<String>,
@@ -145,6 +149,42 @@ pub(crate) fn handle_live_fixture_run(args: IntoIter<String>, format: OutputForm
     }
 }
 
+pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFormat) -> ExitCode {
+    let input = match parse_hybrid_fixture_run_args(args, format) {
+        Ok(input) => input,
+        Err(exit_code) => return exit_code,
+    };
+    let report = match run_hybrid_fixture(input) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                HYBRID_FIXTURE_RUN_COMMAND,
+                format,
+                HYBRID_FIXTURE_RUN_SUMMARY,
+                &error,
+            );
+        }
+    };
+    emit(
+        HYBRID_FIXTURE_RUN_COMMAND,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "hybrid overlay run".to_string(),
+        report.to_human_text(),
+        vec![],
+        hybrid_fixture_run_fields(&report),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
 fn parse_engine_selection_args(
     mut args: IntoIter<String>,
     format: OutputFormat,
@@ -237,6 +277,38 @@ fn parse_live_fixture_run_args(
         })
 }
 
+fn parse_hybrid_fixture_run_args(
+    mut args: IntoIter<String>,
+    format: OutputFormat,
+) -> Result<HybridFixtureRunInput, ExitCode> {
+    let operator = match args.next() {
+        Some(value) => parse_hybrid_fixture_operator(&value, format)?,
+        None => LiveFixtureOperator::Filter,
+    };
+    let argument = args.next();
+    if let Some(extra) = args.next() {
+        return Err(emit_error(
+            HYBRID_FIXTURE_RUN_COMMAND,
+            format,
+            HYBRID_FIXTURE_RUN_SUMMARY,
+            &cli_unknown_arg_error(HYBRID_FIXTURE_RUN_COMMAND, &extra),
+        ));
+    }
+    HybridFixtureRunInput::new(operator)
+        .with_argument(argument.as_deref())
+        .map_err(|error| {
+            emit_error(
+                HYBRID_FIXTURE_RUN_COMMAND,
+                format,
+                HYBRID_FIXTURE_RUN_SUMMARY,
+                &ShardLoomError::InvalidOperation(format!(
+                    "{}; {HYBRID_FIXTURE_RUN_USAGE}",
+                    error.message()
+                )),
+            )
+        })
+}
+
 fn parse_live_fixture_operator(
     value: &str,
     format: OutputFormat,
@@ -248,6 +320,23 @@ fn parse_live_fixture_operator(
             LIVE_FIXTURE_RUN_SUMMARY,
             &ShardLoomError::InvalidOperation(format!(
                 "{}; {LIVE_FIXTURE_RUN_USAGE}",
+                error.message()
+            )),
+        )
+    })
+}
+
+fn parse_hybrid_fixture_operator(
+    value: &str,
+    format: OutputFormat,
+) -> Result<LiveFixtureOperator, ExitCode> {
+    LiveFixtureOperator::parse(value).map_err(|error| {
+        emit_error(
+            HYBRID_FIXTURE_RUN_COMMAND,
+            format,
+            HYBRID_FIXTURE_RUN_SUMMARY,
+            &ShardLoomError::InvalidOperation(format!(
+                "{}; {HYBRID_FIXTURE_RUN_USAGE}",
                 error.message()
             )),
         )
@@ -498,6 +587,305 @@ fn live_fixture_run_fields(report: &LiveFixtureRunReport) -> Vec<(String, String
     fields
 }
 
+fn hybrid_fixture_run_fields(report: &HybridFixtureRunReport) -> Vec<(String, String)> {
+    let mut fields = common_engine_contract_fields(
+        report.schema_version,
+        &report.report_id,
+        report.fallback_attempted(),
+        report.external_engine_invoked,
+        report.runtime_execution,
+        report.data_read,
+        report.write_io,
+    );
+    push_field(&mut fields, "mode", "hybrid_fixture_run");
+    push_field(&mut fields, "fixture_id", report.fixture_id);
+    push_field(
+        &mut fields,
+        "fixture_operator",
+        report.input.operator.as_str(),
+    );
+    push_field(&mut fields, "predicate", &report.input.predicate);
+    push_field(
+        &mut fields,
+        "projection_columns",
+        &report.input.projection_columns_text(),
+    );
+    push_field(&mut fields, "group_column", &report.input.group_column);
+    push_bool_field(&mut fields, "fixture_in_memory", report.fixture_in_memory);
+    push_bool_field(
+        &mut fields,
+        "base_vortex_read_performed",
+        report.base_vortex_read_performed,
+    );
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(
+        &mut fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_count_field(&mut fields, "base_row_count", report.base_rows.len());
+    push_count_field(
+        &mut fields,
+        "hot_change_record_count",
+        report.hot_change_records.len(),
+    );
+    push_field(
+        &mut fields,
+        "hot_changelog_range",
+        &report.hot_changelog_range(),
+    );
+    push_field(
+        &mut fields,
+        "hot_operation_order",
+        &report.hot_operation_order(),
+    );
+    push_count_field(&mut fields, "merged_row_count", report.merged_rows.len());
+    push_count_field(&mut fields, "output_row_count", report.output_row_count());
+    push_field(&mut fields, "output_rows", &report.output_rows_text());
+    push_count_field(
+        &mut fields,
+        "output_changelog_record_count",
+        report.output_changelog.len(),
+    );
+    push_field(
+        &mut fields,
+        "output_changelog_order",
+        &report.output_changelog_order(),
+    );
+    append_delta_overlay_fields(&mut fields, report);
+    append_hot_cold_contribution_fields(&mut fields, report);
+    append_micro_segment_flush_fields(&mut fields, report);
+    append_hybrid_layout_health_bundle_fields(&mut fields, report);
+    append_freshness_certificate_fields(&mut fields, &report.freshness_certificate);
+    append_hybrid_execution_certificate_fields(&mut fields, report);
+    append_hybrid_native_io_certificate_fields(&mut fields, report);
+    fields
+}
+
+fn append_delta_overlay_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HybridFixtureRunReport,
+) {
+    let certificate = &report.delta_overlay_certificate;
+    push_bool_field(fields, "delta_overlay_certificate_emitted", true);
+    push_field(
+        fields,
+        "delta_overlay_certificate_schema_version",
+        certificate.schema_version,
+    );
+    push_field(
+        fields,
+        "delta_overlay_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(
+        fields,
+        "delta_overlay_certificate_status",
+        certificate.status.as_str(),
+    );
+    push_field(
+        fields,
+        "base_snapshot_certificate_id",
+        &certificate.base_snapshot_certificate_id,
+    );
+    push_field(
+        fields,
+        "merged_snapshot_certificate_id",
+        &certificate.merged_snapshot_certificate_id,
+    );
+    push_field(fields, "base_snapshot_id", &certificate.base_snapshot_id);
+    push_field(
+        fields,
+        "merged_snapshot_id",
+        &certificate.merged_snapshot_id,
+    );
+    push_u64_field(fields, "snapshot_epoch", certificate.snapshot_epoch);
+    push_field(
+        fields,
+        "overlay_hot_changelog_range",
+        &certificate.hot_changelog_range,
+    );
+    push_count_field(
+        fields,
+        "deletion_vector_entry_count",
+        certificate.deletion_vector_entry_count,
+    );
+    push_count_field(fields, "tombstone_count", certificate.tombstone_count);
+    push_bool_field(
+        fields,
+        "delta_overlay_deterministic_order",
+        certificate.deterministic_order,
+    );
+}
+
+fn append_hot_cold_contribution_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HybridFixtureRunReport,
+) {
+    let contribution = &report.hot_cold_contribution_report;
+    push_bool_field(fields, "hot_cold_contribution_report_emitted", true);
+    push_field(
+        fields,
+        "hot_cold_contribution_report_schema_version",
+        contribution.schema_version,
+    );
+    push_field(
+        fields,
+        "hot_cold_contribution_report_id",
+        &contribution.report_id,
+    );
+    push_count_field(
+        fields,
+        "cold_segment_count",
+        contribution.cold_segment_count,
+    );
+    push_count_field(
+        fields,
+        "warm_segment_count",
+        contribution.warm_segment_count,
+    );
+    push_count_field(
+        fields,
+        "hot_micro_segment_count",
+        contribution.hot_micro_segment_count,
+    );
+    push_count_field(fields, "cold_row_count", contribution.cold_row_count);
+    push_count_field(fields, "warm_row_count", contribution.warm_row_count);
+    push_count_field(
+        fields,
+        "cold_rows_selected",
+        contribution.cold_rows_selected,
+    );
+    push_count_field(
+        fields,
+        "warm_rows_selected",
+        contribution.warm_rows_selected,
+    );
+    push_count_field(fields, "hot_rows_selected", contribution.hot_rows_selected);
+    push_count_field(fields, "hot_append_count", contribution.hot_append_count);
+    push_count_field(fields, "hot_upsert_count", contribution.hot_upsert_count);
+    push_count_field(fields, "hot_delete_count", contribution.hot_delete_count);
+    push_count_field(fields, "hot_retract_count", contribution.hot_retract_count);
+    push_count_field(
+        fields,
+        "hot_tombstone_count",
+        contribution.hot_tombstone_count,
+    );
+}
+
+fn append_micro_segment_flush_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HybridFixtureRunReport,
+) {
+    let flush = &report.micro_segment_flush_evidence;
+    push_bool_field(fields, "micro_segment_flush_evidence_emitted", true);
+    push_field(
+        fields,
+        "micro_segment_flush_evidence_schema_version",
+        flush.schema_version,
+    );
+    push_field(fields, "micro_segment_flush_evidence_id", &flush.report_id);
+    push_field(
+        fields,
+        "micro_segment_flush_evidence_status",
+        flush.status.as_str(),
+    );
+    push_field(fields, "micro_segment_ref", &flush.micro_segment_ref);
+    push_field(fields, "hybrid_checkpoint_ref", &flush.checkpoint_ref);
+    push_field(fields, "hybrid_commit_ref", &flush.commit_ref);
+    push_field(fields, "representation_state", flush.representation_state);
+    push_count_field(
+        fields,
+        "emitted_micro_segment_count",
+        flush.emitted_micro_segment_count,
+    );
+    push_count_field(
+        fields,
+        "buffered_hot_change_count",
+        flush.buffered_hot_change_count,
+    );
+    push_count_field(
+        fields,
+        "buffered_hot_row_count",
+        flush.buffered_hot_row_count,
+    );
+    push_count_field(
+        fields,
+        "statistics_record_count",
+        flush.statistics_record_count,
+    );
+    push_count_field(
+        fields,
+        "checkpoint_record_count",
+        flush.checkpoint_record_count,
+    );
+    push_bool_field(fields, "micro_segment_flush_planned", flush.flush_planned);
+    push_bool_field(
+        fields,
+        "micro_segment_flush_write_performed",
+        flush.flush_write_performed,
+    );
+    push_bool_field(
+        fields,
+        "checkpoint_write_performed",
+        flush.checkpoint_write_performed,
+    );
+    push_bool_field(
+        fields,
+        "commit_write_performed",
+        flush.commit_write_performed,
+    );
+}
+
+fn append_hybrid_layout_health_bundle_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HybridFixtureRunReport,
+) {
+    let layout = &report.layout_health_bundle;
+    push_bool_field(fields, "layout_health_bundle_emitted", true);
+    push_field(
+        fields,
+        "layout_health_bundle_schema_version",
+        layout.schema_version,
+    );
+    push_field(fields, "layout_health_bundle_id", &layout.report_id);
+    push_field(fields, "layout_health_bundle_status", layout.status);
+    push_bool_field(
+        fields,
+        "small_segment_pressure",
+        layout.small_segment_pressure,
+    );
+    push_bool_field(fields, "tombstone_pressure", layout.tombstone_pressure);
+    push_bool_field(fields, "partition_skew", layout.partition_skew);
+    push_bool_field(fields, "stale_statistics", layout.stale_statistics);
+    push_bool_field(
+        fields,
+        "compaction_plan_emitted",
+        layout.compaction_plan_emitted,
+    );
+    push_bool_field(
+        fields,
+        "compaction_execution_allowed",
+        layout.compaction_execution_allowed,
+    );
+    push_count_field(
+        fields,
+        "compaction_candidate_count",
+        layout.compaction_candidate_count,
+    );
+    push_count_field(
+        fields,
+        "tombstone_pressure_count",
+        layout.tombstone_pressure_count,
+    );
+    push_count_field(
+        fields,
+        "stale_statistics_segment_count",
+        layout.stale_statistics_segment_count,
+    );
+    push_field(fields, "skewed_partition", &layout.skewed_partition);
+}
+
 fn append_freshness_certificate_fields(
     fields: &mut Vec<(String, String)>,
     certificate: &FreshnessCertificate,
@@ -678,6 +1066,98 @@ fn append_native_io_certificate_fields(
         fields,
         "native_io_certificate_source_streaming_capability",
         certificate.source_capability_report.streaming_capability,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_object_store_io",
+        certificate.side_effects.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_write_io",
+        certificate.side_effects.write_io,
+    );
+}
+
+fn append_hybrid_execution_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HybridFixtureRunReport,
+) {
+    let certificate = &report.execution_certificate;
+    push_bool_field(fields, "execution_certificate_emitted", true);
+    push_field(
+        fields,
+        "execution_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(
+        fields,
+        "execution_certificate_status",
+        certificate.status.as_str(),
+    );
+    push_field(
+        fields,
+        "execution_certificate_fixture_id",
+        certificate
+            .correctness_fixture_id
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_correctness_passed",
+        certificate.correctness_passed,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_fallback_attempted",
+        certificate.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_external_query_engine_invoked",
+        certificate.external_query_engine_invoked,
+    );
+}
+
+fn append_hybrid_native_io_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HybridFixtureRunReport,
+) {
+    let certificate = &report.native_io_certificate;
+    push_bool_field(fields, "native_io_certificate_emitted", true);
+    push_field(
+        fields,
+        "native_io_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(fields, "native_io_certificate_status", certificate.status());
+    push_field(
+        fields,
+        "native_io_certificate_path_id",
+        &certificate.path_id,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_fallback_attempted",
+        certificate.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_encoded_representation_preserved",
+        certificate
+            .source_capability_report
+            .encoded_representation_preserved,
+    );
+    push_field(
+        fields,
+        "native_io_certificate_representation_transitions",
+        &certificate.representation_transition_order(),
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_materializing_transitions_have_boundaries",
+        certificate.materializing_transitions_have_boundaries(),
     );
     push_bool_field(
         fields,

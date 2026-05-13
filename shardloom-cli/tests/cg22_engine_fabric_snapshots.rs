@@ -72,12 +72,38 @@ fn engine_capability_matrix_separates_batch_live_and_hybrid_claims() {
     assert!(output.contains(&field("engine_modes", "batch,live,hybrid")));
     assert!(output.contains(&field("batch_support_status", "partially_supported")));
     assert!(output.contains(&field("live_support_status", "partially_supported")));
-    assert!(output.contains(&field("hybrid_support_status", "planned")));
+    assert!(output.contains(&field("hybrid_support_status", "partially_supported")));
+    assert!(output.contains(&field("partially_supported_engine_count", "3")));
+    assert!(output.contains(&field("planned_engine_count", "0")));
     assert!(output.contains(&field("live_hybrid_claim_blocked_count", "2")));
     assert!(output.contains(&field("live_state_required", "true")));
+    assert!(output.contains(&field("hybrid_changelog_support", "true")));
     assert!(output.contains(&field("hybrid_checkpoint_required", "true")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
     assert!(output.contains(&field("runtime_execution", "false")));
+}
+
+#[test]
+fn engine_selection_hybrid_overlay_selects_hybrid_fixture_without_fallback() {
+    let output = run_json(
+        &[
+            "engine-selection-plan",
+            "hybrid",
+            "snapshot",
+            "upsert",
+            "continuous-view",
+        ],
+        true,
+    );
+
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("requested_engine_mode", "hybrid")));
+    assert!(output.contains(&field("selection_status", "selected")));
+    assert!(output.contains(&field("selected_engine_mode", "hybrid")));
+    assert!(output.contains(&field("allowed_engine_modes", "hybrid")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains("\"diagnostics\":[]"));
 }
 
 #[test]
@@ -142,6 +168,66 @@ fn live_fixture_run_group_count_emits_state_freshness_and_certificate_evidence()
     assert!(output.contains(&field("write_io", "false")));
     assert!(output.contains(&field("broker_io", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+}
+
+#[test]
+fn hybrid_overlay_run_group_count_emits_overlay_flush_layout_and_certificate_evidence() {
+    let output = run_json(&["hybrid-overlay-run", "group-count", "metric"], true);
+
+    assert!(output.contains("\"command\":\"hybrid-overlay-run\""));
+    assert!(output.contains(&field("mode", "hybrid_fixture_run")));
+    assert!(output.contains(&field("fixture_operator", "group_count")));
+    assert!(output.contains(&field("base_row_count", "4")));
+    assert!(output.contains(&field("hot_change_record_count", "6")));
+    assert!(output.contains(&field("hot_changelog_range", "1..6")));
+    assert!(output.contains(&field("merged_row_count", "3")));
+    assert!(output.contains(&field("output_row_count", "2")));
+    assert!(output.contains(&field(
+        "output_rows",
+        "east:group_count:2|west:group_count:1"
+    )));
+    assert!(output.contains(&field("delta_overlay_certificate_emitted", "true")));
+    assert!(output.contains(&field("delta_overlay_certificate_status", "certified")));
+    assert!(output.contains(&field(
+        "base_snapshot_certificate_id",
+        "cg22.hybrid.fixture.base_snapshot"
+    )));
+    assert!(output.contains(&field(
+        "merged_snapshot_certificate_id",
+        "cg22.hybrid.fixture.merged_snapshot"
+    )));
+    assert!(output.contains(&field("base_snapshot_id", "snapshot://cg22/hybrid/base/v1")));
+    assert!(output.contains(&field(
+        "merged_snapshot_id",
+        "snapshot://cg22/hybrid/merged/epoch-42"
+    )));
+    assert!(output.contains(&field("deletion_vector_entry_count", "2")));
+    assert!(output.contains(&field("tombstone_count", "1")));
+    assert!(output.contains(&field("hot_cold_contribution_report_emitted", "true")));
+    assert!(output.contains(&field("cold_segment_count", "1")));
+    assert!(output.contains(&field("warm_segment_count", "2")));
+    assert!(output.contains(&field("hot_micro_segment_count", "1")));
+    assert!(output.contains(&field("micro_segment_flush_evidence_emitted", "true")));
+    assert!(output.contains(&field("micro_segment_flush_evidence_status", "certified")));
+    assert!(output.contains(&field("representation_state", "vortex_encoded_planned")));
+    assert!(output.contains(&field("micro_segment_flush_write_performed", "false")));
+    assert!(output.contains(&field("layout_health_bundle_emitted", "true")));
+    assert!(output.contains(&field(
+        "layout_health_bundle_status",
+        "compaction_recommended"
+    )));
+    assert!(output.contains(&field("tombstone_pressure", "true")));
+    assert!(output.contains(&field("compaction_plan_emitted", "true")));
+    assert!(output.contains(&field("compaction_execution_allowed", "false")));
+    assert!(output.contains(&field("freshness_certificate_status", "certified")));
+    assert!(output.contains(&field("execution_certificate_status", "certified")));
+    assert!(output.contains(&field("native_io_certificate_status", "certified")));
+    assert!(output.contains(&field("runtime_execution", "true")));
+    assert!(output.contains(&field("base_vortex_read_performed", "false")));
+    assert!(output.contains(&field("data_read", "false")));
+    assert!(output.contains(&field("write_io", "false")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
 }
