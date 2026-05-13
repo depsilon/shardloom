@@ -99,10 +99,11 @@ Advanced profiles now emit local fixture sidecars where needed: split CSV/JSONL 
 many-small/few-large file-shape coverage, malformed timestamp/numeric columns for dirty CSV
 coverage, nested JSON payloads, and a deterministic CDC delta overlay. The dirty CSV
 `clean/cast/filter/write` scenario now executes through pandas and ShardLoom's local Vortex
-import/replay/result-sink path for ETL/write-path benchmark coverage. Remaining advanced rows are
-still local fixture coverage only. They do not promote incremental-state, partition-pruning,
-multi-file, nested, CDC, or performance claims without ShardLoom-native evidence and comparative
-reruns.
+import/replay/result-sink path for ETL/write-path benchmark coverage. The local `partition pruning`
+scenario also executes through ShardLoom's local Vortex path for generated `event_date` fixture
+coverage. Remaining advanced rows are still local fixture coverage only. They do not promote
+incremental-state, multi-file, nested, CDC, object-store/table partition pruning, or performance
+claims without ShardLoom-native evidence and comparative reruns.
 
 ## Code Surfaces
 
@@ -322,9 +323,9 @@ default source-backed matrix path remains report-only. The explicit smoke measur
 fixture benchmark rows for eligible prepared/source-bound/reader-backed encoded rows. The
 ShardLoom traditional analytics lane executes the base-schema expanded taxonomy scenarios
 `filter + projection + limit`, `multi-key group by`, `join + aggregate`, `row number window`,
-`high-cardinality string group/distinct`, and `top-N per group`, plus dirty-CSV
-`clean/cast/filter/write`, through the local Vortex import/replay/result-sink evidence path.
-Result-sink ShardLoom rows also surface report-only
+`partition pruning`, `high-cardinality string group/distinct`, and `top-N per group`, plus
+dirty-CSV `clean/cast/filter/write`, through the local Vortex import/replay/result-sink evidence
+path. Result-sink ShardLoom rows also surface report-only
 Vortex layout/write advisor fields derived from workload, benchmark, runtime, and Native I/O
 evidence. It does not execute comparative benchmarks, apply layout rewrites, or publish performance
 claims.

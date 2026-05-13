@@ -89,10 +89,12 @@ The opt-in taxonomy-expanded local analytics scenarios are available with
 
 The `shardloom` lane currently executes the base-schema taxonomy extras
 `filter + projection + limit`, `multi-key group by`, `join + aggregate`, `row number window`,
-`high-cardinality string group/distinct`, and `top-N per group`, plus dirty-CSV
-`clean/cast/filter/write`, through the same local Vortex import/replay/result-sink path as the
-default scenarios. Multi-file, nested JSON, CDC, and partition-pruning scenarios remain explicit
-unsupported rows for ShardLoom until those input contracts are certified.
+`partition pruning`, `high-cardinality string group/distinct`, and `top-N per group`, plus
+dirty-CSV `clean/cast/filter/write`, through the same local Vortex import/replay/result-sink path
+as the default scenarios. Multi-file, nested JSON, and CDC scenarios remain explicit unsupported
+rows for ShardLoom until those input contracts are certified. The current partition row uses the
+generated `event_date` fixture column; broader table/catalog/object-store partition-pruning claims
+remain blocked until separate evidence exists.
 
 An opt-in stress lane is available with `--include-stress`:
 
