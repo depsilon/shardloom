@@ -16,6 +16,7 @@ pub const REST_API_LOCAL_LIFECYCLE_SCHEMA_VERSION: &str = "shardloom.rest_api_lo
 pub const REST_API_EVENT_STREAM_SCHEMA_VERSION: &str = "shardloom.rest_api_event_stream.v1";
 pub const REST_API_SECURITY_GOVERNANCE_SCHEMA_VERSION: &str =
     "shardloom.rest_api_security_governance.v1";
+pub const REST_API_DATA_PLANE_SCHEMA_VERSION: &str = "shardloom.rest_api_data_plane.v1";
 pub const OPENAPI_CONTRACT_PATH: &str = "docs/api/shardloom-openapi-v1.yaml";
 pub const ASYNCAPI_EVENT_CONTRACT_PATH: &str = "docs/api/shardloom-asyncapi-events-v1.yaml";
 pub const OPENAPI_VERSION: &str = "3.2.0";
@@ -238,6 +239,16 @@ struct SecurityGovernanceScenarioContract {
     destructive_policy_present: bool,
     agent_discovery_requested: bool,
     problem_details: Option<RestApiProblemDetailsPreview>,
+    diagnostics: Vec<Diagnostic>,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+struct DataPlaneScenarioContract {
+    data_plane_status: RestApiDataPlaneStatus,
+    flight_ticket_requested: bool,
+    adbc_endpoint_requested: bool,
+    standards_matrix_requested: bool,
+    optional_transport_required: bool,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -518,6 +529,65 @@ impl RestApiSecurityGovernanceStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestApiDataPlaneScenario {
+    ArtifactReferenceDefault,
+    FlightTicketRequested,
+    AdbcEndpointRequested,
+    StandardsMatrix,
+}
+
+impl RestApiDataPlaneScenario {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ArtifactReferenceDefault => "artifact-reference-default",
+            Self::FlightTicketRequested => "flight-ticket-requested",
+            Self::AdbcEndpointRequested => "adbc-endpoint-requested",
+            Self::StandardsMatrix => "standards-matrix",
+        }
+    }
+
+    #[must_use]
+    pub const fn all() -> &'static [Self] {
+        &[
+            Self::ArtifactReferenceDefault,
+            Self::FlightTicketRequested,
+            Self::AdbcEndpointRequested,
+            Self::StandardsMatrix,
+        ]
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "artifact-reference-default" => Some(Self::ArtifactReferenceDefault),
+            "flight-ticket-requested" => Some(Self::FlightTicketRequested),
+            "adbc-endpoint-requested" => Some(Self::AdbcEndpointRequested),
+            "standards-matrix" => Some(Self::StandardsMatrix),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestApiDataPlaneStatus {
+    ContractAvailable,
+    OptionalTransportPlanned,
+    StandardsMatrixAvailable,
+}
+
+impl RestApiDataPlaneStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ContractAvailable => "contract_available",
+            Self::OptionalTransportPlanned => "optional_transport_planned",
+            Self::StandardsMatrixAvailable => "standards_matrix_available",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestApiLifecycleEvent {
     pub event_id: &'static str,
@@ -591,6 +661,39 @@ pub struct RestApiEvidenceModelSignal {
     pub schema_ref: &'static str,
     pub redaction_required: bool,
     pub certificate_ref_required: bool,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiDataPlaneTransferContract {
+    pub mode: &'static str,
+    pub transport: &'static str,
+    pub materialization: &'static str,
+    pub fidelity: &'static str,
+    pub result_policy: &'static str,
+    pub preferred_for_large_payloads: bool,
+    pub native_vortex_fidelity: bool,
+    pub decoded_columnar_boundary: bool,
+    pub optional_dependency_required: bool,
+    pub enabled_by_default: bool,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiStandardsBoundaryContract {
+    pub standard: &'static str,
+    pub category: &'static str,
+    pub posture: &'static str,
+    pub dependency_policy: &'static str,
+    pub boundary_classification: &'static str,
+    pub control_plane_role: &'static str,
+    pub materialization: &'static str,
+    pub external_compute_boundary: bool,
+    pub broker_io: bool,
+    pub catalog_io: bool,
+    pub object_store_io: bool,
+    pub execution_allowed: bool,
+    pub fallback_allowed: bool,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -797,6 +900,65 @@ pub struct RestApiSecurityGovernanceReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiDataPlaneReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub api_version: &'static str,
+    pub scenario: RestApiDataPlaneScenario,
+    pub data_plane_status: RestApiDataPlaneStatus,
+    pub endpoint_paths: Vec<&'static str>,
+    pub data_plane_operations: Vec<&'static str>,
+    pub transfer_contracts: Vec<RestApiDataPlaneTransferContract>,
+    pub standards: Vec<RestApiStandardsBoundaryContract>,
+    pub openapi_contract_path: &'static str,
+    pub rest_control_plane_required: bool,
+    pub rest_control_plane_sufficient_for_local_use: bool,
+    pub flight_adbc_required_for_basic_local_use: bool,
+    pub flight_ticket_requested: bool,
+    pub flight_ticket_supported: bool,
+    pub adbc_endpoint_requested: bool,
+    pub adbc_endpoint_supported: bool,
+    pub optional_transport_required: bool,
+    pub large_payload_threshold_bytes: u64,
+    pub preferred_large_payload_modes: Vec<&'static str>,
+    pub inline_json_max_bytes: u64,
+    pub paged_json_available: bool,
+    pub jsonl_ndjson_available: bool,
+    pub vortex_artifact_available: bool,
+    pub object_reference_available: bool,
+    pub arrow_ipc_decoded_boundary_available: bool,
+    pub arrow_ipc_certified_native: bool,
+    pub decoded_columnar_boundary_declared: bool,
+    pub materialization_declared: bool,
+    pub fidelity_declared: bool,
+    pub result_policy_declared: bool,
+    pub no_fallback_evidence_artifact_ref: &'static str,
+    pub security_governance_policy_ref: &'static str,
+    pub standards_matrix_requested: bool,
+    pub standards_matrix_count: usize,
+    pub server_started: bool,
+    pub network_listener_opened: bool,
+    pub flight_server_started: bool,
+    pub adbc_endpoint_opened: bool,
+    pub broker_io: bool,
+    pub object_store_io: bool,
+    pub catalog_probe: bool,
+    pub dataset_probe: bool,
+    pub credential_resolution: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+    pub query_execution: bool,
+    pub runtime_execution: bool,
+    pub write_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub execution_delegated: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
 impl RestApiContractReport {
     #[must_use]
     pub fn contract_only() -> Self {
@@ -827,6 +989,8 @@ impl RestApiContractReport {
                 "security",
                 "observability",
                 "agents",
+                "data-plane",
+                "standards",
             ],
             execution_policy_fields: vec![
                 "engine_mode",
@@ -1999,6 +2163,169 @@ impl RestApiSecurityGovernanceReport {
     }
 }
 
+impl RestApiDataPlaneReport {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn for_scenario(scenario: RestApiDataPlaneScenario) -> Self {
+        let contract = data_plane_scenario_contract(scenario);
+
+        Self {
+            schema_version: REST_API_DATA_PLANE_SCHEMA_VERSION,
+            report_id: "cg23.rest_api_data_plane",
+            api_version: API_VERSION,
+            scenario,
+            data_plane_status: contract.data_plane_status,
+            endpoint_paths: data_plane_endpoint_paths(),
+            data_plane_operations: vec![
+                "result_transfer_policy",
+                "large_payload_policy",
+                "flight_ticket_posture",
+                "adbc_endpoint_posture",
+                "standards_boundary_matrix",
+            ],
+            transfer_contracts: data_plane_transfer_contracts(),
+            standards: standards_boundary_contracts(),
+            openapi_contract_path: OPENAPI_CONTRACT_PATH,
+            rest_control_plane_required: true,
+            rest_control_plane_sufficient_for_local_use: true,
+            flight_adbc_required_for_basic_local_use: false,
+            flight_ticket_requested: contract.flight_ticket_requested,
+            flight_ticket_supported: false,
+            adbc_endpoint_requested: contract.adbc_endpoint_requested,
+            adbc_endpoint_supported: false,
+            optional_transport_required: contract.optional_transport_required,
+            large_payload_threshold_bytes: 1_048_576,
+            preferred_large_payload_modes: vec![
+                "vortex_artifact",
+                "object_reference",
+                "paged_json",
+            ],
+            inline_json_max_bytes: 1_048_576,
+            paged_json_available: true,
+            jsonl_ndjson_available: true,
+            vortex_artifact_available: true,
+            object_reference_available: true,
+            arrow_ipc_decoded_boundary_available: true,
+            arrow_ipc_certified_native: false,
+            decoded_columnar_boundary_declared: true,
+            materialization_declared: true,
+            fidelity_declared: true,
+            result_policy_declared: true,
+            no_fallback_evidence_artifact_ref: "artifacts/cg23/data-plane/no-fallback.json",
+            security_governance_policy_ref: "cg23.rest_api_security_governance",
+            standards_matrix_requested: contract.standards_matrix_requested,
+            standards_matrix_count: standards_boundary_contracts().len(),
+            server_started: false,
+            network_listener_opened: false,
+            flight_server_started: false,
+            adbc_endpoint_opened: false,
+            broker_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            dataset_probe: false,
+            credential_resolution: false,
+            data_read: false,
+            data_materialized: false,
+            query_execution: false,
+            runtime_execution: false,
+            write_io: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            execution_delegated: false,
+            diagnostics: contract.diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn status(&self) -> CommandStatus {
+        if self.effect_policy_violated() {
+            CommandStatus::Error
+        } else {
+            match self.data_plane_status {
+                RestApiDataPlaneStatus::ContractAvailable
+                | RestApiDataPlaneStatus::StandardsMatrixAvailable => CommandStatus::Success,
+                RestApiDataPlaneStatus::OptionalTransportPlanned => CommandStatus::Warning,
+            }
+        }
+    }
+
+    #[must_use]
+    pub const fn effect_policy_violated(&self) -> bool {
+        self.server_started
+            || self.network_listener_opened
+            || self.flight_server_started
+            || self.adbc_endpoint_opened
+            || self.broker_io
+            || self.object_store_io
+            || self.catalog_probe
+            || self.dataset_probe
+            || self.credential_resolution
+            || self.data_read
+            || self.data_materialized
+            || self.query_execution
+            || self.runtime_execution
+            || self.write_io
+            || self.external_engine_invoked
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+            || self.execution_delegated
+    }
+
+    #[must_use]
+    pub fn transfer_mode_summary(&self) -> String {
+        self.transfer_contracts
+            .iter()
+            .map(|transfer| format!("{}:{}", transfer.mode, transfer.materialization))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn standards_summary(&self) -> String {
+        self.standards
+            .iter()
+            .map(|standard| format!("{}:{}", standard.standard, standard.posture))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn standards_name_summary(&self) -> String {
+        self.standards
+            .iter()
+            .map(|standard| standard.standard)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn optional_transport_summary(&self) -> String {
+        format!(
+            "flight_ticket:supported={},required={};adbc_endpoint:supported={},required={}",
+            self.flight_ticket_supported,
+            self.flight_adbc_required_for_basic_local_use,
+            self.adbc_endpoint_supported,
+            self.flight_adbc_required_for_basic_local_use
+        )
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "rest api data plane\nschema_version: {}\nreport: {}\nscenario: {}\nstatus: {}\nrest control plane sufficient: {}\noptional transports: {}\ntransfers: {}\nstandards: {}\nserver started: false\nflight server: false\nadbc endpoint: false\nbroker io: false\nobject store io: false\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.scenario.as_str(),
+            self.data_plane_status.as_str(),
+            self.rest_control_plane_sufficient_for_local_use,
+            self.optional_transport_summary(),
+            self.transfer_mode_summary(),
+            self.standards_name_summary(),
+        )
+    }
+}
+
 fn rest_api_maturity_stages() -> Vec<RestApiMaturityStage> {
     vec![
         RestApiMaturityStage {
@@ -2059,6 +2386,13 @@ fn rest_api_maturity_stages() -> Vec<RestApiMaturityStage> {
         },
         RestApiMaturityStage {
             stage_id: "API-A9",
+            label: "columnar_data_plane_and_standards_boundary",
+            status: RestApiMaturityStatus::AvailableContract,
+            server_required: true,
+            execution_capable: false,
+        },
+        RestApiMaturityStage {
+            stage_id: "API-A10",
             label: "production_certified_workload_api",
             status: RestApiMaturityStatus::BlockedUntilEvidence,
             server_required: true,
@@ -2945,6 +3279,277 @@ fn security_governance_scenario_contract(
     }
 }
 
+fn data_plane_endpoint_paths() -> Vec<&'static str> {
+    vec![
+        "/v1/data-plane",
+        "/v1/results/{result_id}/flight-ticket",
+        "/v1/results/{result_id}/adbc-endpoint",
+        "/v1/data-plane/standards",
+    ]
+}
+
+fn data_plane_transfer_contracts() -> Vec<RestApiDataPlaneTransferContract> {
+    vec![
+        RestApiDataPlaneTransferContract {
+            mode: "inline_json",
+            transport: "rest_http",
+            materialization: "decoded_rows",
+            fidelity: "human_inspection",
+            result_policy: "small_result_only",
+            preferred_for_large_payloads: false,
+            native_vortex_fidelity: false,
+            decoded_columnar_boundary: false,
+            optional_dependency_required: false,
+            enabled_by_default: true,
+        },
+        RestApiDataPlaneTransferContract {
+            mode: "paged_json",
+            transport: "rest_http",
+            materialization: "decoded_rows",
+            fidelity: "bounded_page_inspection",
+            result_policy: "large_payload_safe_default",
+            preferred_for_large_payloads: true,
+            native_vortex_fidelity: false,
+            decoded_columnar_boundary: false,
+            optional_dependency_required: false,
+            enabled_by_default: true,
+        },
+        RestApiDataPlaneTransferContract {
+            mode: "jsonl_ndjson",
+            transport: "rest_http",
+            materialization: "decoded_rows",
+            fidelity: "streaming_rows",
+            result_policy: "large_payload_safe_default",
+            preferred_for_large_payloads: true,
+            native_vortex_fidelity: false,
+            decoded_columnar_boundary: false,
+            optional_dependency_required: false,
+            enabled_by_default: true,
+        },
+        RestApiDataPlaneTransferContract {
+            mode: "vortex_artifact",
+            transport: "rest_http_artifact_ref",
+            materialization: "native_vortex_artifact",
+            fidelity: "native_high_fidelity",
+            result_policy: "preferred_large_payload",
+            preferred_for_large_payloads: true,
+            native_vortex_fidelity: true,
+            decoded_columnar_boundary: false,
+            optional_dependency_required: false,
+            enabled_by_default: true,
+        },
+        RestApiDataPlaneTransferContract {
+            mode: "object_reference",
+            transport: "rest_http_object_ref",
+            materialization: "native_object_reference_future",
+            fidelity: "native_reference",
+            result_policy: "preferred_large_payload_when_certified",
+            preferred_for_large_payloads: true,
+            native_vortex_fidelity: true,
+            decoded_columnar_boundary: false,
+            optional_dependency_required: false,
+            enabled_by_default: true,
+        },
+        RestApiDataPlaneTransferContract {
+            mode: "arrow_ipc_decoded_boundary",
+            transport: "rest_http_artifact_ref",
+            materialization: "decoded_columnar_boundary",
+            fidelity: "decoded_columnar_interop",
+            result_policy: "interop_boundary_not_native_claim",
+            preferred_for_large_payloads: false,
+            native_vortex_fidelity: false,
+            decoded_columnar_boundary: true,
+            optional_dependency_required: false,
+            enabled_by_default: true,
+        },
+        RestApiDataPlaneTransferContract {
+            mode: "flight_ticket_future",
+            transport: "flight_adbc_data_plane",
+            materialization: "decoded_columnar_boundary",
+            fidelity: "optional_interop_transport",
+            result_policy: "optional_not_required",
+            preferred_for_large_payloads: false,
+            native_vortex_fidelity: false,
+            decoded_columnar_boundary: true,
+            optional_dependency_required: true,
+            enabled_by_default: false,
+        },
+        RestApiDataPlaneTransferContract {
+            mode: "adbc_endpoint_future",
+            transport: "flight_adbc_data_plane",
+            materialization: "decoded_columnar_boundary",
+            fidelity: "optional_interop_transport",
+            result_policy: "optional_not_required",
+            preferred_for_large_payloads: false,
+            native_vortex_fidelity: false,
+            decoded_columnar_boundary: true,
+            optional_dependency_required: true,
+            enabled_by_default: false,
+        },
+    ]
+}
+
+fn standards_boundary_contracts() -> Vec<RestApiStandardsBoundaryContract> {
+    vec![
+        standards_boundary(
+            "iceberg_rest_catalog",
+            "catalog_standard",
+            "classified_control_plane_boundary",
+            "optional_reference_only_no_catalog_probe",
+            "catalog_control_plane",
+        ),
+        standards_boundary(
+            "polaris",
+            "catalog_standard",
+            "classified_control_plane_boundary",
+            "optional_reference_only_no_catalog_probe",
+            "catalog_control_plane",
+        ),
+        standards_boundary(
+            "gravitino",
+            "catalog_standard",
+            "classified_control_plane_boundary",
+            "optional_reference_only_no_catalog_probe",
+            "catalog_control_plane",
+        ),
+        standards_boundary(
+            "delta_sharing",
+            "sharing_standard",
+            "classified_decoded_columnar_boundary",
+            "optional_reference_only_no_data_fetch",
+            "data_sharing_control_plane",
+        ),
+        standards_boundary(
+            "substrait",
+            "plan_interop_standard",
+            "classified_plan_import_export_boundary",
+            "optional_parser_dependency_deferred",
+            "plan_interop",
+        ),
+        standards_boundary(
+            "wasi_webassembly_components",
+            "component_standard",
+            "classified_component_sandbox_boundary",
+            "optional_sandbox_dependency_deferred",
+            "component_execution_boundary",
+        ),
+        standards_boundary(
+            "nats_jetstream",
+            "broker_standard",
+            "classified_event_broker_boundary",
+            "optional_broker_dependency_deferred",
+            "event_delivery_boundary",
+        ),
+        standards_boundary(
+            "redpanda",
+            "broker_standard",
+            "classified_kafka_compatible_boundary",
+            "optional_broker_dependency_deferred",
+            "event_delivery_boundary",
+        ),
+        standards_boundary(
+            "kafka_compatible",
+            "broker_standard",
+            "classified_kafka_compatible_boundary",
+            "optional_broker_dependency_deferred",
+            "event_delivery_boundary",
+        ),
+        standards_boundary(
+            "paimon",
+            "table_format_standard",
+            "classified_table_format_boundary",
+            "optional_table_dependency_deferred",
+            "table_format_boundary",
+        ),
+        standards_boundary(
+            "fluss",
+            "streaming_table_standard",
+            "classified_streaming_table_boundary",
+            "optional_streaming_table_dependency_deferred",
+            "table_format_boundary",
+        ),
+    ]
+}
+
+fn standards_boundary(
+    standard: &'static str,
+    category: &'static str,
+    posture: &'static str,
+    dependency_policy: &'static str,
+    control_plane_role: &'static str,
+) -> RestApiStandardsBoundaryContract {
+    RestApiStandardsBoundaryContract {
+        standard,
+        category,
+        posture,
+        dependency_policy,
+        boundary_classification: "interop_or_reference_boundary",
+        control_plane_role,
+        materialization: "declared_by_transfer_policy",
+        external_compute_boundary: true,
+        broker_io: false,
+        catalog_io: false,
+        object_store_io: false,
+        execution_allowed: false,
+        fallback_allowed: false,
+    }
+}
+
+fn data_plane_scenario_contract(scenario: RestApiDataPlaneScenario) -> DataPlaneScenarioContract {
+    match scenario {
+        RestApiDataPlaneScenario::ArtifactReferenceDefault => DataPlaneScenarioContract {
+            data_plane_status: RestApiDataPlaneStatus::ContractAvailable,
+            flight_ticket_requested: false,
+            adbc_endpoint_requested: false,
+            standards_matrix_requested: false,
+            optional_transport_required: false,
+            diagnostics: Vec::new(),
+        },
+        RestApiDataPlaneScenario::FlightTicketRequested => DataPlaneScenarioContract {
+            data_plane_status: RestApiDataPlaneStatus::OptionalTransportPlanned,
+            flight_ticket_requested: true,
+            adbc_endpoint_requested: false,
+            standards_matrix_requested: false,
+            optional_transport_required: false,
+            diagnostics: vec![Diagnostic::new(
+                DiagnosticCode::NotImplemented,
+                DiagnosticSeverity::Warning,
+                DiagnosticCategory::Planning,
+                "Flight ticket delivery is an optional future data-plane posture and is not required for REST control-plane use.",
+                Some("rest_api_data_plane".to_string()),
+                Some("The REST result artifact/reference contract remains the certified proof surface; no Flight server is started.".to_string()),
+                Some("Use vortex_artifact, object_reference, paged_json, or JSON Lines result policies until Flight is explicitly certified.".to_string()),
+                FallbackStatus::disabled_by_policy(),
+            )],
+        },
+        RestApiDataPlaneScenario::AdbcEndpointRequested => DataPlaneScenarioContract {
+            data_plane_status: RestApiDataPlaneStatus::OptionalTransportPlanned,
+            flight_ticket_requested: false,
+            adbc_endpoint_requested: true,
+            standards_matrix_requested: false,
+            optional_transport_required: false,
+            diagnostics: vec![Diagnostic::new(
+                DiagnosticCode::NotImplemented,
+                DiagnosticSeverity::Warning,
+                DiagnosticCategory::Planning,
+                "ADBC endpoint delivery is an optional future data-plane posture and is not required for REST control-plane use.",
+                Some("rest_api_data_plane".to_string()),
+                Some("No ADBC endpoint is opened and no decoded-columnar transport is claimed as native execution.".to_string()),
+                Some("Use REST artifact/reference result policies until ADBC endpoint evidence is certified.".to_string()),
+                FallbackStatus::disabled_by_policy(),
+            )],
+        },
+        RestApiDataPlaneScenario::StandardsMatrix => DataPlaneScenarioContract {
+            data_plane_status: RestApiDataPlaneStatus::StandardsMatrixAvailable,
+            flight_ticket_requested: false,
+            adbc_endpoint_requested: false,
+            standards_matrix_requested: true,
+            optional_transport_required: false,
+            diagnostics: Vec::new(),
+        },
+    }
+}
+
 fn plan_preview_endpoint_paths() -> Vec<&'static str> {
     vec![
         "/v1/plans",
@@ -3423,6 +4028,121 @@ mod tests {
     }
 
     #[test]
+    fn rest_api_data_plane_exposes_transfer_policy_and_decoded_boundary() {
+        let report = RestApiDataPlaneReport::for_scenario(
+            RestApiDataPlaneScenario::ArtifactReferenceDefault,
+        );
+
+        assert_eq!(report.schema_version, REST_API_DATA_PLANE_SCHEMA_VERSION);
+        assert_eq!(report.status(), CommandStatus::Success);
+        assert_eq!(
+            report.data_plane_status,
+            RestApiDataPlaneStatus::ContractAvailable
+        );
+        assert!(report.endpoint_paths.contains(&"/v1/data-plane"));
+        assert!(report.rest_control_plane_required);
+        assert!(report.rest_control_plane_sufficient_for_local_use);
+        assert!(!report.flight_adbc_required_for_basic_local_use);
+        assert!(report.transfer_mode_summary().contains("vortex_artifact"));
+        assert!(
+            report
+                .transfer_mode_summary()
+                .contains("arrow_ipc_decoded_boundary:decoded_columnar_boundary")
+        );
+        assert!(report.decoded_columnar_boundary_declared);
+        assert!(report.materialization_declared);
+        assert!(report.fidelity_declared);
+        assert!(report.result_policy_declared);
+        assert!(report.vortex_artifact_available);
+        assert!(report.object_reference_available);
+        assert!(report.arrow_ipc_decoded_boundary_available);
+        assert!(!report.arrow_ipc_certified_native);
+        assert!(!report.flight_ticket_supported);
+        assert!(!report.adbc_endpoint_supported);
+        assert!(!report.server_started);
+        assert!(!report.network_listener_opened);
+        assert!(!report.data_read);
+        assert!(!report.data_materialized);
+        assert!(!report.fallback_attempted);
+        assert!(!report.effect_policy_violated());
+    }
+
+    #[test]
+    fn rest_api_data_plane_marks_flight_adbc_optional_and_lists_standards_boundaries() {
+        let flight =
+            RestApiDataPlaneReport::for_scenario(RestApiDataPlaneScenario::FlightTicketRequested);
+        let adbc =
+            RestApiDataPlaneReport::for_scenario(RestApiDataPlaneScenario::AdbcEndpointRequested);
+        let standards =
+            RestApiDataPlaneReport::for_scenario(RestApiDataPlaneScenario::StandardsMatrix);
+
+        assert_eq!(flight.status(), CommandStatus::Warning);
+        assert_eq!(
+            flight.data_plane_status,
+            RestApiDataPlaneStatus::OptionalTransportPlanned
+        );
+        assert!(flight.flight_ticket_requested);
+        assert!(!flight.flight_ticket_supported);
+        assert!(!flight.flight_server_started);
+        assert!(!flight.optional_transport_required);
+        assert_eq!(flight.diagnostics[0].code, DiagnosticCode::NotImplemented);
+
+        assert_eq!(adbc.status(), CommandStatus::Warning);
+        assert!(adbc.adbc_endpoint_requested);
+        assert!(!adbc.adbc_endpoint_supported);
+        assert!(!adbc.adbc_endpoint_opened);
+        assert!(!adbc.optional_transport_required);
+
+        assert_eq!(standards.status(), CommandStatus::Success);
+        assert_eq!(
+            standards.data_plane_status,
+            RestApiDataPlaneStatus::StandardsMatrixAvailable
+        );
+        assert!(standards.standards_matrix_requested);
+        assert_eq!(standards.standards_matrix_count, 11);
+        assert!(
+            standards
+                .standards_name_summary()
+                .contains("iceberg_rest_catalog")
+        );
+        assert!(standards.standards_name_summary().contains("polaris"));
+        assert!(standards.standards_name_summary().contains("gravitino"));
+        assert!(standards.standards_name_summary().contains("delta_sharing"));
+        assert!(standards.standards_name_summary().contains("substrait"));
+        assert!(
+            standards
+                .standards_name_summary()
+                .contains("wasi_webassembly_components")
+        );
+        assert!(
+            standards
+                .standards_name_summary()
+                .contains("nats_jetstream")
+        );
+        assert!(standards.standards_name_summary().contains("redpanda"));
+        assert!(
+            standards
+                .standards_name_summary()
+                .contains("kafka_compatible")
+        );
+        assert!(standards.standards_name_summary().contains("paimon"));
+        assert!(standards.standards_name_summary().contains("fluss"));
+        assert!(
+            standards
+                .standards
+                .iter()
+                .all(|standard| !standard.execution_allowed && !standard.fallback_allowed)
+        );
+        assert!(
+            standards
+                .standards
+                .iter()
+                .all(|standard| !standard.broker_io && !standard.catalog_io)
+        );
+        assert!(!standards.effect_policy_violated());
+    }
+
+    #[test]
     fn checked_in_openapi_contract_matches_report() {
         let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let contract_path = manifest_dir.join("..").join(OPENAPI_CONTRACT_PATH);
@@ -3444,6 +4164,11 @@ mod tests {
         assert!(contract.contains("/v1/security/auth:"));
         assert!(contract.contains("/v1/observability/evidence-model:"));
         assert!(contract.contains("/v1/mcp/tools:"));
+        assert!(contract.contains("DataPlaneResponse"));
+        assert!(contract.contains("/v1/data-plane:"));
+        assert!(contract.contains("/v1/results/{result_id}/flight-ticket:"));
+        assert!(contract.contains("/v1/results/{result_id}/adbc-endpoint:"));
+        assert!(contract.contains("/v1/data-plane/standards:"));
 
         let asyncapi_path = manifest_dir.join("..").join(ASYNCAPI_EVENT_CONTRACT_PATH);
         let asyncapi = fs::read_to_string(&asyncapi_path)

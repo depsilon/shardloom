@@ -186,6 +186,7 @@ preview = ctx.rest_api_plan_preview("certified-local-batch")
 lifecycle = ctx.rest_api_local_lifecycle("certified-local-batch")
 events = ctx.rest_api_event_stream("certified-live-fixture")
 security = ctx.rest_api_security_governance("safe-local-default")
+data_plane = ctx.rest_api_data_plane("standards-matrix")
 
 print(api.openapi_contract_path)
 print(api.represented_resources)
@@ -212,6 +213,10 @@ print(security.api_scopes)
 print(security.mcp_tools)
 print(security.evidence_model_signals)
 print(security.secrets_redacted)
+print(data_plane.transfer_modes)
+print(data_plane.preferred_large_payload_modes)
+print(data_plane.standards_names)
+print(data_plane.flight_adbc_required_for_basic_local_use)
 ```
 
 Equivalent CLI commands:
@@ -227,6 +232,10 @@ shardloom rest-api-event-stream broker-requested --format json
 shardloom rest-api-security-governance safe-local-default --format json
 shardloom rest-api-security-governance destructive-policy-required --format json
 shardloom rest-api-security-governance agent-mcp-discovery --format json
+shardloom rest-api-data-plane artifact-reference-default --format json
+shardloom rest-api-data-plane flight-ticket-requested --format json
+shardloom rest-api-data-plane adbc-endpoint-requested --format json
+shardloom rest-api-data-plane standards-matrix --format json
 shardloom serve --mode discovery --format json
 ```
 

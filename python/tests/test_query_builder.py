@@ -326,6 +326,32 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "execution_delegated", "value": "false"},
                     ]
+                elif args == ["rest-api-data-plane", "artifact-reference-default", "--format", "json"]:
+                    fields = [
+                        {"key": "scenario", "value": "artifact-reference-default"},
+                        {"key": "data_plane_status", "value": "contract_available"},
+                        {"key": "transfer_modes", "value": "vortex_artifact:native_vortex_artifact,arrow_ipc_decoded_boundary:decoded_columnar_boundary,flight_ticket_future:decoded_columnar_boundary"},
+                        {"key": "standards_names", "value": "iceberg_rest_catalog,polaris,gravitino,delta_sharing,substrait,wasi_webassembly_components,nats_jetstream,redpanda,kafka_compatible,paimon,fluss"},
+                        {"key": "preferred_large_payload_modes", "value": "vortex_artifact,object_reference,paged_json"},
+                        {"key": "large_payload_threshold_bytes", "value": "1048576"},
+                        {"key": "rest_control_plane_sufficient_for_local_use", "value": "true"},
+                        {"key": "flight_adbc_required_for_basic_local_use", "value": "false"},
+                        {"key": "flight_ticket_requested", "value": "false"},
+                        {"key": "flight_ticket_supported", "value": "false"},
+                        {"key": "adbc_endpoint_requested", "value": "false"},
+                        {"key": "adbc_endpoint_supported", "value": "false"},
+                        {"key": "decoded_columnar_boundary_declared", "value": "true"},
+                        {"key": "materialization_declared", "value": "true"},
+                        {"key": "result_policy_declared", "value": "true"},
+                        {"key": "standards_matrix_count", "value": "11"},
+                        {"key": "flight_server_started", "value": "false"},
+                        {"key": "adbc_endpoint_opened", "value": "false"},
+                        {"key": "broker_io", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "catalog_probe", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"},
+                    ]
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -349,6 +375,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         lifecycle = ctx.rest_api_local_lifecycle()
         event_stream = ctx.rest_api_event_stream()
         security = ctx.rest_api_security_governance()
+        data_plane = ctx.rest_api_data_plane()
 
         self.assertEqual(contract.api_version, "v1")
         self.assertEqual(contract.openapi_version, "3.2.0")
@@ -408,6 +435,25 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(security.credential_resolution)
         self.assertFalse(security.secret_resolution)
         self.assertFalse(security.fallback_attempted)
+        self.assertEqual(data_plane.data_plane_status, "contract_available")
+        self.assertIn("vortex_artifact:native_vortex_artifact", data_plane.transfer_modes)
+        self.assertIn("iceberg_rest_catalog", data_plane.standards_names)
+        self.assertIn("vortex_artifact", data_plane.preferred_large_payload_modes)
+        self.assertEqual(data_plane.large_payload_threshold_bytes, 1048576)
+        self.assertTrue(data_plane.rest_control_plane_sufficient_for_local_use)
+        self.assertFalse(data_plane.flight_adbc_required_for_basic_local_use)
+        self.assertFalse(data_plane.flight_ticket_supported)
+        self.assertFalse(data_plane.adbc_endpoint_supported)
+        self.assertTrue(data_plane.decoded_columnar_boundary_declared)
+        self.assertTrue(data_plane.materialization_declared)
+        self.assertTrue(data_plane.result_policy_declared)
+        self.assertEqual(data_plane.standards_matrix_count, 11)
+        self.assertFalse(data_plane.flight_server_started)
+        self.assertFalse(data_plane.adbc_endpoint_opened)
+        self.assertFalse(data_plane.broker_io)
+        self.assertFalse(data_plane.object_store_io)
+        self.assertFalse(data_plane.catalog_probe)
+        self.assertFalse(data_plane.fallback_attempted)
 
     def test_live_and_hybrid_fixture_reports_are_explicit(self) -> None:
         binary = self.fake_cli(

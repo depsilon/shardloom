@@ -22,6 +22,7 @@ from shardloom import (
     ShardLoomProtocolError,
     OutputEnvelope,
     RestApiContractPlan,
+    RestApiDataPlane,
     RestApiDiscoveryContract,
     RestApiEventStream,
     RestApiLocalLifecycle,
@@ -1195,6 +1196,82 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(result.certificate_refs_mapped)
         self.assertFalse(result.credential_resolution)
         self.assertFalse(result.secret_resolution)
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.execution_delegated)
+
+    def test_rest_api_data_plane_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "rest-api-data-plane", "standards-matrix", "--format", "json"
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "rest-api-data-plane",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "scenario", "value": "standards-matrix"},
+                        {"key": "data_plane_status", "value": "standards_matrix_available"},
+                        {"key": "transfer_modes", "value": "vortex_artifact:native_vortex_artifact,arrow_ipc_decoded_boundary:decoded_columnar_boundary,flight_ticket_future:decoded_columnar_boundary"},
+                        {"key": "standards_names", "value": "iceberg_rest_catalog,polaris,gravitino,delta_sharing,substrait,wasi_webassembly_components,nats_jetstream,redpanda,kafka_compatible,paimon,fluss"},
+                        {"key": "preferred_large_payload_modes", "value": "vortex_artifact,object_reference,paged_json"},
+                        {"key": "large_payload_threshold_bytes", "value": "1048576"},
+                        {"key": "rest_control_plane_sufficient_for_local_use", "value": "true"},
+                        {"key": "flight_adbc_required_for_basic_local_use", "value": "false"},
+                        {"key": "flight_ticket_requested", "value": "false"},
+                        {"key": "flight_ticket_supported", "value": "false"},
+                        {"key": "adbc_endpoint_requested", "value": "false"},
+                        {"key": "adbc_endpoint_supported", "value": "false"},
+                        {"key": "decoded_columnar_boundary_declared", "value": "true"},
+                        {"key": "materialization_declared", "value": "true"},
+                        {"key": "result_policy_declared", "value": "true"},
+                        {"key": "standards_matrix_count", "value": "11"},
+                        {"key": "flight_server_started", "value": "false"},
+                        {"key": "adbc_endpoint_opened", "value": "false"},
+                        {"key": "broker_io", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "catalog_probe", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).rest_api_data_plane(
+            "standards-matrix"
+        )
+
+        self.assertIsInstance(result, RestApiDataPlane)
+        self.assertEqual(result.scenario, "standards-matrix")
+        self.assertEqual(result.data_plane_status, "standards_matrix_available")
+        self.assertIn("vortex_artifact:native_vortex_artifact", result.transfer_modes)
+        self.assertIn("iceberg_rest_catalog", result.standards_names)
+        self.assertIn("wasi_webassembly_components", result.standards_names)
+        self.assertIn("vortex_artifact", result.preferred_large_payload_modes)
+        self.assertEqual(result.large_payload_threshold_bytes, 1048576)
+        self.assertTrue(result.rest_control_plane_sufficient_for_local_use)
+        self.assertFalse(result.flight_adbc_required_for_basic_local_use)
+        self.assertFalse(result.flight_ticket_requested)
+        self.assertFalse(result.flight_ticket_supported)
+        self.assertFalse(result.adbc_endpoint_requested)
+        self.assertFalse(result.adbc_endpoint_supported)
+        self.assertTrue(result.decoded_columnar_boundary_declared)
+        self.assertTrue(result.materialization_declared)
+        self.assertTrue(result.result_policy_declared)
+        self.assertEqual(result.standards_matrix_count, 11)
+        self.assertFalse(result.flight_server_started)
+        self.assertFalse(result.adbc_endpoint_opened)
+        self.assertFalse(result.broker_io)
+        self.assertFalse(result.object_store_io)
+        self.assertFalse(result.catalog_probe)
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.execution_delegated)
 

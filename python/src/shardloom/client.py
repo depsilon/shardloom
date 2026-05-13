@@ -1067,6 +1067,163 @@ class RestApiSecurityGovernance:
 
 
 @dataclass(frozen=True, slots=True)
+class RestApiDataPlane:
+    """Typed view over the CG-23 data-plane and standards boundary contract."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def scenario(self) -> str | None:
+        """Return the deterministic data-plane scenario."""
+
+        return self.envelope.field("scenario")
+
+    @property
+    def data_plane_status(self) -> str | None:
+        """Return the data-plane status."""
+
+        return self.envelope.field("data_plane_status")
+
+    @property
+    def transfer_modes(self) -> tuple[str, ...]:
+        """Return result transfer mode entries."""
+
+        value = self.envelope.field("transfer_modes", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def standards_names(self) -> tuple[str, ...]:
+        """Return classified standards names."""
+
+        value = self.envelope.field("standards_names", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def preferred_large_payload_modes(self) -> tuple[str, ...]:
+        """Return preferred large-payload result policies."""
+
+        value = self.envelope.field("preferred_large_payload_modes", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def large_payload_threshold_bytes(self) -> int:
+        """Return the large-payload threshold."""
+
+        return self.envelope.field_int("large_payload_threshold_bytes", 0) or 0
+
+    @property
+    def rest_control_plane_sufficient_for_local_use(self) -> bool:
+        """Whether REST remains sufficient for local use."""
+
+        return (
+            self.envelope.field_bool("rest_control_plane_sufficient_for_local_use", False)
+            is True
+        )
+
+    @property
+    def flight_adbc_required_for_basic_local_use(self) -> bool:
+        """Whether Flight/ADBC is required for basic local use."""
+
+        return (
+            self.envelope.field_bool("flight_adbc_required_for_basic_local_use", False)
+            is True
+        )
+
+    @property
+    def flight_ticket_requested(self) -> bool:
+        """Whether a Flight ticket was requested."""
+
+        return self.envelope.field_bool("flight_ticket_requested", False) is True
+
+    @property
+    def flight_ticket_supported(self) -> bool:
+        """Whether Flight ticket delivery is currently supported."""
+
+        return self.envelope.field_bool("flight_ticket_supported", False) is True
+
+    @property
+    def adbc_endpoint_requested(self) -> bool:
+        """Whether an ADBC endpoint was requested."""
+
+        return self.envelope.field_bool("adbc_endpoint_requested", False) is True
+
+    @property
+    def adbc_endpoint_supported(self) -> bool:
+        """Whether ADBC endpoint delivery is currently supported."""
+
+        return self.envelope.field_bool("adbc_endpoint_supported", False) is True
+
+    @property
+    def decoded_columnar_boundary_declared(self) -> bool:
+        """Whether decoded-columnar boundaries are explicitly declared."""
+
+        return self.envelope.field_bool("decoded_columnar_boundary_declared", False) is True
+
+    @property
+    def materialization_declared(self) -> bool:
+        """Whether transfer materialization is declared."""
+
+        return self.envelope.field_bool("materialization_declared", False) is True
+
+    @property
+    def result_policy_declared(self) -> bool:
+        """Whether result policy is declared."""
+
+        return self.envelope.field_bool("result_policy_declared", False) is True
+
+    @property
+    def standards_matrix_count(self) -> int:
+        """Return the standards matrix row count."""
+
+        return self.envelope.field_int("standards_matrix_count", 0) or 0
+
+    @property
+    def flight_server_started(self) -> bool:
+        """Whether a Flight server was started."""
+
+        return self.envelope.field_bool("flight_server_started", False) is True
+
+    @property
+    def adbc_endpoint_opened(self) -> bool:
+        """Whether an ADBC endpoint was opened."""
+
+        return self.envelope.field_bool("adbc_endpoint_opened", False) is True
+
+    @property
+    def broker_io(self) -> bool:
+        """Whether broker I/O was performed."""
+
+        return self.envelope.field_bool("broker_io", False) is True
+
+    @property
+    def object_store_io(self) -> bool:
+        """Whether object-store I/O was performed."""
+
+        return self.envelope.field_bool("object_store_io", False) is True
+
+    @property
+    def catalog_probe(self) -> bool:
+        """Whether catalog probing was performed."""
+
+        return self.envelope.field_bool("catalog_probe", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether fallback execution was attempted."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def execution_delegated(self) -> bool:
+        """Whether data-plane handling delegated execution."""
+
+        return self.envelope.field_bool("execution_delegated", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class LiveChangeContractPlan:
     """Typed convenience view over the CG-22 live change contract."""
 
@@ -1512,6 +1669,16 @@ class ShardLoomClient:
         return RestApiSecurityGovernance(
             self.run(["rest-api-security-governance", scenario], check=check)
         )
+
+    def rest_api_data_plane(
+        self,
+        scenario: str = "artifact-reference-default",
+        *,
+        check: bool = True,
+    ) -> RestApiDataPlane:
+        """Return a CG-23 data-plane/standards boundary contract envelope."""
+
+        return RestApiDataPlane(self.run(["rest-api-data-plane", scenario], check=check))
 
     def python_wrapper_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the Python wrapper foundation plan envelope."""

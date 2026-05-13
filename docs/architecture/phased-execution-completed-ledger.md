@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P6.6 columnar data-plane and ecosystem standards boundary bundle
+  - Primary files:
+    - `docs/api/shardloom-openapi-v1.yaml`
+    - `shardloom-core/src/remote_api.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add the CG-23 A9 data-plane/standards boundary contract bundle with REST result
+    transfer policy, large-payload policy, decoded-columnar boundary posture, optional future
+    Flight/ADBC posture, and ecosystem standards classifications.
+  - Checklist:
+    - [x] Add `RestApiDataPlaneReport` with artifact-reference-default,
+          flight-ticket-requested, adbc-endpoint-requested, and standards-matrix scenarios.
+    - [x] Add `rest-api-data-plane` CLI output with transfer modes, large-payload policy,
+          optional Flight/ADBC status, standards matrix rows, decoded-columnar boundary fields, and
+          no-transport/no-catalog/no-broker/no-fallback effect fields.
+    - [x] Extend `docs/api/shardloom-openapi-v1.yaml` with data-plane, optional Flight ticket,
+          optional ADBC endpoint, and standards endpoints plus data-plane schemas.
+    - [x] Expose Python `RestApiDataPlane`, `ShardLoomClient.rest_api_data_plane()`, and
+          `ShardLoomContext.rest_api_data_plane()`.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-core remote_api --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test api_protocol_snapshots --test typed_envelope_compatibility_lock`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client python.tests.test_query_builder`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-data-plane-smoke'; cargo run -q -p shardloom-cli -- rest-api-data-plane artifact-reference-default --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-data-plane-smoke'; cargo run -q -p shardloom-cli -- rest-api-data-plane flight-ticket-requested --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-data-plane-smoke'; cargo run -q -p shardloom-cli -- rest-api-data-plane adbc-endpoint-requested --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-data-plane-smoke'; cargo run -q -p shardloom-cli -- rest-api-data-plane standards-matrix --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-data-plane-clippy'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-data-plane-test'; cargo test --workspace --all-targets`
+    - [x] `$env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-data-plane-stable-clippy'; cargo +stable clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Runtime stance: contract/report-only data-plane lane. The command does not start REST, Flight,
+    or ADBC servers; probe catalogs or datasets; touch object stores; connect to brokers; read or
+    materialize data; execute plans; invoke external engines; delegate execution; or attempt fallback
+    execution.
+
 - [x] Session label: P6.5 security, governance, observability, and agent API bundle
   - Primary files:
     - `docs/api/shardloom-openapi-v1.yaml`

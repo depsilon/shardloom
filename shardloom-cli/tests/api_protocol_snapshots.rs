@@ -41,6 +41,10 @@ fn run_rest_api_security_governance(scenario: &str) -> String {
     run_cli_json(&["rest-api-security-governance", scenario, "--format", "json"])
 }
 
+fn run_rest_api_data_plane(scenario: &str) -> String {
+    run_cli_json(&["rest-api-data-plane", scenario, "--format", "json"])
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
@@ -63,7 +67,7 @@ fn rest_api_contract_plan_json_exposes_openapi_discovery_contract() {
         "problem_details_media_type",
         "application/problem+json"
     )));
-    assert!(output.contains(&field("represented_resource_count", "19")));
+    assert!(output.contains(&field("represented_resource_count", "21")));
     assert!(output.contains(&field(
         "execution_policy_fields",
         "engine_mode,fallback_policy,materialization_policy,result_policy,evidence_policy"
@@ -550,6 +554,106 @@ fn rest_api_security_governance_json_preserves_no_secret_resolution_or_effects()
         assert!(output.contains(&field("raw_secret_emitted", "false")));
         assert!(output.contains(&field("audit_write_io", "false")));
         assert!(output.contains(&field("mcp_tool_execution", "false")));
+        assert!(output.contains(&field("data_read", "false")));
+        assert!(output.contains(&field("data_materialized", "false")));
+        assert!(output.contains(&field("query_execution", "false")));
+        assert!(output.contains(&field("runtime_execution", "false")));
+        assert!(output.contains(&field("write_io", "false")));
+        assert!(output.contains(&field("external_engine_invoked", "false")));
+        assert!(output.contains(&field("fallback_execution_allowed", "false")));
+        assert!(output.contains(&field("fallback_attempted", "false")));
+        assert!(output.contains(&field("execution_delegated", "false")));
+        assert!(output.contains(&field("effect_policy_violated", "false")));
+    }
+}
+
+#[test]
+fn rest_api_data_plane_json_exposes_transfer_and_large_payload_policy() {
+    let output = run_rest_api_data_plane("artifact-reference-default");
+
+    assert!(output.contains("\"command\":\"rest-api-data-plane\""));
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("mode", "rest_api_data_plane")));
+    assert!(output.contains(&field("schema_version", "shardloom.rest_api_data_plane.v1")));
+    assert!(output.contains(&field("scenario", "artifact-reference-default")));
+    assert!(output.contains(&field("data_plane_status", "contract_available")));
+    assert!(output.contains(&field("rest_control_plane_required", "true")));
+    assert!(output.contains(&field(
+        "rest_control_plane_sufficient_for_local_use",
+        "true"
+    )));
+    assert!(output.contains(&field("flight_adbc_required_for_basic_local_use", "false")));
+    assert!(output.contains(&field(
+        "transfer_modes",
+        "inline_json:decoded_rows,paged_json:decoded_rows,jsonl_ndjson:decoded_rows,vortex_artifact:native_vortex_artifact,object_reference:native_object_reference_future,arrow_ipc_decoded_boundary:decoded_columnar_boundary,flight_ticket_future:decoded_columnar_boundary,adbc_endpoint_future:decoded_columnar_boundary"
+    )));
+    assert!(output.contains(&field("large_payload_threshold_bytes", "1048576")));
+    assert!(output.contains(&field(
+        "preferred_large_payload_modes",
+        "vortex_artifact,object_reference,paged_json"
+    )));
+    assert!(output.contains(&field("paged_json_available", "true")));
+    assert!(output.contains(&field("jsonl_ndjson_available", "true")));
+    assert!(output.contains(&field("vortex_artifact_available", "true")));
+    assert!(output.contains(&field("object_reference_available", "true")));
+    assert!(output.contains(&field("arrow_ipc_decoded_boundary_available", "true")));
+    assert!(output.contains(&field("arrow_ipc_certified_native", "false")));
+    assert!(output.contains(&field("decoded_columnar_boundary_declared", "true")));
+    assert!(output.contains(&field("materialization_declared", "true")));
+    assert!(output.contains(&field("fidelity_declared", "true")));
+    assert!(output.contains(&field("result_policy_declared", "true")));
+}
+
+#[test]
+fn rest_api_data_plane_json_covers_optional_flight_adbc_and_standards_matrix() {
+    let flight = run_rest_api_data_plane("flight-ticket-requested");
+    let adbc = run_rest_api_data_plane("adbc-endpoint-requested");
+    let standards = run_rest_api_data_plane("standards-matrix");
+
+    assert!(flight.contains("\"status\":\"warning\""));
+    assert!(flight.contains(&field("data_plane_status", "optional_transport_planned")));
+    assert!(flight.contains(&field("flight_ticket_requested", "true")));
+    assert!(flight.contains(&field("flight_ticket_supported", "false")));
+    assert!(flight.contains(&field("flight_server_started", "false")));
+    assert!(flight.contains(&field("optional_transport_required", "false")));
+    assert!(flight.contains("\"code\":\"SL_NOT_IMPLEMENTED\""));
+
+    assert!(adbc.contains("\"status\":\"warning\""));
+    assert!(adbc.contains(&field("adbc_endpoint_requested", "true")));
+    assert!(adbc.contains(&field("adbc_endpoint_supported", "false")));
+    assert!(adbc.contains(&field("adbc_endpoint_opened", "false")));
+    assert!(adbc.contains(&field("optional_transport_required", "false")));
+
+    assert!(standards.contains("\"status\":\"success\""));
+    assert!(standards.contains(&field("data_plane_status", "standards_matrix_available")));
+    assert!(standards.contains(&field("standards_matrix_requested", "true")));
+    assert!(standards.contains(&field("standards_matrix_count", "11")));
+    assert!(standards.contains(&field(
+        "standards_names",
+        "iceberg_rest_catalog,polaris,gravitino,delta_sharing,substrait,wasi_webassembly_components,nats_jetstream,redpanda,kafka_compatible,paimon,fluss"
+    )));
+}
+
+#[test]
+fn rest_api_data_plane_json_preserves_no_transport_catalog_broker_or_fallback_effects() {
+    for scenario in [
+        "artifact-reference-default",
+        "flight-ticket-requested",
+        "adbc-endpoint-requested",
+        "standards-matrix",
+    ] {
+        let output = run_rest_api_data_plane(scenario);
+
+        assert!(output.contains(&field("server_started", "false")));
+        assert!(output.contains(&field("network_listener_opened", "false")));
+        assert!(output.contains(&field("network_probe", "false")));
+        assert!(output.contains(&field("flight_server_started", "false")));
+        assert!(output.contains(&field("adbc_endpoint_opened", "false")));
+        assert!(output.contains(&field("broker_io", "false")));
+        assert!(output.contains(&field("object_store_io", "false")));
+        assert!(output.contains(&field("catalog_probe", "false")));
+        assert!(output.contains(&field("dataset_probe", "false")));
+        assert!(output.contains(&field("credential_resolution", "false")));
         assert!(output.contains(&field("data_read", "false")));
         assert!(output.contains(&field("data_materialized", "false")));
         assert!(output.contains(&field("query_execution", "false")));
