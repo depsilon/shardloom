@@ -315,6 +315,7 @@ fn is_engine_runtime_planning_command(command: &str) -> bool {
             | "engine-capability-matrix"
             | "live-change-contract-plan"
             | "live-fixture-run"
+            | "hybrid-overlay-run"
             | "streaming-plan"
             | "streaming-batch-plan"
             | "backpressure-plan"

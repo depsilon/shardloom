@@ -278,7 +278,7 @@ actionable work.
       completeness, object-store production, or Foundry claims are made without evidence.
     - Verification: README command smoke where practical, Python examples, CLI snapshots, and full
       workspace validation.
-- [ ] Priority 5 - CG-22 three-engine certified data execution fabric
+- [x] Priority 5 - CG-22 three-engine certified data execution fabric
   - [x] CG-22A/B/H engine contract, per-engine matrix, and Python/API UX bundle.
     - Implemented `EngineMode` values `batch`, `live`, `hybrid`, and `auto`, plus
       `Boundedness`, `UpdateMode`, and `OutputMode` vocabulary.
@@ -304,204 +304,231 @@ actionable work.
       certificate, Native I/O certificate, `FreshnessCertificate`, `StateCertificate`,
       `ContinuousViewCertificate`, and no-fallback evidence while keeping broker/object-store
       integrations deferred.
-  - [ ] CG-22E/F/G hybrid overlay, Vortex micro-segment flush, and layout-health bundle.
-    - Combine a local Vortex base with fixture-backed hot deltas, tombstones, deletion vectors,
-      snapshot epoch, and certified merged results.
-    - Emit `DeltaOverlayCertificate`, `HotColdContributionReport`, snapshot certificate refs, base
-      snapshot id, hot changelog range, warm/cold segment counts, tombstone counts, freshness lag,
-      micro-segment flush evidence, representation/statistics/deletion/checkpoint/commit fields,
-      and no-fallback evidence.
-    - Plan compaction from small-segment pressure, tombstone pressure, partition skew, stale
-      statistics, and layout health without executing maintenance until write/commit/recovery
-      support is certified.
+  - [x] CG-22E/F/G hybrid overlay, Vortex micro-segment flush, and layout-health bundle.
+    - Added a deterministic `hybrid-overlay-run` fixture that combines declared local Vortex base
+      rows with fixture-backed hot deltas, tombstones, deletion-vector entries, snapshot epoch, and
+      certified merged results for filter, project, count, count_where, and group_count.
+    - Emitted `DeltaOverlayCertificate`, `HotColdContributionReport`, snapshot refs, base snapshot
+      id, merged snapshot id, hot changelog range, warm/cold segment counts, tombstone counts,
+      freshness lag, micro-segment flush evidence, representation/statistics/deletion/checkpoint/
+      commit fields, execution certificate, Native I/O certificate, and no-fallback evidence.
+    - Added layout-health bundle evidence for small-segment pressure, tombstone pressure, partition
+      skew, stale statistics, and compaction planning without executing maintenance, writes,
+      checkpoint writes, commit writes, object-store I/O, local Vortex reads, or fallback execution.
+    - Moved hybrid engine selection and capability matrix posture to fixture-level partial support
+      while keeping production claims blocked on durable flush writes, object-store commit protocol,
+      external catalog discovery, workload correctness evidence, and benchmark evidence.
 - [ ] Priority 6 - CG-23 REST, event, and remote API surface
-  - [ ] CG-23A REST API contract surface
-    - [ ] Define OpenAPI 3.2 or approved-successor contract files for `/v1` resources before server
-          behavior.
-    - [ ] Represent health, version, capabilities, adapters, sources, sinks, plans, queries,
-          results, certificates, profiles, benchmarks, migration, lineage, and governance resources.
-    - [ ] Require engine mode, fallback policy, materialization policy, result policy, and evidence
-          policy on execution-capable requests.
-    - [ ] Include `fallback_attempted=false` or explicit unsupported/failure reason in every
-          response.
-    - [ ] Add an API maturity ladder from declared contract through discovery, plan/explain, local
-          certified batch lifecycle, result delivery, source/sink certification, live/hybrid events,
-          security/governance, and production-certified workload support.
-  - [ ] CG-23B REST discovery server
-    - [ ] Add optional local `shardloom serve --mode discovery` only after dependency and security
-          approval.
-    - [ ] Serve health, version, capabilities, adapters, deployment readiness, and no-dataset smoke
-          checks.
-    - [ ] Prohibit dataset probing, object-store access, catalog access, query execution, and
-          fallback in discovery mode.
-  - [ ] CG-23C plan/explain/validate API
-    - [ ] Add plan handles and validate/explain/estimate/certification-preview endpoints.
-    - [ ] Return parser/binder/native logical/native physical/execution/certification stages
-          separately.
-    - [ ] Use deterministic unsupported diagnostics and problem-details errors without execution
-          delegation.
-  - [ ] CG-23D async query lifecycle API
-    - [ ] Add execute/status/cancel/retry/profile/certificates/lineage/results/artifacts lifecycle
-          for already-certified local batch paths first.
-    - [ ] Keep non-certified paths blocked or explicitly uncertified.
-    - [ ] Link result handles to execution certificates, Native I/O certificates, materialization
-          reports, profile reports, and no-fallback evidence.
-  - [ ] CG-23E result delivery and spooling
-    - [ ] Support inline JSON only for tiny previews and diagnostics.
-    - [ ] Add paged JSON and JSON Lines for row-oriented small/medium result or log streams.
-    - [ ] Treat Arrow IPC as explicit decoded-columnar boundary unless a future native boundary
-          proves otherwise.
-    - [ ] Prefer Vortex artifacts or object references for highest-fidelity large analytical
-          outputs.
-    - [ ] Define result TTL, retention, cleanup, artifact refs, representation state,
-          materialization, and fidelity fields.
-  - [ ] CG-23F live/hybrid event API
-    - [ ] Use SSE for one-way progress events and WebSocket only where bidirectional live
-          interaction is required.
-    - [ ] Define AsyncAPI event contracts and CloudEvents-style envelopes for progress, state,
-          checkpoint, watermark, certificate, lineage, benchmark, and hybrid hot/cold contribution
-          events.
-    - [ ] Block live/hybrid API certification until CG-22, CG-8, CG-4, and CG-16 evidence exists.
-  - [ ] CG-23G security, governance, and API policy
-    - [ ] Define local-only, token, mTLS, OIDC, and service-account auth modes before remote
-          execution.
-    - [ ] Separate scopes for read, plan, execute, write, cancel, admin, benchmark, migration, and
-          agent operations.
-    - [ ] Keep credentials as references, redact secrets, require explicit destructive-operation
-          policies, and audit plan/execute/write/cancel/certify.
-  - [ ] CG-23H Flight/ADBC and columnar data-plane bridge
-    - [ ] Keep REST as control plane while allowing future Flight tickets or ADBC endpoints for
-          high-throughput columnar transfer.
-    - [ ] Make Flight/ADBC optional and never required for basic local use or import.
-    - [ ] Report Arrow transfers as decoded-columnar materialization unless later certified
-          otherwise.
-  - [ ] CG-23I MCP agent API
-    - [ ] Expose capabilities, schemas, plans, certificates, benchmark reports, and diagnostics as
-          safe agent resources.
-    - [ ] Keep MCP tools dry-run/explain/estimate/certify by default.
-    - [ ] Require explicit policy and credentials for execute, write, cancel, benchmark, and
-          migration operations.
-    - [ ] Preserve no-fallback and external-effect diagnostics in agent-facing responses.
-  - [ ] CG-23J remote standards, lineage, and ecosystem interop posture
-    - [ ] Map OpenTelemetry traces/metrics/logs, OpenLineage runs/jobs/datasets/facets,
-          problem-details errors, CloudEvents, and certificate refs into a single API evidence
-          model.
-    - [ ] Treat Iceberg REST Catalog, Polaris, Gravitino, Delta Sharing, Substrait, WASI/WebAssembly
-          components, NATS JetStream, Redpanda, Kafka-compatible systems, Paimon, Fluss, and similar
-          systems as standards/reference/adapter candidates until a dependency decision and
-          capability contract approve runtime use.
-    - [ ] Keep REST as control plane and proof surface; large payload transfer must use explicit
-          result policies such as Vortex artifact refs, object refs, Arrow IPC boundaries, JSON
-          Lines, or future Flight/ADBC tickets.
-    - [ ] Do not let remote API support weaken local Python/CLI protocol parity, no-fallback
-          execution, materialization reporting, or governance policy.
+  - Outcome: make remote access a contract-first control plane over the already-certified local
+    surfaces, with deterministic unsupported diagnostics and no weakening of CLI/Python protocol
+    parity.
+  - Slice rule: each PR should ship a usable API lane with schema, CLI/Python parity evidence,
+    compatibility tests, and documented smoke commands. Do not split by endpoint or enum unless the
+    split fixes a concrete regression.
+  - Runtime rule: no server may probe datasets, access object stores/catalogs, delegate execution to
+    external engines, weaken materialization reporting, or hide fallback status. Discovery and
+    plan/validate surfaces stay side-effect-free until an explicit execution lane is certified.
+  - [ ] P6.1 REST contract, discovery mode, and API maturity bundle.
+    - User-visible surface: versioned `/v1` OpenAPI or approved-successor contract files, problem
+      details errors, API maturity ladder, and optional `shardloom serve --mode discovery` contract.
+    - Acceptance: health, version, capabilities, adapters, sources, sinks, plans, queries, results,
+      certificates, profiles, benchmarks, migration, lineage, governance, engine mode, fallback
+      policy, materialization policy, result policy, and evidence policy are represented together.
+      Discovery serves only health/capability/deployment/no-dataset smoke data and reports
+      `fallback_attempted=false`.
+    - Verification: schema validation, CLI/Python capability parity snapshots, discovery-mode smoke
+      with no dataset probes, protocol compatibility locks, and full workspace validation.
+  - [ ] P6.2 plan/explain/validate/certification-preview API bundle.
+    - User-visible surface: plan handles and validate, explain, estimate, unsupported-report, and
+      certification-preview endpoints that mirror the local Python/query-builder workflow.
+    - Acceptance: parser, binder, native logical, native physical, execution readiness, evidence
+      readiness, and certification stages remain separately inspectable; unsupported paths return
+      deterministic diagnostics and problem-details responses without execution delegation.
+    - Verification: golden API fixtures for certified, partial, blocked, invalid-input, and
+      unsupported cases; CLI/Python/contract blocker parity tests; no-fallback invariant tests.
+  - [ ] P6.3 certified local async lifecycle, result delivery, and certificate bundle.
+    - User-visible surface: execute/status/cancel/retry/profile/certificates/lineage/results/
+      artifacts lifecycle for already-certified local batch paths, plus inline JSON, paged JSON,
+      JSON Lines, artifact refs, TTL, retention, cleanup, and result fidelity policy.
+    - Acceptance: non-certified paths remain blocked or explicitly uncertified; result handles link
+      to execution certificates, Native I/O certificates, materialization reports, profile reports,
+      and no-fallback evidence. Arrow IPC is reported as decoded-columnar materialization unless
+      future evidence certifies otherwise, while Vortex artifacts or object refs are preferred for
+      high-fidelity analytical outputs.
+    - Verification: lifecycle state-machine tests, result policy snapshots, cancellation/retry
+      diagnostics, certificate-ref assertions, and focused local execution smoke.
+  - [ ] P6.4 live/hybrid event API and streaming evidence bundle.
+    - User-visible surface: SSE-first event stream contracts, optional WebSocket posture where
+      bidirectional interaction is required, AsyncAPI event contracts, and CloudEvents-style
+      envelopes for progress, state, checkpoint, watermark, certificates, lineage, benchmarks, and
+      hybrid hot/cold contribution events.
+    - Acceptance: live/hybrid API certification remains blocked unless CG-22, CG-8, CG-4, and CG-16
+      evidence exists for the specific workload; event delivery never turns broker/object-store or
+      fallback behavior into implicit execution.
+    - Verification: event schema fixtures, live/hybrid blocked-vs-certified snapshots, no-broker/
+      no-object-store smoke, and CLI/Python parity for certificate refs.
+  - [ ] P6.5 security, governance, observability, and agent API bundle.
+    - User-visible surface: local-only, token, mTLS, OIDC, and service-account auth posture; scopes
+      for read, plan, execute, write, cancel, admin, benchmark, migration, and agent operations;
+      audit policy; MCP resources/tools for safe agent discovery.
+    - Acceptance: credentials stay references, secrets are redacted, destructive operations require
+      explicit policy, and MCP tools remain dry-run/explain/estimate/certify by default. OpenTelemetry
+      traces/metrics/logs, OpenLineage facets, problem-details errors, CloudEvents, and certificate
+      refs map into one evidence model.
+    - Verification: policy schema tests, redaction snapshots, audit fixture checks, MCP contract
+      fixtures, and no-external-effect diagnostics.
+  - [ ] P6.6 columnar data-plane and ecosystem standards boundary bundle.
+    - User-visible surface: optional Flight/ADBC posture, large-payload transfer policy, and standards
+      classification for Iceberg REST Catalog, Polaris, Gravitino, Delta Sharing, Substrait,
+      WASI/WebAssembly components, NATS JetStream, Redpanda, Kafka-compatible systems, Paimon,
+      Fluss, and similar systems.
+    - Acceptance: REST remains the control plane and proof surface; Flight/ADBC is optional and never
+      required for basic local use or import; all transfers declare materialization, fidelity, result
+      policy, and no-fallback status.
+    - Verification: standards matrix snapshots, decoded-columnar boundary assertions, optional
+      dependency posture tests, and full protocol compatibility validation.
 - [ ] Priority 7 - CG-21/CG-22/CG-23 integrated certification closeout
-  - [ ] Add cross-CG capability snapshots proving CG-21 workflow, CG-22 engine mode, and CG-23
-        remote API states are visible through capability discovery.
-  - [ ] Add cross-CG unsupported diagnostics showing the same blocker across CLI, Python, and future
-        REST.
-  - [ ] Add workload-scoped certification dossiers that combine CG-5 correctness, CG-6 benchmarks,
-        CG-16 execution certificates, CG-19 Native I/O certificates, CG-20 capability evidence,
-        CG-21 workflow evidence, CG-22 engine evidence, and CG-23 API evidence.
-  - [ ] Keep CG-21, CG-22, and CG-23 logically after the current planned CG-1 through CG-20 work
-        unless a later implementation item is explicitly pulled forward as a contract/report-only
-        lane.
-  - [ ] Preserve no-runtime, no-dependency, no-fallback, and no-claim posture for docs/report-only
-        synthesis.
+  - Outcome: prove that workflow UX, engine-mode evidence, and remote/API posture agree across CLI,
+    Python, and API contracts before any broader support claim is made.
+  - Slice rule: group closeout work by proof surface, not by source file. A slice must improve a
+    user's ability to understand what can be run, what is blocked, and what evidence is missing.
+  - [ ] P7.1 cross-CG capability and unsupported-diagnostic parity bundle.
+    - User-visible surface: capability discovery shows CG-21 workflow, CG-22 engine mode, and CG-23
+      remote API states through CLI, Python, and future REST views.
+    - Acceptance: the same blocker has the same identifier, severity, no-fallback stance, required
+      evidence, and suggested next action across all surfaces.
+    - Verification: cross-CG capability snapshots, unsupported-diagnostic golden fixtures, Python
+      parity tests, and typed-envelope/API compatibility locks.
+  - [ ] P7.2 workload certification dossier bundle.
+    - User-visible surface: workload-scoped certification dossiers that combine CG-5 correctness,
+      CG-6 benchmarks, CG-16 execution certificates, CG-19 Native I/O certificates, CG-20 capability
+      evidence, CG-21 workflow evidence, CG-22 engine evidence, and CG-23 API evidence.
+    - Acceptance: dossiers distinguish certified, partial, planned, report-only, blocked, and
+      unsupported posture without creating runtime effects or new dependency requirements.
+    - Verification: dossier fixture snapshots, certificate-ref integrity tests, no-runtime smoke,
+      and workspace fmt/clippy/test.
+  - [ ] P7.3 claim gate and release-readiness closeout bundle.
+    - User-visible surface: one closeout command/report that explains which local, API, package,
+      benchmark, and integration claims are allowed, blocked, or explicitly out of scope.
+    - Acceptance: CG-21, CG-22, and CG-23 remain logically after CG-1 through CG-20 unless pulled
+      forward as report-only contract lanes; docs/report-only synthesis preserves no-runtime,
+      no-dependency, no-fallback, and no-claim posture.
+    - Verification: claim-gate snapshots, README/docs consistency checks, full workspace validation,
+      and `git diff --check`.
 - [ ] Priority 8 - general availability and external proof-of-use
-  - [ ] Define public release identity and versioning policy for PyPI `shardloom`, conda-forge
-        `shardloom-cli`, `shardloom-python`, `shardloom` metapackage, GitHub Release artifacts,
-        GHCR/OCI image posture, and selected crates.io protocol/client crates.
-  - [ ] Add release workflow contracts for Git tag, source archive, platform binaries, Python
-        wheel/sdist, Conda recipe/feedstock status, checksums, SBOM, artifact attestation,
-        changelog, compatibility matrix, known unsupported paths, and no-fallback release checks.
-  - [ ] Prefer PyPI trusted publishing/OIDC and prohibit long-lived package tokens in release
-        automation unless explicitly approved by maintainers.
-  - [ ] Keep package publication, release tags, feedstock submission, crates.io publication, OCI
-        pushes, and Marketplace publication human-approved and release-gated.
-  - [ ] Make Conda the primary "it just works" path by proving clean-environment installs for
-        `shardloom-cli`, `shardloom-python`, and `shardloom` metapackage with CLI binary resolution
-        and `fallback_attempted=false` smoke evidence.
-  - [ ] Add the public first-10-minutes proof: `conda install shardloom`, `import shardloom`,
-        `ShardLoomClient.from_env().smoke_check()`, `client.capabilities()`, `shardloom status
-        --format json`, and `shardloom capabilities --format json`.
-  - [ ] Add external proof examples with README, environment file, input fixture, expected output,
-        expected certificate fields, and known limitations for `examples/local-python-smoke/`,
-        `examples/local-vortex-benchmark/`, and `examples/foundry-lightweight-transform/`.
-  - [ ] Publish user-facing docs for install, quickstart, Python client, CLI, Conda packages,
-        Foundry usage, benchmarking, certificates, no-fallback policy, Vortex compatibility,
-        maturity statuses, and unsupported diagnostics.
-  - [ ] Keep benchmark extras, Spark/DataFusion/DuckDB/Polars/pandas baselines, and optional
-        comparison tooling out of the core install path and report them as baselines only.
+  - Outcome: make a non-maintainer able to install, import, smoke, inspect capabilities, and run a
+    certified local path without relying on unpublished assumptions or hidden local state.
+  - Slice rule: package/release PRs must include an install or proof artifact. Documentation-only
+    edits are acceptable only when they are tied to runnable smoke commands or release gate fixtures.
+  - [ ] P8.1 release identity, packaging contract, and artifact integrity bundle.
+    - User-visible surface: public release identity and versioning policy for PyPI `shardloom`,
+      conda-forge `shardloom-cli`, `shardloom-python`, `shardloom` metapackage, GitHub Release
+      artifacts, GHCR/OCI image posture, and selected crates.io protocol/client crates.
+    - Acceptance: release workflow contracts cover Git tag, source archive, platform binaries,
+      Python wheel/sdist, Conda recipe/feedstock status, checksums, SBOM, artifact attestation,
+      changelog, compatibility matrix, known unsupported paths, and no-fallback release checks.
+      Trusted publishing/OIDC is preferred; long-lived tokens, publication, release tags, feedstock
+      submission, crates.io publication, OCI pushes, and Marketplace publication remain
+      human-approved and release-gated.
+    - Verification: package metadata checks, dry-run artifact manifests, checksum/SBOM fixtures,
+      release-gate snapshots, and no-secret policy tests.
+  - [ ] P8.2 clean install and first-10-minutes proof bundle.
+    - User-visible surface: Conda-first clean-environment proof for `shardloom-cli`,
+      `shardloom-python`, and `shardloom` metapackage, plus the public first-10-minutes path:
+      `conda install shardloom`, `import shardloom`, `ShardLoomClient.from_env().smoke_check()`,
+      `client.capabilities()`, `shardloom status --format json`, and
+      `shardloom capabilities --format json`.
+    - Acceptance: CLI binary resolution, Python import, status/capability output, and
+      `fallback_attempted=false` smoke evidence are documented and reproducible from a clean
+      environment.
+    - Verification: clean-env smoke transcript, Python import tests, CLI resolution diagnostics,
+      install docs checks, and workspace validation.
+  - [ ] P8.3 external examples, docs, and baseline-comparison boundary bundle.
+    - User-visible surface: `examples/local-python-smoke/`, `examples/local-vortex-benchmark/`, and
+      `examples/foundry-lightweight-transform/` each include README, environment file, input
+      fixture, expected output, expected certificate fields, and known limitations.
+    - Acceptance: user-facing docs cover install, quickstart, Python client, CLI, Conda packages,
+      Foundry usage, benchmarking, certificates, no-fallback policy, Vortex compatibility, maturity
+      statuses, and unsupported diagnostics. Benchmark extras and Spark/DataFusion/DuckDB/Polars/
+      pandas comparison tooling stay out of the core install path and are reported as baselines only.
+    - Verification: example smoke scripts, docs link checks, expected-output snapshots, dependency
+      posture checks, and full workspace validation.
 - [ ] Priority 9 - RFC 0036 Foundry integration pack and platform availability
-  - [ ] Treat Foundry as an optional integration pack, not the primary engine target and not a new
-        core engine gate.
-  - [ ] Add `shardloom-foundry` helper package posture for deterministic `SHARDLOOM_BIN` resolution,
-        Foundry transform metadata capture, input/output RID capture, certificate output writing,
-        benchmark metrics writing, staging/materialization reports, and no-fallback propagation
-        without adding execution semantics.
-  - [ ] Add the Foundry maturity ladder: `F0` declared only, `F1` package/import in Code Repository,
-        `F2` smoke transform with CLI resolution, `F3` dataset source/sink staging with certificate
-        output, `F4` Data Expectations/Data Health bridge, `F5` lineage and transaction/branch
-        evidence, `F6` virtual-table/external-compute boundary awareness, `F7` Marketplace starter
-        product, `F8` Compute Module/REST service, `F9` Ontology/AIP/Workshop integration, and `F10`
-        workload-certified Foundry deployment.
-  - [ ] Add `FoundryExecutionContext`, `FoundryDatasetTransactionReport`,
-        `FoundryBranchContextReport`, `FoundryPreviewModeReport`, and
-        `FoundryReleaseReadinessReport` surfaces so certificates identify transform, branch,
-        preview/build/incremental mode, transactions, package versions, workload constitution, and
-        expected evidence.
-  - [ ] Add `FoundryDatasetSource`, `FoundryDatasetSink`, and `FoundryCertificateOutput` schema
-        surfaces for staged local files, table-compatible outputs, certificate/metrics datasets,
-        optional Vortex artifact sidecars, materialization/fidelity reports, commit/recovery status,
-        and `fallback_attempted=false`.
-  - [ ] Add `FoundryIncrementalRunReport` aligning Foundry incremental builds with ShardLoom
-        batch/live/hybrid evidence without treating Foundry incremental mode as live/hybrid
-        certification by itself.
-  - [ ] Add `FoundryDataHealthBridge` and Data Expectations mapping for certificate presence,
-        no-fallback status, Native I/O evidence, schema digest, output row requirements,
-        data-quality checks, materialization policy, and benchmark-claim blockers.
-  - [ ] Add `FoundryLineageFacet`, `FoundryScheduleBuildReport`, and
-        `FoundryDataConnectionBoundaryReport` for datasets, virtual tables, media sets, artifacts,
-        schedules, syncs, exports, webhooks, external transforms, credential refs, egress policy,
-        and ShardLoom role classification.
-  - [ ] Add `FoundryS3DatasetAdapter` posture for future S3-compatible dataset access with dataset
-        RID, branch, object key, range-read support, multipart/write support where allowed,
-        bytes/request counts, credential mode, and Native I/O certificates.
-  - [ ] Add `FoundryVirtualTableSource`, `FoundryVirtualTableSink`, and `FoundryVirtualTableRef`
-        surfaces so Snowflake, Databricks, BigQuery, S3, ADLS, GCS, Iceberg, and similar virtual
-        tables are governed external handles with metadata, staging, update-detection, security, and
-        materialization policy.
-  - [ ] Classify Snowflake/Databricks/BigQuery/Foundry Spark/Snowpark/Databricks Connect/Ibis
-        compute pushdown through `FoundryExternalComputeBoundaryReport` as baseline, oracle,
-        migration reference, or prohibited fallback, never as ShardLoom-native execution.
-  - [ ] Add `FoundryIcebergTableSource` and `FoundryIcebergTableSink` posture for catalog/table
-        metadata, snapshot/manifest awareness, schema/partition evidence, compatibility reads,
-        `TranslationReport` requirements, and commit/recovery evidence.
-  - [ ] Add `FoundryMediaSetSource` and `FoundryMediaSetSink` posture for media item refs,
-        MIME/schema, OCR/extraction/model/materialization boundaries, provenance/confidence,
-        incremental media status, redaction, and explicit no silent
-        OCR/transcription/embedding/model calls.
-  - [ ] Add Foundry Ontology, Functions, AIP Logic, model, and scenario report-first surfaces:
-        `FoundryOntologyMappingReport`, `FoundryFunctionSurface`, `FoundryAipLogicBridge`,
-        `FoundryModelBoundaryReport`, and `FoundryScenarioBoundaryReport`.
-  - [ ] Add BYOC and Compute Module posture through `FoundryByocImageReport`,
-        `FoundryComputeModuleSurface`, and `FoundryComputeModuleReadinessReport`, keeping Compute
-        Modules blocked until CG-23 API/security/package evidence exists.
-  - [ ] Add `FoundryGovernanceBoundaryReport` for markings, organizations, inherited markings,
-        certificate visibility, redaction, export policy, agent visibility, and artifact safety.
-  - [ ] Add `FoundryMarketplaceStarterProduct` as an adoption artifact with Conda dependency
-        instructions, smoke transform, benchmark transform, certificate output dataset, Data
-        Expectations bridge, optional virtual-table staging example, optional external-compute
-        baseline example, optional Compute Module API example, schedule, and docs.
-  - [ ] Add Foundry benchmark schema and lanes that label ShardLoom lightweight, Polars lightweight,
-        DataFusion/DuckDB baseline, Spark distributed, and Snowflake/Databricks/BigQuery pushdown
-        rows separately with compute mode, materialization boundary, certificates, correctness
-        digest, and versions.
-  - [ ] Preserve the central Foundry rule: virtual tables and external compute are first-class
-        workflow handles and comparison boundaries, but ShardLoom-native execution requires
-        staged/native data plus certificates; no Snowflake/Databricks/BigQuery/Spark/Foundry compute
-        pushdown may be reported as ShardLoom execution.
+  - Outcome: make Foundry an optional integration pack with certificate-aware staging and proof
+    surfaces, not a new core execution engine and not a shortcut around ShardLoom-native evidence.
+  - Slice rule: group Foundry work by usable platform lane. Each slice must include package posture,
+    report schemas, example or smoke evidence, and explicit no-fallback/external-compute boundaries.
+  - Runtime rule: Foundry virtual tables and external compute are workflow handles, baselines,
+    or migration/oracle references. ShardLoom-native execution still requires staged/native data plus
+    certificates; no Snowflake/Databricks/BigQuery/Spark/Foundry compute pushdown may be reported as
+    ShardLoom execution.
+  - [ ] P9.1 Foundry package, execution context, and maturity ladder bundle.
+    - User-visible surface: `shardloom-foundry` helper package posture, deterministic
+      `SHARDLOOM_BIN` resolution, Foundry transform metadata capture, input/output RID capture,
+      certificate output writing, benchmark metrics writing, staging/materialization reports, and
+      no-fallback propagation without adding execution semantics.
+    - Acceptance: the Foundry maturity ladder covers `F0` declared only through `F10`
+      workload-certified deployment; `FoundryExecutionContext`, `FoundryDatasetTransactionReport`,
+      `FoundryBranchContextReport`, `FoundryPreviewModeReport`, and
+      `FoundryReleaseReadinessReport` identify transform, branch, preview/build/incremental mode,
+      transactions, package versions, workload constitution, and expected evidence.
+    - Verification: package-resolution smoke, maturity matrix snapshots, transform metadata fixtures,
+      and no-execution/no-fallback policy tests.
+  - [ ] P9.2 dataset source/sink staging, certificate output, and incremental run bundle.
+    - User-visible surface: `FoundryDatasetSource`, `FoundryDatasetSink`,
+      `FoundryCertificateOutput`, and `FoundryIncrementalRunReport` for staged local files,
+      table-compatible outputs, certificate/metrics datasets, optional Vortex artifact sidecars,
+      materialization/fidelity reports, commit/recovery status, and batch/live/hybrid evidence
+      alignment.
+    - Acceptance: Foundry incremental builds are aligned with ShardLoom evidence but are not treated
+      as live/hybrid certification by themselves; all sources/sinks keep `fallback_attempted=false`
+      and explicit materialization policy.
+    - Verification: source/sink schema snapshots, certificate-output fixtures, incremental evidence
+      fixtures, commit/recovery blocker tests, and package smoke.
+  - [ ] P9.3 Data Health, lineage, governance, and platform boundary bundle.
+    - User-visible surface: `FoundryDataHealthBridge`, Data Expectations mapping,
+      `FoundryLineageFacet`, `FoundryScheduleBuildReport`, `FoundryDataConnectionBoundaryReport`,
+      and `FoundryGovernanceBoundaryReport`.
+    - Acceptance: reports cover certificate presence, no-fallback status, Native I/O evidence,
+      schema digest, output row requirements, data-quality checks, materialization policy,
+      benchmark-claim blockers, datasets, virtual tables, media sets, artifacts, schedules, syncs,
+      exports, webhooks, external transforms, credential refs, egress policy, markings,
+      organizations, inherited markings, certificate visibility, redaction, export policy, agent
+      visibility, and artifact safety.
+    - Verification: data-health fixtures, lineage/governance snapshots, redaction checks,
+      credential-reference assertions, and no-egress diagnostics.
+  - [ ] P9.4 virtual table, S3/Iceberg/media, and external-compute boundary bundle.
+    - User-visible surface: `FoundryS3DatasetAdapter`, `FoundryVirtualTableSource`,
+      `FoundryVirtualTableSink`, `FoundryVirtualTableRef`, `FoundryExternalComputeBoundaryReport`,
+      `FoundryIcebergTableSource`, `FoundryIcebergTableSink`, `FoundryMediaSetSource`, and
+      `FoundryMediaSetSink`.
+    - Acceptance: S3-compatible dataset access records dataset RID, branch, object key, range-read
+      support, multipart/write posture, bytes/request counts, credential mode, and Native I/O
+      certificates. Virtual tables for Snowflake, Databricks, BigQuery, S3, ADLS, GCS, Iceberg, and
+      similar systems are governed external handles with metadata, staging, update-detection,
+      security, and materialization policy. External compute pushdown is classified as baseline,
+      oracle, migration reference, or prohibited fallback, never ShardLoom-native execution. Media
+      sources/sinks declare MIME/schema, OCR/extraction/model/materialization boundaries,
+      provenance/confidence, incremental media status, redaction, and no silent OCR/transcription/
+      embedding/model calls.
+    - Verification: external-boundary matrix snapshots, materialization/fidelity assertions,
+      credential-mode fixtures, media no-silent-model-call tests, and no-fallback policy checks.
+  - [ ] P9.5 ontology/functions/model, Compute Module/BYOC, marketplace, and benchmark bundle.
+    - User-visible surface: `FoundryOntologyMappingReport`, `FoundryFunctionSurface`,
+      `FoundryAipLogicBridge`, `FoundryModelBoundaryReport`, `FoundryScenarioBoundaryReport`,
+      `FoundryByocImageReport`, `FoundryComputeModuleSurface`,
+      `FoundryComputeModuleReadinessReport`, `FoundryMarketplaceStarterProduct`, and Foundry
+      benchmark schema.
+    - Acceptance: Compute Modules remain blocked until CG-23 API/security/package evidence exists;
+      Marketplace starter product includes Conda dependency instructions, smoke transform, benchmark
+      transform, certificate output dataset, Data Expectations bridge, optional virtual-table staging
+      example, optional external-compute baseline example, optional Compute Module API example,
+      schedule, and docs. Benchmarks label ShardLoom lightweight, Polars lightweight,
+      DataFusion/DuckDB baseline, Spark distributed, and Snowflake/Databricks/BigQuery pushdown rows
+      separately with compute mode, materialization boundary, certificates, correctness digest, and
+      versions.
+    - Verification: marketplace fixture smoke, benchmark schema snapshots, model/function boundary
+      tests, Compute Module blocker snapshots, and release-readiness policy checks.
 
 ## Completed
 

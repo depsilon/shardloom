@@ -102,9 +102,9 @@ stores, touch catalogs, execute SQL, or invoke external engines. The explicit
 commands and preserve no-fallback status.
 
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
-batch path when allowed; `live` now selects the CG-22 in-memory fixture path for
-bounded/unbounded change streams, while `hybrid` still returns structured
-rejection reasons until delta-overlay, micro-segment, and layout evidence exists:
+batch path when allowed; `live` selects the CG-22 in-memory fixture path for
+bounded/unbounded change streams; `hybrid` selects the CG-22 declared Vortex-base
+plus in-memory hot-delta fixture for snapshot/bounded base overlays:
 
 ```python
 import shardloom as sl
@@ -125,10 +125,10 @@ print(matrix.engine_modes)
 print(matrix.live_hybrid_claim_blocked_count)
 ```
 
-These calls do not execute live or hybrid workloads, probe brokers, write
-checkpoints, invoke external engines, or attempt fallback. They expose the same
-CG-22 contract as `shardloom engine-selection-plan`,
-`shardloom engine-capability-matrix`, and `shardloom capabilities engines`.
+These calls do not execute workloads, probe brokers, write checkpoints, invoke
+external engines, or attempt fallback. They expose the same CG-22 contract as
+`shardloom engine-selection-plan`, `shardloom engine-capability-matrix`, and
+`shardloom capabilities engines`.
 
 The executable live surface is intentionally narrower: a deterministic
 in-memory fixture for filter, project, count, count_where, and group_count. It
@@ -151,6 +151,27 @@ Equivalent CLI commands:
 ```powershell
 shardloom live-change-contract-plan --format json
 shardloom live-fixture-run group-count metric --format json
+```
+
+The executable hybrid surface is also fixture-scoped. It merges declared local
+Vortex base rows with deterministic hot deltas, applies tombstones/deletion
+vectors in memory, and emits delta-overlay, hot/cold contribution,
+micro-segment flush, layout-health, freshness, execution, and Native I/O
+evidence without reading or writing data:
+
+```python
+hybrid = sl.context(engine="hybrid").hybrid_overlay_run("group-count", "metric")
+
+print(hybrid.output_rows)
+print(hybrid.layout_health_status)
+print(hybrid.all_certified)
+print(hybrid.write_io)
+```
+
+Equivalent CLI command:
+
+```powershell
+shardloom hybrid-overlay-run group-count metric --format json
 ```
 
 Lazy workflow planning is also available without adding pandas, Polars, Spark,

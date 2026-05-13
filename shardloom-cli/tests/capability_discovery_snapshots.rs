@@ -569,7 +569,12 @@ fn engine_capability_discovery_exposes_cg22_contract_without_runtime_claims() {
         "live_support_status",
         "partially_supported"
     )));
-    assert!(output.contains(&string_field_pair("hybrid_support_status", "planned")));
+    assert!(output.contains(&string_field_pair(
+        "hybrid_support_status",
+        "partially_supported"
+    )));
+    assert!(output.contains(&string_field_pair("partially_supported_engine_count", "3")));
+    assert!(output.contains(&string_field_pair("planned_engine_count", "0")));
     assert!(output.contains(&field_pair("batch_production_claim_allowed", false)));
     assert!(output.contains(&field_pair("live_production_claim_allowed", false)));
     assert!(output.contains(&field_pair("hybrid_production_claim_allowed", false)));

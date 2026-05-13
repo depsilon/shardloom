@@ -298,6 +298,28 @@ impl EngineSelectionRequest {
                 | OutputMode::ContinuousView
         )
     }
+
+    #[must_use]
+    pub const fn hybrid_fixture_compatible(&self) -> bool {
+        matches!(
+            self.boundedness,
+            Boundedness::Bounded | Boundedness::Snapshot
+        ) && matches!(
+            self.update_mode,
+            UpdateMode::AppendOnly
+                | UpdateMode::Upsert
+                | UpdateMode::Delete
+                | UpdateMode::Retract
+                | UpdateMode::Tombstone
+                | UpdateMode::Changelog
+        ) && matches!(
+            self.output_mode,
+            OutputMode::Snapshot
+                | OutputMode::Update
+                | OutputMode::Changelog
+                | OutputMode::ContinuousView
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -323,6 +345,7 @@ impl EngineSelectionReport {
     pub fn evaluate(request: EngineSelectionRequest) -> Self {
         let batch_allowed = request.batch_compatible();
         let live_allowed = request.live_fixture_compatible();
+        let hybrid_allowed = request.hybrid_fixture_compatible();
         let mut allowed_modes = Vec::new();
         let mut rejection_reasons = Vec::new();
 
@@ -332,13 +355,18 @@ impl EngineSelectionReport {
         if live_allowed {
             allowed_modes.push(EngineMode::Live);
         }
+        if hybrid_allowed {
+            allowed_modes.push(EngineMode::Hybrid);
+        }
 
         append_batch_compatibility_reasons(&request, &mut rejection_reasons);
         append_live_fixture_compatibility_reasons(&request, &mut rejection_reasons);
+        append_hybrid_fixture_compatibility_reasons(&request, &mut rejection_reasons);
 
         let selected = match request.requested {
             EngineMode::Batch | EngineMode::Auto if batch_allowed => Some(EngineMode::Batch),
             EngineMode::Live | EngineMode::Auto if live_allowed => Some(EngineMode::Live),
+            EngineMode::Hybrid | EngineMode::Auto if hybrid_allowed => Some(EngineMode::Hybrid),
             _ => None,
         };
 
@@ -698,21 +726,26 @@ fn live_row() -> EngineCapabilityRow {
 fn hybrid_row() -> EngineCapabilityRow {
     EngineCapabilityRow {
         engine_mode: EngineMode::Hybrid,
-        support_status: EngineSupportStatus::Planned,
+        support_status: EngineSupportStatus::PartiallySupported,
         operator_support: vec![
-            "base_plus_delta_filter_planned",
-            "base_plus_delta_project_planned",
-            "base_plus_delta_count_planned",
-            "base_plus_delta_group_count_planned",
+            "fixture_base_plus_delta_filter",
+            "fixture_base_plus_delta_project",
+            "fixture_base_plus_delta_count",
+            "fixture_base_plus_delta_count_where",
+            "fixture_base_plus_delta_group_count",
         ],
-        function_support: vec!["count_planned", "group_count_planned"],
-        source_support: vec!["local_vortex_base_planned", "fixture_hot_delta_planned"],
-        sink_support: vec!["vortex_micro_segment_planned", "delta_overlay_planned"],
-        bounded_snapshot_support: false,
-        append_only_stream_support: false,
-        upsert_delete_tombstone_support: false,
-        changelog_support: false,
-        continuous_materialized_view_support: false,
+        function_support: vec!["count", "group_count"],
+        source_support: vec!["declared_local_vortex_base", "in_memory_hot_delta_fixture"],
+        sink_support: vec![
+            "in_memory_delta_overlay",
+            "planned_vortex_micro_segment_flush",
+            "hybrid_layout_health_bundle",
+        ],
+        bounded_snapshot_support: true,
+        append_only_stream_support: true,
+        upsert_delete_tombstone_support: true,
+        changelog_support: true,
+        continuous_materialized_view_support: true,
         global_sort_supported: false,
         unbounded_join_supported: false,
         state_required: true,
@@ -725,11 +758,11 @@ fn hybrid_row() -> EngineCapabilityRow {
         ],
         production_claim_allowed: false,
         blockers: vec![
-            "delta_overlay_certificate",
-            "hot_cold_contribution_report",
-            "micro_segment_flush_evidence",
-            "freshness_certificate",
-            "state_checkpoint_certificate",
+            "durable_micro_segment_flush_writes",
+            "object_store_commit_protocol",
+            "external_catalog_snapshot_discovery",
+            "workload_correctness_evidence",
+            "benchmark_evidence",
         ],
     }
 }
@@ -799,6 +832,47 @@ fn append_live_fixture_compatibility_reasons(
     }
 }
 
+fn append_hybrid_fixture_compatibility_reasons(
+    request: &EngineSelectionRequest,
+    rejection_reasons: &mut Vec<String>,
+) {
+    if !matches!(
+        request.boundedness,
+        Boundedness::Bounded | Boundedness::Snapshot
+    ) {
+        rejection_reasons.push(
+            "hybrid fixture requires bounded or snapshot base input plus hot delta changes"
+                .to_string(),
+        );
+    }
+    if !matches!(
+        request.update_mode,
+        UpdateMode::AppendOnly
+            | UpdateMode::Upsert
+            | UpdateMode::Delete
+            | UpdateMode::Retract
+            | UpdateMode::Tombstone
+            | UpdateMode::Changelog
+    ) {
+        rejection_reasons.push(
+            "hybrid fixture requires append/upsert/delete/retract/tombstone/changelog hot delta update modes"
+                .to_string(),
+        );
+    }
+    if !matches!(
+        request.output_mode,
+        OutputMode::Snapshot
+            | OutputMode::Update
+            | OutputMode::Changelog
+            | OutputMode::ContinuousView
+    ) {
+        rejection_reasons.push(
+            "hybrid fixture requires snapshot/update/changelog/continuous-view output modes"
+                .to_string(),
+        );
+    }
+}
+
 fn append_requested_engine_rejection(
     request: &EngineSelectionRequest,
     rejection_reasons: &mut Vec<String>,
@@ -810,7 +884,7 @@ fn append_requested_engine_rejection(
                 .to_string(),
         ),
         EngineMode::Hybrid => rejection_reasons.push(
-            "hybrid engine is planned but blocked until delta-overlay, hot/cold contribution, micro-segment flush, state, checkpoint, and freshness evidence exists"
+            "hybrid engine is only partially supported for CG-22 fixture base-plus-hot-delta overlays; the requested workload contract is outside that support"
                 .to_string(),
         ),
     }
@@ -896,28 +970,25 @@ mod tests {
     }
 
     #[test]
-    fn hybrid_is_rejected_until_overlay_flush_and_freshness_evidence_exists() {
+    fn hybrid_fixture_workloads_select_hybrid_without_fallback() {
         let hybrid = EngineSelectionReport::evaluate(EngineSelectionRequest::new(
             EngineMode::Hybrid,
             Boundedness::Snapshot,
             UpdateMode::Upsert,
             OutputMode::ContinuousView,
         ));
-        assert_eq!(hybrid.status, EngineSelectionStatus::Rejected);
-        assert!(
-            hybrid
-                .rejection_reason_text()
-                .contains("hybrid engine is planned")
-        );
+        assert_eq!(hybrid.status, EngineSelectionStatus::Selected);
+        assert_eq!(hybrid.selected, Some(EngineMode::Hybrid));
         assert!(!hybrid.external_engine_invoked);
+        assert!(hybrid.diagnostics().is_empty());
     }
 
     #[test]
     fn capability_matrix_separates_batch_live_and_hybrid_support() {
         let matrix = EngineCapabilityMatrixReport::cg22_contract();
         assert_eq!(matrix.rows.len(), 3);
-        assert_eq!(matrix.partially_supported_count(), 2);
-        assert_eq!(matrix.planned_count(), 1);
+        assert_eq!(matrix.partially_supported_count(), 3);
+        assert_eq!(matrix.planned_count(), 0);
         assert_eq!(matrix.live_hybrid_claim_blocked_count(), 2);
         assert!(
             matrix
@@ -928,6 +999,7 @@ mod tests {
         assert!(matrix.row(EngineMode::Live).unwrap().state_required);
         assert!(matrix.row(EngineMode::Live).unwrap().changelog_support);
         assert!(matrix.row(EngineMode::Hybrid).unwrap().checkpoint_required);
+        assert!(matrix.row(EngineMode::Hybrid).unwrap().changelog_support);
         assert!(!matrix.fallback_attempted());
         assert!(!matrix.external_engine_invoked);
     }
