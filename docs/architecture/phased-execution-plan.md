@@ -147,6 +147,22 @@ threads. Before release readiness, re-query PR #360 and up, classify each still-
 as fixed, stale, intentionally deferred, or still actionable, and resolve/comment only with evidence
 from the merged code and tests.
 
+- [x] Codex review finding from PR #534 thread `PRRT_kwDOSScs_c6BxJU1`
+      (`shardloom-exec/src/lib.rs:500`): `ShardLoomExecutionResult::to_output_envelope()` emits
+      lifecycle status from the stored `lifecycle_status`, but Vortex provider bridge paths can
+      mutate `result.status` after construction, allowing typed `execution_status` and
+      `lifecycle.lifecycle_status` to disagree. Fix by deriving lifecycle status from current
+      `status` at render/evidence-slot time or by using a status setter that updates both fields;
+      add a regression test for post-construction status mutation. Resolved in the current P7.4.4
+      branch by deriving lifecycle status from current status when rendering evidence slots and
+      typed envelopes.
+- [x] Codex review finding from PR #534 thread `PRRT_kwDOSScs_c6BxJU7`
+      (`python/src/shardloom/client.py:993`): `ExecutionResultEnvelopeView.external_engine_invoked`
+      reads only legacy `fields`, while Rust typed envelopes write the value under
+      `policy.external_engine_invoked`. Fix with typed-policy boolean lookup plus legacy fallback
+      and add a Python client regression test for typed-policy-only external engine evidence.
+      Resolved in the current P7.4.4 branch by reading typed policy first.
+
 - [ ] Priority 7.4 - claim-grade compute-engine completion
   - Outcome: close the gap between executable/report-backed local paths and a claim-grade
     ShardLoom compute engine, without broad SQL/DataFrame/product claims.
@@ -173,6 +189,17 @@ from the merged code and tests.
     - User-visible surface: benchmark taxonomy coverage that is executable enough to validate
       common compute-engine workload shapes, plus measured source-backed rows for eligible prepared,
       source-bound, and reader-backed encoded filter/projection/filter-project paths.
+    - Completed sub-slice pending ledger move after merge: deterministic fixture-smoke measured
+      rows now populate all 15 eligible prepared/source-bound/reader-backed constant/dictionary/
+      run-end encoded filter/projection/filter-project matrix rows with provider metadata,
+      timing/counts, certificate refs, Native I/O refs, representation transitions,
+      reproducibility refs, and no-fallback evidence while keeping performance claims blocked. The
+      local analytics generator now executes additional wide, very-wide, null-heavy,
+      date-partitioned, poorly clustered, and well-clustered dataset profiles.
+    - Remaining taxonomy gap: many-small/few-large file generation, schema-drift/dirty CSV/nested
+      JSON/CDC overlay fixtures, write/incremental scenario execution, partition-pruning and
+      top-N-per-group coverage rows, and promotion from fixture-smoke measurements to reproducible
+      comparative benchmark rows.
     - Acceptance: add executable dataset profiles such as wide/very-wide tables, null-heavy data,
       many-small/few-large files, date partitioning, clustered/unclustered layouts, schema drift,
       dirty CSV, nested JSON, and CDC delta overlay where supported. Add executable scenarios for

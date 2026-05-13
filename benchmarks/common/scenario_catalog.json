@@ -66,7 +66,7 @@
       "default": true,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys", "null_heavy", "partitioned_by_date", "well_clustered", "poorly_clustered"],
       "description": "Read fact rows and aggregate a basic metric."
     },
     {
@@ -77,7 +77,7 @@
       "default": true,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys", "null_heavy", "partitioned_by_date", "well_clustered", "poorly_clustered"],
       "description": "Apply a selective flag/value predicate and aggregate the surviving rows."
     },
     {
@@ -88,7 +88,7 @@
       "default": false,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys", "wide_table", "very_wide_table", "null_heavy", "partitioned_by_date", "well_clustered", "poorly_clustered"],
       "description": "Filter rows, project a narrow output, order deterministically, and limit."
     },
     {
@@ -99,7 +99,7 @@
       "default": true,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "wide_table"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "wide_table", "very_wide_table", "null_heavy", "partitioned_by_date"],
       "description": "Project a subset of columns from the fact table."
     },
     {
@@ -110,7 +110,7 @@
       "default": true,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys", "null_heavy", "partitioned_by_date", "well_clustered", "poorly_clustered"],
       "description": "Group fact rows by a low-cardinality key."
     },
     {
@@ -121,7 +121,7 @@
       "default": false,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys", "high_cardinality_strings", "null_heavy", "well_clustered", "poorly_clustered"],
       "description": "Group fact rows by both group key and category."
     },
     {
@@ -132,7 +132,7 @@
       "default": true,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "high_cardinality_strings"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "high_cardinality_strings", "null_heavy", "wide_table", "very_wide_table"],
       "description": "Count distinct fact categories."
     },
     {
@@ -143,7 +143,7 @@
       "default": true,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys", "partitioned_by_date", "well_clustered", "poorly_clustered"],
       "description": "Join fact and dimension rows, then aggregate by dimension label."
     },
     {
@@ -154,7 +154,7 @@
       "default": false,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys", "partitioned_by_date", "well_clustered", "poorly_clustered"],
       "description": "Join fact and dimension rows, filter, and aggregate by dimension label and category."
     },
     {
@@ -165,7 +165,7 @@
       "default": true,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "wide_table", "very_wide_table", "well_clustered", "poorly_clustered"],
       "description": "Sort by metric and return the top rows."
     },
     {
@@ -176,7 +176,7 @@
       "default": false,
       "stress": false,
       "executable": true,
-      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys", "null_heavy", "well_clustered", "poorly_clustered"],
       "description": "Rank rows within each group and return the top row per group."
     },
     {
@@ -187,7 +187,7 @@
       "default": false,
       "stress": true,
       "executable": true,
-      "dataset_profiles": ["skewed_keys", "narrow_fact_dim"],
+      "dataset_profiles": ["skewed_keys", "narrow_fact_dim", "poorly_clustered"],
       "description": "Opt-in shuffle-heavy skewed join aggregation."
     },
     {
@@ -198,7 +198,7 @@
       "default": false,
       "stress": true,
       "executable": true,
-      "dataset_profiles": ["skewed_keys", "narrow_fact_dim"],
+      "dataset_profiles": ["skewed_keys", "narrow_fact_dim", "poorly_clustered", "well_clustered"],
       "description": "Opt-in multi-stage ETL-style join/filter/aggregate workload."
     },
     {

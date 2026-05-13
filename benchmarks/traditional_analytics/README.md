@@ -141,9 +141,11 @@ floating-point aggregation orders while preserving the two-decimal source metric
 precision used by the deterministic dataset.
 
 The generated dataset profile defaults to `narrow_fact_dim`. The runnable harness currently
-supports `tiny_smoke`, `narrow_fact_dim`, `skewed_keys`, and `high_cardinality_strings`; additional
-profiles such as `wide_table`, `null_heavy`, `many_small_files`, and `dirty_csv` remain declared in
-the catalog until their fixture generation and engine-specific behavior are implemented.
+supports `tiny_smoke`, `narrow_fact_dim`, `skewed_keys`, `high_cardinality_strings`, `wide_table`,
+`very_wide_table`, `null_heavy`, `partitioned_by_date`, `poorly_clustered`, and
+`well_clustered`; additional profiles such as `many_small_files`, `few_large_files`,
+`schema_drift`, `dirty_csv`, `nested_json`, and `cdc_delta_overlay` remain declared in the catalog
+until their fixture generation and engine-specific behavior are implemented.
 
 ShardLoom traditional analytics rows call the workspace-local native Rust
 command `shardloom traditional-analytics-run`. Build time is excluded from

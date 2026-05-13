@@ -241,6 +241,50 @@ class ShardLoomClientTests(unittest.TestCase):
             "native_io_certificate_refs",
         )
 
+    def test_execution_result_view_reads_external_engine_from_typed_policy(self) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "top-level-exec",
+                "status": "unsupported",
+                "summary": "blocked",
+                "human_text": "blocked",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {
+                    "fields": [
+                        {"key": "plan_id", "value": "plan.blocked"},
+                        {"key": "execution_status", "value": "blocked_unsupported"},
+                    ]
+                },
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {
+                    "fields": [
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "true"},
+                    ]
+                },
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {"key": "plan_id", "value": "plan.blocked"},
+                    {"key": "execution_status", "value": "blocked_unsupported"},
+                ],
+            }
+        )
+
+        result = ExecutionResultEnvelopeView(envelope)
+
+        self.assertTrue(result.external_engine_invoked)
+
     def test_v2_envelopes_require_typed_payload_slots(self) -> None:
         payload = {
             "schema_version": "shardloom.output.v2",

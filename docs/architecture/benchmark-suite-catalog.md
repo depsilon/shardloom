@@ -58,12 +58,19 @@ tiny_smoke
 narrow_fact_dim
 skewed_keys
 high_cardinality_strings
+wide_table
+very_wide_table
+null_heavy
+partitioned_by_date
+poorly_clustered
+well_clustered
 ```
 
-Other catalog profiles such as `wide_table`, `null_heavy`, `many_small_files`, and `dirty_csv`
-remain declared future coverage until their fixtures and engine-specific behavior are implemented.
-The catalog intentionally includes future non-executable ETL, messy-data, and incremental/state
-scenarios so coverage gaps are visible without pretending the local runner can execute them.
+Other catalog profiles such as `many_small_files`, `few_large_files`, `schema_drift`,
+`dirty_csv`, `nested_json`, and `cdc_delta_overlay` remain declared future coverage until their
+fixtures and engine-specific behavior are implemented. The catalog intentionally includes future
+non-executable ETL, messy-data, and incremental/state scenarios so coverage gaps are visible
+without pretending the local runner can execute them.
 
 ## Code Surfaces
 
@@ -86,9 +93,11 @@ The Vortex crate owns the source-backed matrix:
 ```text
 SourceBackedBenchmarkMatrixReport
 SourceBackedBenchmarkMatrixRow
+SourceBackedBenchmarkMeasuredRow
 SourceBackedBenchmarkLane
 SourceBackedBenchmarkOperation
 SourceBackedBenchmarkRowStatus
+measure_source_backed_benchmark_matrix_smoke
 ```
 
 ## Source-Backed Matrix Rows
@@ -131,6 +140,35 @@ benchmark row ref
 Rust performance profile
 no-fallback evidence
 ```
+
+The report-only `current()` / `plan_source_backed_benchmark_matrix()` path remains non-executing
+and claim-blocking. P7.4.4 also adds `measure_source_backed_benchmark_matrix_smoke()`, which
+executes deterministic in-memory Vortex-encoded fixture rows for the eligible matrix lanes and
+records:
+
+```text
+benchmark_row_ref
+elapsed_nanos
+row_count
+selected_or_projected_count
+provider kind/API/version
+source refs
+split refs
+representation transitions
+residual_executor=none
+execution certificate refs
+Native I/O certificate refs and path refs
+correctness refs
+benchmark constitution
+reproducibility ref
+external_engine_invoked=false
+fallback_attempted=false
+performance_claim_allowed=false
+```
+
+The measured smoke rows are fixture evidence only. They populate the source-backed benchmark matrix
+rows for local reproducibility and coverage accounting, but they still do not permit source-backed
+performance or production claims.
 
 Blocked rows require:
 
@@ -247,15 +285,28 @@ They are not benchmark dependencies, not default benchmark lanes, and never fall
 
 ## Claim Status
 
-This pass populates the matrix and suite catalog. It does not execute the comparative benchmarks and
-does not publish performance claims.
+The suite catalog, executable local analytics taxonomy, and source-backed matrix are populated. The
+default source-backed matrix path remains report-only. The explicit smoke measurement path populates
+fixture benchmark rows for eligible prepared/source-bound/reader-backed encoded rows. It does not
+execute comparative benchmarks and does not publish performance claims.
 
-`SourceBackedBenchmarkMatrixReport` keeps:
+`plan_source_backed_benchmark_matrix()` keeps:
 
 ```text
 measured_benchmark_rows_present=false
 source_backed_claim_closeout_allowed=false
 benchmark_execution_performed=false
+external_engine_invoked=false
+fallback_attempted=false
+```
+
+`measure_source_backed_benchmark_matrix_smoke()` records:
+
+```text
+measured_benchmark_rows_present=true
+benchmark_execution_performed=true
+measured_row_count=15
+source_backed_claim_closeout_allowed=false
 external_engine_invoked=false
 fallback_attempted=false
 ```

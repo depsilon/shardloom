@@ -990,6 +990,13 @@ class ExecutionResultEnvelopeView:
     def external_engine_invoked(self) -> bool:
         """Whether execution invoked an external engine."""
 
+        typed_policy = _typed_payload_field_bool(
+            self.envelope.policy,
+            "external_engine_invoked",
+            None,
+        )
+        if typed_policy is not None:
+            return typed_policy is True
         return self.envelope.field_bool("external_engine_invoked", False) is True
 
 
@@ -3501,6 +3508,10 @@ def _artifact_payload_field_map(artifact: Mapping[str, Any]) -> dict[str, str]:
     payload = artifact.get("payload")
     if not isinstance(payload, Mapping):
         return {}
+    return _typed_payload_field_map(payload)
+
+
+def _typed_payload_field_map(payload: Mapping[str, Any]) -> dict[str, str]:
     fields = payload.get("fields")
     if not isinstance(fields, list):
         return {}
@@ -3509,6 +3520,22 @@ def _artifact_payload_field_map(artifact: Mapping[str, Any]) -> dict[str, str]:
         if isinstance(field, Mapping):
             out[str(field.get("key", ""))] = str(field.get("value", ""))
     return out
+
+
+def _typed_payload_field_bool(
+    payload: Mapping[str, Any],
+    key: str,
+    default: bool | None = None,
+) -> bool | None:
+    value = _typed_payload_field_map(payload).get(key)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    raise ValueError(f"typed payload field {key!r} is not a boolean value: {value!r}")
 
 
 def _compatibility_source_items(

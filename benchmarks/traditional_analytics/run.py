@@ -46,6 +46,12 @@ GENERATED_DATASET_PROFILES = (
     "narrow_fact_dim",
     "skewed_keys",
     "high_cardinality_strings",
+    "wide_table",
+    "very_wide_table",
+    "null_heavy",
+    "partitioned_by_date",
+    "poorly_clustered",
+    "well_clustered",
 )
 SCENARIO_ORDER = (
     "csv/file ingest",
@@ -286,7 +292,7 @@ def parse_args() -> argparse.Namespace:
         "--dataset-profile",
         default=DEFAULT_DATASET_PROFILE,
         choices=GENERATED_DATASET_PROFILES,
-        help="Generated local dataset profile. The broader catalog declares additional future profiles, but the runnable harness currently generates this supported subset.",
+        help="Generated local dataset profile. The broader catalog still declares future profiles that require additional runner support.",
     )
     parser.add_argument(
         "--include-taxonomy-extra",
@@ -422,11 +428,13 @@ def ensure_dataset(
     if regenerate and root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True, exist_ok=True)
+    fact_extra_columns = generated_fact_extra_columns(dataset_profile)
     expected_metadata = {
         "rows": rows,
         "dim_rows": dim_rows,
-        "schema_version": 4,
+        "schema_version": 5,
         "dataset_profile": dataset_profile,
+        "fact_extra_columns": list(fact_extra_columns),
         "formats": sorted(requested_formats),
     }
     required_paths = [fact_csv, dim_csv]
@@ -466,13 +474,24 @@ def ensure_dataset(
 
     with fact_csv.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["id", "group_key", "dim_key", "value", "metric", "flag", "category"])
+        fact_columns = [
+            "id",
+            "group_key",
+            "dim_key",
+            "value",
+            "metric",
+            "flag",
+            "category",
+            *fact_extra_columns,
+        ]
+        writer.writerow(fact_columns)
         for idx in range(rows):
             group_key = generated_group_key(idx, dataset_profile)
             dim_key = generated_dim_key(idx, dim_rows, dataset_profile)
             value = (idx * 17) % 10_000
             metric = ((idx * 13) % 100_000) / 100.0
             flag = 1 if idx % 7 == 0 else 0
+            category = generated_category(idx, group_key, dataset_profile)
             writer.writerow(
                 [
                     idx,
@@ -481,7 +500,18 @@ def ensure_dataset(
                     value,
                     f"{metric:.2f}",
                     flag,
-                    generated_category(idx, group_key, dataset_profile),
+                    category,
+                    *generated_extra_fact_values(
+                        idx,
+                        group_key,
+                        dim_key,
+                        value,
+                        metric,
+                        flag,
+                        category,
+                        dataset_profile,
+                        fact_extra_columns,
+                    ),
                 ]
             )
 
@@ -534,12 +564,20 @@ def ensure_dataset(
 def generated_group_key(idx: int, dataset_profile: str) -> int:
     if dataset_profile == "skewed_keys":
         return 0 if idx % 10 < 7 else idx % 100
+    if dataset_profile == "well_clustered":
+        return (idx // 32) % 100
+    if dataset_profile == "poorly_clustered":
+        return (idx * 37) % 100
     return idx % 100
 
 
 def generated_dim_key(idx: int, dim_rows: int, dataset_profile: str) -> int:
     if dataset_profile == "skewed_keys":
         return 0 if idx % 10 < 6 else idx % dim_rows
+    if dataset_profile == "well_clustered":
+        return (idx // 32) % dim_rows
+    if dataset_profile == "poorly_clustered":
+        return (idx * 7919) % dim_rows
     return idx % dim_rows
 
 
@@ -547,6 +585,67 @@ def generated_category(idx: int, group_key: int, dataset_profile: str) -> str:
     if dataset_profile == "high_cardinality_strings":
         return f"c{idx % 10_000}"
     return f"c{group_key % 10}"
+
+
+def generated_fact_extra_columns(dataset_profile: str) -> tuple[str, ...]:
+    if dataset_profile == "wide_table":
+        return tuple(f"extra_metric_{index:02d}" for index in range(16))
+    if dataset_profile == "very_wide_table":
+        return tuple(f"extra_metric_{index:02d}" for index in range(64))
+    if dataset_profile == "null_heavy":
+        return tuple(f"nullable_metric_{index:02d}" for index in range(16)) + tuple(
+            f"nullable_category_{index:02d}" for index in range(4)
+        )
+    if dataset_profile == "partitioned_by_date":
+        return ("event_date", "partition_year", "partition_month")
+    if dataset_profile in {"poorly_clustered", "well_clustered"}:
+        return ("cluster_bucket", "event_date")
+    return ()
+
+
+def generated_extra_fact_values(
+    idx: int,
+    group_key: int,
+    dim_key: int,
+    value: int,
+    metric: float,
+    flag: int,
+    category: str,
+    dataset_profile: str,
+    fact_extra_columns: tuple[str, ...],
+) -> list[str]:
+    values = []
+    for column in fact_extra_columns:
+        if column.startswith("extra_metric_"):
+            column_index = int(column.rsplit("_", 1)[1])
+            values.append(f"{((idx + 1) * (column_index + 3)) % 100_000 / 100.0:.2f}")
+        elif column.startswith("nullable_metric_"):
+            column_index = int(column.rsplit("_", 1)[1])
+            if (idx + column_index) % 3 == 0:
+                values.append("")
+            else:
+                values.append(f"{(metric + column_index + (value % 17)):.2f}")
+        elif column.startswith("nullable_category_"):
+            column_index = int(column.rsplit("_", 1)[1])
+            values.append("" if (idx + column_index) % 4 == 0 else category)
+        elif column == "event_date":
+            values.append(generated_event_date(idx))
+        elif column == "partition_year":
+            values.append(generated_event_date(idx)[:4])
+        elif column == "partition_month":
+            values.append(generated_event_date(idx)[5:7])
+        elif column == "cluster_bucket":
+            cluster_source = group_key if dataset_profile == "well_clustered" else dim_key
+            values.append(str(cluster_source % 16))
+        else:
+            values.append("" if flag else str(value))
+    return values
+
+
+def generated_event_date(idx: int) -> str:
+    month = ((idx // 28) % 12) + 1
+    day = (idx % 28) + 1
+    return f"2024-{month:02d}-{day:02d}"
 
 
 def write_jsonl_copies(fact_csv: Path, dim_csv: Path, fact_jsonl: Path, dim_jsonl: Path) -> None:
@@ -575,11 +674,17 @@ def write_jsonl_copy(source_csv: Path, target_jsonl: Path, converters: dict[str,
         reader = csv.DictReader(source)
         with target_jsonl.open("w", encoding="utf-8") as target:
             for row in reader:
-                typed = {
-                    key: converters[key](value)
-                    for key, value in row.items()
-                    if key is not None and value is not None
-                }
+                typed = {}
+                for key, value in row.items():
+                    if key is None or value is None:
+                        continue
+                    converter = converters.get(key)
+                    if converter is None:
+                        typed[key] = None if value == "" else value
+                    elif value == "":
+                        typed[key] = None
+                    else:
+                        typed[key] = converter(value)
                 target.write(json.dumps(typed, separators=(",", ":")))
                 target.write("\n")
 
@@ -690,12 +795,13 @@ def write_avro_copy(
     schema: dict[str, Any],
     converters: dict[str, Callable[[str], Any]],
 ) -> None:
+    schema_fields = {field["name"] for field in schema["fields"]}
     with source_csv.open("r", newline="", encoding="utf-8") as source:
         records = [
             {
                 key: converters[key](value)
                 for key, value in row.items()
-                if key is not None and value is not None
+                if key in schema_fields and value is not None
             }
             for row in csv.DictReader(source)
         ]

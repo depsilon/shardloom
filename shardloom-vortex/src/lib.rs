@@ -137,7 +137,8 @@ pub use runtime_utilization::{
 };
 pub use source_backed_benchmark_matrix::{
     SourceBackedBenchmarkLane, SourceBackedBenchmarkMatrixReport, SourceBackedBenchmarkMatrixRow,
-    SourceBackedBenchmarkOperation, SourceBackedBenchmarkRowStatus,
+    SourceBackedBenchmarkMeasuredRow, SourceBackedBenchmarkOperation,
+    SourceBackedBenchmarkRowStatus, measure_source_backed_benchmark_matrix_smoke,
     plan_source_backed_benchmark_matrix,
 };
 pub use source_backed_encoded_execution::{
