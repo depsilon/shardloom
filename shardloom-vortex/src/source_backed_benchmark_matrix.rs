@@ -301,9 +301,12 @@ impl SourceBackedBenchmarkMatrixReport {
         ]
         .into_iter()
         .all(|operation| {
-            self.rows
-                .iter()
-                .any(|row| row.lane == lane && row.operation == operation)
+            self.rows.iter().any(|row| {
+                row.lane == lane
+                    && !row.lane.is_blocked()
+                    && row.operation == operation
+                    && row.status != SourceBackedBenchmarkRowStatus::BlockedUnsupported
+            })
         })
     }
 
@@ -455,6 +458,22 @@ mod tests {
         assert_eq!(report.executable_row_count, 15);
         assert_eq!(report.blocked_row_count, 4);
         assert!(report.benchmark_rows_required);
+    }
+
+    #[test]
+    fn required_matrix_coverage_rejects_blocked_required_lane_operations() {
+        let mut report = plan_source_backed_benchmark_matrix();
+        let row = report
+            .rows
+            .iter_mut()
+            .find(|row| {
+                row.lane == SourceBackedBenchmarkLane::SourceBoundEncoded
+                    && row.operation == SourceBackedBenchmarkOperation::FilterProject
+            })
+            .expect("required lane operation");
+        row.status = SourceBackedBenchmarkRowStatus::BlockedUnsupported;
+
+        assert!(!report.covers_required_plan_matrix());
     }
 
     #[test]

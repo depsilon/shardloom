@@ -579,6 +579,18 @@ fn rest_api_contract_fields(
 
 fn rest_api_discovery_fields(report: &RestApiDiscoveryModeReport) -> Vec<(String, String)> {
     let mut fields = rest_api_contract_fields(&report.contract_report, "rest_api_discovery_mode");
+    set_field(&mut fields, "schema_version", report.schema_version);
+    set_field(&mut fields, "report_id", report.report_id);
+    push_field(
+        &mut fields,
+        "contract_schema_version",
+        report.contract_report.schema_version,
+    );
+    push_field(
+        &mut fields,
+        "contract_report_id",
+        report.contract_report.report_id,
+    );
     push_field(
         &mut fields,
         "discovery_schema_version",
@@ -1739,10 +1751,58 @@ fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
     fields.push((key.to_string(), value.to_string()));
 }
 
+fn set_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
+    if let Some((_, existing_value)) = fields.iter_mut().find(|(name, _)| name == key) {
+        *existing_value = value.to_string();
+    } else {
+        push_field(fields, key, value);
+    }
+}
+
 fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize) {
     push_field(fields, key, &value.to_string());
 }
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     push_field(fields, key, &value.to_string());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rest_api_discovery_fields_keep_discovery_identity_canonical() {
+        let report = RestApiDiscoveryModeReport::contract_only("127.0.0.1:8787");
+        let fields = rest_api_discovery_fields(&report);
+
+        assert_eq!(
+            field_value(&fields, "schema_version"),
+            report.schema_version
+        );
+        assert_eq!(field_value(&fields, "report_id"), report.report_id);
+        assert_eq!(
+            field_value(&fields, "contract_schema_version"),
+            report.contract_report.schema_version
+        );
+        assert_eq!(
+            field_value(&fields, "contract_report_id"),
+            report.contract_report.report_id
+        );
+        assert_eq!(
+            field_value(&fields, "discovery_schema_version"),
+            report.schema_version
+        );
+        assert_eq!(
+            field_value(&fields, "discovery_report_id"),
+            report.report_id
+        );
+    }
+
+    fn field_value<'a>(fields: &'a [(String, String)], key: &str) -> &'a str {
+        fields.iter().find(|(name, _)| name == key).map_or_else(
+            || panic!("missing output field {key}"),
+            |(_, value)| value.as_str(),
+        )
+    }
 }

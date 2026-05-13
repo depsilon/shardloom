@@ -488,10 +488,7 @@ impl FreshnessCertificate {
             max_processing_time_ms,
             watermark_ms,
             freshness_lag_ms: max_processing_time_ms.saturating_sub(max_event_time_ms),
-            late_record_count: records
-                .iter()
-                .filter(|record| record.event_time_ms > watermark_ms)
-                .count(),
+            late_record_count: late_record_count_under_reject_past_watermark(records),
             fallback_attempted: false,
             external_engine_invoked: false,
         }
@@ -802,6 +799,21 @@ fn apply_change_records(records: &[ChangeRecord]) -> BTreeMap<String, ChangeReco
         }
     }
     state
+}
+
+fn late_record_count_under_reject_past_watermark(records: &[ChangeRecord]) -> usize {
+    let mut watermark_ms = 0_u64;
+    let mut late_record_count = 0_usize;
+
+    for record in records {
+        if record.event_time_ms < watermark_ms {
+            late_record_count += 1;
+        } else {
+            watermark_ms = record.event_time_ms;
+        }
+    }
+
+    late_record_count
 }
 
 fn execute_fixture_operator(
@@ -1126,6 +1138,7 @@ mod tests {
         assert_eq!(report.state_certificate.tombstone_count, 1);
         assert_eq!(report.freshness_certificate.watermark_ms, 10_000);
         assert_eq!(report.freshness_certificate.freshness_lag_ms, 500);
+        assert_eq!(report.freshness_certificate.late_record_count, 0);
         assert_eq!(
             report.continuous_view_certificate.output_mode,
             OutputChangelogMode::ContinuousView
@@ -1162,6 +1175,22 @@ mod tests {
             report.input_operation_order(),
             "append,append,append,upsert,append,retract,append,tombstone,append,delete"
         );
+    }
+
+    #[test]
+    fn live_freshness_counts_records_older_than_the_running_watermark() {
+        let records = vec![
+            ChangeRecord::fixture("a", ChangeOperation::Append, 1, 1_000, "east", 1),
+            ChangeRecord::fixture("b", ChangeOperation::Append, 2, 3_000, "west", 2),
+            ChangeRecord::fixture("c", ChangeOperation::Append, 3, 2_000, "east", 3),
+            ChangeRecord::fixture("d", ChangeOperation::Append, 4, 4_000, "north", 4),
+            ChangeRecord::fixture("e", ChangeOperation::Append, 5, 3_500, "south", 5),
+        ];
+
+        let certificate = FreshnessCertificate::from_records(&records);
+
+        assert_eq!(certificate.watermark_ms, 4_000);
+        assert_eq!(certificate.late_record_count, 2);
     }
 
     #[test]

@@ -582,6 +582,13 @@ fn result_from_prepared_filter_project_reports(
     result
         .native_io_certificate_refs
         .push(filter.native_io_certificate.certificate_id.clone());
+    result.representation_transitions.extend(
+        filter
+            .native_io_certificate
+            .representation_transitions
+            .iter()
+            .map(shardloom_core::NativeIoRepresentationTransition::transition_label),
+    );
     result.diagnostics.extend(filter.diagnostics.clone());
     result
 }
@@ -636,6 +643,14 @@ fn result_from_source_filter_project_reports(
             .certificate_id
             .clone(),
     );
+    result.representation_transitions.extend(
+        filter
+            .prepared_execution
+            .native_io_certificate
+            .representation_transitions
+            .iter()
+            .map(shardloom_core::NativeIoRepresentationTransition::transition_label),
+    );
     result.diagnostics.extend(filter.diagnostics.clone());
     result
 }
@@ -678,6 +693,15 @@ fn result_from_reader_filter_project_reports(
             .native_io_certificate
             .certificate_id
             .clone(),
+    );
+    result.representation_transitions.extend(
+        filter
+            .source_execution
+            .prepared_execution
+            .native_io_certificate
+            .representation_transitions
+            .iter()
+            .map(shardloom_core::NativeIoRepresentationTransition::transition_label),
     );
     result.diagnostics.extend(filter.diagnostics.clone());
     result
@@ -734,7 +758,8 @@ mod tests {
     use shardloom_exec::{ShardLoomExecutionStatus, execute_with_provider};
     use shardloom_plan::{
         Plan, PlanId, PreparedEncodedBatch, PreparedEncodedPlan, ReaderBackedEncodedPlan,
-        ReaderBackedSplitRef, VortexPrimitivePlan,
+        ReaderBackedSplitRef, SourceBackedEncodedPlan, SourceBackedPreparedEncodedBatch,
+        VortexPrimitivePlan,
     };
 
     use super::{VortexTopLevelExecutionProvider, reader_backed_splits};
@@ -816,6 +841,56 @@ mod tests {
         assert_eq!(result.status, ShardLoomExecutionStatus::Executed);
         assert!(!result.execution_certificate_refs.is_empty());
         assert!(!result.native_io_certificate_refs.is_empty());
+        assert!(!result.fallback_attempted());
+        assert!(!result.external_engine_invoked);
+    }
+
+    #[test]
+    fn source_backed_filter_project_result_preserves_filter_native_io_transition() {
+        let source_uri = DatasetUri::new("file:///tmp/orders.vortex").expect("uri");
+        let source = UniversalInputSource::from_dataset_uri(source_uri.clone()).expect("source");
+        let predicate = PredicateExpr::Compare {
+            column: column_ref("metric"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        };
+        let batch = PreparedEncodedBatch::new(
+            segment("segment-1.metric", 4),
+            EncodedValueBatch::Constant {
+                value: Some(StatValue::Int64(9)),
+                row_count: 4,
+            },
+        );
+        let filter_batch =
+            SourceBackedPreparedEncodedBatch::new(source_uri.clone(), "split-1", batch.clone())
+                .expect("filter batch");
+        let projection_batch = SourceBackedPreparedEncodedBatch::new(source_uri, "split-1", batch)
+            .expect("projection batch");
+        let plan = Plan::source_backed_encoded(
+            PlanId::new("plan.source.filter-project").expect("plan id"),
+            SourceBackedEncodedPlan::filter_and_project(
+                source,
+                predicate,
+                vec![column_ref("metric")],
+                vec![filter_batch],
+                vec![projection_batch],
+            ),
+        );
+        let provider = VortexTopLevelExecutionProvider::default();
+
+        let result = execute_with_provider(&plan, &provider).expect("execution result");
+
+        assert_eq!(result.status, ShardLoomExecutionStatus::Executed);
+        assert_eq!(
+            result
+                .representation_transitions
+                .iter()
+                .filter(|transition| {
+                    transition.as_str() == "vortex_encoded->selection_vector_encoded"
+                })
+                .count(),
+            2
+        );
         assert!(!result.fallback_attempted());
         assert!(!result.external_engine_invoked);
     }

@@ -1,8 +1,8 @@
 use std::{collections::BTreeSet, fmt::Write as _};
 
 use shardloom_core::{
-    ColumnRef, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, PredicateExpr, Result,
-    ShardLoomError, UniversalInputSource,
+    ColumnRef, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
+    NativeIoCertificate, PredicateExpr, Result, ShardLoomError, UniversalInputSource,
 };
 
 use crate::{
@@ -230,9 +230,9 @@ impl VortexSourceBackedExpansionEvidenceReport {
                 "cg6.source_backed_encoded_execution.deferred_no_claim".to_string(),
             ],
             benchmark_claim_allowed: false,
-            execution_certificate_present: execution_certificate.is_certified(),
+            execution_certificate_present: execution_certificate_present(execution_certificate),
             execution_certificate_refs: vec![execution_certificate.certificate_id.clone()],
-            native_io_certificate_present: native_io_certificate.is_certified(),
+            native_io_certificate_present: native_io_certificate_present(native_io_certificate),
             native_io_certificate_refs: vec![native_io_certificate.certificate_id.clone()],
             native_io_certificate_path_refs: vec![native_io_certificate.path_id.clone()],
             certificate_pair_report_ref: format!("{}.certificate-pair", report.report_id),
@@ -269,9 +269,9 @@ impl VortexSourceBackedExpansionEvidenceReport {
                 "cg6.source_backed_encoded_execution.deferred_no_claim".to_string(),
             ],
             benchmark_claim_allowed: false,
-            execution_certificate_present: execution_certificate.is_certified(),
+            execution_certificate_present: execution_certificate_present(execution_certificate),
             execution_certificate_refs: vec![execution_certificate.certificate_id.clone()],
-            native_io_certificate_present: native_io_certificate.is_certified(),
+            native_io_certificate_present: native_io_certificate_present(native_io_certificate),
             native_io_certificate_refs: vec![native_io_certificate.certificate_id.clone()],
             native_io_certificate_path_refs: vec![native_io_certificate.path_id.clone()],
             certificate_pair_report_ref: format!("{}.certificate-pair", report.report_id),
@@ -332,11 +332,11 @@ impl VortexSourceBackedCertificatePairReport {
             source_report_id: report.report_id.clone(),
             execution_certificate_id: execution_certificate.certificate_id.clone(),
             execution_certificate_status: execution_certificate.status.as_str(),
-            execution_certificate_present: execution_certificate.is_certified(),
+            execution_certificate_present: execution_certificate_present(execution_certificate),
             native_io_certificate_id: native_io_certificate.certificate_id.clone(),
             native_io_certificate_path_id: native_io_certificate.path_id.clone(),
             native_io_certificate_status: native_io_certificate.status(),
-            native_io_certificate_present: native_io_certificate.is_certified(),
+            native_io_certificate_present: native_io_certificate_present(native_io_certificate),
             per_path_native_io_certificate,
             certificate_pair_complete,
             external_engine_invoked: false,
@@ -361,11 +361,11 @@ impl VortexSourceBackedCertificatePairReport {
             source_report_id: report.report_id.clone(),
             execution_certificate_id: execution_certificate.certificate_id.clone(),
             execution_certificate_status: execution_certificate.status.as_str(),
-            execution_certificate_present: execution_certificate.is_certified(),
+            execution_certificate_present: execution_certificate_present(execution_certificate),
             native_io_certificate_id: native_io_certificate.certificate_id.clone(),
             native_io_certificate_path_id: native_io_certificate.path_id.clone(),
             native_io_certificate_status: native_io_certificate.status(),
-            native_io_certificate_present: native_io_certificate.is_certified(),
+            native_io_certificate_present: native_io_certificate_present(native_io_certificate),
             per_path_native_io_certificate,
             certificate_pair_complete,
             external_engine_invoked: false,
@@ -378,6 +378,14 @@ impl VortexSourceBackedCertificatePairReport {
     pub const fn claim_ready_before_benchmarks(&self) -> bool {
         false
     }
+}
+
+fn execution_certificate_present(certificate: &ExecutionCertificate) -> bool {
+    !certificate.schema_version.trim().is_empty() && !certificate.certificate_id.trim().is_empty()
+}
+
+fn native_io_certificate_present(certificate: &NativeIoCertificate) -> bool {
+    !certificate.schema_version.trim().is_empty() && !certificate.certificate_id.trim().is_empty()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1826,12 +1834,15 @@ pub fn execute_vortex_source_backed_filter_from_encoded_value_batches(
             .iter()
             .map(|batch| (&batch.source_uri, batch.split_ref.as_str())),
     );
-    let prepared_batches = batches
-        .iter()
-        .map(|batch| batch.batch.clone())
-        .collect::<Vec<_>>();
-    let prepared_execution =
-        execute_vortex_generalized_filter_from_encoded_value_batches(predicate, &prepared_batches)?;
+    let prepared_execution = if validation.status.is_some() {
+        execute_vortex_generalized_filter_from_encoded_value_batches(predicate, &[])?
+    } else {
+        let prepared_batches = batches
+            .iter()
+            .map(|batch| batch.batch.clone())
+            .collect::<Vec<_>>();
+        execute_vortex_generalized_filter_from_encoded_value_batches(predicate, &prepared_batches)?
+    };
     Ok(VortexSourceBackedEncodedFilterExecutionReport::from_parts(
         source,
         validation,
@@ -1862,15 +1873,23 @@ pub fn execute_vortex_source_backed_projection_from_encoded_projection_batches(
             .iter()
             .map(|batch| (&batch.source_uri, batch.split_ref.as_str())),
     );
-    let prepared_batches = batches
-        .iter()
-        .map(|batch| batch.column.clone())
-        .collect::<Vec<_>>();
-    let prepared_execution = execute_vortex_generalized_projection_from_encoded_projection_batches(
-        requested_columns,
-        &prepared_batches,
-        filter_kernel,
-    )?;
+    let prepared_execution = if validation.status.is_some() {
+        execute_vortex_generalized_projection_from_encoded_projection_batches(
+            requested_columns,
+            &[],
+            filter_kernel,
+        )?
+    } else {
+        let prepared_batches = batches
+            .iter()
+            .map(|batch| batch.column.clone())
+            .collect::<Vec<_>>();
+        execute_vortex_generalized_projection_from_encoded_projection_batches(
+            requested_columns,
+            &prepared_batches,
+            filter_kernel,
+        )?
+    };
     Ok(
         VortexSourceBackedEncodedProjectionExecutionReport::from_parts(
             source,
@@ -2953,7 +2972,14 @@ mod tests {
         );
         assert!(!report.runtime_execution_allowed);
         assert!(!report.source_uri_matches_batches);
-        assert!(report.prepared_execution.runtime_execution_allowed);
+        assert!(!report.prepared_execution.runtime_execution_allowed);
+        assert!(!report.prepared_execution.prepared_encoded_values_consumed);
+        let certificate_pair = report.certificate_pair_report();
+        assert!(certificate_pair.execution_certificate_present);
+        assert_ne!(certificate_pair.execution_certificate_status, "certified");
+        assert!(certificate_pair.native_io_certificate_present);
+        assert_ne!(certificate_pair.native_io_certificate_status, "certified");
+        assert!(!certificate_pair.certificate_pair_complete);
         assert!(report.avoids_unsafe_effects());
         assert!(report.has_errors());
         assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
@@ -3067,7 +3093,14 @@ mod tests {
             VortexSourceBackedEncodedExecutionStatus::BlockedNonNativeSource
         );
         assert!(!report.runtime_execution_allowed);
-        assert!(report.prepared_execution.runtime_execution_allowed);
+        assert!(!report.prepared_execution.runtime_execution_allowed);
+        assert!(!report.prepared_execution.prepared_encoded_columns_consumed);
+        let certificate_pair = report.certificate_pair_report();
+        assert!(certificate_pair.execution_certificate_present);
+        assert_ne!(certificate_pair.execution_certificate_status, "certified");
+        assert!(certificate_pair.native_io_certificate_present);
+        assert_ne!(certificate_pair.native_io_certificate_status, "certified");
+        assert!(!certificate_pair.certificate_pair_complete);
         assert!(report.avoids_unsafe_effects());
         assert!(report.has_errors());
         assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));

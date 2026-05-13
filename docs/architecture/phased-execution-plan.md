@@ -308,7 +308,16 @@ from the merged code and tests.
     0040 benchmark dependency wording. The current batch addresses PR #366, #424, #428, #433,
     #436, #437, #438, #439, #445, #446, #448, #452, #457, #459, #461, #473, #482, #506, and
     #507, with PR #385 verified stale against the existing client `cwd` resolution behavior.
-    Leave Audit-F3 open for the Vortex execution/evidence and API cleanup groups.
+  - Progress: Batch B fixes are implemented for Vortex execution/evidence and API cleanup:
+    streaming Vortex sink chunk sizing, invalid source-envelope short-circuiting, certificate
+    presence semantics, filter-project Native I/O transition propagation, runtime no-fallback
+    aggregation, source-backed benchmark matrix coverage, live late-record accounting,
+    discovery-mode API identity, unsupported logical planning flags, scenario-specific lifecycle
+    handles/evidence artifacts, and event-stream count reconciliation. This batch addresses PR
+    #376, #420, #426, #449, #451, #452, #515, #517, #518, #519, and #520; PR #380, #391, #393,
+    and #396 were verified stale against current tests/implementation.
+    Leave Audit-F3 open for the final PR #360+ review-thread state audit and any newly surfaced
+    review comments before release readiness.
   - Verification: each batch needs targeted regression tests for the reviewed behavior, focused CLI
     and Python protocol tests where contracts change, broad fmt/clippy/workspace validation for
     shared surfaces, and a final PR #360+ review-thread state audit before release readiness.
