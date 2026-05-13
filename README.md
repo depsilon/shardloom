@@ -111,8 +111,9 @@ Implemented or actively wired surfaces include:
   nested JSON, CDC overlay, and skewed local data shapes, plus support/coverage output separate from
   timing rows with explicit claim-grade, not-claim-grade, fixture-smoke, unsupported, blocked, and
   external-baseline-only classification, reproducible claim-readiness promotion gates for stable
-  three-iteration ShardLoom timing rows, and result-sink write timing separated from scenario
-  compute timing when certification evidence is enabled
+  three-iteration ShardLoom timing rows, dirty-CSV clean/cast/filter/write execution through the
+  local Vortex result-sink path, and result-sink write timing separated from scenario compute timing
+  when certification evidence is enabled
 - opt-in `local_vortex_analytics_v1` replay and result-sink verification for the current local
   traditional analytics path, including Vortex source/result artifact digests, schema summaries,
   benchmark/coverage row refs, source replay and result-sink Native I/O certificate refs, separate
@@ -141,10 +142,11 @@ Still planned or gated:
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
 - claim-grade compute-engine completion: source-backed measured rows beyond fixture-smoke evidence,
-  executable layout/write strategy application, remaining extra-column/multi-file/incremental
+  executable layout/write strategy application, remaining multi-file/incremental/nested/partition
   taxonomy support, and benchmark promotion
-- full comparative benchmark reruns, write/incremental benchmark promotion, clean/cast/filter/write
-  execution, and claim-grade source-backed benchmark promotion
+- full comparative benchmark reruns, write/incremental benchmark promotion, remaining
+  multi-file/nested/CDC/partition taxonomy execution, and claim-grade source-backed benchmark
+  promotion
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
 - Foundry proof-of-use certification that preserves Foundry as an optional integration boundary
 - any external engine execution as ShardLoom fallback

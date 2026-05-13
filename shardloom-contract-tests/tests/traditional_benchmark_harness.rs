@@ -76,6 +76,8 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def write_csv_parts("));
     assert!(script.contains("def write_cdc_delta_overlay("));
     assert!(script.contains("def write_nested_json_fixture("));
+    assert!(script.contains("def clean_cast_filter_write("));
+    assert!(script.contains("scenario_outputs"));
     assert!(script.contains("SHARDLOOM_TRADITIONAL_SCENARIOS"));
     assert!(script.contains("does not implement benchmark scenario"));
 }
@@ -99,6 +101,7 @@ fn traditional_benchmark_harness_covers_core_and_stress_scenarios() {
         "null-heavy aggregate",
         "high-cardinality string group/distinct",
         "top-N per group",
+        "clean/cast/filter/write",
         "malformed timestamp / dirty CSV",
         "small change over large base",
         "nested JSON field scan",
@@ -214,7 +217,6 @@ fn traditional_benchmark_catalog_declares_taxonomy_and_planned_profiles() {
         "\"malformed timestamp / dirty CSV\"",
         "\"small change over large base\"",
         "\"nested JSON field scan\"",
-        "\"executable\": false",
         "\"executable\": true",
         "\"Photon\"",
         "\"Microsoft Fabric\"",

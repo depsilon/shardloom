@@ -82,16 +82,17 @@ The opt-in taxonomy-expanded local analytics scenarios are available with
 - `null-heavy aggregate`
 - `high-cardinality string group/distinct`
 - `top-N per group`
+- `clean/cast/filter/write`
 - `malformed timestamp / dirty CSV`
 - `small change over large base`
 - `nested JSON field scan`
 
 The `shardloom` lane currently executes the base-schema taxonomy extras
 `filter + projection + limit`, `multi-key group by`, `join + aggregate`, `row number window`,
-`high-cardinality string group/distinct`, and `top-N per group` through the same local Vortex
-import/replay/result-sink path as the default scenarios. Extra-column, multi-file, dirty-data,
-nested JSON, CDC, and partition-pruning scenarios remain explicit unsupported rows for ShardLoom
-until those input contracts are certified.
+`high-cardinality string group/distinct`, and `top-N per group`, plus dirty-CSV
+`clean/cast/filter/write`, through the same local Vortex import/replay/result-sink path as the
+default scenarios. Multi-file, nested JSON, CDC, and partition-pruning scenarios remain explicit
+unsupported rows for ShardLoom until those input contracts are certified.
 
 An opt-in stress lane is available with `--include-stress`:
 

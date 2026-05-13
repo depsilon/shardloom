@@ -47,6 +47,7 @@ pub enum TraditionalAnalyticsScenario {
     RowNumberWindow,
     HighCardinalityStringGroupDistinct,
     TopNPerGroup,
+    CleanCastFilterWrite,
     ScaleStressSkewedJoinAggregation,
     ScaleStressMultiStageEtl,
 }
@@ -73,6 +74,7 @@ impl TraditionalAnalyticsScenario {
                 Ok(Self::HighCardinalityStringGroupDistinct)
             }
             "top-N per group" | "top-n-per-group" | "top-N-per-group" => Ok(Self::TopNPerGroup),
+            "clean/cast/filter/write" | "clean-cast-filter-write" => Ok(Self::CleanCastFilterWrite),
             "scale stress skewed join aggregation" | "scale-stress-skewed-join-aggregation" => {
                 Ok(Self::ScaleStressSkewedJoinAggregation)
             }
@@ -101,6 +103,7 @@ impl TraditionalAnalyticsScenario {
             Self::RowNumberWindow => "row number window",
             Self::HighCardinalityStringGroupDistinct => "high-cardinality string group/distinct",
             Self::TopNPerGroup => "top-N per group",
+            Self::CleanCastFilterWrite => "clean/cast/filter/write",
             Self::ScaleStressSkewedJoinAggregation => "scale stress skewed join aggregation",
             Self::ScaleStressMultiStageEtl => "scale stress multi-stage etl",
         }
@@ -2049,6 +2052,9 @@ struct TraditionalFactRow {
     metric: f64,
     flag: u8,
     category: String,
+    raw_event_time: Option<String>,
+    dirty_numeric: Option<String>,
+    dirty_flag: Option<String>,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -2069,6 +2075,9 @@ struct VortexFactTable {
     metric: Vec<f64>,
     flag: Vec<u8>,
     category: Vec<String>,
+    raw_event_time: Vec<String>,
+    dirty_numeric: Vec<String>,
+    dirty_flag: Vec<String>,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -2942,6 +2951,7 @@ fn scenario_operator_memory_class(scenario: TraditionalAnalyticsScenario) -> Ope
         | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
         | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => OperatorMemoryClass::Join,
         TraditionalAnalyticsScenario::RowNumberWindow => OperatorMemoryClass::Window,
+        TraditionalAnalyticsScenario::CleanCastFilterWrite => OperatorMemoryClass::Sink,
         TraditionalAnalyticsScenario::WideProjection => OperatorMemoryClass::Projection,
     }
 }
@@ -3186,6 +3196,12 @@ fn traditional_layout_recommendations(
             "column_presence_and_row_count_statistics",
             "preserve_current_dictionary_candidates",
             "projected_columns",
+        ),
+        TraditionalAnalyticsScenario::CleanCastFilterWrite => (
+            "preserve_dirty_column_statistics_before_clean_write",
+            "raw_event_time_dirty_numeric_dirty_flag_quality_statistics",
+            "dictionary_encode_dirty_flag_and_category",
+            "raw_event_time,dirty_numeric,dirty_flag",
         ),
         TraditionalAnalyticsScenario::CsvFileIngest => (
             "preserve_writer_defaults_for_ingest_smoke",
@@ -3881,6 +3897,9 @@ fn write_fact_vortex(rows: &[TraditionalFactRow], path: &std::path::Path) -> Res
             "metric",
             "flag",
             "category",
+            "raw_event_time",
+            "dirty_numeric",
+            "dirty_flag",
         ]),
         vec![
             rows.iter()
@@ -3909,6 +3928,21 @@ fn write_fact_vortex(rows: &[TraditionalFactRow], path: &std::path::Path) -> Res
                 .into_array(),
             VarBinViewArray::from_iter_str(rows.iter().map(|row| row.category.as_str()))
                 .into_array(),
+            VarBinViewArray::from_iter_str(
+                rows.iter()
+                    .map(|row| row.raw_event_time.as_deref().unwrap_or("")),
+            )
+            .into_array(),
+            VarBinViewArray::from_iter_str(
+                rows.iter()
+                    .map(|row| row.dirty_numeric.as_deref().unwrap_or("")),
+            )
+            .into_array(),
+            VarBinViewArray::from_iter_str(
+                rows.iter()
+                    .map(|row| row.dirty_flag.as_deref().unwrap_or("")),
+            )
+            .into_array(),
         ],
         rows.len(),
         Validity::NonNullable,
@@ -4437,14 +4471,19 @@ fn write_vortex_array(path: &std::path::Path, array: &vortex::array::ArrayRef) -
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn read_fact_vortex(path: &std::path::Path) -> Result<VortexFactTable> {
     let fields = read_vortex_struct(path)?;
+    let id = primitive_field::<u64>(&fields, "id")?;
+    let row_count = id.len();
     Ok(VortexFactTable {
-        id: primitive_field::<u64>(&fields, "id")?,
+        id,
         group_key: primitive_field::<u32>(&fields, "group_key")?,
         dim_key: primitive_field::<u32>(&fields, "dim_key")?,
         value: primitive_field::<u32>(&fields, "value")?,
         metric: primitive_field::<f64>(&fields, "metric")?,
         flag: primitive_field::<u8>(&fields, "flag")?,
         category: utf8_field(&fields, "category")?,
+        raw_event_time: optional_utf8_field(&fields, "raw_event_time", row_count)?,
+        dirty_numeric: optional_utf8_field(&fields, "dirty_numeric", row_count)?,
+        dirty_flag: optional_utf8_field(&fields, "dirty_flag", row_count)?,
     })
 }
 
@@ -4574,6 +4613,19 @@ fn utf8_field(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn optional_utf8_field(
+    fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+    name: &str,
+    row_count: usize,
+) -> Result<Vec<String>> {
+    if fields.contains_key(name) {
+        utf8_field(fields, name)
+    } else {
+        Ok(vec![String::new(); row_count])
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn single_utf8_field(
     fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
     name: &str,
@@ -4684,6 +4736,15 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
             path.display()
         )));
     }
+    let raw_event_time_index = header_cols
+        .iter()
+        .position(|column| *column == "raw_event_time");
+    let dirty_numeric_index = header_cols
+        .iter()
+        .position(|column| *column == "dirty_numeric");
+    let dirty_flag_index = header_cols
+        .iter()
+        .position(|column| *column == "dirty_flag");
     let mut rows = Vec::new();
     for (line_index, line) in lines.enumerate() {
         if line.trim().is_empty() {
@@ -4707,6 +4768,9 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
             metric: parse_csv_field(cols[4], path, line_index + 2, "metric")?,
             flag: parse_csv_field(cols[5], path, line_index + 2, "flag")?,
             category: cols[6].to_string(),
+            raw_event_time: optional_csv_string(cols.as_slice(), raw_event_time_index),
+            dirty_numeric: optional_csv_string(cols.as_slice(), dirty_numeric_index),
+            dirty_flag: optional_csv_string(cols.as_slice(), dirty_flag_index),
         });
     }
     Ok(rows)
@@ -4770,6 +4834,24 @@ fn read_traditional_fact_jsonl(path: &std::path::Path) -> Result<Vec<Traditional
             metric: parse_jsonl_numeric_field(&fields, path, line_index + 1, "metric")?,
             flag: parse_jsonl_numeric_field(&fields, path, line_index + 1, "flag")?,
             category: parse_jsonl_string_field(&fields, path, line_index + 1, "category")?,
+            raw_event_time: parse_jsonl_optional_string_field(
+                &fields,
+                path,
+                line_index + 1,
+                "raw_event_time",
+            )?,
+            dirty_numeric: parse_jsonl_optional_string_field(
+                &fields,
+                path,
+                line_index + 1,
+                "dirty_numeric",
+            )?,
+            dirty_flag: parse_jsonl_optional_string_field(
+                &fields,
+                path,
+                line_index + 1,
+                "dirty_flag",
+            )?,
         });
     }
     if rows.is_empty() {
@@ -4821,6 +4903,15 @@ where
             "failed to parse field '{field}' in '{}' line {line_number}: {error}",
             path.display()
         ))
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn optional_csv_string(cols: &[&str], index: Option<usize>) -> Option<String> {
+    index.and_then(|field_index| {
+        cols.get(field_index)
+            .map(|value| value.to_string())
+            .filter(|value| !value.is_empty())
     })
 }
 
@@ -4968,6 +5059,26 @@ fn parse_jsonl_string_field(
         line_number,
         field,
     )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_jsonl_optional_string_field(
+    fields: &std::collections::BTreeMap<String, String>,
+    path: &std::path::Path,
+    line_number: usize,
+    field: &str,
+) -> Result<Option<String>> {
+    fields
+        .get(field)
+        .map(|value| {
+            if value == "null" {
+                Ok(None)
+            } else {
+                parse_json_string_token(value, path, line_number, field).map(Some)
+            }
+        })
+        .transpose()
+        .map(Option::flatten)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -5216,6 +5327,19 @@ fn fact_rows_from_arrow_batches(
                 metric: arrow_f64_field(batch, path, row_index, "metric")?,
                 flag: arrow_u8_field(batch, path, row_index, "flag")?,
                 category: arrow_string_field(batch, path, row_index, "category")?,
+                raw_event_time: arrow_optional_string_field(
+                    batch,
+                    path,
+                    row_index,
+                    "raw_event_time",
+                )?,
+                dirty_numeric: arrow_optional_string_field(
+                    batch,
+                    path,
+                    row_index,
+                    "dirty_numeric",
+                )?,
+                dirty_flag: arrow_optional_string_field(batch, path, row_index, "dirty_flag")?,
             });
         }
     }
@@ -5428,6 +5552,23 @@ fn arrow_string_field(
     } else {
         Err(arrow_type_error(array, path, row_index, field, "string"))
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn arrow_optional_string_field(
+    batch: &arrow_array::RecordBatch,
+    path: &std::path::Path,
+    row_index: usize,
+    field: &str,
+) -> Result<Option<String>> {
+    if batch.schema().index_of(field).is_err() {
+        return Ok(None);
+    }
+    let array = arrow_column(batch, path, field)?;
+    if array.is_null(row_index) {
+        return Ok(None);
+    }
+    arrow_string_field(batch, path, row_index, field).map(Some)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -5808,6 +5949,7 @@ fn run_vortex_derived_scenario(
             let rows = ranked_group_rows(fact, 3);
             rank_rows_json(rows)
         }
+        TraditionalAnalyticsScenario::CleanCastFilterWrite => clean_cast_filter_write_json(fact)?,
         TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation => {
             let mut groups = BTreeMap::<u32, TraditionalGroupAccum>::new();
             for index in 0..fact.len() {
@@ -5856,6 +5998,41 @@ fn scalar_result_json(row_count: u64, metric_sum: f64) -> String {
         "{{\"row_count\":{row_count},\"metric_sum\":{}}}",
         json_float(metric_sum)
     )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn clean_cast_filter_write_json(fact: &VortexFactTable) -> Result<String> {
+    let mut accum = TraditionalGroupAccum::default();
+    for index in 0..fact.len() {
+        if fact.dirty_flag[index] != "Y"
+            || !generated_timestamp_shape_is_valid(&fact.raw_event_time[index])
+        {
+            continue;
+        }
+        let Ok(value) = fact.dirty_numeric[index].parse::<f64>() else {
+            continue;
+        };
+        if value >= 500.0 {
+            accum.add(value);
+        }
+    }
+    Ok(scalar_result_json(accum.row_count, accum.metric_sum))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn generated_timestamp_shape_is_valid(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 20
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes[10] == b'T'
+        && bytes[13] == b':'
+        && bytes[16] == b':'
+        && bytes[19] == b'Z'
+        && bytes.iter().enumerate().all(|(index, byte)| match index {
+            4 | 7 | 10 | 13 | 16 | 19 => true,
+            _ => byte.is_ascii_digit(),
+        })
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -6139,6 +6316,10 @@ mod tests {
             TraditionalAnalyticsScenario::parse("top-n-per-group").unwrap(),
             TraditionalAnalyticsScenario::TopNPerGroup
         );
+        assert_eq!(
+            TraditionalAnalyticsScenario::parse("clean/cast/filter/write").unwrap(),
+            TraditionalAnalyticsScenario::CleanCastFilterWrite
+        );
     }
 
     #[test]
@@ -6210,7 +6391,7 @@ mod tests {
         let dim_csv = root.join("dim.csv");
         std::fs::write(
             &fact_csv,
-            "id,group_key,dim_key,value,metric,flag,category\n1,10,1,6000,2.5,1,A\n2,11,2,1000,3.5,0,B\n3,10,1,8000,4.0,1,A\n",
+            "id,group_key,dim_key,value,metric,flag,category,raw_event_time,dirty_numeric,dirty_flag\n1,10,1,6000,2.5,1,A,2024-01-01T00:00:00Z,6000,Y\n2,11,2,1000,3.5,0,B,not-a-timestamp,bad-number,N\n3,10,1,8000,4.0,1,A,2024-01-03T00:00:00Z,8000,Y\n",
         )
         .unwrap();
         std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").unwrap();
@@ -6429,6 +6610,10 @@ mod tests {
             (
                 TraditionalAnalyticsScenario::TopNPerGroup,
                 "[{\"group_key\":10,\"id\":3,\"metric\":4.0,\"rank\":1},{\"group_key\":10,\"id\":1,\"metric\":2.5,\"rank\":2},{\"group_key\":11,\"id\":2,\"metric\":3.5,\"rank\":1}]",
+            ),
+            (
+                TraditionalAnalyticsScenario::CleanCastFilterWrite,
+                "{\"row_count\":2,\"metric_sum\":14000.0}",
             ),
         ];
 
