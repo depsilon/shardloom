@@ -39,11 +39,14 @@ benchmark_constitution
 
 The JSON artifact also emits a `coverage_table` separate from timing rows. Coverage rows classify
 ShardLoom rows as `claim_grade`, `not_claim_grade`, `fixture_smoke_only`, `unsupported`, or
-`blocked` based on visible evidence, and classify external local engines as
-`external_baseline_only`. The rows also expose `claim_gate_status`,
-`claim_grade_requirements_met`, `claim_grade_missing_evidence`, and `timing_row_claim_grade` so raw
-timings cannot be mistaken for promoted benchmark claims. When ShardLoom result-sink proof is
-enabled, rows also expose `scenario_compute_millis`, `computed_result_sink_write_millis`,
+`blocked` based on visible evidence, classify supported ShardLoom rows with `support_status`, and
+classify external local engines as `external_baseline_only`. The rows also expose
+`row_classification`, `claim_gate_status`, `claim_grade_requirements_met`,
+`claim_grade_missing_evidence`, `benchmark_row_ref`, `coverage_row_ref`,
+`execution_certificate_status`, source/result Native I/O certificate status,
+`materialization_decode_evidence_present`, and `timing_row_claim_grade` so raw timings cannot be
+mistaken for promoted benchmark claims. When ShardLoom result-sink proof is enabled, rows also
+expose `scenario_compute_millis`, `computed_result_sink_write_millis`,
 `computed_result_sink_bytes`, and coverage-table `write_timing_present` so local write-path cost is
 visible separately from scenario compute timing. The harness also exposes a
 `--claim-readiness-rerun` preset for the selected P7.4.4 local comparative rerun: ShardLoom,
@@ -104,10 +107,13 @@ scenario also executes through ShardLoom's local Vortex path for generated `even
 coverage. The local `many-small-files scan`, `null-heavy aggregate`,
 `malformed timestamp / dirty CSV`, `nested JSON field scan`, and `small change over large base`
 scenarios execute through that same path for generated split-file, nullable-metric, dirty-column,
-nested-payload, and explicit CDC-overlay fixture coverage. Remaining advanced rows are still local
-fixture coverage only. They do not promote general incremental-state, general JSON execution,
-object-store multi-file, object-store/table partition pruning, or performance claims without
-ShardLoom-native evidence and comparative reruns.
+nested-payload, and explicit CDC-overlay fixture coverage. Remaining advanced rows are local fixture
+or deterministic unsupported/blocked coverage only. They do not promote general incremental-state,
+general JSON execution, object-store multi-file, object-store/table partition pruning, or
+performance claims. P7.4.4 is closed for the local taxonomy/claim-readiness scope once the selected
+`--claim-readiness-rerun` artifact produces separate coverage/timing rows with claim-grade versus
+not-claim-grade classification; broader table/catalog/object-store/runtime claims remain blocked
+outside this benchmark closeout.
 
 ## Code Surfaces
 

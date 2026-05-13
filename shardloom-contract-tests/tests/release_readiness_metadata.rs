@@ -127,6 +127,21 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(script.contains("--include-python-packaging"));
     assert!(script.contains("not as a ShardLoom runtime dependency assumption"));
 
+    let dry_run = read_repo_file("scripts/release_dry_run_proof.py");
+    assert!(dry_run.contains("build_python_artifacts"));
+    assert!(dry_run.contains("venv"));
+    assert!(dry_run.contains("pip"));
+    assert!(dry_run.contains("--no-index"));
+    assert!(dry_run.contains("SHARDLOOM_BIN"));
+    assert!(dry_run.contains("ShardLoomClient.from_env()"));
+    assert!(dry_run.contains("smoke_check()"));
+    assert!(dry_run.contains("examples/local-python-smoke/run.py"));
+    assert!(dry_run.contains("examples/local-vortex-benchmark/run.py"));
+    assert!(dry_run.contains("publication_attempted"));
+    assert!(dry_run.contains("tag_created"));
+    assert!(dry_run.contains("secrets_required"));
+    assert!(dry_run.contains("fallback_engine_dependency_added"));
+
     let policy = read_repo_file("docs/legal/dependency-audit.md");
     assert!(policy.contains("Runtime Versus Benchmark-Only Dependencies"));
     assert!(policy.contains("Vortex Dependency Boundaries"));
@@ -153,6 +168,7 @@ fn release_package_docs_workflow_and_examples_are_present() {
     assert!(package_names.contains("TestPyPI Dry Run"));
     assert!(package_names.contains("Do not publish current internal crates"));
     assert!(package_names.contains("publish-approved"));
+    assert!(package_names.contains("scripts\\release_dry_run_proof.py"));
 
     let sbom = read_repo_file("docs/release/sbom-generation-plan.md");
     assert!(sbom.contains("Rust Workspace SBOM"));
@@ -171,6 +187,8 @@ fn release_package_docs_workflow_and_examples_are_present() {
         "docs/getting-started/certified-local-workload.md",
         "docs/benchmarks/local-taxonomy-benchmark.md",
         "docs/release/github-topic-recommendations.md",
+        "docs/release/release-dry-run-proof.md",
+        "docs/release/first-10-minutes-smoke-snapshot.md",
         "examples/local-python-smoke/README.md",
         "examples/local-python-smoke/run.py",
         "examples/local-vortex-benchmark/README.md",
@@ -188,4 +206,25 @@ fn readme_links_website_and_first_user_docs() {
     assert!(readme.contains("docs/getting-started/first-10-minutes.md"));
     assert!(readme.contains("docs/getting-started/certified-local-workload.md"));
     assert!(readme.contains("docs/benchmarks/local-taxonomy-benchmark.md"));
+}
+
+#[test]
+fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
+    let proof = read_repo_file("docs/release/release-dry-run-proof.md");
+    assert!(proof.contains("clean virtual environment"));
+    assert!(proof.contains("pip --no-index --find-links python/dist"));
+    assert!(proof.contains("SHARDLOOM_BIN"));
+    assert!(proof.contains("examples/local-vortex-benchmark"));
+    assert!(proof.contains("publication_attempted"));
+    assert!(proof.contains("fallback_engine_dependency_added"));
+
+    let snapshot = read_repo_file("docs/release/first-10-minutes-smoke-snapshot.md");
+    assert!(snapshot.contains("schema_version: shardloom.release_dry_run_proof.v1"));
+    assert!(snapshot.contains("proof_status: passed"));
+    assert!(snapshot.contains("fallback_attempted=False"));
+    assert!(snapshot.contains("example_local_vortex_benchmark_smoke -> 0"));
+
+    let first_ten = read_repo_file("docs/getting-started/first-10-minutes.md");
+    assert!(first_ten.contains("scripts\\release_dry_run_proof.py"));
+    assert!(first_ten.contains("target/release-dry-run-proof/transcript.json"));
 }

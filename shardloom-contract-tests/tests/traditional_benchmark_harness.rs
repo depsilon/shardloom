@@ -49,6 +49,18 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"fixture_smoke_only\""));
     assert!(script.contains("\"not_claim_grade\""));
     assert!(script.contains("\"claim_grade\""));
+    assert!(script.contains("ROW_CLASSIFICATIONS"));
+    assert!(script.contains("\"row_classification\""));
+    assert!(script.contains("\"support_status\""));
+    assert!(script.contains("\"supported\""));
+    assert!(script.contains("\"benchmark_row_ref\""));
+    assert!(script.contains("\"coverage_row_ref\""));
+    assert!(script.contains("\"execution_certificate_status\""));
+    assert!(script.contains("\"source_native_io_certificate_status\""));
+    assert!(script.contains("\"result_native_io_certificate_status\""));
+    assert!(script.contains("\"materialization_decode_evidence_present\""));
+    assert!(script.contains("def support_status("));
+    assert!(script.contains("def materialization_decode_evidence_present("));
     assert!(script.contains("CORRECTNESS_FLOAT_DIGITS = 4"));
     assert!(script.contains("\"status\", \"--short\", \"--untracked-files=no\""));
     assert!(script.contains("traditional-analytics-run"));
@@ -134,6 +146,8 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"benchmark_constitution\"",
         "\"coverage_table\"",
         "\"claim_gate_status\"",
+        "\"row_classification\"",
+        "\"support_status\"",
         "\"claim_grade_requirements_met\"",
         "\"claim_grade_missing_evidence\"",
         "\"timing_row_claim_grade\"",
@@ -162,6 +176,11 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"target_partition_count\"",
         "\"shardloom_universal_io_smoke_included\": True",
         "\"claim_grade_requirements\"",
+        "\"benchmark_row_ref\"",
+        "\"coverage_row_ref\"",
+        "\"execution_certificate_status\"",
+        "\"result_native_io_certificate_status\"",
+        "\"materialization_decode_evidence_present\"",
         "CSV/JSONL/Parquet/Arrow IPC/Avro/ORC -> NativeWorkStream -> Vortex",
         "Compatibility source -> Vortex import -> encoded CountAll",
         "NativeIoCertificate",
@@ -282,6 +301,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
 
     assert!(readme.contains("human-readable Markdown"));
     assert!(readme.contains("coverage_table"));
+    assert!(readme.contains("row_classification"));
+    assert!(readme.contains("support_status"));
     assert!(readme.contains("fairness parameters"));
     assert!(readme.contains("resource metrics"));
     assert!(readme.contains("runtime-effect evidence"));
@@ -316,6 +337,7 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("average commit latency"));
     assert!(readme.contains("It is a local smoke benchmark only"));
     assert!(readme.contains("timing scope"));
+    assert!(readme.contains("claim-readiness coverage is separated from timing"));
     assert!(readme.contains("benchmarks\\traditional_analytics\\.venv\\Scripts\\python"));
 }
 

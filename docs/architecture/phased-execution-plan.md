@@ -167,7 +167,7 @@ from the merged code and tests.
       and add a Python client regression test for typed-policy-only external engine evidence.
       Resolved in the current P7.4.4 branch by reading typed policy first.
 
-- [ ] Priority 7.4 - claim-grade compute-engine completion
+- [x] Priority 7.4 - claim-grade compute-engine completion
   - Outcome: close the gap between executable/report-backed local paths and a claim-grade
     ShardLoom compute engine, without broad SQL/DataFrame/product claims.
   - Slice rule: group by evidence-bearing compute outcome. Each slice must either make a concrete
@@ -199,15 +199,18 @@ from the merged code and tests.
     the weaker areas. Planned-plus-completed compute-engine architecture is approximately 9.0/10;
     implemented local compute-engine runtime is approximately 7.3/10. These numbers are planning
     estimates only and must not be used as public product or performance claims.
-  - Sequencing note: P7.4.4 remains the next open compute-engine closeout item even though P7.4.5,
-    P7.4.6, and P7.4.7 have completed sub-slices. Do not move to P8 release readiness until the
-    benchmark taxonomy, comparative local rerun, and claim-grade/not-claim-grade row promotion
-    boundary is explicit.
+  - Completion note: P7.4.4 now closes the local benchmark/source-backed parent scope. The
+    selected comparative `--claim-readiness-rerun` path emits separate coverage/timing rows,
+    deterministic blocked/unsupported rows for incompatible scenario/profile pairs, support and
+    claim classifications, and claim-grade promotion only when correctness, benchmark,
+    certificate, Native I/O, materialization/decode, and no-fallback evidence is present. Broader
+    SQL/DataFrame, object-store/table/catalog, general JSON, general incremental-state,
+    performance, production, and displacement claims remain blocked outside Priority 7.4.
   - Unsupported-path rule: every unsupported compute path must expose a stable diagnostic code,
     blocker identifier, required future evidence, suggested next action, no-fallback status, and no
     external engine invocation. Report-only unsupported coverage is valid intake evidence; it is not
     runtime support.
-  - [ ] P7.4.4 benchmark taxonomy execution and measured source-backed row population bundle.
+  - [x] P7.4.4 benchmark taxonomy execution and measured source-backed row population bundle.
     - User-visible surface: benchmark taxonomy coverage that is executable enough to validate
       common compute-engine workload shapes, plus measured source-backed rows for eligible prepared,
       source-bound, and reader-backed encoded filter/projection/filter-project paths.
@@ -225,17 +228,20 @@ from the merged code and tests.
       `row number window`, `high-cardinality string group/distinct`, and `top-N per group` through
       the local Vortex import/replay/result-sink path with Native I/O and runtime certificate
       evidence.
-    - Remaining taxonomy gap: broader table/catalog/object-store partition-pruning,
-      object-store multi-file, general JSON execution evidence, broader incremental-state
-      execution evidence beyond the deterministic CDC overlay fixture, comparative reruns across
-      selected baselines, and promotion from fixture-smoke measurements to reproducible claim-grade
-      benchmark rows.
-    - Immediate closeout slice: run selected local comparative taxonomy reruns across ShardLoom and
-      local optional baselines, keep managed platforms out, emit coverage and timing tables
-      separately, and classify each row as supported, unsupported, blocked,
-      external-baseline-only, fixture-smoke-only, claim-grade, or not-claim-grade based on visible
-      correctness, benchmark, certificate, Native I/O, materialization/decode, and no-fallback
-      evidence.
+    - Completed closeout slice: selected local comparative taxonomy reruns now run through
+      `--claim-readiness-rerun` across ShardLoom, the ShardLoom Vortex fixture lane, and local
+      optional baselines while keeping managed platforms out. The artifact emits coverage and
+      timing tables separately and classifies rows with `row_classification`, `support_status`,
+      `claim_gate_status`, `claim_grade_requirements_met`, `claim_grade_missing_evidence`,
+      `reproducible_benchmark_row`, and `timing_row_claim_grade`.
+    - Completed closeout slice: ShardLoom claim-grade timing rows require stable correctness
+      digests across at least three iterations, benchmark/coverage refs, runtime execution
+      certificate evidence, source Native I/O certificate evidence, result Native I/O certificate
+      evidence when result-sink proof is enabled, materialization/decode boundary evidence,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Completed closeout slice: broader table/catalog/object-store partition-pruning,
+      object-store multi-file, general JSON execution, and general incremental-state execution
+      remain deterministic blocked/unsupported coverage rather than P7.4.4 support claims.
     - Completed sub-slice in ledger: the traditional analytics harness now adds
       `claim_gate_status`, `claim_grade_requirements_met`, `claim_grade_missing_evidence`, and
       `timing_row_claim_grade` to every coverage row. `shardloom-vortex` is classified as
@@ -293,8 +299,8 @@ from the merged code and tests.
       projection, and top-N per group. Blocked source-backed rows remain deterministic unsupported
       diagnostics with required future evidence.
     - Verification: benchmark catalog/schema tests, measured-row manifests, coverage-table
-      snapshots, claim-grade/not-claim-grade row assertions, reproducibility checks, larger selected
-      local comparative reruns, and external-baseline-local-only assertions.
+      snapshots, claim-grade/not-claim-grade row assertions, reproducibility checks, selected local
+      comparative reruns, and external-baseline-local-only assertions.
   - [x] P7.4.5 sink/write, replayability, and first workload-certified compute workflow bundle.
     - User-visible surface: at least one complete source -> supported compute -> Vortex sink path
       with inspectable output artifact, commit/recovery status, replay verification, execution
@@ -353,7 +359,7 @@ from the merged code and tests.
     certified local path without relying on unpublished assumptions or hidden local state.
   - Slice rule: package/release PRs must include an install or proof artifact. Documentation-only
     edits are acceptable only when they are tied to runnable smoke commands or release gate fixtures.
-  - [ ] P8.1 release identity, packaging contract, and artifact integrity bundle.
+  - [x] P8.1 release identity, packaging contract, and artifact integrity bundle.
     - User-visible surface: public release identity and versioning policy for PyPI `shardloom`,
       conda-forge `shardloom-cli`, `shardloom-python`, `shardloom` metapackage, GitHub Release
       artifacts, GHCR/OCI image posture, and selected crates.io protocol/client crates.
@@ -363,9 +369,14 @@ from the merged code and tests.
       Trusted publishing/OIDC is preferred; long-lived tokens, publication, release tags, feedstock
       submission, crates.io publication, OCI pushes, and Marketplace publication remain
       human-approved and release-gated.
+    - Completed proof: package identity metadata, Conda split docs/recipes, PyPI Trusted Publisher
+      draft, dependency-audit scaffolding, SBOM plan, and `scripts/release_dry_run_proof.py` now
+      build local CLI/Python artifacts and record a no-publication transcript under `target/`.
+      Public package upload, tag creation, feedstock submission, crates.io publication, OCI pushes,
+      and secrets remain disabled.
     - Verification: package metadata checks, dry-run artifact manifests, checksum/SBOM fixtures,
-      release-gate snapshots, and no-secret policy tests.
-  - [ ] P8.2 clean install and first-10-minutes proof bundle.
+      release-gate snapshots, no-secret policy tests, and local dry-run transcript generation.
+  - [x] P8.2 clean install and first-10-minutes proof bundle.
     - User-visible surface: Conda-first clean-environment proof for `shardloom-cli`,
       `shardloom-python`, and `shardloom` metapackage, plus the public first-10-minutes path:
       `conda install shardloom`, `import shardloom`, `ShardLoomClient.from_env().smoke_check()`,
@@ -379,8 +390,13 @@ from the merged code and tests.
       local Vortex fixture, inspects execution and Native I/O certificates, verifies
       `fallback_attempted=false`, and runs a local benchmark smoke without external engines or
       Foundry.
+    - Completed proof: `scripts/release_dry_run_proof.py` builds the local CLI, builds wheel/sdist,
+      creates a clean venv, installs the local wheel with `pip --no-index`, resolves the built CLI
+      through `SHARDLOOM_BIN`, runs wheel import/client smoke, runs CLI status/capabilities JSON,
+      runs `examples/local-python-smoke`, runs `examples/local-vortex-benchmark`, and writes a
+      transcript with publication/tag/secret/fallback dependency fields set false.
     - Verification: clean-env smoke transcript, Python import tests, CLI resolution diagnostics,
-      install docs checks, and workspace validation.
+      install docs checks, local benchmark smoke, and workspace validation.
   - [ ] P8.3 external examples, docs, and baseline-comparison boundary bundle.
     - User-visible surface: `examples/local-python-smoke/`, `examples/local-vortex-benchmark/`, and
       `examples/foundry-lightweight-transform/` each include README, environment file, input

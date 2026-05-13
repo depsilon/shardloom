@@ -44,3 +44,17 @@ python examples\local-vortex-benchmark\run.py --repo-root .
 
 This wraps the local taxonomy benchmark harness with a small ShardLoom-only
 smoke configuration.
+
+## Release Dry-Run Proof
+
+For a single local proof that builds source artifacts, installs the local wheel
+in a clean virtual environment, resolves the built CLI, runs the smoke checks,
+and executes the benchmark smoke, use:
+
+```powershell
+python scripts\release_dry_run_proof.py --rows 64 --iterations 1
+```
+
+The transcript is written to `target/release-dry-run-proof/transcript.json`.
+It is a local dry run only and does not publish packages, create tags, add
+secrets, or install fallback engines.
