@@ -99,6 +99,12 @@ Vortex-specific execution reports may be attached as typed artifacts or converte
 shape. They must not be flattened until provider, residual, certificate, and Native I/O evidence is
 lost.
 
+P7.4.3 implements the artifact-rich form for the current top-level execution result surface. The
+shared result can now preserve provider version, lifecycle status, inline artifacts, explicit
+evidence-slot status, certificate refs, Native I/O refs, materialization and residual boundary refs,
+representation transitions, source/split refs, and no-fallback policy fields. Missing required
+evidence is represented as `evidence_incomplete`; it is not silently omitted.
+
 ## No-Op Prohibition
 
 No top-level execution path may report success unless it has either:
@@ -129,6 +135,8 @@ legacy facade compatibility
 Plan variants represent current executable Vortex primitive and encoded paths.
 Execution dispatch reaches the corresponding admitted provider surfaces.
 Execution results preserve certificates, Native I/O refs, residual boundaries, and diagnostics.
+Execution results preserve provider versions, lifecycle status, inline artifacts, and evidence-slot
+completeness status.
 Unsupported plans are blocked deterministically.
 fallback_attempted=false remains visible.
 external_engine_invoked=false remains visible for ShardLoom execution.

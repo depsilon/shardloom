@@ -9,7 +9,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from ._version import __version__
 from .errors import (
@@ -849,6 +849,148 @@ class SemanticConformanceSuite:
         """Whether the suite performed no external effects."""
 
         return self.envelope.field_bool("no_effects", False) is True
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionEvidenceSlot:
+    """One evidence-slot status from a typed execution-result envelope."""
+
+    kind: str
+    status: str
+    refs: tuple[str, ...]
+    detail: str
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionResultEnvelopeView:
+    """Typed view over an artifact-rich top-level execution result envelope."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def plan_id(self) -> str:
+        """Return the top-level execution plan id."""
+
+        return _required_field(self.envelope, "plan_id")
+
+    @property
+    def plan_kind(self) -> str:
+        """Return the top-level execution plan kind."""
+
+        return _required_field(self.envelope, "plan_kind")
+
+    @property
+    def execution_status(self) -> str:
+        """Return the provider-neutral execution status."""
+
+        return _required_field(self.envelope, "execution_status")
+
+    @property
+    def provider_api_surface(self) -> str | None:
+        """Return the provider API surface when present."""
+
+        value = self.envelope.field("provider_api_surface")
+        return None if value in {None, "none"} else value
+
+    @property
+    def provider_version(self) -> str | None:
+        """Return the provider version when present."""
+
+        value = self.envelope.field("provider_version")
+        return None if value in {None, "none"} else value
+
+    @property
+    def evidence_completeness_status(self) -> str:
+        """Return the overall evidence completeness status."""
+
+        return _required_field(self.envelope, "evidence_completeness_status")
+
+    @property
+    def result_refs(self) -> tuple[str, ...]:
+        """Return result refs preserved in the execution envelope."""
+
+        return _csv_values(self.envelope.field("result_refs"))
+
+    @property
+    def artifact_refs(self) -> tuple[str, ...]:
+        """Return provider artifact refs preserved in the execution envelope."""
+
+        return _csv_values(self.envelope.field("artifact_refs"))
+
+    @property
+    def inline_artifact_ids(self) -> tuple[str, ...]:
+        """Return inline artifact ids preserved in the execution envelope."""
+
+        return _csv_values(self.envelope.field("inline_artifact_ids"))
+
+    @property
+    def execution_certificate_refs(self) -> tuple[str, ...]:
+        """Return execution certificate refs preserved in the envelope."""
+
+        return _csv_values(self.envelope.field("execution_certificate_refs"))
+
+    @property
+    def native_io_certificate_refs(self) -> tuple[str, ...]:
+        """Return Native I/O certificate refs preserved in the envelope."""
+
+        return _csv_values(self.envelope.field("native_io_certificate_refs"))
+
+    @property
+    def representation_transitions(self) -> tuple[str, ...]:
+        """Return representation-transition labels preserved in the envelope."""
+
+        return _csv_values(self.envelope.field("representation_transitions"))
+
+    @property
+    def evidence_slots(self) -> tuple[ExecutionEvidenceSlot, ...]:
+        """Return explicit present/not-required/evidence-incomplete slot statuses."""
+
+        artifact = next(
+            (
+                artifact
+                for artifact in self.envelope.artifacts
+                if artifact.get("artifact_kind") == "execution_evidence_slots"
+            ),
+            None,
+        )
+        if artifact is None:
+            return ()
+        fields = _artifact_payload_field_map(artifact)
+        slots: list[ExecutionEvidenceSlot] = []
+        for kind in _csv_values(fields.get("evidence_slot_order")):
+            prefix = f"evidence_slot_{kind}_"
+            slots.append(
+                ExecutionEvidenceSlot(
+                    kind=kind,
+                    status=fields.get(f"{prefix}status", ""),
+                    refs=_csv_values(fields.get(f"{prefix}refs")),
+                    detail=fields.get(f"{prefix}detail", ""),
+                )
+            )
+        return tuple(slots)
+
+    @property
+    def incomplete_evidence_slots(self) -> tuple[ExecutionEvidenceSlot, ...]:
+        """Return evidence slots marked incomplete."""
+
+        return tuple(
+            slot for slot in self.evidence_slots if slot.status == "evidence_incomplete"
+        )
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether execution attempted fallback according to policy/envelope fields."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether execution invoked an external engine."""
+
+        return self.envelope.field_bool("external_engine_invoked", False) is True
 
 
 @dataclass(frozen=True, slots=True)
@@ -3353,6 +3495,20 @@ def _any_bool_field(envelope: OutputEnvelope, keys: Sequence[str]) -> bool:
         for key in keys
         if envelope.field(key) is not None
     )
+
+
+def _artifact_payload_field_map(artifact: Mapping[str, Any]) -> dict[str, str]:
+    payload = artifact.get("payload")
+    if not isinstance(payload, Mapping):
+        return {}
+    fields = payload.get("fields")
+    if not isinstance(fields, list):
+        return {}
+    out: dict[str, str] = {}
+    for field in fields:
+        if isinstance(field, Mapping):
+            out[str(field.get("key", ""))] = str(field.get("value", ""))
+    return out
 
 
 def _compatibility_source_items(

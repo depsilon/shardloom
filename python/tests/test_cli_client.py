@@ -16,6 +16,7 @@ from shardloom import (
     CompatibilitySourceSmokeReport,
     ContextCapabilities,
     CapabilityView,
+    ExecutionResultEnvelopeView,
     LocalVortexPrimitiveSmokeReport,
     ShardLoomBinaryNotFoundError,
     ShardLoomClient,
@@ -143,6 +144,102 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.policy["fields"][0]["key"], "fallback_execution_allowed")
         self.assertEqual(result.lifecycle["fields"][0]["value"], "report_only")
         self.assertEqual(result.capability_snapshot["fields"][0]["value"], "status")
+
+    def test_execution_result_view_preserves_artifact_rich_slots(self) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "top-level-exec",
+                "status": "success",
+                "summary": "executed",
+                "human_text": "executed",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {
+                    "fields": [
+                        {"key": "plan_id", "value": "plan.count"},
+                        {"key": "plan_kind", "value": "vortex_primitive"},
+                        {"key": "execution_status", "value": "executed"},
+                        {"key": "provider_api_surface", "value": "vortex_local_primitive"},
+                        {"key": "provider_version", "value": "0.70"},
+                        {"key": "evidence_completeness_status", "value": "evidence_incomplete"},
+                        {"key": "result_refs", "value": "result.rows"},
+                        {"key": "artifact_refs", "value": "vortex_local_engine_report"},
+                        {"key": "inline_artifact_ids", "value": "vortex_local_engine_report,plan.count.execution_evidence_slots"},
+                        {"key": "execution_certificate_refs", "value": "cert.execution"},
+                        {"key": "native_io_certificate_refs", "value": "cert.native_io"},
+                        {"key": "representation_transitions", "value": "vortex_encoded->vortex_encoded"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                },
+                "result_refs": [{"id": "result.rows", "kind": "execution_result", "status": "available", "uri": None}],
+                "artifacts": [
+                    {
+                        "artifact_id": "plan.count.execution_evidence_slots",
+                        "artifact_kind": "execution_evidence_slots",
+                        "status": "evidence_incomplete",
+                        "payload": {
+                            "fields": [
+                                {"key": "evidence_slot_order", "value": "result_refs,provider_version,native_io_certificate_refs"},
+                                {"key": "evidence_slot_result_refs_status", "value": "present"},
+                                {"key": "evidence_slot_result_refs_refs", "value": "result.rows"},
+                                {"key": "evidence_slot_result_refs_detail", "value": "result refs are present"},
+                                {"key": "evidence_slot_provider_version_status", "value": "present"},
+                                {"key": "evidence_slot_provider_version_refs", "value": "0.70"},
+                                {"key": "evidence_slot_provider_version_detail", "value": "provider version is present"},
+                                {"key": "evidence_slot_native_io_certificate_refs_status", "value": "evidence_incomplete"},
+                                {"key": "evidence_slot_native_io_certificate_refs_refs", "value": "none"},
+                                {"key": "evidence_slot_native_io_certificate_refs_detail", "value": "Native I/O certificate missing"},
+                            ]
+                        },
+                    }
+                ],
+                "artifact_refs": [{"id": "vortex_local_engine_report", "kind": "execution_artifact", "status": "available", "uri": None}],
+                "certificates": [{"id": "cert.execution", "kind": "execution_certificate", "status": "available", "uri": None}],
+                "policy": {"fields": [{"key": "fallback_attempted", "value": "false"}]},
+                "lifecycle": {"fields": [{"key": "execution_status", "value": "executed"}]},
+                "capability_snapshot": {"fields": [{"key": "provider_version", "value": "0.70"}]},
+                "fields": [
+                    {"key": "plan_id", "value": "plan.count"},
+                    {"key": "plan_kind", "value": "vortex_primitive"},
+                    {"key": "execution_status", "value": "executed"},
+                    {"key": "provider_api_surface", "value": "vortex_local_primitive"},
+                    {"key": "provider_version", "value": "0.70"},
+                    {"key": "evidence_completeness_status", "value": "evidence_incomplete"},
+                    {"key": "result_refs", "value": "result.rows"},
+                    {"key": "artifact_refs", "value": "vortex_local_engine_report"},
+                    {"key": "inline_artifact_ids", "value": "vortex_local_engine_report,plan.count.execution_evidence_slots"},
+                    {"key": "execution_certificate_refs", "value": "cert.execution"},
+                    {"key": "native_io_certificate_refs", "value": "cert.native_io"},
+                    {"key": "representation_transitions", "value": "vortex_encoded->vortex_encoded"},
+                    {"key": "fallback_attempted", "value": "false"},
+                    {"key": "external_engine_invoked", "value": "false"},
+                ],
+            }
+        )
+
+        result = ExecutionResultEnvelopeView(envelope)
+
+        self.assertEqual(result.plan_id, "plan.count")
+        self.assertEqual(result.provider_version, "0.70")
+        self.assertEqual(result.result_refs, ("result.rows",))
+        self.assertIn("vortex_local_engine_report", result.inline_artifact_ids)
+        self.assertEqual(result.execution_certificate_refs, ("cert.execution",))
+        self.assertEqual(result.native_io_certificate_refs, ("cert.native_io",))
+        self.assertEqual(result.representation_transitions, ("vortex_encoded->vortex_encoded",))
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.external_engine_invoked)
+        self.assertEqual(len(result.evidence_slots), 3)
+        self.assertEqual(
+            result.incomplete_evidence_slots[0].kind,
+            "native_io_certificate_refs",
+        )
 
     def test_v2_envelopes_require_typed_payload_slots(self) -> None:
         payload = {

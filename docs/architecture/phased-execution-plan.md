@@ -161,20 +161,14 @@ from the merged code and tests.
   - Intake mapping: the May 13 compute-engine closeout intake is represented here as concrete
     evidence-bearing slices, not as a separate architecture category. P7.4.1 completed the compute
     capability matrix and operator-family ladder; P7.4.2 completed the first semantic/API parity
-    layer; P7.4.3 through P7.4.7 carry artifact richness, benchmark/source-backed rows,
-    sink/replay/workload certification, scheduler/memory/spill maturity, and Vortex advisor
-    feedback. P8.4 and P9.6 carry the matching release-readiness and Foundry proof-of-use closeout.
-  - [ ] P7.4.3 execution artifact richness and provider-evidence preservation bundle.
-    - User-visible surface: top-level `ShardLoomExecutionResult` and typed CLI/Python envelopes
-      preserve rich provider evidence from local, Vortex primitive, prepared encoded,
-      source-backed, reader-backed, and report-only plans.
-    - Acceptance: execution results carry result refs, artifact refs, inline artifacts where
-      appropriate, execution/Native I/O certificate refs, materialization/residual boundary refs,
-      representation transitions, provider API surface/version, source refs, split refs, lifecycle
-      status, and fallback status. Missing evidence is explicit evidence-incomplete state, not an
-      omitted or flattened string.
-    - Verification: provider-result contract tests, typed-envelope golden cases, Python typed view
-      tests, and evidence-incomplete snapshots.
+    layer; P7.4.3 completed artifact-rich execution result preservation; P7.4.4 through P7.4.7
+    carry benchmark/source-backed rows, sink/replay/workload certification,
+    scheduler/memory/spill maturity, and Vortex advisor feedback. P8.4 and P9.6 carry the matching
+    release-readiness and Foundry proof-of-use closeout.
+  - Unsupported-path rule: every unsupported compute path must expose a stable diagnostic code,
+    blocker identifier, required future evidence, suggested next action, no-fallback status, and no
+    external engine invocation. Report-only unsupported coverage is valid intake evidence; it is not
+    runtime support.
   - [ ] P7.4.4 benchmark taxonomy execution and measured source-backed row population bundle.
     - User-visible surface: benchmark taxonomy coverage that is executable enough to validate
       common compute-engine workload shapes, plus measured source-backed rows for eligible prepared,

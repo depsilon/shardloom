@@ -392,6 +392,33 @@ fixtures cover the supported in-memory semantic dimensions and keep external
 oracles, dataset reads, SQL parsing, runtime execution, writes, and fallback
 disabled.
 
+Artifact-rich top-level execution result envelopes can be inspected with
+`ExecutionResultEnvelopeView` when a command returns a `shardloom.output.v2`
+execution envelope:
+
+```python
+from shardloom import ExecutionResultEnvelopeView
+
+def inspect_execution_envelope(envelope):
+    result = ExecutionResultEnvelopeView(envelope)
+
+    print(result.plan_id)
+    print(result.provider_version)
+    print(result.result_refs)
+    print(result.artifact_refs)
+    print(result.inline_artifact_ids)
+    print(result.execution_certificate_refs)
+    print(result.native_io_certificate_refs)
+    print(result.representation_transitions)
+    print(result.evidence_completeness_status)
+    print([slot.kind for slot in result.incomplete_evidence_slots])
+    print(result.fallback_attempted, result.external_engine_invoked)
+```
+
+The view is a typed reader over the CLI protocol. It does not execute unsupported
+work, create benchmark rows, write outputs, invoke external engines, or convert
+report-only surfaces into runtime support.
+
 ## Package Build Smoke
 
 The current package is pure Python and has no runtime dependencies. Release

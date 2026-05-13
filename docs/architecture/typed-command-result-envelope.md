@@ -106,6 +106,14 @@ The first subset helpers derive source, source-pushdown, sink, and adapter-fidel
 the same emitted local Native I/O certificate groups. Unavailable or feature-disabled certificate
 reports stay as regular typed fields and do not create misleading inline certificate artifacts.
 
+P7.4.3 extends the same preservation rule to top-level execution results. `ShardLoomExecutionResult`
+can now render a `shardloom.output.v2` envelope with result refs, artifact refs, inline provider
+artifacts, execution and Native I/O certificate refs, materialization and residual boundary refs,
+representation transitions, provider API/version fields, source and split refs, lifecycle status,
+and explicit fallback policy fields. It also emits an `execution_evidence_slots` artifact so missing
+claim-grade evidence is represented as `evidence_incomplete` instead of disappearing from the
+typed payload.
+
 The `input-adapters` registry also enriches the typed `capability_snapshot` payload with adapter
 counts, adapter family orderings, and adapter statuses so clients no longer need to infer adapter
 capabilities only from the temporary flat `fields` mirror.
