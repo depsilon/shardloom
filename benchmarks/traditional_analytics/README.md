@@ -111,7 +111,7 @@ overview with startup/warmup timing, scenario timing matrix, resource metrics,
 ShardLoom runtime-effect evidence, fastest-row table, ASCII timing bars,
 ShardLoom native microbenchmarks, ShardLoom DecisionTrace/WhyReport evidence,
 ShardLoom work-avoidance evidence, ShardLoom write/commit evidence,
-universal-I/O evidence lanes, correctness summary, and separate
+ShardLoom result-sink write timing, universal-I/O evidence lanes, correctness summary, and separate
 failure/unsupported rows.
 
 Each result artifact records engine versions, Python/runtime details, dataset
@@ -192,7 +192,9 @@ commit/cleanup status, and no-fallback policy fields. Add
 `--write-result-vortex` to write the computed result envelope as `result.vortex`,
 re-open it, compare the stored result JSON and materialized-row count, and emit
 result-sink digest/schema/replay/certificate fields plus
-`scenario_compute_micros` and `computed_result_sink_write_micros`. The same
+`scenario_compute_micros` and `computed_result_sink_write_micros`. The harness promotes those into
+top-level metrics as `scenario_compute_millis`, `computed_result_sink_write_millis`, and
+`computed_result_sink_bytes` so write-path cost is visible separately from scenario runtime. The same
 workflow emits P7.4.6 local scheduler/runtime evidence: deterministic task graph
 refs, scheduled/completed task counts, bounded queue/backpressure fields,
 retry/cancellation gate status, memory reservation release counts,

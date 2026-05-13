@@ -42,7 +42,10 @@ ShardLoom rows as `claim_grade`, `not_claim_grade`, `fixture_smoke_only`, `unsup
 `blocked` based on visible evidence, and classify external local engines as
 `external_baseline_only`. The rows also expose `claim_gate_status`,
 `claim_grade_requirements_met`, `claim_grade_missing_evidence`, and `timing_row_claim_grade` so raw
-timings cannot be mistaken for promoted benchmark claims.
+timings cannot be mistaken for promoted benchmark claims. When ShardLoom result-sink proof is
+enabled, rows also expose `scenario_compute_millis`, `computed_result_sink_write_millis`,
+`computed_result_sink_bytes`, and coverage-table `write_timing_present` so local write-path cost is
+visible separately from scenario compute timing.
 
 The default local run remains conservative. `--include-taxonomy-extra` adds executable local
 taxonomy scenarios for:

@@ -38,6 +38,10 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"claim_grade_requirements_met\""));
     assert!(script.contains("\"claim_grade_missing_evidence\""));
     assert!(script.contains("\"timing_row_claim_grade\""));
+    assert!(script.contains("\"write_timing_present\""));
+    assert!(script.contains("\"computed_result_sink_write_millis\""));
+    assert!(script.contains("\"scenario_compute_millis\""));
+    assert!(script.contains("def render_shardloom_result_sink_table("));
     assert!(script.contains("\"fixture_smoke_only\""));
     assert!(script.contains("\"not_claim_grade\""));
     assert!(script.contains("\"claim_grade\""));
@@ -124,6 +128,9 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"claim_grade_requirements_met\"",
         "\"claim_grade_missing_evidence\"",
         "\"timing_row_claim_grade\"",
+        "\"write_timing_present\"",
+        "\"computed_result_sink_write_millis\"",
+        "\"scenario_compute_millis\"",
         "\"taxonomy_extra_included\"",
         "\"stress_lane_included\"",
         "\"shardloom_build_profile\"",
@@ -270,6 +277,7 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("DecisionTrace/WhyReport evidence"));
     assert!(readme.contains("work-avoidance evidence"));
     assert!(readme.contains("write/commit evidence"));
+    assert!(readme.contains("result-sink write timing"));
     assert!(readme.contains("per-path certificate id/status"));
     assert!(readme.contains("row_read=true"));
     assert!(normalized.contains("never execute unsupported ShardLoom plans as fallback engines"));

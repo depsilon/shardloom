@@ -3152,6 +3152,13 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     result["metrics"]["query_runtime_millis"] is not None
                     and result["claim_grade_requirements_met"]
                 ),
+                "write_timing_present": result["metrics"].get(
+                    "computed_result_sink_write_millis"
+                )
+                is not None,
+                "computed_result_sink_write_millis": result["metrics"].get(
+                    "computed_result_sink_write_millis"
+                ),
                 "benchmark_constitution_id": constitution["constitution_id"],
                 "certificate_status": result.get("shardloom_evidence", {}).get(
                     "native_io_certificate_status"
@@ -3211,6 +3218,9 @@ def failed_result(
         "spill_io_performed": None,
         "object_store_requests": 0,
         "spill_required_bytes": None,
+        "scenario_compute_millis": None,
+        "computed_result_sink_write_millis": None,
+        "computed_result_sink_bytes": None,
     }
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
@@ -3293,11 +3303,35 @@ def run_one(
     stable = all(canonical_digest(value) == digest for value in values)
     evidence = evidence_rows[-1] if evidence_rows else {}
     bytes_written = None
+    computed_result_sink_bytes = None
+    scenario_compute_millis = None
+    computed_result_sink_write_millis = None
     if evidence:
         fact_vortex_bytes = parse_optional_int(evidence.get("fact_vortex_bytes"))
         dim_vortex_bytes = parse_optional_int(evidence.get("dim_vortex_bytes"))
-        if fact_vortex_bytes is not None or dim_vortex_bytes is not None:
-            bytes_written = (fact_vortex_bytes or 0) + (dim_vortex_bytes or 0)
+        computed_result_sink_bytes = parse_optional_int(
+            evidence.get("computed_result_vortex_bytes")
+        )
+        if (
+            fact_vortex_bytes is not None
+            or dim_vortex_bytes is not None
+            or computed_result_sink_bytes is not None
+        ):
+            bytes_written = (
+                (fact_vortex_bytes or 0)
+                + (dim_vortex_bytes or 0)
+                + (computed_result_sink_bytes or 0)
+            )
+        scenario_compute_micros = parse_optional_int(evidence.get("scenario_compute_micros"))
+        computed_result_sink_write_micros = parse_optional_int(
+            evidence.get("computed_result_sink_write_micros")
+        )
+        if scenario_compute_micros is not None:
+            scenario_compute_millis = round(scenario_compute_micros / 1000.0, 4)
+        if computed_result_sink_write_micros is not None:
+            computed_result_sink_write_millis = round(
+                computed_result_sink_write_micros / 1000.0, 4
+            )
     bytes_read = parse_optional_int(evidence.get("source_bytes_read")) if evidence else None
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
@@ -3328,6 +3362,9 @@ def run_one(
             "spill_io_performed": parse_optional_bool(evidence.get("spill_io_performed")),
             "object_store_requests": 0,
             "spill_required_bytes": None,
+            "scenario_compute_millis": scenario_compute_millis,
+            "computed_result_sink_write_millis": computed_result_sink_write_millis,
+            "computed_result_sink_bytes": computed_result_sink_bytes,
         },
         "correctness_digest": digest,
         "output_preview": values[-1] if not isinstance(values[-1], list) else values[-1][:5],
@@ -4057,6 +4094,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom native Vortex rows start timing from existing `.vortex` inputs prepared before scenario timing; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Coverage rows now carry claim_gate_status so fixture-smoke, unsupported, external-baseline-only, not-claim-grade, and claim-grade rows stay distinct from timing rows.",
+        "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
         "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
@@ -4101,6 +4139,8 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 row["claim_gate_status"],
                 str(row["claim_grade_requirements_met"]),
                 str(row["timing_row_claim_grade"]),
+                str(row["write_timing_present"]),
+                format_metric(row["computed_result_sink_write_millis"], " ms"),
                 "; ".join(row["claim_grade_missing_evidence"][:2])
                 if row["claim_grade_missing_evidence"]
                 else "none",
@@ -4121,6 +4161,8 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Claim gate",
             "Claim-grade",
             "Timing claim-grade",
+            "Write timing",
+            "Result write",
             "Missing claim evidence",
             "Native I/O req",
             "Certificate",
@@ -4141,9 +4183,12 @@ def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
                 result["engine"],
                 result["status"],
                 format_metric(metrics.get("query_runtime_millis"), " ms"),
+                format_metric(metrics.get("scenario_compute_millis"), " ms"),
+                format_metric(metrics.get("computed_result_sink_write_millis"), " ms"),
                 format_bytes(metrics.get("peak_memory_bytes")),
                 format_bytes(metrics.get("bytes_read")),
                 format_bytes(metrics.get("bytes_written")),
+                format_bytes(metrics.get("computed_result_sink_bytes")),
                 format_metric(metrics.get("rows_scanned")),
                 format_metric(metrics.get("rows_materialized")),
             ]
@@ -4154,9 +4199,12 @@ def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
             "Engine",
             "Status",
             "Runtime",
+            "Scenario compute",
+            "Result write",
             "Peak RSS",
             "Bytes read",
             "Bytes written",
+            "Result bytes",
             "Rows scanned",
             "Rows materialized",
         ],
@@ -4462,6 +4510,46 @@ def render_shardloom_commit_table(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_shardloom_result_sink_table(artifact: dict[str, Any]) -> str:
+    rows = []
+    for result in artifact["results"]:
+        if result["engine"] != "shardloom":
+            continue
+        metrics = result["metrics"]
+        evidence = result.get("shardloom_evidence", {})
+        if metrics.get("computed_result_sink_write_millis") is None:
+            continue
+        rows.append(
+            [
+                result["scenario_name"],
+                result["status"],
+                result["claim_gate_status"],
+                format_metric(metrics.get("scenario_compute_millis"), " ms"),
+                format_metric(metrics.get("computed_result_sink_write_millis"), " ms"),
+                format_bytes(metrics.get("computed_result_sink_bytes")),
+                str(evidence.get("computed_result_sink_native_io_certificate_status", "n/a")),
+                str(evidence.get("computed_result_sink_replay_verified", "n/a")),
+                str(evidence.get("fallback_attempted", result.get("fallback_attempted", "n/a"))),
+            ]
+        )
+    if not rows:
+        rows.append(["not run", "skipped", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a"])
+    return markdown_table(
+        [
+            "Scenario",
+            "Status",
+            "Claim gate",
+            "Scenario compute",
+            "Result write",
+            "Result bytes",
+            "Result Native I/O",
+            "Replay verified",
+            "Fallback",
+        ],
+        rows,
+    )
+
+
 def render_universal_io_table(artifact: dict[str, Any]) -> str:
     rows = []
     for lane in artifact.get("universal_io_lanes", []):
@@ -4641,6 +4729,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "This local-only smoke row measures the current committed-manifest step. It is not an object-store or table-format commit benchmark.",
         "",
         render_shardloom_commit_table(artifact),
+        "",
+        "## ShardLoom Result-Sink Write Timing",
+        "",
+        "These rows separate scenario compute timing from the certified local Vortex result-sink write/replay timing when `--shardloom-result-sink` is enabled.",
+        "",
+        render_shardloom_result_sink_table(artifact),
         "",
         "## Universal I/O And Compatibility-To-Vortex Lanes",
         "",
