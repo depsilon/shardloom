@@ -44,6 +44,7 @@ from .models import Diagnostic, FieldEntry, FallbackStatus, OutputEnvelope
 from .quickstart import QuickstartProofReport, quickstart_proof
 from .query import (
     LazyFrame,
+    UnsupportedWorkflowOperationReport,
     UnsupportedWorkflowReport,
     WorkflowCertificationReport,
     WorkflowOperation,
@@ -89,6 +90,7 @@ __all__ = [
     "context",
     "quickstart_proof",
     "LazyFrame",
+    "UnsupportedWorkflowOperationReport",
     "UnsupportedWorkflowReport",
     "WorkflowCertificationReport",
     "WorkflowOperation",

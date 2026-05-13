@@ -211,7 +211,7 @@ from the merged code and tests.
     fault-tolerance certification evidence from side-effect checks, restricting live fixture
     output modes to emitted modes, and rejecting unsupported/malformed hybrid predicates without
     fallback.
-- [ ] Audit-F3 unresolved P2 Codex review-thread triage and repair bundle.
+- [x] Audit-F3 unresolved P2 Codex review-thread triage and repair bundle.
   - Source findings: unresolved P2 review threads remain on PRs #362, #366, #376, #380, #381,
     #384, #385, #386, #391, #393, #396, #420, #424, #426, #428, #433, #436, #437, #438, #439,
     #445, #446, #448, #449, #451, #452, #457, #459, #461, #473, #482, #506, #507, #515, #517,
@@ -326,6 +326,10 @@ from the merged code and tests.
     current closeout batch removes the invalid OpenAPI required fields, adds a contract test for the
     data-plane schema shape, rejects unknown reader-backed provider API surfaces with a deterministic
     no-fallback diagnostic, and adds a regression test for the rejection path.
+  - Completed: PR #526 merged the final Audit-F3 closeout. GitHub review threads remain unresolved
+    as thread-state artifacts unless explicitly resolved/commented on GitHub, but all actionable
+    implementation findings from the live PR #360+ audit are fixed or stale against current `main`
+    with regression coverage.
   - Verification: each batch needs targeted regression tests for the reviewed behavior, focused CLI
     and Python protocol tests where contracts change, broad fmt/clippy/workspace validation for
     shared surfaces, and a final PR #360+ review-thread state audit before release readiness.
@@ -666,7 +670,7 @@ P9.1-P9.5.
     Python, and API contracts before any broader support claim is made.
   - Slice rule: group closeout work by proof surface, not by source file. A slice must improve a
     user's ability to understand what can be run, what is blocked, and what evidence is missing.
-  - [ ] P7.0 CG-21 workflow API completeness and unsupported-diagnostic parity bundle.
+  - [x] P7.0 CG-21 workflow API completeness and unsupported-diagnostic parity bundle.
     - User-visible surface: CLI and Python workflow methods for the missing RFC 0033 DataFrame/ETL
       affordances (`profile`, `collect`, `to_pandas`, `to_arrow`, `write_vortex`, `write_parquet`,
       SQL, joins, aggregations, windows, schema contracts, and data-quality checks) return
@@ -677,6 +681,12 @@ P9.1-P9.5.
       execution is introduced.
     - Verification: Python unsupported workflow tests, CLI capability/diagnostic snapshots,
       typed-envelope/API compatibility locks, and no-runtime/no-fallback smoke assertions.
+    - Completed: added the report-only `workflow-unsupported-plan` CLI surface plus Python
+      `LazyFrame.profile`, `collect`, `to_pandas`, `to_arrow`, `write_vortex`, `write_parquet`,
+      `sql`, `join`, `aggregate`, `window`, `schema_contract`, and `data_quality_check` methods.
+      Each method returns stable CG-21 blocker IDs, required evidence, next actions, unsupported
+      diagnostics, and no-runtime/no-read/no-write/no-fallback fields instead of silently missing
+      from the workflow API.
   - [ ] P7.1 cross-CG capability and unsupported-diagnostic parity bundle.
     - User-visible surface: capability discovery shows CG-21 workflow, CG-22 engine mode, and CG-23
       remote API states through CLI, Python, and future REST views.

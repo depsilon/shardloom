@@ -91,3 +91,83 @@ fn certify_surfaces_json_remain_report_only_for_lazy_workflows() {
     assert!(native_io.contains(&field("per_path_certificate_required", "true")));
     assert!(native_io.contains(&field("fallback_execution_allowed", "false")));
 }
+
+#[test]
+fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
+    let collect = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "collect",
+            "read_csv(events.csv)",
+            "none",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let write = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "write-parquet",
+            "read_csv(events.csv)",
+            "out.parquet",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let sql = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "sql",
+            "read_vortex(orders.vortex)",
+            "select * from orders",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+
+    for output in [&collect, &write, &sql] {
+        assert!(output.contains("\"command\":\"workflow-unsupported-plan\""));
+        assert!(output.contains("\"status\":\"unsupported\""));
+        assert!(output.contains(&field("mode", "workflow_unsupported_plan")));
+        assert!(output.contains(&field(
+            "schema_version",
+            "shardloom.workflow_unsupported.v1"
+        )));
+        assert!(output.contains(&field("unsupported_status", "unsupported")));
+        assert!(output.contains(&field("severity", "error")));
+        assert!(output.contains(&field("plan_only", "true")));
+        assert!(output.contains(&field("execution", "not_performed")));
+        assert!(output.contains(&field("query_execution", "false")));
+        assert!(output.contains(&field("runtime_execution", "false")));
+        assert!(output.contains(&field("data_read", "false")));
+        assert!(output.contains(&field("data_materialized", "false")));
+        assert!(output.contains(&field("write_io", "false")));
+        assert!(output.contains(&field("object_store_io", "false")));
+        assert!(output.contains(&field("external_engine_invoked", "false")));
+        assert!(output.contains(&field("fallback_execution_allowed", "false")));
+        assert!(output.contains(&field("fallback_attempted", "false")));
+        assert!(output.contains("\"attempted\":false"));
+    }
+    assert!(collect.contains(&field("workflow_operation", "collect")));
+    assert!(collect.contains(&field(
+        "blocker_id",
+        "cg21.workflow.collect.materialization_unsupported"
+    )));
+    assert!(collect.contains(&field("materialization_required", "true")));
+    assert!(collect.contains(&field("write_required", "false")));
+    assert!(write.contains(&field("workflow_operation", "write_parquet")));
+    assert!(write.contains(&field(
+        "blocker_id",
+        "cg21.workflow.write_parquet.compatibility_export_unsupported"
+    )));
+    assert!(write.contains(&field("write_required", "true")));
+    assert!(sql.contains(&field("workflow_operation", "sql")));
+    assert!(sql.contains(&field(
+        "blocker_id",
+        "cg21.workflow.sql.frontend_unsupported"
+    )));
+    assert!(sql.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
+}

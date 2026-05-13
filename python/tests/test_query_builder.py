@@ -237,6 +237,125 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_missing_dataframe_affordances_return_report_only_unsupported(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[-2:] == ["--format", "json"], args
+                parts = args[:-2]
+                assert parts[0] == "workflow-unsupported-plan", args
+                operation = parts[1]
+                workflow_summary = parts[2]
+                target_ref = parts[3] if len(parts) == 4 else "none"
+                canonical = {
+                    "to-pandas": "to_pandas",
+                    "to-arrow": "to_arrow",
+                    "write-vortex": "write_vortex",
+                    "write-parquet": "write_parquet",
+                    "schema-contract": "schema_contract",
+                    "data-quality": "data_quality",
+                }.get(operation, operation)
+                write_required = operation.startswith("write-")
+                materialization_required = operation in {
+                    "collect", "to-pandas", "to-arrow", "write-vortex", "write-parquet"
+                }
+                runtime_required = operation not in {"schema-contract", "data-quality"}
+                code = (
+                    "SL_UNSUPPORTED_SQL"
+                    if operation in {"sql", "join", "aggregate", "window"}
+                    else "SL_NOT_IMPLEMENTED"
+                )
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported",
+                    "human_text": "unsupported",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [{
+                        "code": code,
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "unsupported",
+                        "feature": f"cg21.workflow.{canonical}",
+                        "reason": f"{canonical} is unsupported",
+                        "suggested_next_step": "inspect capability and evidence reports",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    }],
+                    "fields": [
+                        {"key": "mode", "value": "workflow_unsupported_plan"},
+                        {"key": "workflow_operation", "value": canonical},
+                        {"key": "workflow_summary", "value": workflow_summary},
+                        {"key": "target_ref", "value": target_ref},
+                        {"key": "blocker_id", "value": f"cg21.workflow.{canonical}.unsupported"},
+                        {"key": "required_evidence", "value": "execution_certificate,native_io_certificate"},
+                        {"key": "suggested_next_action", "value": "inspect capability and evidence reports"},
+                        {"key": "materialization_required", "value": str(materialization_required).lower()},
+                        {"key": "write_required", "value": str(write_required).lower()},
+                        {"key": "runtime_required", "value": str(runtime_required).lower()},
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+        workflow = (
+            sl.read_csv("events.csv", client=ShardLoomClient(binary=binary))
+            .filter("id > 0")
+            .select("id", "amount")
+        )
+
+        reports = (
+            workflow.profile(),
+            workflow.collect(),
+            workflow.to_pandas(),
+            workflow.to_arrow(),
+            workflow.write_vortex("out.vortex"),
+            workflow.write_parquet("out.parquet"),
+            workflow.sql("select * from events"),
+            workflow.join("dim.csv", on="id"),
+            workflow.aggregate("sum(amount)"),
+            workflow.window("row_number() over (partition by id)"),
+            workflow.schema_contract({"id": "int64"}),
+            workflow.data_quality_check("not_null:id"),
+        )
+
+        self.assertEqual(len(reports), 12)
+        for report in reports:
+            self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
+            self.assertEqual(report.envelope.status, "unsupported")
+            self.assertTrue(report.blocker_id and report.blocker_id.startswith("cg21.workflow."))
+            self.assertEqual(
+                report.envelope.field("workflow_summary"),
+                "read_csv(events.csv) -> filter(id > 0) -> select(id,amount)",
+            )
+            self.assertEqual(
+                report.required_evidence,
+                ("execution_certificate", "native_io_certificate"),
+            )
+            self.assertEqual(
+                report.suggested_next_action,
+                "inspect capability and evidence reports",
+            )
+            self.assertFalse(report.fallback_attempted)
+            self.assertFalse(report.runtime_execution)
+            self.assertFalse(report.data_read)
+            self.assertFalse(report.write_io)
+        self.assertEqual(reports[4].envelope.field("target_ref"), "out.vortex")
+        self.assertTrue(reports[4].envelope.field_bool("write_required"))
+        self.assertEqual(reports[6].envelope.field("target_ref"), "select * from events")
+        self.assertEqual(reports[9].envelope.field("workflow_operation"), "window")
+        self.assertFalse(reports[10].envelope.field_bool("runtime_required"))
+        self.assertFalse(reports[11].envelope.field_bool("runtime_required"))
+
     def test_engine_capability_matrix_view_exposes_blocked_live_hybrid_claims(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
