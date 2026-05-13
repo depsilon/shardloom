@@ -274,6 +274,38 @@ python python\examples\compatibility_source_smoke.py --repo-root . `
   --source parquet=data\fact.parquet
 ```
 
+The workflow-readiness smoke pulls together the next no-write boundary: output
+target preview, compatibility-output translation planning, staged Vortex
+write/commit readiness, table/catalog/object-store/remote-source planning, and
+migration/correctness/benchmark evidence status.
+
+```python
+from shardloom import ShardLoomClient
+
+client = ShardLoomClient.from_repo(profile_order=("debug", "release"))
+readiness = client.workflow_readiness_smoke()
+
+print(readiness.plan_names)
+print(readiness.all_no_write)
+print(readiness.all_report_only_or_planned)
+print(readiness.blocked_plan_names)
+print(readiness.fallback_attempted)
+```
+
+The matching script prints the same surfaces grouped by output/commit,
+table/remote, and evidence readiness:
+
+```powershell
+$env:PYTHONPATH = "python\src"
+python python\examples\workflow_readiness_smoke.py --repo-root .
+```
+
+This smoke does not create the staged workspace, write manifests, write Vortex
+payloads, open object-store credentials, read remote objects, query catalogs,
+materialize rows, or invoke fallback engines. Actual write and commit commands
+remain separate explicit CLI calls gated by their readiness signals and feature
+flags.
+
 Universal I/O is broader than local compatibility files. The current adapter
 registry also makes object-store, catalog, effectful, and unstructured queues
 visible from Python:

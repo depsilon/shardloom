@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P4.6 workflow readiness, output/remote blockers, and evidence UX bundle
+  - Primary files:
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/examples/workflow_readiness_smoke.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: restructure the remaining CG-21 plan into larger user-testable slices and add one
+    Python workflow-readiness smoke that previews output/write/commit readiness, compatibility
+    export planning, table/catalog/object-store/remote-source blockers, and evidence readiness
+    without reads, writes, probes, materialization, external services, or fallback execution.
+  - Checklist:
+    - [x] Collapse the remaining P4 queue into the completed P4.6 workflow-readiness bundle and
+          the follow-on P4.7 end-to-end quickstart/proof bundle so future work stays in meaningful
+          slices.
+    - [x] Add `WorkflowReadinessPlan`, `WorkflowReadinessSmokeReport`, and
+          `ShardLoomClient.workflow_readiness_smoke()` to aggregate Vortex output target preview,
+          compatibility-output translation planning, native plan export, write intent, output
+          payload, staged manifest, commit marker, commit intent, commit protocol, and local commit
+          recovery planning.
+    - [x] Surface table and remote planning through Python helpers for table intelligence,
+          Iceberg/Delta compatibility, layout health, compaction, CG-9 catalog metadata, CG-10
+          object-store request/range/coalesce/schedule/checkpoint/commit planning, and S3/GCS/Azure/
+          HTTP compatibility-source planning.
+    - [x] Surface evidence readiness through Python helpers for migration capabilities,
+          correctness planning, benchmark-claim evidence, and world-class sufficiency blockers.
+    - [x] Add `python/examples/workflow_readiness_smoke.py` and README usage so users can run the
+          no-write readiness preview directly from the checkout.
+  - Validation:
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom python\examples\workflow_readiness_smoke.py python\examples\local_vortex_primitives_smoke.py python\examples\compatibility_source_smoke.py`
+    - [x] `$env:PYTHONPATH='python/src'; python python\examples\workflow_readiness_smoke.py --repo-root .`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `git diff --check`
+  - Runtime stance: this is a planning/readiness UX slice only. It does not add or imply dataset
+    reads, local artifact writes, object-store or catalog IO, remote service calls, SQL/DataFrame
+    execution, materialization, package publication, external-engine invocation, or fallback
+    execution. Real write and commit paths remain explicit, gated CLI commands.
+
 - [x] Session label: P4.4/P4.5 local Vortex workflow and compatibility-source planning smoke
   - Primary files:
     - `python/src/shardloom/client.py`
