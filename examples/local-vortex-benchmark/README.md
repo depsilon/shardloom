@@ -10,3 +10,11 @@ python examples\local-vortex-benchmark\run.py --repo-root .
 
 The script writes `target/shardloom-local-vortex-benchmark-smoke.json`.
 It does not install external baseline engines and does not publish results.
+
+Files in this example:
+
+- `environment.yml`: minimal local benchmark smoke environment shape.
+- `fixtures/benchmark-request.json`: input fixture for the smoke parameters.
+- `expected-output.json`: expected artifact fields.
+- `expected-certificate-fields.json`: expected certificate/evidence fields.
+- `known-limitations.md`: current boundaries and non-goals.

@@ -45,6 +45,9 @@ python examples\local-vortex-benchmark\run.py --repo-root .
 This wraps the local taxonomy benchmark harness with a small ShardLoom-only
 smoke configuration.
 
+Additional example metadata, expected outputs, certificate fields, and known
+limitations are listed in `docs/getting-started/examples.md`.
+
 ## Release Dry-Run Proof
 
 For a single local proof that builds source artifacts, installs the local wheel

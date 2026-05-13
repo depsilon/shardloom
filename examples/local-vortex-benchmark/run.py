@@ -15,6 +15,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rows", type=int, default=256)
     parser.add_argument("--iterations", type=int, default=3)
     parser.add_argument(
+        "--formats",
+        default="csv",
+        help="Comma-separated formats for the smoke. Defaults to csv so no optional Parquet dependency is required.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("target/shardloom-local-vortex-benchmark-smoke.json"),
@@ -32,7 +37,7 @@ def main() -> int:
         "--engines",
         "shardloom",
         "--formats",
-        "csv,parquet",
+        args.formats,
         "--scenario",
         "selective filter",
         "--dataset-profile",

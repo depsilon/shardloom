@@ -1,0 +1,12 @@
+{
+  "schema_version": "shardloom.example.input.v1",
+  "example": "local-python-smoke",
+  "input_kind": "no_dataset_smoke",
+  "commands": [
+    "status",
+    "smoke_check",
+    "capabilities"
+  ],
+  "fallback_allowed": false,
+  "external_engine_invocation_allowed": false
+}

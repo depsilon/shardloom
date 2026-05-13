@@ -120,8 +120,10 @@ First-user docs:
 
 - [`docs/getting-started/install.md`](docs/getting-started/install.md)
 - [`docs/getting-started/first-10-minutes.md`](docs/getting-started/first-10-minutes.md)
+- [`docs/getting-started/examples.md`](docs/getting-started/examples.md)
 - [`docs/getting-started/certified-local-workload.md`](docs/getting-started/certified-local-workload.md)
 - [`docs/benchmarks/local-taxonomy-benchmark.md`](docs/benchmarks/local-taxonomy-benchmark.md)
+- [`docs/benchmarks/baseline-comparison-boundary.md`](docs/benchmarks/baseline-comparison-boundary.md)
 
 ## No-Fallback Policy
 

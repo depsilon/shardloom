@@ -397,7 +397,7 @@ from the merged code and tests.
       transcript with publication/tag/secret/fallback dependency fields set false.
     - Verification: clean-env smoke transcript, Python import tests, CLI resolution diagnostics,
       install docs checks, local benchmark smoke, and workspace validation.
-  - [ ] P8.3 external examples, docs, and baseline-comparison boundary bundle.
+  - [x] P8.3 external examples, docs, and baseline-comparison boundary bundle.
     - User-visible surface: `examples/local-python-smoke/`, `examples/local-vortex-benchmark/`, and
       `examples/foundry-lightweight-transform/` each include README, environment file, input
       fixture, expected output, expected certificate fields, and known limitations.
@@ -405,6 +405,15 @@ from the merged code and tests.
       Foundry usage, benchmarking, certificates, no-fallback policy, Vortex compatibility, maturity
       statuses, and unsupported diagnostics. Benchmark extras and Spark/DataFusion/DuckDB/Polars/
       pandas comparison tooling stay out of the core install path and are reported as baselines only.
+    - Completed proof: `examples/local-python-smoke/`, `examples/local-vortex-benchmark/`, and
+      `examples/foundry-lightweight-transform/` now include README, environment file, input
+      fixture, expected output snapshot, expected certificate fields, and known limitations. The
+      Foundry example is a local no-platform smoke only; it does not import Foundry, invoke Foundry
+      compute, stage data through Foundry, or certify P9 proof-of-use.
+    - Completed boundary: `docs/getting-started/examples.md` and
+      `docs/benchmarks/baseline-comparison-boundary.md` document the examples and keep optional
+      Spark/DataFusion/DuckDB/Polars/pandas/Dask/Velox comparison tooling out of the core runtime
+      install path and labeled as baseline-only.
     - Verification: example smoke scripts, docs link checks, expected-output snapshots, dependency
       posture checks, and full workspace validation.
   - [ ] P8.4 hard release-readiness gate bundle.

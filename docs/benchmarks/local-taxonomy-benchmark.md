@@ -52,6 +52,9 @@ Only install baseline engines in benchmark environments. They are not ShardLoom
 runtime dependencies and must not execute unsupported ShardLoom work as
 fallback.
 
+See `docs/benchmarks/baseline-comparison-boundary.md` for the release boundary
+between runtime packages and optional benchmark comparison tooling.
+
 ## Claim-Readiness Rerun
 
 The selected P7.4.4 closeout rerun is:

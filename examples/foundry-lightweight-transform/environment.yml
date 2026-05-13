@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shardloom-foundry-lightweight-transform
+channels:
+  - conda-forge
+dependencies:
+  - python >=3.10
+  - pip
+  # Future Foundry code repositories should add the approved ShardLoom package source here.
+  # This example intentionally adds no Foundry, Spark, DataFusion, DuckDB, Polars, or pandas runtime dependency.

@@ -1,0 +1,12 @@
+{
+  "schema_version": "shardloom.example.expected_output.v1",
+  "example": "local-python-smoke",
+  "expected_stdout_fields": {
+    "status": "success",
+    "protocol": "shardloom.output.v2",
+    "capabilities_command": "capabilities",
+    "fallback_attempted": false
+  },
+  "publication_attempted": false,
+  "external_engine_invoked": false
+}

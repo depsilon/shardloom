@@ -1,0 +1,16 @@
+{
+  "schema_version": "shardloom.example.expected_certificates.v1",
+  "example": "local-vortex-benchmark",
+  "execution_certificate_status": "certified",
+  "source_native_io_certificate_status": "certified",
+  "result_native_io_certificate_status": "certified",
+  "materialization_decode_evidence_present": true,
+  "required_refs": [
+    "benchmark_row_ref",
+    "coverage_row_ref"
+  ],
+  "required_policy_fields": {
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  }
+}

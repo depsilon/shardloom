@@ -1,0 +1,11 @@
+{
+  "schema_version": "shardloom.example.expected_certificates.v1",
+  "example": "local-python-smoke",
+  "execution_certificate_required": false,
+  "native_io_certificate_required": false,
+  "reason": "No dataset is read or written during the local Python smoke.",
+  "required_policy_fields": {
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  }
+}

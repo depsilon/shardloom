@@ -16,6 +16,34 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P8.3 external examples and baseline boundary bundle
+  - Primary files:
+    - `examples/local-python-smoke/`
+    - `examples/local-vortex-benchmark/`
+    - `examples/foundry-lightweight-transform/`
+    - `docs/getting-started/examples.md`
+    - `docs/benchmarks/baseline-comparison-boundary.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: complete the P8.3 example/docs lane with runnable local examples, expected outputs,
+    certificate field snapshots, limitations, and a clear baseline-comparison boundary.
+  - Checklist:
+    - [x] Add environment files, input fixtures, expected-output snapshots, expected certificate
+          field snapshots, and known limitations for local Python smoke and local Vortex benchmark
+          examples.
+    - [x] Add `examples/foundry-lightweight-transform/` as a local no-platform smoke that resolves
+          ShardLoom, records a staged input path, writes a certificate-style JSON output, and keeps
+          Foundry compute, virtual tables, external compute, and staged dataset execution deferred.
+    - [x] Add examples and baseline-boundary docs that keep benchmark extras out of the core
+          runtime install path and label optional comparison engines as external baselines only.
+    - [x] Add contract tests for example metadata, fixtures, expected outputs, certificate fields,
+          Foundry no-compute/no-fallback fields, and baseline boundary language.
+  - Runtime stance: examples and local smoke only. No Foundry SDK, Foundry platform invocation,
+    managed platform lane, external runtime dependency, package publication, or fallback execution
+    was added.
+
 - [x] Session label: P8.1/P8.2 release dry-run and first-10-minutes proof bundle
   - Primary files:
     - `scripts/release_dry_run_proof.py`

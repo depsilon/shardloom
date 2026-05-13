@@ -1,0 +1,20 @@
+{
+  "schema_version": "shardloom.example.expected_output.v1",
+  "example": "local-vortex-benchmark",
+  "expected_artifact_schema": "shardloom.traditional_analytics_benchmark.v1",
+  "expected_engine": "shardloom",
+  "expected_scenario": "csv: selective filter",
+  "expected_coverage_fields": [
+    "row_classification",
+    "support_status",
+    "claim_gate_status",
+    "timing_row_present",
+    "write_timing_present",
+    "fallback_attempted",
+    "external_engine_invoked"
+  ],
+  "expected_policy": {
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  }
+}
