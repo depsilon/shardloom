@@ -122,7 +122,9 @@ boundary, decode, materialization, row reads, Arrow conversion, writes, spill,
 auto-derived resource sizing, NativeIoCertificate status, local runtime task
 graph/scheduler refs, bounded queue/backpressure status, memory reservation
 request/grant/release counts, retry/cancellation gate status, operator spill
-blockers, and runtime execution certificate status.
+blockers, runtime execution certificate status, and report-only Vortex layout/write advisor fields
+for chunking, encoding, statistics, dictionary, clustering, flush, compaction, read/write tradeoff,
+evidence-source status, no-claim status, no-write status, and no-fallback status.
 
 ShardLoom's reported benchmark version appends `-dirty` when the workspace has
 uncommitted tracked changes, so local bring-up reports do not look like clean
@@ -278,6 +280,23 @@ Run the taxonomy-expanded local analytics suite:
 ```powershell
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --include-taxonomy-extra --rows 10000 --iterations 1
 ```
+
+Run the current P7.4.4 benchmark-closeout smoke across ShardLoom and selected local baselines:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,pandas,polars,duckdb,datafusion --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
+```
+
+Run focused profile checks for supported ShardLoom taxonomy extras:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars,duckdb --formats csv --scenario "top-N per group" --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars,duckdb --formats csv --scenario "high-cardinality string group/distinct" --dataset-profile high_cardinality_strings --rows 100000 --iterations 3
+```
+
+Treat these as claim-readiness inputs, not public performance claims. The expected behavior for
+unsupported ShardLoom taxonomy scenarios is an unsupported/blocked row, a coverage row, no crash,
+`fallback_attempted=false`, and `external_engine_invoked=false`.
 
 Run one engine or one scenario while troubleshooting:
 

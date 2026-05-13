@@ -305,8 +305,33 @@ fixture benchmark rows for eligible prepared/source-bound/reader-backed encoded 
 ShardLoom traditional analytics lane executes the base-schema expanded taxonomy scenarios
 `filter + projection + limit`, `multi-key group by`, `join + aggregate`, `row number window`,
 `high-cardinality string group/distinct`, and `top-N per group` through the local Vortex
-import/replay/result-sink evidence path. It does not execute comparative benchmarks and does not
-publish performance claims.
+import/replay/result-sink evidence path. Result-sink ShardLoom rows also surface report-only
+Vortex layout/write advisor fields derived from workload, benchmark, runtime, and Native I/O
+evidence. It does not execute comparative benchmarks, apply layout rewrites, or publish performance
+claims.
+
+The next benchmark closeout step is P7.4.4 claim-grade local benchmark readiness, not release work.
+That closeout should run selected local comparative reruns, keep managed platforms out, preserve
+coverage rows separately from timing rows, and promote rows only when the artifact carries
+workload-scoped correctness, benchmark, execution-certificate, Native I/O, materialization/decode,
+and no-fallback evidence. Rows without that evidence must remain `fixture_smoke_only`,
+`not_claim_grade`, `unsupported`, `blocked`, or `external_baseline_only` as appropriate.
+
+Suggested first local smoke:
+
+```powershell
+python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,pandas,polars,duckdb,datafusion --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
+```
+
+Then run profile-specific checks:
+
+```powershell
+python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars,duckdb --formats csv --scenario "top-N per group" --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
+python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars,duckdb --formats csv --scenario "high-cardinality string group/distinct" --dataset-profile high_cardinality_strings --rows 100000 --iterations 3
+```
+
+For scenarios ShardLoom does not support yet, expected evidence is an unsupported or blocked row,
+a coverage row, `fallback_attempted=false`, and `external_engine_invoked=false`.
 
 `plan_source_backed_benchmark_matrix()` keeps:
 

@@ -548,6 +548,36 @@ impl TraditionalAnalyticsVortexRequest {
     }
 }
 
+/// Report-only Vortex layout/write advisor evidence for a certified local
+/// analytics workflow.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct TraditionalVortexLayoutAdvisorReport {
+    pub schema_version: String,
+    pub report_id: String,
+    pub status: String,
+    pub workload_constitution_id: String,
+    pub evidence_basis: String,
+    pub evidence_source_refs: Vec<String>,
+    pub recommended_chunk_rows: usize,
+    pub recommended_chunk_bytes: u64,
+    pub encoding_strategy: String,
+    pub statistics_policy: String,
+    pub dictionary_strategy: String,
+    pub cluster_key: String,
+    pub micro_segment_flush_policy: String,
+    pub compaction_trigger: String,
+    pub read_write_tradeoff: String,
+    pub recommendation_evidence_status: String,
+    pub measured_evidence_source_count: usize,
+    pub simulated_evidence_source_count: usize,
+    pub blocked_evidence_source_count: usize,
+    pub write_layout_execution_allowed: bool,
+    pub improvement_claim_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
 /// Report emitted by the local CSV-to-Vortex benchmark smoke runner.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -632,6 +662,7 @@ pub struct TraditionalAnalyticsReport {
     pub runtime_operator_memory_spill_claim_blocker_count: usize,
     pub runtime_large_workload_claim_allowed: bool,
     pub runtime_execution_certificate: ExecutionCertificate,
+    pub layout_advisor_report: TraditionalVortexLayoutAdvisorReport,
     pub commit_state: String,
     pub rollback_cleanup_status: String,
     pub fact_source_bytes: u64,
@@ -684,7 +715,7 @@ impl TraditionalAnalyticsReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "ShardLoom traditional analytics universal I/O smoke\nscenario: {}\nsource format: {}\nresource policy: {}\napplied memory GiB: {}\napplied parallelism: {}\ntarget batch rows: {}\ntarget partitions: {}\nworkspace: {}\nfact Vortex: {}\ndim Vortex: {}\nrows scanned: {}\nrows materialized: {}\ncompatibility source adapter: true\ncompatibility to Vortex import: true\nVortex write/read/scan: true\nruntime scheduler: {} tasks={} batches={} certificate={}\nmaterialization boundary reported: {}\noutput replay verified: {}\ncomputed result sink verified: {}\nworkload scorecard: {}\nexternal engine fallback: disabled",
+            "ShardLoom traditional analytics universal I/O smoke\nscenario: {}\nsource format: {}\nresource policy: {}\napplied memory GiB: {}\napplied parallelism: {}\ntarget batch rows: {}\ntarget partitions: {}\nworkspace: {}\nfact Vortex: {}\ndim Vortex: {}\nrows scanned: {}\nrows materialized: {}\ncompatibility source adapter: true\ncompatibility to Vortex import: true\nVortex write/read/scan: true\nruntime scheduler: {} tasks={} batches={} certificate={}\nlayout advisor: {} recommendation={} claim_allowed={}\nmaterialization boundary reported: {}\noutput replay verified: {}\ncomputed result sink verified: {}\nworkload scorecard: {}\nexternal engine fallback: disabled",
             self.scenario.as_str(),
             self.input_format.as_str(),
             self.resource_policy.sizing_mode(),
@@ -701,6 +732,9 @@ impl TraditionalAnalyticsReport {
             self.runtime_task_count,
             self.runtime_scheduler_batch_count,
             self.runtime_execution_certificate.status.as_str(),
+            &self.layout_advisor_report.status,
+            &self.layout_advisor_report.recommendation_evidence_status,
+            self.layout_advisor_report.improvement_claim_allowed,
             self.materialization_boundary_report_emitted,
             self.output_replay_verified,
             self.computed_result_sink_replay_verified,
@@ -1133,6 +1167,122 @@ impl TraditionalAnalyticsReport {
                 "runtime_fallback_attempted".to_string(),
                 self.runtime_execution_certificate
                     .fallback_attempted
+                    .to_string(),
+            ),
+            (
+                "layout_advisor_report_emitted".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "layout_advisor_schema_version".to_string(),
+                self.layout_advisor_report.schema_version.clone(),
+            ),
+            (
+                "layout_advisor_report_id".to_string(),
+                self.layout_advisor_report.report_id.clone(),
+            ),
+            (
+                "layout_advisor_status".to_string(),
+                self.layout_advisor_report.status.clone(),
+            ),
+            (
+                "layout_advisor_workload_constitution_id".to_string(),
+                self.layout_advisor_report.workload_constitution_id.clone(),
+            ),
+            (
+                "layout_advisor_evidence_basis".to_string(),
+                self.layout_advisor_report.evidence_basis.clone(),
+            ),
+            (
+                "layout_advisor_evidence_source_refs".to_string(),
+                self.layout_advisor_report.evidence_source_refs.join(","),
+            ),
+            (
+                "layout_advisor_recommended_chunk_rows".to_string(),
+                self.layout_advisor_report
+                    .recommended_chunk_rows
+                    .to_string(),
+            ),
+            (
+                "layout_advisor_recommended_chunk_bytes".to_string(),
+                self.layout_advisor_report
+                    .recommended_chunk_bytes
+                    .to_string(),
+            ),
+            (
+                "layout_advisor_encoding_strategy".to_string(),
+                self.layout_advisor_report.encoding_strategy.clone(),
+            ),
+            (
+                "layout_advisor_statistics_policy".to_string(),
+                self.layout_advisor_report.statistics_policy.clone(),
+            ),
+            (
+                "layout_advisor_dictionary_strategy".to_string(),
+                self.layout_advisor_report.dictionary_strategy.clone(),
+            ),
+            (
+                "layout_advisor_cluster_key".to_string(),
+                self.layout_advisor_report.cluster_key.clone(),
+            ),
+            (
+                "layout_advisor_micro_segment_flush_policy".to_string(),
+                self.layout_advisor_report
+                    .micro_segment_flush_policy
+                    .clone(),
+            ),
+            (
+                "layout_advisor_compaction_trigger".to_string(),
+                self.layout_advisor_report.compaction_trigger.clone(),
+            ),
+            (
+                "layout_advisor_read_write_tradeoff".to_string(),
+                self.layout_advisor_report.read_write_tradeoff.clone(),
+            ),
+            (
+                "layout_advisor_recommendation_evidence_status".to_string(),
+                self.layout_advisor_report
+                    .recommendation_evidence_status
+                    .clone(),
+            ),
+            (
+                "layout_advisor_measured_evidence_source_count".to_string(),
+                self.layout_advisor_report
+                    .measured_evidence_source_count
+                    .to_string(),
+            ),
+            (
+                "layout_advisor_simulated_evidence_source_count".to_string(),
+                self.layout_advisor_report
+                    .simulated_evidence_source_count
+                    .to_string(),
+            ),
+            (
+                "layout_advisor_blocked_evidence_source_count".to_string(),
+                self.layout_advisor_report
+                    .blocked_evidence_source_count
+                    .to_string(),
+            ),
+            (
+                "layout_advisor_write_layout_execution_allowed".to_string(),
+                self.layout_advisor_report
+                    .write_layout_execution_allowed
+                    .to_string(),
+            ),
+            (
+                "layout_advisor_improvement_claim_allowed".to_string(),
+                self.layout_advisor_report
+                    .improvement_claim_allowed
+                    .to_string(),
+            ),
+            (
+                "layout_advisor_fallback_attempted".to_string(),
+                self.layout_advisor_report.fallback_attempted.to_string(),
+            ),
+            (
+                "layout_advisor_external_engine_invoked".to_string(),
+                self.layout_advisor_report
+                    .external_engine_invoked
                     .to_string(),
             ),
             ("commit_state".to_string(), self.commit_state.clone()),
@@ -2272,6 +2422,15 @@ fn run_traditional_analytics_benchmark_enabled(
             "traditional analytics runtime execution certificate was blocked by fallback or external engine evidence".to_string(),
         ));
     }
+    let layout_advisor_report = traditional_layout_advisor_report(
+        request.scenario,
+        request.input_format,
+        resource_policy,
+        fact_vortex_bytes,
+        dim_vortex_bytes,
+        &runtime_evidence,
+        computed_result_sink.is_some(),
+    );
 
     Ok(TraditionalAnalyticsReport {
         scenario: request.scenario,
@@ -2388,6 +2547,7 @@ fn run_traditional_analytics_benchmark_enabled(
             .operator_memory_spill_claim_blocker_count,
         runtime_large_workload_claim_allowed: runtime_evidence.large_workload_claim_allowed,
         runtime_execution_certificate: runtime_evidence.execution_certificate,
+        layout_advisor_report,
         commit_state: if computed_result_sink.is_some() {
             "local_vortex_files_and_result_sink_written_uncommitted".to_string()
         } else {
@@ -2891,6 +3051,149 @@ fn traditional_runtime_execution_certificate(
     certificate_input.fallback_execution_allowed = false;
     certificate_input.correctness_passed = correctness_passed;
     Ok(ExecutionCertificate::evaluate(certificate_input))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_layout_advisor_report(
+    scenario: TraditionalAnalyticsScenario,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    fact_vortex_bytes: u64,
+    dim_vortex_bytes: u64,
+    runtime_evidence: &TraditionalRuntimeEvidence,
+    result_sink_written: bool,
+) -> TraditionalVortexLayoutAdvisorReport {
+    let scenario_slug = scenario.as_str().replace(['/', ' '], "-");
+    let mut evidence_source_refs = vec![
+        traditional_benchmark_row_ref(scenario, input_format),
+        traditional_coverage_row_ref(scenario, input_format),
+        runtime_evidence
+            .execution_certificate
+            .certificate_id
+            .clone(),
+        format!(
+            "native-io://local_vortex_analytics_v1/{}/source-import",
+            input_format.as_str()
+        ),
+    ];
+    if result_sink_written {
+        evidence_source_refs.push(format!(
+            "native-io://local_vortex_analytics_v1/{scenario_slug}/result-sink"
+        ));
+    }
+    let (encoding_strategy, statistics_policy, dictionary_strategy, cluster_key) =
+        traditional_layout_recommendations(scenario);
+    let recommendation_evidence_status = if result_sink_written
+        && runtime_evidence.execution_certificate.status.as_str() == "certified"
+    {
+        "measured_runtime_evidence_with_simulated_layout_advice"
+    } else {
+        "runtime_evidence_present_result_sink_or_correctness_incomplete"
+    };
+    TraditionalVortexLayoutAdvisorReport {
+        schema_version: "shardloom.vortex_layout_advisor_report.v1".to_string(),
+        report_id: format!("p747.local_vortex_analytics.{scenario_slug}.layout_advisor"),
+        status: "report_only".to_string(),
+        workload_constitution_id: LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID.to_string(),
+        evidence_basis: format!(
+            "workload_constitution={},input_format={},fact_vortex_bytes={},dim_vortex_bytes={},runtime_scheduler_ref={}",
+            LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID,
+            input_format.as_str(),
+            fact_vortex_bytes,
+            dim_vortex_bytes,
+            &runtime_evidence.scheduler_ref
+        ),
+        evidence_source_refs,
+        recommended_chunk_rows: resource_policy.target_batch_rows,
+        recommended_chunk_bytes: resource_policy.target_partition_bytes,
+        encoding_strategy: encoding_strategy.to_string(),
+        statistics_policy: statistics_policy.to_string(),
+        dictionary_strategy: dictionary_strategy.to_string(),
+        cluster_key: cluster_key.to_string(),
+        micro_segment_flush_policy: format!(
+            "flush_at_target_batch_rows_or_{}bytes",
+            resource_policy.target_partition_bytes
+        ),
+        compaction_trigger: if resource_policy.target_partition_count > 1 {
+            "compact_when_small_segments_exceed_target_partition_count"
+        } else {
+            "no_compaction_for_single_local_partition"
+        }
+        .to_string(),
+        read_write_tradeoff:
+            "favor_read_pruning_and_dictionary_reuse; write-layout execution remains blocked"
+                .to_string(),
+        recommendation_evidence_status: recommendation_evidence_status.to_string(),
+        measured_evidence_source_count: if result_sink_written { 5 } else { 4 },
+        simulated_evidence_source_count: 1,
+        blocked_evidence_source_count: 1,
+        write_layout_execution_allowed: false,
+        improvement_claim_allowed: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_layout_recommendations(
+    scenario: TraditionalAnalyticsScenario,
+) -> (&'static str, &'static str, &'static str, &'static str) {
+    match scenario {
+        TraditionalAnalyticsScenario::SelectiveFilter
+        | TraditionalAnalyticsScenario::FilterProjectionLimit => (
+            "preserve_current_vortex_encoding_with_filter_column_statistics",
+            "min_max_and_null_count_for_flag_value_metric",
+            "dictionary_encode_category_when_cardinality_ratio_allows",
+            "flag,value",
+        ),
+        TraditionalAnalyticsScenario::GroupByAggregation
+        | TraditionalAnalyticsScenario::MultiKeyGroupBy => (
+            "cluster_group_keys_and_preserve_metric_column",
+            "group_key_category_metric_summary_statistics",
+            "dictionary_encode_category",
+            "group_key,category",
+        ),
+        TraditionalAnalyticsScenario::DistinctCount
+        | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => (
+            "preserve_dictionary_candidates_for_string_distinct",
+            "category_cardinality_and_null_count",
+            "dictionary_encode_category_with_cardinality_guard",
+            "category",
+        ),
+        TraditionalAnalyticsScenario::HashJoin
+        | TraditionalAnalyticsScenario::JoinAggregate
+        | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+        | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => (
+            "co_locate_dim_key_and_metric_columns_for_join_probe",
+            "dim_key_category_metric_summary_statistics",
+            "dictionary_encode_dim_label_and_category",
+            "dim_key,category",
+        ),
+        TraditionalAnalyticsScenario::SortAndTopK | TraditionalAnalyticsScenario::TopNPerGroup => (
+            "cluster_metric_order_candidates_for_topn_reads",
+            "metric_min_max_and_group_key_summary_statistics",
+            "dictionary_encode_category_when_present",
+            "metric,group_key,id",
+        ),
+        TraditionalAnalyticsScenario::RowNumberWindow => (
+            "cluster_window_partition_and_order_columns",
+            "group_key_metric_id_summary_statistics",
+            "dictionary_encode_category_when_present",
+            "group_key,metric,id",
+        ),
+        TraditionalAnalyticsScenario::WideProjection => (
+            "chunk_columns_for_projection_locality",
+            "column_presence_and_row_count_statistics",
+            "preserve_current_dictionary_candidates",
+            "projected_columns",
+        ),
+        TraditionalAnalyticsScenario::CsvFileIngest => (
+            "preserve_writer_defaults_for_ingest_smoke",
+            "row_count_and_source_file_statistics",
+            "preserve_current_dictionary_candidates",
+            "none",
+        ),
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -6157,6 +6460,24 @@ mod tests {
                 report.runtime_execution_certificate.status.as_str(),
                 "certified"
             );
+            assert_eq!(report.layout_advisor_report.status, "report_only");
+            assert_eq!(
+                report
+                    .layout_advisor_report
+                    .workload_constitution_id
+                    .as_str(),
+                LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID
+            );
+            assert!(
+                report
+                    .layout_advisor_report
+                    .evidence_source_refs
+                    .iter()
+                    .any(|value| value.contains("result-sink"))
+            );
+            assert!(!report.layout_advisor_report.improvement_claim_allowed);
+            assert!(!report.layout_advisor_report.write_layout_execution_allowed);
+            assert!(!report.layout_advisor_report.fallback_attempted);
         }
 
         let _ = std::fs::remove_dir_all(root);
@@ -6421,6 +6742,33 @@ mod tests {
                 .runtime_execution_certificate
                 .external_query_engine_free()
         );
+        assert_eq!(report.layout_advisor_report.status, "report_only");
+        assert_eq!(
+            report.layout_advisor_report.recommendation_evidence_status,
+            "measured_runtime_evidence_with_simulated_layout_advice"
+        );
+        assert_eq!(
+            report.layout_advisor_report.recommended_chunk_rows,
+            report.resource_policy.target_batch_rows
+        );
+        assert_eq!(
+            report.layout_advisor_report.recommended_chunk_bytes,
+            report.resource_policy.target_partition_bytes
+        );
+        assert_eq!(report.layout_advisor_report.cluster_key, "flag,value");
+        assert!(report.layout_advisor_report.measured_evidence_source_count >= 5);
+        assert_eq!(
+            report.layout_advisor_report.simulated_evidence_source_count,
+            1
+        );
+        assert_eq!(
+            report.layout_advisor_report.blocked_evidence_source_count,
+            1
+        );
+        assert!(!report.layout_advisor_report.improvement_claim_allowed);
+        assert!(!report.layout_advisor_report.write_layout_execution_allowed);
+        assert!(!report.layout_advisor_report.fallback_attempted);
+        assert!(!report.layout_advisor_report.external_engine_invoked);
         assert!(!report.fallback_execution_allowed);
 
         let replay = read_computed_result_vortex(&result_path).unwrap();
@@ -6459,6 +6807,22 @@ mod tests {
                 .iter()
                 .any(|(key, value)| { key == "runtime_fallback_attempted" && value == "false" })
         );
+        assert!(
+            fields
+                .iter()
+                .any(|(key, value)| { key == "layout_advisor_report_emitted" && value == "true" })
+        );
+        assert!(
+            fields
+                .iter()
+                .any(|(key, value)| { key == "layout_advisor_status" && value == "report_only" })
+        );
+        assert!(fields.iter().any(|(key, value)| {
+            key == "layout_advisor_improvement_claim_allowed" && value == "false"
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "layout_advisor_write_layout_execution_allowed" && value == "false"
+        }));
 
         let _ = std::fs::remove_dir_all(root);
     }

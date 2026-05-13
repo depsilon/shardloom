@@ -63,6 +63,14 @@ ShardLoom is pre-release. The current repository is strongest as an evidence-fir
 engine prototype plus protocol/benchmark scaffolding, not as a general SQL/DataFrame/REST platform
 yet.
 
+The current `local_vortex_analytics_v1` path is now a credible local workload-certified
+compute-engine slice: it can import local compatibility data into Vortex artifacts, execute the
+supported local analytics path, write a Vortex result artifact, replay source and result artifacts,
+emit execution and Native I/O certificates, record scheduler/memory evidence, and preserve
+no-fallback policy fields. That certification is intentionally scoped to the named local workload;
+it is not a broad SQL engine, production platform, Spark replacement, or general DataFrame runtime
+claim.
+
 Implemented or actively wired surfaces include:
 
 - typed top-level plan variants and artifact-rich execution results for current Vortex primitive,
@@ -107,7 +115,8 @@ Implemented or actively wired surfaces include:
   benchmark/coverage row refs, source replay and result-sink Native I/O certificate refs, separate
   compute/write timing fields, local task-graph scheduler evidence, bounded queue/backpressure
   fields, memory reservation/release evidence, retry/cancellation gate status, runtime execution
-  certificate status, operator spill blockers, commit/cleanup status, and `fallback_attempted=false`
+  certificate status, operator spill blockers, report-only Vortex layout/write advisor
+  recommendations, commit/cleanup status, and `fallback_attempted=false`
 - ShardLoom-native benchmark coverage for base-schema taxonomy scenarios beyond the default local
   suite: filter/projection/limit, multi-key group by, join+aggregate, row-number window,
   high-cardinality string group/distinct, and top-N per group, with the same replay/result-sink
@@ -129,8 +138,8 @@ Still planned or gated:
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
 - claim-grade compute-engine completion: source-backed measured rows beyond fixture-smoke evidence,
-  Vortex layout/write advisor feedback, remaining extra-column/multi-file/incremental taxonomy
-  support, and benchmark promotion
+  executable layout/write strategy application, remaining extra-column/multi-file/incremental
+  taxonomy support, and benchmark promotion
 - full comparative benchmark reruns, write/incremental benchmark promotion, clean/cast/filter/write
   execution, and claim-grade source-backed benchmark promotion
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
