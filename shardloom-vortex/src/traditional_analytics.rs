@@ -17,6 +17,9 @@ const MAX_EXACT_F64_INTEGER: u64 = 9_007_199_254_740_992;
 const LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID: &str = "local_vortex_analytics_v1";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
+    "result(scenario:utf8,result_json:utf8,rows_materialized:u64,workload_constitution_id:utf8)";
 
 /// Benchmark scenarios used by the local traditional analytics harness.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -425,6 +428,7 @@ pub struct TraditionalAnalyticsRequest {
     pub input_format: TraditionalAnalyticsInputFormat,
     pub compatibility_output_format: Option<TraditionalAnalyticsInputFormat>,
     pub verify_native_vortex_replay: bool,
+    pub write_result_vortex: bool,
     pub resource_policy: TraditionalAnalyticsResourcePolicy,
 }
 
@@ -444,6 +448,7 @@ impl TraditionalAnalyticsRequest {
             input_format: TraditionalAnalyticsInputFormat::Csv,
             compatibility_output_format: None,
             verify_native_vortex_replay: false,
+            write_result_vortex: false,
             resource_policy: TraditionalAnalyticsResourcePolicy::default(),
         }
     }
@@ -478,6 +483,12 @@ impl TraditionalAnalyticsRequest {
     #[must_use]
     pub const fn with_native_vortex_replay_verification(mut self, value: bool) -> Self {
         self.verify_native_vortex_replay = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_result_vortex_write(mut self, value: bool) -> Self {
+        self.write_result_vortex = value;
         self
     }
 }
@@ -541,6 +552,20 @@ pub struct TraditionalAnalyticsReport {
     pub output_replay_rows_materialized: Option<u64>,
     pub output_replay_native_io_certificate_id: Option<String>,
     pub output_replay_native_io_certificate_status: Option<String>,
+    pub computed_result_sink_requested: bool,
+    pub computed_result_sink_written: bool,
+    pub computed_result_sink_replay_verified: bool,
+    pub computed_result_vortex_path: Option<PathBuf>,
+    pub computed_result_vortex_bytes: u64,
+    pub computed_result_vortex_digest: Option<String>,
+    pub computed_result_sink_rows: u64,
+    pub computed_result_sink_rows_materialized: u64,
+    pub computed_result_sink_schema_summary: String,
+    pub scenario_compute_micros: u64,
+    pub computed_result_sink_write_micros: Option<u64>,
+    pub computed_result_sink_replay_result_json: Option<String>,
+    pub computed_result_sink_native_io_certificate_id: Option<String>,
+    pub computed_result_sink_native_io_certificate_status: Option<String>,
     pub commit_state: String,
     pub rollback_cleanup_status: String,
     pub fact_source_bytes: u64,
@@ -593,7 +618,7 @@ impl TraditionalAnalyticsReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "ShardLoom traditional analytics universal I/O smoke\nscenario: {}\nsource format: {}\nresource policy: {}\napplied memory GiB: {}\napplied parallelism: {}\ntarget batch rows: {}\ntarget partitions: {}\nworkspace: {}\nfact Vortex: {}\ndim Vortex: {}\nrows scanned: {}\nrows materialized: {}\ncompatibility source adapter: true\ncompatibility to Vortex import: true\nVortex write/read/scan: true\nmaterialization boundary reported: {}\noutput replay verified: {}\nworkload scorecard: {}\nexternal engine fallback: disabled",
+            "ShardLoom traditional analytics universal I/O smoke\nscenario: {}\nsource format: {}\nresource policy: {}\napplied memory GiB: {}\napplied parallelism: {}\ntarget batch rows: {}\ntarget partitions: {}\nworkspace: {}\nfact Vortex: {}\ndim Vortex: {}\nrows scanned: {}\nrows materialized: {}\ncompatibility source adapter: true\ncompatibility to Vortex import: true\nVortex write/read/scan: true\nmaterialization boundary reported: {}\noutput replay verified: {}\ncomputed result sink verified: {}\nworkload scorecard: {}\nexternal engine fallback: disabled",
             self.scenario.as_str(),
             self.input_format.as_str(),
             self.resource_policy.sizing_mode(),
@@ -608,6 +633,7 @@ impl TraditionalAnalyticsReport {
             self.rows_materialized,
             self.materialization_boundary_report_emitted,
             self.output_replay_verified,
+            self.computed_result_sink_replay_verified,
             self.workload_scorecard_status
         )
     }
@@ -798,6 +824,73 @@ impl TraditionalAnalyticsReport {
             (
                 "output_replay_native_io_certificate_status".to_string(),
                 self.output_replay_native_io_certificate_status
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "computed_result_sink_requested".to_string(),
+                self.computed_result_sink_requested.to_string(),
+            ),
+            (
+                "computed_result_sink_written".to_string(),
+                self.computed_result_sink_written.to_string(),
+            ),
+            (
+                "computed_result_sink_replay_verified".to_string(),
+                self.computed_result_sink_replay_verified.to_string(),
+            ),
+            (
+                "computed_result_vortex_path".to_string(),
+                self.computed_result_vortex_path
+                    .as_ref()
+                    .map_or_else(String::new, |path| path.display().to_string()),
+            ),
+            (
+                "computed_result_vortex_bytes".to_string(),
+                self.computed_result_vortex_bytes.to_string(),
+            ),
+            (
+                "computed_result_vortex_digest".to_string(),
+                self.computed_result_vortex_digest
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "computed_result_sink_rows".to_string(),
+                self.computed_result_sink_rows.to_string(),
+            ),
+            (
+                "computed_result_sink_rows_materialized".to_string(),
+                self.computed_result_sink_rows_materialized.to_string(),
+            ),
+            (
+                "computed_result_sink_schema_summary".to_string(),
+                self.computed_result_sink_schema_summary.clone(),
+            ),
+            (
+                "scenario_compute_micros".to_string(),
+                self.scenario_compute_micros.to_string(),
+            ),
+            (
+                "computed_result_sink_write_micros".to_string(),
+                self.computed_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "computed_result_sink_replay_result_json".to_string(),
+                self.computed_result_sink_replay_result_json
+                    .clone()
+                    .unwrap_or_default(),
+            ),
+            (
+                "computed_result_sink_native_io_certificate_id".to_string(),
+                self.computed_result_sink_native_io_certificate_id
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "computed_result_sink_native_io_certificate_status".to_string(),
+                self.computed_result_sink_native_io_certificate_status
                     .clone()
                     .unwrap_or_else(|| "none".to_string()),
             ),
@@ -1697,6 +1790,28 @@ struct TraditionalOutputReplayVerification {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+struct TraditionalComputedResultPayload {
+    scenario: String,
+    result_json: String,
+    rows_materialized: u64,
+    workload_constitution_id: String,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+struct TraditionalComputedResultSinkVerification {
+    path: PathBuf,
+    bytes: u64,
+    digest: String,
+    write_micros: u64,
+    rows_written: u64,
+    rows_materialized: u64,
+    replay_result_json: String,
+    native_io_certificate: NativeIoCertificate,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone)]
 struct TraditionalStreamingScanStats {
     source_row_count: u64,
@@ -1743,6 +1858,7 @@ fn run_traditional_analytics_benchmark_enabled(
     write_fact_vortex(&fact_rows, &fact_vortex_path)?;
     write_dim_vortex(&dim_rows, &dim_vortex_path)?;
     let mut compatibility_output = None;
+    let scenario_compute_start = std::time::Instant::now();
     let scenario_execution = if let Some(output_format) = request.compatibility_output_format {
         let fact = read_fact_vortex(&fact_vortex_path)?;
         let dim = read_dim_vortex(&dim_vortex_path)?;
@@ -1764,6 +1880,7 @@ fn run_traditional_analytics_benchmark_enabled(
             &dim_vortex_path,
         )?
     };
+    let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
     let fact_vortex_bytes = file_len(&fact_vortex_path, "fact Vortex file")?;
     let dim_vortex_bytes = file_len(&dim_vortex_path, "dimension Vortex file")?;
     let fact_compatibility_output_bytes = compatibility_output
@@ -1778,7 +1895,23 @@ fn run_traditional_analytics_benchmark_enabled(
         })?;
     let fact_vortex_digest = file_digest(&fact_vortex_path, "fact Vortex file")?;
     let dim_vortex_digest = file_digest(&dim_vortex_path, "dimension Vortex file")?;
-    let combined_output_digest = combined_artifact_digest(&fact_vortex_digest, &dim_vortex_digest);
+    let computed_result_sink = if request.write_result_vortex {
+        Some(write_and_verify_computed_result_sink(
+            request.scenario,
+            &scenario_execution.result_json,
+            scenario_execution.rows_materialized,
+            &request.workspace_dir,
+        )?)
+    } else {
+        None
+    };
+    let combined_output_digest = combined_artifact_digest(
+        &fact_vortex_digest,
+        &dim_vortex_digest,
+        computed_result_sink
+            .as_ref()
+            .map(|sink| sink.digest.as_str()),
+    );
     let output_replay = if request.verify_native_vortex_replay {
         Some(verify_native_vortex_replay(
             request.scenario,
@@ -1832,11 +1965,11 @@ fn run_traditional_analytics_benchmark_enabled(
         fact_source_path: request.fact_csv,
         dim_source_path: request.dim_csv,
         workload_constitution_id: LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID.to_string(),
-        workload_scorecard_status: if output_replay.is_some() {
-            "workload_certified".to_string()
-        } else {
-            "fixture_certified_replay_not_requested".to_string()
-        },
+        workload_scorecard_status: traditional_workload_scorecard_status(
+            output_replay.is_some(),
+            computed_result_sink.is_some(),
+        )
+        .to_string(),
         benchmark_row_ref: traditional_benchmark_row_ref(request.scenario, request.input_format),
         coverage_row_ref: traditional_coverage_row_ref(request.scenario, request.input_format),
         output_artifact_schema_summary: traditional_output_schema_summary().to_string(),
@@ -1859,7 +1992,39 @@ fn run_traditional_analytics_benchmark_enabled(
         output_replay_native_io_certificate_status: output_replay
             .as_ref()
             .map(|replay| replay.native_io_certificate.status().to_string()),
-        commit_state: "local_vortex_files_written_uncommitted".to_string(),
+        computed_result_sink_requested: request.write_result_vortex,
+        computed_result_sink_written: computed_result_sink.is_some(),
+        computed_result_sink_replay_verified: computed_result_sink.is_some(),
+        computed_result_vortex_path: computed_result_sink.as_ref().map(|sink| sink.path.clone()),
+        computed_result_vortex_bytes: computed_result_sink.as_ref().map_or(0, |sink| sink.bytes),
+        computed_result_vortex_digest: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.digest.clone()),
+        computed_result_sink_rows: computed_result_sink
+            .as_ref()
+            .map_or(0, |sink| sink.rows_written),
+        computed_result_sink_rows_materialized: computed_result_sink
+            .as_ref()
+            .map_or(0, |sink| sink.rows_materialized),
+        computed_result_sink_schema_summary: COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY.to_string(),
+        scenario_compute_micros,
+        computed_result_sink_write_micros: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.write_micros),
+        computed_result_sink_replay_result_json: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.replay_result_json.clone()),
+        computed_result_sink_native_io_certificate_id: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.native_io_certificate.certificate_id.clone()),
+        computed_result_sink_native_io_certificate_status: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.native_io_certificate.status().to_string()),
+        commit_state: if computed_result_sink.is_some() {
+            "local_vortex_files_and_result_sink_written_uncommitted".to_string()
+        } else {
+            "local_vortex_files_written_uncommitted".to_string()
+        },
         rollback_cleanup_status: "caller_owned_workspace_cleanup".to_string(),
         fact_source_bytes,
         dim_source_bytes,
@@ -1963,6 +2128,180 @@ fn verify_native_vortex_replay(
         rows_materialized: replay.rows_materialized,
         native_io_certificate,
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_and_verify_computed_result_sink(
+    scenario: TraditionalAnalyticsScenario,
+    result_json: &str,
+    rows_materialized: u64,
+    workspace_dir: &std::path::Path,
+) -> Result<TraditionalComputedResultSinkVerification> {
+    let result_vortex_path = workspace_dir.join("result.vortex");
+    let write_start = std::time::Instant::now();
+    write_computed_result_vortex(
+        scenario,
+        result_json,
+        rows_materialized,
+        &result_vortex_path,
+    )?;
+    let write_micros = duration_to_micros(write_start.elapsed());
+    let bytes = file_len(&result_vortex_path, "computed result Vortex file")?;
+    let digest = file_digest(&result_vortex_path, "computed result Vortex file")?;
+    let replay = read_computed_result_vortex(&result_vortex_path)?;
+    if replay.scenario != scenario.as_str() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "computed result Vortex replay scenario mismatch for {}; fallback execution was not attempted",
+            scenario.as_str()
+        )));
+    }
+    if replay.result_json != result_json {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "computed result Vortex replay result mismatch for {}; fallback execution was not attempted",
+            scenario.as_str()
+        )));
+    }
+    if replay.rows_materialized != rows_materialized {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "computed result Vortex replay row-count mismatch for {}; fallback execution was not attempted",
+            scenario.as_str()
+        )));
+    }
+    if replay.workload_constitution_id != LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "computed result Vortex replay workload constitution mismatch for {}; fallback execution was not attempted",
+            scenario.as_str()
+        )));
+    }
+    let native_io_certificate =
+        computed_result_sink_native_io_certificate(scenario, bytes, rows_materialized)?;
+    if !native_io_certificate.is_certified() {
+        return Err(ShardLoomError::InvalidOperation(
+            "computed result sink NativeIoCertificate was not certified".to_string(),
+        ));
+    }
+    Ok(TraditionalComputedResultSinkVerification {
+        path: result_vortex_path,
+        bytes,
+        digest,
+        write_micros,
+        rows_written: 1,
+        rows_materialized,
+        replay_result_json: replay.result_json,
+        native_io_certificate,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_workload_scorecard_status(
+    source_replay_verified: bool,
+    computed_result_sink_verified: bool,
+) -> &'static str {
+    match (source_replay_verified, computed_result_sink_verified) {
+        (true, true) => "workload_certified",
+        (true, false) => "fixture_certified_result_sink_not_requested",
+        (false, true) => "fixture_certified_source_replay_not_requested",
+        (false, false) => "fixture_certified_replay_not_requested",
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn computed_result_sink_native_io_certificate(
+    scenario: TraditionalAnalyticsScenario,
+    bytes_written: u64,
+    rows_materialized: u64,
+) -> Result<NativeIoCertificate> {
+    NativeIoCertificate::new(
+        format!(
+            "cg19.traditional_analytics.result_sink.{}",
+            scenario.as_str().replace(['/', ' '], "-")
+        ),
+        "native_runtime_result_to_native_vortex_sink",
+        NativeIoSourceCapabilityReport {
+            source_kind: "shardloom_runtime_result".to_string(),
+            adapter_id: "shardloom.adapter.traditional_analytics.result_sink.v1".to_string(),
+            schema_discovery_status: "declared_result_schema_validated".to_string(),
+            statistics_availability: "result_rows_known".to_string(),
+            pushdown_capabilities: "none_sink_write".to_string(),
+            encoded_representation_preserved: false,
+            range_read_capability: false,
+            streaming_capability: false,
+            object_store_capability: false,
+            fallback_attempted: false,
+        },
+        NativeIoSourcePushdownReport {
+            accepted_operations: vec![
+                "native_vortex_result_sink_write".to_string(),
+                "native_vortex_result_sink_replay".to_string(),
+            ],
+            rejected_operations: Vec::new(),
+            guarantee: "exact_result_json_roundtrip".to_string(),
+            proof_basis: format!(
+                "computed result is written with the upstream Vortex writer, reopened through ShardLoom Vortex file IO, and byte-counted at {bytes_written} bytes"
+            ),
+            residual_expression: None,
+            conservative_false_positive_policy: false,
+            unsafe_rejected_reason: None,
+            fallback_attempted: false,
+        },
+        vec![NativeIoRepresentationTransition::new(
+            RepresentationState::DecodedColumnar,
+            RepresentationState::VortexEncoded,
+            false,
+        )],
+        NativeIoSinkRequirementReport {
+            target_format: "vortex".to_string(),
+            accepts_encoded: true,
+            requires_decoded_columnar: true,
+            requires_rows: false,
+            preserves_metadata: true,
+            requires_ordering: false,
+            requires_partitioning: false,
+            requires_commit: false,
+            supports_streaming: false,
+            max_chunk_size: Some(1),
+            backpressure_policy: "not_applicable_local_result_sink".to_string(),
+        },
+        NativeIoAdapterFidelityReport {
+            adapter_id: "shardloom.adapter.traditional_analytics.result_sink.v1".to_string(),
+            source_kind: "shardloom_runtime_result".to_string(),
+            sink_kind: "vortex".to_string(),
+            metadata_preserved: true,
+            statistics_preserved: false,
+            encoded_representation_preserved: false,
+            materialization_required: false,
+            fidelity_loss: "none_for_declared_result_schema".to_string(),
+            metadata_loss: "statistics emission is not yet certified for the result artifact"
+                .to_string(),
+            fallback_attempted: false,
+        },
+        vec![NativeIoMaterializationBoundaryReport {
+            boundary_id: "cg19.computed_result_vortex_sink_encode".to_string(),
+            from_state: RepresentationState::DecodedColumnar,
+            to_state: RepresentationState::VortexEncoded,
+            required_by: "traditional_analytics_result_sink".to_string(),
+            reason: "computed result envelope is encoded into a native Vortex result artifact"
+                .to_string(),
+            bytes_decoded: 0,
+            rows_materialized,
+            fidelity_loss: "none_for_declared_result_schema".to_string(),
+            fallback_attempted: false,
+        }],
+        NativeIoSideEffectReport {
+            data_read: true,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: true,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+        },
+        Vec::new(),
+    )
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -2467,17 +2806,30 @@ fn file_digest(path: &std::path::Path, label: &str) -> Result<String> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn combined_artifact_digest(fact_digest: &str, dim_digest: &str) -> String {
+fn combined_artifact_digest(
+    fact_digest: &str,
+    dim_digest: &str,
+    result_digest: Option<&str>,
+) -> String {
     let mut digest = Fnv1a64::new();
     digest.update(b"fact_vortex_digest");
     digest.update(fact_digest.as_bytes());
     digest.update(b"dim_vortex_digest");
     digest.update(dim_digest.as_bytes());
+    if let Some(result_digest) = result_digest {
+        digest.update(b"computed_result_vortex_digest");
+        digest.update(result_digest.as_bytes());
+    }
     format!(
         "{}:{:016x}",
         OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
         digest.finish()
     )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn duration_to_micros(duration: std::time::Duration) -> u64 {
+    u64::try_from(duration.as_micros()).unwrap_or(u64::MAX)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -2597,6 +2949,42 @@ fn write_dim_vortex(rows: &[TraditionalDimRow], path: &std::path::Path) -> Resul
                 .into_array(),
         ],
         rows.len(),
+        Validity::NonNullable,
+    )
+    .map_err(vortex_error)?;
+    let array = array.into_array();
+    write_vortex_array(path, &array)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_computed_result_vortex(
+    scenario: TraditionalAnalyticsScenario,
+    result_json: &str,
+    rows_materialized: u64,
+    path: &std::path::Path,
+) -> Result<()> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::{PrimitiveArray, StructArray, VarBinViewArray};
+    use vortex::array::dtype::FieldNames;
+    use vortex::array::validity::Validity;
+
+    let array = StructArray::try_new(
+        FieldNames::from([
+            "scenario",
+            "result_json",
+            "rows_materialized",
+            "workload_constitution_id",
+        ]),
+        vec![
+            VarBinViewArray::from_iter_str(std::iter::once(scenario.as_str())).into_array(),
+            VarBinViewArray::from_iter_str(std::iter::once(result_json)).into_array(),
+            std::iter::once(rows_materialized)
+                .collect::<PrimitiveArray>()
+                .into_array(),
+            VarBinViewArray::from_iter_str(std::iter::once(LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID))
+                .into_array(),
+        ],
+        1,
         Validity::NonNullable,
     )
     .map_err(vortex_error)?;
@@ -3080,6 +3468,17 @@ fn read_dim_vortex(path: &std::path::Path) -> Result<VortexDimTable> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_computed_result_vortex(path: &std::path::Path) -> Result<TraditionalComputedResultPayload> {
+    let fields = read_vortex_struct(path)?;
+    Ok(TraditionalComputedResultPayload {
+        scenario: single_utf8_field(&fields, "scenario", path)?,
+        result_json: single_utf8_field(&fields, "result_json", path)?,
+        rows_materialized: single_primitive_field::<u64>(&fields, "rows_materialized", path)?,
+        workload_constitution_id: single_utf8_field(&fields, "workload_constitution_id", path)?,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn read_vortex_struct(
     path: &std::path::Path,
 ) -> Result<std::collections::BTreeMap<String, vortex::array::ArrayRef>> {
@@ -3181,6 +3580,43 @@ fn utf8_field(
         values.push(text.to_string());
     }
     Ok(values)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn single_utf8_field(
+    fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+    name: &str,
+    path: &std::path::Path,
+) -> Result<String> {
+    let mut values = utf8_field(fields, name)?;
+    if values.len() != 1 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "Vortex result artifact '{}' field '{name}' expected exactly one row, found {}",
+            path.display(),
+            values.len()
+        )));
+    }
+    Ok(values.remove(0))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn single_primitive_field<T>(
+    fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+    name: &str,
+    path: &std::path::Path,
+) -> Result<T>
+where
+    T: vortex::array::dtype::NativePType + Copy,
+{
+    let values = primitive_field::<T>(fields, name)?;
+    if values.len() != 1 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "Vortex result artifact '{}' field '{name}' expected exactly one row, found {}",
+            path.display(),
+            values.len()
+        )));
+    }
+    Ok(values[0])
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -4869,7 +5305,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(report.workload_constitution_id, "local_vortex_analytics_v1");
-        assert_eq!(report.workload_scorecard_status, "workload_certified");
+        assert_eq!(
+            report.workload_scorecard_status,
+            "fixture_certified_result_sink_not_requested"
+        );
         assert!(report.output_replay_requested);
         assert!(report.output_replay_verified);
         assert_eq!(
@@ -4917,11 +5356,102 @@ mod tests {
                 .any(|(key, value)| { key == "output_replay_verified" && value == "true" })
         );
         assert!(fields.iter().any(|(key, value)| {
-            key == "workload_scorecard_status" && value == "workload_certified"
+            key == "workload_scorecard_status"
+                && value == "fixture_certified_result_sink_not_requested"
         }));
         assert!(fields.iter().any(|(key, value)| {
             key == "output_replay_native_io_certificate_status" && value == "certified"
         }));
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn computed_result_vortex_sink_writes_and_replays_result_artifact() {
+        let root = traditional_analytics_test_root("result-sink");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                workspace,
+            )
+            .with_native_vortex_replay_verification(true)
+            .with_result_vortex_write(true),
+        )
+        .unwrap();
+
+        let result_path = report
+            .computed_result_vortex_path
+            .clone()
+            .expect("computed result Vortex path");
+        assert!(result_path.exists());
+        assert_eq!(report.workload_scorecard_status, "workload_certified");
+        assert!(report.computed_result_sink_requested);
+        assert!(report.computed_result_sink_written);
+        assert!(report.computed_result_sink_replay_verified);
+        assert!(report.computed_result_vortex_bytes > 0);
+        assert!(
+            report
+                .computed_result_vortex_digest
+                .as_deref()
+                .unwrap_or_default()
+                .starts_with("fnv1a64:")
+        );
+        assert_eq!(report.computed_result_sink_rows, 1);
+        assert_eq!(
+            report.computed_result_sink_rows_materialized,
+            report.rows_materialized
+        );
+        assert_eq!(
+            report.computed_result_sink_schema_summary,
+            COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY
+        );
+        assert!(report.computed_result_sink_write_micros.is_some());
+        assert_eq!(
+            report.computed_result_sink_replay_result_json.as_deref(),
+            Some(report.result_json.as_str())
+        );
+        assert_eq!(
+            report
+                .computed_result_sink_native_io_certificate_status
+                .as_deref(),
+            Some("certified")
+        );
+        assert_eq!(
+            report.commit_state,
+            "local_vortex_files_and_result_sink_written_uncommitted"
+        );
+        assert!(!report.fallback_execution_allowed);
+
+        let replay = read_computed_result_vortex(&result_path).unwrap();
+        assert_eq!(
+            replay.scenario,
+            TraditionalAnalyticsScenario::SelectiveFilter.as_str()
+        );
+        assert_eq!(replay.result_json, report.result_json);
+        assert_eq!(replay.rows_materialized, report.rows_materialized);
+        assert_eq!(
+            replay.workload_constitution_id,
+            LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID
+        );
+
+        let fields = report.fields();
+        assert!(fields.iter().any(|(key, value)| {
+            key == "computed_result_sink_replay_verified" && value == "true"
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "computed_result_sink_native_io_certificate_status" && value == "certified"
+        }));
+        assert!(
+            fields
+                .iter()
+                .any(|(key, _)| key == "scenario_compute_micros")
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }

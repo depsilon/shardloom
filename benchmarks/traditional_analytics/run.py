@@ -116,6 +116,7 @@ SCENARIO_BYTES = {
 DASK_BLOCKSIZE = "16MB"
 DASK_SCHEDULER = "threads"
 SHARDLOOM_BUILD_PROFILE = "release"
+SHARDLOOM_RESULT_SINK = False
 CORRECTNESS_FLOAT_DIGITS = 4
 
 
@@ -389,6 +390,11 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Iterations for ShardLoom native microbenchmarks. Defaults to --iterations.",
+    )
+    parser.add_argument(
+        "--shardloom-result-sink",
+        action="store_true",
+        help="For shardloom rows, also write and replay the computed result as a native Vortex result artifact.",
     )
     parser.add_argument(
         "--require-all-engines",
@@ -1092,6 +1098,8 @@ def shardloom_runner() -> EngineRunner:
             "--format",
             "json",
         ]
+        if SHARDLOOM_RESULT_SINK:
+            command.extend(["--verify-native-replay", "--write-result-vortex"])
         completed = subprocess_run(command, root, env)
         try:
             payload = json.loads(completed["stdout"].splitlines()[0])
@@ -1137,6 +1145,28 @@ def shardloom_runner() -> EngineRunner:
                 "ShardLoom NativeIoCertificate was not certified: "
                 + str(fields.get("native_io_certificate_status", "missing"))
             )
+        if SHARDLOOM_RESULT_SINK:
+            for field in (
+                "computed_result_sink_requested",
+                "computed_result_sink_written",
+                "computed_result_sink_replay_verified",
+            ):
+                if fields.get(field) != "true":
+                    raise RuntimeError(
+                        "ShardLoom result sink evidence was missing: " + field
+                    )
+            if (
+                fields.get("computed_result_sink_native_io_certificate_status")
+                != "certified"
+            ):
+                raise RuntimeError(
+                    "ShardLoom result sink NativeIoCertificate was not certified: "
+                    + str(
+                        fields.get(
+                            "computed_result_sink_native_io_certificate_status", "missing"
+                        )
+                    )
+                )
         if (
             fields.get("native_io_certificate_path_id")
             != "compatibility_source_to_native_vortex_sink"
@@ -3698,6 +3728,7 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "shardloom_build_profile": args.shardloom_build_profile,
         "shardloom_build_time_excluded": True,
         "shardloom_feature_gate": "vortex-traditional-analytics-benchmark",
+        "shardloom_result_sink_enabled": args.shardloom_result_sink,
         "dask_blocksize": args.dask_blocksize,
         "dask_scheduler": args.dask_scheduler,
         "spark_requires_java": True,
@@ -4497,11 +4528,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
 
 
 def main() -> int:
-    global DASK_BLOCKSIZE, DASK_SCHEDULER, SHARDLOOM_BUILD_PROFILE
+    global DASK_BLOCKSIZE, DASK_SCHEDULER, SHARDLOOM_BUILD_PROFILE, SHARDLOOM_RESULT_SINK
     args = parse_args()
     DASK_BLOCKSIZE = args.dask_blocksize
     DASK_SCHEDULER = args.dask_scheduler
     SHARDLOOM_BUILD_PROFILE = args.shardloom_build_profile
+    SHARDLOOM_RESULT_SINK = args.shardloom_result_sink
     configure_java_home()
     paths = ensure_dataset(
         args.data_dir,

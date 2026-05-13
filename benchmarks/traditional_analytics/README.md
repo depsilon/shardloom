@@ -170,13 +170,18 @@ IPC, Avro, and ORC, not the future SQL parser/DataFrame API or mature
 encoded-native operator surface.
 
 For workflow replay proof, the same command accepts `--verify-native-replay`.
-That mode re-opens the emitted Vortex artifacts, compares native replay output
-against the compatibility-file execution result, and emits
+That mode re-opens the emitted Vortex source artifacts, compares native replay
+output against the compatibility-file execution result, and emits
 `local_vortex_analytics_v1` evidence fields: artifact digests, schema summary,
 benchmark and coverage row refs, replay Native I/O certificate status,
-commit/cleanup status, and no-fallback policy fields. The flag is intended for
-certification smoke and user workflow inspection; default benchmark timings stay
-focused on the normal harness path unless the caller opts into replay proof.
+commit/cleanup status, and no-fallback policy fields. Add
+`--write-result-vortex` to write the computed result envelope as `result.vortex`,
+re-open it, compare the stored result JSON and materialized-row count, and emit
+result-sink digest/schema/replay/certificate fields plus
+`scenario_compute_micros` and `computed_result_sink_write_micros`. The harness
+option `--shardloom-result-sink` enables both replay and result-sink proof for
+ShardLoom rows; default benchmark timings stay focused on the normal harness path
+unless the caller opts into certification evidence.
 
 ShardLoom native Vortex rows call `shardloom traditional-analytics-vortex-run`
 against `.vortex` files produced before scenario timing. This separates native
@@ -276,7 +281,13 @@ Run the direct CLI workflow replay proof when you want the per-command evidence
 fields rather than comparative harness output:
 
 ```powershell
-cargo run -p shardloom-cli --features vortex-traditional-analytics-benchmark -- traditional-analytics-run "selective filter" benchmarks\traditional_analytics\data\fact.csv benchmarks\traditional_analytics\data\dim.csv --workspace target\shardloom-traditional-replay --input-format csv --verify-native-replay --format json
+cargo run -p shardloom-cli --features vortex-traditional-analytics-benchmark -- traditional-analytics-run "selective filter" benchmarks\traditional_analytics\data\fact.csv benchmarks\traditional_analytics\data\dim.csv --workspace target\shardloom-traditional-replay --input-format csv --verify-native-replay --write-result-vortex --format json
+```
+
+Add result-sink replay proof to the comparative ShardLoom row:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "selective filter" --rows 10000 --iterations 1 --shardloom-result-sink
 ```
 
 Run ShardLoom across all currently supported local compatibility formats:

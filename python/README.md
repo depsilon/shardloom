@@ -470,6 +470,7 @@ result = client.live_etl_smoke(
     input_format="csv",
     workspace="target/shardloom-python-live-etl",
     verify_native_replay=True,
+    write_result_vortex=True,
 )
 
 print(result.status)
@@ -478,6 +479,8 @@ print(result.field("materialization_boundary_reported"))
 print(result.field("output_replay_verified"))
 print(result.field("combined_output_digest"))
 print(result.field("output_replay_native_io_certificate_status"))
+print(result.field("computed_result_sink_replay_verified"))
+print(result.field("computed_result_sink_native_io_certificate_status"))
 print(result.fallback.attempted)
 ```
 
@@ -493,6 +496,13 @@ fields such as `workload_constitution_id`, `benchmark_row_ref`,
 `coverage_row_ref`, Vortex artifact digests, commit/cleanup status, and replay
 Native I/O certificate status. It is only valid for compatibility-file inputs;
 existing `.vortex` inputs already use the native Vortex smoke command directly.
+
+`write_result_vortex=True` maps to `--write-result-vortex`. It writes the
+computed result envelope to `result.vortex`, re-opens that Vortex artifact,
+checks the stored result JSON and materialized-row count, and returns result-sink
+digest, schema, replay, Native I/O certificate, and write-timing fields. A
+workflow is reported as `workload_certified` only when source replay and computed
+result-sink replay both pass.
 
 For the current compatibility-file universal-I/O path, use the replay helper
 when you want to see both parts separately: boundary import into Vortex, then
