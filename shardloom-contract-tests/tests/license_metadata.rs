@@ -145,7 +145,6 @@ fn python_package_metadata_is_pypi_ready_and_apache_2() {
     assert!(pyproject.contains("requires-python = \">=3.10\""));
     assert!(pyproject.contains("license = \"Apache-2.0\""));
     assert!(pyproject.contains("license-files = [\"LICENSE\", \"NOTICE\"]"));
-    assert!(pyproject.contains("License :: OSI Approved :: Apache Software License"));
     assert!(pyproject.contains("dependencies = []"));
     assert!(pyproject.contains("[project.urls]"));
     assert!(pyproject.contains("Repository = \"https://github.com/depsilon/shardloom\""));

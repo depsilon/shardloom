@@ -1,0 +1,34 @@
+name: PyPI Trusted Publisher Draft
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_approved:
+        description: "Type publish-approved to run the PyPI Trusted Publisher job."
+        required: true
+        default: "no"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: ${{ inputs.publish_approved == 'publish-approved' }}
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build Python package
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build python
+      - name: Publish to PyPI with Trusted Publisher
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist

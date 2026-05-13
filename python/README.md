@@ -1,9 +1,10 @@
 # ShardLoom Python CLI Client
 
-This package is the first thin Python surface for ShardLoom. It invokes the
-workspace `shardloom` CLI with `--format json`, parses the stable
-`OutputEnvelope`, and preserves typed result/artifact/certificate payloads,
-diagnostics, fallback status, and the temporary legacy field mirror.
+This package is the first thin Python surface for ShardLoom, a Vortex-native,
+no-fallback, evidence-certified local compute engine. It invokes the workspace
+`shardloom` CLI with `--format json`, parses the stable `OutputEnvelope`, and
+preserves typed result/artifact/certificate payloads, diagnostics, fallback
+status, and the temporary legacy field mirror.
 
 It is intentionally not a native binding, DataFrame API, SQL runtime, UDF
 runtime, or fallback execution path. Importing the package has no ShardLoom
