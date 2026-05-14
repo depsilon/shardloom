@@ -16,6 +16,92 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0013-A streaming runtime capability and unsupported diagnostics
+  - Primary files:
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `README.md`
+    - `shardloom-exec/src/streaming.rs`
+    - `shardloom-exec/src/lib.rs`
+    - `shardloom-cli/src/engine_runtime_planning.rs`
+    - `shardloom-cli/src/engine_fabric_planning.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/streaming_plan_snapshots.rs`
+    - `shardloom-cli/tests/streaming_batch_plan_snapshots.rs`
+    - `shardloom-cli/tests/backpressure_plan_snapshots.rs`
+    - `shardloom-cli/tests/cg22_engine_fabric_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+  - Scope: add a side-effect-free GAR-0013 streaming capability matrix that classifies local
+    streaming, object-store byte-range streaming reads, zero-decode, zero-copy/materialization
+    boundaries, bounded backpressure, and live/hybrid broker-backed runtime as fixture-smoke,
+    report-only, requires-materialization, or blocked.
+  - Checklist:
+    - [x] Add `StreamingCapabilityMatrixReport` and per-row support status, evidence refs,
+          required future evidence, diagnostic codes/categories, claim boundaries,
+          no-fallback flags, and no-external-engine flags.
+    - [x] Emit the full matrix through `streaming-plan`, `streaming-batch-plan`, and
+          `backpressure-plan` JSON fields.
+    - [x] Emit summary matrix fields through `engine-capability-matrix` and
+          `capabilities engines` so capability discovery exposes the same GAR-0013 posture.
+    - [x] Propagate info-level deterministic diagnostics for blocked/materializing rows:
+          `SL_OBJECT_STORE_UNSUPPORTED`, `SL_MATERIALIZATION_REQUIRED`, and
+          `SL_NOT_IMPLEMENTED`.
+    - [x] Add Python `EngineCapabilityMatrix` typed accessors for the streaming matrix summary.
+    - [x] Preserve status semantics: report-only local streaming plans remain success, object-store
+          streaming-batch source requests still fail deterministically, and broad runtime claims
+          stay not claim-grade.
+  - Boundary:
+    - This is a capability/diagnostic matrix only. It does not implement object-store streaming
+      reads, broker-backed live/hybrid streaming runtime, external adapters, writes, checkpoints,
+      runtime backpressure enforcement, new scan/read-start APIs, external engines, or fallback
+      execution.
+  - Evidence:
+    - Correctness evidence: `shardloom-exec` unit tests assert the matrix covers local streaming,
+      object-store streaming reads, zero-copy, zero-decode, backpressure, and live/hybrid streaming
+      families, and that blocked/materializing rows have diagnostics.
+    - CLI evidence: streaming/backpressure snapshot tests assert matrix row counts, row status,
+      diagnostic code order, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Capability evidence: `engine-capability-matrix` and `capabilities engines` snapshot tests
+      expose matrix summary fields alongside batch/live/hybrid engine-mode contracts.
+    - Python evidence: Python client tests assert typed access to matrix report ID, row order,
+      blocked row count, diagnostic codes, and no-fallback/no-external-engine posture.
+    - Benchmark evidence: not applicable; no performance or broad streaming runtime claim was
+      added.
+  - Vortex-first provider check:
+    - Subject area: RFC 0013 streaming/zero-copy/zero-decode capability reporting.
+    - Upstream Vortex concept checked: Vortex encoded source/sink and scan/source boundaries remain
+      wrapped as report/evidence rows; object-store byte-range streaming is blocked until provider
+      and Native I/O evidence exist.
+    - Decision: `wrap_vortex_concept` for local Vortex boundaries and
+      `blocked_until_vortex_or_shardloom_evidence` for object-store streaming reads and live/hybrid
+      broker runtime.
+    - Residual handling: unsupported runtime surfaces remain deterministic blockers with no
+      external engine invocation.
+    - Materialization/decode boundary: zero-decode local Vortex fixture lanes are scoped; compatibility
+      output boundaries are explicitly materializing/copying and not zero-copy claims.
+    - Gates still blocked: object-store streaming reads, broker-backed live/hybrid streaming,
+      runtime backpressure enforcement, broad operator/source/sink coverage, claim-grade workload
+      evidence, and production streaming claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `cargo test -p shardloom-exec streaming_capability_matrix --lib`
+    - `cargo test -p shardloom-cli --test streaming_plan_snapshots --test streaming_batch_plan_snapshots --test backpressure_plan_snapshots --test cg22_engine_fabric_snapshots --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_engine_capability_matrix_streaming_capability_view`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m unittest discover -s python/tests`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+
 - [x] Session label: GAR-0012-B envelope status and distributed/object-store diagnostic propagation
   - Primary files:
     - `docs/architecture/diagnostics-normalization-backlog.md`

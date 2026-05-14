@@ -103,6 +103,19 @@ fn engine_capability_matrix_separates_batch_live_and_hybrid_claims() {
     assert!(output.contains(&field("hybrid_checkpoint_required", "true")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
     assert!(output.contains(&field("runtime_execution", "false")));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_report_id",
+        "gar0013.streaming_runtime_capability_matrix"
+    )));
+    assert!(output.contains(&field("streaming_capability_matrix_row_count", "8")));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_diagnostic_code_order",
+        "SL_OBJECT_STORE_UNSUPPORTED,SL_MATERIALIZATION_REQUIRED,SL_NOT_IMPLEMENTED"
+    )));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_all_rows_no_fallback_no_external_engine",
+        "true"
+    )));
 }
 
 #[test]

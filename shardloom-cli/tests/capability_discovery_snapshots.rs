@@ -90,7 +90,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const ENGINE_FIELD_KEYS: [&str; 65] = [
+const ENGINE_FIELD_KEYS: [&str; 86] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -123,6 +123,27 @@ const ENGINE_FIELD_KEYS: [&str; 65] = [
     "required_evidence",
     "suggested_next_action",
     "future_rest_view",
+    "streaming_capability_matrix_schema_version",
+    "streaming_capability_matrix_report_id",
+    "streaming_capability_matrix_status",
+    "streaming_capability_matrix_claim_gate_status",
+    "streaming_capability_matrix_row_count",
+    "streaming_capability_matrix_blocked_row_count",
+    "streaming_capability_matrix_report_only_row_count",
+    "streaming_capability_matrix_fixture_smoke_row_count",
+    "streaming_capability_matrix_materialization_row_count",
+    "streaming_capability_matrix_row_order",
+    "streaming_capability_matrix_family_order",
+    "streaming_capability_matrix_diagnostic_code_order",
+    "streaming_capability_matrix_all_rows_have_support_status",
+    "streaming_capability_matrix_all_blocked_rows_have_diagnostics",
+    "streaming_capability_matrix_all_rows_no_fallback_no_external_engine",
+    "streaming_capability_matrix_runtime_execution",
+    "streaming_capability_matrix_data_read",
+    "streaming_capability_matrix_object_store_io",
+    "streaming_capability_matrix_write_io",
+    "streaming_capability_matrix_fallback_attempted",
+    "streaming_capability_matrix_external_engine_invoked",
     "batch_support_status",
     "batch_production_claim_allowed",
     "batch_state_required",
@@ -885,6 +906,22 @@ fn engine_capability_discovery_exposes_cg22_contract_without_runtime_claims() {
     assert!(output.contains(&field_pair("batch_production_claim_allowed", false)));
     assert!(output.contains(&field_pair("live_production_claim_allowed", false)));
     assert!(output.contains(&field_pair("hybrid_production_claim_allowed", false)));
+    assert!(output.contains(&string_field_pair(
+        "streaming_capability_matrix_report_id",
+        "gar0013.streaming_runtime_capability_matrix"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "streaming_capability_matrix_row_count",
+        "8"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "streaming_capability_matrix_diagnostic_code_order",
+        "SL_OBJECT_STORE_UNSUPPORTED,SL_MATERIALIZATION_REQUIRED,SL_NOT_IMPLEMENTED"
+    )));
+    assert!(output.contains(&field_pair(
+        "streaming_capability_matrix_all_blocked_rows_have_diagnostics",
+        true
+    )));
     assert!(output.contains(&field_pair("live_state_required", true)));
     assert!(output.contains(&field_pair("hybrid_checkpoint_required", true)));
     assert!(output.contains(&string_field_pair("severity", "error")));

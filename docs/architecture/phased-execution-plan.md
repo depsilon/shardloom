@@ -262,21 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0013-A streaming runtime capability and unsupported diagnostics
-  - Source: RFC 0013; streaming plan docs; Vortex runtime utilization audit.
-  - Current state: streaming plan/backpressure contracts exist; full streaming runtime and
-    object-store streaming reads are report-only.
-  - Next slice outcome: capability matrix for local streaming, object-store streaming reads, zero-copy,
-    zero-decode, and backpressure states.
-  - User-visible surface: CLI streaming plan, capability view, docs.
-  - Implementation scope: streaming report fields, CLI output, tests.
-  - Evidence required: diagnostic refs, materialization/decode refs, policy/no-fallback refs.
-  - Acceptance: every streaming family has support status and blocked paths emit deterministic
-    diagnostics.
-  - Verification: streaming plan snapshot tests, default GAR verification.
-  - Non-goals: no object-store streaming runtime or broker.
-  - Fallback/claim boundary: streaming runtime claims stay not claim-grade.
-  - Dependencies/blockers: object-store provider gate for remote streaming.
 - [ ] GAR-0014-A spill/OOM enforcement promotion gate
   - Source: RFC 0014; spill reservation lifecycle integration; workspace feature matrix.
   - Current state: memory admission and synthetic/local constraints exist; broad runtime spill/OOM

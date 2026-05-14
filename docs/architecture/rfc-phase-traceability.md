@@ -266,7 +266,7 @@ Status categories:
 | RFC 0010 | Partially implemented | 10C, 10D, Priority 3.6, Ongoing | Developer/agent usability direction is represented by CLI/Python/agent protocol surfaces and `RfcCoverageFollowThroughReport`; every new CLI, Python, future REST, capability, diagnostic, benchmark, and certificate surface must remain deterministic, machine-readable, human-readable, side-effect-explicit, and safe for import/discovery/dry-run workflows before execution/write permissions. |
 | RFC 0011 | Accepted as contract; implementation deferred | Priority 3.6, Ongoing (post-core), CG-21P | Modular extensibility is accepted as the boundary contract for SQL, UDFs, unstructured/media, LLM/API/model effects, embeddings, vector operations, and agent-facing extension discovery. `RfcCoverageFollowThroughReport` now records typed/effect/materialization metadata and sandbox/governance/correctness/certificate prerequisites; runtime implementation remains deferred and must preserve explicit effect/materialization/cost/redaction/certificate/no-fallback boundaries. |
 | RFC 0012 | Partially implemented | 10C, 10D, GAR-0012-A, GAR-0012-B, Ongoing | Diagnostics contracts exist; GAR-0012-A normalized workflow diagnostic helper categories and GAR-0012-B propagates CG-10 object-store/distributed blocker diagnostics through envelope/text/Python boundaries. Broader command-by-command diagnostic modernization remains ongoing. |
-| RFC 0013 | Planned | 13B+, Ongoing | Streaming/zero-copy boundary work remains mostly future-phase effort. |
+| RFC 0013 | Partially implemented / planned | CG-8, GAR-0013-A, 13B+, Ongoing | Streaming, zero-copy/zero-decode, bounded backpressure, and capability diagnostics exist for scoped/report-only surfaces; broad streaming runtime, object-store streaming reads, and broker-backed live/hybrid runtime remain gated. |
 | RFC 0014 | Partially implemented | 10B, 11A, 11B, 13B, 14A, CG-14 | Memory/spill/OOM policies are partially scaffolded; CG-14.1 adaptive memory boundary evidence, runtime memory reservation admission evidence, operator memory/spill declaration gate evidence, and the CG-14 memory runtime hardening gate exist. Allocator runtime, resource-derived runtime chunk sizing, adaptive parallelism runtime, reservation release runtime, pressure reaction runtime, native spill read/write, spill cleanup execution, and large-workload claim publication remain planned and evidence-gated. |
 | RFC 0015 | Partially implemented | Ongoing | Correctness-first posture present; deeper differential/fuzz coverage continues over time. |
 | RFC 0016 | Partially implemented | 13B, 14B, CG-14, Ongoing | CG-9.6 layout-health planning, CG-9.7 compaction planning, and CG-14.1 adaptive optimizer/memory decision evidence exist; runtime adaptation, runtime filter application, and advanced optimizer behavior remain later-phase work. |
@@ -3160,6 +3160,27 @@ No fallback execution.
 - This phase adds no stream execution, task execution, read-start API, row reads, requested
   decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claim,
   production/superiority claim, CG-8 closeout, or fallback behavior.
+
+## GAR-0013-A streaming capability matrix and unsupported diagnostics
+
+- `StreamingCapabilityMatrixReport` records the current RFC 0013 posture for local streaming,
+  object-store byte-range streaming reads, zero-decode, zero-copy/materialization boundaries,
+  bounded backpressure, and live/hybrid broker-backed streaming runtime.
+- `streaming-plan`, `streaming-batch-plan`, and `backpressure-plan` expose the full matrix with row
+  order, support status, blocker IDs, evidence refs, required future evidence, claim boundaries,
+  diagnostic codes/categories, and no-fallback/no-external-engine fields.
+- `engine-capability-matrix` and `capabilities engines` expose matrix summary fields alongside the
+  batch/live/hybrid engine-mode contract, so users and agents can see that live/hybrid fixture
+  evidence is not broker-backed production streaming.
+- Blocked/materializing rows emit deterministic info-level diagnostics:
+  `SL_OBJECT_STORE_UNSUPPORTED`, `SL_MATERIALIZATION_REQUIRED`, and `SL_NOT_IMPLEMENTED`.
+- Python `EngineCapabilityMatrix` accessors expose the report ID, row order, blocked row count,
+  diagnostic codes, and no-fallback/no-external-engine matrix posture.
+- Primary RFC linkage: RFC 0013, RFC 0012, RFC 0034, RFC 0031, and RFC 0027.
+- Related RFCs: RFC 0008, RFC 0014, RFC 0017, RFC 0018, and RFC 0035.
+- This slice adds no object-store streaming runtime, no broker-backed live/hybrid runtime, no
+  runtime backpressure enforcement, no new reads/writes, no benchmark/performance claim, and no
+  fallback behavior.
 
 ## CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
 

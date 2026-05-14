@@ -61,6 +61,7 @@ base-plus-delta hybrid overlays.
 | Batch engine mode | Current practical foundation for bounded local Vortex analytics and benchmark evidence. | Broader operator coverage, source/sink certification, and claim-grade workload evidence. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and scoped in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and scoped in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. |
+| Streaming/zero-copy/backpressure | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, and `capabilities engines` expose a GAR-0013 matrix for local fixture evidence, object-store streaming read blockers, zero-decode, zero-copy/materialization boundaries, bounded backpressure, and live/hybrid broker runtime blockers. | Object-store streaming reads, durable broker adapters, runtime backpressure enforcement, broader operator/source/sink evidence, and claim-grade workload certification. |
 | Prepared/native Vortex runtime | Scoped residual-native paths now avoid full fact-table materialization for selected local benchmark scenarios, including local global sort/top-k and partition-pruning/date-range scan evidence. CPU specialization reporting now records side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work follows the phase-plan queue for kernel, source-backed API, facade, and evidence-gated expansion; encoded-native, SIMD dispatch, and performance claims remain evidence-gated. |
 
 ## Current State
@@ -97,6 +98,10 @@ Currently wired surfaces include:
 - batch/live/hybrid engine-mode contracts through `engine-selection-plan`,
   `engine-capability-matrix`, `live-change-contract-plan`, Python context helpers, and scoped
   in-memory `live-fixture-run` / `hybrid-overlay-run` fixture reports
+- streaming/zero-copy/backpressure capability diagnostics through `streaming-plan`,
+  `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, `capabilities engines`,
+  and Python `EngineCapabilityMatrix` accessors; object-store streaming reads and broker-backed
+  live/hybrid runtime are blocked/report-only, not claim-grade runtime support
 - side-effect-free CPU specialization diagnostics through `cpu-specialization-plan`, including host
   CPU feature labels and a blocked filter/encoded vector-kernel admission status with no runtime
   dispatch
@@ -130,6 +135,12 @@ represented by selection reports, capability matrices, Python context helpers, l
 contracts, and scoped in-memory fixture reports with certificate fields and
 `fallback_attempted=false`. They are not yet broker-backed, object-store-backed, or production
 live/hybrid engines.
+
+Streaming-related surfaces are currently explicit capability and planning reports. The GAR-0013
+matrix marks local streaming and zero-decode rows as scoped fixture-smoke/report-only evidence,
+compatibility zero-copy boundaries as materializing/copying, and object-store streaming plus
+broker-backed live/hybrid runtime as blocked with deterministic diagnostics. These reports do not
+create a broad streaming runtime claim.
 
 The next prepared/native and runtime work remains intentionally concrete and phase-plan driven:
 kernel/provider expansion, source-backed API follow-through, facade coverage, and evidence

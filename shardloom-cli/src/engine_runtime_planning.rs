@@ -7,7 +7,7 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CommandStatus, DatasetRef, DatasetUri, OutputFormat, OutputTarget, ShardLoomError,
+    CommandStatus, DatasetRef, DatasetUri, Diagnostic, OutputFormat, OutputTarget, ShardLoomError,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, BackpressurePlanInput, BackpressurePlanReport,
@@ -15,8 +15,9 @@ use shardloom_exec::{
     DynamicSizingFeedbackReport, DynamicWorkShapingReport, EncodedStreamingBatchPlanInput,
     EncodedStreamingBatchPlanReport, ParallelismLimit, ParallelismPlan, RuntimePlanSkeleton,
     SizeEstimate, SizingFeedbackSignal, SizingFeedbackSignalKind, SizingInput, SizingPlan,
-    StreamingPlanSkeleton, plan_backpressure, plan_dynamic_runtime_promotion_gate,
-    plan_dynamic_sizing_feedback, plan_dynamic_work_shaping, plan_encoded_streaming_batches,
+    StreamingCapabilityMatrixReport, StreamingCapabilityMatrixRow, StreamingPlanSkeleton,
+    plan_backpressure, plan_dynamic_runtime_promotion_gate, plan_dynamic_sizing_feedback,
+    plan_dynamic_work_shaping, plan_encoded_streaming_batches,
 };
 
 use crate::{
@@ -71,6 +72,7 @@ pub(crate) fn handle_streaming_plan(
     };
     let output_target = OutputTarget::from_uri(target_uri);
     let plan = StreamingPlanSkeleton::for_vortex_to_target(dataset_ref, output_target);
+    let matrix = StreamingCapabilityMatrixReport::gar0013_current();
     emit(
         "streaming-plan",
         format,
@@ -81,8 +83,8 @@ pub(crate) fn handle_streaming_plan(
         },
         "streaming plan".to_string(),
         plan.to_human_text(),
-        plan.diagnostics.clone(),
-        streaming_plan_fields(&plan),
+        streaming_plan_diagnostics(&plan, &matrix),
+        streaming_plan_fields(&plan, &matrix),
     );
     if plan.has_errors() {
         ExitCode::from(1)
@@ -130,6 +132,7 @@ pub(crate) fn handle_streaming_batch_plan(
             );
         }
     };
+    let matrix = StreamingCapabilityMatrixReport::gar0013_current();
     emit(
         STREAMING_BATCH_COMMAND,
         format,
@@ -140,8 +143,8 @@ pub(crate) fn handle_streaming_batch_plan(
         },
         "encoded streaming-batch plan".to_string(),
         report.to_human_text(),
-        report.diagnostics.clone(),
-        encoded_streaming_batch_plan_fields(&report, parsed.memory_gb, parsed.batch_mib),
+        streaming_batch_diagnostics(&report, &matrix),
+        encoded_streaming_batch_plan_fields(&report, parsed.memory_gb, parsed.batch_mib, &matrix),
     );
     if report.has_errors() {
         ExitCode::from(1)
@@ -291,8 +294,51 @@ fn positive_streaming_batch_arg_error(arg_name: &str, format: OutputFormat) -> E
     )
 }
 
-fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> {
-    vec![
+fn streaming_plan_diagnostics(
+    plan: &StreamingPlanSkeleton,
+    matrix: &StreamingCapabilityMatrixReport,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    diagnostics.extend(plan.source.diagnostics.clone());
+    diagnostics.extend(plan.sink.diagnostics.clone());
+    diagnostics.extend(
+        plan.operators
+            .iter()
+            .flat_map(|operator| operator.diagnostics.iter().cloned()),
+    );
+    diagnostics.extend(
+        plan.stages
+            .iter()
+            .flat_map(|stage| stage.diagnostics.iter().cloned()),
+    );
+    diagnostics.extend(plan.diagnostics.clone());
+    diagnostics.extend(matrix.diagnostics());
+    diagnostics
+}
+
+fn streaming_batch_diagnostics(
+    report: &EncodedStreamingBatchPlanReport,
+    matrix: &StreamingCapabilityMatrixReport,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = report.diagnostics.clone();
+    diagnostics.extend(matrix.diagnostics());
+    diagnostics
+}
+
+fn backpressure_plan_diagnostics(
+    report: &BackpressurePlanReport,
+    matrix: &StreamingCapabilityMatrixReport,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = report.diagnostics.clone();
+    diagnostics.extend(matrix.diagnostics());
+    diagnostics
+}
+
+fn streaming_plan_fields(
+    plan: &StreamingPlanSkeleton,
+    matrix: &StreamingCapabilityMatrixReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![
         ("mode".to_string(), plan.mode.as_str().to_string()),
         ("status".to_string(), plan.status.as_str().to_string()),
         (
@@ -358,13 +404,18 @@ fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> 
             "fallback_execution_allowed".to_string(),
             "false".to_string(),
         ),
-    ]
+        ("fallback_attempted".to_string(), "false".to_string()),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+    ];
+    append_streaming_capability_matrix_fields(&mut fields, matrix);
+    fields
 }
 
 fn encoded_streaming_batch_plan_fields(
     report: &EncodedStreamingBatchPlanReport,
     memory_gb: u64,
     estimated_batch_mib: Option<u64>,
+    matrix: &StreamingCapabilityMatrixReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "fallback_execution_allowed", "false");
@@ -460,10 +511,16 @@ fn encoded_streaming_batch_plan_fields(
     push_bool_field(&mut fields, "write_io", report.write_io);
     push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
     push_field(&mut fields, "execution", "not_performed");
+    push_bool_field(&mut fields, "fallback_attempted", false);
+    push_bool_field(&mut fields, "external_engine_invoked", false);
+    append_streaming_capability_matrix_fields(&mut fields, matrix);
     fields
 }
 
-fn backpressure_plan_fields(report: &BackpressurePlanReport) -> Vec<(String, String)> {
+fn backpressure_plan_fields(
+    report: &BackpressurePlanReport,
+    matrix: &StreamingCapabilityMatrixReport,
+) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "fallback_execution_allowed", "false");
     push_field(&mut fields, "mode", "backpressure_plan");
@@ -502,7 +559,248 @@ fn backpressure_plan_fields(report: &BackpressurePlanReport) -> Vec<(String, Str
     push_bool_field(&mut fields, "write_io", report.write_io);
     push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
     push_field(&mut fields, "execution", "not_performed");
+    push_bool_field(&mut fields, "fallback_attempted", false);
+    push_bool_field(&mut fields, "external_engine_invoked", false);
+    append_streaming_capability_matrix_fields(&mut fields, matrix);
     fields
+}
+
+pub(crate) fn append_streaming_capability_matrix_fields(
+    fields: &mut Vec<(String, String)>,
+    matrix: &StreamingCapabilityMatrixReport,
+) {
+    append_streaming_capability_matrix_summary_fields(fields, matrix);
+    for row in &matrix.rows {
+        append_streaming_capability_matrix_row_fields(fields, row);
+    }
+}
+
+pub(crate) fn append_streaming_capability_matrix_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    matrix: &StreamingCapabilityMatrixReport,
+) {
+    append_streaming_capability_matrix_identity_fields(fields, matrix);
+    append_streaming_capability_matrix_count_fields(fields, matrix);
+    append_streaming_capability_matrix_order_fields(fields, matrix);
+    append_streaming_capability_matrix_policy_fields(fields, matrix);
+}
+
+fn append_streaming_capability_matrix_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    matrix: &StreamingCapabilityMatrixReport,
+) {
+    push_field(
+        fields,
+        "streaming_capability_matrix_schema_version",
+        matrix.schema_version,
+    );
+    push_field(
+        fields,
+        "streaming_capability_matrix_report_id",
+        matrix.report_id,
+    );
+    push_field(
+        fields,
+        "streaming_capability_matrix_status",
+        matrix.matrix_status,
+    );
+    push_field(
+        fields,
+        "streaming_capability_matrix_claim_gate_status",
+        matrix.claim_gate_status,
+    );
+}
+
+fn append_streaming_capability_matrix_count_fields(
+    fields: &mut Vec<(String, String)>,
+    matrix: &StreamingCapabilityMatrixReport,
+) {
+    push_count_field(
+        fields,
+        "streaming_capability_matrix_row_count",
+        matrix.rows.len(),
+    );
+    push_count_field(
+        fields,
+        "streaming_capability_matrix_blocked_row_count",
+        matrix.blocked_row_count(),
+    );
+    push_count_field(
+        fields,
+        "streaming_capability_matrix_report_only_row_count",
+        matrix.report_only_row_count(),
+    );
+    push_count_field(
+        fields,
+        "streaming_capability_matrix_fixture_smoke_row_count",
+        matrix.fixture_smoke_row_count(),
+    );
+    push_count_field(
+        fields,
+        "streaming_capability_matrix_materialization_row_count",
+        matrix.materialization_row_count(),
+    );
+}
+
+fn append_streaming_capability_matrix_order_fields(
+    fields: &mut Vec<(String, String)>,
+    matrix: &StreamingCapabilityMatrixReport,
+) {
+    push_field(
+        fields,
+        "streaming_capability_matrix_row_order",
+        &matrix.row_order().join(","),
+    );
+    push_field(
+        fields,
+        "streaming_capability_matrix_family_order",
+        &matrix.family_order().join(","),
+    );
+    push_field(
+        fields,
+        "streaming_capability_matrix_diagnostic_code_order",
+        &matrix.diagnostic_code_order().join(","),
+    );
+}
+
+fn append_streaming_capability_matrix_policy_fields(
+    fields: &mut Vec<(String, String)>,
+    matrix: &StreamingCapabilityMatrixReport,
+) {
+    push_bool_field(
+        fields,
+        "streaming_capability_matrix_all_rows_have_support_status",
+        matrix.all_rows_have_support_status(),
+    );
+    push_bool_field(
+        fields,
+        "streaming_capability_matrix_all_blocked_rows_have_diagnostics",
+        matrix.all_blocked_rows_have_diagnostics(),
+    );
+    push_bool_field(
+        fields,
+        "streaming_capability_matrix_all_rows_no_fallback_no_external_engine",
+        matrix.all_rows_no_fallback_no_external_engine(),
+    );
+    push_bool_field(
+        fields,
+        "streaming_capability_matrix_runtime_execution",
+        matrix.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        "streaming_capability_matrix_data_read",
+        matrix.data_read,
+    );
+    push_bool_field(
+        fields,
+        "streaming_capability_matrix_object_store_io",
+        matrix.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "streaming_capability_matrix_write_io",
+        matrix.write_io,
+    );
+    push_bool_field(
+        fields,
+        "streaming_capability_matrix_fallback_attempted",
+        matrix.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "streaming_capability_matrix_external_engine_invoked",
+        matrix.external_engine_invoked,
+    );
+}
+
+fn append_streaming_capability_matrix_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &StreamingCapabilityMatrixRow,
+) {
+    let prefix = format!("streaming_capability_matrix_row_{}", row.id);
+    push_field(fields, &format!("{prefix}_family"), row.family);
+    push_field(fields, &format!("{prefix}_surface"), row.surface);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status.as_str(),
+    );
+    push_field(fields, &format!("{prefix}_source_kind"), row.source_kind);
+    push_field(fields, &format!("{prefix}_sink_kind"), row.sink_kind);
+    push_field(
+        fields,
+        &format!("{prefix}_zero_decode"),
+        row.zero_decode.as_str(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_zero_copy"),
+        row.zero_copy.as_str(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_backpressure_status"),
+        row.backpressure_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_materialization_boundary"),
+        row.materialization_boundary,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_diagnostic_code"),
+        row.diagnostic_code_text(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_diagnostic_category"),
+        row.diagnostic_category_text(),
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_evidence_refs"),
+        row.evidence_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_required_future_evidence"),
+        row.required_future_evidence,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_execution"),
+        row.runtime_execution,
+    );
+    push_bool_field(fields, &format!("{prefix}_data_read"), row.data_read);
+    push_bool_field(
+        fields,
+        &format!("{prefix}_object_store_io"),
+        row.object_store_io,
+    );
+    push_bool_field(fields, &format!("{prefix}_write_io"), row.write_io);
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        row.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        row.external_engine_invoked,
+    );
 }
 
 pub(crate) fn parse_sizing_feedback_signals(
@@ -1152,6 +1450,7 @@ pub(crate) fn handle_backpressure_plan(
             );
         }
     };
+    let matrix = StreamingCapabilityMatrixReport::gar0013_current();
     emit(
         "backpressure-plan",
         format,
@@ -1162,8 +1461,8 @@ pub(crate) fn handle_backpressure_plan(
         },
         "backpressure plan".to_string(),
         report.to_human_text(),
-        report.diagnostics.clone(),
-        backpressure_plan_fields(&report),
+        backpressure_plan_diagnostics(&report, &matrix),
+        backpressure_plan_fields(&report, &matrix),
     );
     if report.has_errors() {
         ExitCode::from(1)

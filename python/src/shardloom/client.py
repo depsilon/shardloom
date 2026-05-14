@@ -480,6 +480,42 @@ class EngineCapabilityMatrix:
         return self.envelope.field_int("live_hybrid_claim_blocked_count", 0) or 0
 
     @property
+    def streaming_capability_matrix_report_id(self) -> str | None:
+        """Return the GAR-0013 streaming capability matrix report identifier."""
+
+        return self.envelope.field("streaming_capability_matrix_report_id")
+
+    @property
+    def streaming_capability_rows(self) -> tuple[str, ...]:
+        """Return streaming capability matrix row identifiers."""
+
+        return _csv_values(self.envelope.field("streaming_capability_matrix_row_order"))
+
+    @property
+    def streaming_capability_blocked_row_count(self) -> int:
+        """Return blocked rows in the streaming capability matrix."""
+
+        return self.envelope.field_int("streaming_capability_matrix_blocked_row_count", 0) or 0
+
+    @property
+    def streaming_capability_diagnostic_codes(self) -> tuple[str, ...]:
+        """Return deterministic diagnostics emitted for blocked streaming matrix rows."""
+
+        return _csv_values(self.envelope.field("streaming_capability_matrix_diagnostic_code_order"))
+
+    @property
+    def streaming_capability_no_fallback_no_external_engine(self) -> bool:
+        """Whether every streaming matrix row reports no fallback and no external engine."""
+
+        return (
+            self.envelope.field_bool(
+                "streaming_capability_matrix_all_rows_no_fallback_no_external_engine",
+                False,
+            )
+            is True
+        )
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether matrix discovery reported fallback execution."""
 

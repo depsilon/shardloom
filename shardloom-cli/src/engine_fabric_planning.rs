@@ -15,10 +15,12 @@ use shardloom_core::{
     output_mode_vocabulary, plan_live_change_contract, run_hybrid_fixture, run_live_fixture,
     update_mode_vocabulary,
 };
+use shardloom_exec::StreamingCapabilityMatrixReport;
 
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
+    engine_runtime_planning::append_streaming_capability_matrix_summary_fields,
 };
 
 const ENGINE_SELECTION_COMMAND: &str = "engine-selection-plan";
@@ -442,6 +444,8 @@ fn engine_capability_matrix_fields(report: &EngineCapabilityMatrixReport) -> Vec
         "live_hybrid_claim_blocked_count",
         report.live_hybrid_claim_blocked_count(),
     );
+    let streaming_matrix = StreamingCapabilityMatrixReport::gar0013_current();
+    append_streaming_capability_matrix_summary_fields(&mut fields, &streaming_matrix);
     for row in &report.rows {
         append_engine_capability_row_fields(&mut fields, row);
     }
