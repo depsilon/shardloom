@@ -169,8 +169,8 @@ performance lane once operator coverage matures. Current native rows can still u
 ShardLoom operator paths unless their representation-transition, materialization/decode,
 provider-admission, and certificate evidence prove encoded/native execution.
 
-direct_compatibility_transient rows, if introduced, are small one-shot compatibility rows and are
-not Vortex-native claims.
+direct_compatibility_transient rows are small one-shot compatibility rows where explicit evidence
+exists and are not Vortex-native claims.
 
 External-engine rows remain benchmark baseline comparisons only. They cannot satisfy ShardLoom
 execution certificates, Native I/O certificates, Vortex-native claim gates, or no-fallback proof,
@@ -201,8 +201,9 @@ formats.
 
 Capability discovery is mode-aware: `compute-capability-matrix` rows now distinguish
 `compatibility_import_certified`, `prepared_vortex`, `native_vortex`,
-`direct_compatibility_transient`, and `auto`, and direct transient remains an unsupported
-non-Vortex-native row until ShardLoom-native transient execution evidence exists.
+`direct_compatibility_transient`, and `auto`. Direct transient remains non-Vortex-native; only the
+scoped local CSV smoke path is executable until broader ShardLoom-native transient execution
+evidence exists.
 
 ## Code Surfaces
 

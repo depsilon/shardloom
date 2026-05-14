@@ -433,9 +433,10 @@ claim_gate_status=fixture_smoke_only | claim_grade | not_claim_grade | unsupport
 
 ## Mode 4 - `direct_compatibility_transient`
 
-This is the planned traditional-compute-like ShardLoom path. The current repo exposes the mode
-vocabulary and deterministic unsupported/report-only capability rows, but it does not yet implement
-a direct transient runtime path.
+This is the traditional-compute-like ShardLoom path. The current repo has one scoped local CSV
+selective-filter smoke path with execution-certificate evidence; adjacent formats, operators,
+result sinks, SQL/DataFrame access, and broader transient runtime behavior still return
+deterministic unsupported diagnostics.
 
 ```text
 CSV / Parquet / JSONL / etc.
@@ -446,8 +447,8 @@ CSV / Parquet / JSONL / etc.
   -> optional evidence
 ```
 
-Once implemented, this mode is for small one-shot local jobs, developer quick checks, direct ETL,
-and cases where Vortex persistence is not desired.
+As it matures, this mode is for small one-shot local jobs, developer quick checks, direct ETL, and
+cases where Vortex persistence is not desired.
 
 It must not pretend to be Vortex-native:
 
