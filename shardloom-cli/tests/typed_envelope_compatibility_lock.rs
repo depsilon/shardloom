@@ -668,6 +668,14 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                     "encoded_native,residual_native,materialized_temporary,unsupported",
                 ),
                 (
+                    "materialization_policy_schema_version",
+                    "shardloom.materialization_policy.v1",
+                ),
+                (
+                    "materialization_policy_row_materialized_temporary_operator_path_encoded_native_claim_allowed",
+                    "false",
+                ),
+                (
                     "compute_row_prepared_encoded_filter_operator_execution_class",
                     "encoded_native",
                 ),

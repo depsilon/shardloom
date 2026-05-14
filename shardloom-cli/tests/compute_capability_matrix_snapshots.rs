@@ -165,6 +165,63 @@ fn assert_native_unsupported_coverage_summary_fields(output: &str) {
     )));
 }
 
+fn assert_materialization_policy_fields(output: &str) {
+    assert!(output.contains(&field(
+        "materialization_policy_schema_version",
+        "shardloom.materialization_policy.v1"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_report_id",
+        "gar0003b.materialization_policy"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_report_ref",
+        "compute-capability-matrix://materialization_policy.v1"
+    )));
+    assert!(output.contains(&field("materialization_policy_row_count", "4")));
+    assert!(output.contains(&field(
+        "materialization_policy_row_order",
+        "encoded_native_operator_path,residual_native_operator_path,materialized_temporary_operator_path,unsupported_operator_path"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_operator_execution_classes",
+        "encoded_native,residual_native,materialized_temporary,unsupported"
+    )));
+    assert!(output.contains(&field("materialization_policy_all_rows_classified", "true")));
+    assert!(output.contains(&field(
+        "materialization_policy_all_rows_fallback_attempted_false",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_row_encoded_native_operator_path_stayed_encoded",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_row_encoded_native_operator_path_data_decoded",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_row_materialized_temporary_operator_path_data_decoded",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_row_materialized_temporary_operator_path_data_materialized",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_row_materialized_temporary_operator_path_encoded_native_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_row_unsupported_operator_path_unsupported_diagnostic_code",
+        "SL_UNSUPPORTED_OPERATOR_MATERIALIZATION_POLICY"
+    )));
+    assert!(output.contains(&field(
+        "materialization_policy_row_unsupported_operator_path_fallback_attempted",
+        "false"
+    )));
+}
+
 fn assert_local_vortex_count_admission_lane_fields(output: &str) {
     assert!(output.contains(&field(
         "native_vortex_admission_lane_local_vortex_count_scalar_admission_status",
@@ -289,6 +346,7 @@ fn compute_capability_matrix_exposes_rows_families_and_claim_gates() {
     assert_matrix_claim_counts(&output);
     assert_native_vortex_admission_summary_fields(&output);
     assert_native_unsupported_coverage_summary_fields(&output);
+    assert_materialization_policy_fields(&output);
     assert_no_runtime_no_fallback_no_effects(&output);
 }
 

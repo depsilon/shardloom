@@ -67,6 +67,9 @@ VORTEX_SEGMENT_EXTRACTION_ADMISSION_REF = (
 VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF = (
     "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1"
 )
+MATERIALIZATION_POLICY_REF = (
+    "compute-capability-matrix://materialization_policy.v1"
+)
 EXECUTION_MODE_CONTRACT_FIELDS = (
     "requested_execution_mode",
     "selected_execution_mode",
@@ -3956,6 +3959,7 @@ def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str,
         "vortex_source_split_admission_ref": VORTEX_SOURCE_SPLIT_ADMISSION_REF,
         "vortex_segment_extraction_admission_ref": VORTEX_SEGMENT_EXTRACTION_ADMISSION_REF,
         "vortex_layout_device_managed_boundary_ref": VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF,
+        "materialization_policy_ref": MATERIALIZATION_POLICY_REF,
     }
 
 
@@ -4081,6 +4085,11 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 ),
                 "vortex_layout_device_managed_boundary_ref": (
                     VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF
+                    if is_shardloom_engine(result["engine"])
+                    else None
+                ),
+                "materialization_policy_ref": (
+                    MATERIALIZATION_POLICY_REF
                     if is_shardloom_engine(result["engine"])
                     else None
                 ),
@@ -5900,6 +5909,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom direct-transient rows, when requested with `shardloom-direct-transient`, are scoped local CSV smoke rows without Vortex persistence and are never Vortex-native or performance-claim rows.",
         "ShardLoom prepared Vortex rows start timing from prepared Vortex artifacts; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "Prepared/native rows carry operator_execution_class and operator_blocker_id so residual-native and materialized-temporary operators are not counted as encoded-native.",
+        "ShardLoom coverage rows carry materialization_policy_ref, which points to the GAR-0003-B shared materialization/decode policy in compute-capability-matrix; materialized-temporary rows cannot satisfy encoded-native claims.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Coverage rows now carry support_status, claim_gate_status, native_unsupported_coverage_ref, and unsupported_diagnostic_code so unsupported capability rows stay distinct from timing rows.",
         "ShardLoom coverage rows also carry native_io_source_sink_coverage_ref, which points to the RFC 0031 source/sink matrix in native-io-envelope-plan.",
@@ -5982,6 +5992,7 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 str(row["vortex_source_split_admission_ref"] or "n/a"),
                 str(row["vortex_segment_extraction_admission_ref"] or "n/a"),
                 str(row["vortex_layout_device_managed_boundary_ref"] or "n/a"),
+                str(row["materialization_policy_ref"] or "n/a"),
                 str(row["fallback_attempted"]),
                 str(row["external_engine_invoked"]),
             ]
@@ -6022,6 +6033,7 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Vortex source/split ref",
             "Vortex segment extraction ref",
             "Vortex boundary ref",
+            "Materialization policy ref",
             "Fallback",
             "External engine invoked",
         ],

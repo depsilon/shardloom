@@ -1645,6 +1645,67 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_execution_attempted", "value": "false"},
                         {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_fallback_attempted", "value": "false"},
                         {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_external_engine_invoked", "value": "false"},
+                        {"key": "materialization_policy_schema_version", "value": "shardloom.materialization_policy.v1"},
+                        {"key": "materialization_policy_report_ref", "value": "compute-capability-matrix://materialization_policy.v1"},
+                        {"key": "materialization_policy_row_order", "value": "encoded_native_operator_path,materialized_temporary_operator_path,unsupported_operator_path"},
+                        {"key": "materialization_policy_all_rows_classified", "value": "true"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_operator_execution_class", "value": "encoded_native"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_support_status", "value": "report_only_contract"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_data_decoded", "value": "false"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_data_materialized", "value": "false"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_stayed_encoded", "value": "true"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_materialization_boundary_required", "value": "true"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_materialization_boundary_emitted", "value": "true"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_materialized_temporary_path", "value": "false"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_encoded_native_claim_allowed", "value": "true"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_materialization_decode_refs", "value": "metadata_or_encoded_values_no_row_materialization"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_policy_refs", "value": "fallback_attempted=false,external_engine_invoked=false"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_unsupported_diagnostic_code", "value": "none"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_blocker_id", "value": "none"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_required_future_evidence", "value": "execution_certificate,native_io_certificate"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_claim_gate_status", "value": "fixture_or_claim_gate_dependent"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_claim_boundary", "value": "encoded evidence required"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_runtime_execution", "value": "false"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_fallback_attempted", "value": "false"},
+                        {"key": "materialization_policy_row_encoded_native_operator_path_external_engine_invoked", "value": "false"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_operator_execution_class", "value": "materialized_temporary"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_support_status", "value": "supported_with_boundary"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_data_decoded", "value": "true"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_data_materialized", "value": "true"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_stayed_encoded", "value": "false"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_materialization_boundary_required", "value": "true"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_materialization_boundary_emitted", "value": "true"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_materialized_temporary_path", "value": "true"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_encoded_native_claim_allowed", "value": "false"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_materialization_decode_refs", "value": "materialization_boundary_report_required"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_policy_refs", "value": "fallback_attempted=false,external_engine_invoked=false"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_unsupported_diagnostic_code", "value": "none"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_blocker_id", "value": "gar-flow-2b.materialized_temporary_operator_not_encoded_native"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_required_future_evidence", "value": "encoded_native_operator_evidence_before_encoded_claim"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_claim_boundary", "value": "materialized temporary is not encoded native"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_runtime_execution", "value": "false"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_fallback_attempted", "value": "false"},
+                        {"key": "materialization_policy_row_materialized_temporary_operator_path_external_engine_invoked", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_operator_execution_class", "value": "unsupported"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_support_status", "value": "unsupported"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_data_decoded", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_data_materialized", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_stayed_encoded", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_materialization_boundary_required", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_materialization_boundary_emitted", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_materialized_temporary_path", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_encoded_native_claim_allowed", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_materialization_decode_refs", "value": "unsupported_no_decode_or_materialization"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_policy_refs", "value": "fallback_attempted=false,external_engine_invoked=false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_OPERATOR_MATERIALIZATION_POLICY"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_blocker_id", "value": "gar0003b.unsupported_operator_materialization_policy"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_required_future_evidence", "value": "operator_capability_row,deterministic_diagnostic"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_claim_boundary", "value": "unsupported does not execute"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_runtime_execution", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_fallback_attempted", "value": "false"},
+                        {"key": "materialization_policy_row_unsupported_operator_path_external_engine_invoked", "value": "false"},
                         {"key": "compute_row_order", "value": "local_vortex_count,direct_compatibility_transient,sql_frontend"},
                         {"key": "compute_row_local_vortex_count_surface", "value": "vortex_file_scan_count"},
                         {"key": "compute_row_local_vortex_count_family", "value": "scan"},
@@ -1790,6 +1851,36 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(
             native_unsupported["native_workload_sql_dataframe"].external_engine_invoked
         )
+        self.assertEqual(
+            result.materialization_policy_report_ref,
+            "compute-capability-matrix://materialization_policy.v1",
+        )
+        self.assertTrue(result.materialization_policy_all_rows_classified)
+        materialization_rows = {
+            row.row_id: row for row in result.materialization_policy_rows
+        }
+        encoded_policy = materialization_rows["encoded_native_operator_path"]
+        self.assertEqual(encoded_policy.operator_execution_class, "encoded_native")
+        self.assertTrue(encoded_policy.stayed_encoded)
+        self.assertFalse(encoded_policy.data_decoded)
+        self.assertFalse(encoded_policy.data_materialized)
+        self.assertTrue(encoded_policy.encoded_native_claim_allowed)
+        temporary_policy = materialization_rows["materialized_temporary_operator_path"]
+        self.assertTrue(temporary_policy.data_decoded)
+        self.assertTrue(temporary_policy.data_materialized)
+        self.assertTrue(temporary_policy.materialized_temporary_path)
+        self.assertFalse(temporary_policy.encoded_native_claim_allowed)
+        self.assertEqual(
+            temporary_policy.blocker_id,
+            "gar-flow-2b.materialized_temporary_operator_not_encoded_native",
+        )
+        unsupported_policy = materialization_rows["unsupported_operator_path"]
+        self.assertEqual(
+            unsupported_policy.unsupported_diagnostic_code,
+            "SL_UNSUPPORTED_OPERATOR_MATERIALIZATION_POLICY",
+        )
+        self.assertFalse(unsupported_policy.runtime_execution)
+        self.assertFalse(unsupported_policy.fallback_attempted)
         families = {row.family_id: row for row in result.operator_families}
         self.assertEqual(families["joins"].support_status, "planned")
         self.assertIn("build_probe_memory", families["joins"].next_evidence)

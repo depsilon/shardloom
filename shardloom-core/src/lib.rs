@@ -34,6 +34,7 @@ pub mod hybrid_engine;
 pub mod input;
 pub mod live_engine;
 pub mod manifest;
+pub mod materialization_policy;
 pub mod native_io;
 pub mod observability;
 pub mod operational_contracts;
@@ -196,6 +197,10 @@ pub use manifest::{
     LayoutHealthStatus, ManifestSegment, ManifestVersion, SegmentChange, SegmentChangeKind,
     SnapshotRef, WriteIntent, WriteIntentStatus, evaluate_cdc_incremental_planning,
     evaluate_compaction_planning, evaluate_layout_health,
+};
+pub use materialization_policy::{
+    MaterializationPolicyOperatorClass, MaterializationPolicyReport, MaterializationPolicyRow,
+    plan_materialization_policy_report,
 };
 pub use native_io::{
     NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoCertificatePathRequirement,

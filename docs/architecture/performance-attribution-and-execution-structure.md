@@ -44,8 +44,9 @@ same as prepared/native Vortex query timing.
   be delegated to DataFusion, DuckDB, Spark, Polars, Dask, or another external engine as fallback.
 - Materialization/decode boundary: every row must record whether native/compressed, canonical, or
   materialized representations were used and whether decode/materialization was required.
-- Evidence added: planned P7.4.8 stage timing fields and planned P7.4.9 prepared/native benchmark
-  lanes.
+- Evidence added: planned P7.4.8 stage timing fields, planned P7.4.9 prepared/native benchmark
+  lanes, and the GAR-0003-B shared materialization/decode policy ref that distinguishes
+  encoded-native, residual-native, materialized-temporary, and unsupported operator paths.
 - Gates still blocked: broad SQL/DataFrame maturity, broad performance superiority, object-store
   runtime, table/catalog runtime, and production claims.
 - `fallback_attempted=false`: required for every ShardLoom execution-mode row.

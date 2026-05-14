@@ -739,6 +739,32 @@ class NativeUnsupportedCoverageRow:
 
 
 @dataclass(frozen=True, slots=True)
+class MaterializationPolicyRow:
+    """One shared materialization/decode policy row."""
+
+    row_id: str
+    operator_execution_class: str
+    support_status: str
+    data_decoded: bool
+    data_materialized: bool
+    stayed_encoded: bool
+    materialization_boundary_required: bool
+    materialization_boundary_emitted: bool
+    materialized_temporary_path: bool
+    encoded_native_claim_allowed: bool
+    materialization_decode_refs: tuple[str, ...]
+    policy_refs: tuple[str, ...]
+    unsupported_diagnostic_code: str
+    blocker_id: str
+    required_future_evidence: tuple[str, ...]
+    claim_gate_status: str
+    claim_boundary: str
+    runtime_execution: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ComputeCapabilityMatrix:
     """Typed view over the report-only compute capability coverage matrix."""
 
@@ -984,6 +1010,102 @@ class ComputeCapabilityMatrix:
                 False,
             )
             is True
+        )
+
+    @property
+    def materialization_policy_report_ref(self) -> str:
+        """Return the shared materialization/decode policy report ref."""
+
+        return _required_field(self.envelope, "materialization_policy_report_ref")
+
+    @property
+    def materialization_policy_rows(self) -> tuple[MaterializationPolicyRow, ...]:
+        """Return shared materialization/decode policy rows."""
+
+        rows: list[MaterializationPolicyRow] = []
+        for row_id in _csv_values(self.envelope.field("materialization_policy_row_order")):
+            prefix = f"materialization_policy_row_{row_id}_"
+            rows.append(
+                MaterializationPolicyRow(
+                    row_id=row_id,
+                    operator_execution_class=_required_field(
+                        self.envelope,
+                        f"{prefix}operator_execution_class",
+                    ),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    data_decoded=self.envelope.field_bool(f"{prefix}data_decoded", True) is True,
+                    data_materialized=self.envelope.field_bool(
+                        f"{prefix}data_materialized",
+                        True,
+                    )
+                    is True,
+                    stayed_encoded=self.envelope.field_bool(
+                        f"{prefix}stayed_encoded",
+                        False,
+                    )
+                    is True,
+                    materialization_boundary_required=self.envelope.field_bool(
+                        f"{prefix}materialization_boundary_required",
+                        False,
+                    )
+                    is True,
+                    materialization_boundary_emitted=self.envelope.field_bool(
+                        f"{prefix}materialization_boundary_emitted",
+                        False,
+                    )
+                    is True,
+                    materialized_temporary_path=self.envelope.field_bool(
+                        f"{prefix}materialized_temporary_path",
+                        False,
+                    )
+                    is True,
+                    encoded_native_claim_allowed=self.envelope.field_bool(
+                        f"{prefix}encoded_native_claim_allowed",
+                        False,
+                    )
+                    is True,
+                    materialization_decode_refs=_csv_values(
+                        self.envelope.field(f"{prefix}materialization_decode_refs")
+                    ),
+                    policy_refs=_csv_values(self.envelope.field(f"{prefix}policy_refs")),
+                    unsupported_diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}unsupported_diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(self.envelope, f"{prefix}claim_boundary"),
+                    runtime_execution=self.envelope.field_bool(
+                        f"{prefix}runtime_execution",
+                        True,
+                    )
+                    is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def materialization_policy_all_rows_classified(self) -> bool:
+        """Whether every materialization policy row has explicit decode/materialization flags."""
+
+        return (
+            self.envelope.field_bool("materialization_policy_all_rows_classified", False) is True
         )
 
     @property

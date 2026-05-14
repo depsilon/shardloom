@@ -104,8 +104,11 @@ plan before coding.
   `vortex-api-inventory` and benchmark coverage refs. Sparse extraction is deterministically blocked
   with required correctness, execution-certificate, Native I/O, materialization/decode, and
   no-fallback evidence before support claims.
-- [ ] Full production Vortex segment extraction, broad operator coverage, and generalized
-  materialization policy remain incomplete.
+- [x] GAR-0003-B adds a shared materialization/decode policy through `compute-capability-matrix`,
+  Python accessors, and benchmark coverage refs so encoded-native, residual-native,
+  materialized-temporary, and unsupported paths report decode/materialization posture and claim
+  boundaries.
+- [ ] Full production Vortex segment extraction and broad operator coverage remain incomplete.
 
 ### RFC 0004 - Native Dataset, Manifest, Snapshot, and Incremental Change Model
 

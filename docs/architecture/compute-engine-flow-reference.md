@@ -830,6 +830,13 @@ I/O/materialization evidence, `claim_gate_status=not_claim_grade`, and no-fallba
 a sparse extraction runtime claim, broad layout support claim, or production segment extraction
 claim.
 
+GAR-0003-B adds `materialization_policy_ref`. That ref points to the
+`compute-capability-matrix` shared materialization/decode policy for encoded-native,
+residual-native, materialized-temporary, and unsupported operator paths. It records
+`data_decoded`, `data_materialized`, `stayed_encoded`, materialization-boundary requirements,
+claim boundaries, and no-fallback policy. Materialized-temporary paths cannot satisfy
+encoded-native claims.
+
 GAR-0042B adds `vortex_layout_device_managed_boundary_ref`. That ref points to a
 runtime-utilization boundary matrix for layout/write, device execution, object-store I/O, and
 managed-platform comparison lanes. Those lanes stay `not_claim_grade`; managed platforms remain
@@ -857,11 +864,14 @@ Required fields:
 ```text
 decoded=true|false
 materialized=true|false
+stayed_encoded=true|false
+operator_execution_class=encoded_native|residual_native|materialized_temporary|unsupported
 row_read=true|false
 arrow_converted=true|false
 materialization_boundary_ref
 decode_boundary_ref
 representation_transition_summary
+materialization_policy_ref
 ```
 
 ## Native Vortex Optimization Target

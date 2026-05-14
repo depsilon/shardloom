@@ -9,11 +9,12 @@ use std::{process::ExitCode, vec::IntoIter};
 use shardloom_core::{
     ArchitectureRuntimeClaimGateReport, CapabilityCertificationReport,
     CapabilityCertificationStatus, CommandStatus, EngineCapabilities, EngineCapabilityMatrixReport,
-    OutputFormat, PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix,
-    PhysicalOperatorPlan, ShardLoomError, SqlDataFramePlannerReadinessMatrix,
-    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, boundedness_vocabulary,
-    engine_mode_vocabulary, output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
-    plan_world_class_sufficiency, update_mode_vocabulary,
+    MaterializationPolicyReport, OutputFormat, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
+    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
+    WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
+    output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
+    plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
 };
 use shardloom_vortex::{
     vortex_encoded_count_local_guard_discovery_report,
@@ -1152,12 +1153,14 @@ struct NativeUnsupportedCoverageRow {
 }
 
 fn compute_capability_matrix_human_text() -> String {
+    let materialization_report = plan_materialization_policy_report();
     format!(
-        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nnative Vortex admission lanes: {}\nnative unsupported coverage rows: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
+        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nnative Vortex admission lanes: {}\nnative unsupported coverage rows: {}\nmaterialization policy rows: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
         COMPUTE_ROWS.len(),
         OPERATOR_FAMILY_ROWS.len(),
         NATIVE_VORTEX_ADMISSION_LANES.len(),
-        NATIVE_UNSUPPORTED_COVERAGE_ROWS.len()
+        NATIVE_UNSUPPORTED_COVERAGE_ROWS.len(),
+        materialization_report.rows.len()
     )
 }
 
@@ -1275,6 +1278,7 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
     );
     append_native_vortex_admission_fields(&mut fields);
     append_native_unsupported_coverage_fields(&mut fields);
+    append_materialization_policy_fields(&mut fields, &plan_materialization_policy_report());
     for row in COMPUTE_ROWS {
         append_compute_capability_row_fields(&mut fields, row);
     }
@@ -1629,6 +1633,182 @@ fn append_native_unsupported_coverage_invariant_fields(fields: &mut Vec<(String,
         fields,
         "native_unsupported_coverage_benchmark_refs",
         "benchmarks/traditional_analytics coverage_table unsupported_diagnostic_code fields",
+    );
+}
+
+fn append_materialization_policy_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MaterializationPolicyReport,
+) {
+    push_field(
+        fields,
+        "materialization_policy_schema_version",
+        report.schema_version,
+    );
+    push_field(fields, "materialization_policy_report_id", report.report_id);
+    push_field(
+        fields,
+        "materialization_policy_report_ref",
+        report.report_ref,
+    );
+    push_field(fields, "materialization_policy_docs_ref", report.docs_ref);
+    push_field(
+        fields,
+        "materialization_policy_support_status_vocabulary",
+        report.support_status_vocabulary,
+    );
+    push_field(
+        fields,
+        "materialization_policy_operator_execution_class_vocabulary",
+        report.operator_execution_class_vocabulary,
+    );
+    push_field(
+        fields,
+        "materialization_policy_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_count_field(
+        fields,
+        "materialization_policy_row_count",
+        report.rows.len(),
+    );
+    push_field(
+        fields,
+        "materialization_policy_row_order",
+        &report.row_order().join(","),
+    );
+    push_field(
+        fields,
+        "materialization_policy_operator_execution_classes",
+        &report.operator_execution_classes().join(","),
+    );
+    push_field(
+        fields,
+        "materialization_policy_blocker_ids",
+        &report.blocker_ids().join(","),
+    );
+    push_bool_field(
+        fields,
+        "materialization_policy_all_rows_classified",
+        report.all_rows_classified(),
+    );
+    push_bool_field(
+        fields,
+        "materialization_policy_all_rows_fallback_attempted_false",
+        report.all_rows_fallback_free(),
+    );
+    push_bool_field(
+        fields,
+        "materialization_policy_all_rows_external_engine_invoked_false",
+        report.all_rows_fallback_free(),
+    );
+    push_bool_field(
+        fields,
+        "materialization_policy_runtime_execution",
+        report.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        "materialization_policy_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "materialization_policy_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    for row in &report.rows {
+        append_materialization_policy_row_fields(fields, row);
+    }
+}
+
+fn append_materialization_policy_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &shardloom_core::MaterializationPolicyRow,
+) {
+    let prefix = format!("materialization_policy_row_{}", row.row_id);
+    push_field(
+        fields,
+        &format!("{prefix}_operator_execution_class"),
+        row.operator_execution_class.as_str(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_bool_field(fields, &format!("{prefix}_data_decoded"), row.data_decoded);
+    push_bool_field(
+        fields,
+        &format!("{prefix}_data_materialized"),
+        row.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_stayed_encoded"),
+        row.stayed_encoded,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_materialization_boundary_required"),
+        row.materialization_boundary_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_materialization_boundary_emitted"),
+        row.materialization_boundary_emitted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_materialized_temporary_path"),
+        row.materialized_temporary_path,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_encoded_native_claim_allowed"),
+        row.encoded_native_claim_allowed,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_materialization_decode_refs"),
+        row.materialization_decode_refs,
+    );
+    push_field(fields, &format!("{prefix}_policy_refs"), row.policy_refs);
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_code"),
+        row.unsupported_diagnostic_code,
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_required_future_evidence"),
+        row.required_future_evidence,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_execution"),
+        row.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        row.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        row.external_engine_invoked,
     );
 }
 
