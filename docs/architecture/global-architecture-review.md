@@ -390,15 +390,21 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0026-encoded-native-reads-query-primitives-compressed-execution.md`](../rfcs/0026-encoded-native-reads-query-primitives-compressed-execution.md)
-- Current read: Encoded read boundary and local query primitives exist.
+- Current read: Encoded read boundary, local query primitives, and scoped prepared/native
+  filter-project-limit scan execution exist.
 - Evidence: `shardloom-vortex/src/encoded_read_api.rs`,
   `shardloom-vortex/src/encoded_read_boundary.rs`,
   `shardloom-vortex/src/encoded_read_executor.rs`,
   `shardloom-vortex/src/encoded_path_selection.rs`,
-  `shardloom-vortex/src/generalized_encoded_filter_execution.rs`
+  `shardloom-vortex/src/generalized_encoded_filter_execution.rs`,
+  `shardloom-vortex/src/traditional_analytics.rs`,
+  `benchmarks/traditional_analytics/README.md`
 - [x] Vortex encoded-read boundary, local encoded count, path selection, and query primitive
   evidence exist.
 - [x] Evidence records zero-decode, no-materialization, and no-fallback fields for scoped paths.
+- [x] Scoped prepared/native `filter + projection + limit` uses Vortex scan filter/projection
+  pushdown and bounded top-N state without full fact-table materialization while preserving
+  `operator_encoded_native_claim_allowed=false`.
 - [ ] Generalized direct encoded count/filter/project execution and production compressed-execution
   claims remain incomplete.
 

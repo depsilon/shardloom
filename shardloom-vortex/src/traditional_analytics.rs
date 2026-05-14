@@ -3027,12 +3027,20 @@ fn traditional_vortex_provider_admission_fields(
         }
         TraditionalOperatorExecutionClass::Unsupported => "unsupported",
     };
-    let fusion_status = if scenario == TraditionalAnalyticsScenario::FilterProjectionLimit {
+    let filter_project_limit_fused = scenario
+        == TraditionalAnalyticsScenario::FilterProjectionLimit
+        && streaming_vortex_execution_used
+        && !data_materialized;
+    let fusion_status = if filter_project_limit_fused {
+        "filter_project_limit_fused"
+    } else if scenario == TraditionalAnalyticsScenario::FilterProjectionLimit {
         "not_fused_materialized_residual"
     } else {
         "not_applicable"
     };
-    let fusion_blocker = if scenario == TraditionalAnalyticsScenario::FilterProjectionLimit {
+    let fusion_blocker = if filter_project_limit_fused {
+        "none"
+    } else if scenario == TraditionalAnalyticsScenario::FilterProjectionLimit {
         "p75.native_provider.filter_project_limit_fusion_missing"
     } else {
         "none"
@@ -3133,7 +3141,7 @@ fn traditional_vortex_provider_admission_fields(
         ),
         (
             "filter_project_limit_fused".to_string(),
-            (fusion_status == "fused").to_string(),
+            filter_project_limit_fused.to_string(),
         ),
         ("fusion_status".to_string(), fusion_status.to_string()),
         ("fusion_blocker".to_string(), fusion_blocker.to_string()),
@@ -7567,6 +7575,9 @@ fn run_vortex_derived_scenario_from_files(
         TraditionalAnalyticsScenario::WideProjection => {
             run_streaming_fact_metric_sum_scenario(fact_path, dim_path, None, "group_key")
         }
+        TraditionalAnalyticsScenario::FilterProjectionLimit => {
+            run_streaming_filter_projection_limit_scenario(fact_path, dim_path)
+        }
         _ => {
             let fact = read_fact_vortex(fact_path)?;
             let dim = read_dim_vortex(dim_path)?;
@@ -7636,6 +7647,54 @@ fn run_streaming_fact_metric_sum_scenario(
             Ok(())
         })?;
     let result_json = scalar_result_json(stats.result_row_count, metric_sum);
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_filter_projection_limit_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut top_rows = std::collections::BinaryHeap::<(u64, u32)>::new();
+    let stats = scan_fact_vortex_projected(
+        fact_path,
+        &["id", "value"],
+        Some(selective_filter_expr()),
+        |fields, chunk_rows| {
+            let ids = primitive_field::<u64>(fields, "id")?;
+            let values = primitive_field::<u32>(fields, "value")?;
+            if ids.len() != chunk_rows || values.len() != chunk_rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "filter + projection + limit Vortex chunk length mismatch: chunk_rows={chunk_rows}, id_len={}, value_len={}",
+                    ids.len(),
+                    values.len()
+                )));
+            }
+            for (id, value) in ids.into_iter().zip(values) {
+                top_rows.push((id, value));
+                if top_rows.len() > 100 {
+                    let _ = top_rows.pop();
+                }
+            }
+            Ok(())
+        },
+    )?;
+    let mut limited = top_rows.into_sorted_vec();
+    limited.truncate(100);
+    let mut accum = TraditionalGroupAccum::default();
+    for (_id, value) in limited {
+        accum.add(f64::from(value));
+    }
+    let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -9557,6 +9616,108 @@ mod tests {
         );
         assert_eq!(native_report.materialization_boundary_rows, 0);
         assert!(!native_report.data_materialized);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn enabled_filter_projection_limit_uses_prepared_native_vortex_scan() {
+        let root = traditional_analytics_test_root("filter-project-limit");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::FilterProjectionLimit,
+                fact_csv,
+                dim_csv,
+                workspace,
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        assert_eq!(
+            import_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":14000.0}"
+        );
+        assert!(import_report.streaming_vortex_execution_used);
+        assert!(import_report.full_table_materialization_avoided);
+        assert!(import_report.streaming_filter_pushdown_applied);
+        assert!(import_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            import_report.streaming_projected_columns,
+            vec!["id".to_string(), "value".to_string()]
+        );
+        assert_eq!(import_report.materialization_boundary_rows, 5);
+        assert!(import_report.data_materialized);
+        let import_fields = field_map(import_report.fields());
+        assert_eq!(
+            import_fields
+                .get("filter_project_limit_fused")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            import_fields.get("fusion_blocker").map(String::as_str),
+            Some("p75.native_provider.filter_project_limit_fusion_missing")
+        );
+        assert_eq!(
+            import_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("materialized_temporary")
+        );
+        assert_eq!(
+            import_fields
+                .get("operator_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::FilterProjectionLimit,
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(native_report.result_json, import_report.result_json);
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec!["id".to_string(), "value".to_string()]
+        );
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
+        let native_fields = field_map(native_report.fields());
+        assert_eq!(
+            native_fields
+                .get("filter_project_limit_fused")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            native_fields.get("fusion_blocker").map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }

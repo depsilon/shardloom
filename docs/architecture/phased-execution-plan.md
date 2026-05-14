@@ -434,22 +434,33 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no UDF/effectful execution.
   - Fallback/claim boundary: claim only the selected kernel family.
   - Dependencies/blockers: GAR-FLOW-2B blocker matrix.
-- [ ] GAR-0026-A direct encoded count/filter/project expansion
-  - Source: RFC 0026; compute-flow reference; benchmark-suite catalog.
-  - Current state: selected encoded primitives exist; generalized direct encoded execution and
-    production compressed-execution claims are not ready.
-  - Next slice outcome: one additional count/filter/project encoded path or explicit unsupported
-    blocker with certificate fields.
-  - User-visible surface: CLI Vortex primitive command, benchmark row, execution certificate.
-  - Implementation scope: `shardloom-vortex` primitive path, CLI handler, tests.
-  - Evidence required: correctness refs, benchmark refs, execution certificate, Native I/O refs,
-    materialization/decode refs, no-fallback refs.
-  - Acceptance: selected path runs or blocks deterministically; result says whether decode/materialize
-    happened.
-  - Verification: focused Vortex primitive tests, benchmark smoke, `cargo test --workspace --all-targets`.
-  - Non-goals: no broad compressed-execution claim.
-  - Fallback/claim boundary: production claim remains not claim-grade unless gate evidence attaches.
-  - Dependencies/blockers: operator/kernel coverage.
+- [ ] GAR-0026-B prepared/native grouped aggregate streaming runtime path
+  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-A.
+  - Current state: prepared/native `selective filter`, `wide projection`, and
+    `filter + projection + limit` have scoped Vortex scan paths; grouped aggregate rows still
+    materialize Vortex-derived tables before ShardLoom-native aggregation.
+  - Next slice outcome: implement a scoped prepared/native Vortex scan path for `group by
+    aggregation` that projects only grouping/metric columns and aggregates through bounded
+    ShardLoom-native group state without full fact-table materialization, or emit a deterministic
+    unsupported diagnostic if an evidence requirement is missing.
+  - User-visible surface: `traditional-analytics-vortex-run`, benchmark prepared/native rows,
+    stage timing fields, operator blocker matrix, docs.
+  - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, focused Vortex
+    traditional analytics tests, benchmark docs/contracts if emitted fields change.
+  - Evidence required: correctness refs, benchmark refs, execution certificate refs, Native I/O
+    refs, materialization/decode refs, policy/no-fallback refs.
+  - Acceptance: selected path reports `streaming_vortex_execution_used=true`,
+    `full_table_materialization_avoided=true`, projected columns, `data_materialized=false` for
+    source-table materialization, `fallback_attempted=false`, `external_engine_invoked=false`, and a
+    residual-native claim boundary.
+  - Verification: focused Vortex traditional analytics test, benchmark harness contract tests,
+    `cargo test --workspace --all-targets`.
+  - Non-goals: no encoded-native grouped aggregate claim, no SQL/DataFrame planner, no object-store
+    execution, no broad compressed-execution claim.
+  - Fallback/claim boundary: production and encoded-native claims remain not claim-grade unless
+    workload-scoped gates attach evidence.
+  - Dependencies/blockers: grouped aggregate semantic fixture coverage and operator memory/spill
+    evidence.
 - [ ] GAR-0027-A CPU/SIMD/vectorization admission slice
   - Source: RFC 0027; CPU specialization admission gates; benchmark-suite catalog.
   - Current state: CPU/vectorization contracts exist; real SIMD dispatch and production vectorized
