@@ -335,11 +335,12 @@ Checklist:
   CG-13, CG-16, and CG-19 evidence.
 - [x] Add `ApproxSketchFunctionGateReport` and `cg20-approx-sketch-gate` so the approximate
   aggregate lane has a side-effect-free admission surface before runtime implementation.
-- [ ] Implement approximate aggregate function registry entries.
-- [ ] Implement sketch state, merge, serialization, and encoded-aware update
-  kernels.
-- [ ] Add exact-reference fixtures, error-distribution benchmarks, and
-  execution/Native I/O certificates.
+Promoted follow-up:
+
+- Approximate aggregate function registry entries, sketch state, merge, serialization,
+  encoded-aware update kernels, exact-reference fixtures, error-distribution benchmarks, and
+  execution/Native I/O certificates are carried by `GAR-0021-A` in
+  `docs/architecture/phased-execution-plan.md`.
 
 R5.4.4a outcome:
 
@@ -683,11 +684,12 @@ Recommended order:
       safety, and security/governance. Complete in R5.4.10.
 - [x] Expand common data/ETL, Python wrapper, universal adapter, and unstructured/media coverage.
       Complete in R5.4.12.
-- [ ] Add SQL/operator/function/adapter/API/observability/deployment coverage entries incrementally
-      as real implementation appears.
-- [ ] Add report-only discovery scopes for data/ETL, Python, unstructured media, universal adapters,
-      API surfaces, observability, deployment, extensions, and security/governance after the current
-      scoped capability surface is stable.
+Promoted follow-up:
+
+- SQL/operator/function/adapter/API/observability/deployment coverage entries and report-only
+  discovery scopes for data/ETL, Python, unstructured media, universal adapters, API surfaces,
+  observability, deployment, extensions, and security/governance are carried by `GAR-0032-A`
+  through `GAR-0032-E` in `docs/architecture/phased-execution-plan.md`.
 
 Do not start with a parser, adapter runtime, or kernel implementation before the report contracts
 and capability discovery surfaces exist.

@@ -46,7 +46,7 @@ execution.
 - [x] P5 - Cross-crate invariant tests
   - Verify forbidden fallback engines are absent from manifests and lockfile.
   - Keep docs/conceptual references out of dependency scans.
-- [ ] P6 - Future refactor candidates
+- [x] P6 - Planned refactor candidates promoted to `GAR-0039-B` and `GAR-0043-A`
   - Command registry / generated help.
   - Diagnostic code constants for all CLI errors.
   - Centralized report field helpers.

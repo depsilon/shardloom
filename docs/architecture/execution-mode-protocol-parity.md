@@ -1,11 +1,11 @@
 # Execution Mode Protocol Parity
 
-Status: Active P7.5.8 contract  
-Applies to: CLI JSON, Python client, benchmark rows, future REST/OpenAPI surfaces
+Status: Completed P7.5.8 protocol parity reference
+Applies to: CLI JSON, Python client, benchmark rows, planned REST/OpenAPI surfaces
 
 ## Purpose
 
-ShardLoom must not let CLI, Python, benchmark, and future REST surfaces invent separate execution
+ShardLoom must not let CLI, Python, benchmark, and planned REST surfaces invent separate execution
 mode vocabularies. All surfaces use the same shared selection report and compute-flow evidence
 fields.
 
@@ -137,9 +137,9 @@ fallback_attempted
 external_engine_invoked
 ```
 
-## Future REST/OpenAPI Contract
+## Planned REST/OpenAPI Contract
 
-Future REST request schemas should carry:
+Planned REST request schemas should carry:
 
 ```text
 requested_execution_mode
@@ -149,7 +149,7 @@ source_format
 workload_constitution_id
 ```
 
-Future REST responses should embed the same selection report and compute-flow evidence fields used
+Planned REST responses should embed the same selection report and compute-flow evidence fields used
 by CLI JSON and Python. REST must not introduce a different enum, rename claim gates, omit the
 selected mode, or hide auto-mode selection reasons.
 

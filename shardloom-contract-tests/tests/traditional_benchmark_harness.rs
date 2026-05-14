@@ -484,7 +484,29 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(plan.contains("docs/architecture/phased-execution-completed-ledger.md"));
     assert!(plan.contains("Global Architecture Review Carry-Forward"));
     assert!(plan.contains("docs/architecture/global-architecture-review.md"));
-    assert_eq!(plan.matches("- [ ] GAR-").count(), 48);
+    assert!(plan.contains("Planned Item Detail Standard"));
+    assert!(plan.contains("GAR-FLOW-1A direct compatibility transient admission contract"));
+    assert!(plan.contains("GAR-FLOW-2A execution-mode benchmark attribution contract"));
+    assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
+    assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
+    assert!(plan.matches("- [ ] GAR-").count() >= 60);
+    for required_field in [
+        "Current state:",
+        "Next slice outcome:",
+        "User-visible surface:",
+        "Implementation scope:",
+        "Evidence required:",
+        "Acceptance:",
+        "Verification:",
+        "Non-goals:",
+        "Fallback/claim boundary:",
+        "Dependencies/blockers:",
+    ] {
+        assert!(
+            plan.contains(required_field),
+            "missing detailed GAR field {required_field}"
+        );
+    }
     assert!(!plan.contains("Priority 7.5 - compute-engine flow overhaul"));
     for child in [
         "P7.5.1", "P7.5.2", "P7.5.3", "P7.5.4", "P7.5.5", "P7.5.6", "P7.5.7", "P7.5.8", "P7.5.9",
