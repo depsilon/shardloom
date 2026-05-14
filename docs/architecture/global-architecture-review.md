@@ -490,19 +490,23 @@ plan before coding.
   `external_engine_invoked=false`; this remains scoped scan evidence, not a generalized source API
   runtime or encoded-native operator claim.
 - [x] Prepared/native `selective filter` rows emit explicit `encoded_predicate_provider_*` blocker
-  fields with `blocked_until_reader_generated_filter_column_batches`, `flag,value` filter-only
-  columns, `metric` projected output, required future evidence, and no-fallback/no-external-engine
-  status; Vortex scan filter pushdown is not reported as an admitted encoded predicate provider.
+  fields with `flag,value` filter-only columns, `metric` projected output, required future
+  evidence, and no-fallback/no-external-engine status; Vortex scan filter pushdown is not reported
+  as an admitted encoded predicate provider.
 - [x] GAR-0026-R adds reader-backed bridge follow-through for that row: non-empty filtered scans
   record projected reader chunks such as `metric:vortex.filter`, zero-result scans report no reader
   chunks, and filter-only `flag,value` batches remain unclaimed before encoded-native predicate
   support can be claimed.
 - [x] GAR-0026-S adds the ShardLoom-native reader-generated conjunctive selection-vector bridge for
-  supplied encoded kernel inputs and updates prepared/native `selective filter` rows to v3 provider
-  fields. Those rows now distinguish the available bridge contract from the still-missing real
-  `flag,value` filter-column batches in the Vortex scan path, preserving
+  supplied encoded kernel inputs. Those rows distinguish the available bridge contract from
+  benchmark-row provider blockers while preserving
   `encoded_predicate_provider_encoded_native_claim_allowed=false`,
   `fallback_attempted=false`, and `external_engine_invoked=false`.
+- [x] GAR-0026-T updates prepared/native `selective filter` rows to v4 provider fields and adds a
+  scoped local filter-column probe. The probe observes real `flag,value` reader chunks without
+  decode/materialization, records `flag:fastlanes.bitpacked` and `value:vortex.sequence`, and keeps
+  the conjunctive bridge blocked before selection-vector intersection until those encodings have
+  admitted kernel-input lowering and certificates.
 - [x] Scoped prepared/native `partition pruning` uses Vortex scan projection/filter pushdown over
   `event_date`/`metric` with a local date-range predicate, then ShardLoom-native residual scalar
   aggregation without full fact-table materialization while preserving

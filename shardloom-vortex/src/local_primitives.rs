@@ -1326,7 +1326,7 @@ fn read_local_vortex_scan(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+pub(crate) fn reader_generated_encoded_kernel_inputs_from_vortex_chunk(
     source_uri: &DatasetUri,
     split_ref: &str,
     chunk: &vortex::array::ArrayRef,

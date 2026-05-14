@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0026-T selective-filter filter-column batch probe
+  - Primary files:
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add a scoped local `flag,value` filter-column reader probe for the prepared/native
+    `selective filter` row. The probe uses the Vortex scan/projection path to capture real
+    filter-column reader chunks without decode/materialization, records their encoding IDs, and
+    feeds the available split evidence into the reader-generated conjunctive selection-vector
+    bridge.
+  - Checklist:
+    - [x] Reuse the local primitive reader-generated kernel-input helper as a crate-local helper
+          instead of adding a duplicate lowering path.
+    - [x] Add a separate filter-column probe scan so the filtered metric output scan remains
+          distinct from filter-column admission evidence.
+    - [x] Emit `encoded_predicate_provider` v4 fields for probe request status, observed columns,
+          observed encoding IDs, data decoded/materialized flags, bridge status, selected-row
+          evidence, kernel-input count, and no-fallback/no-external-engine policy.
+    - [x] Preserve a deterministic blocker when observed chunks cannot be lowered into admitted
+          encoded kernel inputs.
+    - [x] Replace the completed GAR-0026-T planned item with GAR-0026-U, the next encoding-specific
+          kernel-input lowering slice.
+  - Boundary:
+    - This is real filter-column reader-batch capture and bridge admission follow-through. It does
+      not yet lower `flag:fastlanes.bitpacked` or `value:vortex.sequence` into admitted encoded
+      kernel inputs, does not make the `selective filter` row encoded-native, does not add
+      SQL/DataFrame/object-store runtime, and does not make performance/superiority claims.
+  - Evidence:
+    - Benchmark/report evidence: prepared/native selective-filter rows now report
+      `encoded_predicate_provider_schema_version=shardloom.traditional_analytics.encoded_predicate_provider.v4`,
+      `encoded_predicate_provider_filter_column_probe_requested=true`,
+      `encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed=flag,value`,
+      `encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary=flag:fastlanes.bitpacked,value:vortex.sequence`,
+      `encoded_predicate_provider_conjunctive_bridge_status=blocked_prepared_batch_validation`,
+      and
+      `encoded_predicate_provider_kernel_input_lowering_status=blocked_missing_encoding_specific_kernel_input_lowering`.
+    - Policy evidence: provider fields preserve
+      `encoded_predicate_provider_filter_column_probe_data_decoded=false`,
+      `encoded_predicate_provider_filter_column_probe_data_materialized=false`,
+      `encoded_predicate_provider_filter_column_probe_fallback_attempted=false`,
+      `encoded_predicate_provider_filter_column_probe_external_engine_invoked=false`,
+      `encoded_predicate_provider_fallback_attempted=false`, and
+      `encoded_predicate_provider_external_engine_invoked=false`.
+  - Vortex-first provider check:
+    - Subject area: selective-filter filter-column reader chunk capture.
+    - Upstream Vortex concept checked: `VortexFile::scan.with_projection`, reader-visible child
+      arrays, `encoding_id`, `nchildren`, `nbuffers`, and existing ShardLoom reader-generated
+      prepared batch admission surfaces.
+    - Decision: use upstream Vortex as the native reader provider for scoped local filter-column
+      chunk capture; keep encoding-specific kernel-input lowering in ShardLoom until evidence lands.
+    - Residual handling: the benchmark row remains residual-native and not claim-grade.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_runs_csv_through_local_vortex_io --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark selective_filter_zero_result_reports_no_reader_chunks_emitted --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex reader_generated_conjunctive_filter --lib`
+    - Focused prepared/native `selective filter` benchmark smoke.
+
 - [x] Session label: GAR-0026-S reader-generated conjunctive selection-vector bridge
   - Primary files:
     - `shardloom-core/src/encoded.rs`
