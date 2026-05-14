@@ -44,8 +44,10 @@ separate `claim_gate_status` so `claim_grade`, `not_claim_grade`, `fixture_smoke
 `support_status=unsupported`, carry `native_unsupported_coverage_ref`, and name a deterministic
 `unsupported_diagnostic_code` plus future evidence where the harness can derive it. Rows also carry
 `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`,
-`execution_mode_family`, and stage-attribution fields so compatibility-import-certified timing is
-not confused with prepared/native Vortex timing.
+`execution_mode_family`, `native_io_source_sink_coverage_ref`, and stage-attribution fields so
+compatibility-import-certified timing is not confused with prepared/native Vortex timing. The
+Native I/O source/sink ref points to the RFC 0031 matrix in `native-io-envelope-plan`; it is
+coverage evidence, not a timing or production-readiness claim.
 
 ## Workloads
 
@@ -454,6 +456,9 @@ materialization/decode boundary evidence, `fallback_attempted=false`, and
 `external_engine_invoked=false`. External engines remain `external_baseline_only`, fixture lanes
 remain `fixture_smoke_only`, and incompatible scenario/profile combinations remain deterministic
 `blocked` or `unsupported` coverage rows.
+ShardLoom rows additionally include `native_io_source_sink_coverage_ref` so source/sink support can
+be interpreted against the explicit local, compatibility, object-store, catalog, streaming, and
+external-adapter matrix instead of inferred from benchmark timing.
 
 Run one engine or one scenario while troubleshooting:
 

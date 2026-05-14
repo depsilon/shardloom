@@ -40,6 +40,9 @@ fn native_io_envelope_json_exposes_cg19_contract() {
     assert!(output.contains(&field("representation_state_count", "10")));
     assert!(output.contains(&field("transition_example_count", "6")));
     assert!(output.contains(&field("certificate_path_requirement_count", "3")));
+    assert!(output.contains(&field("native_io_source_sink_coverage_row_count", "14")));
+    assert!(output.contains(&field("native_io_source_sink_coverage_source_count", "7")));
+    assert!(output.contains(&field("native_io_source_sink_coverage_sink_count", "7")));
     assert!(output.contains(&field(
         "contract_kind_order",
         "native_work_envelope,native_work_stream,native_result_stream,source_capability_report,source_pushdown_report,sink_requirement_report,adapter_fidelity_report,materialization_boundary_report,native_io_certificate"
@@ -55,6 +58,26 @@ fn native_io_envelope_json_exposes_cg19_contract() {
     assert!(output.contains(&field(
         "certificate_path_order",
         "native_vortex_source_to_native_vortex_sink,compatibility_source_to_native_vortex_sink,multi_source_to_compatibility_sink"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_schema_version",
+        "shardloom.native_io_source_sink_coverage.v1"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_status",
+        "complete_for_current_matrix"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_row_order",
+        "local_vortex_file_scan,compatibility_local_file_import_source,object_store_range_read_source,table_catalog_snapshot_source,streaming_event_source,unstructured_media_source,external_adapter_source,typed_scalar_result_sink,local_vortex_artifact_sink,compatibility_export_sink,object_store_write_sink,table_catalog_commit_sink,streaming_event_sink,external_adapter_sink"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_unadmitted_row_count",
+        "11"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_unadmitted_rows_missing_diagnostics_count",
+        "0"
     )));
 }
 
@@ -91,4 +114,54 @@ fn native_io_envelope_json_preserves_no_execution_or_materialization_effects() {
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("production_claim_allowed", "false")));
     assert!(output.contains(&field("side_effect_free", "true")));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_all_rows_fallback_attempted_false",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_all_rows_external_engine_invoked_false",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_all_unadmitted_rows_have_diagnostics",
+        "true"
+    )));
+}
+
+#[test]
+fn native_io_envelope_json_exposes_source_sink_coverage_rows() {
+    let output = run_native_io_envelope_plan_json();
+
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_local_vortex_file_scan_support_status",
+        "fixture_certified"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_local_vortex_file_scan_native_io_certificate_refs",
+        "certificates/cg19/local-vortex-count/native-io.json"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_object_store_range_read_source_unsupported_diagnostic_code",
+        "SL_UNSUPPORTED_NATIVE_OBJECT_STORE_SOURCE"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_table_catalog_snapshot_source_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_local_vortex_artifact_sink_support_status",
+        "report_only"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_external_adapter_sink_unsupported_diagnostic_code",
+        "SL_UNSUPPORTED_NATIVE_EXTERNAL_ADAPTER_SINK"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_object_store_write_sink_fallback_attempted",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_row_external_adapter_source_external_engine_invoked",
+        "false"
+    )));
 }

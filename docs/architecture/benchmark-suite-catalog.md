@@ -226,6 +226,12 @@ pruned, bytes avoided, encoded-vector reuse, and pushdown proof. Unknown work-av
 remain `not_available` with a reason rather than being converted to zero; those rows cannot support
 performance, superiority, Spark-displacement, production, or best-default claims.
 
+GAR-0031A adds `native_io_source_sink_coverage_ref` to ShardLoom coverage rows. The ref points to
+the `native-io-envelope-plan` source/sink coverage matrix, which distinguishes fixture-certified
+local lanes from report-only or unsupported object-store, table/catalog, streaming, compatibility
+export, unstructured/media, and external-adapter paths. This is coverage attribution only; it does
+not upgrade benchmark rows to source/sink, object-store, or production-runtime claims.
+
 P7.5.9 adds `format_preparation_matrix` to the JSON/Markdown report. The matrix is limited to
 ShardLoom rows and separates source read, compatibility parse, compatibility-to-Vortex import,
 Vortex write/reopen/scan, operator compute, result sink, evidence rendering, and total runtime by

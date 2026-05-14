@@ -55,6 +55,9 @@ EXTERNAL_BASELINE_EXECUTION_MODE = "external_baseline_only"
 NATIVE_UNSUPPORTED_COVERAGE_REF = (
     "compute-capability-matrix://native_unsupported_coverage.v1"
 )
+NATIVE_IO_SOURCE_SINK_COVERAGE_REF = (
+    "native-io-envelope-plan://source_sink_coverage.v1"
+)
 EXECUTION_MODE_CONTRACT_FIELDS = (
     "requested_execution_mode",
     "selected_execution_mode",
@@ -3940,6 +3943,7 @@ def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str,
         "unsupported_diagnostic_code": "direct_compatibility_transient_not_implemented",
         "blocker_id": "P7.5.4",
         "required_future_evidence": "shardloom_native_transient_executor,direct_mode_certificate",
+        "native_io_source_sink_coverage_ref": NATIVE_IO_SOURCE_SINK_COVERAGE_REF,
     }
 
 
@@ -4047,6 +4051,11 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "blocker_id": unsupported_blocker_id(result, evidence),
                 "required_future_evidence": unsupported_required_future_evidence(
                     result, evidence
+                ),
+                "native_io_source_sink_coverage_ref": (
+                    NATIVE_IO_SOURCE_SINK_COVERAGE_REF
+                    if is_shardloom_engine(result["engine"])
+                    else None
                 ),
             }
         )
@@ -5866,6 +5875,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "Prepared/native rows carry operator_execution_class and operator_blocker_id so residual-native and materialized-temporary operators are not counted as encoded-native.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Coverage rows now carry support_status, claim_gate_status, native_unsupported_coverage_ref, and unsupported_diagnostic_code so unsupported capability rows stay distinct from timing rows.",
+        "ShardLoom coverage rows also carry native_io_source_sink_coverage_ref, which points to the RFC 0031 source/sink matrix in native-io-envelope-plan.",
         "Claim-grade ShardLoom timing rows require at least three iterations, stable correctness digests, and the full evidence set; one-iteration smoke rows remain not-claim-grade.",
         "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
         "ShardLoom rows expose cli_process_wall_millis and python_harness_overhead_millis where the Python harness can measure them. Build time is reported separately and excluded from per-scenario timing.",
@@ -5938,6 +5948,7 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 str(row["native_unsupported_coverage_ref"] or "n/a"),
                 str(row["unsupported_diagnostic_code"] or "n/a"),
                 str(row["required_future_evidence"] or "n/a"),
+                str(row["native_io_source_sink_coverage_ref"] or "n/a"),
                 str(row["fallback_attempted"]),
                 str(row["external_engine_invoked"]),
             ]
@@ -5974,6 +5985,7 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Native unsupported ref",
             "Unsupported diagnostic",
             "Required future evidence",
+            "Native I/O source/sink ref",
             "Fallback",
             "External engine invoked",
         ],

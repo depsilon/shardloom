@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0031A Native I/O envelope source/sink coverage matrix
+  - Primary files:
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-core/src/native_io.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/evidence_certificates.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/native_io_envelope_plan_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add a report-only RFC 0031 source/sink coverage matrix to `native-io-envelope-plan`,
+    expose it through typed CLI fields and the traditional benchmark coverage table, and document
+    how source/sink coverage should be interpreted before runtime work is claimable.
+  - Checklist:
+    - [x] Add `NativeIoSourceSinkCoverageRow` and direction vocabulary to the core Native I/O report
+          model.
+    - [x] Enumerate local Vortex, compatibility import, object-store/range-read, table/catalog,
+          streaming, unstructured/media, and external-adapter source/sink families.
+    - [x] Attach support status, support basis, certificate refs/status, unsupported diagnostic
+          code, blocker id, required future evidence, claim gate, claim boundary, source refs, and
+          no-fallback/no-external-engine fields to every row.
+    - [x] Keep the `native-io-envelope-plan` command report-only: no adapter probe, data read,
+          decode, materialization, object-store I/O, write I/O, external effect, or fallback
+          execution.
+    - [x] Add `native_io_source_sink_coverage_ref` to ShardLoom benchmark coverage rows and
+          Markdown output so benchmark timing is not mistaken for broad source/sink support.
+    - [x] Update GAR/RFC/flow/benchmark docs and move GAR-0031A out of Planned.
+  - Boundary:
+    - This is report, diagnostics, coverage metadata, and documentation work only. It does not add
+      object-store/range-read runtime, streaming runtime, table/catalog runtime, external adapter
+      execution, Vortex sink write runtime, compatibility export runtime, broader Native I/O
+      certificates, external engines, fallback execution, or production/source-sink claims.
+  - Vortex-first provider check:
+    - Subject area: RFC 0031 Native I/O source/sink coverage.
+    - Upstream Vortex concept checked: Vortex file scan/source/sink concepts already inventoried in
+      the Vortex public API inventory and compute-flow reference.
+    - Decision: `wrap_vortex_concept` for source/sink coverage; existing local count evidence stays
+      fixture-scoped, while object-store/table/catalog/streaming/external-adapter rows remain
+      deterministic unsupported or report-only.
+    - Residual handling: unsupported rows carry blockers and required future evidence; no residual
+      work is delegated.
+    - Materialization/decode boundary: no materialization or decode occurs in this report.
+    - Evidence added: CLI fields, typed inline report payload keys, benchmark coverage ref, docs,
+      and snapshot/contract tests.
+    - Gates still blocked: broad source/sink runtime, object-store/table/catalog/streaming/external
+      adapters, Vortex sink execution, compatibility exports, and production claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core native_io`
+    - `cargo test -p shardloom-cli --test native_io_envelope_plan_snapshots --test typed_envelope_contract_snapshots`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo run -q -p shardloom-cli -- native-io-envelope-plan --format json`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-0002B native Vortex coverage admission expansion
   - Primary files:
     - `docs/architecture/compute-engine-flow-reference.md`

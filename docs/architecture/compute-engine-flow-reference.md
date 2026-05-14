@@ -788,6 +788,27 @@ what returned an unsupported diagnostic
 what certificate proves it
 ```
 
+The report-only `native-io-envelope-plan` source/sink coverage matrix is the current RFC 0031
+coverage reference. It enumerates local Vortex, compatibility import, object-store/range-read,
+table/catalog, streaming, unstructured/media, and external-adapter source/sink families with:
+
+```text
+direction
+support_status
+native_io_certificate_refs
+unsupported_diagnostic_code
+blocker_id
+required_future_evidence
+claim_gate_status
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Benchmark coverage rows can point to this matrix through
+`native_io_source_sink_coverage_ref`. That ref explains source/sink support posture; it does not
+turn benchmark timing into object-store, table/catalog, streaming, external-adapter, or production
+runtime evidence.
+
 ## Materialization And Decode Flow
 
 ```text
