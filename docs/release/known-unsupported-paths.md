@@ -21,6 +21,9 @@ object-store, platform, or Foundry workload until those paths have claim-grade e
   Velox
 - direct transient compatibility execution as a Vortex-native claim
 - native Vortex operator coverage beyond the documented supported scenarios
+- layout/write, device/GPU, object-store I/O, and managed-platform comparison claims unless
+  `vortex_layout_device_managed_boundary_ref` has claim-grade execution, Native I/O, benchmark, and
+  no-fallback evidence for the exact workload
 - production security posture beyond the current release-gate evidence
 
 ## Required Reporting Rule

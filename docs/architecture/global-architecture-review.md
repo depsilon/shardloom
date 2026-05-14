@@ -617,9 +617,13 @@ plan before coding.
   local Vortex scan fixture path, with provider/version/feature-gate/API surface, split-ref status,
   field-mask and predicate-ordering blockers, certificate refs, Native I/O refs, no-fallback fields,
   and a fixture-only claim boundary.
+- [x] GAR-0042B adds a report-only boundary matrix for layout/write, device execution, object-store
+  I/O, and managed-platform comparisons. Every row is `not_claim_grade`, managed-platform rows are
+  comparison-only, device/object-store lanes cannot satisfy native claims without evidence, and
+  benchmark/claim-gate metadata carries the boundary ref.
 - [ ] Generalized Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write
-  evidence, object-store I/O, GPU/device execution, and managed-platform benchmark lanes remain
-  incomplete.
+  runtime evidence, object-store runtime I/O, GPU/device execution, and managed-platform benchmark
+  lanes remain incomplete.
 
 ### RFC 0043 - Security, Vulnerability, Exploit, and Supply-Chain Hardening
 

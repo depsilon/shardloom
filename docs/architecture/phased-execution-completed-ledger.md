@@ -16,6 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0042B layout/write/device/managed-lane evidence boundaries
+  - Primary files:
+    - `benchmarks/traditional_analytics/README.md`
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/vortex-runtime-utilization-audit.md`
+    - `docs/release/known-unsupported-paths.md`
+    - `shardloom-cli/src/benchmark_planning.rs`
+    - `shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs`
+    - `shardloom-cli/tests/benchmark_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-vortex/src/runtime_utilization.rs`
+  - Scope: add a report-only GAR-0042B boundary matrix for layout/write, device execution,
+    object-store I/O, and managed-platform comparison lanes; link benchmark and claim-gate metadata
+    to that matrix without enabling runtime behavior.
+  - Checklist:
+    - [x] Add `VortexLayoutDeviceManagedBoundaryMatrix` with four rows:
+          `layout_write_boundary`, `device_execution_boundary`, `object_store_io_boundary`, and
+          `managed_platform_comparison_boundary`.
+    - [x] Keep every row `claim_gate_status=not_claim_grade` with explicit evidence requirements,
+          blocker ids, unsupported diagnostic codes, no-fallback fields, and no external-engine
+          invocation.
+    - [x] Label managed-platform rows comparison-only and dependency/credential-free.
+    - [x] Make device and object-store rows unable to satisfy native claims without execution and
+          Native I/O evidence.
+    - [x] Add `vortex_layout_device_managed_boundary_ref` to benchmark coverage rows and Markdown
+          output.
+    - [x] Add benchmark-plan and benchmark-claim-evidence fields that surface the boundary ref,
+          row order, not-claim-grade status, managed-platform comparison-only posture, and
+          no-fallback policy.
+    - [x] Update GAR/RFC/Vortex audit/benchmark/release docs and move GAR-0042B out of Planned.
+  - Boundary:
+    - This is report, diagnostics, claim-gate metadata, benchmark coverage metadata, and
+      documentation work only. It does not add Vortex writes, layout rewrites, object-store reads or
+      writes, device/GPU execution, managed-platform credentials, managed-platform dependencies,
+      external-engine execution, fallback execution, or performance/runtime claims.
+  - Vortex-first provider check:
+    - Subject area: RFC 0042 layout/write/device/managed-lane evidence boundaries.
+    - Upstream Vortex concept checked: layouts, write strategy, object-store I/O evidence,
+      device-residency concepts, and Vortex benchmark/interoperability posture.
+    - Decision: `wrap_vortex_concept` and `blocked_until_vortex_or_shardloom_evidence`.
+    - Residual handling: no residual execution is attempted; unsupported rows carry blockers and
+      future evidence requirements.
+    - Materialization/decode boundary: no data is read, decoded, materialized, written, or sent to a
+      device/managed platform.
+    - Evidence added: runtime-utilization boundary matrix, benchmark/claim-gate fields, benchmark
+      coverage ref, docs, and snapshot/contract tests.
+    - Gates still blocked: layout/write support claims, object-store runtime claims, GPU/device
+      claims, managed-platform comparison claims, and all related public performance claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex runtime_utilization --lib`
+    - `cargo test -p shardloom-cli --test benchmark_plan_snapshots --test benchmark_claim_evidence_plan_snapshots`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-0042A Vortex Source/Split runtime admission proof
   - Primary files:
     - `benchmarks/traditional_analytics/README.md`

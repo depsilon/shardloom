@@ -110,6 +110,24 @@ fn foundation_claim_evidence_preserves_no_execution_and_no_claims() {
     assert!(output.contains(&field("performance_claim_allowed", "false")));
     assert!(output.contains(&field("superiority_claim_allowed", "false")));
     assert!(output.contains(&field("best_default_claim_allowed", "false")));
+    assert!(output.contains(&field(
+        "vortex_layout_device_managed_boundary_ref",
+        "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1"
+    )));
+    assert!(output.contains(&field(
+        "vortex_layout_device_managed_boundary_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "vortex_managed_platform_rows_comparison_only",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "vortex_device_object_store_claims_blocked_without_evidence",
+        "true"
+    )));
+    assert!(output.contains(&field("vortex_boundary_external_engine_invoked", "false")));
+    assert!(output.contains(&field("vortex_boundary_fallback_attempted", "false")));
     assert!(output.contains(&field("side_effect_free", "true")));
 }
 

@@ -260,23 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-0042B layout/write/device/managed-lane evidence boundaries
-  - Source: RFC 0042; benchmark-suite catalog; Vortex runtime utilization audit.
-  - Current state: layout/write evidence, GPU/device execution, and managed-platform benchmark lanes
-    are not claim-grade.
-  - Next slice outcome: report-only boundary matrix for layout writes, device execution, object-store
-    I/O, and managed-platform comparisons.
-  - User-visible surface: benchmark capability rows, release claim gate, docs.
-  - Implementation scope: benchmark metadata, release/readiness checks, architecture docs.
-  - Evidence required: benchmark refs and policy/no-fallback refs; device/managed rows are
-    unsupported/report-only until certificates exist.
-  - Acceptance: managed-platform rows are labeled comparison-only; device/object-store lanes cannot
-    satisfy native claims without evidence.
-  - Verification: benchmark contract tests and release readiness metadata tests.
-  - Non-goals: no GPU, object-store, managed-platform credential, or dependency work.
-  - Fallback/claim boundary: `claim_gate_status=not_claim_grade` for all rows without certificates.
-  - Dependencies/blockers: GAR-0040 comparative evidence gates.
-
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
 - [ ] GAR-0001A-A SQL/DataFrame planner readiness report

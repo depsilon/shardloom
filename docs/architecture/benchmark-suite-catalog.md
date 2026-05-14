@@ -239,6 +239,13 @@ blockers, certificate refs, Native I/O refs, and no-fallback policy. This is adm
 only; generalized Source/Split runtime, object-store/table/catalog scans, writes, and performance
 claims remain blocked without evidence.
 
+GAR-0042B adds `vortex_layout_device_managed_boundary_ref` to ShardLoom coverage rows and
+benchmark claim-gate metadata. The ref points to the runtime-utilization boundary matrix for
+layout/write, device execution, object-store I/O, and managed-platform comparison rows. All rows are
+`not_claim_grade`; managed platforms are comparison-only; and device/object-store lanes cannot
+satisfy native claims without execution certificates, Native I/O certificates, and workload-scoped
+metrics.
+
 P7.5.9 adds `format_preparation_matrix` to the JSON/Markdown report. The matrix is limited to
 ShardLoom rows and separates source read, compatibility parse, compatibility-to-Vortex import,
 Vortex write/reopen/scan, operator compute, result sink, evidence rendering, and total runtime by

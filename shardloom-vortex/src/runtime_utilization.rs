@@ -521,6 +521,279 @@ impl VortexLayoutAdvisorReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexBoundarySupportStatus {
+    ReportOnly,
+    Unsupported,
+    ComparisonOnly,
+}
+
+impl VortexBoundarySupportStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::Unsupported => "unsupported",
+            Self::ComparisonOnly => "comparison_only",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexLayoutDeviceManagedBoundarySurface {
+    LayoutWrite,
+    DeviceExecution,
+    ObjectStoreIo,
+    ManagedPlatformComparison,
+}
+
+impl VortexLayoutDeviceManagedBoundarySurface {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::LayoutWrite => "layout_write",
+            Self::DeviceExecution => "device_execution",
+            Self::ObjectStoreIo => "object_store_io",
+            Self::ManagedPlatformComparison => "managed_platform_comparison",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexLayoutDeviceManagedBoundaryRow {
+    pub row_id: &'static str,
+    pub surface: VortexLayoutDeviceManagedBoundarySurface,
+    pub support_status: VortexBoundarySupportStatus,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub evidence_required: &'static str,
+    pub benchmark_ref: &'static str,
+    pub release_gate_ref: &'static str,
+    pub unsupported_diagnostic_code: &'static str,
+    pub blocker_id: &'static str,
+    pub runtime_execution: bool,
+    pub write_io: bool,
+    pub object_store_io: bool,
+    pub device_execution: bool,
+    pub managed_platform_execution: bool,
+    pub managed_platform_dependency_added: bool,
+    pub credential_required: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexLayoutDeviceManagedBoundaryRow {
+    const BENCHMARK_REF: &'static str =
+        "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1";
+    const RELEASE_GATE_REF: &'static str =
+        "release-readiness://vortex_layout_device_managed_boundary.v1";
+
+    #[must_use]
+    pub const fn layout_write() -> Self {
+        Self {
+            row_id: "layout_write_boundary",
+            surface: VortexLayoutDeviceManagedBoundarySurface::LayoutWrite,
+            support_status: VortexBoundarySupportStatus::ReportOnly,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_layout_write_claim_without_workload_layout_and_write_evidence",
+            evidence_required: "workload_constitution,layout_refs,write_read_tradeoff_metrics,native_io_certificate,execution_certificate",
+            benchmark_ref: Self::BENCHMARK_REF,
+            release_gate_ref: Self::RELEASE_GATE_REF,
+            unsupported_diagnostic_code: "SL_LAYOUT_WRITE_BOUNDARY_NOT_CLAIM_GRADE",
+            blocker_id: "gar0042b.layout_write_evidence_boundary",
+            runtime_execution: false,
+            write_io: false,
+            object_store_io: false,
+            device_execution: false,
+            managed_platform_execution: false,
+            managed_platform_dependency_added: false,
+            credential_required: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn device_execution() -> Self {
+        Self {
+            row_id: "device_execution_boundary",
+            surface: VortexLayoutDeviceManagedBoundarySurface::DeviceExecution,
+            support_status: VortexBoundarySupportStatus::Unsupported,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_gpu_or_device_execution_claim_without_residency_evidence",
+            evidence_required: "device_buffer_refs,transfer_bytes,kernel_refs,output_boundary,native_io_certificate,execution_certificate",
+            benchmark_ref: Self::BENCHMARK_REF,
+            release_gate_ref: Self::RELEASE_GATE_REF,
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_DEVICE_EXECUTION_BOUNDARY",
+            blocker_id: "gar0042b.device_execution_boundary",
+            runtime_execution: false,
+            write_io: false,
+            object_store_io: false,
+            device_execution: false,
+            managed_platform_execution: false,
+            managed_platform_dependency_added: false,
+            credential_required: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn object_store_io() -> Self {
+        Self {
+            row_id: "object_store_io_boundary",
+            surface: VortexLayoutDeviceManagedBoundarySurface::ObjectStoreIo,
+            support_status: VortexBoundarySupportStatus::ReportOnly,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_object_store_io_claim_without_request_and_native_io_evidence",
+            evidence_required: "range_request_plan,coalescing_metrics,useful_bytes,read_amplification,native_io_certificate,execution_certificate",
+            benchmark_ref: Self::BENCHMARK_REF,
+            release_gate_ref: Self::RELEASE_GATE_REF,
+            unsupported_diagnostic_code: "SL_OBJECT_STORE_IO_BOUNDARY_NOT_CLAIM_GRADE",
+            blocker_id: "gar0042b.object_store_io_boundary",
+            runtime_execution: false,
+            write_io: false,
+            object_store_io: false,
+            device_execution: false,
+            managed_platform_execution: false,
+            managed_platform_dependency_added: false,
+            credential_required: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn managed_platform_comparison() -> Self {
+        Self {
+            row_id: "managed_platform_comparison_boundary",
+            surface: VortexLayoutDeviceManagedBoundarySurface::ManagedPlatformComparison,
+            support_status: VortexBoundarySupportStatus::ComparisonOnly,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "comparison_only_design_reference_not_shardloom_execution",
+            evidence_required: "approved_comparison_protocol,platform_version_config,neutral_result_refs,no_fallback_policy",
+            benchmark_ref: Self::BENCHMARK_REF,
+            release_gate_ref: Self::RELEASE_GATE_REF,
+            unsupported_diagnostic_code: "SL_MANAGED_PLATFORM_COMPARISON_ONLY",
+            blocker_id: "gar0042b.managed_platform_comparison_boundary",
+            runtime_execution: false,
+            write_io: false,
+            object_store_io: false,
+            device_execution: false,
+            managed_platform_execution: false,
+            managed_platform_dependency_added: false,
+            credential_required: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn fallback_free(&self) -> bool {
+        !self.external_engine_invoked && !self.fallback_attempted
+    }
+
+    #[must_use]
+    pub fn not_claim_grade(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+    }
+
+    #[must_use]
+    pub const fn cannot_satisfy_native_claim_without_evidence(&self) -> bool {
+        !self.runtime_execution
+            && !self.write_io
+            && !self.object_store_io
+            && !self.device_execution
+            && !self.managed_platform_execution
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexLayoutDeviceManagedBoundaryMatrix {
+    pub schema_version: &'static str,
+    pub matrix_id: &'static str,
+    pub rows: Vec<VortexLayoutDeviceManagedBoundaryRow>,
+    pub claim_gate_status: &'static str,
+    pub benchmark_ref: &'static str,
+    pub docs_ref: &'static str,
+    pub release_gate_ref: &'static str,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexLayoutDeviceManagedBoundaryMatrix {
+    #[must_use]
+    pub fn current() -> Self {
+        Self {
+            schema_version: "shardloom.vortex_layout_device_managed_boundary.v1",
+            matrix_id: "gar0042b.layout_device_managed_boundary",
+            rows: vec![
+                VortexLayoutDeviceManagedBoundaryRow::layout_write(),
+                VortexLayoutDeviceManagedBoundaryRow::device_execution(),
+                VortexLayoutDeviceManagedBoundaryRow::object_store_io(),
+                VortexLayoutDeviceManagedBoundaryRow::managed_platform_comparison(),
+            ],
+            claim_gate_status: "not_claim_grade",
+            benchmark_ref: "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1",
+            docs_ref: "docs/architecture/vortex-runtime-utilization-audit.md#layout-device-managed-boundary-matrix",
+            release_gate_ref: "release-readiness://vortex_layout_device_managed_boundary.v1",
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn all_rows_fallback_free(&self) -> bool {
+        !self.external_engine_invoked
+            && !self.fallback_attempted
+            && self
+                .rows
+                .iter()
+                .all(VortexLayoutDeviceManagedBoundaryRow::fallback_free)
+    }
+
+    #[must_use]
+    pub fn all_rows_not_claim_grade(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+            && self
+                .rows
+                .iter()
+                .all(VortexLayoutDeviceManagedBoundaryRow::not_claim_grade)
+    }
+
+    #[must_use]
+    pub fn managed_platform_rows_are_comparison_only(&self) -> bool {
+        self.rows.iter().any(|row| {
+            row.surface == VortexLayoutDeviceManagedBoundarySurface::ManagedPlatformComparison
+                && row.support_status == VortexBoundarySupportStatus::ComparisonOnly
+                && !row.managed_platform_execution
+                && !row.managed_platform_dependency_added
+                && !row.credential_required
+        })
+    }
+
+    #[must_use]
+    pub fn device_and_object_store_claims_blocked_without_evidence(&self) -> bool {
+        self.rows
+            .iter()
+            .filter(|row| {
+                matches!(
+                    row.surface,
+                    VortexLayoutDeviceManagedBoundarySurface::DeviceExecution
+                        | VortexLayoutDeviceManagedBoundarySurface::ObjectStoreIo
+                )
+            })
+            .all(VortexLayoutDeviceManagedBoundaryRow::cannot_satisfy_native_claim_without_evidence)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexArrayExecutionCertificate {
@@ -586,6 +859,7 @@ pub struct VortexRuntimeUtilizationAuditReport {
     pub capability_utilization: VortexCapabilityUtilizationReport,
     pub scan_execution_spine: VortexScanExecutionSpineReport,
     pub layout_advisor: VortexLayoutAdvisorReport,
+    pub layout_device_managed_boundary_matrix: VortexLayoutDeviceManagedBoundaryMatrix,
     pub array_execution_certificate: VortexArrayExecutionCertificate,
     pub execute_step_evidence: ExecuteStepEvidence,
     pub device_residency: DeviceResidencyReport,
@@ -605,6 +879,8 @@ impl VortexRuntimeUtilizationAuditReport {
             capability_utilization: VortexCapabilityUtilizationReport::current(),
             scan_execution_spine: VortexScanExecutionSpineReport::report_only_required(),
             layout_advisor: VortexLayoutAdvisorReport::report_only(),
+            layout_device_managed_boundary_matrix: VortexLayoutDeviceManagedBoundaryMatrix::current(
+            ),
             array_execution_certificate: VortexArrayExecutionCertificate::report_only_required(),
             execute_step_evidence: plan_execute_step_evidence(),
             device_residency: plan_device_residency_report(),
@@ -621,6 +897,18 @@ impl VortexRuntimeUtilizationAuditReport {
         self.capability_utilization.all_rows_fallback_free()
             && self.scan_execution_spine.claim_blocked()
             && self.layout_advisor.claim_blocked()
+            && self
+                .layout_device_managed_boundary_matrix
+                .all_rows_fallback_free()
+            && self
+                .layout_device_managed_boundary_matrix
+                .all_rows_not_claim_grade()
+            && self
+                .layout_device_managed_boundary_matrix
+                .managed_platform_rows_are_comparison_only()
+            && self
+                .layout_device_managed_boundary_matrix
+                .device_and_object_store_claims_blocked_without_evidence()
             && self
                 .array_execution_certificate
                 .blocks_execution_layer_claims()
@@ -706,6 +994,29 @@ mod tests {
         );
         assert!(report.claim_blocked());
         assert!(!report.fallback_attempted);
+    }
+
+    #[test]
+    fn layout_device_managed_boundary_matrix_blocks_claims_without_evidence() {
+        let matrix = VortexLayoutDeviceManagedBoundaryMatrix::current();
+
+        assert_eq!(
+            matrix.schema_version,
+            "shardloom.vortex_layout_device_managed_boundary.v1"
+        );
+        assert_eq!(
+            matrix.row_order(),
+            vec![
+                "layout_write_boundary",
+                "device_execution_boundary",
+                "object_store_io_boundary",
+                "managed_platform_comparison_boundary"
+            ]
+        );
+        assert!(matrix.all_rows_fallback_free());
+        assert!(matrix.all_rows_not_claim_grade());
+        assert!(matrix.managed_platform_rows_are_comparison_only());
+        assert!(matrix.device_and_object_store_claims_blocked_without_evidence());
     }
 
     #[test]

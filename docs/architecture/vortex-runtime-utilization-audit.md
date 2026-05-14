@@ -99,7 +99,9 @@ Vortex-first provider check:
   required per provider path before support claims.
 - Evidence added:
   report contracts, tests, and the GAR-0042A `vortex-api-inventory` source/split admission proof
-  for the scoped local Vortex scan fixture path.
+  for the scoped local Vortex scan fixture path. GAR-0042B also adds the
+  `shardloom.vortex_layout_device_managed_boundary.v1` matrix for layout/write, device execution,
+  object-store I/O, and managed-platform comparison boundaries.
 - Gates still blocked:
   generalized upstream Source/Split runtime, field-mask evidence, predicate-ordering evidence,
   layout/write advisor evidence, object-store I/O metrics, device residency, and trace-backed array
@@ -107,6 +109,42 @@ Vortex-first provider check:
 - fallback_attempted=false:
   preserved.
 ```
+
+## Layout Device Managed Boundary Matrix
+
+GAR-0042B adds `VortexLayoutDeviceManagedBoundaryMatrix` as a report-only claim boundary. It has four
+rows:
+
+```text
+layout_write_boundary
+device_execution_boundary
+object_store_io_boundary
+managed_platform_comparison_boundary
+```
+
+Every row records:
+
+```text
+support_status
+claim_gate_status=not_claim_grade
+claim_boundary
+evidence_required
+benchmark_ref
+release_gate_ref
+unsupported_diagnostic_code
+blocker_id
+runtime_execution=false
+write_io=false
+object_store_io=false
+device_execution=false
+managed_platform_execution=false
+external_engine_invoked=false
+fallback_attempted=false
+```
+
+Managed-platform rows are comparison-only and do not add dependencies, credentials, or platform
+execution. Device and object-store rows cannot satisfy native claims until execution certificates,
+Native I/O certificates, and workload-scoped metrics exist.
 
 ## Non-Goals
 
