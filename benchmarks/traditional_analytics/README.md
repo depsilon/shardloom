@@ -39,9 +39,11 @@ Every result row now records:
 
 The JSON artifact also includes a `coverage_table` so functional support/coverage remains visible
 even when timing rows fail, are unsupported, or belong to external baselines. Coverage rows carry a
-separate `claim_gate_status` so `claim_grade`, `not_claim_grade`, `fixture_smoke_only`,
-`unsupported`, `blocked`, and `external_baseline_only` rows are not confused with raw timing rows.
-Rows also carry `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`,
+separate `claim_gate_status` so `claim_grade`, `not_claim_grade`, `fixture_smoke_only`, and
+`external_baseline_only` rows are not confused with raw timing rows. Unsupported rows remain
+`support_status=unsupported`, carry `native_unsupported_coverage_ref`, and name a deterministic
+`unsupported_diagnostic_code` plus future evidence where the harness can derive it. Rows also carry
+`requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`,
 `execution_mode_family`, and stage-attribution fields so compatibility-import-certified timing is
 not confused with prepared/native Vortex timing.
 

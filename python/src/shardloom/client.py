@@ -686,6 +686,24 @@ class OperatorFamilyCoverageRow:
 
 
 @dataclass(frozen=True, slots=True)
+class NativeUnsupportedCoverageRow:
+    """One deterministic unsupported native coverage row in the compute matrix."""
+
+    row_id: str
+    category: str
+    surface: str
+    support_status: str
+    unsupported_diagnostic_code: str
+    blocker_id: str
+    required_future_evidence: tuple[str, ...]
+    source_refs: tuple[str, ...]
+    claim_gate_status: str
+    execution_attempted: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ComputeCapabilityMatrix:
     """Typed view over the report-only compute capability coverage matrix."""
 
@@ -780,6 +798,69 @@ class ComputeCapabilityMatrix:
                 )
             )
         return tuple(rows)
+
+    @property
+    def native_unsupported_coverage_status(self) -> str:
+        """Return native unsupported coverage status for the current matrix."""
+
+        return _required_field(self.envelope, "native_unsupported_coverage_status")
+
+    @property
+    def native_unsupported_coverage_rows(self) -> tuple[NativeUnsupportedCoverageRow, ...]:
+        """Return deterministic unsupported source/sink/operator/workload rows."""
+
+        rows: list[NativeUnsupportedCoverageRow] = []
+        for row_id in _csv_values(self.envelope.field("native_unsupported_coverage_row_order")):
+            prefix = f"native_unsupported_coverage_row_{row_id}_"
+            rows.append(
+                NativeUnsupportedCoverageRow(
+                    row_id=row_id,
+                    category=_required_field(self.envelope, f"{prefix}category"),
+                    surface=_required_field(self.envelope, f"{prefix}surface"),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    unsupported_diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}unsupported_diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    source_refs=_csv_values(self.envelope.field(f"{prefix}source_refs")),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    execution_attempted=self.envelope.field_bool(
+                        f"{prefix}execution_attempted",
+                        True,
+                    )
+                    is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def native_unsupported_coverage_complete(self) -> bool:
+        """Whether current source/sink/operator/workload coverage is explicit."""
+
+        return (
+            self.envelope.field_bool(
+                "native_unsupported_coverage_current_matrix_complete",
+                False,
+            )
+            is True
+        )
 
     @property
     def no_runtime(self) -> bool:

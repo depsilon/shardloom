@@ -260,21 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-0002A native unsupported coverage diagnostics
-  - Source: RFC 0002; global architecture review; Vortex upstream alignment hardening.
-  - Current state: unsupported native coverage surfaces exist for many paths, but coverage is not
-    comprehensive across source/sink/operator combinations.
-  - Next slice outcome: deterministic unsupported diagnostics for every unadmitted native source,
-    sink, operator, and workload family in the current matrix.
-  - User-visible surface: CLI/Python capability views, benchmark coverage table, typed envelope.
-  - Implementation scope: capability matrix, diagnostic helpers, golden snapshots.
-  - Evidence required: unsupported diagnostic refs and policy/no-fallback refs.
-  - Acceptance: unsupported native requests name the missing evidence and do not attempt fallback.
-  - Verification: capability snapshot tests, diagnostic stability tests, default GAR verification.
-  - Non-goals: no new runtime provider support.
-  - Fallback/claim boundary: unsupported rows use `support_status=unsupported` and
-    `claim_gate_status=not_claim_grade`.
-  - Dependencies/blockers: coverage inventory from GAR-FLOW-2B.
 - [ ] GAR-0002B native Vortex coverage admission expansion
   - Source: RFC 0002; RFC 0042; Vortex public API inventory.
   - Current state: native Vortex support is scoped, not universal across sources, sinks, operators,

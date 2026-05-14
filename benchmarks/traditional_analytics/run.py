@@ -52,6 +52,9 @@ SHARDLOOM_EXECUTION_MODE_VOCABULARY = (
     "direct_compatibility_transient",
 )
 EXTERNAL_BASELINE_EXECUTION_MODE = "external_baseline_only"
+NATIVE_UNSUPPORTED_COVERAGE_REF = (
+    "compute-capability-matrix://native_unsupported_coverage.v1"
+)
 EXECUTION_MODE_CONTRACT_FIELDS = (
     "requested_execution_mode",
     "selected_execution_mode",
@@ -3837,6 +3840,43 @@ def materialization_decode_evidence_present(evidence: dict[str, Any]) -> bool:
     )
 
 
+def native_unsupported_coverage_ref(result: dict[str, Any]) -> str | None:
+    if not is_shardloom_engine(result["engine"]):
+        return None
+    if support_status(result) == "unsupported":
+        return NATIVE_UNSUPPORTED_COVERAGE_REF
+    return None
+
+
+def unsupported_diagnostic_code(result: dict[str, Any], evidence: dict[str, Any]) -> str | None:
+    if result["status"] not in ("unsupported", "unsupported_format"):
+        return None
+    return (
+        result.get("unsupported_diagnostic_code")
+        or evidence.get("unsupported_diagnostic_code")
+        or result.get("mode_selection_reason")
+        or "unsupported_without_fallback"
+    )
+
+
+def unsupported_blocker_id(result: dict[str, Any], evidence: dict[str, Any]) -> str | None:
+    if result["status"] not in ("unsupported", "unsupported_format"):
+        return None
+    return result.get("blocker_id") or evidence.get("blocker_id") or result.get(
+        "operator_blocker_id"
+    )
+
+
+def unsupported_required_future_evidence(
+    result: dict[str, Any], evidence: dict[str, Any]
+) -> str | None:
+    if result["status"] not in ("unsupported", "unsupported_format"):
+        return None
+    return result.get("required_future_evidence") or evidence.get(
+        "required_future_evidence"
+    )
+
+
 def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str, Any]:
     constitution = result["benchmark_constitution"]
     return {
@@ -3851,7 +3891,7 @@ def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str,
         "support_status": "unsupported",
         "supported_status": "unsupported",
         "timing_row_present": False,
-        "claim_gate_status": "unsupported",
+        "claim_gate_status": "not_claim_grade",
         "claim_grade_requirements_met": False,
         "claim_grade_missing_evidence": [
             "direct compatibility transient runtime is unsupported",
@@ -3896,6 +3936,7 @@ def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str,
         "materialization_policy": constitution["materialization_policy"],
         "fallback_attempted": False,
         "external_engine_invoked": False,
+        "native_unsupported_coverage_ref": NATIVE_UNSUPPORTED_COVERAGE_REF,
         "unsupported_diagnostic_code": "direct_compatibility_transient_not_implemented",
         "blocker_id": "P7.5.4",
         "required_future_evidence": "shardloom_native_transient_executor,direct_mode_certificate",
@@ -3996,6 +4037,16 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "external_engine_invoked": (
                     not is_shardloom_engine(result["engine"])
                     and result["status"] == "success"
+                ),
+                "native_unsupported_coverage_ref": native_unsupported_coverage_ref(
+                    result
+                ),
+                "unsupported_diagnostic_code": unsupported_diagnostic_code(
+                    result, evidence
+                ),
+                "blocker_id": unsupported_blocker_id(result, evidence),
+                "required_future_evidence": unsupported_required_future_evidence(
+                    result, evidence
                 ),
             }
         )
@@ -5440,9 +5491,10 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
             ),
         },
         "claim_boundary": (
-            "claim_gate_status remains not_claim_grade, fixture_smoke_only, unsupported, "
-            "or external_baseline_only unless workload-scoped claim-grade evidence is "
-            "attached."
+            "claim_gate_status remains not_claim_grade, fixture_smoke_only, "
+            "claim_grade, or external_baseline_only; unsupported rows keep "
+            "support_status=unsupported plus a deterministic diagnostic until "
+            "workload-scoped claim-grade evidence is attached."
         ),
         "operator_claim_boundary": (
             "operator_execution_class=materialized_temporary or residual_native never "
@@ -5782,7 +5834,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom prepared Vortex rows start timing from prepared Vortex artifacts; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "Prepared/native rows carry operator_execution_class and operator_blocker_id so residual-native and materialized-temporary operators are not counted as encoded-native.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
-        "Coverage rows now carry claim_gate_status so fixture-smoke, unsupported, external-baseline-only, not-claim-grade, and claim-grade rows stay distinct from timing rows.",
+        "Coverage rows now carry support_status, claim_gate_status, native_unsupported_coverage_ref, and unsupported_diagnostic_code so unsupported capability rows stay distinct from timing rows.",
         "Claim-grade ShardLoom timing rows require at least three iterations, stable correctness digests, and the full evidence set; one-iteration smoke rows remain not-claim-grade.",
         "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
         "ShardLoom rows expose cli_process_wall_millis and python_harness_overhead_millis where the Python harness can measure them. Build time is reported separately and excluded from per-scenario timing.",
@@ -5852,6 +5904,9 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 str(row["execution_certificate_status"] or "n/a"),
                 str(row["result_native_io_certificate_status"] or "n/a"),
                 str(row["materialization_decode_evidence_present"]),
+                str(row["native_unsupported_coverage_ref"] or "n/a"),
+                str(row["unsupported_diagnostic_code"] or "n/a"),
+                str(row["required_future_evidence"] or "n/a"),
                 str(row["fallback_attempted"]),
                 str(row["external_engine_invoked"]),
             ]
@@ -5885,6 +5940,9 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Exec cert",
             "Result Native I/O",
             "Materialization evidence",
+            "Native unsupported ref",
+            "Unsupported diagnostic",
+            "Required future evidence",
             "Fallback",
             "External engine invoked",
         ],

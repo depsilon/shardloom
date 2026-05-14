@@ -65,7 +65,10 @@ plan before coding.
 - [x] Fallback-disabled policy, no-fallback diagnostics, and external-baseline-only posture are
   represented.
 - [x] Upstream Vortex use is feature-gated and treated as a native provider only when admitted.
-- [ ] Unsupported native coverage still produces unsupported/report-only surfaces for many paths.
+- [x] Unsupported native source, sink, operator, and workload coverage now has deterministic
+  diagnostics for the current matrix via `compute-capability-matrix` native unsupported coverage
+  rows, with `support_status=unsupported`, `claim_gate_status=not_claim_grade`,
+  `fallback_attempted=false`, and `external_engine_invoked=false`.
 - [ ] Native Vortex support is not universal across every source, sink, operator, and workload.
 
 ### RFC 0003 - Encoded Segment Model
