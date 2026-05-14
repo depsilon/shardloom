@@ -97,6 +97,40 @@ PERSISTENT_RUNNER_ADMISSION_FIELDS = (
     "preparation_cli_process_wall_millis",
     "preparation_included_in_timing",
 )
+WORK_AVOIDANCE_STATUS_VOCABULARY = (
+    "measured",
+    "not_available",
+    "unsupported",
+    "not_applicable",
+)
+WORK_AVOIDANCE_METRICS = (
+    "rows_avoided",
+    "segments_pruned",
+    "bytes_avoided",
+    "encoded_vector_reuse",
+    "pushdown_proof",
+)
+WORK_AVOIDANCE_EVIDENCE_FIELDS = (
+    "work_avoidance_schema_ref",
+    "work_avoidance_status_vocabulary",
+    "work_avoidance_rows_avoided_status",
+    "work_avoidance_rows_avoided_value",
+    "work_avoidance_rows_avoided_reason",
+    "work_avoidance_segments_pruned_status",
+    "work_avoidance_segments_pruned_value",
+    "work_avoidance_segments_pruned_reason",
+    "work_avoidance_bytes_avoided_status",
+    "work_avoidance_bytes_avoided_value",
+    "work_avoidance_bytes_avoided_reason",
+    "work_avoidance_encoded_vector_reuse_status",
+    "work_avoidance_encoded_vector_reuse_value",
+    "work_avoidance_encoded_vector_reuse_reason",
+    "work_avoidance_pushdown_proof_status",
+    "work_avoidance_pushdown_proof_value",
+    "work_avoidance_pushdown_proof_reason",
+    "work_avoidance_claim_allowed",
+    "work_avoidance_claim_boundary",
+)
 DEFAULT_DATASET_PROFILE = "narrow_fact_dim"
 GENERATED_DATASET_PROFILES = (
     "tiny_smoke",
@@ -3676,6 +3710,28 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "benchmark row omitted persistent-runner admission fields: "
             + ", ".join(missing_persistent_runner_fields)
         )
+    missing_work_avoidance_fields = [
+        field for field in WORK_AVOIDANCE_EVIDENCE_FIELDS if field not in result
+    ]
+    if missing_work_avoidance_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted work-avoidance evidence fields: "
+            + ", ".join(missing_work_avoidance_fields)
+        )
+    for metric in WORK_AVOIDANCE_METRICS:
+        status = str(result.get(f"work_avoidance_{metric}_status") or "")
+        if status not in WORK_AVOIDANCE_STATUS_VOCABULARY:
+            raise RuntimeError(
+                f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+                f"used invalid work-avoidance status for {metric}: {status}"
+            )
+        if status in ("not_available", "unsupported") and result.get(
+            f"work_avoidance_{metric}_value"
+        ) in (0, "0"):
+            raise RuntimeError(
+                "missing work-avoidance metrics must not be converted to zero"
+            )
 
     selected_mode = str(result.get("selected_execution_mode") or "")
     requested_mode = str(result.get("requested_execution_mode") or "")
@@ -4155,6 +4211,228 @@ def operator_blocker_metadata(
     }
 
 
+def work_avoidance_metric_field(metric: str, status: str, value: Any, reason: str) -> dict[str, Any]:
+    if status not in WORK_AVOIDANCE_STATUS_VOCABULARY:
+        raise ValueError(f"unknown work-avoidance status: {status}")
+    return {
+        f"work_avoidance_{metric}_status": status,
+        f"work_avoidance_{metric}_value": value,
+        f"work_avoidance_{metric}_reason": reason,
+    }
+
+
+def work_avoidance_metadata(
+    engine: str,
+    evidence: dict[str, Any] | None = None,
+    row_status: str = "success",
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "work_avoidance_schema_ref": "gar-flow-2d.work_avoidance_evidence.v1",
+        "work_avoidance_status_vocabulary": ",".join(WORK_AVOIDANCE_STATUS_VOCABULARY),
+        "work_avoidance_claim_allowed": False,
+        "work_avoidance_claim_boundary": (
+            "missing or not_available work-avoidance metrics cannot support performance, "
+            "superiority, Spark-displacement, or best-default claims"
+        ),
+    }
+    evidence = evidence or {}
+    if not is_shardloom_engine(engine):
+        reason = "external baseline rows are comparison-only, not ShardLoom work-avoidance evidence"
+        for metric in WORK_AVOIDANCE_METRICS:
+            metadata.update(work_avoidance_metric_field(metric, "not_applicable", None, reason))
+        return metadata
+    if row_status != "success":
+        reason = f"row status is {row_status}; no ShardLoom work-avoidance runtime evidence emitted"
+        for metric in WORK_AVOIDANCE_METRICS:
+            metadata.update(work_avoidance_metric_field(metric, "unsupported", None, reason))
+        return metadata
+    if engine == "shardloom-direct-transient":
+        metadata.update(
+            work_avoidance_metric_field(
+                "rows_avoided",
+                "not_available",
+                None,
+                "direct transient smoke does not count skipped rows",
+            )
+        )
+        metadata.update(
+            work_avoidance_metric_field(
+                "segments_pruned",
+                "not_applicable",
+                None,
+                "direct transient smoke does not scan Vortex segments",
+            )
+        )
+        metadata.update(
+            work_avoidance_metric_field(
+                "bytes_avoided",
+                "not_available",
+                None,
+                "direct transient smoke does not measure avoided bytes",
+            )
+        )
+        metadata.update(
+            work_avoidance_metric_field(
+                "encoded_vector_reuse",
+                "not_applicable",
+                None,
+                "direct transient smoke is not a Vortex encoded-vector path",
+            )
+        )
+        metadata.update(
+            work_avoidance_metric_field(
+                "pushdown_proof",
+                "not_applicable",
+                None,
+                "direct transient smoke has no Vortex Scan pushdown proof",
+            )
+        )
+        return metadata
+
+    filter_pushdown = evidence.get("streaming_filter_pushdown_applied")
+    projection_pushdown = evidence.get("streaming_projection_pushdown_applied")
+    pushdown_measured = filter_pushdown is not None or projection_pushdown is not None
+    metadata.update(
+        work_avoidance_metric_field(
+            "rows_avoided",
+            "not_available",
+            None,
+            "current traditional rows do not count skipped rows separately from rows scanned/materialized",
+        )
+    )
+    metadata.update(
+        work_avoidance_metric_field(
+            "segments_pruned",
+            "not_available",
+            None,
+            "current traditional rows do not emit pruned segment counts",
+        )
+    )
+    metadata.update(
+        work_avoidance_metric_field(
+            "bytes_avoided",
+            "not_available",
+            None,
+            "current traditional rows do not emit avoided byte counts",
+        )
+    )
+    metadata.update(
+        work_avoidance_metric_field(
+            "encoded_vector_reuse",
+            "not_available",
+            None,
+            "current traditional rows do not measure encoded-vector reuse as a standalone counter",
+        )
+    )
+    metadata.update(
+        work_avoidance_metric_field(
+            "pushdown_proof",
+            "measured" if pushdown_measured else "not_available",
+            f"filter={filter_pushdown};projection={projection_pushdown}"
+            if pushdown_measured
+            else None,
+            "streaming filter/projection pushdown fields are emitted by ShardLoom evidence"
+            if pushdown_measured
+            else "pushdown proof fields were not emitted for this row",
+        )
+    )
+    return metadata
+
+
+def native_work_avoidance_status(
+    value: Any,
+    known: Any,
+    measured_reason: str,
+    unknown_reason: str,
+) -> tuple[str, Any, str]:
+    if str(known).lower() == "true":
+        return "measured", value, measured_reason
+    if str(known).lower() == "false":
+        return "not_available", value, unknown_reason
+    if value not in (None, "", "n/a"):
+        return "measured", value, measured_reason
+    return "not_available", None, unknown_reason
+
+
+def add_native_work_avoidance_schema(row: dict[str, Any]) -> dict[str, Any]:
+    rows_status, rows_value, rows_reason = native_work_avoidance_status(
+        row.get("work_avoided_rows_not_scanned"),
+        row.get("work_avoided_rows_not_scanned_known"),
+        "vortex-run emitted rows-not-scanned work-avoidance evidence",
+        "vortex-run did not emit a rows-not-scanned count for this primitive",
+    )
+    segments_status, segments_value, segments_reason = native_work_avoidance_status(
+        row.get("work_avoided_segments_pruned"),
+        row.get("work_avoided_segments_pruned_known"),
+        "vortex-run emitted segment-prune work-avoidance evidence",
+        "vortex-run did not emit a pruned-segment count for this primitive",
+    )
+    bytes_status, bytes_value, bytes_reason = native_work_avoidance_status(
+        row.get("work_avoided_bytes_not_read"),
+        row.get("work_avoided_bytes_not_read_known"),
+        "vortex-run emitted bytes-not-read work-avoidance evidence",
+        "vortex-run did not emit an avoided-byte count for this primitive",
+    )
+    decode_value = row.get("work_avoided_decode_avoided")
+    materialization_value = row.get("work_avoided_materialization_avoided")
+    encoded_status = (
+        "measured"
+        if decode_value not in (None, "", "n/a") or materialization_value not in (None, "", "n/a")
+        else "not_available"
+    )
+    pushdown_value = (
+        f"filter={row.get('filter_pushdown_applied')};"
+        f"projection={row.get('projection_pushdown_applied')}"
+    )
+    pushdown_status = (
+        "measured"
+        if row.get("filter_pushdown_applied") not in (None, "", "n/a")
+        or row.get("projection_pushdown_applied") not in (None, "", "n/a")
+        else "not_available"
+    )
+    row.update(
+        {
+            "work_avoidance_schema_ref": "gar-flow-2d.work_avoidance_evidence.v1",
+            "work_avoidance_status_vocabulary": ",".join(WORK_AVOIDANCE_STATUS_VOCABULARY),
+            "work_avoidance_claim_allowed": False,
+            "work_avoidance_claim_boundary": (
+                "native microbenchmark work-avoidance counters are scoped evidence, not "
+                "performance or superiority claims"
+            ),
+        }
+    )
+    row.update(work_avoidance_metric_field("rows_avoided", rows_status, rows_value, rows_reason))
+    row.update(
+        work_avoidance_metric_field(
+            "segments_pruned", segments_status, segments_value, segments_reason
+        )
+    )
+    row.update(work_avoidance_metric_field("bytes_avoided", bytes_status, bytes_value, bytes_reason))
+    row.update(
+        work_avoidance_metric_field(
+            "encoded_vector_reuse",
+            encoded_status,
+            f"decode_avoided={decode_value};materialization_avoided={materialization_value}"
+            if encoded_status == "measured"
+            else None,
+            "decode/materialization avoidance fields emitted by vortex-run"
+            if encoded_status == "measured"
+            else "encoded-vector reuse was not measured for this native row",
+        )
+    )
+    row.update(
+        work_avoidance_metric_field(
+            "pushdown_proof",
+            pushdown_status,
+            pushdown_value if pushdown_status == "measured" else None,
+            "filter/projection pushdown fields emitted by vortex-run"
+            if pushdown_status == "measured"
+            else "pushdown evidence was not emitted for this native row",
+        )
+    )
+    return row
+
+
 def micros_to_millis_field(value: Any) -> float | None:
     micros = parse_optional_int(value)
     return None if micros is None else round(micros / 1000.0, 4)
@@ -4172,6 +4450,7 @@ def failed_result(
 ) -> dict[str, Any]:
     execution_mode = execution_mode_metadata(engine, data_format)
     operator_metadata = operator_blocker_metadata(engine)
+    work_avoidance = work_avoidance_metadata(engine, row_status=status)
     metrics = {
         "wall_time_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
         "query_runtime_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
@@ -4243,6 +4522,7 @@ def failed_result(
         "shardloom_evidence": {},
         "fallback_attempted": False,
         "external_baseline_only": not is_shardloom_engine(engine),
+        **work_avoidance,
         **operator_metadata,
         **execution_mode,
     }
@@ -4395,6 +4675,7 @@ def run_one(
     bytes_read = parse_optional_int(evidence.get("source_bytes_read")) if evidence else None
     execution_mode = execution_mode_metadata(runner.name, data_format, evidence)
     operator_metadata = operator_blocker_metadata(runner.name, evidence)
+    work_avoidance = work_avoidance_metadata(runner.name, evidence)
     result_sink_included = computed_result_sink_write_millis is not None
     query_runtime_millis = round(statistics.mean(timings), 4)
     python_harness_overhead_millis = (
@@ -4526,6 +4807,7 @@ def run_one(
         "shardloom_evidence": evidence,
         "fallback_attempted": False,
         "external_baseline_only": not is_shardloom_engine(runner.name),
+        **work_avoidance,
         **operator_metadata,
         **execution_mode,
     }
@@ -4650,7 +4932,7 @@ def run_shardloom_count_microbenchmark(
             elapsed_ms,
         )
     fields = parse_output_fields(payload)
-    return {
+    return add_native_work_avoidance_schema({
         "name": "local encoded CountAll",
         "status": payload.get("status", "unknown"),
         "dataset": str(fixture),
@@ -4673,7 +4955,7 @@ def run_shardloom_count_microbenchmark(
         "fallback_attempted": fields.get("fallback_attempted"),
         "performance_claim_allowed": fields.get("performance_claim_allowed"),
         "command": command,
-    }
+    })
 
 
 def run_shardloom_vortex_run_microbenchmark(
@@ -4729,7 +5011,7 @@ def run_shardloom_vortex_run_microbenchmark(
                 elapsed_ms,
             )
     fields = parse_output_fields(payload or {})
-    return {
+    return add_native_work_avoidance_schema({
         "name": name,
         "status": (payload or {}).get("status", "unknown"),
         "dataset": str(fixture),
@@ -4793,7 +5075,7 @@ def run_shardloom_vortex_run_microbenchmark(
         ).lower(),
         "performance_claim_allowed": "false",
         "command": command,
-    }
+    })
 
 
 def native_microbenchmark_error(
@@ -4812,6 +5094,25 @@ def native_microbenchmark_error(
         result["command"] = command
     if elapsed_millis is not None:
         result["elapsed_millis"] = round(elapsed_millis, 4)
+    result.update(
+        {
+            "work_avoidance_schema_ref": "gar-flow-2d.work_avoidance_evidence.v1",
+            "work_avoidance_status_vocabulary": ",".join(WORK_AVOIDANCE_STATUS_VOCABULARY),
+            "work_avoidance_claim_allowed": False,
+            "work_avoidance_claim_boundary": (
+                "failed native microbenchmark rows cannot support work-avoidance claims"
+            ),
+        }
+    )
+    for metric in WORK_AVOIDANCE_METRICS:
+        result.update(
+            work_avoidance_metric_field(
+                metric,
+                "unsupported",
+                None,
+                f"native microbenchmark status is {status}: {reason}",
+            )
+        )
     return result
 
 
@@ -4895,7 +5196,7 @@ def run_shardloom_commit_microbenchmark(
     avg_commit_latency_micros = (
         int(round(statistics.mean(commit_latencies))) if commit_latencies else None
     )
-    return {
+    return add_native_work_avoidance_schema({
         "name": "local commit manifest",
         "status": (payload or {}).get("status", "unknown"),
         "dataset": "synthetic local staged workspace",
@@ -4924,7 +5225,7 @@ def run_shardloom_commit_microbenchmark(
         "fallback_attempted": str((payload or {}).get("fallback", {}).get("attempted", False)).lower(),
         "performance_claim_allowed": "false",
         "command": command_template,
-    }
+    })
 
 
 def prepare_shardloom_commit_workspace(workspace: Path, iteration: int) -> None:
@@ -5214,6 +5515,49 @@ def persistent_runner_admission_gate() -> dict[str, Any]:
     }
 
 
+def work_avoidance_evidence_schema() -> dict[str, Any]:
+    return {
+        "schema_id": "gar-flow-2d.work_avoidance_evidence.v1",
+        "support_status": "report_only",
+        "status_vocabulary": list(WORK_AVOIDANCE_STATUS_VOCABULARY),
+        "metrics": list(WORK_AVOIDANCE_METRICS),
+        "row_fields": list(WORK_AVOIDANCE_EVIDENCE_FIELDS),
+        "status_meaning": {
+            "measured": "the row emitted a concrete value or proof field for this metric",
+            "not_available": "the metric is meaningful for the row but is not yet measured",
+            "unsupported": "the row did not execute a supported ShardLoom path",
+            "not_applicable": "the metric does not apply to the row or engine role",
+        },
+        "unknown_value_policy": "not_available metrics must keep null/n/a values and a reason; they must not be converted to zero",
+        "claim_boundary": (
+            "missing, unsupported, or not_available work-avoidance metrics cannot support "
+            "performance, superiority, Spark-displacement, production, or best-default claims"
+        ),
+        "source_grounded_rationale": [
+            {
+                "reference": "Apache Arrow columnar format",
+                "url": "https://arrow.apache.org/docs/format/Columnar.html",
+                "relevance": "columnar data-plane claims need explicit decode/materialization evidence rather than omitted counters",
+            },
+            {
+                "reference": "Spark Parquet configuration",
+                "url": "https://spark.apache.org/docs/latest/sql-data-sources-parquet.html",
+                "relevance": "partition discovery, schema merging, metadata refresh, and file configuration affect what work can be avoided",
+            },
+            {
+                "reference": "DuckDB execution format",
+                "url": "https://duckdb.org/docs/current/internals/vector",
+                "relevance": "vectorized execution needs separate evidence for vector work versus unmeasured setup or scan work",
+            },
+            {
+                "reference": "Vortex Scan API",
+                "url": "https://docs.vortex.dev/concepts/scanning",
+                "relevance": "filter/projection pushdown, split scheduling, and pruning require explicit proof fields before optimization claims",
+            },
+        ],
+    }
+
+
 def default_output_path() -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return Path(__file__).resolve().parent / "results" / f"traditional_analytics_{timestamp}.json"
@@ -5443,6 +5787,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
         "ShardLoom rows expose cli_process_wall_millis and python_harness_overhead_millis where the Python harness can measure them. Build time is reported separately and excluded from per-scenario timing.",
         "The persistent_runner_admission_gate is report-only; current ShardLoom rows keep persistent_runner_status=process_per_scenario_attributed_not_reduced and do not hide a fast mode.",
+        "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
         "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
@@ -5854,27 +6199,53 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
 
 
 def render_shardloom_work_avoidance_table(artifact: dict[str, Any]) -> str:
+    schema = artifact["work_avoidance_evidence_schema"]
+    schema_rows = [
+        ["Schema", str(schema["schema_id"])],
+        ["Support status", str(schema["support_status"])],
+        ["Status vocabulary", ", ".join(schema["status_vocabulary"])],
+        ["Metrics", ", ".join(schema["metrics"])],
+        ["Unknown value policy", str(schema["unknown_value_policy"])],
+        ["Claim boundary", str(schema["claim_boundary"])],
+    ]
     rows = []
+    for result in artifact["results"]:
+        if not is_shardloom_engine(str(result.get("engine", ""))):
+            continue
+        rows.append(
+            [
+                str(result.get("scenario_name", "n/a")),
+                str(result.get("engine", "n/a")),
+                str(result.get("status", "n/a")),
+                "scenario",
+                work_avoidance_cell(result, "rows_avoided"),
+                work_avoidance_cell(result, "segments_pruned"),
+                work_avoidance_cell(result, "bytes_avoided"),
+                work_avoidance_cell(result, "encoded_vector_reuse"),
+                work_avoidance_cell(result, "pushdown_proof"),
+                str(result.get("work_avoidance_claim_allowed", "false")),
+            ]
+        )
     for result in artifact.get("shardloom_native_microbenchmarks", []):
         rows.append(
             [
                 result.get("name", "n/a"),
+                "shardloom-native-microbenchmark",
                 str(result.get("status", "n/a")),
                 str(result.get("primitive", "n/a")),
-                str(result.get("work_avoided_metrics", "n/a")),
-                str(result.get("work_avoided_decode_avoided", "n/a")),
-                str(result.get("work_avoided_materialization_avoided", "n/a")),
-                str(result.get("work_avoided_rows_not_scanned", "n/a")),
-                str(result.get("work_avoided_segments_pruned", "n/a")),
-                str(result.get("work_avoided_bytes_not_read", "n/a")),
-                str(result.get("work_avoided_spill_avoided", "n/a")),
-                str(result.get("work_avoided_fallback_blocked", "n/a")),
+                work_avoidance_cell(result, "rows_avoided"),
+                work_avoidance_cell(result, "segments_pruned"),
+                work_avoidance_cell(result, "bytes_avoided"),
+                work_avoidance_cell(result, "encoded_vector_reuse"),
+                work_avoidance_cell(result, "pushdown_proof"),
+                str(result.get("work_avoidance_claim_allowed", "false")),
             ]
         )
     if not rows:
         rows.append(
             [
                 "not run",
+                "skipped",
                 "skipped",
                 "n/a",
                 "n/a",
@@ -5883,26 +6254,35 @@ def render_shardloom_work_avoidance_table(artifact: dict[str, Any]) -> str:
                 "n/a",
                 "n/a",
                 "n/a",
-                "n/a",
-                "n/a",
             ]
         )
-    return markdown_table(
-        [
-            "Microbenchmark",
-            "Status",
-            "Primitive",
-            "Metrics",
-            "Decode",
-            "Materialize",
-            "Rows skipped",
-            "Segments pruned",
-            "Bytes avoided",
-            "Spill",
-            "Fallback",
-        ],
-        rows,
+    return (
+        markdown_table(["Field", "Value"], schema_rows)
+        + "\n\n"
+        + markdown_table(
+            [
+                "Row",
+                "Engine/scope",
+                "Status",
+                "Primitive/scope",
+                "Rows avoided",
+                "Segments pruned",
+                "Bytes avoided",
+                "Encoded-vector reuse",
+                "Pushdown proof",
+                "Claim allowed",
+            ],
+            rows,
+        )
     )
+
+
+def work_avoidance_cell(row: dict[str, Any], metric: str) -> str:
+    status = str(row.get(f"work_avoidance_{metric}_status", "not_available"))
+    value = row.get(f"work_avoidance_{metric}_value")
+    reason = str(row.get(f"work_avoidance_{metric}_reason", "missing reason"))
+    value_text = "n/a" if value in (None, "") else str(value)
+    return f"{status}; value={value_text}; reason={reason}".replace("|", "\\|")
 
 
 def render_shardloom_why_table(artifact: dict[str, Any]) -> str:
@@ -6452,6 +6832,7 @@ def main() -> int:
         "fairness_parameters": fairness_parameters(args, paths),
         "execution_mode_attribution_contract": execution_mode_attribution_contract(),
         "persistent_runner_admission_gate": persistent_runner_admission_gate(),
+        "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
         "format_order": list(report_formats),

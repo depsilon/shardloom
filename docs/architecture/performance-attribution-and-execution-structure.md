@@ -309,6 +309,31 @@ envelopes, mode-selection evidence, Native I/O refs, operator blocker fields,
 materialization/decode boundaries, result-sink replay evidence, deterministic
 unsupported diagnostics, and no-fallback fields are preserved per run.
 
+Every ShardLoom benchmark row must carry work-avoidance status/value/reason
+triples for:
+
+```text
+rows_avoided
+segments_pruned
+bytes_avoided
+encoded_vector_reuse
+pushdown_proof
+```
+
+The status vocabulary is:
+
+```text
+measured
+not_available
+unsupported
+not_applicable
+```
+
+`not_available` is distinct from zero. Missing skipped-row, pruned-segment,
+avoided-byte, encoded-vector reuse, or pushdown values cannot be used as
+performance, superiority, Spark-displacement, production, or best-default
+evidence.
+
 `compatibility_import_certified` rows are valid ingest/stage/certification
 evidence, but they are not pure query-speed evidence. Public performance,
 superiority, Spark-displacement, best-default, production, or replacement claims

@@ -150,9 +150,15 @@ counting, and scan-pushdown comparison predicates. The report includes each
 row's timing scope plus filter/projection pushdown fields so in-command
 repeated timings are not mixed up with CLI-process wall-time smoke measurements.
 
-The ShardLoom work-avoidance table is based on final `vortex-run` runtime effects, not only plan
-analysis. It exposes decode avoided, materialization avoided, rows not scanned, segment prune
-count, bytes not read, spill avoided, and fallback status.
+The ShardLoom work-avoidance table is based on final row evidence, not only
+plan analysis. The JSON artifact includes `work_avoidance_evidence_schema`
+with the status vocabulary `measured`, `not_available`, `unsupported`, and
+`not_applicable`. Each ShardLoom scenario row and native microbenchmark row
+reports status/value/reason triples for rows avoided, segments pruned, bytes
+avoided, encoded-vector reuse, and pushdown proof. Missing rows skipped,
+segment-prune, bytes-not-read, encoded-vector reuse, or pushdown values are not
+interpreted as zero, and no optimization, Spark-displacement, superiority, or
+best-default claim is allowed from `not_available` evidence.
 
 The ShardLoom DecisionTrace/WhyReport evidence table explains why each native
 runtime row is or is not claim-grade. It records decision-trace counts, the
@@ -317,6 +323,11 @@ Every row also carries the persistent-runner admission fields
 `preparation_cli_process_wall_millis`, and
 `preparation_included_in_timing`. These fields keep process lifecycle,
 preparation, typed-envelope rendering/parsing, and scenario compute visible.
+
+Every ShardLoom row carries work-avoidance evidence fields with the
+`work_avoidance_` prefix. The status/value/reason triples make unknown work
+avoidance explicit instead of silently treating unknown rows, segments, or
+bytes avoided as zero.
 
 The canonical flow reference for these modes is
 `docs/architecture/compute-engine-flow-reference.md`. The companion timing-attribution reference is

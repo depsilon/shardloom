@@ -219,6 +219,13 @@ deterministic unsupported diagnostics, and `fallback_attempted=false` /
 `external_engine_invoked=false`. No hidden runner, daemon, or process-overhead claim is admitted
 from the benchmark artifact alone.
 
+GAR-FLOW-2D adds `work_avoidance_evidence_schema` to the JSON artifact and Markdown report. The
+schema uses only `measured`, `not_available`, `unsupported`, and `not_applicable` as status values.
+Every ShardLoom benchmark row reports status/value/reason triples for rows avoided, segments
+pruned, bytes avoided, encoded-vector reuse, and pushdown proof. Unknown work-avoidance metrics
+remain `not_available` with a reason rather than being converted to zero; those rows cannot support
+performance, superiority, Spark-displacement, production, or best-default claims.
+
 P7.5.9 adds `format_preparation_matrix` to the JSON/Markdown report. The matrix is limited to
 ShardLoom rows and separates source read, compatibility parse, compatibility-to-Vortex import,
 Vortex write/reopen/scan, operator compute, result sink, evidence rendering, and total runtime by

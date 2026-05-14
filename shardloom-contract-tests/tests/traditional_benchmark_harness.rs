@@ -110,6 +110,13 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("PERSISTENT_RUNNER_ADMISSION_FIELDS"));
     assert!(script.contains("\"hidden_fast_mode_allowed\": False"));
     assert!(script.contains("\"persistent_runner_admitted\": False"));
+    assert!(script.contains("WORK_AVOIDANCE_STATUS_VOCABULARY"));
+    assert!(script.contains("WORK_AVOIDANCE_EVIDENCE_FIELDS"));
+    assert!(script.contains("def work_avoidance_evidence_schema("));
+    assert!(script.contains("\"work_avoidance_evidence_schema\""));
+    assert!(script.contains("\"gar-flow-2d.work_avoidance_evidence.v1\""));
+    assert!(script.contains("\"not_available\""));
+    assert!(script.contains("\"not_applicable\""));
     assert!(script.contains("\"operator_execution_class\""));
     assert!(script.contains("\"operator_blocker_id\""));
     assert!(script.contains("\"operator_encoded_native_claim_allowed\""));
@@ -381,6 +388,11 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("process_startup_attribution"));
     assert!(readme.contains("python_harness_overhead_status"));
     assert!(readme.contains("hidden benchmark fast mode"));
+    assert!(readme.contains("work_avoidance_evidence_schema"));
+    assert!(readme.contains("status/value/reason triples"));
+    assert!(readme.contains("`measured`, `not_available`"));
+    assert!(readme.contains("`not_applicable`"));
+    assert!(normalized.contains("not interpreted as zero"));
     assert!(readme.contains("compatibility-import-certified timing"));
     assert!(readme.contains("execution_mode=prepared_vortex"));
     assert!(readme.contains("standalone `.vortex` report rows"));
@@ -403,12 +415,12 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("rounded to four decimal places"));
     assert!(readme.contains("appends `-dirty`"));
     assert!(readme.contains("`vortex-run` primitive evidence"));
-    assert!(normalized.contains("final `vortex-run` runtime effects"));
+    assert!(normalized.contains("final row evidence"));
     assert!(readme.contains("decision-trace counts"));
     assert!(readme.contains("claim blockers"));
-    assert!(readme.contains("segment prune"));
-    assert!(readme.contains("count, bytes not read"));
-    assert!(readme.contains("bytes not read"));
+    assert!(readme.contains("segment-prune"));
+    assert!(readme.contains("bytes-not-read"));
+    assert!(readme.contains("bytes avoided"));
     assert!(readme.contains("average commit latency"));
     assert!(readme.contains("It is a local smoke benchmark only"));
     assert!(readme.contains("timing scope"));
@@ -475,6 +487,10 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "persistent_runner_admission_gate",
         "process_startup_attribution",
         "python_harness_overhead_status",
+        "work_avoidance_evidence_schema",
+        "not_available",
+        "not_applicable",
+        "rows avoided",
         "stable correctness digest",
         "Native I/O certificate",
         "Unsupported work must return deterministic unsupported diagnostics",
@@ -550,7 +566,8 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         completed_ledger.contains("GAR-FLOW-2B prepared/native temporary-operator blocker matrix")
     );
     assert!(completed_ledger.contains("GAR-FLOW-2C persistent benchmark runner admission gate"));
-    assert!(plan.contains("GAR-FLOW-2D work-avoidance metric evidence schema"));
+    assert!(completed_ledger.contains("GAR-FLOW-2D work-avoidance metric evidence schema"));
+    assert!(plan.contains("GAR-FLOW-3A REST execution-mode parity report"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
     assert!(plan.matches("- [ ] GAR-").count() >= 60);
