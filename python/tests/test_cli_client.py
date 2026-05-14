@@ -1148,6 +1148,70 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(error.envelope.fallback.attempted)
         self.assertEqual(error.envelope.diagnostics[0].code, "UnsupportedSql")
 
+    def test_workflow_error_view_preserves_normalized_diagnostic_categories(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported",
+                    "human_text": "unsupported",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [
+                        {
+                            "code": "SL_MATERIALIZATION_REQUIRED",
+                            "severity": "error",
+                            "category": "materialization",
+                            "message": "materialization blocked",
+                            "feature": "cg21.workflow.collect",
+                            "reason": "collect is blocked",
+                            "suggested_next_step": "request artifact",
+                            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                        },
+                        {
+                            "code": "SL_OBJECT_STORE_UNSUPPORTED",
+                            "severity": "error",
+                            "category": "object_store",
+                            "message": "object store blocked",
+                            "feature": "cg21.workflow.object_store_read",
+                            "reason": "remote read is blocked",
+                            "suggested_next_step": "use object-store plan",
+                            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                        },
+                        {
+                            "code": "SL_NO_FALLBACK_EXECUTION",
+                            "severity": "error",
+                            "category": "no_fallback_policy",
+                            "message": "fallback blocked",
+                            "feature": "cg21.workflow.fallback_engine",
+                            "reason": "fallback is prohibited",
+                            "suggested_next_step": "use native evidence",
+                            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                        }
+                    ],
+                    "fields": [{"key": "fallback_attempted", "value": "false"}],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+
+        envelope = ShardLoomClient(binary=binary).workflow_unsupported_plan(
+            "collect",
+            "read_csv(events.csv)",
+            check=False,
+        )
+
+        self.assertEqual(
+            [diagnostic.category for diagnostic in envelope.diagnostics],
+            ["materialization", "object_store", "no_fallback_policy"],
+        )
+        self.assertTrue(envelope.has_error_diagnostics)
+        self.assertFalse(envelope.fallback.attempted)
+
     def test_invalid_json_raises_protocol_error(self) -> None:
         binary = self.fake_cli("print('not-json')")
 

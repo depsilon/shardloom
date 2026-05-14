@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0012-A diagnostic category and helper normalization
+  - Primary files:
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-core/src/diagnostics.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `shardloom-cli/tests/workflow_query_builder_plan_snapshots.rs`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: normalize one end-user command family onto helper-backed diagnostic categories without
+    changing output-envelope status derivation or enabling runtime behavior.
+  - Checklist:
+    - [x] Add stable helper constructors for `materialization` and `object_store` diagnostics while
+          preserving existing invalid-input, unsupported-feature, and no-fallback helpers.
+    - [x] Route `workflow-unsupported-plan` diagnostics through category-specific helpers for
+          unsupported, materialization, object-store, no-fallback, and invalid-input paths.
+    - [x] Add CLI-visible workflow blocker rows for `object_store_read` and `fallback_engine` so
+          remote object-store requests and fallback-engine requests are explicitly blocked.
+    - [x] Expose `diagnostic_code` and `diagnostic_category` fields on workflow unsupported reports.
+    - [x] Update workflow capability discovery counts, operation names, blocker IDs, and required
+          evidence to include the new object-store and no-fallback blockers.
+    - [x] Add Python client coverage proving normalized diagnostic categories survive into the
+          Python error/envelope view.
+  - Boundary:
+    - This is diagnostic normalization only. It does not implement workflow execution, SQL/DataFrame
+      execution, object-store reads/writes, materialization, external effects, or fallback engine
+      execution.
+  - Evidence:
+    - Correctness evidence: workflow CLI snapshot tests assert `SL_MATERIALIZATION_REQUIRED` uses
+      `category=materialization`, `SL_OBJECT_STORE_UNSUPPORTED` uses `category=object_store`,
+      `SL_NO_FALLBACK_EXECUTION` uses `category=no_fallback_policy`, and unknown workflow
+      operations use `category=invalid_input`.
+    - Python evidence: `python/tests/test_cli_client.py` asserts the Python envelope model preserves
+      `materialization`, `object_store`, and `no_fallback_policy` categories.
+    - Policy/no-fallback refs: workflow unsupported fields keep `fallback_attempted=false`,
+      `fallback_execution_allowed=false`, `external_engine_invoked=false`, and `execution=not_performed`.
+    - Benchmark evidence: not applicable; no runtime or performance claim was added.
+  - Vortex-first provider check:
+    - Subject area: RFC 0012 diagnostic/category normalization for workflow/user-facing blocker
+      surfaces.
+    - Upstream Vortex concept checked: none required; no provider, scan, source, sink, or runtime API
+      is introduced.
+    - Decision: `implement_shardloom_report_contract`.
+    - Residual handling: blocked workflow requests remain deterministic diagnostics with no fallback
+      and no external engine invocation.
+    - Gates still blocked: workflow runtime, materialization, object-store runtime, fallback engines,
+      and output-envelope redesign/status propagation follow-through.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core diagnostics --lib`
+    - `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `python -m unittest python.tests.test_cli_client -k workflow_error_view`
 - [x] Session label: GAR-0008-B object-store runtime blocker matrix
   - Primary files:
     - `README.md`

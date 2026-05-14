@@ -232,11 +232,16 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0012-diagnostics-explain-estimate-capabilities.md`](../rfcs/0012-diagnostics-explain-estimate-capabilities.md)
-- Current read: Diagnostic/report surfaces are implemented for current commands.
+- Current read: Diagnostic/report surfaces are implemented for current commands; the workflow
+  unsupported family now uses helper-backed category normalization for invalid-input, unsupported,
+  materialization, object-store, and no-fallback diagnostics.
 - Evidence: `shardloom-core/src/diagnostics.rs`, `shardloom-core/src/capabilities.rs`,
-  `shardloom-plan/src/explain.rs`, `shardloom-plan/src/estimate.rs`, `shardloom-cli/src/main.rs`
+  `shardloom-plan/src/explain.rs`, `shardloom-plan/src/estimate.rs`,
+  `shardloom-cli/src/workflow_planning.rs`, `shardloom-cli/tests/workflow_query_builder_plan_snapshots.rs`,
+  `python/tests/test_cli_client.py`
 - [x] Typed JSON/text diagnostics, explain, estimate, doctor, and capability surfaces exist.
 - [x] No-fallback status appears in envelopes and snapshots.
+- [x] `GAR-0012-A` normalizes one end-user command family onto stable diagnostic helper categories.
 - [ ] Runtime-wide diagnostic propagation for planned distributed and object-store paths remains
   incomplete.
 

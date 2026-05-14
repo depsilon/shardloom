@@ -216,6 +216,44 @@ impl Diagnostic {
         )
     }
 
+    /// Creates a stable materialization diagnostic for blocked decode/collection boundaries.
+    #[must_use]
+    pub fn materialization_required(
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+        suggested_next_step: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            DiagnosticCode::MaterializationRequired,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::Materialization,
+            "Materialization is required but is not certified for this operation.",
+            Some(feature.into()),
+            Some(reason.into()),
+            Some(suggested_next_step.into()),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+
+    /// Creates a stable object-store diagnostic for blocked remote/object-store behavior.
+    #[must_use]
+    pub fn object_store_blocked(
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+        suggested_next_step: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            DiagnosticCode::ObjectStoreUnsupported,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::ObjectStore,
+            "Object-store runtime behavior is blocked until certified.",
+            Some(feature.into()),
+            Some(reason.into()),
+            Some(suggested_next_step.into()),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+
     #[must_use]
     pub fn no_fallback_execution(message: impl Into<String>) -> Self {
         Self::new(
@@ -428,6 +466,26 @@ mod tests {
         let diagnostic = Diagnostic::invalid_input("dataset_uri", "invalid", "fix uri");
         assert_eq!(diagnostic.category, DiagnosticCategory::InvalidInput);
         assert!(!diagnostic.fallback.attempted);
+    }
+
+    #[test]
+    fn materialization_required_sets_category_and_fallback() {
+        let diagnostic =
+            Diagnostic::materialization_required("collect", "needs rows", "request artifact");
+        assert_eq!(diagnostic.code, DiagnosticCode::MaterializationRequired);
+        assert_eq!(diagnostic.category, DiagnosticCategory::Materialization);
+        assert!(!diagnostic.fallback.attempted);
+        assert!(!diagnostic.fallback.allowed);
+    }
+
+    #[test]
+    fn object_store_blocked_sets_category_and_fallback() {
+        let diagnostic =
+            Diagnostic::object_store_blocked("s3_read", "remote reads blocked", "use local");
+        assert_eq!(diagnostic.code, DiagnosticCode::ObjectStoreUnsupported);
+        assert_eq!(diagnostic.category, DiagnosticCategory::ObjectStore);
+        assert!(!diagnostic.fallback.attempted);
+        assert!(!diagnostic.fallback.allowed);
     }
 
     #[test]
