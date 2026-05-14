@@ -7646,6 +7646,9 @@ fn run_vortex_derived_scenario_from_files(
         TraditionalAnalyticsScenario::CleanCastFilterWrite => {
             run_streaming_clean_cast_filter_write_scenario(fact_path, dim_path)
         }
+        TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
+            run_streaming_malformed_timestamp_dirty_csv_scenario(fact_path, dim_path)
+        }
         TraditionalAnalyticsScenario::MultiKeyGroupBy => {
             run_streaming_multi_key_group_by_scenario(fact_path, dim_path)
         }
@@ -8259,6 +8262,60 @@ fn run_streaming_clean_cast_filter_write_scenario(
     if !saw_raw_event_time || !saw_dirty_numeric || !saw_dirty_flag {
         return Err(ShardLoomError::InvalidOperation(
             "clean/cast/filter/write requires raw_event_time, dirty_numeric, and dirty_flag fixture columns"
+                .to_string(),
+        ));
+    }
+    Ok(TraditionalScenarioExecution {
+        result_json: scalar_result_json(accum.row_count, accum.metric_sum),
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_malformed_timestamp_dirty_csv_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut saw_raw_event_time = false;
+    let mut saw_dirty_numeric = false;
+    let mut accum = TraditionalGroupAccum::default();
+    let stats = scan_fact_vortex_projected(
+        fact_path,
+        &["raw_event_time", "dirty_numeric"],
+        None,
+        |fields, chunk_rows| {
+            let raw_event_times = utf8_field(fields, "raw_event_time")?;
+            let dirty_numeric = utf8_field(fields, "dirty_numeric")?;
+            if raw_event_times.len() != chunk_rows || dirty_numeric.len() != chunk_rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "malformed timestamp / dirty CSV Vortex chunk length mismatch: chunk_rows={chunk_rows}, raw_event_time_len={}, dirty_numeric_len={}",
+                    raw_event_times.len(),
+                    dirty_numeric.len()
+                )));
+            }
+            for (raw_event_time, dirty_numeric) in raw_event_times.into_iter().zip(dirty_numeric) {
+                saw_raw_event_time |= !raw_event_time.is_empty();
+                saw_dirty_numeric |= !dirty_numeric.is_empty();
+                if !generated_timestamp_shape_is_valid(&raw_event_time) {
+                    continue;
+                }
+                let Ok(value) = dirty_numeric.parse::<f64>() else {
+                    continue;
+                };
+                accum.add(value);
+            }
+            Ok(())
+        },
+    )?;
+    if !saw_raw_event_time || !saw_dirty_numeric {
+        return Err(ShardLoomError::InvalidOperation(
+            "malformed timestamp / dirty CSV requires raw_event_time and dirty_numeric fixture columns"
                 .to_string(),
         ));
     }
@@ -11368,6 +11425,81 @@ mod tests {
                 "dirty_numeric".to_string(),
                 "dirty_flag".to_string()
             ]
+        );
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
+        assert_eq!(native_report.rows_materialized, 1);
+        let native_fields = field_map(native_report.fields());
+        assert_eq!(
+            native_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_temporary_materialization_used")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn enabled_malformed_timestamp_dirty_csv_uses_prepared_native_vortex_scan() {
+        let root = traditional_analytics_test_root("malformed-dirty-prepared-native");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv,
+                fact_csv,
+                dim_csv,
+                workspace,
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        assert_eq!(
+            import_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":14000.0}"
+        );
+        assert!(import_report.streaming_vortex_execution_used);
+        assert!(import_report.full_table_materialization_avoided);
+        assert!(!import_report.streaming_filter_pushdown_applied);
+        assert!(import_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            import_report.streaming_projected_columns,
+            vec!["raw_event_time".to_string(), "dirty_numeric".to_string()]
+        );
+        assert!(import_report.data_materialized);
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv,
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(native_report.result_json, import_report.result_json);
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(!native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec!["raw_event_time".to_string(), "dirty_numeric".to_string()]
         );
         assert_eq!(native_report.materialization_boundary_rows, 0);
         assert!(!native_report.data_materialized);
