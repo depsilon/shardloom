@@ -43,6 +43,7 @@ pub use input_planning::{
 // Object-store planning and promotion gates; byte-range reads and distributed
 // runtime remain blocked until a later execution phase.
 pub use object_store::{
+    ObjectStoreByteRangeProviderGateReport, ObjectStoreByteRangeProviderGateStatus,
     ObjectStoreCheckpointRetryInput, ObjectStoreCheckpointRetryReport,
     ObjectStoreCheckpointRetryStatus, ObjectStoreCommitProtocolInput,
     ObjectStoreCommitProtocolReport, ObjectStoreCommitProtocolStatus,

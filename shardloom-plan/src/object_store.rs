@@ -769,6 +769,112 @@ impl ObjectStoreRequestPlannerStatus {
     }
 }
 
+/// Byte-range provider admission status for future object-store reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreByteRangeProviderGateStatus {
+    BlockedUntilCertified,
+}
+
+impl ObjectStoreByteRangeProviderGateStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::BlockedUntilCertified => "blocked_until_certified",
+        }
+    }
+}
+
+/// Report-only provider gate for future object-store byte-range reads.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreByteRangeProviderGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub status: ObjectStoreByteRangeProviderGateStatus,
+    pub scope: &'static str,
+    pub provider_family: &'static str,
+    pub blocker_id: &'static str,
+    pub required_evidence: &'static str,
+    pub range_planning_evidence_present: bool,
+    pub request_budget_policy_required: bool,
+    pub provider_capability_policy_required: bool,
+    pub credential_policy_required: bool,
+    pub retry_policy_required: bool,
+    pub idempotency_key_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub range_read_execution_allowed: bool,
+    pub full_file_read_allowed: bool,
+    pub credential_resolution_allowed: bool,
+    pub credentials_resolved: bool,
+    pub retry_execution_allowed: bool,
+    pub provider_probe: bool,
+    pub network_probe: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+}
+
+impl ObjectStoreByteRangeProviderGateReport {
+    #[must_use]
+    pub fn blocked_default(range_planning_evidence_present: bool) -> Self {
+        Self {
+            schema_version: "shardloom.object_store_byte_range_provider_gate.v1",
+            report_id: "gar0008a.object_store_byte_range_provider_gate",
+            status: ObjectStoreByteRangeProviderGateStatus::BlockedUntilCertified,
+            scope: "s3_gcs_adls_byte_range_reads",
+            provider_family: "s3,gcs,adls",
+            blocker_id: "gar0008a.byte_range_provider_runtime_blocked",
+            required_evidence: "provider_capability_policy,credential_effect_policy,request_budget_policy,retry_policy,idempotency_key_contract,execution_certificate,native_io_certificate,benchmark_evidence",
+            range_planning_evidence_present,
+            request_budget_policy_required: true,
+            provider_capability_policy_required: true,
+            credential_policy_required: true,
+            retry_policy_required: true,
+            idempotency_key_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: true,
+            range_read_execution_allowed: false,
+            full_file_read_allowed: false,
+            credential_resolution_allowed: false,
+            credentials_resolved: false,
+            retry_execution_allowed: false,
+            provider_probe: false,
+            network_probe: false,
+            data_read: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.range_read_execution_allowed
+            && !self.full_file_read_allowed
+            && !self.credential_resolution_allowed
+            && !self.credentials_resolved
+            && !self.retry_execution_allowed
+            && !self.provider_probe
+            && !self.network_probe
+            && !self.data_read
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+}
+
 /// Machine-readable CG-10 aggregate request planner evidence.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -781,6 +887,7 @@ pub struct ObjectStoreRequestPlannerReport {
     pub scheduling_report: ObjectStoreDistributedSchedulingReport,
     pub checkpoint_retry_report: ObjectStoreCheckpointRetryReport,
     pub commit_report: ObjectStoreCommitProtocolReport,
+    pub byte_range_provider_gate: ObjectStoreByteRangeProviderGateReport,
     pub diagnostics: Vec<Diagnostic>,
     pub planned_surface_count: usize,
     pub blocked_surface_count: usize,
@@ -847,6 +954,7 @@ impl ObjectStoreRequestPlannerReport {
             && !self.checkpoint_write_allowed
             && !self.cleanup_execution_allowed
             && !self.commit_execution_allowed
+            && self.byte_range_provider_gate.side_effect_free()
             && !self.data_read
             && !self.object_store_io
             && !self.write_io
@@ -856,7 +964,7 @@ impl ObjectStoreRequestPlannerReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "object_store_request_planner(status={}, planned_surfaces={}, blocked_surfaces={}, planned_requests={}, coalesced_requests={}, planned_tasks={}, retryable_tasks={}, checkpoint_records={}, commit_status={}, data_read=false, object_store_io=false, write_io=false, fallback_execution=disabled)",
+            "object_store_request_planner(status={}, planned_surfaces={}, blocked_surfaces={}, planned_requests={}, coalesced_requests={}, planned_tasks={}, retryable_tasks={}, checkpoint_records={}, commit_status={}, byte_range_provider_gate={}, data_read=false, object_store_io=false, write_io=false, fallback_execution=disabled)",
             self.status.as_str(),
             self.planned_surface_count,
             self.blocked_surface_count,
@@ -866,6 +974,7 @@ impl ObjectStoreRequestPlannerReport {
             self.retryable_task_count,
             self.planned_checkpoint_record_count,
             self.commit_report.status.as_str(),
+            self.byte_range_provider_gate.status.as_str(),
         )
     }
 }
@@ -873,6 +982,7 @@ impl ObjectStoreRequestPlannerReport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObjectStoreRuntimePromotionSurface {
     RequestPlannerAggregate,
+    ByteRangeProviderGate,
     RangeReadExecution,
     RequestCoalescingRuntime,
     DistributedCoordinatorStartup,
@@ -891,6 +1001,7 @@ impl ObjectStoreRuntimePromotionSurface {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::RequestPlannerAggregate => "request_planner_aggregate",
+            Self::ByteRangeProviderGate => "byte_range_provider_gate",
             Self::RangeReadExecution => "range_read_execution",
             Self::RequestCoalescingRuntime => "request_coalescing_runtime",
             Self::DistributedCoordinatorStartup => "distributed_coordinator_startup",
@@ -1091,6 +1202,7 @@ pub struct ObjectStoreRuntimePromotionGateReport {
     pub schema_version: &'static str,
     pub report_id: &'static str,
     pub entries: Vec<ObjectStoreRuntimePromotionGateEntry>,
+    pub byte_range_provider_gate: ObjectStoreByteRangeProviderGateReport,
     pub existing_report_refs: Vec<&'static str>,
     pub existing_request_planner_evidence_present: bool,
     pub existing_range_planning_evidence_present: bool,
@@ -1141,6 +1253,7 @@ impl ObjectStoreRuntimePromotionGateReport {
             schema_version: "shardloom.object_store_runtime_promotion_gate.v1",
             report_id: "cg10.object_store_runtime_promotion_gate",
             entries: object_store_runtime_promotion_entries(),
+            byte_range_provider_gate: ObjectStoreByteRangeProviderGateReport::blocked_default(true),
             existing_report_refs: object_store_runtime_existing_report_refs(),
             existing_request_planner_evidence_present: true,
             existing_range_planning_evidence_present: true,
@@ -1239,6 +1352,7 @@ impl ObjectStoreRuntimePromotionGateReport {
                 .entries
                 .iter()
                 .all(ObjectStoreRuntimePromotionGateEntry::side_effect_free)
+            && self.byte_range_provider_gate.side_effect_free()
     }
 
     #[must_use]
@@ -1281,6 +1395,11 @@ impl ObjectStoreRuntimePromotionGateReport {
             self.runtime_promotions_blocked()
         );
         let _ = writeln!(out, "claim blocked: {}", self.claim_blocked());
+        let _ = writeln!(
+            out,
+            "byte-range provider gate: {}",
+            self.byte_range_provider_gate.status.as_str()
+        );
         let _ = writeln!(out, "side effect free: {}", self.side_effect_free());
         let _ = writeln!(out, "surfaces:");
         for entry in &self.entries {
@@ -1305,6 +1424,10 @@ fn object_store_runtime_promotion_entries() -> Vec<ObjectStoreRuntimePromotionGa
         ObjectStoreRuntimePromotionGateEntry::existing(
             ObjectStoreRuntimePromotionSurface::RequestPlannerAggregate,
             "cg10.object_store_request_planner.aggregate",
+        ),
+        ObjectStoreRuntimePromotionGateEntry::existing(
+            ObjectStoreRuntimePromotionSurface::ByteRangeProviderGate,
+            "gar0008a.object_store_byte_range_provider_gate",
         ),
         ObjectStoreRuntimePromotionGateEntry::blocked(
             ObjectStoreRuntimePromotionSurface::RangeReadExecution,
@@ -1356,6 +1479,7 @@ fn object_store_runtime_promotion_entries() -> Vec<ObjectStoreRuntimePromotionGa
 fn object_store_runtime_existing_report_refs() -> Vec<&'static str> {
     vec![
         "cg10.object_store_request_planner.aggregate",
+        "gar0008a.object_store_byte_range_provider_gate",
         "shardloom.object_store_range_planning.v1",
         "shardloom.object_store_request_coalescing.v1",
         "shardloom.object_store_distributed_scheduling.v1",
@@ -1485,6 +1609,8 @@ pub fn plan_object_store_request_planner(
     .count();
     let blocked_surface_count =
         ObjectStoreRequestPlannerReport::surface_order().len() - planned_surface_count;
+    let byte_range_provider_gate =
+        ObjectStoreByteRangeProviderGateReport::blocked_default(!range_report.has_errors());
 
     ObjectStoreRequestPlannerReport {
         schema_version: "shardloom.object_store_request_planner.v1",
@@ -1542,6 +1668,7 @@ pub fn plan_object_store_request_planner(
         scheduling_report,
         checkpoint_retry_report,
         commit_report,
+        byte_range_provider_gate,
         diagnostics,
     }
 }
@@ -2775,6 +2902,19 @@ mod tests {
         assert!(report.requires_retry_policy);
         assert!(report.requires_idempotency_keys);
         assert!(!report.requires_atomic_commit_evidence);
+        assert_eq!(
+            report.byte_range_provider_gate.status,
+            ObjectStoreByteRangeProviderGateStatus::BlockedUntilCertified
+        );
+        assert!(
+            report
+                .byte_range_provider_gate
+                .range_planning_evidence_present
+        );
+        assert!(report.byte_range_provider_gate.credential_policy_required);
+        assert!(report.byte_range_provider_gate.retry_policy_required);
+        assert!(report.byte_range_provider_gate.idempotency_key_required);
+        assert!(report.byte_range_provider_gate.side_effect_free());
         assert!(report.side_effect_free());
         assert!(!report.has_errors());
         assert_eq!(
@@ -2822,6 +2962,12 @@ mod tests {
             ObjectStoreRequestPlannerStatus::BlockedByRangePlanning
         );
         assert!(report.requires_byte_ranges);
+        assert!(
+            !report
+                .byte_range_provider_gate
+                .range_planning_evidence_present
+        );
+        assert!(report.byte_range_provider_gate.side_effect_free());
         assert_eq!(report.planned_surface_count, 1);
         assert_eq!(report.blocked_surface_count, 4);
         assert!(report.has_errors());
@@ -2861,13 +3007,14 @@ mod tests {
             "shardloom.object_store_runtime_promotion_gate.v1"
         );
         assert_eq!(report.report_id, "cg10.object_store_runtime_promotion_gate");
-        assert_eq!(report.surface_count(), 12);
-        assert_eq!(report.existing_evidence_surface_count(), 1);
+        assert_eq!(report.surface_count(), 13);
+        assert_eq!(report.existing_evidence_surface_count(), 2);
         assert_eq!(report.blocked_surface_count(), 11);
         assert_eq!(
             report.surface_order(),
             vec![
                 "request_planner_aggregate",
+                "byte_range_provider_gate",
                 "range_read_execution",
                 "request_coalescing_runtime",
                 "distributed_coordinator_startup",
@@ -2887,6 +3034,11 @@ mod tests {
         assert!(report.existing_distributed_scheduling_evidence_present);
         assert!(report.existing_checkpoint_retry_evidence_present);
         assert!(report.existing_commit_protocol_evidence_present);
+        assert_eq!(
+            report.byte_range_provider_gate.report_id,
+            "gar0008a.object_store_byte_range_provider_gate"
+        );
+        assert!(report.byte_range_provider_gate.side_effect_free());
         assert!(report.runtime_promotions_blocked());
         assert!(report.claim_blocked());
         assert!(report.side_effect_free());
@@ -2912,8 +3064,36 @@ mod tests {
         assert!(report.execution_certificate_required);
         assert!(report.native_io_certificate_required);
         assert!(report.benchmark_evidence_required);
+        assert!(
+            report
+                .byte_range_provider_gate
+                .provider_capability_policy_required
+        );
+        assert!(report.byte_range_provider_gate.credential_policy_required);
+        assert!(report.byte_range_provider_gate.retry_policy_required);
+        assert!(report.byte_range_provider_gate.idempotency_key_required);
+        assert!(
+            report
+                .byte_range_provider_gate
+                .execution_certificate_required
+        );
+        assert!(
+            report
+                .byte_range_provider_gate
+                .native_io_certificate_required
+        );
+        assert!(report.byte_range_provider_gate.benchmark_evidence_required);
         assert!(!report.range_read_execution_allowed);
         assert!(!report.full_file_read_allowed);
+        assert!(!report.byte_range_provider_gate.range_read_execution_allowed);
+        assert!(
+            !report
+                .byte_range_provider_gate
+                .credential_resolution_allowed
+        );
+        assert!(!report.byte_range_provider_gate.provider_probe);
+        assert!(!report.byte_range_provider_gate.network_probe);
+        assert!(!report.byte_range_provider_gate.object_store_io);
         assert!(!report.coordinator_start_allowed);
         assert!(!report.worker_start_allowed);
         assert!(!report.task_execution_allowed);

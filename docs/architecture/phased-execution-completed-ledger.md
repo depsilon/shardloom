@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0008-A object-store byte-range provider gate
+  - Primary files:
+    - `README.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/object-store-request-planner.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0008-object-store-runtime-distributed-tasks.md`
+    - `shardloom-plan/src/lib.rs`
+    - `shardloom-plan/src/object_store.rs`
+    - `shardloom-cli/src/object_store_planning.rs`
+    - `shardloom-cli/tests/cg10_object_store_runtime_gate.rs`
+    - `shardloom-cli/tests/object_store_request_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add a report-only byte-range provider gate before future object-store range-read
+    execution.
+  - Checklist:
+    - [x] Add `shardloom.object_store_byte_range_provider_gate.v1` with status
+          `blocked_until_certified`.
+    - [x] Surface the provider gate through `object-store-request-plan` and
+          `cg10-object-store-runtime-gate`.
+    - [x] Require provider capability policy, credential-effect policy, request-budget policy,
+          retry policy, idempotency-key contract, execution certificate, Native I/O certificate,
+          and benchmark evidence before runtime promotion.
+    - [x] Preserve `range_read_execution_allowed=false`, `credential_resolution_allowed=false`,
+          `credentials_resolved=false`, `provider_probe=false`, `network_probe=false`,
+          `data_read=false`, `object_store_io=false`, `write_io=false`,
+          `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+          `external_engine_invoked=false`.
+    - [x] Keep object-store runtime claims at `claim_gate_status=not_claim_grade`.
+  - Boundary:
+    - This is a provider gate only. It does not add cloud credentials, network reads, provider
+      probes, range-read execution, retry execution, coordinator/worker startup, checkpoint writes,
+      object-store commits, external engines, fallback behavior, Native I/O certificates, benchmark
+      evidence, or production object-store claims.
+  - Evidence:
+    - Correctness evidence: not claim-grade; future runtime must attach workload-scoped fixtures.
+    - Benchmark evidence: required before read runtime promotion; not satisfied by this slice.
+    - Execution certificate refs: required before read runtime promotion; not satisfied by this
+      slice.
+    - Native I/O refs: required before read runtime promotion; not satisfied by this slice.
+    - Policy/no-fallback refs: CLI snapshots and object-store planner tests assert no I/O,
+      no credential resolution, no probes, no fallback, and no external engine invocation.
+  - Vortex-first provider check:
+    - Subject area: RFC 0008 object-store byte-range read provider admission.
+    - Upstream Vortex concept checked: no new Vortex Source/Split or object-store runtime API is
+      invoked; the gate protects future native provider admission.
+    - Decision: `implement_shardloom_report_contract` for provider admission only.
+    - Residual handling: runtime reads remain blocked with deterministic required-evidence fields.
+    - Gates still blocked: object-store read execution, credentials, provider probes, retry
+      execution, distributed runtime, checkpoint writes, object-store commits, Native I/O
+      certificates, benchmark evidence, and object-store claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-plan object_store --lib`
+    - `cargo test -p shardloom-cli --test object_store_request_plan_snapshots`
+    - `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0006-A predicate, dtype, nested, and null coverage matrix
   - Primary files:
     - `README.md`

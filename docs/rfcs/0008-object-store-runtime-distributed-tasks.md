@@ -151,6 +151,16 @@ Coalescing is planning evidence only; it does not execute reads or imply provide
 Missing byte ranges must not silently degrade into full-file reads. Full-file reads require a
 separate native approval gate and must remain disallowed in this report.
 
+GAR-0008-A adds `ObjectStoreByteRangeProviderGateReport` as the report-only admission step between
+range-planning evidence and future byte-range read execution. The gate must default to
+`status=blocked_until_certified`, `range_read_execution_allowed=false`,
+`credential_resolution_allowed=false`, `credentials_resolved=false`, `provider_probe=false`,
+`network_probe=false`, `data_read=false`, `object_store_io=false`, `write_io=false`,
+`fallback_attempted=false`, `fallback_execution_allowed=false`, `external_engine_invoked=false`,
+and `claim_gate_status=not_claim_grade`. It names provider capability policy, credential-effect
+policy, request-budget policy, retry policy, idempotency-key contract, execution certificate,
+Native I/O certificate, and benchmark evidence as required before promotion.
+
 ### Object-store request coalescing report
 
 Request coalescing planning is the report-only comparison between uncoalesced and coalesced

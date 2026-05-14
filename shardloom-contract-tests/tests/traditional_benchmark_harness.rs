@@ -619,9 +619,10 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(
         completed_ledger.contains("GAR-0006-A predicate, dtype, nested, and null coverage matrix")
     );
+    assert!(completed_ledger.contains("GAR-0008-A object-store byte-range provider gate"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 50);
+    assert!(plan.matches("- [ ] GAR-").count() >= 49);
     for required_field in [
         "Current state:",
         "Next slice outcome:",
