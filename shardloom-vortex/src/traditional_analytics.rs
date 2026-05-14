@@ -7640,6 +7640,9 @@ fn run_vortex_derived_scenario_from_files(
         TraditionalAnalyticsScenario::DistinctCount => {
             run_streaming_distinct_count_scenario(fact_path, dim_path)
         }
+        TraditionalAnalyticsScenario::NullHeavyAggregate => {
+            run_streaming_null_heavy_aggregate_scenario(fact_path, dim_path)
+        }
         TraditionalAnalyticsScenario::MultiKeyGroupBy => {
             run_streaming_multi_key_group_by_scenario(fact_path, dim_path)
         }
@@ -8146,6 +8149,51 @@ fn run_streaming_distinct_count_scenario(
     );
     Ok(TraditionalScenarioExecution {
         result_json,
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_null_heavy_aggregate_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut accum = TraditionalGroupAccum::default();
+    let stats = scan_fact_vortex_projected(
+        fact_path,
+        &["nullable_metric_00"],
+        None,
+        |fields, chunk_rows| {
+            let values = utf8_field(fields, "nullable_metric_00")?;
+            if values.len() != chunk_rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "null-heavy aggregate Vortex chunk length mismatch: chunk_rows={chunk_rows}, nullable_metric_00_len={}",
+                    values.len()
+                )));
+            }
+            for (index, value) in values.into_iter().enumerate() {
+                if value.is_empty() {
+                    continue;
+                }
+                let metric = value.parse::<f64>().map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to parse nullable_metric_00 in Vortex chunk at row {}: {error}",
+                        index + 1
+                    ))
+                })?;
+                accum.add(metric);
+            }
+            Ok(())
+        },
+    )?;
+    Ok(TraditionalScenarioExecution {
+        result_json: scalar_result_json(accum.row_count, accum.metric_sum),
         fact_rows: stats.source_row_count,
         dim_rows,
         cdc_delta_rows: 0,
@@ -11102,6 +11150,81 @@ mod tests {
         assert_eq!(
             native_fields.get("operator_blocker_id").map(String::as_str),
             Some("gar-flow-2b.residual_native_operator_not_encoded_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_temporary_materialization_used")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn enabled_null_heavy_aggregate_uses_prepared_native_vortex_scan() {
+        let root = traditional_analytics_test_root("null-heavy-prepared-native");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::NullHeavyAggregate,
+                fact_csv,
+                dim_csv,
+                workspace,
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        assert_eq!(
+            import_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":5.0}"
+        );
+        assert!(import_report.streaming_vortex_execution_used);
+        assert!(import_report.full_table_materialization_avoided);
+        assert!(!import_report.streaming_filter_pushdown_applied);
+        assert!(import_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            import_report.streaming_projected_columns,
+            vec!["nullable_metric_00".to_string()]
+        );
+        assert!(import_report.data_materialized);
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::NullHeavyAggregate,
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(native_report.result_json, import_report.result_json);
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(!native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec!["nullable_metric_00".to_string()]
+        );
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
+        assert_eq!(native_report.rows_materialized, 1);
+        let native_fields = field_map(native_report.fields());
+        assert_eq!(
+            native_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
         );
         assert_eq!(
             native_fields
