@@ -270,6 +270,21 @@ rows use one of the canonical ShardLoom modes. If
 `requested_execution_mode=auto`, the row must also preserve the selected mode and
 the selection reason.
 
+Prepared/native rows must also preserve the operator blocker matrix:
+
+```text
+operator_execution_class
+operator_admission_status
+operator_blocker_id
+operator_blocker_reason
+operator_encoded_native_claim_allowed
+```
+
+The valid execution classes are `encoded_native`, `residual_native`,
+`materialized_temporary`, and `unsupported`. Current residual-native and
+materialized-temporary rows may be useful smoke evidence, but they must not be
+counted as encoded-native operator execution.
+
 `compatibility_import_certified` rows are valid ingest/stage/certification
 evidence, but they are not pure query-speed evidence. Public performance,
 superiority, Spark-displacement, best-default, production, or replacement claims

@@ -97,11 +97,16 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("SHARDLOOM_EXECUTION_MODE_VOCABULARY"));
     assert!(script.contains("EXECUTION_MODE_CONTRACT_FIELDS"));
     assert!(script.contains("STAGE_TIMING_CONTRACT_FIELDS"));
+    assert!(script.contains("OPERATOR_BLOCKER_MATRIX_FIELDS"));
+    assert!(script.contains("def operator_blocker_metadata("));
     assert!(script.contains("def execution_mode_attribution_contract("));
     assert!(script.contains("def validate_result_attribution_contract("));
     assert!(script.contains("def render_execution_mode_attribution_contract("));
     assert!(script.contains("\"execution_mode_attribution_contract\""));
     assert!(script.contains("\"shardloom.execution_mode_benchmark_attribution.v1\""));
+    assert!(script.contains("\"operator_execution_class\""));
+    assert!(script.contains("\"operator_blocker_id\""));
+    assert!(script.contains("\"operator_encoded_native_claim_allowed\""));
     assert!(script.contains("CORRECTNESS_FLOAT_DIGITS = 4"));
     assert!(script.contains("\"status\", \"--short\", \"--untracked-files=no\""));
     assert!(script.contains("traditional-analytics-run"));
@@ -364,6 +369,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("execution_mode_attribution_contract"));
     assert!(readme.contains("compatibility_parse_millis"));
     assert!(readme.contains("evidence_render_millis"));
+    assert!(readme.contains("operator_execution_class"));
+    assert!(readme.contains("operator_blocker_id"));
     assert!(readme.contains("compatibility-import-certified timing"));
     assert!(readme.contains("execution_mode=prepared_vortex"));
     assert!(readme.contains("standalone `.vortex` report rows"));
@@ -452,6 +459,9 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "result_sink_write_millis",
         "evidence_render_millis",
         "execution_mode_attribution_contract",
+        "operator_execution_class",
+        "operator_blocker_id",
+        "operator_encoded_native_claim_allowed",
         "stable correctness digest",
         "Native I/O certificate",
         "Unsupported work must return deterministic unsupported diagnostics",
@@ -523,6 +533,9 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
             .contains("GAR-FLOW-1B direct compatibility transient local CSV smoke path")
     );
     assert!(completed_ledger.contains("GAR-FLOW-2A execution-mode benchmark attribution contract"));
+    assert!(
+        completed_ledger.contains("GAR-FLOW-2B prepared/native temporary-operator blocker matrix")
+    );
     assert!(plan.contains("GAR-FLOW-2C persistent benchmark runner admission gate"));
     assert!(plan.contains("GAR-FLOW-2D work-avoidance metric evidence schema"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));

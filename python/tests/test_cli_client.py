@@ -252,6 +252,12 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": "computed_result_sink_native_io_certificate_status", "value": "certified"},
                                 {"key": "result_sink_claim_gate_status", "value": "result_sink_replay_certified"},
                                 {"key": "result_sink_claim_gate_reason", "value": "result sink replay present"},
+                                {"key": "operator_execution_class", "value": "materialized_temporary"},
+                                {"key": "operator_admission_status", "value": "materialized_temporary_supported"},
+                                {"key": "operator_blocker_id", "value": "gar-flow-2b.materialized_temporary_operator_not_encoded_native"},
+                                {"key": "operator_blocker_reason", "value": "temporary operator materializes Vortex-derived arrays"},
+                                {"key": "operator_encoded_native_claim_allowed", "value": "false"},
+                                {"key": "operator_temporary_materialization_used", "value": "true"},
                                 {"key": "materialization_boundary_report_emitted", "value": "true"},
                                 {"key": "fallback_attempted", "value": "false"},
                                 {"key": "external_engine_invoked", "value": "false"},
@@ -335,6 +341,21 @@ class ShardLoomClientTests(unittest.TestCase):
             result.result_sink_claim_gate_status,
             "result_sink_replay_certified",
         )
+        self.assertEqual(result.operator_execution_class, "materialized_temporary")
+        self.assertEqual(
+            result.operator_admission_status,
+            "materialized_temporary_supported",
+        )
+        self.assertEqual(
+            result.operator_blocker_id,
+            "gar-flow-2b.materialized_temporary_operator_not_encoded_native",
+        )
+        self.assertEqual(
+            result.operator_blocker_reason,
+            "temporary operator materializes Vortex-derived arrays",
+        )
+        self.assertFalse(result.operator_encoded_native_claim_allowed)
+        self.assertTrue(result.operator_temporary_materialization_used)
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.external_engine_invoked)
         self.assertEqual(len(result.evidence_slots), 3)

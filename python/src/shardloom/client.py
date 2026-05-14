@@ -1223,6 +1223,42 @@ class ExecutionResultEnvelopeView:
         return self._compute_flow_field("computed_result_sink_native_io_certificate_status")
 
     @property
+    def operator_execution_class(self) -> str | None:
+        """Return the prepared/native operator execution class when present."""
+
+        return self._compute_flow_field("operator_execution_class")
+
+    @property
+    def operator_admission_status(self) -> str | None:
+        """Return the prepared/native operator admission status when present."""
+
+        return self._compute_flow_field("operator_admission_status")
+
+    @property
+    def operator_blocker_id(self) -> str | None:
+        """Return the operator blocker id when prepared/native execution is not encoded-native."""
+
+        return self._compute_flow_field("operator_blocker_id")
+
+    @property
+    def operator_blocker_reason(self) -> str | None:
+        """Return the operator blocker reason when present."""
+
+        return self._compute_flow_field("operator_blocker_reason")
+
+    @property
+    def operator_encoded_native_claim_allowed(self) -> bool:
+        """Whether the row may claim encoded-native operator execution."""
+
+        return self._compute_flow_bool("operator_encoded_native_claim_allowed")
+
+    @property
+    def operator_temporary_materialization_used(self) -> bool:
+        """Whether prepared/native execution used a materialized temporary operator."""
+
+        return self._compute_flow_bool("operator_temporary_materialization_used")
+
+    @property
     def evidence_slots(self) -> tuple[ExecutionEvidenceSlot, ...]:
         """Return explicit present/not-required/evidence-incomplete slot statuses."""
 

@@ -260,22 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-FLOW-2B prepared/native temporary-operator blocker matrix
-  - Source: compute-flow reference; RFC 0026; RFC 0042; Vortex runtime utilization audit.
-  - Current state: prepared/native Vortex rows still use temporary materialized or residual
-    ShardLoom-native operators for some scenarios.
-  - Next slice outcome: typed blocker matrix showing which operators are encoded-native,
-    residual-native, materialized-temporary, or unsupported.
-  - User-visible surface: CLI capability matrix, benchmark row fields, Python typed result view.
-  - Implementation scope: provider admission report, benchmark metadata, Python model/accessor.
-  - Evidence required: capability refs, materialization/decode refs, execution-certificate refs for
-    supported lanes, policy/no-fallback refs.
-  - Acceptance: every prepared/native row names the operator execution class and blocker; temporary
-    operators are never counted as encoded-native.
-  - Verification: provider admission tests, benchmark contract tests, Python typed accessor tests.
-  - Non-goals: no new encoded operator implementation in this slice.
-  - Fallback/claim boundary: prepared/native can claim only scoped lanes whose evidence is attached.
-  - Dependencies/blockers: GAR-0026 and GAR-0021 operator work.
 - [ ] GAR-FLOW-2C persistent benchmark runner admission gate
   - Source: `docs/architecture/benchmark-persistent-runner-decision.md`;
     `docs/architecture/performance-attribution-and-execution-structure.md`;

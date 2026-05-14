@@ -643,8 +643,9 @@ plan before coding.
   capability rows, CLI JSON envelopes, Python typed accessors, and benchmark coverage rows, plus
   one scoped local CSV selective-filter smoke path; broader formats, operators, result sinks, and
   SQL/DataFrame direct transient runtime remain incomplete.
-- [ ] Prepared/native Vortex rows still rely on temporary materialized or residual
-  ShardLoom-native operator paths for some scenarios until encoded/native operator coverage matures.
+- [ ] Prepared/native Vortex rows now carry a typed operator blocker matrix, but still rely on
+  temporary materialized or residual ShardLoom-native operator paths for some scenarios until
+  encoded/native operator coverage matures.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

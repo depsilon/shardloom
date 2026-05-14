@@ -76,6 +76,13 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "evidence_render_millis",
     "total_runtime_millis",
 )
+OPERATOR_BLOCKER_MATRIX_FIELDS = (
+    "operator_execution_class",
+    "operator_admission_status",
+    "operator_blocker_id",
+    "operator_blocker_reason",
+    "operator_encoded_native_claim_allowed",
+)
 DEFAULT_DATASET_PROFILE = "narrow_fact_dim"
 GENERATED_DATASET_PROFILES = (
     "tiny_smoke",
@@ -3636,6 +3643,15 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "benchmark row omitted execution-mode fields: "
             + ", ".join(missing_mode_fields)
         )
+    missing_operator_fields = [
+        field for field in OPERATOR_BLOCKER_MATRIX_FIELDS if field not in result
+    ]
+    if missing_operator_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted operator blocker fields: "
+            + ", ".join(missing_operator_fields)
+        )
 
     selected_mode = str(result.get("selected_execution_mode") or "")
     requested_mode = str(result.get("requested_execution_mode") or "")
@@ -3660,6 +3676,13 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError(
                 "compatibility_import_certified row must mark Vortex write/reopen included"
             )
+    if (
+        selected_mode in ("prepared_vortex", "native_vortex")
+        and result.get("status") == "success"
+        and result.get("operator_execution_class") == "materialized_temporary"
+        and result.get("operator_encoded_native_claim_allowed") is True
+    ):
+        raise RuntimeError("temporary prepared/native operators cannot be encoded-native claims")
 
 
 def annotate_result(
@@ -3756,6 +3779,14 @@ def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str,
         "vortex_prepare_included": False,
         "vortex_write_reopen_included": False,
         "direct_transient_execution": False,
+        "operator_execution_class": "unsupported",
+        "operator_admission_status": "unsupported",
+        "operator_blocker_id": "gar-flow-2b.direct_transient_admission_only",
+        "operator_blocker_reason": "direct transient admission row has no prepared/native operator execution",
+        "operator_encoded_native_claim_allowed": False,
+        "operator_residual_native_used": False,
+        "operator_temporary_materialization_used": False,
+        "operator_blocker_matrix_ref": "operator-blocker://traditional_analytics/direct_transient_admission",
         "preparation_millis": None,
         "preparation_included_in_timing": False,
         "benchmark_constitution_id": constitution["constitution_id"],
@@ -3832,6 +3863,18 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "vortex_write_reopen_included"
                 ),
                 "direct_transient_execution": result.get("direct_transient_execution"),
+                "operator_execution_class": result.get("operator_execution_class"),
+                "operator_admission_status": result.get("operator_admission_status"),
+                "operator_blocker_id": result.get("operator_blocker_id"),
+                "operator_blocker_reason": result.get("operator_blocker_reason"),
+                "operator_encoded_native_claim_allowed": result.get(
+                    "operator_encoded_native_claim_allowed"
+                ),
+                "operator_residual_native_used": result.get("operator_residual_native_used"),
+                "operator_temporary_materialization_used": result.get(
+                    "operator_temporary_materialization_used"
+                ),
+                "operator_blocker_matrix_ref": result.get("operator_blocker_matrix_ref"),
                 "preparation_millis": result["metrics"].get("preparation_millis"),
                 "preparation_included_in_timing": result["metrics"].get(
                     "preparation_included_in_timing"
@@ -3889,6 +3932,12 @@ def format_preparation_matrix(results: list[dict[str, Any]]) -> list[dict[str, A
                 "execution_mode": selected_mode,
                 "row_scope": row_scope,
                 "native_execution_format": "vortex",
+                "operator_execution_class": result.get("operator_execution_class"),
+                "operator_admission_status": result.get("operator_admission_status"),
+                "operator_blocker_id": result.get("operator_blocker_id"),
+                "operator_encoded_native_claim_allowed": result.get(
+                    "operator_encoded_native_claim_allowed"
+                ),
                 "compatibility_preparation_input": data_format
                 != SHARDLOOM_VORTEX_FORMAT,
                 "preparation_included_in_timing": metrics.get(
@@ -4004,6 +4053,69 @@ def execution_mode_metadata(
     }
 
 
+def operator_blocker_metadata(
+    engine: str, evidence: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    if any(field in evidence for field in OPERATOR_BLOCKER_MATRIX_FIELDS):
+        return {
+            "operator_execution_class": str(
+                evidence.get("operator_execution_class") or "unsupported"
+            ),
+            "operator_admission_status": str(
+                evidence.get("operator_admission_status") or "unsupported"
+            ),
+            "operator_blocker_id": str(evidence.get("operator_blocker_id") or "missing"),
+            "operator_blocker_reason": str(
+                evidence.get("operator_blocker_reason") or "missing"
+            ),
+            "operator_encoded_native_claim_allowed": (
+                parse_optional_bool(evidence.get("operator_encoded_native_claim_allowed"))
+                is True
+            ),
+            "operator_residual_native_used": (
+                parse_optional_bool(evidence.get("operator_residual_native_used")) is True
+            ),
+            "operator_temporary_materialization_used": (
+                parse_optional_bool(evidence.get("operator_temporary_materialization_used"))
+                is True
+            ),
+            "operator_blocker_matrix_ref": evidence.get("operator_blocker_matrix_ref"),
+        }
+    if engine == "shardloom-direct-transient":
+        return {
+            "operator_execution_class": "residual_native",
+            "operator_admission_status": "direct_transient_scoped",
+            "operator_blocker_id": "gar-flow-2b.not_prepared_native",
+            "operator_blocker_reason": "direct transient is scoped ShardLoom-native compute, not prepared/native Vortex operator evidence",
+            "operator_encoded_native_claim_allowed": False,
+            "operator_residual_native_used": True,
+            "operator_temporary_materialization_used": False,
+            "operator_blocker_matrix_ref": "operator-blocker://traditional_analytics/direct_transient",
+        }
+    if is_shardloom_engine(engine):
+        return {
+            "operator_execution_class": "unsupported",
+            "operator_admission_status": "not_executed",
+            "operator_blocker_id": "gar-flow-2b.operator_evidence_missing",
+            "operator_blocker_reason": "operator blocker evidence was not emitted",
+            "operator_encoded_native_claim_allowed": False,
+            "operator_residual_native_used": False,
+            "operator_temporary_materialization_used": False,
+            "operator_blocker_matrix_ref": None,
+        }
+    return {
+        "operator_execution_class": "external_baseline_only",
+        "operator_admission_status": "external_baseline_only",
+        "operator_blocker_id": "external_baseline_only",
+        "operator_blocker_reason": "external rows are comparison baselines, not ShardLoom operator evidence",
+        "operator_encoded_native_claim_allowed": False,
+        "operator_residual_native_used": False,
+        "operator_temporary_materialization_used": False,
+        "operator_blocker_matrix_ref": None,
+    }
+
+
 def micros_to_millis_field(value: Any) -> float | None:
     micros = parse_optional_int(value)
     return None if micros is None else round(micros / 1000.0, 4)
@@ -4020,6 +4132,7 @@ def failed_result(
     elapsed_millis: float | None = None,
 ) -> dict[str, Any]:
     execution_mode = execution_mode_metadata(engine, data_format)
+    operator_metadata = operator_blocker_metadata(engine)
     metrics = {
         "wall_time_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
         "query_runtime_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
@@ -4089,6 +4202,7 @@ def failed_result(
         "shardloom_evidence": {},
         "fallback_attempted": False,
         "external_baseline_only": not is_shardloom_engine(engine),
+        **operator_metadata,
         **execution_mode,
     }
 
@@ -4239,6 +4353,7 @@ def run_one(
         cli_process_wall_millis = mean_evidence_float("cli_process_wall_millis")
     bytes_read = parse_optional_int(evidence.get("source_bytes_read")) if evidence else None
     execution_mode = execution_mode_metadata(runner.name, data_format, evidence)
+    operator_metadata = operator_blocker_metadata(runner.name, evidence)
     result_sink_included = computed_result_sink_write_millis is not None
     query_runtime_millis = round(statistics.mean(timings), 4)
     python_harness_overhead_millis = (
@@ -4370,6 +4485,7 @@ def run_one(
         "shardloom_evidence": evidence,
         "fallback_attempted": False,
         "external_baseline_only": not is_shardloom_engine(runner.name),
+        **operator_metadata,
         **execution_mode,
     }
 
@@ -4951,6 +5067,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "mode_vocabulary": list(SHARDLOOM_EXECUTION_MODE_VOCABULARY),
         "execution_mode_fields": list(EXECUTION_MODE_CONTRACT_FIELDS),
         "stage_timing_fields": list(STAGE_TIMING_CONTRACT_FIELDS),
+        "operator_blocker_matrix_fields": list(OPERATOR_BLOCKER_MATRIX_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
             "compatibility_import_certified": (
@@ -4984,6 +5101,10 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
             "claim_gate_status remains not_claim_grade, fixture_smoke_only, unsupported, "
             "or external_baseline_only unless workload-scoped claim-grade evidence is "
             "attached."
+        ),
+        "operator_claim_boundary": (
+            "operator_execution_class=materialized_temporary or residual_native never "
+            "permits an encoded-native operator claim."
         ),
         "no_fallback_rule": "fallback_attempted=false and external_engine_invoked=false for every ShardLoom row",
     }
@@ -5153,8 +5274,10 @@ def render_execution_mode_attribution_contract(artifact: dict[str, Any]) -> str:
         ["Mode vocabulary", ", ".join(contract["mode_vocabulary"])],
         ["Execution-mode fields", ", ".join(contract["execution_mode_fields"])],
         ["Stage timing fields", ", ".join(contract["stage_timing_fields"])],
+        ["Operator blocker fields", ", ".join(contract["operator_blocker_matrix_fields"])],
         ["Unknown stage values", str(contract["unknown_stage_value_policy"])],
         ["Claim boundary", str(contract["claim_boundary"])],
+        ["Operator claim boundary", str(contract["operator_claim_boundary"])],
         ["No-fallback rule", str(contract["no_fallback_rule"])],
     ]
     mode_rows = [
@@ -5176,6 +5299,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom native/prepared Vortex rows are reported under the requested source-format rows, such as CSV or Parquet, with preparation metadata rather than standalone `.vortex` report rows.",
         "ShardLoom direct-transient rows, when requested with `shardloom-direct-transient`, are scoped local CSV smoke rows without Vortex persistence and are never Vortex-native or performance-claim rows.",
         "ShardLoom prepared Vortex rows start timing from prepared Vortex artifacts; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
+        "Prepared/native rows carry operator_execution_class and operator_blocker_id so residual-native and materialized-temporary operators are not counted as encoded-native.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Coverage rows now carry claim_gate_status so fixture-smoke, unsupported, external-baseline-only, not-claim-grade, and claim-grade rows stay distinct from timing rows.",
         "Claim-grade ShardLoom timing rows require at least three iterations, stable correctness digests, and the full evidence set; one-iteration smoke rows remain not-claim-grade.",
@@ -5225,6 +5349,10 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 str(row["timing_row_present"]),
                 row["claim_gate_status"],
                 str(row["selected_execution_mode"]),
+                str(row["operator_execution_class"]),
+                str(row["operator_admission_status"]),
+                str(row["operator_blocker_id"]),
+                str(row["operator_encoded_native_claim_allowed"]),
                 str(row["preparation_millis"]),
                 str(row["preparation_included_in_timing"]),
                 str(row["claim_grade_requirements_met"]),
@@ -5256,6 +5384,10 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Timing row",
             "Claim gate",
             "Mode",
+            "Operator class",
+            "Operator admission",
+            "Operator blocker",
+            "Encoded-native op claim",
             "Prep ms",
             "Prep in timing",
             "Claim-grade",
@@ -5289,6 +5421,9 @@ def render_format_preparation_matrix(artifact: dict[str, Any]) -> str:
                 row["execution_mode"],
                 row["row_scope"],
                 row["native_execution_format"],
+                str(row["operator_execution_class"]),
+                str(row["operator_blocker_id"]),
+                str(row["operator_encoded_native_claim_allowed"]),
                 str(row["preparation_included_in_timing"]),
                 format_metric(row["preparation_millis"], " ms"),
                 format_metric(row["source_read_millis"], " ms"),
@@ -5314,6 +5449,9 @@ def render_format_preparation_matrix(artifact: dict[str, Any]) -> str:
                 "none",
                 "none",
                 "vortex",
+                "none",
+                "none",
+                "false",
                 "false",
                 "n/a",
                 "n/a",
@@ -5338,6 +5476,9 @@ def render_format_preparation_matrix(artifact: dict[str, Any]) -> str:
             "Mode",
             "Scope",
             "Native exec format",
+            "Operator class",
+            "Operator blocker",
+            "Encoded-native op claim",
             "Prep in timing",
             "Prep",
             "Source read",

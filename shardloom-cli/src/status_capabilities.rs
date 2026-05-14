@@ -87,6 +87,8 @@ const COMPUTE_SUPPORT_STATUS_VOCABULARY: &str = "unsupported,planned,report_only
 const COMPUTE_PROVIDER_KIND_VOCABULARY: &str = "shardloom_kernel,vortex_array_kernel,vortex_scan,vortex_source,vortex_sink,compatibility_boundary,external_baseline_only";
 const COMPUTE_ENGINE_MODE_VOCABULARY: &str = "batch,live,hybrid,auto";
 const COMPUTE_EXECUTION_MODE_VOCABULARY: &str = "compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient,auto";
+const COMPUTE_OPERATOR_EXECUTION_CLASS_VOCABULARY: &str =
+    "encoded_native,residual_native,materialized_temporary,unsupported";
 
 const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
     ComputeCapabilityRow {
@@ -873,6 +875,11 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
         "execution_mode_vocabulary",
         COMPUTE_EXECUTION_MODE_VOCABULARY,
     );
+    push_field(
+        &mut fields,
+        "operator_execution_class_vocabulary",
+        COMPUTE_OPERATOR_EXECUTION_CLASS_VOCABULARY,
+    );
     push_bool_field(&mut fields, "mode_aware_rows_present", true);
     push_bool_field(
         &mut fields,
@@ -1046,6 +1053,21 @@ fn append_compute_capability_row_fields(
         &format!("{prefix}_vortex_native_claim_allowed"),
         compute_row_vortex_native_claim_allowed(row),
     );
+    push_field(
+        fields,
+        &format!("{prefix}_operator_execution_class"),
+        compute_row_operator_execution_class(row),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_operator_blocker_id"),
+        compute_row_operator_blocker_id(row),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_operator_encoded_native_claim_allowed"),
+        compute_row_operator_encoded_native_claim_allowed(row),
+    );
     push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
     push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
 }
@@ -1082,6 +1104,41 @@ fn compute_row_vortex_native_claim_allowed(row: &ComputeCapabilityRow) -> bool {
         row.support_status,
         "unsupported" | "planned" | "report_only"
     )
+}
+
+fn compute_row_operator_execution_class(row: &ComputeCapabilityRow) -> &'static str {
+    match row.support_status {
+        "unsupported" | "planned" | "report_only" => "unsupported",
+        _ if row
+            .materialization_decode_requirement
+            .contains("no_row_materialization") =>
+        {
+            "encoded_native"
+        }
+        _ if row
+            .materialization_decode_requirement
+            .contains("materialization") =>
+        {
+            "materialized_temporary"
+        }
+        _ => "residual_native",
+    }
+}
+
+fn compute_row_operator_blocker_id(row: &ComputeCapabilityRow) -> &'static str {
+    if compute_row_operator_execution_class(row) == "encoded_native" {
+        "none"
+    } else {
+        row.blocker_id
+    }
+}
+
+fn compute_row_operator_encoded_native_claim_allowed(row: &ComputeCapabilityRow) -> bool {
+    compute_row_operator_execution_class(row) == "encoded_native"
+        && matches!(
+            row.support_status,
+            "fixture_certified" | "workload_certified" | "production_certified"
+        )
 }
 
 fn append_operator_family_row_fields(
