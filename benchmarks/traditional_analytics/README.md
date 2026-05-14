@@ -265,9 +265,18 @@ fields currently report
 `encoded_predicate_provider_status=blocked_until_reader_backed_encoded_predicate_evidence`,
 `encoded_predicate_provider_filter_only_columns=flag,value`,
 `encoded_predicate_provider_projected_output_columns=metric`, and
-`encoded_predicate_provider_encoded_native_claim_allowed=false`. This records that Vortex scan
-filter pushdown was requested, but no reader-backed encoded predicate provider certificate exists
-yet.
+`encoded_predicate_provider_encoded_native_claim_allowed=false`. The GAR-0026-R bridge fields also
+record projected reader chunks when the filtered scan emits rows, for example
+`encoded_predicate_provider_reader_chunk_columns_observed=metric`,
+`encoded_predicate_provider_reader_chunk_encoding_summary=metric:vortex.filter`, and
+`encoded_predicate_provider_projected_output_batch_status=observed_projected_metric_vortex_filter_chunk`.
+Zero-result rows instead report `encoded_predicate_provider_reader_chunk_columns_observed=none` and
+`encoded_predicate_provider_projected_output_batch_status=blocked_no_reader_chunks_emitted_for_zero_result`.
+Both paths keep
+`encoded_predicate_provider_reader_backed_bridge_status=blocked_filter_columns_not_returned_by_reader_projection`
+and explicit blockers for filter-only `flag,value` batches, the two-column predicate shape, and
+conjunctive selection-vector intersection. This records that Vortex scan filter pushdown was
+requested, but no reader-backed encoded predicate provider certificate exists yet.
 `filter + projection + limit` now reports a scoped residual-native fused scan path for prepared/native
 rows when filter/projection pushdown runs without full-table materialization. `group by aggregation`
 now reports a scoped residual-native grouped scan path when projection pushdown over

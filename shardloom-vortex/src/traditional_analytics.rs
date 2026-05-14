@@ -30,7 +30,7 @@ const LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID: &str = "local_vortex_analytics_v1"
 const SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_backed_scan_evidence.v1";
 const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
-    "shardloom.traditional_analytics.encoded_predicate_provider.v1";
+    "shardloom.traditional_analytics.encoded_predicate_provider.v2";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
@@ -2203,6 +2203,9 @@ pub struct TraditionalAnalyticsVortexReport {
     pub streaming_arrays_read_count: usize,
     pub streaming_max_chunk_rows: usize,
     pub streaming_projected_columns: Vec<String>,
+    pub streaming_reader_chunk_columns_observed: Vec<String>,
+    pub streaming_reader_chunk_dtype_summary: Vec<String>,
+    pub streaming_reader_chunk_encoding_summary: Vec<String>,
     pub data_decoded: bool,
     pub data_materialized: bool,
     pub materialization_boundary_report_emitted: bool,
@@ -2815,7 +2818,7 @@ fn encoded_predicate_provider_fields(
     let selective_filter = report.scenario == TraditionalAnalyticsScenario::SelectiveFilter;
     let scenario_slug = report.scenario.as_str().replace(['/', ' ', '+'], "-");
     let report_id = format!(
-        "gar-0026q.encoded_predicate_provider.{}.{}",
+        "gar-0026r.encoded_predicate_provider.{}.{}",
         report
             .execution_mode_selection
             .selected_execution_mode
@@ -2839,10 +2842,10 @@ fn encoded_predicate_provider_fields(
             "blocked_until_vortex_or_shardloom_evidence",
             "selective_filter.flag_eq_1_and_value_gte_5000",
             "flag,value",
-            "gar-0026q.missing_reader_backed_encoded_predicate_provider_certificate",
-            "Vortex scan filter pushdown is requested, but this row does not expose reader-backed encoded predicate batches, selection-vector evidence, or a provider certificate for the filter columns",
-            "reader_generated_encoded_value_batches_for_filter_columns;selection_vector_filter_kernel_admission;predicate_correctness_fixture;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy",
-            "filter pushdown visibility only; no encoded predicate runtime/provider/performance claim",
+            "gar-0026r.reader_backed_bridge_blocked",
+            "Vortex scan filter/projection pushdown returned projected output chunks, but the filter-only columns were not exposed as reader-generated encoded value batches and the current encoded predicate surface cannot certify the conjunctive two-column selection vector",
+            "reader_generated_encoded_value_batches_for_filter_columns;conjunctive_selection_vector_intersection;encoding_specific_kernel_input_lowering;predicate_correctness_fixture;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy",
+            "reader chunk observation and deterministic bridge blockers only; no encoded predicate runtime/provider/performance claim",
         )
     } else {
         (
@@ -2852,7 +2855,7 @@ fn encoded_predicate_provider_fields(
             "none",
             "none",
             "none",
-            "scenario does not use the GAR-0026-Q selective-filter predicate",
+            "scenario does not use the GAR-0026-R selective-filter predicate bridge candidate",
             "none",
             "no encoded predicate provider claim",
         )
@@ -2863,6 +2866,77 @@ fn encoded_predicate_provider_fields(
         "not_checked_non_selective_filter"
     } else {
         "not_requested"
+    };
+    let reader_chunk_columns_observed =
+        comma_join_or_none(&report.streaming_reader_chunk_columns_observed);
+    let reader_chunk_dtype_summary =
+        comma_join_or_none(&report.streaming_reader_chunk_dtype_summary);
+    let reader_chunk_encoding_summary =
+        comma_join_or_none(&report.streaming_reader_chunk_encoding_summary);
+    let filter_columns_observed = report
+        .streaming_reader_chunk_columns_observed
+        .iter()
+        .any(|column| column == "flag")
+        && report
+            .streaming_reader_chunk_columns_observed
+            .iter()
+            .any(|column| column == "value");
+    let projected_metric_observed = report
+        .streaming_reader_chunk_columns_observed
+        .iter()
+        .any(|column| column == "metric");
+    let projected_metric_filter_wrapped = report
+        .streaming_reader_chunk_encoding_summary
+        .iter()
+        .any(|summary| summary == "metric:vortex.filter");
+    let bridge_status = if selective_filter && filter_columns_observed {
+        "blocked_conjunctive_selection_vector_bridge_missing_certificate"
+    } else if selective_filter {
+        "blocked_filter_columns_not_returned_by_reader_projection"
+    } else {
+        "not_applicable_no_selective_filter_predicate"
+    };
+    let bridge_blocker_ids = if selective_filter && filter_columns_observed {
+        "gar-0026r.conjunctive_selection_vector_intersection_missing;gar-0026r.reader_generated_kernel_input_certificate_missing"
+    } else if selective_filter {
+        "gar-0026r.filter_columns_not_returned_by_scan_projection;gar-0026r.conjunctive_selection_vector_intersection_missing;gar-0026r.encoding_specific_filter_column_lowering_missing;gar-0026r.projected_output_filter_array_not_filter_column_input"
+    } else {
+        "none"
+    };
+    let filter_column_batch_status = if selective_filter && filter_columns_observed {
+        "observed_filter_columns_not_admitted"
+    } else if selective_filter {
+        "blocked_filter_only_columns_not_observed"
+    } else {
+        "not_applicable"
+    };
+    let projected_output_batch_status = if selective_filter && projected_metric_filter_wrapped {
+        "observed_projected_metric_vortex_filter_chunk"
+    } else if selective_filter && projected_metric_observed {
+        "observed_projected_metric_reader_chunk"
+    } else if selective_filter && report.streaming_arrays_read_count == 0 {
+        "blocked_no_reader_chunks_emitted_for_zero_result"
+    } else if selective_filter {
+        "blocked_projected_metric_reader_chunk_not_observed"
+    } else {
+        "not_applicable"
+    };
+    let predicate_shape_status = if selective_filter {
+        "blocked_multi_column_conjunction_not_represented_by_single_column_predicate_expr"
+    } else {
+        "not_applicable"
+    };
+    let selection_vector_intersection_status = if selective_filter {
+        "blocked_no_conjunctive_selection_vector_intersection_certificate"
+    } else {
+        "not_applicable"
+    };
+    let kernel_input_lowering_status = if selective_filter && filter_columns_observed {
+        "blocked_missing_reader_generated_encoded_value_batch_certificate"
+    } else if selective_filter {
+        "blocked_missing_reader_generated_filter_column_batches"
+    } else {
+        "not_applicable"
     };
     vec![
         (
@@ -2891,7 +2965,7 @@ fn encoded_predicate_provider_fields(
         ),
         (
             "encoded_predicate_provider_api_surface_checked".to_string(),
-            "VortexFile::scan.with_filter;shardloom_prepared_encoded_predicate_reports".to_string(),
+            "VortexFile::scan.with_filter;VortexFile::scan.with_projection;shardloom_prepared_encoded_predicate_reports;reader_generated_prepared_batch_kernel_inputs".to_string(),
         ),
         (
             "encoded_predicate_provider_current_surface".to_string(),
@@ -2908,6 +2982,46 @@ fn encoded_predicate_provider_fields(
         (
             "encoded_predicate_provider_projected_output_columns".to_string(),
             report.streaming_projected_columns.join(","),
+        ),
+        (
+            "encoded_predicate_provider_reader_chunk_columns_observed".to_string(),
+            reader_chunk_columns_observed,
+        ),
+        (
+            "encoded_predicate_provider_reader_chunk_dtype_summary".to_string(),
+            reader_chunk_dtype_summary,
+        ),
+        (
+            "encoded_predicate_provider_reader_chunk_encoding_summary".to_string(),
+            reader_chunk_encoding_summary,
+        ),
+        (
+            "encoded_predicate_provider_reader_backed_bridge_status".to_string(),
+            bridge_status.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_reader_backed_bridge_blocker_ids".to_string(),
+            bridge_blocker_ids.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_batch_status".to_string(),
+            filter_column_batch_status.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_projected_output_batch_status".to_string(),
+            projected_output_batch_status.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_predicate_shape_status".to_string(),
+            predicate_shape_status.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_selection_vector_intersection_status".to_string(),
+            selection_vector_intersection_status.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_kernel_input_lowering_status".to_string(),
+            kernel_input_lowering_status.to_string(),
         ),
         (
             "encoded_predicate_provider_blocker_id".to_string(),
@@ -2946,6 +3060,14 @@ fn encoded_predicate_provider_fields(
             "false".to_string(),
         ),
     ]
+}
+
+fn comma_join_or_none(values: &[String]) -> String {
+    if values.is_empty() {
+        "none".to_string()
+    } else {
+        values.join(",")
+    }
 }
 
 fn source_backed_scan_source_roles(
@@ -3800,6 +3922,9 @@ struct TraditionalScenarioExecutionEvidence {
     arrays_read_count: usize,
     max_chunk_rows: usize,
     projected_columns: Vec<String>,
+    reader_chunk_columns_observed: Vec<String>,
+    reader_chunk_dtype_summary: Vec<String>,
+    reader_chunk_encoding_summary: Vec<String>,
     data_decoded: bool,
     data_materialized: bool,
     row_read: bool,
@@ -3816,6 +3941,9 @@ impl TraditionalScenarioExecutionEvidence {
             arrays_read_count: 0,
             max_chunk_rows: 0,
             projected_columns: Vec::new(),
+            reader_chunk_columns_observed: Vec::new(),
+            reader_chunk_dtype_summary: Vec::new(),
+            reader_chunk_encoding_summary: Vec::new(),
             data_decoded: true,
             data_materialized: true,
             row_read: false,
@@ -3823,14 +3951,28 @@ impl TraditionalScenarioExecutionEvidence {
     }
 
     fn streaming(stats: TraditionalStreamingScanStats) -> Self {
+        let TraditionalStreamingScanStats {
+            arrays_read_count,
+            max_chunk_rows,
+            projected_columns,
+            filter_pushdown_applied,
+            projection_pushdown_applied,
+            reader_chunk_columns_observed,
+            reader_chunk_dtype_summary,
+            reader_chunk_encoding_summary,
+            ..
+        } = stats;
         Self {
             streaming_vortex_execution_used: true,
             full_table_materialization_avoided: true,
-            filter_pushdown_applied: stats.filter_pushdown_applied,
-            projection_pushdown_applied: stats.projection_pushdown_applied,
-            arrays_read_count: stats.arrays_read_count,
-            max_chunk_rows: stats.max_chunk_rows,
-            projected_columns: stats.projected_columns,
+            filter_pushdown_applied,
+            projection_pushdown_applied,
+            arrays_read_count,
+            max_chunk_rows,
+            projected_columns,
+            reader_chunk_columns_observed,
+            reader_chunk_dtype_summary,
+            reader_chunk_encoding_summary,
             data_decoded: true,
             data_materialized: false,
             row_read: false,
@@ -3961,6 +4103,9 @@ struct TraditionalStreamingScanStats {
     projected_columns: Vec<String>,
     filter_pushdown_applied: bool,
     projection_pushdown_applied: bool,
+    reader_chunk_columns_observed: Vec<String>,
+    reader_chunk_dtype_summary: Vec<String>,
+    reader_chunk_encoding_summary: Vec<String>,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -5516,6 +5661,15 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         streaming_arrays_read_count: scenario_execution.evidence.arrays_read_count,
         streaming_max_chunk_rows: scenario_execution.evidence.max_chunk_rows,
         streaming_projected_columns: scenario_execution.evidence.projected_columns,
+        streaming_reader_chunk_columns_observed: scenario_execution
+            .evidence
+            .reader_chunk_columns_observed,
+        streaming_reader_chunk_dtype_summary: scenario_execution
+            .evidence
+            .reader_chunk_dtype_summary,
+        streaming_reader_chunk_encoding_summary: scenario_execution
+            .evidence
+            .reader_chunk_encoding_summary,
         data_decoded: scenario_execution.evidence.data_decoded,
         data_materialized: scenario_execution.evidence.data_materialized,
         materialization_boundary_report_emitted: true,
@@ -8193,6 +8347,24 @@ fn run_streaming_hash_join_scenario(
             "fact",
             &fact_stats.projected_columns,
         ),
+        reader_chunk_columns_observed: prefixed_projected_columns(
+            "dim",
+            &dim_stats.reader_chunk_columns_observed,
+            "fact",
+            &fact_stats.reader_chunk_columns_observed,
+        ),
+        reader_chunk_dtype_summary: prefixed_reader_chunk_summary(
+            "dim",
+            &dim_stats.reader_chunk_dtype_summary,
+            "fact",
+            &fact_stats.reader_chunk_dtype_summary,
+        ),
+        reader_chunk_encoding_summary: prefixed_reader_chunk_summary(
+            "dim",
+            &dim_stats.reader_chunk_encoding_summary,
+            "fact",
+            &fact_stats.reader_chunk_encoding_summary,
+        ),
         filter_pushdown_applied: false,
         projection_pushdown_applied: true,
     };
@@ -8258,6 +8430,24 @@ fn run_streaming_join_aggregate_scenario(
             &dim_stats.projected_columns,
             "fact",
             &fact_stats.projected_columns,
+        ),
+        reader_chunk_columns_observed: prefixed_projected_columns(
+            "dim",
+            &dim_stats.reader_chunk_columns_observed,
+            "fact",
+            &fact_stats.reader_chunk_columns_observed,
+        ),
+        reader_chunk_dtype_summary: prefixed_reader_chunk_summary(
+            "dim",
+            &dim_stats.reader_chunk_dtype_summary,
+            "fact",
+            &fact_stats.reader_chunk_dtype_summary,
+        ),
+        reader_chunk_encoding_summary: prefixed_reader_chunk_summary(
+            "dim",
+            &dim_stats.reader_chunk_encoding_summary,
+            "fact",
+            &fact_stats.reader_chunk_encoding_summary,
         ),
         filter_pushdown_applied: true,
         projection_pushdown_applied: true,
@@ -8901,6 +9091,24 @@ fn run_streaming_small_change_over_large_base_scenario(
             "cdc_delta",
             &cdc_stats.projected_columns,
         ),
+        reader_chunk_columns_observed: prefixed_projected_columns(
+            "base",
+            &fact_stats.reader_chunk_columns_observed,
+            "cdc_delta",
+            &cdc_stats.reader_chunk_columns_observed,
+        ),
+        reader_chunk_dtype_summary: prefixed_reader_chunk_summary(
+            "base",
+            &fact_stats.reader_chunk_dtype_summary,
+            "cdc_delta",
+            &cdc_stats.reader_chunk_dtype_summary,
+        ),
+        reader_chunk_encoding_summary: prefixed_reader_chunk_summary(
+            "base",
+            &fact_stats.reader_chunk_encoding_summary,
+            "cdc_delta",
+            &cdc_stats.reader_chunk_encoding_summary,
+        ),
         filter_pushdown_applied: false,
         projection_pushdown_applied: true,
     };
@@ -9117,6 +9325,32 @@ fn prefixed_projected_columns(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prefixed_reader_chunk_summary(
+    left_prefix: &str,
+    left_values: &[String],
+    right_prefix: &str,
+    right_values: &[String],
+) -> Vec<String> {
+    left_values
+        .iter()
+        .map(|value| prefix_reader_chunk_summary_value(left_prefix, value))
+        .chain(
+            right_values
+                .iter()
+                .map(|value| prefix_reader_chunk_summary_value(right_prefix, value)),
+        )
+        .collect()
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prefix_reader_chunk_summary_value(prefix: &str, value: &str) -> String {
+    value.split_once(':').map_or_else(
+        || format!("{prefix}.{value}"),
+        |(column, detail)| format!("{prefix}.{column}:{detail}"),
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn scan_fact_vortex_projected(
     path: &std::path::Path,
     projected_columns: &[&'static str],
@@ -9152,10 +9386,18 @@ fn scan_fact_vortex_projected(
     let mut result_row_count = 0_u64;
     let mut arrays_read_count = 0_usize;
     let mut max_chunk_rows = 0_usize;
+    let mut reader_chunk_columns_observed = std::collections::BTreeSet::new();
+    let mut reader_chunk_dtype_summary = std::collections::BTreeSet::new();
+    let mut reader_chunk_encoding_summary = std::collections::BTreeSet::new();
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
         let chunk = chunk.map_err(vortex_error)?;
         let chunk_rows = chunk.len();
         let fields = projected_fields_from_chunk(chunk, projected_columns)?;
+        for (column, array) in &fields {
+            reader_chunk_columns_observed.insert(column.clone());
+            reader_chunk_dtype_summary.insert(format!("{column}:{:?}", array.dtype()));
+            reader_chunk_encoding_summary.insert(format!("{column}:{}", array.encoding_id()));
+        }
         process(&fields, chunk_rows)?;
         result_row_count = checked_u64_sum(result_row_count, usize_to_u64(chunk_rows)?)?;
         arrays_read_count += 1;
@@ -9172,6 +9414,9 @@ fn scan_fact_vortex_projected(
             .collect(),
         filter_pushdown_applied,
         projection_pushdown_applied,
+        reader_chunk_columns_observed: reader_chunk_columns_observed.into_iter().collect(),
+        reader_chunk_dtype_summary: reader_chunk_dtype_summary.into_iter().collect(),
+        reader_chunk_encoding_summary: reader_chunk_encoding_summary.into_iter().collect(),
     })
 }
 
@@ -10160,6 +10405,20 @@ mod tests {
         (fact_csv, dim_csv)
     }
 
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn write_zero_match_traditional_csv_inputs(root: &std::path::Path) -> (PathBuf, PathBuf) {
+        std::fs::create_dir_all(root).unwrap();
+        let fact_csv = root.join("fact.csv");
+        let dim_csv = root.join("dim.csv");
+        std::fs::write(
+            &fact_csv,
+            "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric,dirty_flag\n1,10,1,1000,2.5,1,A,2024-03-01,1.25,2024-01-01T00:00:00Z,1000,Y\n2,11,2,2000,3.5,0,B,2024-07-01,,not-a-timestamp,bad-number,N\n3,10,1,3000,4.0,1,A,2024-05-01,3.75,2024-01-03T00:00:00Z,3000,Y\n",
+        )
+        .unwrap();
+        std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").unwrap();
+        (fact_csv, dim_csv)
+    }
+
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn fact_csv_reader_accepts_generated_profile_trailing_columns() {
@@ -10776,7 +11035,62 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_blocker_id")
                 .map(String::as_str),
-            Some("gar-0026q.missing_reader_backed_encoded_predicate_provider_certificate")
+            Some("gar-0026r.reader_backed_bridge_blocked")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_reader_chunk_columns_observed")
+                .map(String::as_str),
+            Some("metric")
+        );
+        assert!(
+            fields
+                .get("encoded_predicate_provider_reader_chunk_dtype_summary")
+                .is_some_and(|value| value.contains("metric:"))
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_reader_chunk_encoding_summary")
+                .map(String::as_str),
+            Some("metric:vortex.filter")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_reader_backed_bridge_status")
+                .map(String::as_str),
+            Some("blocked_filter_columns_not_returned_by_reader_projection")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_batch_status")
+                .map(String::as_str),
+            Some("blocked_filter_only_columns_not_observed")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_projected_output_batch_status")
+                .map(String::as_str),
+            Some("observed_projected_metric_vortex_filter_chunk")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_predicate_shape_status")
+                .map(String::as_str),
+            Some(
+                "blocked_multi_column_conjunction_not_represented_by_single_column_predicate_expr"
+            )
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_selection_vector_intersection_status")
+                .map(String::as_str),
+            Some("blocked_no_conjunctive_selection_vector_intersection_certificate")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_kernel_input_lowering_status")
+                .map(String::as_str),
+            Some("blocked_missing_reader_generated_filter_column_batches")
         );
         assert_eq!(
             fields
@@ -11172,6 +11486,67 @@ mod tests {
         assert!(prepared_sink_fields.iter().any(|(key, value)| {
             key == "result_sink_claim_gate_status" && value == "result_sink_replay_certified"
         }));
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn selective_filter_zero_result_reports_no_reader_chunks_emitted() {
+        let root = traditional_analytics_test_root("csv-zero-selective");
+        let (fact_csv, dim_csv) = write_zero_match_traditional_csv_inputs(&root);
+        let report = run_traditional_analytics_benchmark(TraditionalAnalyticsRequest::new(
+            TraditionalAnalyticsScenario::SelectiveFilter,
+            fact_csv,
+            dim_csv,
+            root.join("workspace"),
+        ))
+        .unwrap();
+        assert_eq!(report.result_json, "{\"row_count\":0,\"metric_sum\":0.0}");
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                report.fact_vortex_path.clone(),
+                report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+        assert_eq!(
+            native_report.result_json,
+            "{\"row_count\":0,\"metric_sum\":0.0}"
+        );
+
+        let fields = field_map(native_report.fields());
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_reader_chunk_columns_observed")
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_projected_output_batch_status")
+                .map(String::as_str),
+            Some("blocked_no_reader_chunks_emitted_for_zero_result")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_batch_status")
+                .map(String::as_str),
+            Some("blocked_filter_only_columns_not_observed")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
