@@ -52,28 +52,46 @@ User request
 
 ## Top-Level Compute Engine Flow
 
+The compute flow is easier to audit when it is read as layered views instead of one dense diagram.
+Read the views in this order:
+
+1. **Audience map:** who touches ShardLoom and which access surface they use.
+2. **Runtime contract:** the invariant request-to-output path every supported surface must preserve.
+3. **Mode decision:** how explicit modes map to source/preparation boundaries.
+4. **Evidence and downstream use:** how outputs, adapters, benchmarks, and claims consume the run.
+
+Diagram conventions:
+
+- Solid arrows are request, result, or evidence flow.
+- `planned`, `unsupported`, and `report-only` labels are not implementation claims.
+- External engines are allowed only as benchmark baselines or correctness oracles, never fallback
+  execution.
+- Compatibility benchmark rows include ingest, stage, certification, Vortex write/reopen, and scan
+  timing where those steps are part of the mode; they are not pure query-speed rows.
+
+### View 1 - Audience And Access Map
+
 ```mermaid
-flowchart TD
-    subgraph ACCESS["End users and access layers"]
-        USER["end users<br/>local analyst / engineer / app developer"]
-        OP["operators and agents<br/>CI / automation / release gates"]
-        ADAPTER["planned thin adapters<br/>DB-API / SQLAlchemy / Ibis / dbt / orchestration / BI"]
-        SDK["planned SDK and notebook clients"]
+flowchart LR
+    accTitle: ShardLoom audience and access map
+    accDescr {
+    End users, operators, adapters, and SDK clients enter through CLI, Python, planned REST/event
+    APIs, or benchmark harnesses. Every surface emits the same typed request envelope and receives
+    the same typed output envelope.
+    }
+
+    subgraph PEOPLE["People and automation"]
+        USER["End users<br/>analyst / engineer / app developer"]
+        OP["Operators and agents<br/>CI / automation / release gates"]
     end
 
-    subgraph REQUEST["Request surfaces"]
+    subgraph CLIENTS["Access clients"]
         CLI["CLI access<br/>commands / JSON / text"]
         PY["Python wrapper<br/>typed client over CLI protocol"]
+        BENCH["Benchmark / agent harness"]
+        SDK["planned SDK and notebook clients"]
+        ADAPTER["planned thin adapters<br/>DB-API / SQLAlchemy / Ibis / dbt / orchestration / BI"]
         REST["planned REST / event API"]
-        BENCH["benchmark / agent harness"]
-    end
-
-    subgraph INPUTS["Inputs and source descriptors"]
-        COMPAT["compatibility files<br/>CSV / Parquet / JSONL / Arrow IPC / Avro / ORC"]
-        VORTEX["existing .vortex artifacts"]
-        OBJECT["planned object-store refs<br/>URI / range / credentials policy"]
-        TABLE["planned table/catalog refs<br/>Iceberg / Delta / Foundry dataset"]
-        STREAM["planned streams / events"]
     end
 
     USER --> CLI
@@ -87,83 +105,159 @@ flowchart TD
     ADAPTER --> PY
     ADAPTER --> REST
 
-    CLI --> REQ["Typed request envelope<br/>query / workload / output intent / downstream intent"]
+    CLI --> REQ["Typed request envelope"]
     PY --> REQ
     REST --> REQ
     BENCH --> REQ
+    REQ --> OUT["Typed output envelope"]
+    OUT --> CLI_OUT["CLI result<br/>text / JSON / artifacts"]
+    OUT --> PY_OUT["Python / SDK result<br/>typed models / artifact refs"]
+    OUT --> ADAPTER_OUT["Adapter consumers<br/>DB / orchestration / BI / notebook"]
+    OUT --> BENCH_OUT["Benchmark comparison report"]
+```
 
-    COMPAT --> SRC["Source binding<br/>format / schema / pushdown / policy"]
+### View 2 - Canonical Runtime Contract
+
+```mermaid
+flowchart LR
+    accTitle: ShardLoom canonical runtime contract
+    accDescr {
+    A typed request binds sources, policy, capabilities, semantics, and execution mode before
+    provider admission. Supported work executes through ShardLoom and Vortex providers. Unsupported
+    work returns deterministic diagnostics. Evidence and claim gates are produced before typed
+    output leaves the system.
+    }
+
+    REQ["Typed request<br/>query / workload / output intent / downstream intent"]
+    SRC["Source binding<br/>format / schema / pushdown / policy"]
+    POLICY["Execution policy<br/>governance / secrets / fallback_attempted=false"]
+    CAP["Capability discovery<br/>source / operator / sink / feature gates"]
+    SEM["Semantic binding<br/>schema / expression / profile"]
+    MODE["Explicit execution mode"]
+    BOUNDARY["Source or preparation boundary"]
+    PLAN["Plan IR + physical plan"]
+    ADMIT["Provider admission<br/>Vortex provider / ShardLoom kernel / diagnostic"]
+    BLOCK["Deterministic unsupported diagnostic"]
+    EXEC["Supported execution<br/>encoded / native / filter / project / aggregate / join / window"]
+    RESULT["Result stream / scalar / result ref"]
+    SINK["Sink and materialization boundary"]
+    EVID["Evidence bundle<br/>diagnostics / certificates / benchmark rows / traces"]
+    GATE["Claim gate<br/>claim_grade / not_claim_grade / unsupported"]
+    OUT["Typed output envelope<br/>CLI / Python / REST/event surfaces"]
+    BASE["Optional external baseline/oracle row<br/>comparison only, never fallback"]
+
+    subgraph INPUTS["Input and source descriptors"]
+        COMPAT["Compatibility files<br/>CSV / Parquet / JSONL / Arrow IPC / Avro / ORC"]
+        VORTEX["Existing .vortex artifacts"]
+        OBJECT["planned object-store refs<br/>URI / range / credentials policy"]
+        TABLE["planned table/catalog refs<br/>Iceberg / Delta / Foundry dataset"]
+        STREAM["planned streams / events"]
+    end
+
+    COMPAT --> SRC
     VORTEX --> SRC
     OBJECT --> SRC
     TABLE --> SRC
     STREAM --> SRC
-    REQ --> SRC
+    REQ --> SRC --> POLICY --> CAP --> SEM --> MODE --> BOUNDARY --> PLAN --> ADMIT
+    ADMIT -->|"unsupported"| BLOCK --> EVID
+    ADMIT -->|"supported"| EXEC --> RESULT --> SINK --> EVID
+    BASE --> EVID
+    REQ -.-> BASE
+    EVID --> GATE --> OUT
+```
 
-    SRC --> POLICY["Execution policy<br/>governance / secrets / no-fallback"]
-    POLICY --> CAP["Capability discovery<br/>source / operator / sink / feature gates"]
-    CAP --> SEM["Semantic binding<br/>schema / expression / profile"]
-    SEM --> MODE["Execution mode selection"]
+### View 3 - Execution Mode Decision
 
-    MODE --> AUTO["auto"]
-    AUTO --> SEL["Transparent selected mode<br/>selected mode + reason"]
-    SEL --> DIRECT["direct_compatibility_transient"]
-    SEL --> IMPORT["compatibility_import_certified"]
-    SEL --> PREPARED["prepared_vortex"]
-    SEL --> NATIVE["native_vortex"]
+```mermaid
+flowchart TD
+    accTitle: ShardLoom execution mode decision
+    accDescr {
+    Requests either name an execution mode directly or use auto mode. Auto mode must report the
+    selected mode and reason. Each selected mode enters a distinct source or preparation boundary
+    before provider admission.
+    }
+
+    MODE["requested_execution_mode"]
+    AUTO["auto"]
+    SEL["Transparent selected mode<br/>selected_execution_mode + mode_selection_reason"]
+    DIRECT["direct_compatibility_transient"]
+    IMPORT["compatibility_import_certified"]
+    PREPARED["prepared_vortex"]
+    NATIVE["native_vortex"]
+
+    MODE --> AUTO
+    AUTO --> SEL
+    SEL --> DIRECT
+    SEL --> IMPORT
+    SEL --> PREPARED
+    SEL --> NATIVE
     MODE --> DIRECT
     MODE --> IMPORT
     MODE --> PREPARED
     MODE --> NATIVE
 
-    DIRECT --> B1["Transient compatibility boundary<br/>ShardLoom-native in-memory path or unsupported diagnostic"]
+    DIRECT --> B1["Transient compatibility boundary<br/>ShardLoom-native one-shot path<br/>or deterministic unsupported diagnostic"]
     IMPORT --> B2["Compatibility ingest boundary<br/>adapter -> NativeWorkStream -> Vortex write/reopen"]
-    PREPARED --> B3["Preparation boundary<br/>prepare once -> reusable Vortex artifact"]
+    PREPARED --> B3["Prepared Vortex boundary<br/>prepare once -> reusable Vortex artifact"]
     NATIVE --> B4["Native Vortex boundary<br/>Vortex Source / Scan / Split"]
 
-    B1 --> PLAN["Plan IR + physical plan"]
-    B2 --> PLAN
-    B3 --> PLAN
-    B4 --> PLAN
+    B1 --> ADMIT["Provider admission"]
+    B2 --> ADMIT
+    B3 --> ADMIT
+    B4 --> ADMIT
+```
 
-    PLAN --> ADMIT["Provider admission<br/>Vortex provider / ShardLoom kernel / unsupported diagnostic"]
-    ADMIT -->|"unsupported"| BLOCK["Deterministic unsupported diagnostic"]
-    ADMIT -->|"supported"| EXEC["Execute supported path<br/>encoded/native/filter/project/aggregate/join/window"]
-    EXEC --> RUNTIME["Runtime controls<br/>memory / spill / streaming / cancellation / observability"]
-    RUNTIME --> RESULT["Result stream / scalar / result ref"]
+### View 4 - Evidence, Claims, And Downstream Use
 
-    RESULT --> SINKREQ["Sink requirements<br/>materialization / decode / fidelity boundary"]
-    SINKREQ --> S0["No sink<br/>typed result/ref only"]
-    SINKREQ --> S1["Vortex result artifact"]
-    SINKREQ --> S2["planned compatibility export"]
-    SINKREQ --> S3["planned table/lakehouse commit"]
-    SINKREQ --> S4["planned object-store write"]
-    SINKREQ --> S5["planned REST/event delivery"]
+```mermaid
+flowchart LR
+    accTitle: ShardLoom evidence, claim, and downstream use flow
+    accDescr {
+    Supported execution, unsupported diagnostics, sink verification, and benchmark baselines produce
+    evidence. The claim gate controls what CLI, Python, adapters, benchmarks, automation, and
+    planned platform consumers may report.
+    }
 
-    S1 --> VERIFY["Replay / verify / reopen when required"]
-    S2 --> VERIFY
-    S3 --> VERIFY
-    S4 --> VERIFY
+    EXEC["Supported execution"]
+    BLOCK["Unsupported diagnostic"]
+    RESULT["Result stream / scalar / result ref"]
+    SINKREQ["Sink requirements<br/>materialization / decode / fidelity boundary"]
+    S0["No sink<br/>typed result/ref only"]
+    S1["Vortex result artifact"]
+    S2["planned compatibility export"]
+    S3["planned table/lakehouse commit"]
+    S4["planned object-store write"]
+    S5["planned REST/event delivery"]
+    SINK["Sink verification<br/>replay / reopen / fidelity boundary"]
+    TIMING["Benchmark timing ledger<br/>stage timings + total_runtime_millis"]
+    BASE["External baseline/oracle<br/>baseline_or_oracle_only"]
+    EVID["Evidence bundle<br/>correctness digest / Native I/O certificate / policy refs"]
+    GATE["Claim gate<br/>claim_gate_status"]
+    OUT["Typed output envelope"]
 
-    BLOCK --> EVID["Evidence bundle<br/>diagnostics / certificates / benchmark rows / traces"]
-    EXEC --> EVID
-    RUNTIME --> EVID
-    SINKREQ --> EVID
-    VERIFY --> EVID
-
-    REQ --> BASE["Optional external baseline/oracle row<br/>comparison only, never fallback"]
+    EXEC --> RESULT --> SINKREQ
+    SINKREQ --> S0 --> EVID
+    SINKREQ --> S1 --> SINK
+    SINKREQ --> S2 --> SINK
+    SINKREQ --> S3 --> SINK
+    SINKREQ --> S4 --> SINK
+    SINKREQ --> S5 --> SINK
+    SINK --> EVID
+    BLOCK --> EVID
+    TIMING --> EVID
     BASE --> EVID
+    EVID --> GATE --> OUT
 
-    EVID --> GATE["Claim gate<br/>claim_grade / not_claim_grade / unsupported"]
-    GATE --> OUT["Typed output envelope<br/>CLI / Python / REST/event surfaces"]
-    OUT --> D1["CLI access result<br/>text / JSON / artifacts"]
-    OUT --> D2["Python / SDK result<br/>typed models / artifact refs"]
-    OUT --> D3["Adapter consumers<br/>DB / orchestration / BI / notebook"]
+    OUT --> D1["CLI access result"]
+    OUT --> D2["Python / SDK result"]
+    OUT --> D3["Adapter consumers"]
     OUT --> D4["Benchmark comparison report"]
     OUT --> D5["Automation / agent follow-up"]
     OUT --> D6["planned governed platform consumers"]
 ```
 
-This diagram is intentionally broader than the current implementation. Planned nodes must remain
+These diagrams are intentionally broader than the current implementation. Planned nodes must remain
 unchecked in `docs/architecture/global-architecture-review.md` and represented in
 `docs/architecture/phased-execution-plan.md` until implemented and certified. Current commands must
 return deterministic unsupported diagnostics where execution is absent. Planned nodes do not
