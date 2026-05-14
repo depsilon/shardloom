@@ -226,6 +226,7 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": "prepared_artifact_available", "value": "true"},
                                 {"key": "native_vortex_provider_available", "value": "true"},
                                 {"key": "mode_supported", "value": "true"},
+                                {"key": "support_status", "value": "supported"},
                                 {"key": "unsupported_diagnostic_code", "value": "none"},
                                 {"key": "blocker_id", "value": "none"},
                                 {"key": "required_future_evidence", "value": "none"},
@@ -306,6 +307,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(result.execution_mode_family, "native_vortex")
         self.assertTrue(result.mode_supported)
+        self.assertEqual(result.support_status, "supported")
         self.assertEqual(result.claim_gate_status, "fixture_smoke_only")
         self.assertEqual(result.claim_gate_reason, "operator evidence required")
         self.assertEqual(result.unsupported_diagnostic_code, "none")

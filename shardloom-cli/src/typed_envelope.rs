@@ -163,6 +163,7 @@ const EXECUTION_MODE_SELECTION_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "prepared_artifact_available",
     "native_vortex_provider_available",
     "mode_supported",
+    "support_status",
     "unsupported_diagnostic_code",
     "blocker_id",
     "required_future_evidence",
@@ -1402,6 +1403,7 @@ mod tests {
                 "false".to_string(),
             ),
             ("mode_supported".to_string(), "true".to_string()),
+            ("support_status".to_string(), "supported".to_string()),
             (
                 "unsupported_diagnostic_code".to_string(),
                 "none".to_string(),

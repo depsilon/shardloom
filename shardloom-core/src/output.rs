@@ -263,6 +263,7 @@ pub struct ShardLoomExecutionModeSelectionReport {
     pub prepared_artifact_available: bool,
     pub native_vortex_provider_available: bool,
     pub mode_supported: bool,
+    pub support_status: String,
     pub unsupported_diagnostic_code: String,
     pub blocker_id: String,
     pub required_future_evidence: String,
@@ -466,6 +467,7 @@ impl ShardLoomExecutionModeSelectionReport {
             prepared_artifact_available: request.prepared_artifact_available,
             native_vortex_provider_available: request.native_vortex_provider_available,
             mode_supported: true,
+            support_status: "supported".to_string(),
             unsupported_diagnostic_code: "none".to_string(),
             blocker_id: "none".to_string(),
             required_future_evidence: "none".to_string(),
@@ -501,6 +503,7 @@ impl ShardLoomExecutionModeSelectionReport {
             prepared_artifact_available: request.prepared_artifact_available,
             native_vortex_provider_available: request.native_vortex_provider_available,
             mode_supported: false,
+            support_status: "unsupported".to_string(),
             unsupported_diagnostic_code: diagnostic_code.to_string(),
             blocker_id: blocker_id.to_string(),
             required_future_evidence: required_future_evidence.to_string(),
@@ -583,6 +586,7 @@ impl ShardLoomExecutionModeSelectionReport {
                 "mode_supported".to_string(),
                 self.mode_supported.to_string(),
             ),
+            ("support_status".to_string(), self.support_status.clone()),
             (
                 "unsupported_diagnostic_code".to_string(),
                 self.unsupported_diagnostic_code.clone(),
@@ -1476,6 +1480,7 @@ mod tests {
         assert!(!report.compatibility_import_included);
         assert!(!report.vortex_prepare_included);
         assert!(report.vortex_native_claim_allowed);
+        assert_eq!(report.support_status, "supported");
         assert_eq!(report.claim_gate_status, "fixture_smoke_only");
     }
     #[test]
@@ -1490,6 +1495,7 @@ mod tests {
         );
 
         assert!(!report.mode_supported);
+        assert_eq!(report.support_status, "unsupported");
         assert_eq!(
             report.selected_execution_mode,
             ShardLoomExecutionMode::DirectCompatibilityTransient

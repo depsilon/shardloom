@@ -82,6 +82,9 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"source_native_io_certificate_status\""));
     assert!(script.contains("\"result_native_io_certificate_status\""));
     assert!(script.contains("\"materialization_decode_evidence_present\""));
+    assert!(script.contains("def direct_transient_admission_coverage_row("));
+    assert!(script.contains("\"direct_compatibility_transient\""));
+    assert!(script.contains("\"direct_compatibility_transient_not_implemented\""));
     assert!(script.contains("def support_status("));
     assert!(script.contains("def materialization_decode_evidence_present("));
     assert!(script.contains("CORRECTNESS_FLOAT_DIGITS = 4"));
@@ -485,8 +488,15 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(plan.contains("Global Architecture Review Carry-Forward"));
     assert!(plan.contains("docs/architecture/global-architecture-review.md"));
     assert!(plan.contains("Planned Item Detail Standard"));
-    assert!(plan.contains("GAR-FLOW-1A direct compatibility transient admission contract"));
+    assert!(
+        completed_ledger.contains(
+            "Session label: GAR-FLOW-1A direct compatibility transient admission contract"
+        )
+    );
+    assert!(plan.contains("GAR-FLOW-1B direct compatibility transient local CSV smoke path"));
     assert!(plan.contains("GAR-FLOW-2A execution-mode benchmark attribution contract"));
+    assert!(plan.contains("GAR-FLOW-2C persistent benchmark runner admission gate"));
+    assert!(plan.contains("GAR-FLOW-2D work-avoidance metric evidence schema"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
     assert!(plan.matches("- [ ] GAR-").count() >= 60);
