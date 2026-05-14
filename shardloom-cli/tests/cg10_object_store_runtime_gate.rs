@@ -40,12 +40,20 @@ fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() 
         "report_id",
         "cg10.object_store_runtime_promotion_gate"
     )));
-    assert!(output.contains(&field("surface_count", "12")));
-    assert!(output.contains(&field("existing_evidence_surface_count", "1")));
+    assert!(output.contains(&field("surface_count", "13")));
+    assert!(output.contains(&field("existing_evidence_surface_count", "2")));
     assert!(output.contains(&field("blocked_surface_count", "11")));
     assert!(output.contains(&field(
         "surface_order",
-        "request_planner_aggregate,range_read_execution,request_coalescing_runtime,distributed_coordinator_startup,distributed_worker_startup,distributed_task_execution,checkpoint_write_execution,retry_execution,cleanup_execution,object_store_commit_execution,provider_credential_runtime,benchmark_certificate_closeout"
+        "request_planner_aggregate,byte_range_provider_gate,range_read_execution,request_coalescing_runtime,distributed_coordinator_startup,distributed_worker_startup,distributed_task_execution,checkpoint_write_execution,retry_execution,cleanup_execution,object_store_commit_execution,provider_credential_runtime,benchmark_certificate_closeout"
+    )));
+    assert!(output.contains(&field(
+        "byte_range_provider_gate_report_id",
+        "gar0008a.object_store_byte_range_provider_gate"
+    )));
+    assert!(output.contains(&field(
+        "byte_range_provider_gate_status",
+        "blocked_until_certified"
     )));
     assert!(output.contains(&field("existing_request_planner_evidence_present", "true")));
     assert!(output.contains(&field("existing_range_planning_evidence_present", "true")));
@@ -81,6 +89,19 @@ fn cg10_object_store_runtime_gate_blocks_execution_io_credentials_and_claims() {
         "distributed_runtime_claim_allowed",
         "fallback_attempted",
         "fallback_execution_allowed",
+        "byte_range_provider_gate_range_read_execution_allowed",
+        "byte_range_provider_gate_full_file_read_allowed",
+        "byte_range_provider_gate_credential_resolution_allowed",
+        "byte_range_provider_gate_credentials_resolved",
+        "byte_range_provider_gate_retry_execution_allowed",
+        "byte_range_provider_gate_provider_probe",
+        "byte_range_provider_gate_network_probe",
+        "byte_range_provider_gate_data_read",
+        "byte_range_provider_gate_object_store_io",
+        "byte_range_provider_gate_write_io",
+        "byte_range_provider_gate_fallback_attempted",
+        "byte_range_provider_gate_fallback_execution_allowed",
+        "byte_range_provider_gate_external_engine_invoked",
     ] {
         assert!(
             output.contains(&field(key, "false")),
@@ -108,11 +129,29 @@ fn cg10_object_store_runtime_gate_blocks_execution_io_credentials_and_claims() {
         "claim_blocked",
         "side_effect_free",
         "plan_only",
+        "byte_range_provider_gate_range_planning_evidence_present",
+        "byte_range_provider_gate_request_budget_policy_required",
+        "byte_range_provider_gate_provider_capability_policy_required",
+        "byte_range_provider_gate_credential_policy_required",
+        "byte_range_provider_gate_retry_policy_required",
+        "byte_range_provider_gate_idempotency_key_required",
+        "byte_range_provider_gate_execution_certificate_required",
+        "byte_range_provider_gate_native_io_certificate_required",
+        "byte_range_provider_gate_benchmark_evidence_required",
+        "byte_range_provider_gate_side_effect_free",
     ] {
         assert!(
             output.contains(&field(key, "true")),
             "missing true field {key}"
         );
     }
+    assert!(output.contains(&field(
+        "byte_range_provider_gate_required_evidence",
+        "provider_capability_policy,credential_effect_policy,request_budget_policy,retry_policy,idempotency_key_contract,execution_certificate,native_io_certificate,benchmark_evidence"
+    )));
+    assert!(output.contains(&field(
+        "byte_range_provider_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
     assert!(output.contains(&field("execution", "not_performed")));
 }

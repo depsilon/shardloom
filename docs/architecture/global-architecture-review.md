@@ -171,11 +171,18 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0008-object-store-runtime-distributed-tasks.md`](../rfcs/0008-object-store-runtime-distributed-tasks.md)
-- Current read: Planning model exists; runtime is not implemented.
+- Current read: Planning model exists, including a byte-range provider gate that blocks runtime
+  reads until provider, credential, retry, idempotency, execution-certificate, Native I/O, and
+  benchmark evidence exist. Runtime is not implemented.
 - Evidence: `shardloom-plan/src/object_store.rs`, `shardloom-cli/src/object_store_planning.rs`,
+  `shardloom-cli/tests/object_store_request_plan_snapshots.rs`,
+  `shardloom-cli/tests/cg10_object_store_runtime_gate.rs`,
+  `docs/architecture/object-store-request-planner.md`,
   `docs/architecture/rfc-phase-traceability.md`
 - [x] Byte-range, task, retry, checkpoint, and commit planning contracts exist.
 - [x] Object-store surfaces are explicitly report-only where runtime execution is absent.
+- [x] GAR-0008-A adds the byte-range provider gate with credential, retry, idempotency, provider
+  probe, no-I/O, no-fallback, and claim-boundary fields.
 - [ ] Object-store I/O providers, probes, coordinator/worker runtime, checkpoint writes, retry
   execution, distributed execution, and object-store commits remain incomplete.
 

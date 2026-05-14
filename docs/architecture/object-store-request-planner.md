@@ -24,11 +24,15 @@ shardloom cg10-object-store-runtime-gate --format json
 - [x] Aggregate distributed task-shape scheduling evidence.
 - [x] Aggregate checkpoint/retry/idempotency readiness evidence.
 - [x] Aggregate object-store commit protocol readiness evidence.
+- [x] Gate future byte-range provider reads through
+      `ObjectStoreByteRangeProviderGateReport` with credential, retry, idempotency, provider
+      capability, execution-certificate, Native I/O, and benchmark evidence requirements.
 - [x] Gate object-store and distributed runtime execution through
       `ObjectStoreRuntimePromotionGateReport` before enabling runtime object-store IO.
 Out of scope until promoted GAR slices complete:
 
-- Byte-range reads are carried by `GAR-0008-A`.
+- Byte-range read execution remains blocked after `GAR-0008-A`; that slice adds the provider gate
+  only.
 - Coordinator/worker start, distributed tasks, checkpoint/attempt records, retry execution, cleanup,
   and object-store commits are carried by `GAR-0008-B`, `GAR-0017-A`, and `GAR-0028-A`.
 
@@ -46,6 +50,28 @@ Out of scope until promoted GAR slices complete:
 - `object_store_io=false`
 - `write_io=false`
 - `fallback_execution_allowed=false`
+
+For the byte-range provider gate:
+
+- `byte_range_provider_gate_status=blocked_until_certified`
+- `byte_range_provider_gate_range_read_execution_allowed=false`
+- `byte_range_provider_gate_full_file_read_allowed=false`
+- `byte_range_provider_gate_credential_resolution_allowed=false`
+- `byte_range_provider_gate_credentials_resolved=false`
+- `byte_range_provider_gate_retry_execution_allowed=false`
+- `byte_range_provider_gate_provider_probe=false`
+- `byte_range_provider_gate_network_probe=false`
+- `byte_range_provider_gate_data_read=false`
+- `byte_range_provider_gate_object_store_io=false`
+- `byte_range_provider_gate_write_io=false`
+- `byte_range_provider_gate_fallback_attempted=false`
+- `byte_range_provider_gate_fallback_execution_allowed=false`
+- `byte_range_provider_gate_external_engine_invoked=false`
+- `byte_range_provider_gate_claim_gate_status=not_claim_grade`
+
+The provider gate requires provider capability policy, credential-effect policy, request-budget
+policy, retry policy, idempotency-key contract, execution certificate, Native I/O certificate, and
+benchmark evidence before future byte-range reads may be promoted.
 
 For the CG-10 runtime promotion gate:
 
@@ -80,9 +106,15 @@ probing, cloud credentials, or fallback behavior.
 4. `checkpoint_retry`
 5. `commit_protocol`
 
+The CG-10 runtime promotion gate also lists `byte_range_provider_gate` as existing report-only
+evidence before `range_read_execution`; range-read execution itself remains blocked.
+
 ## Acceptance Boundaries
 
 - [x] Every existing CG-10 planning surface is represented in one deterministic report.
+- [x] The byte-range provider gate is represented as report-only evidence and keeps credential
+      resolution, provider probes, network probes, range reads, retry execution, object-store I/O,
+      write I/O, external engines, and fallback disabled by default.
 - [x] The report keeps blocked component status visible instead of hiding it behind a generic
       unsupported result.
 - [x] The CLI emits machine-readable JSON fields for component statuses, request/task/retry/commit

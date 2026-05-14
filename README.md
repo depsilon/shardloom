@@ -103,6 +103,9 @@ Currently wired surfaces include:
 - a predicate/DType coverage table in `compute-capability-matrix` for predicate, DType,
   null-semantics, nested-shape, and statistics families, with support status, evidence gaps,
   deterministic unsupported diagnostics, and no-fallback/no-external-engine fields
+- an object-store byte-range provider gate in `object-store-request-plan` and
+  `cg10-object-store-runtime-gate` that names credential, retry, idempotency, Native I/O,
+  execution-certificate, and benchmark evidence before any future object-store read can run
 - a local benchmark harness with taxonomy metadata, separate timing and coverage tables,
   reproducibility checks, local optional baselines, and explicit unsupported/blocked rows
 - Vortex-first architecture docs and guardrails for treating upstream Vortex APIs as native providers

@@ -13,15 +13,16 @@ use shardloom_core::{
     ShardLoomError, SnapshotId, SnapshotRef,
 };
 use shardloom_plan::{
-    ObjectStoreCheckpointRetryInput, ObjectStoreCheckpointRetryReport,
-    ObjectStoreCommitProtocolInput, ObjectStoreCommitProtocolReport,
-    ObjectStoreDistributedSchedulingPolicy, ObjectStoreDistributedSchedulingReport,
-    ObjectStoreRangePlanningPolicy, ObjectStoreRangePlanningReport,
-    ObjectStoreRequestCoalescingReport, ObjectStoreRequestPlannerReport,
-    ObjectStoreRuntimePromotionGateReport, plan_object_store_checkpoint_retry,
-    plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
-    plan_object_store_ranges, plan_object_store_request_coalescing,
-    plan_object_store_request_planner, plan_object_store_runtime_promotion_gate,
+    ObjectStoreByteRangeProviderGateReport, ObjectStoreCheckpointRetryInput,
+    ObjectStoreCheckpointRetryReport, ObjectStoreCommitProtocolInput,
+    ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
+    ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
+    ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport,
+    ObjectStoreRequestPlannerReport, ObjectStoreRuntimePromotionGateReport,
+    plan_object_store_checkpoint_retry, plan_object_store_commit_protocol,
+    plan_object_store_distributed_scheduling, plan_object_store_ranges,
+    plan_object_store_request_coalescing, plan_object_store_request_planner,
+    plan_object_store_runtime_promotion_gate,
 };
 
 use crate::{
@@ -247,6 +248,7 @@ fn object_store_request_output_fields(
     );
     append_object_store_request_count_fields(&mut fields, report);
     append_object_store_request_requirement_fields(&mut fields, report);
+    append_byte_range_provider_gate_fields(&mut fields, &report.byte_range_provider_gate);
     append_object_store_request_side_effect_fields(&mut fields, report);
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     push_field(&mut fields, "execution", "not_performed");
@@ -405,10 +407,192 @@ fn object_store_runtime_promotion_gate_fields(
         &report.existing_report_refs.join(","),
     );
     append_object_store_runtime_existing_fields(&mut fields, report);
+    append_byte_range_provider_gate_fields(&mut fields, &report.byte_range_provider_gate);
     append_object_store_runtime_allowed_fields(&mut fields, report);
     append_object_store_runtime_required_fields(&mut fields, report);
     append_object_store_runtime_status_fields(&mut fields, report);
     fields
+}
+
+fn append_byte_range_provider_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreByteRangeProviderGateReport,
+) {
+    append_byte_range_provider_gate_identity_fields(fields, report);
+    append_byte_range_provider_gate_requirement_fields(fields, report);
+    append_byte_range_provider_gate_disabled_effect_fields(fields, report);
+    append_byte_range_provider_gate_status_fields(fields, report);
+}
+
+fn append_byte_range_provider_gate_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreByteRangeProviderGateReport,
+) {
+    push_field(
+        fields,
+        "byte_range_provider_gate_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "byte_range_provider_gate_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "byte_range_provider_gate_status",
+        report.status.as_str(),
+    );
+    push_field(fields, "byte_range_provider_gate_scope", report.scope);
+    push_field(
+        fields,
+        "byte_range_provider_gate_provider_family",
+        report.provider_family,
+    );
+    push_field(
+        fields,
+        "byte_range_provider_gate_blocker_id",
+        report.blocker_id,
+    );
+    push_field(
+        fields,
+        "byte_range_provider_gate_required_evidence",
+        report.required_evidence,
+    );
+}
+
+fn append_byte_range_provider_gate_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreByteRangeProviderGateReport,
+) {
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_range_planning_evidence_present",
+        report.range_planning_evidence_present,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_request_budget_policy_required",
+        report.request_budget_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_provider_capability_policy_required",
+        report.provider_capability_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_credential_policy_required",
+        report.credential_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_retry_policy_required",
+        report.retry_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_idempotency_key_required",
+        report.idempotency_key_required,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+}
+
+fn append_byte_range_provider_gate_disabled_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreByteRangeProviderGateReport,
+) {
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_range_read_execution_allowed",
+        report.range_read_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_full_file_read_allowed",
+        report.full_file_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_credential_resolution_allowed",
+        report.credential_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_credentials_resolved",
+        report.credentials_resolved,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_retry_execution_allowed",
+        report.retry_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_provider_probe",
+        report.provider_probe,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_network_probe",
+        report.network_probe,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_data_read",
+        report.data_read,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_object_store_io",
+        report.object_store_io,
+    );
+    push_bool_field(fields, "byte_range_provider_gate_write_io", report.write_io);
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+}
+
+fn append_byte_range_provider_gate_status_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreByteRangeProviderGateReport,
+) {
+    push_field(
+        fields,
+        "byte_range_provider_gate_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_side_effect_free",
+        report.side_effect_free(),
+    );
 }
 
 fn append_object_store_runtime_existing_fields(

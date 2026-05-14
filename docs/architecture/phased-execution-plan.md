@@ -262,21 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0008-A object-store byte-range provider gate
-  - Source: RFC 0008; object-store request planner; operational evidence policy hardening.
-  - Current state: range/coalescing planning exists; object-store byte-range reads and provider
-    probes are not executed.
-  - Next slice outcome: provider gate for byte-range reads with credential, retry, idempotency, and
-    no-I/O default fields.
-  - User-visible surface: CLI object-store request plan, release gate, docs.
-  - Implementation scope: object-store planner report, CLI output, tests.
-  - Evidence required: policy/no-fallback refs and unsupported diagnostics; Native I/O refs only if
-    a real read path is admitted.
-  - Acceptance: default gate performs no object-store I/O and names required evidence to enable it.
-  - Verification: object-store planner tests, release readiness metadata tests.
-  - Non-goals: no cloud credentials, network read, coordinator, worker, or commit.
-  - Fallback/claim boundary: object-store support remains report-only until runtime evidence exists.
-  - Dependencies/blockers: credential/policy slices in GAR-0019.
 - [ ] GAR-0008-B coordinator, worker, checkpoint, retry, and commit blocker matrix
   - Source: RFC 0008; object-store request planner; RFC 0017.
   - Current state: scheduling/checkpoint/retry/commit are planned/report-only.
