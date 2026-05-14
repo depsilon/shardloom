@@ -228,13 +228,26 @@ pub(crate) fn handle_traditional_analytics_run(
     let input_format = input_format.unwrap_or_else(|| {
         shardloom_vortex::TraditionalAnalyticsInputFormat::infer_from_paths(&fact_path, &dim_path)
     });
-    if requested_execution_mode == ShardLoomExecutionMode::DirectCompatibilityTransient {
-        return emit_direct_compatibility_transient_unsupported(
-            format,
+    let direct_transient_unsupported =
+        direct_transient_unsupported_reason(DirectTransientAdmissionFacts {
+            scenario,
             input_format,
+            cdc_delta_requested: cdc_delta_csv.is_some(),
+            compatibility_output_requested: compatibility_output_format.is_some(),
             verify_native_vortex_replay,
             write_result_vortex,
-        );
+        });
+
+    if requested_execution_mode == ShardLoomExecutionMode::DirectCompatibilityTransient {
+        if let Some(reason) = direct_transient_unsupported {
+            return emit_direct_compatibility_transient_unsupported(
+                format,
+                input_format,
+                verify_native_vortex_replay,
+                write_result_vortex,
+                reason,
+            );
+        }
     }
     let request = shardloom_vortex::TraditionalAnalyticsRequest::new(
         scenario,
@@ -254,6 +267,29 @@ pub(crate) fn handle_traditional_analytics_run(
             max_parallelism,
         ),
     );
+    if requested_execution_mode == ShardLoomExecutionMode::DirectCompatibilityTransient {
+        let report = match shardloom_vortex::run_traditional_direct_transient_csv_smoke(request) {
+            Ok(report) => report,
+            Err(error) => {
+                return emit_error(
+                    "traditional-analytics-run",
+                    format,
+                    "traditional analytics direct transient smoke failed",
+                    &error,
+                );
+            }
+        };
+        emit(
+            "traditional-analytics-run",
+            format,
+            CommandStatus::Success,
+            "direct compatibility transient CSV smoke".to_string(),
+            report.to_human_text(),
+            report.diagnostics.clone(),
+            report.fields(),
+        );
+        return ExitCode::SUCCESS;
+    }
     let report = match shardloom_vortex::run_traditional_analytics_benchmark(request) {
         Ok(report) => report,
         Err(error) => {
@@ -277,11 +313,44 @@ pub(crate) fn handle_traditional_analytics_run(
     ExitCode::SUCCESS
 }
 
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct DirectTransientAdmissionFacts {
+    scenario: shardloom_vortex::TraditionalAnalyticsScenario,
+    input_format: shardloom_vortex::TraditionalAnalyticsInputFormat,
+    cdc_delta_requested: bool,
+    compatibility_output_requested: bool,
+    verify_native_vortex_replay: bool,
+    write_result_vortex: bool,
+}
+
+fn direct_transient_unsupported_reason(
+    facts: DirectTransientAdmissionFacts,
+) -> Option<&'static str> {
+    if facts.input_format != shardloom_vortex::TraditionalAnalyticsInputFormat::Csv {
+        return Some("direct transient smoke currently supports local CSV input only");
+    }
+    if facts.scenario != shardloom_vortex::TraditionalAnalyticsScenario::SelectiveFilter {
+        return Some("direct transient smoke currently supports only selective filter");
+    }
+    if facts.cdc_delta_requested {
+        return Some("direct transient smoke does not support CDC delta input");
+    }
+    if facts.compatibility_output_requested {
+        return Some("direct transient smoke does not support compatibility output writers");
+    }
+    if facts.verify_native_vortex_replay || facts.write_result_vortex {
+        return Some("direct transient smoke does not support Vortex replay or result-sink writes");
+    }
+    None
+}
+
 fn emit_direct_compatibility_transient_unsupported(
     format: OutputFormat,
     input_format: shardloom_vortex::TraditionalAnalyticsInputFormat,
     certification_requested: bool,
     result_sink_requested: bool,
+    unsupported_detail: &str,
 ) -> ExitCode {
     let report = ShardLoomExecutionModeSelectionReport::from_request(
         ShardLoomExecutionModeSelectionRequest::new(
@@ -299,6 +368,10 @@ fn emit_direct_compatibility_transient_unsupported(
             "admission_surface".to_string(),
             "traditional_analytics_direct_transient".to_string(),
         ),
+        (
+            "unsupported_detail".to_string(),
+            unsupported_detail.to_string(),
+        ),
         ("runtime_execution".to_string(), "false".to_string()),
         ("query_execution".to_string(), "false".to_string()),
         ("data_read".to_string(), "false".to_string()),
@@ -313,14 +386,13 @@ fn emit_direct_compatibility_transient_unsupported(
         format,
         CommandStatus::Unsupported,
         "direct compatibility transient admission".to_string(),
-        "direct_compatibility_transient is unsupported; no runtime execution was attempted"
-            .to_string(),
+        format!("{unsupported_detail}; no runtime execution was attempted"),
         vec![Diagnostic::unsupported(
             DiagnosticCode::NotImplemented,
             "direct_compatibility_transient",
-            "direct_compatibility_transient is unsupported for traditional-analytics-run; no runtime execution was attempted",
+            format!("{unsupported_detail}; no runtime execution was attempted"),
             Some(
-                "Use compatibility_import_certified for certified ingest/stage evidence until a direct transient local smoke path is implemented."
+                "Use compatibility_import_certified for certified ingest/stage evidence, or restrict direct transient mode to the supported local CSV selective-filter smoke path."
                     .to_string(),
             ),
         )],

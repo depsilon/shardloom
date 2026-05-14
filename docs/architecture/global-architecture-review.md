@@ -640,8 +640,9 @@ plan before coding.
   current report/benchmark/evidence surfaces.
 - [x] `auto` is constrained to transparent mode selection and must report selected mode plus reason.
 - [ ] `direct_compatibility_transient` now has deterministic admission diagnostics across
-  capability rows, CLI JSON envelopes, Python typed accessors, and benchmark coverage rows, but no
-  direct transient runtime path.
+  capability rows, CLI JSON envelopes, Python typed accessors, and benchmark coverage rows, plus
+  one scoped local CSV selective-filter smoke path; broader formats, operators, result sinks, and
+  SQL/DataFrame direct transient runtime remain incomplete.
 - [ ] Prepared/native Vortex rows still rely on temporary materialized or residual
   ShardLoom-native operator paths for some scenarios until encoded/native operator coverage matures.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and

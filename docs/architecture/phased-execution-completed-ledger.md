@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-1B direct compatibility transient local CSV smoke path
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add one scoped `direct_compatibility_transient` local CSV selective-filter smoke path
+    without persistent Vortex write/reopen. The path emits execution-mode support fields,
+    materialization/decode evidence, a runtime execution certificate, and no-fallback/no-external
+    engine evidence while keeping `vortex_native_claim_allowed=false`.
+  - Checklist:
+    - [x] Add `run_traditional_direct_transient_csv_smoke` and
+          `TraditionalDirectTransientReport` for the local CSV selective-filter slice.
+    - [x] Keep adjacent direct-transient requests deterministic and unsupported before data/runtime
+          work when they request other formats, operators, CDC input, compatibility output, Vortex
+          replay, or result-sink writes.
+    - [x] Route supported direct transient CLI requests through the new runtime path and return a
+          typed success envelope.
+    - [x] Add a `shardloom-direct-transient` benchmark lane and coverage row with stage timings:
+          source read/parse, zero Vortex import/write/reopen/scan, operator compute, and total
+          runtime.
+    - [x] Preserve `fallback_attempted=false`, `external_engine_invoked=false`,
+          `vortex_file_written=false`, `vortex_file_read=false`, and
+          `upstream_vortex_scan_called=false`.
+    - [x] Update flow and benchmark docs so the path is described as fixture-smoke and
+          non-Vortex-native, not a SQL/DataFrame or performance claim.
+    - [x] Move GAR-FLOW-1B out of Planned; GAR-FLOW-2A is now the next Planned slice.
+  - Boundary:
+    - This implements only local CSV `selective filter`. It does not add Parquet/JSONL/Arrow/Avro/ORC
+      direct transient execution, SQL/DataFrame APIs, result-sink certification, object-store/table
+      behavior, Vortex-native execution, a persistent runner, or any speed/superiority claim.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex direct_transient --features vortex-traditional-analytics-benchmark --lib`
+    - `cargo test -p shardloom-cli --features vortex-traditional-analytics-benchmark --test typed_envelope_compatibility_lock`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m unittest python.tests.test_cli_client -v`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+    - `benchmarks/traditional_analytics/.venv/Scripts/python benchmarks/traditional_analytics/run.py --engines shardloom-direct-transient,pandas --formats csv --scenario "selective filter" --rows 1000 --iterations 1 --output target/codex-gar-flow-1b-smoke.json --markdown-output target/codex-gar-flow-1b-smoke.md --regenerate --skip-shardloom-native`
+
 - [x] Session label: GAR-FLOW-1A direct compatibility transient admission contract
   - Primary files:
     - `shardloom-core/src/output.rs`

@@ -260,27 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-FLOW-1B direct compatibility transient local CSV smoke path
-  - Source: GAR-FLOW-1A; RFC 0033; RFC 0042; benchmark harness docs.
-  - Current state: the admission contract emits deterministic unsupported diagnostics across CLI,
-    Python typed accessors, capability views, and benchmark coverage rows; no direct compatibility
-    compute path exists.
-  - Next slice outcome: one ShardLoom-native transient local CSV scenario that computes without
-    persistent Vortex write/reopen.
-  - User-visible surface: CLI benchmark path and benchmark coverage row.
-  - Implementation scope: local CSV source adapter, one supported operator, typed benchmark row, and
-    execution certificate fields for the scoped path.
-  - Evidence required: correctness digest, benchmark row, execution certificate, materialization/decode
-    evidence, policy/no-fallback refs.
-  - Acceptance: one local scenario runs without Vortex persistence; `vortex_native_claim_allowed=false`;
-    unsupported adjacent scenarios keep deterministic diagnostics.
-  - Verification: focused benchmark smoke, no-fallback contract test, `cargo test --workspace --all-targets`.
-  - Non-goals: no Parquet transient path, SQL/DataFrame runtime, result-sink claim, or Vortex-native
-    claim.
-  - Fallback/claim boundary: may claim one scoped transient CSV smoke path only; no speed,
-    superiority, or Vortex-native claim.
-  - Dependencies/blockers: completed GAR-FLOW-1A admission fields exist; runtime correctness,
-    materialization, and no-fallback evidence remain missing.
 - [ ] GAR-FLOW-2A execution-mode benchmark attribution contract
   - Source: `docs/architecture/compute-engine-flow-reference.md`,
     `docs/architecture/performance-attribution-and-execution-structure.md`,

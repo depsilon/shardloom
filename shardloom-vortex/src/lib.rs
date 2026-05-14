@@ -505,7 +505,8 @@ pub use traditional_analytics::{
     TraditionalAnalyticsInputFormat, TraditionalAnalyticsReport, TraditionalAnalyticsRequest,
     TraditionalAnalyticsResourcePolicy, TraditionalAnalyticsScenario,
     TraditionalAnalyticsVortexReport, TraditionalAnalyticsVortexRequest,
-    run_traditional_analytics_benchmark, run_traditional_analytics_vortex_benchmark,
+    TraditionalDirectTransientReport, run_traditional_analytics_benchmark,
+    run_traditional_analytics_vortex_benchmark, run_traditional_direct_transient_csv_smoke,
 };
 
 // Runtime bridge, scheduler, bounded execution, and narrow local engine/provider exports.

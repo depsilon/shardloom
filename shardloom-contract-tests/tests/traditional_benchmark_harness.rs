@@ -83,6 +83,10 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"result_native_io_certificate_status\""));
     assert!(script.contains("\"materialization_decode_evidence_present\""));
     assert!(script.contains("def direct_transient_admission_coverage_row("));
+    assert!(script.contains("def shardloom_direct_transient_runner("));
+    assert!(script.contains("\"shardloom-direct-transient\""));
+    assert!(script.contains("\"direct_transient_local_csv_smoke\""));
+    assert!(script.contains("\"direct_transient_no_vortex_scan\""));
     assert!(script.contains("\"direct_compatibility_transient\""));
     assert!(script.contains("\"direct_compatibility_transient_not_implemented\""));
     assert!(script.contains("def support_status("));
@@ -430,7 +434,7 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "stable correctness digest",
         "Native I/O certificate",
         "Unsupported work must return deterministic unsupported diagnostics",
-        "a direct transient runtime path",
+        "one scoped local CSV",
         "Actionable implementation work must be represented in",
         "docs/architecture/phased-execution-plan.md",
         "docs/architecture/compute-engine-flow-overhaul-review.md",
@@ -493,7 +497,10 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
             "Session label: GAR-FLOW-1A direct compatibility transient admission contract"
         )
     );
-    assert!(plan.contains("GAR-FLOW-1B direct compatibility transient local CSV smoke path"));
+    assert!(
+        completed_ledger
+            .contains("GAR-FLOW-1B direct compatibility transient local CSV smoke path")
+    );
     assert!(plan.contains("GAR-FLOW-2A execution-mode benchmark attribution contract"));
     assert!(plan.contains("GAR-FLOW-2C persistent benchmark runner admission gate"));
     assert!(plan.contains("GAR-FLOW-2D work-avoidance metric evidence schema"));

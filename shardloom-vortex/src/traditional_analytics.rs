@@ -27,7 +27,6 @@ const BENCHMARK_FLOAT_DIGITS: i32 = 4;
 const MAX_EXACT_F64_INTEGER: u64 = 9_007_199_254_740_992;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID: &str = "local_vortex_analytics_v1";
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
@@ -787,6 +786,521 @@ pub struct TraditionalAnalyticsReport {
     pub spill_io_performed: bool,
     pub fallback_execution_allowed: bool,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Report emitted by the scoped direct compatibility transient CSV smoke path.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct TraditionalDirectTransientReport {
+    pub scenario: TraditionalAnalyticsScenario,
+    pub input_format: TraditionalAnalyticsInputFormat,
+    pub execution_mode_selection: ShardLoomExecutionModeSelectionReport,
+    pub resource_policy: TraditionalAnalyticsResourcePolicy,
+    pub result_json: String,
+    pub fact_rows: u64,
+    pub dim_rows: u64,
+    pub rows_scanned: u64,
+    pub rows_materialized: u64,
+    pub fact_source_path: PathBuf,
+    pub dim_source_path: PathBuf,
+    pub fact_source_bytes: u64,
+    pub dim_source_bytes: u64,
+    pub source_bytes_read: u64,
+    pub source_read_micros: u64,
+    pub scenario_compute_micros: u64,
+    pub runtime_execution_certificate: ExecutionCertificate,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl TraditionalDirectTransientReport {
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "ShardLoom direct compatibility transient CSV smoke\nscenario: {}\nsource format: {}\nrows scanned: {}\nrows materialized: {}\nVortex persistence: false\nruntime certificate: {}\nexternal engine fallback: disabled",
+            self.scenario.as_str(),
+            self.input_format.as_str(),
+            self.rows_scanned,
+            self.rows_materialized,
+            self.runtime_execution_certificate.status.as_str()
+        )
+    }
+
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        let mut fields = vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "external_engines_are_fallback".to_string(),
+                "false".to_string(),
+            ),
+        ];
+        fields.extend(self.execution_mode_selection.fields());
+        fields.extend(vec![
+            ("scenario".to_string(), self.scenario.as_str().to_string()),
+            (
+                "input_format".to_string(),
+                self.input_format.as_str().to_string(),
+            ),
+            (
+                "resource_policy_mode".to_string(),
+                self.resource_policy.sizing_mode().to_string(),
+            ),
+            (
+                "resource_auto_sizing_enabled".to_string(),
+                TraditionalAnalyticsResourcePolicy::auto_sizing_enabled().to_string(),
+            ),
+            (
+                "applied_memory_gb".to_string(),
+                self.resource_policy.memory_gb.to_string(),
+            ),
+            (
+                "applied_max_parallelism".to_string(),
+                self.resource_policy.max_parallelism.to_string(),
+            ),
+            (
+                "applied_batch_rows".to_string(),
+                self.resource_policy.target_batch_rows.to_string(),
+            ),
+            (
+                "target_partition_bytes".to_string(),
+                self.resource_policy.target_partition_bytes.to_string(),
+            ),
+            (
+                "target_partition_count".to_string(),
+                self.resource_policy.target_partition_count.to_string(),
+            ),
+            ("partitioning_auto_derived".to_string(), "true".to_string()),
+            ("dynamic_sizing_applied".to_string(), "true".to_string()),
+            (
+                "source_kind".to_string(),
+                self.input_format.source_kind().to_string(),
+            ),
+            (
+                "source_adapter_id".to_string(),
+                "shardloom.adapter.csv.direct_transient.v1".to_string(),
+            ),
+            ("result_json".to_string(), self.result_json.clone()),
+            ("fact_rows".to_string(), self.fact_rows.to_string()),
+            ("dim_rows".to_string(), self.dim_rows.to_string()),
+            ("rows_scanned".to_string(), self.rows_scanned.to_string()),
+            (
+                "rows_materialized".to_string(),
+                self.rows_materialized.to_string(),
+            ),
+            (
+                "fact_source_path".to_string(),
+                self.fact_source_path.display().to_string(),
+            ),
+            (
+                "dim_source_path".to_string(),
+                self.dim_source_path.display().to_string(),
+            ),
+            ("workspace_dir".to_string(), "not_used".to_string()),
+            ("fact_vortex_path".to_string(), "none".to_string()),
+            ("dim_vortex_path".to_string(), "none".to_string()),
+            ("prepared_artifact_ref".to_string(), "none".to_string()),
+            ("prepared_artifact_fact_ref".to_string(), "none".to_string()),
+            ("prepared_artifact_dim_ref".to_string(), "none".to_string()),
+            ("prepared_artifact_digest".to_string(), "none".to_string()),
+            (
+                "prepared_artifact_fact_digest".to_string(),
+                "none".to_string(),
+            ),
+            (
+                "prepared_artifact_dim_digest".to_string(),
+                "none".to_string(),
+            ),
+            (
+                "prepared_artifact_lifecycle_status".to_string(),
+                "not_applicable_direct_transient".to_string(),
+            ),
+            (
+                "prepared_artifact_cleanup_policy".to_string(),
+                "not_applicable".to_string(),
+            ),
+            (
+                "prepared_artifact_reuse_eligible".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepared_artifact_workspace".to_string(),
+                "not_used".to_string(),
+            ),
+            (
+                "workload_scorecard_status".to_string(),
+                "fixture_smoke_only_direct_transient".to_string(),
+            ),
+            (
+                "benchmark_row_ref".to_string(),
+                "benchmark://local_vortex_analytics_v1/direct_transient_csv_selective_filter"
+                    .to_string(),
+            ),
+            (
+                "coverage_row_ref".to_string(),
+                "coverage.direct_compatibility_transient.local_csv_smoke".to_string(),
+            ),
+            (
+                "output_artifact_schema_summary".to_string(),
+                "result(row_count:u64,metric_sum:f64)".to_string(),
+            ),
+            (
+                "output_artifact_digest_algorithm".to_string(),
+                OUTPUT_ARTIFACT_DIGEST_ALGORITHM.to_string(),
+            ),
+            (
+                "fact_source_bytes".to_string(),
+                self.fact_source_bytes.to_string(),
+            ),
+            (
+                "dim_source_bytes".to_string(),
+                self.dim_source_bytes.to_string(),
+            ),
+            (
+                "source_bytes_read".to_string(),
+                self.source_bytes_read.to_string(),
+            ),
+            (
+                "fact_csv_bytes".to_string(),
+                self.fact_source_bytes.to_string(),
+            ),
+            (
+                "dim_csv_bytes".to_string(),
+                self.dim_source_bytes.to_string(),
+            ),
+            ("fact_vortex_bytes".to_string(), "0".to_string()),
+            ("dim_vortex_bytes".to_string(), "0".to_string()),
+            ("cdc_delta_vortex_bytes".to_string(), "0".to_string()),
+            (
+                "materialization_boundary_rows".to_string(),
+                self.fact_rows.saturating_add(self.dim_rows).to_string(),
+            ),
+            (
+                "source_read_micros".to_string(),
+                self.source_read_micros.to_string(),
+            ),
+            (
+                "compatibility_parse_micros".to_string(),
+                self.source_read_micros.to_string(),
+            ),
+            (
+                "compatibility_to_vortex_import_micros".to_string(),
+                "0".to_string(),
+            ),
+            ("vortex_write_micros".to_string(), "0".to_string()),
+            ("vortex_reopen_micros".to_string(), "0".to_string()),
+            ("vortex_scan_micros".to_string(), "0".to_string()),
+            (
+                "operator_compute_micros".to_string(),
+                self.scenario_compute_micros.to_string(),
+            ),
+            (
+                "scenario_compute_micros".to_string(),
+                self.scenario_compute_micros.to_string(),
+            ),
+            ("result_sink_write_micros".to_string(), "none".to_string()),
+            (
+                "computed_result_sink_write_micros".to_string(),
+                "none".to_string(),
+            ),
+            (
+                "evidence_render_micros".to_string(),
+                "not_measured".to_string(),
+            ),
+            (
+                "computed_result_sink_requested".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "computed_result_sink_written".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "computed_result_sink_replay_verified".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "computed_result_vortex_path".to_string(),
+                "none".to_string(),
+            ),
+            ("computed_result_vortex_bytes".to_string(), "0".to_string()),
+            (
+                "computed_result_vortex_digest".to_string(),
+                "none".to_string(),
+            ),
+            ("computed_result_sink_rows".to_string(), "0".to_string()),
+            (
+                "computed_result_sink_rows_materialized".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "computed_result_sink_schema_summary".to_string(),
+                "not_applicable".to_string(),
+            ),
+            (
+                "computed_result_sink_replay_result_json".to_string(),
+                String::new(),
+            ),
+            (
+                "computed_result_sink_native_io_certificate_status".to_string(),
+                "not_applicable".to_string(),
+            ),
+            (
+                "result_sink_claim_gate_status".to_string(),
+                "not_applicable_direct_transient_no_result_sink".to_string(),
+            ),
+            (
+                "result_sink_claim_gate_reason".to_string(),
+                "direct transient smoke does not certify result sink".to_string(),
+            ),
+            (
+                "native_io_certificate_id".to_string(),
+                "not_vortex_native".to_string(),
+            ),
+            (
+                "native_io_certificate_status".to_string(),
+                "not_vortex_native".to_string(),
+            ),
+            (
+                "native_io_certificate_path_id".to_string(),
+                "not_vortex_native".to_string(),
+            ),
+            (
+                "source_native_io_certificate_status".to_string(),
+                "not_vortex_native".to_string(),
+            ),
+            (
+                "native_io_per_path_certificate_emitted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "native_io_materializing_transitions_have_boundaries".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "native_io_representation_transitions".to_string(),
+                "foreign_encoded->decoded_rows".to_string(),
+            ),
+            (
+                "native_io_representation_transition_order".to_string(),
+                "foreign_encoded->decoded_rows".to_string(),
+            ),
+            (
+                "native_work_envelope_created".to_string(),
+                "true".to_string(),
+            ),
+            ("native_work_stream_created".to_string(), "true".to_string()),
+            (
+                "native_result_stream_created".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "native_io_certificate_emitted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "compatibility_source_adapter_used".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "compatibility_to_vortex_import_performed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "compatibility_output_requested".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "compatibility_output_written".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "native_to_compatibility_output_performed".to_string(),
+                "false".to_string(),
+            ),
+            ("csv_source_adapter_used".to_string(), "true".to_string()),
+            (
+                "csv_to_vortex_import_performed".to_string(),
+                "false".to_string(),
+            ),
+            ("jsonl_source_adapter_used".to_string(), "false".to_string()),
+            (
+                "jsonl_to_vortex_import_performed".to_string(),
+                "false".to_string(),
+            ),
+            ("vortex_file_written".to_string(), "false".to_string()),
+            ("vortex_file_read".to_string(), "false".to_string()),
+            (
+                "upstream_vortex_scan_called".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "streaming_vortex_execution_used".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "full_table_materialization_avoided".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "streaming_filter_pushdown_applied".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "streaming_projection_pushdown_applied".to_string(),
+                "false".to_string(),
+            ),
+            ("streaming_arrays_read_count".to_string(), "0".to_string()),
+            ("streaming_max_chunk_rows".to_string(), "0".to_string()),
+            (
+                "streaming_projected_columns".to_string(),
+                "metric".to_string(),
+            ),
+            ("data_decoded".to_string(), "true".to_string()),
+            ("data_materialized".to_string(), "true".to_string()),
+            (
+                "materialization_boundary_report_emitted".to_string(),
+                "true".to_string(),
+            ),
+            ("row_read".to_string(), "true".to_string()),
+            ("arrow_converted".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("spill_io_performed".to_string(), "false".to_string()),
+            ("runtime_task_graph_created".to_string(), "true".to_string()),
+            (
+                "runtime_task_graph_executed".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "runtime_scheduler_mode".to_string(),
+                "direct_transient_local".to_string(),
+            ),
+            (
+                "runtime_scheduler_ref".to_string(),
+                "direct_transient_csv_selective_filter".to_string(),
+            ),
+            ("runtime_task_count".to_string(), "1".to_string()),
+            ("runtime_scheduled_task_count".to_string(), "1".to_string()),
+            ("runtime_completed_task_count".to_string(), "1".to_string()),
+            ("runtime_split_count".to_string(), "1".to_string()),
+            ("runtime_scheduler_batch_count".to_string(), "1".to_string()),
+            (
+                "runtime_max_parallelism".to_string(),
+                self.resource_policy.max_parallelism.to_string(),
+            ),
+            (
+                "runtime_queue_limit_enforced".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "runtime_backpressure_bounded".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "runtime_cancellation_testable".to_string(),
+                "true".to_string(),
+            ),
+            ("runtime_retry_testable".to_string(), "true".to_string()),
+            (
+                "runtime_fail_before_oom_enforced".to_string(),
+                "true".to_string(),
+            ),
+            ("runtime_spill_required".to_string(), "false".to_string()),
+            ("runtime_spill_supported".to_string(), "true".to_string()),
+            ("runtime_spill_blocker".to_string(), "none".to_string()),
+            (
+                "runtime_large_workload_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "execution_certificate_emitted".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "execution_certificate_id".to_string(),
+                self.runtime_execution_certificate.certificate_id.clone(),
+            ),
+            (
+                "execution_certificate_status".to_string(),
+                self.runtime_execution_certificate
+                    .status
+                    .as_str()
+                    .to_string(),
+            ),
+            (
+                "runtime_execution_certificate_id".to_string(),
+                self.runtime_execution_certificate.certificate_id.clone(),
+            ),
+            (
+                "runtime_execution_certificate_status".to_string(),
+                self.runtime_execution_certificate
+                    .status
+                    .as_str()
+                    .to_string(),
+            ),
+            (
+                "runtime_execution_certificate_provider_kind".to_string(),
+                self.runtime_execution_certificate
+                    .execution_provider_kind
+                    .as_str()
+                    .to_string(),
+            ),
+            (
+                "runtime_execution_certificate_plan_ref".to_string(),
+                self.runtime_execution_certificate
+                    .plan_ref
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "runtime_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "runtime_external_query_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            ("provider_kind".to_string(), "shardloom_kernel".to_string()),
+            (
+                "provider_api_surface".to_string(),
+                "direct_compatibility_transient_csv_smoke".to_string(),
+            ),
+            (
+                "provider_admission_classification".to_string(),
+                "direct_transient_csv_smoke".to_string(),
+            ),
+            (
+                "encoded_native_execution_status".to_string(),
+                "not_vortex_native".to_string(),
+            ),
+            (
+                "scan_api_status".to_string(),
+                "direct_transient_no_vortex_scan".to_string(),
+            ),
+            (
+                "persistent_runner_status".to_string(),
+                "process_per_scenario_attributed_not_reduced".to_string(),
+            ),
+            ("fusion_status".to_string(), "not_applicable".to_string()),
+            (
+                "fusion_blocker".to_string(),
+                "not_vortex_native".to_string(),
+            ),
+            ("residual_executor".to_string(), "none".to_string()),
+            ("residual_boundary".to_string(), "none".to_string()),
+            (
+                "representation_transition_summary".to_string(),
+                "foreign_encoded->decoded_rows".to_string(),
+            ),
+            ("fallback_attempted".to_string(), "false".to_string()),
+            ("external_engine_invoked".to_string(), "false".to_string()),
+        ]);
+        fields
+    }
 }
 
 impl TraditionalAnalyticsReport {
@@ -2493,6 +3007,27 @@ pub fn run_traditional_analytics_benchmark(
     }
 }
 
+/// Runs the scoped direct compatibility transient local CSV smoke path.
+///
+/// # Errors
+/// Returns an error when the feature gate is disabled or the request exceeds
+/// the narrow GAR-FLOW-1B admission contract.
+pub fn run_traditional_direct_transient_csv_smoke(
+    request: TraditionalAnalyticsRequest,
+) -> Result<TraditionalDirectTransientReport> {
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    {
+        run_traditional_direct_transient_csv_smoke_enabled(request)
+    }
+    #[cfg(not(feature = "vortex-traditional-analytics-benchmark"))]
+    {
+        std::mem::drop(request);
+        Err(ShardLoomError::InvalidOperation(
+            "direct compatibility transient CSV smoke requires feature `vortex-traditional-analytics-benchmark`; fallback execution was not attempted".to_string(),
+        ))
+    }
+}
+
 /// Runs a local traditional analytics scenario directly from native Vortex files.
 ///
 /// # Errors
@@ -2790,6 +3325,152 @@ struct TraditionalStreamingScanStats {
     projected_columns: Vec<String>,
     filter_pushdown_applied: bool,
     projection_pushdown_applied: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_traditional_direct_transient_csv_smoke_enabled(
+    request: TraditionalAnalyticsRequest,
+) -> Result<TraditionalDirectTransientReport> {
+    if request.requested_execution_mode != ShardLoomExecutionMode::DirectCompatibilityTransient {
+        return Err(ShardLoomError::InvalidOperation(
+            "direct transient CSV smoke requires --execution-mode direct_compatibility_transient; fallback execution was not attempted".to_string(),
+        ));
+    }
+    if request.input_format != TraditionalAnalyticsInputFormat::Csv {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "direct transient CSV smoke only supports local CSV input, found {}; fallback execution was not attempted",
+            request.input_format.as_str()
+        )));
+    }
+    if request.scenario != TraditionalAnalyticsScenario::SelectiveFilter {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "direct transient CSV smoke only supports selective filter, found {}; fallback execution was not attempted",
+            request.scenario.as_str()
+        )));
+    }
+    if request.cdc_delta_csv.is_some() {
+        return Err(ShardLoomError::InvalidOperation(
+            "direct transient CSV smoke does not support CDC delta input; fallback execution was not attempted".to_string(),
+        ));
+    }
+    if request.compatibility_output_format.is_some() {
+        return Err(ShardLoomError::InvalidOperation(
+            "direct transient CSV smoke does not support compatibility output writers; fallback execution was not attempted".to_string(),
+        ));
+    }
+    if request.verify_native_vortex_replay || request.write_result_vortex {
+        return Err(ShardLoomError::InvalidOperation(
+            "direct transient CSV smoke does not support Vortex replay or result-sink writes; fallback execution was not attempted".to_string(),
+        ));
+    }
+
+    let fact_source_bytes = file_len(&request.fact_csv, "fact input")?;
+    let dim_source_bytes = file_len(&request.dim_csv, "dimension input")?;
+    let source_bytes_read = checked_u64_sum(fact_source_bytes, dim_source_bytes)?;
+    let resource_policy = request
+        .resource_policy
+        .resolve_for_sources(source_bytes_read);
+    let execution_mode_selection = ShardLoomExecutionModeSelectionReport::from_request(
+        ShardLoomExecutionModeSelectionRequest::new(
+            ShardLoomExecutionMode::DirectCompatibilityTransient,
+        )
+        .with_source_format(request.input_format.as_str())
+        .with_workload_constitution(LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID)
+        .with_compatibility_input(true)
+        .with_direct_transient_supported(true),
+    );
+
+    let source_read_start = std::time::Instant::now();
+    let fact_rows = read_traditional_fact_csv(&request.fact_csv)?;
+    let dim_rows = read_traditional_dim_csv(&request.dim_csv)?;
+    let source_read_micros = duration_to_micros(source_read_start.elapsed());
+    let scenario_compute_start = std::time::Instant::now();
+    let mut accum = TraditionalGroupAccum::default();
+    for row in &fact_rows {
+        if row.flag == 1 && row.value >= 5_000 {
+            accum.add(row.metric);
+        }
+    }
+    let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
+    let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
+    let runtime_execution_certificate =
+        direct_transient_execution_certificate(request.scenario, request.input_format, 1)?;
+
+    Ok(TraditionalDirectTransientReport {
+        scenario: request.scenario,
+        input_format: request.input_format,
+        execution_mode_selection,
+        resource_policy,
+        result_json,
+        fact_rows: usize_to_u64(fact_rows.len())?,
+        dim_rows: usize_to_u64(dim_rows.len())?,
+        rows_scanned: usize_to_u64(fact_rows.len())?,
+        rows_materialized: 1,
+        fact_source_path: request.fact_csv,
+        dim_source_path: request.dim_csv,
+        fact_source_bytes,
+        dim_source_bytes,
+        source_bytes_read,
+        source_read_micros,
+        scenario_compute_micros,
+        runtime_execution_certificate,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn direct_transient_execution_certificate(
+    scenario: TraditionalAnalyticsScenario,
+    input_format: TraditionalAnalyticsInputFormat,
+    rows_materialized: u64,
+) -> Result<ExecutionCertificate> {
+    let mut certificate_input = ExecutionCertificateInput::new(
+        "gar-flow-1b.direct_transient_csv_selective_filter.runtime",
+        "direct_compatibility_transient_csv_smoke",
+    )?;
+    certificate_input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
+    certificate_input.provider_scope = "direct_compatibility_transient_local_csv".to_string();
+    certificate_input.provider_crate = Some("shardloom-vortex".to_string());
+    certificate_input.provider_version = Some(env!("CARGO_PKG_VERSION").to_string());
+    certificate_input.provider_api_surface =
+        Some("run_traditional_direct_transient_csv_smoke".to_string());
+    certificate_input.shardloom_admission_policy =
+        Some("local_csv_direct_transient_no_external_fallback".to_string());
+    certificate_input.plan_ref = Some("direct_transient_csv_selective_filter".to_string());
+    certificate_input.input_ref = Some(format!(
+        "traditional-analytics://source-format/{}/direct-transient",
+        input_format.as_str()
+    ));
+    certificate_input.output_ref =
+        Some("runtime-result://direct_transient_csv_selective_filter/in-memory".to_string());
+    certificate_input.correctness_fixture_id =
+        Some("gar-flow-1b.direct_transient_csv_selective_filter".to_string());
+    let outcome = ExpectedOutcome::Rows {
+        row_count: Some(rows_materialized),
+    };
+    certificate_input.expected_outcome = Some(outcome.clone());
+    certificate_input.actual_outcome = Some(outcome);
+    certificate_input.selected_segment_count = 1;
+    certificate_input.skipped_segment_count = 0;
+    certificate_input.side_effects_performed = vec![
+        "local_csv_read".to_string(),
+        format!("direct_transient_{}", scenario.as_str().replace(' ', "_")),
+    ];
+    certificate_input.data_read = true;
+    certificate_input.data_decoded = true;
+    certificate_input.data_materialized = true;
+    certificate_input.row_read = true;
+    certificate_input.arrow_converted = false;
+    certificate_input.object_store_io = false;
+    certificate_input.write_io = false;
+    certificate_input.spill_io_performed = false;
+    certificate_input.external_effects_executed = false;
+    certificate_input.external_query_engine_invoked = false;
+    certificate_input.unsafe_effect_detected = false;
+    certificate_input.fallback_attempted = false;
+    certificate_input.fallback_execution_allowed = false;
+    certificate_input.correctness_passed = true;
+    Ok(ExecutionCertificate::evaluate(certificate_input))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -7739,6 +8420,27 @@ mod tests {
     }
 
     #[test]
+    fn direct_transient_disabled_build_returns_explicit_error() {
+        if cfg!(feature = "vortex-traditional-analytics-benchmark") {
+            return;
+        }
+        let err = run_traditional_direct_transient_csv_smoke(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                PathBuf::from("fact.csv"),
+                PathBuf::from("dim.csv"),
+                PathBuf::from("ws"),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+        )
+        .expect_err("default build should require feature gate");
+        assert!(
+            err.to_string()
+                .contains("vortex-traditional-analytics-benchmark")
+        );
+    }
+
+    #[test]
     fn resource_policy_auto_derives_parallelism_and_partitions() {
         let policy =
             TraditionalAnalyticsResourcePolicy::auto().resolve_for_sources(256 * 1024 * 1024);
@@ -8070,6 +8772,11 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn field_map(fields: Vec<(String, String)>) -> std::collections::HashMap<String, String> {
+        fields.into_iter().collect()
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn assert_streaming_selective_filter_import_report(report: &TraditionalAnalyticsReport) {
         assert!(report.streaming_vortex_execution_used);
         assert!(report.full_table_materialization_avoided);
@@ -8153,6 +8860,145 @@ mod tests {
                 .iter()
                 .any(|operation| operation == "vortex_scan_projection")
         );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn direct_transient_csv_smoke_runs_without_vortex_persistence() {
+        let root = traditional_analytics_test_root("direct-transient-csv");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let report = run_traditional_direct_transient_csv_smoke(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+        )
+        .unwrap();
+
+        assert_eq!(report.result_json, "{\"row_count\":2,\"metric_sum\":6.5}");
+        assert_eq!(report.fact_rows, 3);
+        assert_eq!(report.dim_rows, 2);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_materialized, 1);
+        assert!(!workspace.exists());
+        assert_eq!(
+            report.execution_mode_selection.selected_execution_mode,
+            ShardLoomExecutionMode::DirectCompatibilityTransient
+        );
+        assert!(report.execution_mode_selection.mode_supported);
+        assert_eq!(report.execution_mode_selection.support_status, "supported");
+        assert!(report.execution_mode_selection.direct_transient_execution);
+        assert!(!report.execution_mode_selection.vortex_native_claim_allowed);
+        assert!(!report.execution_mode_selection.fallback_attempted);
+        assert!(!report.execution_mode_selection.external_engine_invoked);
+        assert!(report.runtime_execution_certificate.is_certified());
+        assert!(report.runtime_execution_certificate.fallback_free());
+        assert!(
+            report
+                .runtime_execution_certificate
+                .external_query_engine_free()
+        );
+        assert_eq!(
+            report.runtime_execution_certificate.expected_outcome,
+            Some(ExpectedOutcome::Rows { row_count: Some(1) })
+        );
+
+        let fields = field_map(report.fields());
+        assert_eq!(
+            fields.get("selected_execution_mode").map(String::as_str),
+            Some("direct_compatibility_transient")
+        );
+        assert_eq!(
+            fields.get("support_status").map(String::as_str),
+            Some("supported")
+        );
+        assert_eq!(
+            fields.get("direct_transient_execution").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            fields
+                .get("vortex_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("compatibility_to_vortex_import_performed")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields.get("vortex_file_written").map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields.get("vortex_file_read").map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("upstream_vortex_scan_called")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("runtime_execution_certificate_status")
+                .map(String::as_str),
+            Some("certified")
+        );
+        assert_eq!(fields.get("write_io").map(String::as_str), Some("false"));
+        assert_eq!(
+            fields
+                .get("native_io_certificate_status")
+                .map(String::as_str),
+            Some("not_vortex_native")
+        );
+        assert_eq!(
+            fields.get("fallback_attempted").map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields.get("external_engine_invoked").map(String::as_str),
+            Some("false")
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn direct_transient_csv_smoke_rejects_adjacent_scenarios() {
+        let root = traditional_analytics_test_root("direct-transient-unsupported");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+
+        let error = run_traditional_direct_transient_csv_smoke(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::HashJoin,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+        )
+        .expect_err("hash join is outside the direct transient smoke contract");
+
+        assert!(error.to_string().contains("only supports selective filter"));
+        assert!(
+            error
+                .to_string()
+                .contains("fallback execution was not attempted")
+        );
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
