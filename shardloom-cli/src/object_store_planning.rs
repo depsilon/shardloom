@@ -456,6 +456,38 @@ fn append_object_store_runtime_blocker_matrix_summary_fields(
     );
     push_bool_field(
         fields,
+        "runtime_blocker_matrix_diagnostics_propagated",
+        report.runtime_blocker_matrix_diagnostics_propagated(),
+    );
+    push_count_field(
+        fields,
+        "runtime_blocker_matrix_diagnostic_count",
+        report.runtime_blocker_matrix_diagnostic_count(),
+    );
+    push_field(
+        fields,
+        "runtime_blocker_matrix_diagnostic_code_order",
+        &report
+            .runtime_blocker_matrix_diagnostic_code_order()
+            .join(","),
+    );
+    push_field(
+        fields,
+        "runtime_blocker_matrix_diagnostic_category_order",
+        &report
+            .runtime_blocker_matrix_diagnostic_category_order()
+            .join(","),
+    );
+    push_field(
+        fields,
+        "runtime_blocker_matrix_diagnostic_severity_order",
+        &report
+            .runtime_blocker_matrix_diagnostic_severity_order()
+            .join(","),
+    );
+    push_field(fields, "runtime_blocker_matrix_envelope_status", "success");
+    push_bool_field(
+        fields,
         "runtime_blocker_matrix_all_allowed_false",
         report.runtime_blocker_matrix_all_allowed_false(),
     );
@@ -915,6 +947,7 @@ fn append_object_store_runtime_status_fields(
         "fallback_execution_allowed",
         report.fallback_execution_allowed,
     );
+    push_bool_field(fields, "external_engine_invoked", false);
     push_bool_field(fields, "side_effect_free", report.side_effect_free());
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
     push_field(fields, "execution", "not_performed");

@@ -73,6 +73,15 @@ execution.
   - Added workflow blocker rows for object-store reads and fallback-engine requests without enabling
     runtime behavior.
   - Added CLI and Python tests proving normalized categories remain machine-readable.
+- [x] GAR-0012-B distributed/object-store diagnostic propagation
+  - Propagated `ObjectStoreRuntimeBlockerMatrixRow::to_diagnostic()` entries into
+    `cg10-object-store-runtime-gate` as info-level JSON envelope diagnostics.
+  - Added typed fields for blocker diagnostic propagation, count, code/category/severity order, and
+    success envelope status.
+  - Added text summary lines and Python client coverage proving the blocked distributed/object-store
+    diagnostics survive JSON/text/Python boundaries.
+  - Preserved report-only behavior, `fallback_attempted=false`, `external_engine_invoked=false`,
+    and `execution=not_performed`.
 - [x] R3.3a helper status
   - Added `cli_missing_arg_error(command, arg)`.
   - Added `cli_unknown_arg_error(command, value)`.

@@ -1212,6 +1212,71 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(envelope.has_error_diagnostics)
         self.assertFalse(envelope.fallback.attempted)
 
+    def test_object_store_runtime_gate_preserves_blocker_diagnostics(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["cg10-object-store-runtime-gate", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "cg10-object-store-runtime-gate",
+                    "status": "success",
+                    "summary": "CG-10 object-store runtime promotion gate",
+                    "human_text": "runtime blocker diagnostics propagated: true",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [
+                        {
+                            "code": "SL_OBJECT_STORE_UNSUPPORTED",
+                            "severity": "info",
+                            "category": "object_store",
+                            "message": "object-store runtime action coordinator_start is blocked",
+                            "feature": "coordinator_start",
+                            "reason": "gar0008b.coordinator_start_blocked requires scheduler_policy before runtime promotion.",
+                            "suggested_next_step": "Keep the path report-only until all required evidence is attached.",
+                            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                        },
+                        {
+                            "code": "SL_OBJECT_STORE_UNSUPPORTED",
+                            "severity": "info",
+                            "category": "object_store",
+                            "message": "object-store runtime action commit_record_write is blocked",
+                            "feature": "commit_record_write",
+                            "reason": "gar0008b.commit_record_write_blocked requires commit_record_schema before runtime promotion.",
+                            "suggested_next_step": "Keep the path report-only until all required evidence is attached.",
+                            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                        }
+                    ],
+                    "fields": [
+                        {"key": "runtime_blocker_matrix_diagnostics_propagated", "value": "true"},
+                        {"key": "runtime_blocker_matrix_diagnostic_count", "value": "2"},
+                        {"key": "runtime_blocker_matrix_envelope_status", "value": "success"},
+                        {"key": "fallback_attempted", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        envelope = ShardLoomClient(binary=binary).object_store_runtime_gate()
+
+        self.assertEqual(envelope.status, "success")
+        self.assertFalse(envelope.has_error_diagnostics)
+        self.assertEqual(
+            [diagnostic.category for diagnostic in envelope.diagnostics],
+            ["object_store", "object_store"],
+        )
+        self.assertEqual(
+            [diagnostic.feature for diagnostic in envelope.diagnostics],
+            ["coordinator_start", "commit_record_write"],
+        )
+        self.assertTrue(
+            envelope.field_bool("runtime_blocker_matrix_diagnostics_propagated")
+        )
+        self.assertEqual(envelope.field_int("runtime_blocker_matrix_diagnostic_count"), 2)
+        self.assertFalse(envelope.diagnostics[0].fallback.attempted)
+        self.assertFalse(envelope.fallback.attempted)
+
     def test_invalid_json_raises_protocol_error(self) -> None:
         binary = self.fake_cli("print('not-json')")
 
