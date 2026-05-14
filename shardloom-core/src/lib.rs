@@ -132,7 +132,7 @@ pub use encoded::{
     PredicateExpr, PredicateProof, PruningDecision, SegmentId, SegmentLayout, SegmentStats,
     SelectionVector, SortOrder, StatValue, StatisticsExactness,
     evaluate_predicate_on_encoded_segment, evaluate_predicate_on_encoded_values,
-    prove_predicate_from_stats,
+    intersect_selection_vectors, prove_predicate_from_stats,
 };
 pub use engine_modes::{
     Boundedness, EngineCapabilityMatrixReport, EngineCapabilityRow, EngineMode,

@@ -2,7 +2,8 @@ use std::{collections::BTreeSet, fmt::Write as _};
 
 use shardloom_core::{
     ColumnRef, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
-    NativeIoCertificate, PredicateExpr, Result, ShardLoomError, UniversalInputSource,
+    NativeIoCertificate, PredicateExpr, Result, SelectionVector, ShardLoomError,
+    UniversalInputSource, intersect_selection_vectors,
 };
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
     VortexGeneralizedEncodedFilterExecutionStatus,
     VortexGeneralizedEncodedProjectionExecutionReport,
     VortexGeneralizedEncodedProjectionExecutionStatus, VortexPreparedEncodedProjectionColumn,
-    VortexSelectionVectorFilterKernelReport,
+    VortexSelectionVectorFilterKernelReport, evaluate_vortex_encoded_value_predicate_batch,
     execute_vortex_generalized_filter_from_encoded_value_batches,
     execute_vortex_generalized_projection_from_encoded_projection_batches,
 };
@@ -41,6 +42,12 @@ const READER_GENERATED_BATCH_REPORT_ID: &str =
     "vortex.cg2.reader-generated-prepared-batch-envelope";
 const READER_GENERATED_BATCH_EXECUTION_KIND: &str =
     "vortex.reader_generated_prepared_chunk_envelope";
+const READER_CONJUNCTIVE_FILTER_SCHEMA_VERSION: &str =
+    "shardloom.vortex_reader_generated_conjunctive_selection_vector_bridge.v1";
+const READER_CONJUNCTIVE_FILTER_REPORT_ID: &str =
+    "vortex.cg2.reader-generated-conjunctive-selection-vector-bridge";
+const READER_CONJUNCTIVE_FILTER_EXECUTION_KIND: &str =
+    "vortex.reader_generated_conjunctive_selection_vector_bridge";
 const LOCAL_SCAN_PROVIDER_KIND: &str = "vortex_scan";
 const LOCAL_SCAN_PROVIDER_API_SURFACE: &str = "VortexFile::scan.into_array_iter";
 const LOCAL_SCAN_PROVIDER_CRATE: &str = "vortex";
@@ -1077,6 +1084,354 @@ impl VortexReaderGeneratedPreparedBatchReport {
         let _ = writeln!(&mut out, "fallback execution allowed: false");
         out
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexReaderGeneratedConjunctiveSelectionVectorStatus {
+    IntersectedSelectionVectors,
+    BlockedPreparedBatchValidation,
+    BlockedMissingPredicate,
+    BlockedMissingPredicateInput,
+    BlockedPredicateEvaluation,
+    BlockedSelectionVectorIntersection,
+}
+
+impl VortexReaderGeneratedConjunctiveSelectionVectorStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::IntersectedSelectionVectors => "intersected_selection_vectors",
+            Self::BlockedPreparedBatchValidation => "blocked_prepared_batch_validation",
+            Self::BlockedMissingPredicate => "blocked_missing_predicate",
+            Self::BlockedMissingPredicateInput => "blocked_missing_predicate_input",
+            Self::BlockedPredicateEvaluation => "blocked_predicate_evaluation",
+            Self::BlockedSelectionVectorIntersection => "blocked_selection_vector_intersection",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        !matches!(self, Self::IntersectedSelectionVectors)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub execution_kind: &'static str,
+    pub source_summary: String,
+    pub source_uri: Option<DatasetUri>,
+    pub status: VortexReaderGeneratedConjunctiveSelectionVectorStatus,
+    pub predicate_count: usize,
+    pub reader_split_count: usize,
+    pub encoded_kernel_input_count: usize,
+    pub intersection_count: usize,
+    pub selected_row_count: Option<u64>,
+    pub reader_generated_prepared_batches: bool,
+    pub filter_column_batches_consumed: bool,
+    pub selection_vector_intersection_certified: bool,
+    pub runtime_execution_allowed: bool,
+    pub correctness_certified: bool,
+    pub production_claim_allowed: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub external_effects_executed: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport {
+    fn from_parts(
+        source: &UniversalInputSource,
+        lowering: &VortexReaderGeneratedPreparedBatchReport,
+        status: VortexReaderGeneratedConjunctiveSelectionVectorStatus,
+        predicate_count: usize,
+        intersection_count: usize,
+        selected_row_count: Option<u64>,
+        diagnostics: Vec<Diagnostic>,
+    ) -> Self {
+        let has_error_diagnostics = diagnostics.iter().any(|diagnostic| {
+            matches!(
+                diagnostic.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        });
+        let avoids_forbidden_effects = !lowering.data_decoded
+            && !lowering.data_materialized
+            && !lowering.row_read
+            && !lowering.arrow_converted
+            && !lowering.object_store_io
+            && !lowering.write_io
+            && !lowering.spill_io_performed
+            && !lowering.external_effects_executed
+            && !lowering.fallback_execution_allowed
+            && !lowering.fallback_attempted;
+        let runtime_execution_allowed = status
+            == VortexReaderGeneratedConjunctiveSelectionVectorStatus::IntersectedSelectionVectors
+            && lowering.runtime_execution_allowed
+            && avoids_forbidden_effects
+            && !has_error_diagnostics;
+        Self {
+            schema_version: READER_CONJUNCTIVE_FILTER_SCHEMA_VERSION,
+            report_id: READER_CONJUNCTIVE_FILTER_REPORT_ID.to_string(),
+            execution_kind: READER_CONJUNCTIVE_FILTER_EXECUTION_KIND,
+            source_summary: source.summary(),
+            source_uri: source.uri.clone(),
+            status,
+            predicate_count,
+            reader_split_count: lowering.reader_split_count,
+            encoded_kernel_input_count: lowering.encoded_kernel_input_count,
+            intersection_count,
+            selected_row_count,
+            reader_generated_prepared_batches: lowering.reader_generated_prepared_batches,
+            filter_column_batches_consumed: runtime_execution_allowed,
+            selection_vector_intersection_certified: runtime_execution_allowed,
+            runtime_execution_allowed,
+            correctness_certified: false,
+            production_claim_allowed: false,
+            data_read: lowering.data_read,
+            data_decoded: lowering.data_decoded,
+            data_materialized: lowering.data_materialized,
+            row_read: lowering.row_read,
+            arrow_converted: lowering.arrow_converted,
+            object_store_io: lowering.object_store_io,
+            write_io: lowering.write_io,
+            spill_io_performed: lowering.spill_io_performed,
+            external_effects_executed: lowering.external_effects_executed,
+            external_engine_invoked: false,
+            fallback_execution_allowed: lowering.fallback_execution_allowed,
+            fallback_attempted: lowering.fallback_attempted
+                || diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.fallback.attempted),
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.data_decoded
+            || self.data_materialized
+            || self.row_read
+            || self.arrow_converted
+            || self.object_store_io
+            || self.write_io
+            || self.spill_io_performed
+            || self.external_effects_executed
+            || self.external_engine_invoked
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+}
+
+/// Intersects per-column reader-generated predicate selection vectors for one
+/// conjunctive filter after the caller supplies explicit encoded kernel inputs.
+///
+/// This does not infer values from opaque Vortex chunks. The bridge is admitted
+/// only when every predicate has a matching reader-generated encoded kernel
+/// input for every reader split and all selection vectors intersect safely.
+///
+/// # Errors
+/// Returns an error if predicate evaluation over an admitted encoded kernel
+/// input cannot construct report evidence.
+#[allow(clippy::too_many_lines)]
+pub fn execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(
+    predicates: &[PredicateExpr],
+    source: &UniversalInputSource,
+    reader_splits: &[VortexReaderBackedSplitEvidence],
+    encoded_kernel_inputs: &[VortexReaderGeneratedEncodedKernelInput],
+) -> Result<VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport> {
+    let lowering = plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+        source,
+        reader_splits,
+        encoded_kernel_inputs,
+    );
+    let mut diagnostics = lowering.diagnostics.clone();
+    if predicates.is_empty() {
+        diagnostics.push(Diagnostic::configuration_error(
+            "vortex_reader_generated_conjunctive_selection_vector_bridge",
+            "conjunctive reader-generated filter bridge requires at least one predicate",
+            "Attach one predicate per filter-column encoded kernel input before requesting the bridge.",
+        ));
+        return Ok(
+            VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport::from_parts(
+                source,
+                &lowering,
+                VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicate,
+                0,
+                0,
+                None,
+                diagnostics,
+            ),
+        );
+    }
+    if !lowering.runtime_execution_allowed {
+        return Ok(
+            VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport::from_parts(
+                source,
+                &lowering,
+                VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedPreparedBatchValidation,
+                predicates.len(),
+                0,
+                None,
+                diagnostics,
+            ),
+        );
+    }
+
+    let mut status =
+        VortexReaderGeneratedConjunctiveSelectionVectorStatus::IntersectedSelectionVectors;
+    let mut intersection_count = 0_usize;
+    let mut selected_row_count = 0_u64;
+    for split in reader_splits {
+        let mut split_vectors = Vec::<SelectionVector>::new();
+        for predicate in predicates {
+            let Some(column) = predicate.column() else {
+                diagnostics.push(Diagnostic::unsupported(
+                    DiagnosticCode::NoFallbackExecution,
+                    "vortex_reader_generated_conjunctive_selection_vector_bridge",
+                    "conjunctive reader-generated filter bridge requires column predicates",
+                    Some(
+                        "Use column-bound predicates for reader-generated filter-column batches."
+                            .to_string(),
+                    ),
+                ));
+                status =
+                    VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicateInput;
+                continue;
+            };
+            let matching_inputs = encoded_kernel_inputs
+                .iter()
+                .filter(|input| {
+                    input.split_ref == split.split_ref && input.batch.segment.column == *column
+                })
+                .collect::<Vec<_>>();
+            let Some(input) = matching_inputs.first().copied() else {
+                diagnostics.push(Diagnostic::unsupported(
+                    DiagnosticCode::NoFallbackExecution,
+                    "vortex_reader_generated_conjunctive_selection_vector_bridge",
+                    format!(
+                        "missing reader-generated encoded kernel input for column {} on split {}",
+                        column.as_str(),
+                        split.split_ref
+                    ),
+                    Some("Provide one admitted encoded kernel input per predicate column and reader split.".to_string()),
+                ));
+                status =
+                    VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicateInput;
+                continue;
+            };
+            if matching_inputs.len() > 1 {
+                diagnostics.push(Diagnostic::configuration_error(
+                    "vortex_reader_generated_conjunctive_selection_vector_bridge",
+                    format!(
+                        "ambiguous reader-generated encoded kernel inputs for column {} on split {}",
+                        column.as_str(),
+                        split.split_ref
+                    ),
+                    "Provide exactly one encoded kernel input per predicate column and split.",
+                ));
+                status =
+                    VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicateInput;
+                continue;
+            }
+            let predicate_report = evaluate_vortex_encoded_value_predicate_batch(
+                predicate,
+                &input.batch.segment,
+                &input.batch.values,
+            );
+            diagnostics.extend(predicate_report.diagnostics.clone());
+            let Some(selection_vector) = predicate_report
+                .segment_reports
+                .first()
+                .and_then(|report| report.selection_vector.clone())
+            else {
+                diagnostics.push(Diagnostic::unsupported(
+                    DiagnosticCode::NoFallbackExecution,
+                    "vortex_reader_generated_conjunctive_selection_vector_bridge",
+                    format!(
+                        "predicate {} did not emit a selection vector for split {}",
+                        predicate.summary(),
+                        split.split_ref
+                    ),
+                    Some("Keep the bridge blocked until every predicate emits encoded selection-vector evidence.".to_string()),
+                ));
+                status =
+                    VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedPredicateEvaluation;
+                continue;
+            };
+            split_vectors.push(selection_vector);
+        }
+        if split_vectors.len() != predicates.len() {
+            continue;
+        }
+        match intersect_selection_vectors(split_vectors.iter()) {
+            Ok(selection_vector) => {
+                intersection_count += 1;
+                selected_row_count = selected_row_count
+                    .checked_add(selection_vector.selected_count())
+                    .ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "reader-generated conjunctive selected row count overflow".to_string(),
+                        )
+                    })?;
+            }
+            Err(reason) => {
+                diagnostics.push(Diagnostic::unsupported(
+                    DiagnosticCode::NoFallbackExecution,
+                    "vortex_reader_generated_conjunctive_selection_vector_bridge",
+                    format!(
+                        "selection-vector intersection failed for split {}: {reason}",
+                        split.split_ref
+                    ),
+                    Some("Keep conjunctive filter admission blocked until selection-vector boundaries match.".to_string()),
+                ));
+                status =
+                    VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedSelectionVectorIntersection;
+            }
+        }
+    }
+    let bridge_complete = status
+        == VortexReaderGeneratedConjunctiveSelectionVectorStatus::IntersectedSelectionVectors
+        && intersection_count == reader_splits.len();
+    let selected_row_count = bridge_complete.then_some(selected_row_count);
+    let final_status = if bridge_complete {
+        status
+    } else if status
+        == VortexReaderGeneratedConjunctiveSelectionVectorStatus::IntersectedSelectionVectors
+    {
+        VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedSelectionVectorIntersection
+    } else {
+        status
+    };
+    Ok(
+        VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport::from_parts(
+            source,
+            &lowering,
+            final_status,
+            predicates.len(),
+            intersection_count,
+            selected_row_count,
+            diagnostics,
+        ),
+    )
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2868,6 +3223,23 @@ mod tests {
         .expect("reader-generated kernel input")
     }
 
+    fn reader_generated_kernel_input(
+        source_uri: &DatasetUri,
+        split_ref: &str,
+        column: &str,
+        id: &str,
+        values: EncodedValueBatch,
+    ) -> VortexReaderGeneratedEncodedKernelInput {
+        let row_count = values.row_count().expect("row count");
+        let encoding = values.encoding_kind();
+        VortexReaderGeneratedEncodedKernelInput::new(
+            source_uri.clone(),
+            split_ref,
+            VortexEncodedValuePredicateBatch::new(segment(column, id, row_count, encoding), values),
+        )
+        .expect("reader-generated kernel input")
+    }
+
     #[test]
     fn source_backed_batch_constructor_rejects_blank_split_ref() {
         let source_uri = DatasetUri::new("file:///tmp/orders.vortex").expect("uri");
@@ -3446,6 +3818,165 @@ mod tests {
         assert!(report.data_read);
         assert!(report.avoids_forbidden_effects());
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn reader_generated_conjunctive_filter_intersects_selection_vectors() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let predicates = vec![
+            PredicateExpr::Compare {
+                column: column_ref("flag"),
+                op: ComparisonOp::Eq,
+                value: StatValue::Int64(1),
+            },
+            PredicateExpr::Compare {
+                column: column_ref("value"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(5),
+            },
+        ];
+        let inputs = vec![
+            reader_generated_kernel_input(
+                &source_uri,
+                "split-1",
+                "flag",
+                "reader-split-1.flag",
+                EncodedValueBatch::Dictionary {
+                    dictionary: vec![Some(StatValue::Int64(1)), Some(StatValue::Int64(0))],
+                    codes: vec![Some(0), Some(1), Some(0), Some(0), Some(1)],
+                },
+            ),
+            reader_generated_kernel_input(
+                &source_uri,
+                "split-1",
+                "value",
+                "reader-split-1.value",
+                EncodedValueBatch::Dictionary {
+                    dictionary: vec![
+                        Some(StatValue::Int64(1)),
+                        Some(StatValue::Int64(5)),
+                        Some(StatValue::Int64(7)),
+                    ],
+                    codes: vec![Some(0), Some(1), Some(1), Some(2), Some(2)],
+                },
+            ),
+            reader_generated_kernel_input(
+                &source_uri,
+                "split-2",
+                "flag",
+                "reader-split-2.flag",
+                EncodedValueBatch::RunLength {
+                    runs: vec![EncodedValueRun::new(Some(StatValue::Int64(1)), 3)],
+                },
+            ),
+            reader_generated_constant_kernel_input(
+                &source_uri,
+                "split-2",
+                "value",
+                "reader-split-2.value",
+                9,
+                3,
+            ),
+        ];
+
+        let report = execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(
+            &predicates,
+            &source,
+            &reader_splits(&source_uri),
+            &inputs,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexReaderGeneratedConjunctiveSelectionVectorStatus::IntersectedSelectionVectors
+        );
+        assert_eq!(report.predicate_count, 2);
+        assert_eq!(report.reader_split_count, 2);
+        assert_eq!(report.encoded_kernel_input_count, 4);
+        assert_eq!(report.intersection_count, 2);
+        assert_eq!(report.selected_row_count, Some(5));
+        assert!(report.runtime_execution_allowed);
+        assert!(report.reader_generated_prepared_batches);
+        assert!(report.filter_column_batches_consumed);
+        assert!(report.selection_vector_intersection_certified);
+        assert!(report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.row_read);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.fallback_attempted);
+        assert!(!report.correctness_certified);
+        assert!(!report.production_claim_allowed);
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn reader_generated_conjunctive_filter_blocks_missing_filter_column_input() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let predicates = vec![
+            PredicateExpr::Compare {
+                column: column_ref("flag"),
+                op: ComparisonOp::Eq,
+                value: StatValue::Int64(1),
+            },
+            PredicateExpr::Compare {
+                column: column_ref("value"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(5),
+            },
+        ];
+        let inputs = vec![
+            reader_generated_constant_kernel_input(
+                &source_uri,
+                "split-1",
+                "flag",
+                "reader-split-1.flag",
+                1,
+                5,
+            ),
+            reader_generated_constant_kernel_input(
+                &source_uri,
+                "split-2",
+                "flag",
+                "reader-split-2.flag",
+                1,
+                3,
+            ),
+        ];
+
+        let report = execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(
+            &predicates,
+            &source,
+            &reader_splits(&source_uri),
+            &inputs,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicateInput
+        );
+        assert_eq!(report.predicate_count, 2);
+        assert_eq!(report.reader_split_count, 2);
+        assert_eq!(report.encoded_kernel_input_count, 2);
+        assert_eq!(report.intersection_count, 0);
+        assert_eq!(report.selected_row_count, None);
+        assert!(!report.runtime_execution_allowed);
+        assert!(report.reader_generated_prepared_batches);
+        assert!(!report.filter_column_batches_consumed);
+        assert!(!report.selection_vector_intersection_certified);
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.message.contains(
+                "missing reader-generated encoded kernel input for column value on split split-1",
+            )
+        }));
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+        assert!(!report.external_engine_invoked);
+        assert!(!report.fallback_attempted);
     }
 
     #[test]

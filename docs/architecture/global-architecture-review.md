@@ -490,14 +490,19 @@ plan before coding.
   `external_engine_invoked=false`; this remains scoped scan evidence, not a generalized source API
   runtime or encoded-native operator claim.
 - [x] Prepared/native `selective filter` rows emit explicit `encoded_predicate_provider_*` blocker
-  fields with `blocked_until_reader_backed_encoded_predicate_evidence`, `flag,value` filter-only
+  fields with `blocked_until_reader_generated_filter_column_batches`, `flag,value` filter-only
   columns, `metric` projected output, required future evidence, and no-fallback/no-external-engine
   status; Vortex scan filter pushdown is not reported as an admitted encoded predicate provider.
 - [x] GAR-0026-R adds reader-backed bridge follow-through for that row: non-empty filtered scans
   record projected reader chunks such as `metric:vortex.filter`, zero-result scans report no reader
-  chunks, filter-only `flag,value` batches remain unclaimed, and the missing filter-column batch,
-  two-column predicate, encoding-specific lowering, and conjunctive selection-vector intersection
-  blockers are named before encoded-native predicate support can be claimed.
+  chunks, and filter-only `flag,value` batches remain unclaimed before encoded-native predicate
+  support can be claimed.
+- [x] GAR-0026-S adds the ShardLoom-native reader-generated conjunctive selection-vector bridge for
+  supplied encoded kernel inputs and updates prepared/native `selective filter` rows to v3 provider
+  fields. Those rows now distinguish the available bridge contract from the still-missing real
+  `flag,value` filter-column batches in the Vortex scan path, preserving
+  `encoded_predicate_provider_encoded_native_claim_allowed=false`,
+  `fallback_attempted=false`, and `external_engine_invoked=false`.
 - [x] Scoped prepared/native `partition pruning` uses Vortex scan projection/filter pushdown over
   `event_date`/`metric` with a local date-range predicate, then ShardLoom-native residual scalar
   aggregation without full fact-table materialization while preserving

@@ -263,43 +263,42 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0026-S selective-filter filter-column batches and conjunctive selection-vector bridge
-  - Source: RFC 0021; RFC 0026; RFC 0031; GAR-0026-Q; GAR-0026-R; Vortex-first provider check;
+- [ ] GAR-0026-T selective-filter real filter-column batch capture and admission
+  - Source: RFC 0021; RFC 0026; RFC 0031; GAR-0026-R; GAR-0026-S; Vortex-first provider check;
     source-backed scan evidence; compute-engine flow reference.
   - Current state:
-    - GAR-0026-R records projected prepared/native `selective filter` reader chunks such as
-      `metric:vortex.filter` when the filtered scan emits rows, and reports `none` for zero-result
-      scans.
-    - Filter-only predicate columns `flag,value` are not returned by the current scan projection as
-      reader-generated encoded value batches.
-    - The existing encoded predicate surface is single-column; no certified conjunctive
-      selection-vector intersection ties `flag == 1` and `value >= 5000` to the projected metric
-      aggregation.
-  - Next slice outcome: add the narrow admission/runtime bridge needed to expose or request
-    reader-backed filter-column batches for `flag,value` and combine their encoded predicate
-    selection vectors for the scoped selective-filter fixture, or preserve deterministic blockers
-    when the Vortex scan API only exposes filtered projected output chunks such as
-    `metric:vortex.filter`.
+    - GAR-0026-S added `SelectionVector` intersection support plus a reader-generated conjunctive
+      selection-vector bridge for supplied encoded kernel inputs.
+    - Prepared/native `selective filter` rows now emit `encoded_predicate_provider` v3 fields and
+      distinguish the available bridge contract from the missing real `flag,value` filter-column
+      batches in the benchmark Vortex scan path.
+    - Current benchmark rows still observe filtered projected output chunks such as
+      `metric:vortex.filter`; they do not expose admitted encoded batches for `flag` and `value`
+      without decode/materialization.
+  - Next slice outcome: capture or explicitly request real reader-generated filter-column encoded
+    batches for `flag,value` from the scoped local Vortex scan path, feed them into
+    `execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs`, and preserve
+    deterministic blockers when Vortex only exposes projected output chunks.
   - User-visible surface: `traditional-analytics-vortex-run`, prepared/native benchmark rows,
-    `encoded_predicate_provider_*` bridge fields, source-backed scan/provider evidence, benchmark
-    docs, and compute-flow docs.
+    `encoded_predicate_provider_*` v3 bridge fields, source-backed scan/provider evidence,
+    benchmark docs, and compute-flow docs.
   - Implementation scope:
-    - `shardloom-core/src/encoded.rs` if a selection-vector intersection helper/report is needed.
-    - `shardloom-vortex/src/source_backed_encoded_execution.rs` only if existing reader-generated
-      kernel-input admission can consume real filter-column batches.
-    - `shardloom-vortex/src/traditional_analytics.rs` selective-filter prepared/native path and
+    - `shardloom-vortex/src/traditional_analytics.rs` selective-filter scan/projection path and
       evidence fields.
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs` only for narrow admission helpers
+      needed by real filter-column inputs.
     - Focused Rust tests, benchmark smoke, docs, and ledger updates.
   - Evidence required: selective-filter correctness refs against compatibility/import output;
-    per-column encoded predicate report refs; conjunctive selection-vector report refs; execution
-    certificate refs; Native I/O refs; materialization/decode refs; no-fallback/no-external-engine
-    refs; benchmark row refs only as smoke evidence, not performance claims.
+    per-column encoded predicate report refs for `flag` and `value`; conjunctive bridge report
+    refs; execution certificate refs; Native I/O refs; materialization/decode refs; no-fallback and
+    no-external-engine refs; benchmark row refs only as smoke evidence, not performance claims.
   - Acceptance:
-    - If `flag,value` reader-backed batches are available without decode/materialization, emit
-      per-column kernel-input status plus a conjunctive selection-vector bridge report.
-    - If only filtered projected output chunks such as `metric:vortex.filter` are visible, preserve
-      `encoded_predicate_provider_status=blocked_until_reader_backed_encoded_predicate_evidence`
-      and name the exact missing filter-column/selection-vector blockers.
+    - If real `flag,value` reader-generated encoded batches are available without
+      decode/materialization, the prepared/native selective-filter row emits per-column kernel-input
+      status, a conjunctive bridge report, and selected-row evidence.
+    - If the Vortex scan path still exposes only projected output chunks, keep
+      `encoded_predicate_provider_status=blocked_until_reader_generated_filter_column_batches` and
+      name the exact missing filter-column/kernel-input blockers.
     - Do not set `operator_execution_class=encoded_native` unless both predicate evaluation and the
       selected metric aggregation consume admitted selection-vector evidence without relabeling
       residual work.
@@ -307,6 +306,7 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
       evidence, and explicit materialization/decode boundaries.
   - Verification:
     - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core encoded --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex reader_generated_conjunctive_filter --lib`
     - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_runs_csv_through_local_vortex_io --lib`
     - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
     - Focused prepared/native benchmark smoke for `selective filter`.
@@ -314,7 +314,7 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no broad filter/project kernel family, no SQL/DataFrame runtime, no object-store
     source runtime, no SIMD dispatch, no Vortex query-engine integration, no nullable/nested/sparse
     encoded predicate generalization, and no performance/superiority claim.
-  - Fallback/claim boundary: claim only scoped filter-column batch admission and conjunctive
+  - Fallback/claim boundary: claim only scoped real filter-column batch admission and conjunctive
     selection-vector evidence if all proof lands; otherwise keep `claim_gate_status=not_claim_grade`.
   - Dependencies/blockers: Vortex scan/reader visibility for filter-only columns, reader-generated
     prepared batch lowering for supported encodings, source-backed scan evidence, and encoded
