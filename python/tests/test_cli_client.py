@@ -2699,6 +2699,50 @@ class ShardLoomClientTests(unittest.TestCase):
             "certified",
         )
 
+    def test_traditional_analytics_vortex_run_can_pass_cdc_delta_vortex(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-vortex-run",
+                    "small change over large base",
+                    "fact.vortex",
+                    "dim.vortex",
+                    "--cdc-delta-vortex",
+                    "cdc_delta.vortex",
+                    "--execution-mode",
+                    "prepared_vortex",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-vortex-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "cdc_delta_vortex_path", "value": "cdc_delta.vortex"},
+                        {"key": "streaming_projected_columns", "value": "base.id,base.metric,cdc_delta.id,cdc_delta.op,cdc_delta.value,cdc_delta.metric,cdc_delta.effective_ts"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).traditional_analytics_vortex_run(
+            "small change over large base",
+            "fact.vortex",
+            "dim.vortex",
+            cdc_delta_vortex="cdc_delta.vortex",
+            execution_mode="prepared_vortex",
+        )
+
+        self.assertEqual(result.field("cdc_delta_vortex_path"), "cdc_delta.vortex")
+
     def test_traditional_analytics_methods_can_request_auto_mode(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

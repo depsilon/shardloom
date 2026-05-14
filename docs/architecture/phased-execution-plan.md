@@ -337,34 +337,32 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no sketch runtime implementation in this admission slice.
   - Fallback/claim boundary: no approximate aggregate accuracy/performance claim.
   - Dependencies/blockers: exact-reference fixture design.
-- [ ] GAR-0021-G CDC overlay prepared/native residual runtime slice
-  - Source: RFC 0021; RFC 0026; physical operator kernel contracts; traditional analytics benchmark
-    suite.
-  - Current state: distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp
-    / dirty CSV, and nested JSON field scan now have prepared/native projected Vortex scans; small
-    change over large base still uses the materialized base-plus-CDC table path for prepared/native
-    rows.
-  - Next slice outcome: scan projected base `id`/`metric` values and CDC delta
-    `id`/`op`/`value`/`metric`/`effective_ts` values from local Vortex artifacts, apply deterministic
-    append/update/delete overlay semantics, and aggregate count/sum without full fact-table
-    materialization.
+- [ ] GAR-0021-H source-backed prepared/native scan evidence slice
+  - Source: RFC 0021; RFC 0026; RFC 0031; compute-engine flow reference; Vortex scan compatibility
+    reports.
+  - Current state: many prepared/native benchmark scenarios now use local Vortex projected scans, but
+    the reusable source-backed scan/provider evidence is still implicit in helper code and broad
+    source-backed API claims remain blocked.
+  - Next slice outcome: expose one reusable source-backed scan evidence path for local Vortex
+    prepared/native rows, including source role, projected columns, residual executor, materialization
+    boundary, and no-fallback fields without changing unsupported neighbors.
   - User-visible surface: `traditional-analytics-vortex-run`, prepared/native benchmark rows,
-    operator blocker matrix, docs.
-  - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, focused tests, benchmark
-    docs, compute-flow docs, GAR/traceability docs.
-  - Evidence required: correctness refs from tiny and generated fixtures; benchmark refs if emitted;
-    Native I/O materialization/decode refs; operator blocker refs; no-fallback refs.
-  - Acceptance: native/prepared small change over large base rows report projected Vortex scan
-    evidence for both base and CDC delta inputs, `data_materialized=false`,
-    `operator_execution_class=residual_native`,
-    `operator_encoded_native_claim_allowed=false`, and no fallback/external engine invocation.
-  - Verification: feature-gated `shardloom-vortex` focused test, focused CLI/benchmark smoke if
-    touched, `cargo fmt --all -- --check`, `cargo test --workspace --all-targets`,
-    `python -m compileall -q python/src python/tests scripts examples`, `git diff --check`.
-  - Non-goals: no encoded-native aggregate claim, no SQL/DataFrame runtime, no object-store/table
-    runtime, no external engines, no performance/superiority claim.
-  - Fallback/claim boundary: claim only the scoped local prepared/native CDC overlay residual path.
-  - Dependencies/blockers: none beyond existing local Vortex scan support.
+    Python typed fields, compute-flow docs, Native I/O evidence.
+  - Implementation scope: `shardloom-vortex` scan/evidence helpers, CLI/Python field propagation if
+    needed, focused tests, benchmark docs, GAR/traceability docs.
+  - Evidence required: correctness refs from representative prepared/native scenarios; source-backed
+    scan/provider refs; Native I/O materialization/decode refs; residual-boundary refs; no-fallback
+    refs.
+  - Acceptance: at least one representative prepared/native row emits explicit source-backed scan
+    provider evidence while preserving `data_materialized=false`, residual-native operator evidence,
+    `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Verification: feature-gated `shardloom-vortex` focused tests, prepared/native benchmark smoke,
+    Python wrapper tests if fields change, default GAR verification.
+  - Non-goals: no generalized object-store source runtime, SQL/DataFrame runtime, encoded-native
+    operator claim, Vortex query-engine integration, or performance/superiority claim.
+  - Fallback/claim boundary: claim only scoped local source-backed scan evidence for the selected
+    prepared/native row.
+  - Dependencies/blockers: existing local Vortex projected scan support.
 - [ ] GAR-0038-A facade compatibility and legacy boundary matrix
   - Source: RFC 0038; top-level plan/execution facade docs; typed envelope docs.
   - Current state: top-level plan/execution facade exists, but SQL/DataFrame runtime, object-store

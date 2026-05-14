@@ -150,6 +150,8 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"dataset_file_shape\""));
     assert!(script.contains("\"fact_csv_part_count\""));
     assert!(script.contains("\"cdc_delta_csv\""));
+    assert!(script.contains("\"--cdc-delta-vortex\""));
+    assert!(script.contains("\"cdc_delta_preparation_millis\""));
     assert!(script.contains("\"nested_jsonl\""));
     assert!(script.contains("def generated_fact_extra_columns("));
     assert!(script.contains("def generated_extra_fact_values("));

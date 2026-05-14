@@ -1699,6 +1699,66 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             ),
         }
 
+    def prepare_cdc_delta_format(paths: DatasetPaths, data_format: str) -> None:
+        prepare_format(paths, data_format)
+        prepared = prepared_paths[data_format]
+        if "cdc_delta" in prepared:
+            return
+        if paths.cdc_delta_csv is None or not paths.cdc_delta_csv.exists():
+            raise BenchmarkUnsupported("CDC overlay scenario requires cdc_delta.csv")
+        workspace = (
+            paths.root
+            / "shardloom_native_vortex_inputs"
+            / data_format
+            / "cdc_delta_overlay"
+        )
+        command = [
+            str(binary),
+            "traditional-analytics-run",
+            "small change over large base",
+            str(fact_path(paths, data_format)),
+            str(dim_path(paths, data_format)),
+            "--workspace",
+            str(workspace),
+            "--input-format",
+            data_format,
+            "--cdc-delta",
+            str(paths.cdc_delta_csv),
+            "--execution-mode",
+            "compatibility_import_certified",
+            "--format",
+            "json",
+        ]
+        started = time.perf_counter()
+        completed = subprocess_run(command, root, env)
+        cdc_preparation_millis = (time.perf_counter() - started) * 1000.0
+        if completed["returncode"] != 0:
+            raise BenchmarkUnsupported(
+                completed["stderr"] or completed["stdout"] or "CDC Vortex input setup failed"
+            )
+        try:
+            payload = json.loads(completed["stdout"].splitlines()[0])
+        except (json.JSONDecodeError, IndexError) as exc:
+            raise BenchmarkUnsupported(
+                f"ShardLoom CDC Vortex setup emitted invalid JSON: {exc}"
+            ) from exc
+        fields = parse_output_fields(payload)
+        cdc_delta_vortex = Path(fields.get("cdc_delta_vortex_path", ""))
+        if not cdc_delta_vortex.exists():
+            raise BenchmarkUnsupported(
+                "ShardLoom CDC Vortex setup did not produce cdc_delta.vortex"
+            )
+        prepared.update(
+            {
+                "cdc_delta": cdc_delta_vortex,
+                "cdc_delta_digest": fields.get("cdc_delta_vortex_digest", ""),
+                "cdc_delta_preparation_millis": round(cdc_preparation_millis, 4),
+                "cdc_delta_preparation_cli_process_wall_millis": completed.get(
+                    "process_wall_millis", cdc_preparation_millis
+                ),
+            }
+        )
+
     def prepare(paths: DatasetPaths, report_formats: tuple[str, ...]) -> None:
         for data_format in report_formats:
             if data_format == SHARDLOOM_VORTEX_FORMAT:
@@ -1710,7 +1770,10 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             raise BenchmarkUnsupported(
                 "shardloom-vortex reports prepared/native results under the requested source format rows"
             )
-        prepare_format(paths, data_format)
+        if scenario == "small change over large base":
+            prepare_cdc_delta_format(paths, data_format)
+        else:
+            prepare_format(paths, data_format)
         prepared = prepared_paths[data_format]
         command = [
             str(binary),
@@ -1720,9 +1783,10 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             str(prepared["dim"]),
             "--execution-mode",
             "prepared_vortex",
-            "--format",
-            "json",
         ]
+        if scenario == "small change over large base":
+            command.extend(["--cdc-delta-vortex", str(prepared["cdc_delta"])])
+        command.extend(["--format", "json"])
         if SHARDLOOM_RESULT_SINK:
             result_workspace = (
                 paths.root
@@ -1821,6 +1885,11 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         result_json = fields.get("result_json")
         if result_json is None:
             raise RuntimeError("ShardLoom result_json field was missing")
+        prepared_refs = [str(prepared["fact"]), str(prepared["dim"])]
+        prepared_digests = [str(prepared["fact_digest"]), str(prepared["dim_digest"])]
+        if "cdc_delta" in prepared:
+            prepared_refs.append(str(prepared["cdc_delta"]))
+            prepared_digests.append(str(prepared["cdc_delta_digest"]))
         fields.update(
             {
                 "requested_execution_mode": "prepared_vortex",
@@ -1834,13 +1903,15 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "preparation_cli_process_wall_millis": str(
                     prepared["preparation_cli_process_wall_millis"]
                 ),
+                "cdc_delta_preparation_millis": str(
+                    prepared.get("cdc_delta_preparation_millis", "0")
+                ),
+                "cdc_delta_preparation_cli_process_wall_millis": str(
+                    prepared.get("cdc_delta_preparation_cli_process_wall_millis", "0")
+                ),
                 "preparation_included_in_timing": "false",
-                "prepared_artifact_ref": (
-                    f"{prepared['fact']}|{prepared['dim']}"
-                ),
-                "prepared_artifact_digest": (
-                    f"{prepared['fact_digest']}|{prepared['dim_digest']}"
-                ),
+                "prepared_artifact_ref": "|".join(prepared_refs),
+                "prepared_artifact_digest": "|".join(prepared_digests),
                 "source_native_io_certificate_status": str(
                     prepared["source_native_io_certificate_status"]
                 ),
@@ -3522,7 +3593,18 @@ def rows_scanned(paths: DatasetPaths, scenario: str) -> int:
         "scale stress multi-stage etl",
     }:
         return paths.rows + paths.dim_rows
+    if (
+        scenario == "small change over large base"
+        and paths.cdc_delta_csv is not None
+        and paths.cdc_delta_csv.exists()
+    ):
+        return paths.rows + cdc_delta_row_count(paths.cdc_delta_csv)
     return paths.rows
+
+
+def cdc_delta_row_count(path: Path) -> int:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return max(0, sum(1 for _ in handle) - 1)
 
 
 def rows_materialized(value: Any) -> int:

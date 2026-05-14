@@ -458,7 +458,10 @@ The current live ETL surface is intentionally narrow and explicit.
 Compatibility-file mode runs `traditional-analytics-run`, which imports CSV,
 JSONL/NDJSON, Parquet, Arrow IPC, Avro, or ORC inputs into temporary local
 Vortex files before running the temporary benchmark operator. Native Vortex mode
-runs `traditional-analytics-vortex-run` from existing `.vortex` inputs.
+runs `traditional-analytics-vortex-run` from existing `.vortex` inputs. The
+low-level `traditional_analytics_vortex_run` helper can also pass an explicit
+`cdc_delta_vortex` artifact for the scoped prepared/native CDC overlay row; that
+does not imply broad table CDC or transaction support.
 
 ```python
 from shardloom import ShardLoomClient

@@ -188,6 +188,7 @@ class PreparedVortexArtifacts:
         client: "ShardLoomClient",
         scenario: str,
         *,
+        cdc_delta_vortex: str | os.PathLike[str] | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run a scenario from the prepared Vortex artifacts."""
@@ -196,6 +197,7 @@ class PreparedVortexArtifacts:
             scenario,
             self.fact_vortex_path,
             self.dim_vortex_path,
+            cdc_delta_vortex=cdc_delta_vortex,
             execution_mode="prepared_vortex",
             check=check,
         )
@@ -3427,6 +3429,7 @@ class ShardLoomClient:
         fact_vortex: str | os.PathLike[str],
         dim_vortex: str | os.PathLike[str],
         *,
+        cdc_delta_vortex: str | os.PathLike[str] | None = None,
         workspace: str | os.PathLike[str] | None = None,
         write_result_vortex: bool = False,
         execution_mode: str | None = None,
@@ -3440,6 +3443,8 @@ class ShardLoomClient:
             str(fact_vortex),
             str(dim_vortex),
         ]
+        if cdc_delta_vortex is not None:
+            args.extend(["--cdc-delta-vortex", str(cdc_delta_vortex)])
         if workspace is not None:
             args.extend(["--workspace", str(workspace)])
         if write_result_vortex:
