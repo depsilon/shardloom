@@ -477,7 +477,6 @@ fn open_source_security_posture_config_is_present() {
     let scorecard = read_repo_file(".github/workflows/scorecard.yml");
     for required in [
         "workflow_dispatch:",
-        "ossf/scorecard-action@v2.4.0",
         "publish_results: false",
         "github/codeql-action/upload-sarif@v4",
         "security-events: write",
@@ -488,6 +487,14 @@ fn open_source_security_posture_config_is_present() {
             "missing Scorecard field {required}"
         );
     }
+    let scorecard_action = scorecard
+        .lines()
+        .find(|line| line.contains("ossf/scorecard-action@v"))
+        .expect("missing Scorecard action pinned version tag");
+    assert!(
+        !scorecard_action.contains("@main") && !scorecard_action.contains("@master"),
+        "Scorecard action must stay pinned to a version tag"
+    );
 
     let dependabot = read_repo_file(".github/dependabot.yml");
     for required in [
