@@ -151,7 +151,10 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 ("no_fallback", "true"),
                 ("no_effects", "true"),
             ],
-            fragments: &["\"code\":\"SL_MATERIALIZATION_REQUIRED\""],
+            fragments: &[
+                "\"code\":\"SL_MATERIALIZATION_REQUIRED\"",
+                "\"category\":\"materialization\"",
+            ],
         },
         EnvelopeCase {
             name: "api compatibility lock",

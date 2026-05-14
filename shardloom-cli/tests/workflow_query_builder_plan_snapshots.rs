@@ -271,6 +271,28 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         ],
         false,
     );
+    let object_store_read = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "object-store-read",
+            "read_s3(s3://bucket/table.vortex)",
+            "s3://bucket/table.vortex",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let fallback_engine = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "fallback-engine",
+            "read_csv(events.csv)",
+            "spark",
+            "--format",
+            "json",
+        ],
+        false,
+    );
 
     for output in [
         &collect,
@@ -289,6 +311,8 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         &sql_execute,
         &schema,
         &preview,
+        &object_store_read,
+        &fallback_engine,
     ] {
         assert!(output.contains("\"command\":\"workflow-unsupported-plan\""));
         assert!(output.contains("\"status\":\"unsupported\""));
@@ -321,6 +345,10 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         "blocker_id",
         "cg21.workflow.collect.materialization_unsupported"
     )));
+    assert!(collect.contains("\"code\":\"SL_MATERIALIZATION_REQUIRED\""));
+    assert!(collect.contains("\"category\":\"materialization\""));
+    assert!(collect.contains(&field("diagnostic_code", "SL_MATERIALIZATION_REQUIRED")));
+    assert!(collect.contains(&field("diagnostic_category", "materialization")));
     assert!(collect.contains(&field("materialization_required", "true")));
     assert!(collect.contains(&field("write_required", "false")));
     assert!(from_pandas.contains(&field("workflow_operation", "from_pandas")));
@@ -390,4 +418,43 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         "cg21.workflow.preview.materialization_unsupported"
     )));
     assert!(preview.contains(&field("target_ref", "20")));
+    assert!(object_store_read.contains(&field("workflow_operation", "object_store_read")));
+    assert!(object_store_read.contains(&field(
+        "blocker_id",
+        "cg21.workflow.object_store_read.runtime_unsupported"
+    )));
+    assert!(object_store_read.contains("\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
+    assert!(object_store_read.contains("\"category\":\"object_store\""));
+    assert!(object_store_read.contains(&field("diagnostic_category", "object_store")));
+    assert!(object_store_read.contains(&field("object_store_io", "false")));
+    assert!(fallback_engine.contains(&field("workflow_operation", "fallback_engine")));
+    assert!(fallback_engine.contains(&field(
+        "blocker_id",
+        "cg21.workflow.fallback_engine.no_fallback_policy"
+    )));
+    assert!(fallback_engine.contains("\"code\":\"SL_NO_FALLBACK_EXECUTION\""));
+    assert!(fallback_engine.contains("\"category\":\"no_fallback_policy\""));
+    assert!(fallback_engine.contains(&field("diagnostic_category", "no_fallback_policy")));
+    assert!(fallback_engine.contains(&field("runtime_required", "false")));
+}
+
+#[test]
+fn workflow_unsupported_plan_unknown_operation_uses_invalid_input_category() {
+    let output = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "unknown-op",
+            "read_csv(events.csv)",
+            "none",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+
+    assert!(output.contains("\"command\":\"workflow-unsupported-plan\""));
+    assert!(output.contains("\"status\":\"error\""));
+    assert!(output.contains("\"code\":\"SL_INVALID_INPUT\""));
+    assert!(output.contains("\"category\":\"invalid_input\""));
+    assert!(output.contains("\"attempted\":false"));
 }

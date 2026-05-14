@@ -262,19 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0012-A diagnostic category and helper normalization
-  - Source: RFC 0012; diagnostics normalization backlog; typed command envelope docs.
-  - Current state: core diagnostics exist; not every path uses stable category/helper constructors.
-  - Next slice outcome: helper-backed invalid-input, unsupported, object-store, materialization, and
-    no-fallback diagnostics for the next command family.
-  - User-visible surface: CLI text/JSON diagnostics, Python error view.
-  - Implementation scope: diagnostic helpers, one command-family migration, tests.
-  - Evidence required: diagnostic snapshots and no-fallback refs.
-  - Acceptance: migrated paths avoid ad hoc strings and preserve machine-readable fields.
-  - Verification: diagnostic stability tests, focused CLI tests, `cargo test --workspace --all-targets`.
-  - Non-goals: no output envelope redesign.
-  - Fallback/claim boundary: diagnostics must not imply fallback or hidden execution.
-  - Dependencies/blockers: command-family priority selected from current CLI structure.
 - [ ] GAR-0012-B envelope status and distributed/object-store diagnostic propagation
   - Source: RFC 0012; diagnostics normalization backlog; object-store request planner.
   - Current state: envelope status derives from diagnostics for current paths; distributed and

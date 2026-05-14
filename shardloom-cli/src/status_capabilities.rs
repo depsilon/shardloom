@@ -34,7 +34,8 @@ const WORKFLOW_OPERATION_NAMES: &str = concat!(
     "with_column,group_by,agg,sort,limit,write_vortex,write_parquet,sql,",
     "sql_parse,sql_bind,sql_plan,sql_execute,join,aggregate,window,",
     "schema_contract,schema,describe_schema,validate_schema,data_quality,",
-    "data_quality_summary,quarantine,preview,display"
+    "data_quality_summary,quarantine,preview,display,object_store_read,",
+    "fallback_engine"
 );
 const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.profile.runtime_profile_unsupported,",
@@ -71,9 +72,11 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.data_quality_summary.report_unsupported,",
     "cg21.workflow.quarantine.output_unsupported,",
     "cg21.workflow.preview.materialization_unsupported,",
-    "cg21.workflow.display.rich_display_unsupported"
+    "cg21.workflow.display.rich_display_unsupported,",
+    "cg21.workflow.object_store_read.runtime_unsupported,",
+    "cg21.workflow.fallback_engine.no_fallback_policy"
 );
-const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary";
+const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,no_fallback_policy";
 const WORKFLOW_SUGGESTED_NEXT_ACTION: &str = "Use workflow-unsupported-plan for method-specific blocker details before requesting execution.";
 const REMOTE_API_BLOCKER_IDS: &str = concat!(
     "cg23.remote_api.plan_preview.unsupported_operator,",
@@ -1186,7 +1189,7 @@ fn emit_workflow_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         "/v1/capabilities/workflow",
     );
     push_field(&mut fields, "workflow_state", "unsupported_report_only");
-    push_count_field(&mut fields, "workflow_operation_count", 35);
+    push_count_field(&mut fields, "workflow_operation_count", 37);
     push_field(
         &mut fields,
         "workflow_operation_names",

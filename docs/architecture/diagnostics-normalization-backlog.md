@@ -66,6 +66,13 @@ execution.
 
 ## Completed Ledger
 
+- [x] GAR-0012-A helper/category normalization
+  - Added `Diagnostic::materialization_required` and `Diagnostic::object_store_blocked` helpers.
+  - Routed `workflow-unsupported-plan` through helper-backed categories for invalid-input,
+    unsupported-feature, materialization, object-store, and no-fallback diagnostics.
+  - Added workflow blocker rows for object-store reads and fallback-engine requests without enabling
+    runtime behavior.
+  - Added CLI and Python tests proving normalized categories remain machine-readable.
 - [x] R3.3a helper status
   - Added `cli_missing_arg_error(command, arg)`.
   - Added `cli_unknown_arg_error(command, value)`.

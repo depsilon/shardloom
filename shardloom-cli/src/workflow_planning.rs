@@ -11,16 +11,17 @@ use shardloom_core::{
     CatalogRef, CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet, ColumnRef,
     CommandStatus, CompactionPlanningPolicy, CompactionPlanningReport, DatasetFormat,
     DatasetManifest, DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport,
-    Diagnostic, DiagnosticCode, EncodedSegment, EncodingKind, FieldId, FieldName, FieldPath,
-    FileDescriptor, FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy, LayoutHealthReport,
-    LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, OutputFormat, OutputTarget,
-    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
-    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
-    SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind, SegmentId, SegmentLayout,
-    SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatefulReusePromotionGateReport,
-    StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
-    TableIntelligenceReport, WriteIntent, evaluate_cdc_incremental_planning,
-    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    Diagnostic, DiagnosticCategory, DiagnosticCode, EncodedSegment, EncodingKind, FieldId,
+    FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy,
+    LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability,
+    OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField,
+    PartitionSpec, PartitionTransform, SchemaDefinition, SchemaEvolutionCompatibilityReport,
+    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind,
+    SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef,
+    StatefulReusePromotionGateReport, StatefulReuseReport, TableCompatibilityPlan,
+    TableCompatibilityReport, TableFormatKind, TableIntelligenceReport, WriteIntent,
+    evaluate_cdc_incremental_planning, evaluate_compaction_planning,
+    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_catalog_metadata_integration_gate, plan_stateful_reuse,
     plan_stateful_reuse_promotion_gate,
@@ -242,15 +243,7 @@ pub(crate) fn handle_workflow_unsupported_plan(
             &cli_unknown_arg_error("workflow-unsupported-plan", &extra),
         );
     }
-    let diagnostic = Diagnostic::unsupported(
-        operation.diagnostic_code,
-        operation.feature,
-        format!(
-            "{} is not implemented for native ShardLoom workflow execution yet.",
-            operation.label
-        ),
-        Some(operation.suggested_next_action.to_string()),
-    );
+    let diagnostic = workflow_unsupported_diagnostic(operation);
     let human_text = format!(
         "workflow unsupported operation\noperation: {}\nblocker: {}\nrequired evidence: {}\nexecution: not_performed\nfallback: disabled",
         operation.operation, operation.blocker_id, operation.required_evidence
@@ -723,7 +716,58 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
         "quarantine" => Some(workflow_unsupported_quarantine()),
         "preview" => Some(workflow_unsupported_preview()),
         "display" | "notebook-display" => Some(workflow_unsupported_display()),
+        "object-store-read" | "object_store_read" | "remote-object-store" => {
+            Some(workflow_unsupported_object_store_read())
+        }
+        "fallback-engine" | "spark-fallback" | "external-fallback" => {
+            Some(workflow_unsupported_fallback_engine())
+        }
         _ => None,
+    }
+}
+
+fn workflow_unsupported_diagnostic(operation: WorkflowUnsupportedOperation) -> Diagnostic {
+    let reason = format!(
+        "{} is not implemented for native ShardLoom workflow execution yet.",
+        operation.label
+    );
+    match operation.diagnostic_code {
+        DiagnosticCode::MaterializationRequired => Diagnostic::materialization_required(
+            operation.feature,
+            reason,
+            operation.suggested_next_action,
+        ),
+        DiagnosticCode::ObjectStoreUnsupported => Diagnostic::object_store_blocked(
+            operation.feature,
+            reason,
+            operation.suggested_next_action,
+        ),
+        DiagnosticCode::NoFallbackExecution => Diagnostic::no_fallback_policy(
+            operation.feature,
+            reason,
+            operation.suggested_next_action,
+        ),
+        DiagnosticCode::InvalidInput => {
+            Diagnostic::invalid_input(operation.feature, reason, operation.suggested_next_action)
+        }
+        _ => Diagnostic::unsupported(
+            operation.diagnostic_code,
+            operation.feature,
+            reason,
+            Some(operation.suggested_next_action.to_string()),
+        ),
+    }
+}
+
+const fn workflow_unsupported_diagnostic_category(
+    operation: WorkflowUnsupportedOperation,
+) -> DiagnosticCategory {
+    match operation.diagnostic_code {
+        DiagnosticCode::MaterializationRequired => DiagnosticCategory::Materialization,
+        DiagnosticCode::ObjectStoreUnsupported => DiagnosticCategory::ObjectStore,
+        DiagnosticCode::NoFallbackExecution => DiagnosticCategory::NoFallbackPolicy,
+        DiagnosticCode::InvalidInput => DiagnosticCategory::InvalidInput,
+        _ => DiagnosticCategory::UnsupportedFeature,
     }
 }
 
@@ -1287,6 +1331,38 @@ fn workflow_unsupported_display() -> WorkflowUnsupportedOperation {
     }
 }
 
+fn workflow_unsupported_object_store_read() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "object_store_read",
+        label: "remote object-store workflow read",
+        surface: "object_store_source",
+        feature: "cg21.workflow.object_store_read",
+        blocker_id: "cg21.workflow.object_store_read.runtime_unsupported",
+        required_evidence: "object_store_capability_policy,credential_policy,native_io_certificate,execution_certificate",
+        suggested_next_action: "Use object-store request planning reports until remote object-store reads are certified.",
+        diagnostic_code: DiagnosticCode::ObjectStoreUnsupported,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_fallback_engine() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "fallback_engine",
+        label: "external fallback engine workflow execution",
+        surface: "fallback_policy",
+        feature: "cg21.workflow.fallback_engine",
+        blocker_id: "cg21.workflow.fallback_engine.no_fallback_policy",
+        required_evidence: "no_fallback_policy,execution_certificate,native_operator_coverage",
+        suggested_next_action: "Use ShardLoom-native capability and execution-certificate reports; fallback engines are not execution paths.",
+        diagnostic_code: DiagnosticCode::NoFallbackExecution,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
 fn workflow_unsupported_fields(
     operation: WorkflowUnsupportedOperation,
     workflow_summary: &str,
@@ -1311,6 +1387,16 @@ fn workflow_unsupported_fields(
         &mut fields,
         "required_evidence",
         operation.required_evidence,
+    );
+    push_field(
+        &mut fields,
+        "diagnostic_code",
+        operation.diagnostic_code.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "diagnostic_category",
+        workflow_unsupported_diagnostic_category(operation).as_str(),
     );
     push_field(
         &mut fields,
