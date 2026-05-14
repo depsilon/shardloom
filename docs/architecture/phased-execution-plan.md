@@ -260,20 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-FLOW-3A REST execution-mode parity report
-  - Source: `docs/architecture/execution-mode-protocol-parity.md`; RFC 0035; RFC 0039; RFC 0042.
-  - Current state: REST parity is documented, but there is no REST runtime/server surface.
-  - Next slice outcome: report-only REST/OpenAPI parity artifact that mirrors CLI/Python
-    mode-selection, policy, evidence, claim-gate, and no-fallback fields.
-  - User-visible surface: docs, OpenAPI/schema artifact, release/readiness check.
-  - Implementation scope: REST planning docs/schema snapshots, contract tests, release metadata.
-  - Evidence required: protocol parity refs and unsupported diagnostic refs; no runtime evidence.
-  - Acceptance: REST schemas use the shared enum and field names; unsupported mode requests are
-    specified as deterministic diagnostics.
-  - Verification: default GAR verification plus schema snapshot test if generated.
-  - Non-goals: no HTTP listener, server process, remote execution, or dependency expansion.
-  - Fallback/claim boundary: REST is report-only with `support_status=report_only`.
-  - Dependencies/blockers: GAR-0035 runtime API slices.
 - [ ] GAR-0002A native unsupported coverage diagnostics
   - Source: RFC 0002; global architecture review; Vortex upstream alignment hardening.
   - Current state: unsupported native coverage surfaces exist for many paths, but coverage is not

@@ -156,9 +156,9 @@ with the status vocabulary `measured`, `not_available`, `unsupported`, and
 `not_applicable`. Each ShardLoom scenario row and native microbenchmark row
 reports status/value/reason triples for rows avoided, segments pruned, bytes
 avoided, encoded-vector reuse, and pushdown proof. Missing rows skipped,
-segment-prune, bytes-not-read, encoded-vector reuse, or pushdown values are not
-interpreted as zero, and no optimization, Spark-displacement, superiority, or
-best-default claim is allowed from `not_available` evidence.
+segment-prune, bytes-not-read, encoded-vector reuse, or pushdown values are
+not interpreted as zero, and no optimization, Spark-displacement, superiority,
+or best-default claim is allowed from `not_available` evidence.
 
 The ShardLoom DecisionTrace/WhyReport evidence table explains why each native
 runtime row is or is not claim-grade. It records decision-trace counts, the

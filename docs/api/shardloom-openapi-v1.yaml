@@ -929,15 +929,116 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FieldEntry"
+    ShardLoomExecutionMode:
+      type: string
+      enum:
+        - auto
+        - compatibility_import_certified
+        - prepared_vortex
+        - native_vortex
+        - direct_compatibility_transient
+    ExecutionModeFamily:
+      type: string
+      enum: [auto_selection, compatibility, native_vortex]
+    ExecutionModeSelectionReport:
+      type: object
+      required:
+        - execution_mode_selection_schema_version
+        - requested_execution_mode
+        - selected_execution_mode
+        - execution_mode
+        - mode_selection_reason
+        - execution_mode_family
+        - source_format
+        - workload_constitution_id
+        - compatibility_import_included
+        - vortex_prepare_included
+        - vortex_write_reopen_included
+        - direct_transient_execution
+        - vortex_native_claim_allowed
+        - certification_requested
+        - result_sink_requested
+        - prepared_artifact_available
+        - native_vortex_provider_available
+        - mode_supported
+        - support_status
+        - unsupported_diagnostic_code
+        - blocker_id
+        - required_future_evidence
+        - claim_gate_status
+        - claim_gate_reason
+        - fallback_attempted
+        - external_engine_invoked
+      properties:
+        execution_mode_selection_schema_version:
+          type: string
+          const: shardloom.execution_mode_selection_report.v1
+        requested_execution_mode:
+          $ref: "#/components/schemas/ShardLoomExecutionMode"
+        selected_execution_mode:
+          $ref: "#/components/schemas/ShardLoomExecutionMode"
+        execution_mode:
+          $ref: "#/components/schemas/ShardLoomExecutionMode"
+        mode_selection_reason:
+          type: string
+        execution_mode_family:
+          $ref: "#/components/schemas/ExecutionModeFamily"
+        source_format:
+          type: string
+        workload_constitution_id:
+          type: string
+        compatibility_import_included:
+          type: boolean
+        vortex_prepare_included:
+          type: boolean
+        vortex_write_reopen_included:
+          type: boolean
+        direct_transient_execution:
+          type: boolean
+        vortex_native_claim_allowed:
+          type: boolean
+        certification_requested:
+          type: boolean
+        result_sink_requested:
+          type: boolean
+        prepared_artifact_available:
+          type: boolean
+        native_vortex_provider_available:
+          type: boolean
+        mode_supported:
+          type: boolean
+        support_status:
+          type: string
+          enum: [supported, unsupported, report_only]
+        unsupported_diagnostic_code:
+          type: string
+        blocker_id:
+          type: string
+        required_future_evidence:
+          type: string
+        claim_gate_status:
+          type: string
+          enum: [fixture_smoke_only, not_claim_grade, unsupported, report_only]
+        claim_gate_reason:
+          type: string
+        fallback_attempted:
+          type: boolean
+          const: false
+        external_engine_invoked:
+          type: boolean
+          const: false
     ExecutionRequestPolicy:
       type: object
       required:
+        - requested_execution_mode
         - engine_mode
         - fallback_policy
         - materialization_policy
         - result_policy
         - evidence_policy
       properties:
+        requested_execution_mode:
+          $ref: "#/components/schemas/ShardLoomExecutionMode"
         engine_mode:
           type: string
           enum: [auto, batch, live, hybrid]
@@ -1008,6 +1109,7 @@ components:
             - plan_handle
             - preview_status
             - stages
+            - execution_mode_selection
             - fallback
           properties:
             plan_handle:
@@ -1034,6 +1136,8 @@ components:
               oneOf:
                 - $ref: "#/components/schemas/ProblemDetails"
                 - type: "null"
+            execution_mode_selection:
+              $ref: "#/components/schemas/ExecutionModeSelectionReport"
             fallback:
               $ref: "#/components/schemas/FallbackStatus"
     QueryRequest:
@@ -1046,13 +1150,15 @@ components:
           $ref: "#/components/schemas/ExecutionRequestPolicy"
     QueryLifecycleResponse:
       type: object
-      required: [query_id, status, fallback]
+      required: [query_id, status, execution_mode_selection, fallback]
       properties:
         query_id:
           type: string
         status:
           type: string
           enum: [accepted, blocked, running, succeeded, failed, canceled]
+        execution_mode_selection:
+          $ref: "#/components/schemas/ExecutionModeSelectionReport"
         fallback:
           $ref: "#/components/schemas/FallbackStatus"
     LocalLifecycleEvent:
@@ -1094,6 +1200,7 @@ components:
             - result_ref
             - result_policies
             - certificates
+            - execution_mode_selection
             - fallback
           properties:
             query_id:
@@ -1125,6 +1232,8 @@ components:
               type: string
             cleanup_required:
               type: boolean
+            execution_mode_selection:
+              $ref: "#/components/schemas/ExecutionModeSelectionReport"
             fallback:
               $ref: "#/components/schemas/FallbackStatus"
     EventStreamRequest:
@@ -1649,5 +1758,7 @@ components:
           type: string
         diagnostic:
           $ref: "#/components/schemas/Diagnostic"
+        execution_mode_selection:
+          $ref: "#/components/schemas/ExecutionModeSelectionReport"
         fallback:
           $ref: "#/components/schemas/FallbackStatus"

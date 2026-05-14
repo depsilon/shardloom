@@ -1349,6 +1349,38 @@ class RestApiContractPlan:
         return tuple(part.strip() for part in value.split(",") if part.strip())
 
     @property
+    def execution_mode_vocabulary(self) -> tuple[str, ...]:
+        """Return the shared execution-mode enum declared by the REST contract."""
+
+        value = self.envelope.field("execution_mode_vocabulary", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def execution_mode_selection_schema_version(self) -> str | None:
+        """Return the execution-mode selection report schema version."""
+
+        return self.envelope.field("execution_mode_selection_schema_version")
+
+    @property
+    def execution_mode_selection_fields(self) -> tuple[str, ...]:
+        """Return REST selection-report fields mirrored from CLI/Python."""
+
+        value = self.envelope.field("execution_mode_selection_fields", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def rest_execution_mode_support_status(self) -> str | None:
+        """Return the REST execution-mode support posture."""
+
+        return self.envelope.field("rest_execution_mode_support_status")
+
+    @property
+    def unsupported_execution_mode_diagnostic_code(self) -> str | None:
+        """Return the deterministic diagnostic for unsupported REST mode requests."""
+
+        return self.envelope.field("unsupported_execution_mode_diagnostic_code")
+
+    @property
     def contract_artifact_checked_in(self) -> bool:
         """Whether the checked-in OpenAPI contract artifact is reported present."""
 

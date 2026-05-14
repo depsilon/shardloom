@@ -1,7 +1,7 @@
 # Execution Mode Protocol Parity
 
-Status: Completed P7.5.8 protocol parity reference
-Applies to: CLI JSON, Python client, benchmark rows, planned REST/OpenAPI surfaces
+Status: Completed P7.5.8 protocol parity reference; GAR-FLOW-3A REST/OpenAPI parity artifact
+Applies to: CLI JSON, Python client, benchmark rows, report-only REST/OpenAPI surfaces
 
 ## Purpose
 
@@ -137,21 +137,27 @@ fallback_attempted
 external_engine_invoked
 ```
 
-## Planned REST/OpenAPI Contract
+## REST/OpenAPI Contract Artifact
 
-Planned REST request schemas should carry:
+The checked-in OpenAPI contract at `docs/api/shardloom-openapi-v1.yaml` is still report-only: it
+does not authorize a listener, server process, remote execution, dependency expansion, or REST
+runtime path. It now carries the same execution-mode vocabulary and selection report field names
+used by CLI JSON, Python, and benchmark rows so future REST work cannot invent a separate protocol.
+
+REST request schemas should carry:
 
 ```text
 requested_execution_mode
+engine_mode
 certification_requested
 result_sink_requested
 source_format
 workload_constitution_id
 ```
 
-Planned REST responses should embed the same selection report and compute-flow evidence fields used
-by CLI JSON and Python. REST must not introduce a different enum, rename claim gates, omit the
-selected mode, or hide auto-mode selection reasons.
+REST responses should embed `execution_mode_selection` with the same selection report and
+compute-flow evidence field names used by CLI JSON and Python. REST must not introduce a different
+enum, rename claim gates, omit the selected mode, or hide auto-mode selection reasons.
 
 Unsupported REST mode requests must return deterministic diagnostics with:
 
@@ -160,6 +166,15 @@ mode_supported=false
 unsupported_diagnostic_code
 blocker_id
 required_future_evidence
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Until a real REST runtime/server slice is implemented and evidenced, the REST parity artifact uses:
+
+```text
+support_status=report_only
+claim_gate_status=report_only
 fallback_attempted=false
 external_engine_invoked=false
 ```
