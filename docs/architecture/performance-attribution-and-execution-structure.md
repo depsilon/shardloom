@@ -226,6 +226,55 @@ persistent_runner_status
 Unknown or not-yet-isolated fields should be explicit `null`, `not_measured`, or
 `included_in_total_runtime` values rather than silently omitted.
 
+## Benchmark Artifact Contract
+
+The traditional analytics harness now emits
+`execution_mode_attribution_contract` in JSON and Markdown reports. That contract
+is intentionally redundant with the fields above: it makes the attribution rules
+machine-readable next to the measurements so consumers do not have to infer them
+from prose.
+
+Every benchmark row must carry these execution-mode fields:
+
+```text
+requested_execution_mode
+selected_execution_mode
+mode_selection_reason
+execution_mode_family
+vortex_native_claim_allowed
+compatibility_import_included
+vortex_prepare_included
+vortex_write_reopen_included
+direct_transient_execution
+claim_gate_status
+```
+
+Every benchmark row must carry these stage timing fields:
+
+```text
+source_read_millis
+compatibility_parse_millis
+compatibility_to_vortex_import_millis
+vortex_write_millis
+vortex_reopen_millis
+vortex_scan_millis
+operator_compute_millis
+result_sink_write_millis
+evidence_render_millis
+total_runtime_millis
+```
+
+The harness validates those fields before writing the artifact. External
+baseline rows use `selected_execution_mode=external_baseline_only`; ShardLoom
+rows use one of the canonical ShardLoom modes. If
+`requested_execution_mode=auto`, the row must also preserve the selected mode and
+the selection reason.
+
+`compatibility_import_certified` rows are valid ingest/stage/certification
+evidence, but they are not pure query-speed evidence. Public performance,
+superiority, Spark-displacement, best-default, production, or replacement claims
+remain blocked unless workload-scoped claim-grade evidence is attached.
+
 ## Current Interpretation
 
 Current ShardLoom compatibility rows answer:

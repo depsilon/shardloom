@@ -53,9 +53,12 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"prepared_artifact_ref\""));
     assert!(script.contains("\"prepared_artifact_digest\""));
     assert!(script.contains("\"source_read_millis\""));
+    assert!(script.contains("\"compatibility_parse_millis\""));
     assert!(script.contains("\"compatibility_to_vortex_import_millis\""));
     assert!(script.contains("\"vortex_write_millis\""));
+    assert!(script.contains("\"vortex_reopen_millis\""));
     assert!(script.contains("\"vortex_scan_millis\""));
+    assert!(script.contains("\"evidence_render_millis\""));
     assert!(script.contains("\"fusion_status\""));
     assert!(script.contains("\"filter_project_limit_fused\""));
     assert!(script.contains("\"fusion_blocker\""));
@@ -91,6 +94,14 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"direct_compatibility_transient_not_implemented\""));
     assert!(script.contains("def support_status("));
     assert!(script.contains("def materialization_decode_evidence_present("));
+    assert!(script.contains("SHARDLOOM_EXECUTION_MODE_VOCABULARY"));
+    assert!(script.contains("EXECUTION_MODE_CONTRACT_FIELDS"));
+    assert!(script.contains("STAGE_TIMING_CONTRACT_FIELDS"));
+    assert!(script.contains("def execution_mode_attribution_contract("));
+    assert!(script.contains("def validate_result_attribution_contract("));
+    assert!(script.contains("def render_execution_mode_attribution_contract("));
+    assert!(script.contains("\"execution_mode_attribution_contract\""));
+    assert!(script.contains("\"shardloom.execution_mode_benchmark_attribution.v1\""));
     assert!(script.contains("CORRECTNESS_FLOAT_DIGITS = 4"));
     assert!(script.contains("\"status\", \"--short\", \"--untracked-files=no\""));
     assert!(script.contains("traditional-analytics-run"));
@@ -350,6 +361,9 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("result-sink write timing"));
     assert!(readme.contains("requested_execution_mode"));
     assert!(readme.contains("selected_execution_mode"));
+    assert!(readme.contains("execution_mode_attribution_contract"));
+    assert!(readme.contains("compatibility_parse_millis"));
+    assert!(readme.contains("evidence_render_millis"));
     assert!(readme.contains("compatibility-import-certified timing"));
     assert!(readme.contains("execution_mode=prepared_vortex"));
     assert!(readme.contains("standalone `.vortex` report rows"));
@@ -428,9 +442,16 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "baseline_or_oracle_only",
         "unsupported_until_vortex_or_shardloom_evidence",
         "total_runtime_millis",
+        "source_read_millis",
+        "compatibility_parse_millis",
         "compatibility_to_vortex_import_millis",
+        "vortex_write_millis",
+        "vortex_reopen_millis",
+        "vortex_scan_millis",
         "operator_compute_millis",
         "result_sink_write_millis",
+        "evidence_render_millis",
+        "execution_mode_attribution_contract",
         "stable correctness digest",
         "Native I/O certificate",
         "Unsupported work must return deterministic unsupported diagnostics",
@@ -501,7 +522,7 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         completed_ledger
             .contains("GAR-FLOW-1B direct compatibility transient local CSV smoke path")
     );
-    assert!(plan.contains("GAR-FLOW-2A execution-mode benchmark attribution contract"));
+    assert!(completed_ledger.contains("GAR-FLOW-2A execution-mode benchmark attribution contract"));
     assert!(plan.contains("GAR-FLOW-2C persistent benchmark runner admission gate"));
     assert!(plan.contains("GAR-FLOW-2D work-avoidance metric evidence schema"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));

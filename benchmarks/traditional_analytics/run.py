@@ -44,6 +44,38 @@ ENGINE_CHOICES = ENGINE_ORDER + (
 )
 ENGINE_ALIASES = {"spark": ("spark-default", "spark-local-tuned")}
 BENCHMARK_SUITE = "local_analytics"
+SHARDLOOM_EXECUTION_MODE_VOCABULARY = (
+    "auto",
+    "compatibility_import_certified",
+    "prepared_vortex",
+    "native_vortex",
+    "direct_compatibility_transient",
+)
+EXTERNAL_BASELINE_EXECUTION_MODE = "external_baseline_only"
+EXECUTION_MODE_CONTRACT_FIELDS = (
+    "requested_execution_mode",
+    "selected_execution_mode",
+    "mode_selection_reason",
+    "execution_mode_family",
+    "vortex_native_claim_allowed",
+    "compatibility_import_included",
+    "vortex_prepare_included",
+    "vortex_write_reopen_included",
+    "direct_transient_execution",
+    "claim_gate_status",
+)
+STAGE_TIMING_CONTRACT_FIELDS = (
+    "source_read_millis",
+    "compatibility_parse_millis",
+    "compatibility_to_vortex_import_millis",
+    "vortex_write_millis",
+    "vortex_reopen_millis",
+    "vortex_scan_millis",
+    "operator_compute_millis",
+    "result_sink_write_millis",
+    "evidence_render_millis",
+    "total_runtime_millis",
+)
 DEFAULT_DATASET_PROFILE = "narrow_fact_dim"
 GENERATED_DATASET_PROFILES = (
     "tiny_smoke",
@@ -3579,6 +3611,57 @@ def benchmark_constitution(
     }
 
 
+def validate_result_attribution_contract(result: dict[str, Any]) -> None:
+    metrics = result.get("metrics")
+    if not isinstance(metrics, dict):
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row is missing metrics"
+        )
+    missing_stage_fields = [
+        field for field in STAGE_TIMING_CONTRACT_FIELDS if field not in metrics
+    ]
+    if missing_stage_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted stage timing fields: "
+            + ", ".join(missing_stage_fields)
+        )
+    missing_mode_fields = [
+        field for field in EXECUTION_MODE_CONTRACT_FIELDS if field not in result
+    ]
+    if missing_mode_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted execution-mode fields: "
+            + ", ".join(missing_mode_fields)
+        )
+
+    selected_mode = str(result.get("selected_execution_mode") or "")
+    requested_mode = str(result.get("requested_execution_mode") or "")
+    if is_shardloom_engine(str(result.get("engine"))):
+        if selected_mode not in SHARDLOOM_EXECUTION_MODE_VOCABULARY:
+            raise RuntimeError(f"unrecognized ShardLoom execution mode: {selected_mode}")
+    elif selected_mode != EXTERNAL_BASELINE_EXECUTION_MODE:
+        raise RuntimeError(f"external baseline row used unexpected mode: {selected_mode}")
+
+    if requested_mode == "auto":
+        if selected_mode == "auto" or not result.get("mode_selection_reason"):
+            raise RuntimeError("auto execution mode must report selected mode and reason")
+
+    if (
+        result.get("engine") == "shardloom"
+        and result.get("status") == "success"
+        and selected_mode == "compatibility_import_certified"
+    ):
+        if result.get("compatibility_import_included") is not True:
+            raise RuntimeError("compatibility_import_certified row must mark import included")
+        if result.get("vortex_write_reopen_included") is not True:
+            raise RuntimeError(
+                "compatibility_import_certified row must mark Vortex write/reopen included"
+            )
+
+
 def annotate_result(
     result: dict[str, Any],
     cache_mode: str,
@@ -3597,6 +3680,7 @@ def annotate_result(
     result["benchmark_constitution"] = benchmark_constitution(
         result, cache_mode, dataset_profile
     )
+    validate_result_attribution_contract(result)
     return result
 
 
@@ -4857,6 +4941,54 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
     }
 
 
+def execution_mode_attribution_contract() -> dict[str, Any]:
+    return {
+        "contract_id": "shardloom.execution_mode_benchmark_attribution.v1",
+        "canonical_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "companion_reference": (
+            "docs/architecture/performance-attribution-and-execution-structure.md"
+        ),
+        "mode_vocabulary": list(SHARDLOOM_EXECUTION_MODE_VOCABULARY),
+        "execution_mode_fields": list(EXECUTION_MODE_CONTRACT_FIELDS),
+        "stage_timing_fields": list(STAGE_TIMING_CONTRACT_FIELDS),
+        "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
+        "mode_interpretation": {
+            "compatibility_import_certified": (
+                "Times compatibility source read/parse, Vortex import, local Vortex "
+                "write/reopen/scan, temporary operator compute, optional result-sink "
+                "work, and evidence rendering; it is ingest/stage/certification "
+                "evidence, not pure query-speed evidence."
+            ),
+            "prepared_vortex": (
+                "Measures scenario timing from prepared Vortex artifacts; preparation "
+                "is recorded separately unless preparation_included_in_timing=true."
+            ),
+            "native_vortex": (
+                "Measures execution over existing Vortex input with provider and "
+                "materialization/decode evidence."
+            ),
+            "direct_compatibility_transient": (
+                "Measures the scoped one-shot direct compatibility path when admitted; "
+                "it is ShardLoom-native but not Vortex-native."
+            ),
+            "auto": (
+                "Transparent selection only; rows must preserve requested_execution_mode, "
+                "selected_execution_mode, and mode_selection_reason."
+            ),
+            EXTERNAL_BASELINE_EXECUTION_MODE: (
+                "External engines are comparison baselines/oracles only and are never "
+                "ShardLoom fallback execution."
+            ),
+        },
+        "claim_boundary": (
+            "claim_gate_status remains not_claim_grade, fixture_smoke_only, unsupported, "
+            "or external_baseline_only unless workload-scoped claim-grade evidence is "
+            "attached."
+        ),
+        "no_fallback_rule": "fallback_attempted=false and external_engine_invoked=false for every ShardLoom row",
+    }
+
+
 def default_output_path() -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return Path(__file__).resolve().parent / "results" / f"traditional_analytics_{timestamp}.json"
@@ -5010,6 +5142,30 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
         ],
     ]
     return markdown_table(["Parameter", "Value"], rows)
+
+
+def render_execution_mode_attribution_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["execution_mode_attribution_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Mode vocabulary", ", ".join(contract["mode_vocabulary"])],
+        ["Execution-mode fields", ", ".join(contract["execution_mode_fields"])],
+        ["Stage timing fields", ", ".join(contract["stage_timing_fields"])],
+        ["Unknown stage values", str(contract["unknown_stage_value_policy"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+    ]
+    mode_rows = [
+        [mode, str(description)]
+        for mode, description in contract["mode_interpretation"].items()
+    ]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Mode", "Interpretation"], mode_rows)
+    )
 
 
 def render_read_this_first(artifact: dict[str, Any]) -> str:
@@ -5721,6 +5877,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_fairness_parameters(artifact),
         "",
+        "## Execution Mode Attribution Contract",
+        "",
+        "Every benchmark row must carry these mode and stage fields so timing is read as the correct workflow, not as a hidden performance claim.",
+        "",
+        render_execution_mode_attribution_contract(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -6003,6 +6165,7 @@ def main() -> int:
         },
         "environment": environment_report(),
         "fairness_parameters": fairness_parameters(args, paths),
+        "execution_mode_attribution_contract": execution_mode_attribution_contract(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
         "format_order": list(report_formats),

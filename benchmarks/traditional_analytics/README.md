@@ -275,6 +275,25 @@ Execution modes are explicit:
 - `direct_compatibility_transient`: scoped local CSV one-shot compatibility compute where evidence exists, otherwise deterministic unsupported; not a Vortex-native claim.
 - `auto`: transparent selection only; the selected mode and reason must be reported.
 
+The JSON artifact and Markdown report include
+`execution_mode_attribution_contract`, which locks the interpretation surface for
+each row. Every row must carry `requested_execution_mode`,
+`selected_execution_mode`, `mode_selection_reason`, `execution_mode_family`,
+`vortex_native_claim_allowed`, `compatibility_import_included`,
+`vortex_prepare_included`, `vortex_write_reopen_included`,
+`direct_transient_execution`, and `claim_gate_status`.
+
+Every row also carries the stage timing fields
+`source_read_millis`, `compatibility_parse_millis`,
+`compatibility_to_vortex_import_millis`, `vortex_write_millis`,
+`vortex_reopen_millis`, `vortex_scan_millis`,
+`operator_compute_millis`, `result_sink_write_millis`,
+`evidence_render_millis`, and `total_runtime_millis`. Unknown or
+not-yet-isolated values stay present as `null`, `n/a`, or
+`not_measured` rather than being omitted. In particular,
+`compatibility_import_certified` rows time the ingest/stage/certification
+workflow; do not read those rows as pure ShardLoom query-speed rows.
+
 The canonical flow reference for these modes is
 `docs/architecture/compute-engine-flow-reference.md`. The companion timing-attribution reference is
 `docs/architecture/performance-attribution-and-execution-structure.md`.
