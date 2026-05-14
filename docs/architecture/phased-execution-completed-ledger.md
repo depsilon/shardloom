@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0026-B prepared/native grouped aggregate streaming runtime path
+  - Primary files:
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+  - Scope: add a scoped prepared/native Vortex runtime path for `group by aggregation`.
+  - Checklist:
+    - [x] Route prepared/native `group by aggregation` through a projected Vortex scan over
+          `group_key` and `metric`.
+    - [x] Aggregate through ShardLoom-native grouped residual state instead of materializing the
+          full fact table.
+    - [x] Preserve correctness for the traditional analytics result JSON.
+    - [x] Report prepared/native rows as residual-native with
+          `operator_encoded_native_claim_allowed=false`.
+    - [x] Keep compatibility-import rows distinct from prepared/native query rows because
+          compatibility ingest still materializes source rows into Vortex.
+    - [x] Add a follow-up planned slice for multi-key prepared/native grouped aggregation and a
+          subsequent hash-join streaming path.
+  - Boundary:
+    - This is a scoped runtime slice for the traditional analytics benchmark path. It does not add
+      encoded-native grouped aggregation, SQL/DataFrame planning, object-store execution,
+      generalized compressed execution, memory/spill guarantees, or performance/superiority claims.
+  - Vortex-first provider check:
+    - Subject area: RFC 0026 prepared/native Vortex scan execution and grouped aggregate benchmark
+      path.
+    - Upstream Vortex concept checked: `VortexFile::scan`, projection pushdown, and
+      `ScanBuilder::into_array_iter`.
+    - Decision: `wrap_vortex_concept`.
+    - Vortex API/provider surface: local Vortex file scan with `select(["group_key","metric"],
+      root())`.
+    - ShardLoom provider/report/certificate surface: traditional analytics prepared/native report,
+      operator blocker matrix, Native I/O certificate, benchmark coverage row, and stage timing
+      fields.
+    - Residual handling: grouped aggregation is ShardLoom-native residual state, not encoded-native
+      execution.
+    - Materialization/decode boundary: full fact-table materialization is avoided for
+      prepared/native rows; compatibility-import rows still record ingest materialization
+      separately.
+    - Evidence added: focused runtime test, benchmark docs, GAR/RFC traceability, phase-plan
+      follow-up, no-fallback and no-external-engine invariants.
+    - Gates still blocked: encoded-native grouped aggregate claims, memory/spill production
+      guarantees, generalized direct encoded count/filter/project execution, broad
+      compressed-execution claims, SQL/DataFrame, object-store, and public performance claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics::tests::enabled_group_by_aggregation_uses_prepared_native_vortex_scan --lib`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "group by aggregation" --rows 100 --iterations 1 --shardloom-build-profile debug --no-markdown --output target\codex-gar0026b-grouped-aggregate-smoke.json --data-dir target\codex-gar0026b-grouped-aggregate-data --regenerate`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python -m unittest discover -s python/tests`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0026-A prepared/native filter-project-limit runtime path
   - Primary files:
     - `benchmarks/traditional_analytics/README.md`

@@ -70,6 +70,15 @@ Currently wired surfaces include:
   surfaces
 - local Vortex traditional-analytics execution with optional source replay, result-sink replay,
   scheduler/memory evidence, execution certificates, Native I/O certificates, and no-fallback fields
+- explicit execution-mode evidence for `compatibility_import_certified`, `prepared_vortex`,
+  `native_vortex`, `direct_compatibility_transient`, and `auto`
+- scoped prepared/native Vortex query paths for `selective filter`, `wide projection`,
+  `filter + projection + limit`, and `group by aggregation`; these avoid full fact-table
+  materialization for the prepared/native row while remaining residual-native, not encoded-native
+  operator claims
+- batch/live/hybrid engine-mode contracts through `engine-selection-plan`,
+  `engine-capability-matrix`, `live-change-contract-plan`, Python context helpers, and scoped
+  in-memory `live-fixture-run` / `hybrid-overlay-run` fixture reports
 - a local benchmark harness with taxonomy metadata, separate timing and coverage tables,
   reproducibility checks, local optional baselines, and explicit unsupported/blocked rows
 - Vortex-first architecture docs and guardrails for treating upstream Vortex APIs as native providers
@@ -77,6 +86,25 @@ Currently wired surfaces include:
 
 Some broad surfaces are intentionally report-only or unsupported in this pre-release repository. See
 the phase plan and completed ledger for exact implementation status.
+
+## Modes At A Glance
+
+ShardLoom currently uses two separate mode vocabularies:
+
+| Vocabulary | Values | What it answers | Current posture |
+| --- | --- | --- | --- |
+| Execution mode | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, `auto` | How the request crosses source/preparation boundaries and how timings should be interpreted. | Current benchmark/report fields; prepared/native work is being expanded scenario by scenario. |
+| Engine mode | `batch`, `live`, `hybrid`, `auto` | What workload semantics the plan has: bounded batch, live change stream, or base-plus-delta hybrid state. | Contract and fixture evidence exists; production live/hybrid claims remain not claim-grade. |
+
+`batch` is the current practical foundation for local Vortex analytics. `live` and `hybrid` are
+represented by selection reports, capability matrices, Python context helpers, live-change
+contracts, and scoped in-memory fixture reports with certificate fields and
+`fallback_attempted=false`. They are not yet broker-backed, object-store-backed, or production
+live/hybrid engines.
+
+The next prepared/native runtime work is intentionally concrete: multi-key grouped aggregation,
+then scoped local hash-join streaming paths, with encoded-native, production, SQL/DataFrame,
+object-store, and performance claims still gated by workload evidence.
 
 ## Core Concepts
 
@@ -124,6 +152,7 @@ First-user docs:
 - [`docs/getting-started/certified-local-workload.md`](docs/getting-started/certified-local-workload.md)
 - [`docs/benchmarks/local-taxonomy-benchmark.md`](docs/benchmarks/local-taxonomy-benchmark.md)
 - [`docs/benchmarks/baseline-comparison-boundary.md`](docs/benchmarks/baseline-comparison-boundary.md)
+- [`docs/architecture/compute-engine-flow-reference.md`](docs/architecture/compute-engine-flow-reference.md)
 
 ## No-Fallback Policy
 

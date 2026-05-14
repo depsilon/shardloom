@@ -12,6 +12,7 @@ one-shot compatibility query
 ingest/stage workflow
 prepared Vortex query
 native Vortex query
+batch/live/hybrid workload semantics
 benchmark baseline comparison
 ```
 
@@ -42,6 +43,7 @@ unsupported diagnostic, and whether any claim is allowed.
 User request
 -> policy + capability admission
 -> explicit execution mode
+-> explicit engine mode where the workload needs batch/live/hybrid semantics
 -> source/preparation boundary
 -> ShardLoom/Vortex execution provider
 -> result/result sink/downstream reference
@@ -70,7 +72,8 @@ Read only as far as needed:
 | 1. Access and users | Who can enter ShardLoom, and what do they receive back? | End users, adapter authors, operators | You need product/API orientation. |
 | 2. Runtime contract | What must happen before any supported work executes? | Implementers, reviewers, agents | You need invariant request-to-output behavior. |
 | 3. Mode lanes | Which execution mode owns each source/preparation boundary? | Benchmark authors, runtime implementers | You need timing and mode interpretation. |
-| 4. Evidence and downstream use | How do sinks, adapters, reports, and claims consume outputs? | Release reviewers, benchmark readers, platform integrators | You need claim and downstream boundaries. |
+| 4. Engine fabric | Where do batch, live, and hybrid semantics fit? | Workflow/API implementers, platform integrators | You need workload semantics and live/hybrid boundaries. |
+| 5. Evidence and downstream use | How do sinks, adapters, reports, and claims consume outputs? | Release reviewers, benchmark readers, platform integrators | You need claim and downstream boundaries. |
 
 Diagram notation:
 
@@ -151,6 +154,7 @@ flowchart TD
         CAPABILITY["Capability matrix<br/>source + operator + sink + feature gates"]
         SEMANTICS["Semantic profile<br/>schema / expression / workload constitution"]
         MODE["Explicit execution mode<br/>requested + selected + reason"]
+        ENGINE["Engine mode<br/>batch / live / hybrid / auto"]
     end
 
     subgraph EXECUTION_PHASE["3. Provider decision"]
@@ -171,9 +175,9 @@ flowchart TD
 
     REQUEST --> SOURCE
     REQUEST --> OUTPUT_INTENT
-    SOURCE --> POLICY --> CAPABILITY --> SEMANTICS --> MODE
+    SOURCE --> POLICY --> CAPABILITY --> SEMANTICS --> MODE --> ENGINE
     OUTPUT_INTENT --> MODE
-    MODE --> BOUNDARY --> PLAN --> ADMISSION
+    ENGINE --> BOUNDARY --> PLAN --> ADMISSION
     ADMISSION -->|"unsupported"| DIAGNOSTIC --> EVIDENCE
     ADMISSION -->|"supported"| EXECUTE --> RESULT --> SINK --> EVIDENCE
     EVIDENCE --> CLAIM --> ENVELOPE
@@ -234,7 +238,71 @@ evidence_render_millis
 total_runtime_millis
 ```
 
-### View 4 - I/O, Evidence, And Downstream Use
+### View 4 - Engine Fabric Layer
+
+Execution modes and engine modes answer different questions:
+
+- Execution mode answers "what source/preparation lane did this run through?"
+- Engine mode answers "what workload semantics did ShardLoom admit?"
+
+The current repo has concrete engine-mode contracts and fixture evidence. It does not yet have
+production broker-backed live execution, durable live state, object-store-backed hybrid execution, or
+live/hybrid public claims.
+
+```mermaid
+flowchart TD
+    REQUEST["Typed request<br/>workload + source + output intent"]
+    ENGINE_REQUEST["requested_engine_mode<br/>auto / batch / live / hybrid"]
+    ENGINE_SELECTION["engine-selection-plan<br/>selected_engine_mode + allowed/rejected modes"]
+    MATRIX["engine-capability-matrix<br/>batch/live/hybrid rows"]
+
+    subgraph CURRENT["Current scoped engine surfaces"]
+        BATCH["batch<br/>bounded snapshot local Vortex analytics"]
+        LIVE_CONTRACT["live-change-contract-plan<br/>change records + watermark/checkpoint vocabulary"]
+        LIVE_FIXTURE["live-fixture-run<br/>in-memory fixture operators + certificates"]
+        HYBRID_FIXTURE["hybrid-overlay-run<br/>base snapshot + hot delta fixture evidence"]
+    end
+
+    subgraph CLAIM_BOUNDARY["Claim and effect boundary"]
+        FIXTURE_CLAIM["fixture evidence only<br/>production_claim_allowed=false"]
+        NO_EFFECTS["no broker / object-store / external engine<br/>fallback_attempted=false"]
+        PLANNED_GATES["planned gates<br/>durable state / freshness / object-store / workload evidence"]
+    end
+
+    REQUEST --> ENGINE_REQUEST --> ENGINE_SELECTION --> MATRIX
+    MATRIX --> BATCH
+    MATRIX --> LIVE_CONTRACT --> LIVE_FIXTURE
+    MATRIX --> HYBRID_FIXTURE
+    BATCH --> FIXTURE_CLAIM
+    LIVE_FIXTURE --> FIXTURE_CLAIM
+    HYBRID_FIXTURE --> FIXTURE_CLAIM
+    FIXTURE_CLAIM --> NO_EFFECTS --> PLANNED_GATES
+```
+
+Current engine-mode surfaces:
+
+| Engine mode | Current surface | Current support | Claim boundary |
+| --- | --- | --- | --- |
+| `batch` | `engine-selection-plan`, `engine-capability-matrix`, local Vortex analytics paths | Partially supported for bounded snapshot workflows and scoped local Vortex benchmark/runtime evidence | Not a broad production or SQL/DataFrame claim. |
+| `live` | `engine-selection-plan live ...`, `live-change-contract-plan`, `live-fixture-run` | Partially supported for in-memory fixture change streams with fixture freshness/state/execution/Native I/O certificates | No broker, durable state store, object-store I/O, or production live claim. |
+| `hybrid` | `engine-selection-plan hybrid ...`, `hybrid-overlay-run` | Partially supported for in-memory base-plus-hot-delta fixture overlays with delta/freshness/execution/Native I/O certificate fields | No durable micro-segment writes, object-store commit, catalog snapshot discovery, or production hybrid claim. |
+| `auto` | `engine-selection-plan` default selection | Transparent selector; defaults to `batch` for bounded snapshot workloads and must report selected/rejected modes | Not a hidden engine and never a fallback route. |
+
+These commands are side-effect controlled:
+
+```text
+engine-selection-plan: runtime_execution=false, data_read=false, write_io=false
+engine-capability-matrix: runtime_execution=false, data_read=false, write_io=false
+live-change-contract-plan: runtime_execution=false, data_read=false, write_io=false
+live-fixture-run: scoped fixture runtime, data_read=false, write_io=false, broker_io=false
+hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, object_store_io=false
+```
+
+Planned updates are carried in the phase plan, especially `GAR-0034-A` for live/hybrid fabric
+blockers and freshness gates. The next runtime-focused updates before broad engine expansion are the
+prepared/native Vortex paths: multi-key grouped aggregation and scoped local hash-join streaming.
+
+### View 5 - I/O, Evidence, And Downstream Use
 
 This view connects runtime output to every consumer. Downstream users read typed outputs or
 referenced artifacts; they do not imply a hidden execution mode, fallback engine, or unverified
@@ -308,7 +376,8 @@ public performance claims.
 End-to-end contract:
 
 - Every request binds source descriptors, policy, capability, semantic profile, execution mode,
-  output intent, end-user access path, adapter surface, and downstream usage before execution.
+  engine mode where applicable, output intent, end-user access path, adapter surface, and downstream
+  usage before execution.
 - CLI access is the current canonical user and automation entrypoint. Wrappers and planned adapters
   must preserve the typed protocol instead of creating independent execution semantics.
 - SQL/DataFrame access currently exposes a report-only planner-readiness matrix through
@@ -326,6 +395,27 @@ End-to-end contract:
   execution mode, fallback engine, or unverified sink.
 - Public claims are allowed only after the claim gate sees the required correctness, benchmark,
   execution-certificate, Native I/O, materialization/decode, policy, and no-fallback evidence.
+
+## Execution Modes And Engine Modes
+
+Execution modes are source/preparation/timing lanes. Engine modes are workload semantics. A single
+request can therefore have both:
+
+```text
+selected_execution_mode=prepared_vortex
+selected_engine_mode=batch
+```
+
+For scoped engine-fabric fixture commands, source/preparation execution mode may be absent because
+the command is proving engine semantics rather than a compatibility/Vortex source lane:
+
+```text
+selected_engine_mode=live
+execution_mode_fields=not_applicable_to_engine_fabric_fixture
+```
+
+The fields must not be collapsed. `auto` exists in both vocabularies, but in both cases it is only a
+transparent selector and must report what it selected.
 
 ## The Five Execution Modes
 
@@ -567,6 +657,37 @@ selected_execution_mode must be explicit
 mode_selection_reason must be explicit
 ```
 
+## The Four Engine Modes
+
+| Mode | What it means | Current repo state | Planned updates |
+| --- | --- | --- | --- |
+| `batch` | Finite workload over bounded or snapshot inputs. | Current local Vortex analytics foundation; prepared/native paths are being optimized scenario by scenario. | Broader operator coverage, source/sink certification, correctness/benchmark gates. |
+| `live` | Continuous workload over change streams. | Engine selection, capability rows, live-change contract, and in-memory fixture execution/certificate reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, workload certification. |
+| `hybrid` | Cold/base snapshot plus hot delta overlay. | Engine selection, capability rows, and in-memory hybrid overlay fixture/certificate reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, hot/cold benchmark evidence. |
+| `auto` | Transparent engine selection from workload contract. | Selects or rejects with explicit allowed/rejected modes; no runtime, reads, writes, or fallback. | More precise selection once live/hybrid production gates exist. |
+
+Engine-mode report fields must stay visible:
+
+```text
+requested_engine_mode
+selected_engine_mode
+allowed_engine_modes
+rejected_engine_modes
+boundedness
+update_mode
+output_mode
+selection_status
+runtime_execution
+data_read
+write_io
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Live and hybrid fixture reports may have `runtime_execution=true`, but only for scoped in-memory
+fixtures. They must still report no external broker/object-store I/O and no fallback. Production
+claims stay blocked until workload-scoped evidence exists.
+
 ## Canonical Stage Checklist
 
 Use this checklist when reviewing a concrete command, benchmark row, adapter call, or future API
@@ -637,6 +758,9 @@ compatibility_import_certified = staging + query + evidence
 prepared_vortex = preparation once + query many times
 native_vortex = query over existing Vortex
 direct_compatibility_transient = one-shot direct ShardLoom compute, not Vortex-native
+batch = bounded/snapshot workload semantics
+live = continuous/change-stream workload semantics
+hybrid = base snapshot plus hot delta workload semantics
 ```
 
 The benchmark artifact must also carry
@@ -898,19 +1022,22 @@ Optimization priorities:
 1. Prepared Vortex reuse.
 2. Native Vortex taxonomy coverage.
 3. Fused filter + projection + limit.
-4. Multi-key group by.
-5. Join + aggregate.
-6. Top-N per group.
-7. Row number window.
-8. Source-backed Scan API path.
-9. Layout advisor applying real write/layout choices.
-10. Persistent in-process benchmark runner.
+4. Single-key grouped aggregate.
+5. Multi-key group by.
+6. Join + aggregate.
+7. Top-N per group.
+8. Row number window.
+9. Source-backed Scan API path.
+10. Layout advisor applying real write/layout choices.
+11. Persistent in-process benchmark runner.
 ```
 
 Current scoped progress: `filter + projection + limit` has a prepared/native
 residual-native fused scan path. It uses Vortex scan filter/projection pushdown
-and bounded top-N state to avoid full fact-table materialization, but it is not
-an encoded-native operator claim and still carries
+and bounded top-N state to avoid full fact-table materialization. `group by
+aggregation` now also has a prepared/native residual-native scan path using
+projection pushdown over `group_key`/`metric` and ShardLoom-native grouped
+state. Neither path is an encoded-native operator claim, and both still carry
 `operator_encoded_native_claim_allowed=false`.
 
 ## What Codex Should Optimize Toward
@@ -952,6 +1079,8 @@ The output always says:
 requested_execution_mode
 selected_execution_mode
 mode_selection_reason
+requested_engine_mode where applicable
+selected_engine_mode where applicable
 vortex_native_claim_allowed
 compatibility_import_included
 vortex_prepare_included
@@ -994,10 +1123,19 @@ by execution mode:
 - direct_compatibility_transient
 - auto
 
+Also classify the workload by engine mode when batch/live/hybrid semantics are involved:
+
+- batch
+- live
+- hybrid
+- auto
+
 Do not create a hidden global fast-mode toggle. Every row/output must report
 requested_execution_mode, selected_execution_mode, mode_selection_reason, Vortex-native claim
 status, compatibility import status, materialization/decode status, certificates,
-fallback_attempted=false, and external_engine_invoked=false.
+fallback_attempted=false, and external_engine_invoked=false. Engine-fabric rows must additionally
+report requested_engine_mode, selected_engine_mode, allowed/rejected modes, boundedness,
+update_mode, output_mode, runtime_execution, data_read, and write_io.
 
 Optimize toward prepared_vortex and native_vortex for performance comparisons. Preserve
 compatibility_import_certified for certified ingest/stage workflows. Allow
