@@ -573,6 +573,7 @@ pub struct TraditionalAnalyticsVortexRequest {
     pub scenario: TraditionalAnalyticsScenario,
     pub fact_vortex: PathBuf,
     pub dim_vortex: PathBuf,
+    pub cdc_delta_vortex: Option<PathBuf>,
     pub requested_execution_mode: ShardLoomExecutionMode,
     pub result_workspace_dir: Option<PathBuf>,
     pub write_result_vortex: bool,
@@ -589,6 +590,7 @@ impl TraditionalAnalyticsVortexRequest {
             scenario,
             fact_vortex,
             dim_vortex,
+            cdc_delta_vortex: None,
             requested_execution_mode: ShardLoomExecutionMode::NativeVortex,
             result_workspace_dir: None,
             write_result_vortex: false,
@@ -598,6 +600,12 @@ impl TraditionalAnalyticsVortexRequest {
     #[must_use]
     pub const fn with_requested_execution_mode(mut self, value: ShardLoomExecutionMode) -> Self {
         self.requested_execution_mode = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_cdc_delta_vortex(mut self, value: Option<PathBuf>) -> Self {
+        self.cdc_delta_vortex = value;
         self
     }
 
@@ -2143,14 +2151,18 @@ pub struct TraditionalAnalyticsVortexReport {
     pub result_json: String,
     pub fact_rows: u64,
     pub dim_rows: u64,
+    pub cdc_delta_rows: u64,
     pub rows_scanned: u64,
     pub rows_materialized: u64,
     pub fact_vortex_path: PathBuf,
     pub dim_vortex_path: PathBuf,
+    pub cdc_delta_vortex_path: Option<PathBuf>,
     pub fact_vortex_bytes: u64,
     pub dim_vortex_bytes: u64,
+    pub cdc_delta_vortex_bytes: u64,
     pub fact_vortex_digest: String,
     pub dim_vortex_digest: String,
+    pub cdc_delta_vortex_digest: Option<String>,
     pub source_bytes_read: u64,
     pub materialization_boundary_rows: u64,
     pub scenario_compute_micros: u64,
@@ -2231,6 +2243,33 @@ impl TraditionalAnalyticsVortexReport {
 
     #[allow(clippy::too_many_lines)]
     fn base_fields(&self) -> Vec<(String, String)> {
+        let prepared_artifact_ref =
+            if let Some(cdc_delta_path) = self.cdc_delta_vortex_path.as_ref() {
+                format!(
+                    "fact={},dim={},cdc_delta={}",
+                    self.fact_vortex_path.display(),
+                    self.dim_vortex_path.display(),
+                    cdc_delta_path.display()
+                )
+            } else {
+                format!(
+                    "fact={},dim={}",
+                    self.fact_vortex_path.display(),
+                    self.dim_vortex_path.display()
+                )
+            };
+        let prepared_artifact_digest =
+            if let Some(cdc_delta_digest) = self.cdc_delta_vortex_digest.as_ref() {
+                format!(
+                    "fact={},dim={},cdc_delta={}",
+                    self.fact_vortex_digest, self.dim_vortex_digest, cdc_delta_digest
+                )
+            } else {
+                format!(
+                    "fact={},dim={}",
+                    self.fact_vortex_digest, self.dim_vortex_digest
+                )
+            };
         let mut fields = vec![
             (
                 "fallback_execution_allowed".to_string(),
@@ -2247,6 +2286,10 @@ impl TraditionalAnalyticsVortexReport {
             ("result_json".to_string(), self.result_json.clone()),
             ("fact_rows".to_string(), self.fact_rows.to_string()),
             ("dim_rows".to_string(), self.dim_rows.to_string()),
+            (
+                "cdc_delta_rows".to_string(),
+                self.cdc_delta_rows.to_string(),
+            ),
             ("rows_scanned".to_string(), self.rows_scanned.to_string()),
             (
                 "rows_materialized".to_string(),
@@ -2261,13 +2304,12 @@ impl TraditionalAnalyticsVortexReport {
                 self.dim_vortex_path.display().to_string(),
             ),
             (
-                "prepared_artifact_ref".to_string(),
-                format!(
-                    "fact={},dim={}",
-                    self.fact_vortex_path.display(),
-                    self.dim_vortex_path.display()
-                ),
+                "cdc_delta_vortex_path".to_string(),
+                self.cdc_delta_vortex_path
+                    .as_ref()
+                    .map_or_else(String::new, |path| path.display().to_string()),
             ),
+            ("prepared_artifact_ref".to_string(), prepared_artifact_ref),
             (
                 "prepared_artifact_fact_ref".to_string(),
                 self.fact_vortex_path.display().to_string(),
@@ -2277,11 +2319,14 @@ impl TraditionalAnalyticsVortexReport {
                 self.dim_vortex_path.display().to_string(),
             ),
             (
+                "prepared_artifact_cdc_delta_ref".to_string(),
+                self.cdc_delta_vortex_path
+                    .as_ref()
+                    .map_or_else(String::new, |path| path.display().to_string()),
+            ),
+            (
                 "prepared_artifact_digest".to_string(),
-                format!(
-                    "fact={},dim={}",
-                    self.fact_vortex_digest, self.dim_vortex_digest
-                ),
+                prepared_artifact_digest,
             ),
             (
                 "prepared_artifact_fact_digest".to_string(),
@@ -2290,6 +2335,10 @@ impl TraditionalAnalyticsVortexReport {
             (
                 "prepared_artifact_dim_digest".to_string(),
                 self.dim_vortex_digest.clone(),
+            ),
+            (
+                "prepared_artifact_cdc_delta_digest".to_string(),
+                self.cdc_delta_vortex_digest.clone().unwrap_or_default(),
             ),
             (
                 "prepared_artifact_lifecycle_status".to_string(),
@@ -2331,12 +2380,20 @@ impl TraditionalAnalyticsVortexReport {
                 self.dim_vortex_bytes.to_string(),
             ),
             (
+                "cdc_delta_vortex_bytes".to_string(),
+                self.cdc_delta_vortex_bytes.to_string(),
+            ),
+            (
                 "fact_vortex_digest".to_string(),
                 self.fact_vortex_digest.clone(),
             ),
             (
                 "dim_vortex_digest".to_string(),
                 self.dim_vortex_digest.clone(),
+            ),
+            (
+                "cdc_delta_vortex_digest".to_string(),
+                self.cdc_delta_vortex_digest.clone().unwrap_or_default(),
             ),
             (
                 "source_bytes_read".to_string(),
@@ -4937,10 +4994,20 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
 
     let fact_vortex_bytes = file_len(&request.fact_vortex, "fact Vortex file")?;
     let dim_vortex_bytes = file_len(&request.dim_vortex, "dimension Vortex file")?;
+    let cdc_delta_vortex_bytes = request
+        .cdc_delta_vortex
+        .as_ref()
+        .map_or(Ok(0), |path| file_len(path, "CDC delta Vortex file"))?;
     let fact_vortex_digest = file_digest(&request.fact_vortex, "fact Vortex file")?;
     let dim_vortex_digest = file_digest(&request.dim_vortex, "dimension Vortex file")?;
+    let cdc_delta_vortex_digest = request
+        .cdc_delta_vortex
+        .as_ref()
+        .map(|path| file_digest(path, "CDC delta Vortex file"))
+        .transpose()?;
     let source_bytes_read = fact_vortex_bytes
         .checked_add(dim_vortex_bytes)
+        .and_then(|bytes| bytes.checked_add(cdc_delta_vortex_bytes))
         .ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "native Vortex traditional analytics source byte count overflow".to_string(),
@@ -4951,11 +5018,14 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         request.scenario,
         &request.fact_vortex,
         &request.dim_vortex,
-        None,
+        request.cdc_delta_vortex.as_deref(),
     )?;
     let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
     let materialization_boundary_rows = if scenario_execution.evidence.data_materialized {
-        checked_u64_sum(scenario_execution.fact_rows, scenario_execution.dim_rows)?
+        checked_u64_sum(
+            checked_u64_sum(scenario_execution.fact_rows, scenario_execution.dim_rows)?,
+            scenario_execution.cdc_delta_rows,
+        )?
     } else {
         0
     };
@@ -5010,14 +5080,18 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         result_json: scenario_execution.result_json,
         fact_rows: scenario_execution.fact_rows,
         dim_rows: scenario_execution.dim_rows,
+        cdc_delta_rows: scenario_execution.cdc_delta_rows,
         rows_scanned: scenario_execution.rows_scanned,
         rows_materialized: scenario_execution.rows_materialized,
         fact_vortex_path: request.fact_vortex,
         dim_vortex_path: request.dim_vortex,
+        cdc_delta_vortex_path: request.cdc_delta_vortex,
         fact_vortex_bytes,
         dim_vortex_bytes,
+        cdc_delta_vortex_bytes,
         fact_vortex_digest,
         dim_vortex_digest,
+        cdc_delta_vortex_digest,
         source_bytes_read,
         materialization_boundary_rows,
         scenario_compute_micros,
@@ -7652,6 +7726,15 @@ fn run_vortex_derived_scenario_from_files(
         TraditionalAnalyticsScenario::NestedJsonFieldScan => {
             run_streaming_nested_json_field_scan_scenario(fact_path, dim_path)
         }
+        TraditionalAnalyticsScenario::SmallChangeOverLargeBase => {
+            let cdc_delta_path = cdc_delta_path.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "small change over large base requires imported CDC delta Vortex source"
+                        .to_string(),
+                )
+            })?;
+            run_streaming_small_change_over_large_base_scenario(fact_path, dim_path, cdc_delta_path)
+        }
         TraditionalAnalyticsScenario::MultiKeyGroupBy => {
             run_streaming_multi_key_group_by_scenario(fact_path, dim_path)
         }
@@ -8393,6 +8476,151 @@ fn run_streaming_nested_json_field_scan_scenario(
         rows_materialized: 1,
         evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_small_change_over_large_base_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+    cdc_delta_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut rows = std::collections::BTreeMap::<u64, f64>::new();
+    let fact_stats = scan_fact_vortex_projected(
+        fact_path,
+        &["id", "metric"],
+        None,
+        |fields, chunk_rows| {
+            let ids = primitive_field::<u64>(fields, "id")?;
+            let metrics = primitive_field::<f64>(fields, "metric")?;
+            if ids.len() != chunk_rows || metrics.len() != chunk_rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "small change over large base fact Vortex chunk length mismatch: chunk_rows={chunk_rows}, id_len={}, metric_len={}",
+                    ids.len(),
+                    metrics.len()
+                )));
+            }
+            for (id, metric) in ids.into_iter().zip(metrics) {
+                rows.insert(id, metric);
+            }
+            Ok(())
+        },
+    )?;
+
+    let mut saw_cdc_delta = false;
+    let mut cdc_row_offset = 0_usize;
+    let cdc_stats = scan_fact_vortex_projected(
+        cdc_delta_path,
+        &["id", "op", "value", "metric", "effective_ts"],
+        None,
+        |fields, chunk_rows| {
+            apply_cdc_delta_overlay_chunk(
+                fields,
+                chunk_rows,
+                &mut rows,
+                &mut saw_cdc_delta,
+                &mut cdc_row_offset,
+            )
+        },
+    )?;
+    if !saw_cdc_delta {
+        return Err(ShardLoomError::InvalidOperation(
+            "small change over large base requires non-empty CDC delta rows".to_string(),
+        ));
+    }
+
+    let rows_scanned = checked_u64_sum(fact_stats.source_row_count, cdc_stats.source_row_count)?;
+    let stats = TraditionalStreamingScanStats {
+        source_row_count: fact_stats.source_row_count,
+        result_row_count: checked_u64_sum(fact_stats.result_row_count, cdc_stats.result_row_count)?,
+        arrays_read_count: fact_stats.arrays_read_count + cdc_stats.arrays_read_count,
+        max_chunk_rows: fact_stats.max_chunk_rows.max(cdc_stats.max_chunk_rows),
+        projected_columns: prefixed_projected_columns(
+            "base",
+            &fact_stats.projected_columns,
+            "cdc_delta",
+            &cdc_stats.projected_columns,
+        ),
+        filter_pushdown_applied: false,
+        projection_pushdown_applied: true,
+    };
+    Ok(TraditionalScenarioExecution {
+        result_json: scalar_result_json(usize_to_u64(rows.len())?, rows.values().sum()),
+        fact_rows: fact_stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: cdc_stats.source_row_count,
+        rows_scanned,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn apply_cdc_delta_overlay_chunk(
+    fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+    chunk_rows: usize,
+    rows: &mut std::collections::BTreeMap<u64, f64>,
+    saw_cdc_delta: &mut bool,
+    cdc_row_offset: &mut usize,
+) -> Result<()> {
+    let ids = primitive_field::<u64>(fields, "id")?;
+    let ops = utf8_field(fields, "op")?;
+    let values = utf8_field(fields, "value")?;
+    let metrics = utf8_field(fields, "metric")?;
+    let effective_ts = utf8_field(fields, "effective_ts")?;
+    if ids.len() != chunk_rows
+        || ops.len() != chunk_rows
+        || values.len() != chunk_rows
+        || metrics.len() != chunk_rows
+        || effective_ts.len() != chunk_rows
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "small change over large base CDC Vortex chunk length mismatch: chunk_rows={chunk_rows}, id_len={}, op_len={}, value_len={}, metric_len={}, effective_ts_len={}",
+            ids.len(),
+            ops.len(),
+            values.len(),
+            metrics.len(),
+            effective_ts.len()
+        )));
+    }
+    for index in 0..chunk_rows {
+        *saw_cdc_delta = true;
+        let row_number = *cdc_row_offset + index + 1;
+        if !generated_timestamp_shape_is_valid(&effective_ts[index]) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "CDC delta row {row_number} has invalid effective_ts"
+            )));
+        }
+        match ops[index].as_str() {
+            "delete" => {
+                rows.remove(&ids[index]);
+            }
+            "update" | "insert" => {
+                let _value = values[index].parse::<u32>().map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "CDC delta row {row_number} has invalid value: {error}"
+                    ))
+                })?;
+                let metric = metrics[index].parse::<f64>().map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "CDC delta row {row_number} has invalid metric: {error}"
+                    ))
+                })?;
+                rows.insert(ids[index], metric);
+            }
+            other => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "CDC delta row {row_number} has unsupported op '{other}'"
+                )));
+            }
+        }
+    }
+    *cdc_row_offset = cdc_row_offset.checked_add(chunk_rows).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "small change over large base CDC row offset overflow".to_string(),
+        )
+    })?;
+    Ok(())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -9863,6 +10091,68 @@ mod tests {
         assert!(report.output_replay_verified);
         assert!(report.computed_result_sink_replay_verified);
         assert!(!report.fallback_execution_allowed);
+
+        let native_report = run_traditional_analytics_vortex_benchmark(
+            TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::SmallChangeOverLargeBase,
+                report.fact_vortex_path.clone(),
+                report.dim_vortex_path.clone(),
+            )
+            .with_cdc_delta_vortex(report.cdc_delta_vortex_path.clone()),
+        )
+        .unwrap();
+        assert_eq!(native_report.result_json, report.result_json);
+        assert_eq!(native_report.cdc_delta_rows, 3);
+        assert_eq!(
+            native_report.rows_scanned,
+            native_report.fact_rows + native_report.cdc_delta_rows
+        );
+        assert!(native_report.cdc_delta_vortex_path.is_some());
+        assert!(native_report.cdc_delta_vortex_bytes > 0);
+        assert!(native_report.cdc_delta_vortex_digest.is_some());
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(!native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec![
+                "base.id".to_string(),
+                "base.metric".to_string(),
+                "cdc_delta.id".to_string(),
+                "cdc_delta.op".to_string(),
+                "cdc_delta.value".to_string(),
+                "cdc_delta.metric".to_string(),
+                "cdc_delta.effective_ts".to_string(),
+            ]
+        );
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
+        assert_eq!(native_report.rows_materialized, 1);
+        let native_fields = field_map(native_report.fields());
+        assert_eq!(
+            native_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_temporary_materialization_used")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert!(
+            native_fields
+                .get("prepared_artifact_cdc_delta_ref")
+                .is_some_and(|value| !value.is_empty())
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }

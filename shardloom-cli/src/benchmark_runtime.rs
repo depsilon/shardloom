@@ -408,27 +408,37 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
 ) -> ExitCode {
     let Some(scenario_text) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
         );
         return ExitCode::from(2);
     };
     let Some(fact_vortex) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
         );
         return ExitCode::from(2);
     };
     let Some(dim_vortex) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
         );
         return ExitCode::from(2);
     };
     let mut requested_execution_mode = ShardLoomExecutionMode::NativeVortex;
     let mut workspace_dir: Option<PathBuf> = None;
+    let mut cdc_delta_vortex: Option<PathBuf> = None;
     let mut write_result_vortex = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--cdc-delta-vortex" => {
+                let Some(path) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-run ... --cdc-delta-vortex <path>"
+                    );
+                    return ExitCode::from(2);
+                };
+                cdc_delta_vortex = Some(PathBuf::from(path));
+            }
             "--workspace" => {
                 let Some(path) = args.next() else {
                     eprintln!(
@@ -444,7 +454,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
             "--execution-mode" => {
                 let Some(value) = args.next() else {
                     eprintln!(
-                        "usage: shardloom traditional-analytics-vortex-run ... [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+                        "usage: shardloom traditional-analytics-vortex-run ... [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
                     );
                     return ExitCode::from(2);
                 };
@@ -505,6 +515,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
         PathBuf::from(fact_vortex),
         PathBuf::from(dim_vortex),
     )
+    .with_cdc_delta_vortex(cdc_delta_vortex)
     .with_requested_execution_mode(requested_execution_mode)
     .with_result_workspace_dir(workspace_dir)
     .with_result_vortex_write(write_result_vortex);

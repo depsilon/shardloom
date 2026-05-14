@@ -16,6 +16,78 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0021-G CDC overlay prepared/native Vortex residual runtime slice
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `python/src/shardloom/client.py`
+    - `python/README.md`
+    - `python/tests/test_cli_client.py`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: promote the local prepared/native `small change over large base` benchmark scenario from
+    the materialized base-plus-CDC table path to projected Vortex scans over base `id`/`metric` and
+    CDC delta `id`/`op`/`value`/`metric`/`effective_ts`, feeding ShardLoom-native overlay state
+    without full fact-table materialization.
+  - Checklist:
+    - [x] Add a `SmallChangeOverLargeBase` prepared/native path through
+          `run_vortex_derived_scenario_from_files` that requires an explicit CDC delta Vortex
+          artifact and scans only projected base/delta columns.
+    - [x] Add `--cdc-delta-vortex` to `traditional-analytics-vortex-run` and Python wrapper access
+          so CLI, adapter, and benchmark users can pass the prepared delta artifact explicitly.
+    - [x] Update the benchmark harness to prepare a CDC delta Vortex sidecar only for the scoped
+          overlay scenario and exclude that preparation from scenario timing.
+    - [x] Keep the operator blocker matrix honest:
+          `operator_execution_class=residual_native`,
+          `operator_temporary_materialization_used=false`, and
+          `operator_encoded_native_claim_allowed=false`.
+    - [x] Update README, benchmark, compute-flow, GAR, traceability, and phase-plan docs so the CDC
+          overlay prepared/native path is represented without broad table/transaction claims.
+  - Boundary:
+    - This is a scoped local prepared/native Vortex residual runtime path for the benchmark CDC
+      overlay fixture only. It does not add broad CDC execution, catalog/table transactions,
+      delete/tombstone runtime, object-store commits, SQL/DataFrame execution, external engines,
+      fallback execution, or performance/superiority claims.
+  - Evidence:
+    - Correctness evidence: the feature-gated `small_change_over_large_base_imports_cdc_delta_fixture`
+      test now compares native Vortex prepared output against the compatibility-import result.
+    - Native I/O/materialization evidence: native prepared rows assert projected base/delta scan
+      evidence, `materialization_boundary_rows=0`, and `data_materialized=false`.
+    - Policy evidence: operator fields remain residual-native, not encoded-native, with no fallback
+      or external engine claim.
+    - Benchmark evidence: focused benchmark smoke confirms `prepared_vortex`, projected
+      base/delta columns, residual-native operator evidence, `fallback_attempted=false`, and
+      `external_engine_invoked=false`; no performance claim is added.
+  - Vortex-first provider check:
+    - Subject area: prepared/native Vortex CDC overlay over local Vortex fact and delta artifacts.
+    - Upstream Vortex concept checked: reuse existing Vortex file scan projection provider through
+      `scan_fact_vortex_projected`; do not invent a separate ShardLoom CDC/table source runtime.
+    - Decision: `wrap_vortex_concept` for projected base/delta scans; execute only residual overlay
+      state in ShardLoom-native code.
+    - Residual handling: projected values feed local append/update/delete overlay state; residual
+      state is not encoded-native and cannot satisfy encoded-native operator claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark small_change_over_large_base_imports_cdc_delta_fixture --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_vortex_run_can_pass_cdc_delta_vortex`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "small change over large base" --dataset-profile cdc_delta_overlay --rows 64 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --shardloom-result-sink --no-markdown --output target\codex-gar0021g-cdc-prepared-smoke.json --regenerate`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `python -m unittest python.tests.test_cli_client`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0021g-workspace-test'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+
 - [x] Session label: GAR-0021-F nested JSON field scan prepared/native Vortex residual runtime slice
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

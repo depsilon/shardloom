@@ -96,7 +96,7 @@ or claim.
 | --- | --- | --- | --- |
 | User access | CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces and thin adapters are report-only or planned. | Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope. | No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
-| Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, global sort/top-k, top-N, row-number, high-cardinality string group/distinct, and partition-pruning/date-range scans avoid full fact-table materialization in prepared/native rows. CPU specialization reports now record side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work follows the phase-plan queue for kernel/provider, source-backed API, facade, and evidence-gated expansion. | These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, distributed sort, SIMD-dispatch, object-store pruning, layout/statistics pruning, or broad performance claims. |
+| Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, top-N, row-number, high-cardinality string group/distinct, and partition-pruning/date-range scans avoid full fact-table materialization in prepared/native rows. CPU specialization reports now record side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work follows the phase-plan queue for kernel/provider, source-backed API, facade, and evidence-gated expansion. | These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, distributed sort, SIMD-dispatch, object-store pruning, layout/statistics pruning, broad CDC/table transactions, or broad performance claims. |
 | Batch engine mode | Bounded/snapshot local Vortex analytics are the practical execution foundation. | Broader operator/source/sink coverage plus correctness and benchmark claim gates. | Batch support is scoped to evidence-backed workloads. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. | Fixture evidence only; no production live claim. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. | Fixture evidence only; no production hybrid, object-store, or table-commit claim. |
@@ -1068,11 +1068,12 @@ Optimization priorities:
 13. Clean/cast/filter/write projected scan.
 14. Malformed timestamp / dirty CSV projected scan.
 15. Nested JSON field projected scan.
-16. Partition-pruning/date-range streaming.
-17. Global sort/top-k streaming.
-18. Source-backed Scan API path.
-19. Layout advisor applying real write/layout choices.
-20. Persistent in-process benchmark runner.
+16. CDC overlay projected base/delta scan.
+17. Partition-pruning/date-range streaming.
+18. Global sort/top-k streaming.
+19. Source-backed Scan API path.
+20. Layout advisor applying real write/layout choices.
+21. Persistent in-process benchmark runner.
 ```
 
 Current scoped progress: `filter + projection + limit` has a prepared/native
@@ -1107,6 +1108,10 @@ values into ShardLoom-native validation/parse/aggregate state without full fact-
 materialization.
 `nested JSON field scan` now scans only projected `nested_payload` values into ShardLoom-native
 generated-field extraction state without full fact-table materialization.
+`small change over large base` now scans projected base `id`/`metric` values and CDC delta
+`id`/`op`/`value`/`metric`/`effective_ts` values into ShardLoom-native overlay state without full
+fact-table materialization. This is local benchmark CDC overlay evidence, not a broad
+table-transaction, catalog, object-store, or delete/tombstone runtime claim.
 `partition pruning` now scans projected `event_date`/`metric` columns with a Vortex date-range
 filter and residual scalar aggregation without full fact-table materialization. This is local
 date-range scan evidence, not an object-store partition-pruning, layout-pruning, or
