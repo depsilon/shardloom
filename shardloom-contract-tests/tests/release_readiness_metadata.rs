@@ -719,7 +719,9 @@ fn security_rfc_and_p80_completion_are_traceable() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(plan.contains("docs/architecture/phased-execution-completed-ledger.md"));
-    assert!(plan.contains("No unchecked Planned items remain"));
+    assert!(plan.contains("Global Architecture Review Carry-Forward"));
+    assert!(plan.contains("docs/architecture/global-architecture-review.md"));
+    assert_eq!(plan.matches("- [ ] GAR-").count(), 48);
     assert!(!plan.contains(
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));
