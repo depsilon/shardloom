@@ -399,11 +399,11 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "native_vortex",
         "direct_compatibility_transient",
         "auto",
-        "E2 --> M1",
-        "E2 --> M2",
-        "E2 --> M3",
-        "E2 --> M4",
-        "Plan transient local path",
+        "SEL --> DIRECT",
+        "SEL --> IMPORT",
+        "SEL --> PREPARED",
+        "SEL --> NATIVE",
+        "Transient compatibility boundary",
         "requested_execution_mode",
         "selected_execution_mode",
         "mode_selection_reason",
@@ -419,14 +419,14 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "wrap_vortex_concept",
         "implement_shardloom_kernel",
         "baseline_or_oracle_only",
-        "blocked_until_vortex_or_shardloom_evidence",
+        "unsupported_until_vortex_or_shardloom_evidence",
         "total_runtime_millis",
         "compatibility_to_vortex_import_millis",
         "operator_compute_millis",
         "result_sink_write_millis",
         "stable correctness digest",
         "Native I/O certificate",
-        "Unsupported work must be deterministically blocked, not delegated to external engines.",
+        "Unsupported work must return deterministic unsupported diagnostics",
         "a direct transient runtime path",
         "Actionable implementation work must be represented in",
         "docs/architecture/phased-execution-plan.md",
@@ -482,7 +482,9 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     }
 
     assert!(plan.contains("docs/architecture/phased-execution-completed-ledger.md"));
-    assert!(plan.contains("No unchecked Planned items remain"));
+    assert!(plan.contains("Global Architecture Review Carry-Forward"));
+    assert!(plan.contains("docs/architecture/global-architecture-review.md"));
+    assert_eq!(plan.matches("- [ ] GAR-").count(), 48);
     assert!(!plan.contains("Priority 7.5 - compute-engine flow overhaul"));
     for child in [
         "P7.5.1", "P7.5.2", "P7.5.3", "P7.5.4", "P7.5.5", "P7.5.6", "P7.5.7", "P7.5.8", "P7.5.9",
