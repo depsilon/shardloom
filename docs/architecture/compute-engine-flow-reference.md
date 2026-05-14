@@ -823,6 +823,13 @@ scoped `local_vortex_file_scan_into_array_iter` fixture path. It records provide
 surface, Source/Split refs, field-mask and predicate-ordering blockers, execution and Native I/O
 refs, and no-fallback policy. It is not a generalized Source/Split runtime claim.
 
+GAR-0003-A adds `vortex_segment_extraction_admission_ref`. That ref points to the
+`vortex-api-inventory` sparse segment extraction admission report for `sparse_patch_fill`. It
+records deterministic unsupported diagnostics, required correctness/execution/Native
+I/O/materialization evidence, `claim_gate_status=not_claim_grade`, and no-fallback policy. It is not
+a sparse extraction runtime claim, broad layout support claim, or production segment extraction
+claim.
+
 GAR-0042B adds `vortex_layout_device_managed_boundary_ref`. That ref points to a
 runtime-utilization boundary matrix for layout/write, device execution, object-store I/O, and
 managed-platform comparison lanes. Those lanes stay `not_claim_grade`; managed platforms remain

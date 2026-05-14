@@ -48,6 +48,12 @@ phase note. They are not active queue state and do not override `phased-executio
   field-mask and predicate-ordering blockers, execution/Native I/O refs, and
   `fallback_attempted=false`. This classifies the fixture path only; generalized Source/Split,
   object-store, table/catalog, split serialization, and residual execution remain blocked.
+- Segment extraction admission framing: `vortex-api-inventory` now exposes
+  `shardloom.vortex_segment_extraction_admission.v1` for the `sparse_patch_fill` layout family.
+  The report records the Vortex sparse layout concepts checked and keeps sparse segment extraction
+  `blocked_until_segment_extraction_certificate` with deterministic diagnostics, required
+  correctness/execution/Native I/O/materialization evidence, `claim_gate_status=not_claim_grade`,
+  `external_engine_invoked=false`, and `fallback_attempted=false`.
 - Residual boundary framing: reader-generated prepared-batch reports carry
   `VortexResidualBoundaryReport`; admitted constant/dictionary/run-end kernel inputs use
   `residual_executor=none`, while opaque/sparse/nullable/unsupported chunks use
@@ -135,8 +141,11 @@ phase note. They are not active queue state and do not override `phased-executio
 - Public API names discovered: not confirmed yet.
 - Use now: yes, via temporary name-based mapping only.
 - Stability: partially acceptable for placeholders.
-- Adapter support: planned.
-- Risks: layout labels may change.
+- Adapter support: planned; sparse patch/fill segment extraction is explicitly blocked by
+  `shardloom.vortex_segment_extraction_admission.v1` until certificate-backed layout semantics,
+  validity handling, and materialization/decode evidence exist.
+- Risks: layout labels may change; sparse patch/fill traversal can silently become decoded,
+  materialized, or canonicalized execution if admitted without separate evidence.
 
 ### Statistics APIs
 - Public API names discovered: not confirmed yet.

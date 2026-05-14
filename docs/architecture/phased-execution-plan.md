@@ -262,19 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0003-A Vortex segment extraction admission slice
-  - Source: RFC 0003; Vortex public API inventory; Vortex upstream alignment hardening.
-  - Current state: segment extraction exists for scoped paths, but production coverage and layout
-    diversity are limited.
-  - Next slice outcome: one additional encoded segment/layout family admitted or explicitly blocked.
-  - User-visible surface: Vortex capability report, benchmark row, execution certificate.
-  - Implementation scope: Vortex adapter extraction path, tests, certificate metadata.
-  - Evidence required: correctness refs, Native I/O refs, materialization/decode refs, no-fallback refs.
-  - Acceptance: selected layout has deterministic support/unsupported status and evidence.
-  - Verification: focused Vortex adapter tests, correctness fixture test, `cargo test --workspace --all-targets`.
-  - Non-goals: no broad production coverage or new external dependency.
-  - Fallback/claim boundary: claim only the selected layout/operator combination.
-  - Dependencies/blockers: upstream Vortex API coverage.
 - [ ] GAR-0003-B materialization policy generalization
   - Source: RFC 0003; compute-flow reference; performance attribution docs.
   - Current state: materialization/decode fields exist, but policy is not generalized across all

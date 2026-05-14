@@ -181,8 +181,10 @@ pub use vortex_operational_facets::{
 };
 pub use vortex_scan_compatibility::{
     VortexScanCompatibilityReport, VortexScanCompatibilityStatus, VortexScanPushdownDecision,
-    VortexScanResidualExecutor, VortexSourceSplitAdmissionStatus,
-    VortexSourceSplitRuntimeAdmissionProof, plan_vortex_scan_compatibility,
+    VortexScanResidualExecutor, VortexSegmentExtractionAdmissionReport,
+    VortexSegmentExtractionAdmissionRow, VortexSegmentExtractionAdmissionStatus,
+    VortexSourceSplitAdmissionStatus, VortexSourceSplitRuntimeAdmissionProof,
+    plan_vortex_scan_compatibility,
 };
 
 // Feature-gated metadata/readiness and plan-only I/O surfaces.
