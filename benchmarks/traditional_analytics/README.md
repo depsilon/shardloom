@@ -239,6 +239,11 @@ Prepared/native rows also expose provider-admission evidence. The current local 
 scan/source boundary is admitted as the Vortex-native provider surface; residual scenario operators
 remain explicitly ShardLoom-native temporary/materialized where that is still the implementation.
 Filter/project/limit fusion is reported as blocked until a true fused path exists.
+Prepared/native rows also emit an operator blocker matrix:
+`operator_execution_class`, `operator_admission_status`, `operator_blocker_id`,
+`operator_blocker_reason`, and `operator_encoded_native_claim_allowed`. Current
+residual-native and materialized-temporary classes are never counted as
+encoded-native operator execution.
 
 When `--shardloom-result-sink` is enabled, prepared/native rows now pass
 `--workspace <caller-owned-dir> --write-result-vortex` to

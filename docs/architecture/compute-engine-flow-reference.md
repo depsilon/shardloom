@@ -607,6 +607,11 @@ The benchmark artifact must also carry
 the required execution-mode fields, and the required stage timing fields. The
 harness rejects rows that omit the contract fields. Unknown stage values stay
 explicit as `null`, `n/a`, or `not_measured`; missing fields are not allowed.
+Prepared/native rows must also carry an operator blocker matrix with
+`operator_execution_class`, `operator_admission_status`, `operator_blocker_id`,
+`operator_blocker_reason`, and `operator_encoded_native_claim_allowed` so
+temporary or residual-native operators are never read as encoded-native
+operator execution.
 
 `auto` is selection vocabulary only. A row with `requested_execution_mode=auto`
 must preserve `selected_execution_mode` and `mode_selection_reason` so downstream

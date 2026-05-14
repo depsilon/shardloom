@@ -2126,6 +2126,8 @@ impl TraditionalAnalyticsReport {
         fields.extend(traditional_vortex_provider_admission_fields(
             self.scenario,
             "compatibility_import_certified",
+            self.streaming_vortex_execution_used,
+            self.data_materialized,
         ));
         fields.extend(native_io_certificate_fields(&self.native_io_certificate));
         fields
@@ -2220,6 +2222,8 @@ impl TraditionalAnalyticsVortexReport {
             self.execution_mode_selection
                 .selected_execution_mode
                 .as_str(),
+            self.streaming_vortex_execution_used,
+            self.data_materialized,
         ));
         fields.extend(native_io_certificate_fields(&self.native_io_certificate));
         fields
@@ -2894,24 +2898,134 @@ fn native_io_certificate_fields(certificate: &NativeIoCertificate) -> Vec<(Strin
     ]
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TraditionalOperatorExecutionClass {
+    EncodedNative,
+    ResidualNative,
+    MaterializedTemporary,
+    Unsupported,
+}
+
+const TRADITIONAL_OPERATOR_EXECUTION_CLASS_VOCABULARY: [TraditionalOperatorExecutionClass; 4] = [
+    TraditionalOperatorExecutionClass::EncodedNative,
+    TraditionalOperatorExecutionClass::ResidualNative,
+    TraditionalOperatorExecutionClass::MaterializedTemporary,
+    TraditionalOperatorExecutionClass::Unsupported,
+];
+
+impl TraditionalOperatorExecutionClass {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::EncodedNative => "encoded_native",
+            Self::ResidualNative => "residual_native",
+            Self::MaterializedTemporary => "materialized_temporary",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+fn traditional_operator_execution_class_vocabulary() -> String {
+    TRADITIONAL_OPERATOR_EXECUTION_CLASS_VOCABULARY
+        .iter()
+        .map(|classification| classification.as_str())
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn traditional_operator_execution_class(
+    streaming_vortex_execution_used: bool,
+    data_materialized: bool,
+) -> TraditionalOperatorExecutionClass {
+    match (streaming_vortex_execution_used, data_materialized) {
+        (true, false) => TraditionalOperatorExecutionClass::ResidualNative,
+        (_, true) => TraditionalOperatorExecutionClass::MaterializedTemporary,
+        _ => TraditionalOperatorExecutionClass::Unsupported,
+    }
+}
+
+fn traditional_operator_blocker_id(
+    classification: TraditionalOperatorExecutionClass,
+) -> &'static str {
+    match classification {
+        TraditionalOperatorExecutionClass::EncodedNative => "none",
+        TraditionalOperatorExecutionClass::ResidualNative => {
+            "gar-flow-2b.residual_native_operator_not_encoded_native"
+        }
+        TraditionalOperatorExecutionClass::MaterializedTemporary => {
+            "gar-flow-2b.materialized_temporary_operator_not_encoded_native"
+        }
+        TraditionalOperatorExecutionClass::Unsupported => {
+            "gar-flow-2b.operator_classification_unsupported"
+        }
+    }
+}
+
+fn traditional_operator_blocker_reason(
+    classification: TraditionalOperatorExecutionClass,
+) -> &'static str {
+    match classification {
+        TraditionalOperatorExecutionClass::EncodedNative => {
+            "encoded-native operator evidence attached"
+        }
+        TraditionalOperatorExecutionClass::ResidualNative => {
+            "Vortex scan is admitted, but residual scalar work is executed by ShardLoom-native code"
+        }
+        TraditionalOperatorExecutionClass::MaterializedTemporary => {
+            "current benchmark path materializes Vortex-derived arrays before temporary operator execution"
+        }
+        TraditionalOperatorExecutionClass::Unsupported => {
+            "operator is not admitted for prepared/native execution"
+        }
+    }
+}
+
+fn traditional_operator_admission_status(
+    classification: TraditionalOperatorExecutionClass,
+) -> &'static str {
+    match classification {
+        TraditionalOperatorExecutionClass::EncodedNative => "encoded_native_supported",
+        TraditionalOperatorExecutionClass::ResidualNative => "residual_native_supported",
+        TraditionalOperatorExecutionClass::MaterializedTemporary => {
+            "materialized_temporary_supported"
+        }
+        TraditionalOperatorExecutionClass::Unsupported => "unsupported",
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 fn traditional_vortex_provider_admission_fields(
     scenario: TraditionalAnalyticsScenario,
     report_id_suffix: &str,
+    streaming_vortex_execution_used: bool,
+    data_materialized: bool,
 ) -> Vec<(String, String)> {
-    let residual_operator = if scenario == TraditionalAnalyticsScenario::CsvFileIngest {
-        "none"
-    } else {
-        "shardloom_native_temporary_operator"
+    let operator_classification =
+        traditional_operator_execution_class(streaming_vortex_execution_used, data_materialized);
+    let residual_operator = match operator_classification {
+        TraditionalOperatorExecutionClass::EncodedNative => "none",
+        TraditionalOperatorExecutionClass::ResidualNative => "shardloom_native_residual_operator",
+        TraditionalOperatorExecutionClass::MaterializedTemporary => {
+            "shardloom_native_temporary_operator"
+        }
+        TraditionalOperatorExecutionClass::Unsupported => "unsupported",
     };
-    let residual_boundary = if residual_operator == "none" {
-        "none"
-    } else {
-        "vortex_scan_to_shardloom_materialized_residual"
+    let residual_boundary = match operator_classification {
+        TraditionalOperatorExecutionClass::EncodedNative => "none",
+        TraditionalOperatorExecutionClass::ResidualNative => {
+            "vortex_scan_to_shardloom_residual_native"
+        }
+        TraditionalOperatorExecutionClass::MaterializedTemporary => {
+            "vortex_scan_to_shardloom_materialized_temporary"
+        }
+        TraditionalOperatorExecutionClass::Unsupported => "unsupported",
     };
-    let encoded_status = if residual_operator == "none" {
-        "vortex_scan_only_no_residual_operator"
-    } else {
-        "vortex_scan_admitted_residual_materialized"
+    let encoded_status = match operator_classification {
+        TraditionalOperatorExecutionClass::EncodedNative => "encoded_native_operator_admitted",
+        TraditionalOperatorExecutionClass::ResidualNative => "vortex_scan_admitted_residual_native",
+        TraditionalOperatorExecutionClass::MaterializedTemporary => {
+            "vortex_scan_admitted_residual_materialized"
+        }
+        TraditionalOperatorExecutionClass::Unsupported => "unsupported",
     };
     let fusion_status = if scenario == TraditionalAnalyticsScenario::FilterProjectionLimit {
         "not_fused_materialized_residual"
@@ -2948,6 +3062,62 @@ fn traditional_vortex_provider_admission_fields(
         (
             "source_backed_encoded_provider_status".to_string(),
             "scan_admitted_residual_recorded".to_string(),
+        ),
+        (
+            "operator_blocker_matrix_ref".to_string(),
+            format!(
+                "operator-blocker://traditional_analytics/{}/{}",
+                report_id_suffix,
+                scenario.as_str().replace(' ', "_")
+            ),
+        ),
+        (
+            "operator_execution_class_vocabulary".to_string(),
+            traditional_operator_execution_class_vocabulary(),
+        ),
+        (
+            "operator_execution_class".to_string(),
+            operator_classification.as_str().to_string(),
+        ),
+        (
+            "operator_admission_status".to_string(),
+            traditional_operator_admission_status(operator_classification).to_string(),
+        ),
+        (
+            "operator_blocker_id".to_string(),
+            traditional_operator_blocker_id(operator_classification).to_string(),
+        ),
+        (
+            "operator_blocker_reason".to_string(),
+            traditional_operator_blocker_reason(operator_classification).to_string(),
+        ),
+        (
+            "operator_encoded_native_claim_allowed".to_string(),
+            (operator_classification == TraditionalOperatorExecutionClass::EncodedNative)
+                .to_string(),
+        ),
+        (
+            "operator_residual_native_used".to_string(),
+            (operator_classification == TraditionalOperatorExecutionClass::ResidualNative)
+                .to_string(),
+        ),
+        (
+            "operator_temporary_materialization_used".to_string(),
+            (operator_classification == TraditionalOperatorExecutionClass::MaterializedTemporary)
+                .to_string(),
+        ),
+        (
+            "operator_unsupported_diagnostic".to_string(),
+            if operator_classification == TraditionalOperatorExecutionClass::Unsupported {
+                "prepared_native_operator_unsupported"
+            } else {
+                "none"
+            }
+            .to_string(),
+        ),
+        (
+            "operator_claim_boundary".to_string(),
+            "temporary and residual-native operators are not encoded-native claims".to_string(),
         ),
         (
             "residual_executor".to_string(),
@@ -4691,6 +4861,7 @@ fn traditional_coverage_row_ref(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn run_traditional_analytics_vortex_benchmark_enabled(
     request: TraditionalAnalyticsVortexRequest,
 ) -> Result<TraditionalAnalyticsVortexReport> {
@@ -7316,7 +7487,7 @@ fn date32_days_to_yyyy_mm_dd(days_since_epoch: i32) -> String {
     let mp = (5 * doy + 2) / 153;
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = mp + if mp < 10 { 3 } else { -9 };
-    year += if month <= 2 { 1 } else { 0 };
+    year += i64::from(month <= 2);
     format!("{year:04}-{month:02}-{day:02}")
 }
 
@@ -8087,7 +8258,7 @@ fn days_in_month(year: u32, month: u32) -> u32 {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn is_leap_year(year: u32) -> bool {
-    year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -9122,7 +9293,17 @@ mod tests {
             key == "provider_admission_classification" && value == "use_vortex_native_provider"
         }));
         assert!(native_fields.iter().any(|(key, value)| {
-            key == "residual_executor" && value == "shardloom_native_temporary_operator"
+            key == "operator_execution_class" && value == "residual_native"
+        }));
+        assert!(native_fields.iter().any(|(key, value)| {
+            key == "operator_blocker_id"
+                && value == "gar-flow-2b.residual_native_operator_not_encoded_native"
+        }));
+        assert!(native_fields.iter().any(|(key, value)| {
+            key == "operator_encoded_native_claim_allowed" && value == "false"
+        }));
+        assert!(native_fields.iter().any(|(key, value)| {
+            key == "residual_executor" && value == "shardloom_native_residual_operator"
         }));
 
         let prepared_report = run_traditional_analytics_vortex_benchmark(
@@ -9308,6 +9489,19 @@ mod tests {
             assert!(!report.layout_advisor_report.improvement_claim_allowed);
             assert!(!report.layout_advisor_report.write_layout_execution_allowed);
             assert!(!report.layout_advisor_report.fallback_attempted);
+            let fields = field_map(report.fields());
+            if scenario == TraditionalAnalyticsScenario::MultiKeyGroupBy {
+                assert_eq!(
+                    fields.get("operator_execution_class").map(String::as_str),
+                    Some("materialized_temporary")
+                );
+                assert_eq!(
+                    fields
+                        .get("operator_encoded_native_claim_allowed")
+                        .map(String::as_str),
+                    Some("false")
+                );
+            }
         }
 
         let _ = std::fs::remove_dir_all(root);

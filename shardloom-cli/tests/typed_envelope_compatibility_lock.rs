@@ -657,6 +657,18 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 ("matrix_status", "report_only"),
                 ("compute_row_count", "13"),
                 ("operator_family_count", "14"),
+                (
+                    "operator_execution_class_vocabulary",
+                    "encoded_native,residual_native,materialized_temporary,unsupported",
+                ),
+                (
+                    "compute_row_prepared_encoded_filter_operator_execution_class",
+                    "encoded_native",
+                ),
+                (
+                    "compute_row_grouped_aggregate_operator_execution_class",
+                    "unsupported",
+                ),
                 ("production_certified_count", "0"),
                 ("no_fallback", "true"),
             ],

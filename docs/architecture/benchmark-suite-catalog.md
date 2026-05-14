@@ -193,6 +193,16 @@ writing a report, so downstream readers can rely on field presence rather than
 inferring timing scope from prose. If `requested_execution_mode=auto`, the row
 must still preserve the selected mode and reason.
 
+Prepared/native rows also carry the operator blocker matrix:
+`operator_execution_class`, `operator_admission_status`, `operator_blocker_id`,
+`operator_blocker_reason`, and `operator_encoded_native_claim_allowed`. Valid
+classes are `encoded_native`, `residual_native`, `materialized_temporary`, and
+`unsupported`; only `encoded_native` can support an encoded-native operator
+claim.
+`compute-capability-matrix` exposes the same class vocabulary and per-row
+operator class/blocker fields so CLI capability discovery matches benchmark
+evidence.
+
 P7.5.7 keeps the Python-driven per-scenario CLI runner and publishes
 `docs/architecture/benchmark-persistent-runner-decision.md` as the decision record. ShardLoom rows
 must report `cli_process_wall_millis`, derived `python_harness_overhead_millis`,

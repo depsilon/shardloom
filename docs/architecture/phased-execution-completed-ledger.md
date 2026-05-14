@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2B prepared/native temporary-operator blocker matrix
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add a typed operator blocker matrix for prepared/native benchmark rows so rows name
+    whether operator execution is `encoded_native`, `residual_native`, `materialized_temporary`, or
+    `unsupported`. Residual-native and materialized-temporary rows now carry explicit blockers and
+    `operator_encoded_native_claim_allowed=false`.
+  - Checklist:
+    - [x] Add provider-admission fields for `operator_execution_class`,
+          `operator_admission_status`, `operator_blocker_id`, `operator_blocker_reason`,
+          `operator_encoded_native_claim_allowed`, and supporting matrix fields.
+    - [x] Preserve current prepared/native runtime behavior; do not implement new encoded
+          operators in this slice.
+    - [x] Route the new fields through typed CLI compute-flow evidence artifacts and Python typed
+          accessors.
+    - [x] Add benchmark metadata, coverage-table columns, format-preparation columns, and row
+          validation for the operator blocker matrix.
+    - [x] Document that residual-native and materialized-temporary classes are useful smoke
+          evidence but cannot be counted as encoded-native operator execution.
+    - [x] Move GAR-FLOW-2B out of Planned; GAR-FLOW-2C is now the next Planned slice.
+  - Boundary:
+    - This is a classification, evidence, and diagnostics slice. It does not add broad
+      encoded-native operator coverage, SQL/DataFrame execution, external-engine fallback, or any
+      performance/superiority claim.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `cargo test -p shardloom-vortex traditional_analytics --features vortex-traditional-analytics-benchmark --lib`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m unittest python.tests.test_cli_client -v`
+    - `python -m compileall -q python/src python/tests benchmarks/traditional_analytics`
+    - `benchmarks/traditional_analytics/.venv/Scripts/python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex,pandas --formats csv --scenario "selective filter" --rows 1000 --iterations 1 --output target/codex-gar-flow-2b-smoke.json --markdown-output target/codex-gar-flow-2b-smoke.md --regenerate --skip-shardloom-native`
+    - `benchmarks/traditional_analytics/.venv/Scripts/python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex,pandas --formats csv --scenario "multi-key group by" --rows 1000 --iterations 1 --output target/codex-gar-flow-2b-materialized-smoke.json --markdown-output target/codex-gar-flow-2b-materialized-smoke.md --regenerate --include-taxonomy-extra --skip-shardloom-native`
+
 - [x] Session label: GAR-FLOW-2A execution-mode benchmark attribution contract
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`
