@@ -7572,6 +7572,9 @@ fn run_vortex_derived_scenario_from_files(
             Some(selective_filter_expr()),
             "metric",
         ),
+        TraditionalAnalyticsScenario::GroupByAggregation => {
+            run_streaming_group_by_aggregation_scenario(fact_path, dim_path)
+        }
         TraditionalAnalyticsScenario::WideProjection => {
             run_streaming_fact_metric_sum_scenario(fact_path, dim_path, None, "group_key")
         }
@@ -7620,6 +7623,46 @@ fn run_vortex_derived_scenario_from_tables(
         rows_scanned,
         rows_materialized,
         evidence: TraditionalScenarioExecutionEvidence::table_materialized(),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_group_by_aggregation_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
+    let stats = scan_fact_vortex_projected(
+        fact_path,
+        &["group_key", "metric"],
+        None,
+        |fields, chunk_rows| {
+            let group_keys = primitive_field::<u32>(fields, "group_key")?;
+            let metrics = primitive_field::<f64>(fields, "metric")?;
+            if group_keys.len() != chunk_rows || metrics.len() != chunk_rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "group by aggregation Vortex chunk length mismatch: chunk_rows={chunk_rows}, group_key_len={}, metric_len={}",
+                    group_keys.len(),
+                    metrics.len()
+                )));
+            }
+            for (group_key, metric) in group_keys.into_iter().zip(metrics) {
+                groups.entry(group_key).or_default().add(metric);
+            }
+            Ok(())
+        },
+    )?;
+    let result_json = numeric_group_rows_json(groups, "group_key");
+    let rows_materialized = result_rows_materialized(&result_json)?;
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: stats.source_row_count,
+        rows_materialized,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
     })
 }
 
@@ -9616,6 +9659,88 @@ mod tests {
         );
         assert_eq!(native_report.materialization_boundary_rows, 0);
         assert!(!native_report.data_materialized);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn enabled_group_by_aggregation_uses_prepared_native_vortex_scan() {
+        let root = traditional_analytics_test_root("group-by-aggregation");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::GroupByAggregation,
+                fact_csv,
+                dim_csv,
+                workspace,
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        assert_eq!(
+            import_report.result_json,
+            "[{\"group_key\":10,\"row_count\":2,\"metric_sum\":6.5},{\"group_key\":11,\"row_count\":1,\"metric_sum\":3.5}]"
+        );
+        assert!(import_report.streaming_vortex_execution_used);
+        assert!(import_report.full_table_materialization_avoided);
+        assert!(!import_report.streaming_filter_pushdown_applied);
+        assert!(import_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            import_report.streaming_projected_columns,
+            vec!["group_key".to_string(), "metric".to_string()]
+        );
+        assert_eq!(import_report.materialization_boundary_rows, 5);
+        assert!(import_report.data_materialized);
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::GroupByAggregation,
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(native_report.result_json, import_report.result_json);
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(!native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec!["group_key".to_string(), "metric".to_string()]
+        );
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
+        assert_eq!(native_report.rows_materialized, 2);
+        let native_fields = field_map(native_report.fields());
+        assert_eq!(
+            native_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }

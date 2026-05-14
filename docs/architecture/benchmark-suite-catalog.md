@@ -202,7 +202,11 @@ claim.
 The current scoped `filter + projection + limit` prepared/native row is a
 residual-native fused scan path: Vortex scan filter/projection pushdown and
 bounded top-N state avoid full fact-table materialization, but the row still
-sets `operator_encoded_native_claim_allowed=false`.
+sets `operator_encoded_native_claim_allowed=false`. The scoped `group by
+aggregation` prepared/native row now also uses Vortex scan projection pushdown
+over `group_key`/`metric` and ShardLoom-native grouped residual state without
+full fact-table materialization; it is likewise not an encoded-native operator
+claim.
 `compute-capability-matrix` exposes the same class vocabulary and per-row
 operator class/blocker fields so CLI capability discovery matches benchmark
 evidence.
