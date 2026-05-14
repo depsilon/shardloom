@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0021-B distinct-count prepared/native Vortex residual runtime slice
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: promote the local prepared/native `distinct count` benchmark scenario from the
+    materialized-table path to a projected Vortex scan over `category`, feeding ShardLoom-native
+    residual distinct state without full fact-table materialization.
+  - Checklist:
+    - [x] Add a `DistinctCount` prepared/native path through `run_vortex_derived_scenario_from_files`
+          that scans only the projected `category` column.
+    - [x] Preserve no-fallback and no-external-engine posture; no external baselines or fallback
+          engines are invoked.
+    - [x] Keep the operator blocker matrix honest:
+          `operator_execution_class=residual_native`,
+          `operator_temporary_materialization_used=false`, and
+          `operator_encoded_native_claim_allowed=false`.
+    - [x] Update README, benchmark, compute-flow, GAR, and phase-plan docs so distinct count appears
+          in the prepared/native residual runtime coverage.
+    - [x] Keep remaining null-heavy, CDC, nested JSON, dirty-CSV cleanup, broad encoded-native, and
+          SQL/DataFrame work in Planned rather than implying broad operator completion.
+  - Boundary:
+    - This is a scoped local prepared/native Vortex residual runtime path for `distinct count` only.
+      It does not add encoded-native distinct kernels, SQL/DataFrame execution, object-store/table
+      runtime, external engines, fallback execution, or performance/superiority claims.
+  - Evidence:
+    - Correctness evidence: the feature-gated `enabled_distinct_count_uses_prepared_native_vortex_scan`
+      test compares native Vortex output against the compatibility-import result.
+    - Native I/O/materialization evidence: native prepared rows assert projected-column scan evidence,
+      `materialization_boundary_rows=0`, and `data_materialized=false`.
+    - Policy evidence: operator fields remain residual-native, not encoded-native, with no fallback
+      or external engine claim.
+    - Benchmark evidence: benchmark docs describe the scenario as residual-native prepared/native
+      coverage only; no performance claim is added.
+  - Vortex-first provider check:
+    - Subject area: prepared/native Vortex `distinct count` over local Vortex artifacts.
+    - Upstream Vortex concept checked: reuse existing Vortex file scan projection provider through
+      `scan_fact_vortex_projected`; do not invent a separate ShardLoom source abstraction.
+    - Decision: `wrap_vortex_concept` for projected scan; execute only residual distinct state in
+      ShardLoom-native code.
+    - Residual handling: projected `category` values feed a local distinct set; residual state is
+      not encoded-native and cannot satisfy encoded-native operator claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_distinct_count_uses_prepared_native_vortex_scan --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+
 - [x] Session label: GAR-0013-A streaming runtime capability and unsupported diagnostics
   - Primary files:
     - `docs/architecture/global-architecture-review.md`
