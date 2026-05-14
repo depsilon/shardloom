@@ -443,6 +443,8 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
 fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     let review = read_workspace_file("docs/architecture/compute-engine-flow-overhaul-review.md");
     let plan = read_workspace_file("docs/architecture/phased-execution-plan.md");
+    let completed_ledger =
+        read_workspace_file("docs/architecture/phased-execution-completed-ledger.md");
     let traceability = read_workspace_file("docs/architecture/rfc-phase-traceability.md");
     let persistent_runner =
         read_workspace_file("docs/architecture/benchmark-persistent-runner-decision.md");
@@ -479,18 +481,25 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         );
     }
 
-    assert!(plan.contains("Priority 7.5 - compute-engine flow overhaul"));
-    assert!(plan.contains("P7.5.1 shared execution-mode admission and selection report"));
-    assert!(plan.contains("source/input classification"));
-    assert!(plan.contains("unsupported diagnostic"));
-    assert!(plan.contains("prepare, inspect, reuse, and clean up"));
-    assert!(plan.contains("provider kind"));
-    assert!(plan.contains("semantic profile"));
-    assert!(plan.contains("use_vortex_native_provider"));
-    assert!(plan.contains("result_sink_claim_gate_status"));
-    assert!(plan.contains("computed_result_sink_write_micros"));
-    assert!(plan.contains("batched/persistent runner"));
-    assert!(plan.contains("P7.5.9 file-format preparation matrix"));
+    assert!(plan.contains("docs/architecture/phased-execution-completed-ledger.md"));
+    assert!(plan.contains("No unchecked Planned items remain"));
+    assert!(!plan.contains("Priority 7.5 - compute-engine flow overhaul"));
+    for child in [
+        "P7.5.1", "P7.5.2", "P7.5.3", "P7.5.4", "P7.5.5", "P7.5.6", "P7.5.7", "P7.5.8", "P7.5.9",
+    ] {
+        assert!(
+            completed_ledger.contains(&format!("Session label: {child}")),
+            "missing completed {child}"
+        );
+    }
+    assert!(completed_ledger.contains("source format, workload"));
+    assert!(completed_ledger.contains("unsupported diagnostic"));
+    assert!(review.contains("prepare, inspect, reuse"));
+    assert!(review.contains("provider kind, semantic"));
+    assert!(review.contains("use_vortex_native_provider"));
+    assert!(protocol_parity.contains("result_sink_claim_gate_status"));
+    assert!(protocol_parity.contains("computed_result_sink_write_micros"));
+    assert!(review.contains("batched runner"));
     assert!(traceability.contains("P7.5 follow-up sequence"));
     assert!(traceability.contains("P7.5.6 completion update"));
     assert!(traceability.contains("traditional-analytics-vortex-run --workspace"));

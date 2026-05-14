@@ -1622,6 +1622,11 @@ pub fn plan_security_governance_evidence_gate() -> SecurityGovernanceEvidenceGat
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn workspace_path_fixture_root(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("shardloom_{name}"))
+    }
+
     #[test]
     fn secret_ref_id_rejects_empty() {
         assert!(SecretRefId::new("  ").is_err());
@@ -1807,7 +1812,8 @@ mod tests {
 
     #[test]
     fn workspace_path_safety_accepts_workspace_scoped_outputs() {
-        let report = WorkspacePathSafetyReport::evaluate("C:/repo/workspace", "results/out.vortex");
+        let workspace = workspace_path_fixture_root("workspace");
+        let report = WorkspacePathSafetyReport::evaluate(&workspace, "results/out.vortex");
 
         assert_eq!(
             report.schema_version,
@@ -1822,16 +1828,18 @@ mod tests {
 
     #[test]
     fn workspace_path_safety_rejects_parent_traversal_and_external_outputs() {
-        let traversal =
-            WorkspacePathSafetyReport::evaluate("C:/repo/workspace", "../escape/out.vortex");
+        let workspace = workspace_path_fixture_root("workspace");
+        let traversal = WorkspacePathSafetyReport::evaluate(&workspace, "../escape/out.vortex");
         assert!(!traversal.accepted());
         assert!(!traversal.within_workspace);
         assert!(traversal.path_traversal_checked);
         assert_eq!(traversal.diagnostics[0].code, DiagnosticCode::InvalidInput);
         assert!(traversal.no_fallback_invariant_holds());
 
-        let external =
-            WorkspacePathSafetyReport::evaluate("C:/repo/workspace", "C:/repo/other/out.vortex");
+        let external = WorkspacePathSafetyReport::evaluate(
+            &workspace,
+            workspace_path_fixture_root("other").join("out.vortex"),
+        );
         assert!(!external.accepted());
         assert!(!external.within_workspace);
         assert!(external.diagnostics.iter().any(|diagnostic| {

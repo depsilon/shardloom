@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: workspace path safety CI portability repair
+  - Primary files:
+    - `shardloom-core/src/security.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: make the workspace path safety regression tests portable across Windows and Linux so
+    PR #559's CI `checks` job can validate the intended outside-workspace rejection. The previous
+    test used `C:/...` literals, which are not absolute paths on Linux and allowed the external
+    path assertion to pass through the workspace-relative branch.
+  - Checklist:
+    - [x] Use platform-native temp-directory roots for workspace-scoped and external-output path
+          fixtures.
+    - [x] Update release-readiness metadata tests to read completed P8.0 provenance from the
+          completed ledger after phase-plan compaction.
+    - [x] Update benchmark harness contract tests to read completed P7.5 provenance from the
+          completed ledger after phase-plan compaction.
+    - [x] Preserve the parent-traversal and outside-workspace rejection assertions.
+    - [x] Keep the no-fallback and no-external-engine security invariants unchanged.
+  - Validation:
+    - `cargo test -p shardloom-core security::tests::workspace_path_safety_rejects_parent_traversal_and_external_outputs --lib`
+    - `cargo test -p shardloom-core security::tests::workspace_path_safety_accepts_workspace_scoped_outputs --lib`
+    - `cargo test -p shardloom-core --lib`
+    - `cargo clippy -p shardloom-core --all-targets -- -D warnings`
+
+- [x] Session label: phased-plan completed queue compaction after P7-P9 closeout
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: move completed status out of the active Planned queue after P7.4, the P7.4 benchmark
+    follow-up, P7.5, P8, and P9 were closed. The detailed completion evidence remains in the
+    existing completed-ledger sessions for the individual slices; this entry records the phase-plan
+    source-of-truth cleanup.
+  - Moved/covered completed phase-plan blocks:
+    - [x] Top Findings Intake review sweeps and PR #534 review findings.
+    - [x] Priority 7.4 claim-grade compute-engine completion.
+    - [x] Priority 7.4 follow-up benchmark execution semantics and prepared/native performance
+          lanes.
+    - [x] Priority 7.5 compute-engine flow overhaul and execution-spine alignment.
+    - [x] Priority 8 general availability and external proof-of-use, including P8.5 clean Conda
+          package/install proof closure.
+    - [x] Priority 9 RFC 0036 Foundry integration pack and platform availability.
+  - Result:
+    - [x] `docs/architecture/phased-execution-plan.md` now keeps Planned as the compact autonomous
+          queue and contains no checked-off completed implementation blocks.
+    - [x] The plan Completed section remains a pointer to this ledger.
+    - [x] No unchecked Planned items remain on this branch; the next implementation phase must be
+          added to Planned before work starts.
+  - Validation:
+    - `rg -n "^- \[x\]|^  - \[x\]|^    - \[x\]" docs\architecture\phased-execution-plan.md`
+    - `rg -n "^- \[ \]|^  - \[ \]|^    - \[ \]" docs\architecture\phased-execution-plan.md`
+
 - [x] Session label: compute-flow reference polish, current benchmark synthesis, and release proof hardening
   - Primary files:
     - `docs/architecture/compute-engine-flow-reference.md`

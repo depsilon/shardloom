@@ -689,7 +689,7 @@ fn external_examples_include_fixtures_expected_outputs_and_boundaries() {
 }
 
 #[test]
-fn security_rfc_and_p80_plan_are_traceable() {
+fn security_rfc_and_p80_completion_are_traceable() {
     let rfc =
         read_repo_file("docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md");
     assert!(rfc.contains("SEC-0 declared only"));
@@ -718,22 +718,21 @@ fn security_rfc_and_p80_plan_are_traceable() {
     assert!(rfc.contains("Release Blockers"));
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
-    assert!(plan.contains(
+    assert!(plan.contains("docs/architecture/phased-execution-completed-ledger.md"));
+    assert!(plan.contains("No unchecked Planned items remain"));
+    assert!(!plan.contains(
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));
-    assert!(plan.contains("- [x] P8.0A security RFC and threat model."));
-    assert!(plan.contains("- [x] P8.0B vulnerability disclosure and incident response."));
-    assert!(plan.contains("- [x] P8.0C dependency, license, and advisory gate hardening."));
-    assert!(plan.contains("- [x] P8.0D runtime exploit and malicious-input regression suite."));
-    for child in ["P8.0E", "P8.0F", "P8.0G"] {
+
+    let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for child in ["P8.0A/P8.0B", "P8.0C", "P8.0D", "P8.0E", "P8.0F", "P8.0G"] {
         assert!(
-            plan.contains(&format!("- [x] {child}")),
+            completed_ledger.contains(&format!("Session label: {child}")),
             "missing completed {child}"
         );
     }
-    assert!(plan.contains("P8.4 release gate includes security evidence"));
-    assert!(plan.contains("must not publish packages"));
-    assert!(plan.contains("weaken no-fallback policy"));
+    assert!(completed_ledger.contains("P8.4 hard release-readiness gate bundle"));
+    assert!(completed_ledger.contains("weaken no-fallback policy"));
 
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("P8.0 - security, vulnerability, exploit"));
