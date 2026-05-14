@@ -43,7 +43,7 @@ vortex-encoded-read-executor = []
 vortex-encoded-read-spike = ["vortex-file-io", "vortex-encoded-read-executor"]
 
 [dependencies]
-arrow-array = { version = "58.2.0", optional = true }
+arrow-array = { version = "58.3.0", optional = true }
 arrow-avro = { version = "58.2.0", default-features = false, features = ["deflate", "snappy"], optional = true }
 arrow-ipc = { version = "58.2.0", optional = true }
 arrow-schema = { version = "58.2.0", optional = true }
