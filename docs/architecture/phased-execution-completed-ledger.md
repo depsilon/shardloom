@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0027-A CPU/SIMD/vectorization admission slice
+  - Primary files:
+    - `README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0027-cpu-vectorized-kernels-streaming-runtime-adaptivity.md`
+    - `shardloom-cli/src/optimizer_planning.rs`
+    - `shardloom-cli/tests/cpu_specialization_snapshots.rs`
+    - `shardloom-core/src/cpu_specialization.rs`
+    - `shardloom-core/src/lib.rs`
+  - Scope: add a side-effect-free host CPU feature probe and one blocked vector-kernel admission
+    diagnostic for the filter/encoded operator family.
+  - Checklist:
+    - [x] Record host CPU architecture and detected feature labels without dispatching specialized
+          kernels.
+    - [x] Add a filter/encoded vector-kernel admission status that remains blocked by missing
+          correctness and benchmark evidence.
+    - [x] Keep `runtime_dispatch_implemented=false`,
+          `vectorized_kernel_admission_allowed=false`, and `specialization_runtime_allowed=false`.
+    - [x] Preserve `fallback_attempted=false`, `external_engine_execution=false`, unsafe-code
+          disabled, and production/performance claims disabled.
+    - [x] Surface admission/probe fields through `cpu-specialization-plan` JSON/text output and
+          focused CLI tests.
+  - Boundary:
+    - This is diagnostic/admission work only. It does not add runtime SIMD dispatch,
+      architecture-specific kernels, unsafe SIMD code, CPU-specialized operator execution,
+      benchmark execution, production certification, adaptive parallelism, performance claims, or
+      fallback behavior.
+  - Evidence:
+    - Correctness evidence: still required before dispatch; not satisfied by this slice.
+    - Benchmark evidence: still required before dispatch or performance claims; not satisfied by
+      this slice.
+    - Execution certificate refs: not applicable because no runtime execution occurs.
+    - No-fallback refs: `cpu-specialization-plan` fields preserve fallback/external-engine false.
+  - Vortex-first provider check:
+    - Subject area: RFC 0027 CPU specialization admission and RFC 0021 operator/kernel registry
+      posture.
+    - Upstream Vortex concept checked: no new Vortex runtime API is required for host CPU feature
+      probing.
+    - Decision: `implement_shardloom_kernel` for admission/report structs only; no Vortex or
+      external-engine execution is invoked.
+    - Residual handling: no residual operator execution occurs.
+    - Gates still blocked: SIMD dispatch, unsafe/kernel implementation, correctness fixtures,
+      benchmark evidence, production claims, adaptive parallelism, and broad streaming runtime.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core cpu_specialization --lib`
+    - `cargo test -p shardloom-cli --test cpu_specialization_snapshots`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python -m unittest discover -s python/tests`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0026-J prepared/native global sort/top-k streaming runtime path
   - Primary files:
     - `README.md`

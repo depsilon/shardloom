@@ -61,7 +61,7 @@ base-plus-delta hybrid overlays.
 | Batch engine mode | Current practical foundation for bounded local Vortex analytics and benchmark evidence. | Broader operator coverage, source/sink certification, and claim-grade workload evidence. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and scoped in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and scoped in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. |
-| Prepared/native Vortex runtime | Scoped residual-native paths now avoid full fact-table materialization for selected local benchmark scenarios, including local global sort/top-k and partition-pruning/date-range scan evidence. | Next planned work follows the phase-plan queue for kernel, CPU/vectorization, source-backed API, and evidence-gated expansion; encoded-native and performance claims remain evidence-gated. |
+| Prepared/native Vortex runtime | Scoped residual-native paths now avoid full fact-table materialization for selected local benchmark scenarios, including local global sort/top-k and partition-pruning/date-range scan evidence. CPU specialization reporting now records side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work follows the phase-plan queue for kernel, source-backed API, facade, and evidence-gated expansion; encoded-native, SIMD dispatch, and performance claims remain evidence-gated. |
 
 ## Current State
 
@@ -97,6 +97,9 @@ Currently wired surfaces include:
 - batch/live/hybrid engine-mode contracts through `engine-selection-plan`,
   `engine-capability-matrix`, `live-change-contract-plan`, Python context helpers, and scoped
   in-memory `live-fixture-run` / `hybrid-overlay-run` fixture reports
+- side-effect-free CPU specialization diagnostics through `cpu-specialization-plan`, including host
+  CPU feature labels and a blocked filter/encoded vector-kernel admission status with no runtime
+  dispatch
 - a local benchmark harness with taxonomy metadata, separate timing and coverage tables,
   reproducibility checks, local optional baselines, and explicit unsupported/blocked rows
 - Vortex-first architecture docs and guardrails for treating upstream Vortex APIs as native providers
@@ -121,9 +124,9 @@ contracts, and scoped in-memory fixture reports with certificate fields and
 live/hybrid engines.
 
 The next prepared/native and runtime work remains intentionally concrete and phase-plan driven:
-kernel/provider expansion, CPU/vectorization admission, source-backed API follow-through, and
-evidence hardening, with encoded-native, production, SQL/DataFrame, object-store, and performance
-claims still gated by workload evidence.
+kernel/provider expansion, source-backed API follow-through, facade coverage, and evidence
+hardening, with encoded-native, SIMD dispatch, production, SQL/DataFrame, object-store, and
+performance claims still gated by workload evidence.
 
 ## Core Concepts
 

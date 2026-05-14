@@ -25,6 +25,10 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+fn field_key(key: &str) -> String {
+    format!("\"key\":\"{key}\"")
+}
+
 #[test]
 fn cpu_specialization_json_exposes_cg15_foundation_contract() {
     let output = run_cpu_specialization_json();
@@ -69,7 +73,23 @@ fn cpu_specialization_json_preserves_evidence_gates_and_no_execution() {
     assert!(output.contains(&field("cpu_feature_guard_required", "true")));
     assert!(output.contains(&field("portable_native_baseline_required", "true")));
     assert!(output.contains(&field("deterministic_dispatch_required", "true")));
-    assert!(output.contains(&field("host_cpu_probe", "false")));
+    assert!(output.contains(&field("vectorized_kernel_admission_operator", "filter")));
+    assert!(output.contains(&field("vectorized_kernel_admission_kernel", "encoded")));
+    assert!(output.contains(&field(
+        "vectorized_kernel_admission_status",
+        "blocked_by_missing_correctness_evidence"
+    )));
+    assert!(output.contains(&field(
+        "vectorized_kernel_admission_reason",
+        "host_cpu_probe_recorded_but_correctness_and_benchmark_evidence_missing"
+    )));
+    assert!(output.contains(&field("vectorized_kernel_admission_allowed", "false")));
+    assert!(output.contains(&field_key("host_cpu_probe")));
+    assert!(output.contains(&field_key("host_cpu_probe_supported")));
+    assert!(output.contains(&field("host_cpu_probe_effect_free", "true")));
+    assert!(output.contains(&field_key("host_cpu_arch")));
+    assert!(output.contains(&field_key("host_cpu_detected_features")));
+    assert!(output.contains(&field_key("host_cpu_simd_feature_detected")));
     assert!(output.contains(&field("runtime_dispatch_implemented", "false")));
     assert!(output.contains(&field("simd_dispatch_allowed", "false")));
     assert!(output.contains(&field("cache_aware_dispatch_allowed", "false")));

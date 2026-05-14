@@ -605,6 +605,10 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         completed_ledger.contains("GAR-0026-J prepared/native global sort/top-k"),
         "completed ledger should carry completed GAR-0026-J provenance"
     );
+    assert!(
+        completed_ledger.contains("GAR-0027-A CPU/SIMD/vectorization admission slice"),
+        "completed ledger should carry completed GAR-0027-A provenance"
+    );
     assert!(completed_ledger.contains("GAR-0001A-A SQL/DataFrame planner readiness report"));
     assert!(
         completed_ledger
@@ -614,7 +618,7 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(completed_ledger.contains("GAR-0003-B materialization policy generalization"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 52);
+    assert!(plan.matches("- [ ] GAR-").count() >= 51);
     for required_field in [
         "Current state:",
         "Next slice outcome:",
