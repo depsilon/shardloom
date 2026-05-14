@@ -16,6 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0026-J prepared/native global sort/top-k streaming runtime path
+  - Primary files:
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+  - Scope: add a scoped prepared/native Vortex runtime path for local global `sort and top-k`
+    evidence.
+  - Checklist:
+    - [x] Route prepared/native `sort and top-k` through a projected Vortex scan over `id` and
+          `metric`.
+    - [x] Preserve deterministic ordering by metric descending and `id` ascending for ties.
+    - [x] Maintain bounded ShardLoom-native global top-k state instead of materializing the full
+          fact table.
+    - [x] Preserve correctness for the traditional analytics result JSON.
+    - [x] Report prepared/native rows as residual-native with
+          `operator_encoded_native_claim_allowed=false`.
+    - [x] Keep distributed sort, memory/spill production guarantees, encoded-native sort/top-k, and
+          performance/superiority claims explicitly out of scope.
+    - [x] Return the next autonomous queue item to `GAR-0027-A` CPU/SIMD/vectorization admission.
+  - Boundary:
+    - This is a scoped local Vortex projected scan plus bounded ShardLoom-native global top-k state
+      for the traditional analytics benchmark path. It does not add distributed sort, generalized
+      SQL/DataFrame `ORDER BY`, memory/spill guarantees, encoded-native sort/top-k execution,
+      object-store/table execution, generalized compressed execution, or performance/superiority
+      claims.
+  - Vortex-first provider check:
+    - Subject area: RFC 0026 prepared/native Vortex scan execution and local global top-k benchmark
+      path.
+    - Upstream Vortex concept checked: `VortexFile::scan`, projection pushdown, and
+      `ScanBuilder::into_array_iter`.
+    - Decision: `use_vortex_native_provider` for the scan/projection boundary and
+      `implement_shardloom_kernel` for residual bounded top-k state.
+    - Vortex API/provider surface: local Vortex file scan with `select(["id","metric"], root())`.
+    - ShardLoom provider/report/certificate surface: traditional analytics prepared/native report,
+      operator blocker matrix, Native I/O certificate, benchmark coverage row, and stage timing
+      fields.
+    - Residual handling: global top-k ordering is ShardLoom-native residual state, not encoded-native
+      execution.
+    - Materialization/decode boundary: full fact-table materialization is avoided for
+      prepared/native rows; only projected id/metric chunks enter bounded top-k state;
+      compatibility-import rows still record ingest materialization separately.
+    - Evidence added: focused runtime test, benchmark docs, GAR/RFC traceability, phase-plan update,
+      no-fallback and no-external-engine invariants.
+    - Gates still blocked: distributed sort, memory/spill production guarantees, encoded-native
+      sort/top-k claims, broad compressed-execution claims, SQL/DataFrame, object-store/table
+      execution, and public performance claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics::tests::enabled_sort_top_k_uses_prepared_native_vortex_scan --lib`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "sort and top-k" --dataset-profile narrow_fact_dim --rows 100 --iterations 1 --shardloom-build-profile debug --no-markdown --output target\codex-gar0026j-sort-top-k-smoke.json --data-dir target\codex-gar0026j-sort-top-k-data --regenerate`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python -m unittest discover -s python/tests`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0026-I prepared/native partition-pruning/date-range streaming runtime path
   - Primary files:
     - `README.md`

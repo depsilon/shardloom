@@ -3332,6 +3332,47 @@ impl TraditionalComplexAccum {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy)]
+struct GlobalTopKCandidate {
+    id: u64,
+    metric: f64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl GlobalTopKCandidate {
+    const fn new(id: u64, metric: f64) -> Self {
+        Self { id, metric }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl PartialEq for GlobalTopKCandidate {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.metric.to_bits() == other.metric.to_bits()
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl Eq for GlobalTopKCandidate {}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl PartialOrd for GlobalTopKCandidate {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl Ord for GlobalTopKCandidate {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other
+            .metric
+            .total_cmp(&self.metric)
+            .then_with(|| self.id.cmp(&other.id))
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 struct TraditionalScenarioExecutionEvidence {
@@ -7578,6 +7619,9 @@ fn run_vortex_derived_scenario_from_files(
         TraditionalAnalyticsScenario::JoinAggregate => {
             run_streaming_join_aggregate_scenario(fact_path, dim_path)
         }
+        TraditionalAnalyticsScenario::SortAndTopK => {
+            run_streaming_sort_top_k_scenario(fact_path, dim_path)
+        }
         TraditionalAnalyticsScenario::TopNPerGroup => {
             run_streaming_top_n_per_group_scenario(fact_path, dim_path)
         }
@@ -7785,6 +7829,60 @@ fn run_streaming_row_number_window_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     run_streaming_ranked_per_group_scenario(fact_path, dim_path, 1, "row number window")
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_sort_top_k_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut top_rows = std::collections::BinaryHeap::<GlobalTopKCandidate>::new();
+    let stats = scan_fact_vortex_projected(
+        fact_path,
+        &["id", "metric"],
+        None,
+        |fields, chunk_rows| {
+            let ids = primitive_field::<u64>(fields, "id")?;
+            let metrics = primitive_field::<f64>(fields, "metric")?;
+            if ids.len() != chunk_rows || metrics.len() != chunk_rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "sort and top-k Vortex chunk length mismatch: chunk_rows={chunk_rows}, id_len={}, metric_len={}",
+                    ids.len(),
+                    metrics.len()
+                )));
+            }
+            for (id, metric) in ids.into_iter().zip(metrics) {
+                top_rows.push(GlobalTopKCandidate::new(id, metric));
+                if top_rows.len() > 10 {
+                    let _ = top_rows.pop();
+                }
+            }
+            Ok(())
+        },
+    )?;
+    let mut rows = top_rows.into_vec();
+    rows.sort_by(|left, right| {
+        right
+            .metric
+            .total_cmp(&left.metric)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    let result_rows = rows
+        .into_iter()
+        .map(|row| (row.id, row.metric))
+        .collect::<Vec<_>>();
+    let result_json = top_rows_json(&result_rows);
+    let rows_materialized = result_rows_materialized(&result_json)?;
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: stats.source_row_count,
+        rows_materialized,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -10244,6 +10342,117 @@ mod tests {
         assert_eq!(native_report.materialization_boundary_rows, 0);
         assert!(!native_report.data_materialized);
         assert_eq!(native_report.rows_materialized, 1);
+        let native_fields = field_map(native_report.fields());
+        assert_eq!(
+            native_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn enabled_sort_top_k_uses_prepared_native_vortex_scan() {
+        let root = traditional_analytics_test_root("sort-top-k");
+        std::fs::create_dir_all(&root).unwrap();
+        let fact_csv = root.join("fact.csv");
+        let dim_csv = root.join("dim.csv");
+        std::fs::write(
+            &fact_csv,
+            concat!(
+                "id,group_key,dim_key,value,metric,flag,category\n",
+                "1,10,1,6000,9.0,1,A\n",
+                "2,10,1,6000,9.0,1,A\n",
+                "3,10,1,6000,8.0,1,A\n",
+                "4,10,1,6000,7.0,1,A\n",
+                "5,10,1,6000,6.0,1,A\n",
+                "6,10,1,6000,5.0,1,A\n",
+                "7,10,1,6000,4.0,1,A\n",
+                "8,10,1,6000,3.0,1,A\n",
+                "9,10,1,6000,2.0,1,A\n",
+                "10,10,1,6000,1.0,1,A\n",
+                "11,10,1,6000,9.0,1,A\n",
+                "12,10,1,6000,0.5,1,A\n",
+            ),
+        )
+        .unwrap();
+        std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").unwrap();
+        let workspace = root.join("workspace");
+
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SortAndTopK,
+                fact_csv,
+                dim_csv,
+                workspace,
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        assert_eq!(
+            import_report.result_json,
+            concat!(
+                "[{\"id\":1,\"metric\":9.0},{\"id\":2,\"metric\":9.0},",
+                "{\"id\":11,\"metric\":9.0},{\"id\":3,\"metric\":8.0},",
+                "{\"id\":4,\"metric\":7.0},{\"id\":5,\"metric\":6.0},",
+                "{\"id\":6,\"metric\":5.0},{\"id\":7,\"metric\":4.0},",
+                "{\"id\":8,\"metric\":3.0},{\"id\":9,\"metric\":2.0}]",
+            )
+        );
+        assert!(import_report.streaming_vortex_execution_used);
+        assert!(import_report.full_table_materialization_avoided);
+        assert!(!import_report.streaming_filter_pushdown_applied);
+        assert!(import_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            import_report.streaming_projected_columns,
+            vec!["id".to_string(), "metric".to_string()]
+        );
+        assert_eq!(import_report.materialization_boundary_rows, 14);
+        assert!(import_report.data_materialized);
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::SortAndTopK,
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(native_report.result_json, import_report.result_json);
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(!native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec!["id".to_string(), "metric".to_string()]
+        );
+        assert_eq!(native_report.rows_scanned, 12);
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
+        assert_eq!(native_report.rows_materialized, 10);
         let native_fields = field_map(native_report.fields());
         assert_eq!(
             native_fields
