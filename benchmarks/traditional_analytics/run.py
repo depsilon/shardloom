@@ -2072,7 +2072,10 @@ def workspace_root() -> Path:
 def shardloom_binary_path(root: Path, profile: str) -> Path:
     binary_name = "shardloom.exe" if os.name == "nt" else "shardloom"
     target_profile = "release" if profile == "release" else "debug"
-    return root / "target" / target_profile / binary_name
+    target_root = Path(os.environ.get("CARGO_TARGET_DIR", root / "target"))
+    if not target_root.is_absolute():
+        target_root = root / target_root
+    return target_root / target_profile / binary_name
 
 
 def build_shardloom_cli(root: Path, features: str, profile: str) -> Path:
@@ -5991,7 +5994,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom direct-transient rows, when requested with `shardloom-direct-transient`, are scoped local CSV smoke rows without Vortex persistence and are never Vortex-native or performance-claim rows.",
         "ShardLoom prepared Vortex rows start timing from prepared Vortex artifacts; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "Prepared/native rows carry operator_execution_class and operator_blocker_id so residual-native and materialized-temporary operators are not counted as encoded-native.",
-        "Prepared/native selective-filter rows carry encoded_predicate_provider_* v3 blocker fields; Vortex scan filter pushdown is not counted as an admitted encoded predicate provider until real reader-generated filter-column batches and certificates exist.",
+        "Prepared/native selective-filter rows carry encoded_predicate_provider_* v4 blocker fields; Vortex scan filter pushdown and real flag,value reader chunks are not counted as an admitted encoded predicate provider until encoding-specific kernel-input lowering and certificates exist.",
         "ShardLoom coverage rows carry materialization_policy_ref, which points to the GAR-0003-B shared materialization/decode policy in compute-capability-matrix; materialized-temporary rows cannot satisfy encoded-native claims.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Coverage rows now carry support_status, claim_gate_status, native_unsupported_coverage_ref, and unsupported_diagnostic_code so unsupported capability rows stay distinct from timing rows.",

@@ -6,12 +6,19 @@ use shardloom_core::{
 };
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+use crate::local_primitives::reader_generated_encoded_kernel_inputs_from_vortex_chunk;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+use crate::source_backed_encoded_execution::{
+    VortexReaderBackedSplitEvidence,
+    execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs,
+};
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_core::{
-    ExecutionCertificateInput, ExecutionProviderKind, ExpectedOutcome,
-    NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
+    ColumnRef, ComparisonOp, DatasetUri, ExecutionCertificateInput, ExecutionProviderKind,
+    ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
     NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
-    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState,
-    ShardLoomExecutionModeSelectionRequest,
+    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
+    RepresentationState, ShardLoomExecutionModeSelectionRequest, StatValue, UniversalInputSource,
 };
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_exec::{
@@ -30,7 +37,7 @@ const LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID: &str = "local_vortex_analytics_v1"
 const SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_backed_scan_evidence.v1";
 const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
-    "shardloom.traditional_analytics.encoded_predicate_provider.v3";
+    "shardloom.traditional_analytics.encoded_predicate_provider.v4";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
@@ -2206,6 +2213,26 @@ pub struct TraditionalAnalyticsVortexReport {
     pub streaming_reader_chunk_columns_observed: Vec<String>,
     pub streaming_reader_chunk_dtype_summary: Vec<String>,
     pub streaming_reader_chunk_encoding_summary: Vec<String>,
+    pub encoded_predicate_provider_filter_column_probe_requested: bool,
+    pub encoded_predicate_provider_filter_column_probe_requested_columns: Vec<String>,
+    pub encoded_predicate_provider_filter_column_probe_status: String,
+    pub encoded_predicate_provider_filter_column_probe_reader_split_count: usize,
+    pub encoded_predicate_provider_filter_column_probe_row_count: u64,
+    pub encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed: Vec<String>,
+    pub encoded_predicate_provider_filter_column_probe_reader_chunk_dtype_summary: Vec<String>,
+    pub encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary: Vec<String>,
+    pub encoded_predicate_provider_kernel_input_count: usize,
+    pub encoded_predicate_provider_conjunctive_bridge_runtime_status: String,
+    pub encoded_predicate_provider_conjunctive_bridge_runtime_report_id: String,
+    pub encoded_predicate_provider_conjunctive_bridge_intersection_count: usize,
+    pub encoded_predicate_provider_conjunctive_bridge_selected_row_count: Option<u64>,
+    pub encoded_predicate_provider_filter_column_batches_consumed: bool,
+    pub encoded_predicate_provider_selection_vector_intersection_certified: bool,
+    pub encoded_predicate_provider_filter_column_probe_data_decoded: bool,
+    pub encoded_predicate_provider_filter_column_probe_data_materialized: bool,
+    pub encoded_predicate_provider_filter_column_probe_row_read: bool,
+    pub encoded_predicate_provider_filter_column_probe_fallback_attempted: bool,
+    pub encoded_predicate_provider_filter_column_probe_external_engine_invoked: bool,
     pub data_decoded: bool,
     pub data_materialized: bool,
     pub materialization_boundary_report_emitted: bool,
@@ -2818,13 +2845,25 @@ fn encoded_predicate_provider_fields(
     let selective_filter = report.scenario == TraditionalAnalyticsScenario::SelectiveFilter;
     let scenario_slug = report.scenario.as_str().replace(['/', ' ', '+'], "-");
     let report_id = format!(
-        "gar-0026s.encoded_predicate_provider.{}.{}",
+        "gar-0026t.encoded_predicate_provider.{}.{}",
         report
             .execution_mode_selection
             .selected_execution_mode
             .as_str(),
         scenario_slug
     );
+    let filter_probe_columns_observed = report
+        .encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed
+        .iter()
+        .any(|column| column == "flag")
+        && report
+            .encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed
+            .iter()
+            .any(|column| column == "value");
+    let bridge_intersected = report.encoded_predicate_provider_conjunctive_bridge_runtime_status
+        == "intersected_selection_vectors"
+        && report.encoded_predicate_provider_filter_column_batches_consumed
+        && report.encoded_predicate_provider_selection_vector_intersection_certified;
     let (
         checked,
         status,
@@ -2835,15 +2874,39 @@ fn encoded_predicate_provider_fields(
         blocker_reason,
         required_future_evidence,
         claim_boundary,
-    ) = if selective_filter {
+    ) = if selective_filter && bridge_intersected {
+        (
+            "true",
+            "reader_generated_filter_column_batches_admitted",
+            "reader_generated_filter_column_kernel_inputs_admitted",
+            "selective_filter.flag_eq_1_and_value_gte_5000",
+            "flag,value",
+            "none",
+            "The scoped local Vortex scan projected flag,value filter-column batches, lowered them into admitted reader-generated encoded kernel inputs, and the conjunctive bridge intersected selection vectors without fallback.",
+            "selected_metric_aggregation_consumes_selection_vector;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy;claim_grade_iterations",
+            "scoped reader-generated filter-column selection-vector evidence only; selected metric aggregation remains residual-native until it consumes the admitted selection vector end to end",
+        )
+    } else if selective_filter && filter_probe_columns_observed {
+        (
+            "true",
+            "blocked_until_reader_generated_kernel_input_certificate",
+            "filter_column_batches_observed_kernel_input_lowering_blocked",
+            "selective_filter.flag_eq_1_and_value_gte_5000",
+            "flag,value",
+            "gar-0026t.reader_generated_kernel_input_lowering_missing",
+            "The scoped local Vortex scan can project flag,value filter-column reader chunks without decode/materialization, but their current encodings are not yet lowered into admitted encoded kernel inputs for the conjunctive bridge.",
+            "encoding_specific_kernel_input_lowering_from_vortex_reader_chunks;selective_filter_correctness_fixture;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy",
+            "filter-column reader-batch capture evidence only; no encoded predicate provider/runtime/performance claim until kernel inputs and selected metric aggregation are certified",
+        )
+    } else if selective_filter {
         (
             "true",
             "blocked_until_reader_generated_filter_column_batches",
             "blocked_until_vortex_or_shardloom_filter_column_evidence",
             "selective_filter.flag_eq_1_and_value_gte_5000",
             "flag,value",
-            "gar-0026s.reader_generated_filter_column_batches_missing",
-            "The reader-generated conjunctive selection-vector bridge is available for supplied encoded kernel inputs, but the benchmark Vortex scan still exposes only filtered projected output chunks; filter-only flag,value batches are not available without decode/materialization.",
+            "gar-0026t.reader_generated_filter_column_batches_missing",
+            "The reader-generated conjunctive selection-vector bridge is available for supplied encoded kernel inputs, but the scoped local Vortex scan did not return flag,value filter-column reader chunks for this row.",
             "reader_generated_encoded_value_batches_for_filter_columns;encoding_specific_kernel_input_lowering_from_vortex_reader_chunks;selective_filter_correctness_fixture;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy",
             "conjunctive selection-vector bridge contract only when callers supply admitted filter-column batches; no encoded predicate provider/runtime/performance claim for traditional benchmark rows",
         )
@@ -2873,14 +2936,16 @@ fn encoded_predicate_provider_fields(
         comma_join_or_none(&report.streaming_reader_chunk_dtype_summary);
     let reader_chunk_encoding_summary =
         comma_join_or_none(&report.streaming_reader_chunk_encoding_summary);
-    let filter_columns_observed = report
-        .streaming_reader_chunk_columns_observed
-        .iter()
-        .any(|column| column == "flag")
-        && report
-            .streaming_reader_chunk_columns_observed
-            .iter()
-            .any(|column| column == "value");
+    let filter_column_probe_columns_observed = comma_join_or_none(
+        &report.encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed,
+    );
+    let filter_column_probe_dtype_summary = comma_join_or_none(
+        &report.encoded_predicate_provider_filter_column_probe_reader_chunk_dtype_summary,
+    );
+    let filter_column_probe_encoding_summary = comma_join_or_none(
+        &report.encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary,
+    );
+    let filter_columns_observed = filter_probe_columns_observed;
     let projected_metric_observed = report
         .streaming_reader_chunk_columns_observed
         .iter()
@@ -2889,22 +2954,28 @@ fn encoded_predicate_provider_fields(
         .streaming_reader_chunk_encoding_summary
         .iter()
         .any(|summary| summary == "metric:vortex.filter");
-    let bridge_status = if selective_filter && filter_columns_observed {
-        "bridge_available_awaiting_reader_generated_kernel_input_certificate"
+    let bridge_status = if selective_filter && bridge_intersected {
+        "bridge_consumed_reader_generated_filter_column_kernel_inputs"
+    } else if selective_filter && filter_columns_observed {
+        "bridge_available_blocked_filter_column_kernel_inputs_not_lowered"
     } else if selective_filter {
         "bridge_available_blocked_filter_columns_not_returned_by_reader_projection"
     } else {
         "not_applicable_no_selective_filter_predicate"
     };
-    let bridge_blocker_ids = if selective_filter && filter_columns_observed {
-        "gar-0026s.reader_generated_kernel_input_certificate_missing"
+    let bridge_blocker_ids = if selective_filter && bridge_intersected {
+        "none"
+    } else if selective_filter && filter_columns_observed {
+        "gar-0026t.filter_column_kernel_inputs_not_lowered;gar-0026t.selected_metric_aggregation_not_selection_vector_backed"
     } else if selective_filter {
-        "gar-0026s.filter_columns_not_returned_by_scan_projection;gar-0026s.reader_generated_filter_column_inputs_missing;gar-0026s.encoding_specific_filter_column_lowering_missing;gar-0026s.projected_output_filter_array_not_filter_column_input"
+        "gar-0026t.filter_columns_not_returned_by_scan_projection;gar-0026t.reader_generated_filter_column_inputs_missing;gar-0026t.encoding_specific_filter_column_lowering_missing;gar-0026t.projected_output_filter_array_not_filter_column_input"
     } else {
         "none"
     };
-    let filter_column_batch_status = if selective_filter && filter_columns_observed {
-        "observed_filter_columns_not_admitted_to_reader_generated_kernel_inputs"
+    let filter_column_batch_status = if selective_filter && bridge_intersected {
+        "admitted_filter_column_kernel_inputs"
+    } else if selective_filter && filter_columns_observed {
+        "observed_filter_column_reader_chunks_not_lowered"
     } else if selective_filter {
         "blocked_filter_only_columns_not_observed"
     } else {
@@ -2926,22 +2997,26 @@ fn encoded_predicate_provider_fields(
     } else {
         "not_applicable"
     };
-    let selection_vector_intersection_status = if selective_filter && filter_columns_observed {
-        "bridge_available_blocked_missing_kernel_input_certificate"
+    let selection_vector_intersection_status = if selective_filter && bridge_intersected {
+        "selection_vectors_intersected"
+    } else if selective_filter && filter_columns_observed {
+        "bridge_blocked_before_selection_vector_intersection"
     } else if selective_filter {
         "bridge_available_blocked_missing_filter_column_inputs"
     } else {
         "not_applicable"
     };
-    let conjunctive_bridge_status = if selective_filter && filter_columns_observed {
-        "available_blocked_missing_kernel_input_certificate"
-    } else if selective_filter {
-        "available_blocked_missing_filter_column_inputs"
+    let conjunctive_bridge_status = if selective_filter {
+        report
+            .encoded_predicate_provider_conjunctive_bridge_runtime_status
+            .as_str()
     } else {
         "not_applicable"
     };
-    let kernel_input_lowering_status = if selective_filter && filter_columns_observed {
-        "blocked_missing_reader_generated_encoded_value_batch_certificate"
+    let kernel_input_lowering_status = if selective_filter && bridge_intersected {
+        "reader_generated_encoded_kernel_inputs_admitted"
+    } else if selective_filter && filter_columns_observed {
+        "blocked_missing_encoding_specific_kernel_input_lowering"
     } else if selective_filter {
         "blocked_missing_reader_generated_filter_column_batches"
     } else {
@@ -2974,11 +3049,85 @@ fn encoded_predicate_provider_fields(
         ),
         (
             "encoded_predicate_provider_api_surface_checked".to_string(),
-            "VortexFile::scan.with_filter;VortexFile::scan.with_projection;shardloom_prepared_encoded_predicate_reports;reader_generated_prepared_batch_kernel_inputs".to_string(),
+            "VortexFile::scan.with_filter;VortexFile::scan.with_projection;shardloom_filter_column_probe_scan;shardloom_prepared_encoded_predicate_reports;reader_generated_prepared_batch_kernel_inputs".to_string(),
         ),
         (
             "encoded_predicate_provider_current_surface".to_string(),
             "traditional_analytics_vortex_scan_filter_pushdown".to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_requested".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_probe_requested
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_status".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_probe_status
+                .clone(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_requested_columns".to_string(),
+            comma_join_or_none(
+                &report.encoded_predicate_provider_filter_column_probe_requested_columns,
+            ),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_reader_split_count".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_probe_reader_split_count
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_row_count".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_probe_row_count
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed"
+                .to_string(),
+            filter_column_probe_columns_observed,
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_reader_chunk_dtype_summary".to_string(),
+            filter_column_probe_dtype_summary,
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary"
+                .to_string(),
+            filter_column_probe_encoding_summary,
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_data_decoded".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_probe_data_decoded
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_data_materialized".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_probe_data_materialized
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_row_read".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_probe_row_read
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_fallback_attempted".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_probe_fallback_attempted
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_probe_external_engine_invoked".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_probe_external_engine_invoked
+                .to_string(),
         ),
         (
             "encoded_predicate_provider_conjunctive_bridge_schema_version".to_string(),
@@ -2987,11 +3136,37 @@ fn encoded_predicate_provider_fields(
         ),
         (
             "encoded_predicate_provider_conjunctive_bridge_report_id".to_string(),
-            "vortex.cg2.reader-generated-conjunctive-selection-vector-bridge".to_string(),
+            report
+                .encoded_predicate_provider_conjunctive_bridge_runtime_report_id
+                .clone(),
         ),
         (
             "encoded_predicate_provider_conjunctive_bridge_status".to_string(),
             conjunctive_bridge_status.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_conjunctive_bridge_intersection_count".to_string(),
+            report
+                .encoded_predicate_provider_conjunctive_bridge_intersection_count
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_conjunctive_bridge_selected_row_count".to_string(),
+            report
+                .encoded_predicate_provider_conjunctive_bridge_selected_row_count
+                .map_or_else(|| "none".to_string(), |row_count| row_count.to_string()),
+        ),
+        (
+            "encoded_predicate_provider_filter_column_batches_consumed".to_string(),
+            report
+                .encoded_predicate_provider_filter_column_batches_consumed
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_kernel_input_count".to_string(),
+            report
+                .encoded_predicate_provider_kernel_input_count
+                .to_string(),
         ),
         (
             "encoded_predicate_provider_filter_pushdown_status".to_string(),
@@ -3936,6 +4111,60 @@ impl Ord for GlobalTopKCandidate {
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
+struct TraditionalEncodedPredicateProviderRuntimeEvidence {
+    requested: bool,
+    requested_columns: Vec<String>,
+    probe_status: String,
+    reader_split_count: usize,
+    probe_row_count: u64,
+    reader_chunk_columns_observed: Vec<String>,
+    reader_chunk_dtype_summary: Vec<String>,
+    reader_chunk_encoding_summary: Vec<String>,
+    encoded_kernel_input_count: usize,
+    bridge_status: String,
+    bridge_report_id: String,
+    bridge_intersection_count: usize,
+    bridge_selected_row_count: Option<u64>,
+    filter_column_batches_consumed: bool,
+    selection_vector_intersection_certified: bool,
+    data_decoded: bool,
+    data_materialized: bool,
+    row_read: bool,
+    fallback_attempted: bool,
+    external_engine_invoked: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalEncodedPredicateProviderRuntimeEvidence {
+    fn not_applicable() -> Self {
+        Self {
+            requested: false,
+            requested_columns: Vec::new(),
+            probe_status: "not_applicable".to_string(),
+            reader_split_count: 0,
+            probe_row_count: 0,
+            reader_chunk_columns_observed: Vec::new(),
+            reader_chunk_dtype_summary: Vec::new(),
+            reader_chunk_encoding_summary: Vec::new(),
+            encoded_kernel_input_count: 0,
+            bridge_status: "not_applicable".to_string(),
+            bridge_report_id: "none".to_string(),
+            bridge_intersection_count: 0,
+            bridge_selected_row_count: None,
+            filter_column_batches_consumed: false,
+            selection_vector_intersection_certified: false,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
 struct TraditionalScenarioExecutionEvidence {
     streaming_vortex_execution_used: bool,
     full_table_materialization_avoided: bool,
@@ -3947,6 +4176,7 @@ struct TraditionalScenarioExecutionEvidence {
     reader_chunk_columns_observed: Vec<String>,
     reader_chunk_dtype_summary: Vec<String>,
     reader_chunk_encoding_summary: Vec<String>,
+    encoded_predicate_provider: TraditionalEncodedPredicateProviderRuntimeEvidence,
     data_decoded: bool,
     data_materialized: bool,
     row_read: bool,
@@ -3966,6 +4196,8 @@ impl TraditionalScenarioExecutionEvidence {
             reader_chunk_columns_observed: Vec::new(),
             reader_chunk_dtype_summary: Vec::new(),
             reader_chunk_encoding_summary: Vec::new(),
+            encoded_predicate_provider:
+                TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
             data_decoded: true,
             data_materialized: true,
             row_read: false,
@@ -3995,10 +4227,21 @@ impl TraditionalScenarioExecutionEvidence {
             reader_chunk_columns_observed,
             reader_chunk_dtype_summary,
             reader_chunk_encoding_summary,
+            encoded_predicate_provider:
+                TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
             data_decoded: true,
             data_materialized: false,
             row_read: false,
         }
+    }
+
+    fn streaming_with_encoded_predicate_provider(
+        stats: TraditionalStreamingScanStats,
+        encoded_predicate_provider: TraditionalEncodedPredicateProviderRuntimeEvidence,
+    ) -> Self {
+        let mut evidence = Self::streaming(stats);
+        evidence.encoded_predicate_provider = encoded_predicate_provider;
+        evidence
     }
 }
 
@@ -5692,6 +5935,89 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         streaming_reader_chunk_encoding_summary: scenario_execution
             .evidence
             .reader_chunk_encoding_summary,
+        encoded_predicate_provider_filter_column_probe_requested: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .requested,
+        encoded_predicate_provider_filter_column_probe_requested_columns: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .requested_columns,
+        encoded_predicate_provider_filter_column_probe_status: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .probe_status,
+        encoded_predicate_provider_filter_column_probe_reader_split_count: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .reader_split_count,
+        encoded_predicate_provider_filter_column_probe_row_count: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .probe_row_count,
+        encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed:
+            scenario_execution
+                .evidence
+                .encoded_predicate_provider
+                .reader_chunk_columns_observed,
+        encoded_predicate_provider_filter_column_probe_reader_chunk_dtype_summary:
+            scenario_execution
+                .evidence
+                .encoded_predicate_provider
+                .reader_chunk_dtype_summary,
+        encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary:
+            scenario_execution
+                .evidence
+                .encoded_predicate_provider
+                .reader_chunk_encoding_summary,
+        encoded_predicate_provider_kernel_input_count: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .encoded_kernel_input_count,
+        encoded_predicate_provider_conjunctive_bridge_runtime_status: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .bridge_status,
+        encoded_predicate_provider_conjunctive_bridge_runtime_report_id: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .bridge_report_id,
+        encoded_predicate_provider_conjunctive_bridge_intersection_count: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .bridge_intersection_count,
+        encoded_predicate_provider_conjunctive_bridge_selected_row_count: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .bridge_selected_row_count,
+        encoded_predicate_provider_filter_column_batches_consumed: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .filter_column_batches_consumed,
+        encoded_predicate_provider_selection_vector_intersection_certified: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .selection_vector_intersection_certified,
+        encoded_predicate_provider_filter_column_probe_data_decoded: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .data_decoded,
+        encoded_predicate_provider_filter_column_probe_data_materialized: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .data_materialized,
+        encoded_predicate_provider_filter_column_probe_row_read: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .row_read,
+        encoded_predicate_provider_filter_column_probe_fallback_attempted: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .fallback_attempted,
+        encoded_predicate_provider_filter_column_probe_external_engine_invoked: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .external_engine_invoked,
         data_decoded: scenario_execution.evidence.data_decoded,
         data_materialized: scenario_execution.evidence.data_materialized,
         materialization_boundary_report_emitted: true,
@@ -8217,12 +8543,9 @@ fn run_vortex_derived_scenario_from_files(
         TraditionalAnalyticsScenario::CsvFileIngest => {
             run_streaming_fact_metric_sum_scenario(fact_path, dim_path, None, "metric")
         }
-        TraditionalAnalyticsScenario::SelectiveFilter => run_streaming_fact_metric_sum_scenario(
-            fact_path,
-            dim_path,
-            Some(selective_filter_expr()),
-            "metric",
-        ),
+        TraditionalAnalyticsScenario::SelectiveFilter => {
+            run_streaming_selective_filter_scenario(fact_path, dim_path)
+        }
         TraditionalAnalyticsScenario::HashJoin => {
             run_streaming_hash_join_scenario(fact_path, dim_path)
         }
@@ -9211,6 +9534,182 @@ fn apply_cdc_delta_overlay_chunk(
         )
     })?;
     Ok(())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_selective_filter_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut metric_sum = 0.0;
+    let stats = scan_fact_vortex_projected(
+        fact_path,
+        &["metric"],
+        Some(selective_filter_expr()),
+        |fields, _chunk_rows| {
+            metric_sum += primitive_field::<f64>(fields, "metric")?
+                .iter()
+                .sum::<f64>();
+            Ok(())
+        },
+    )?;
+    let encoded_predicate_provider = scan_selective_filter_column_batches(fact_path)?;
+    let result_json = scalar_result_json(stats.result_row_count, metric_sum);
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming_with_encoded_predicate_provider(
+            stats,
+            encoded_predicate_provider,
+        ),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn scan_selective_filter_column_batches(
+    fact_path: &std::path::Path,
+) -> Result<TraditionalEncodedPredicateProviderRuntimeEvidence> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::array::expr::{root, select};
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(fact_path))
+        .map_err(vortex_error)?;
+    let projected_columns = vec!["flag".to_string(), "value".to_string()];
+    let projected_column_refs = ["flag", "value"];
+    let source_uri = DatasetUri::new(fact_path.display().to_string())?;
+    let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let mut scan = file.scan().map_err(vortex_error)?;
+    scan = scan.with_projection(select(projected_column_refs.to_vec(), root()));
+
+    let mut reader_splits = Vec::new();
+    let mut encoded_kernel_inputs = Vec::new();
+    let mut reader_chunk_columns_observed = std::collections::BTreeSet::new();
+    let mut reader_chunk_dtype_summary = std::collections::BTreeSet::new();
+    let mut reader_chunk_encoding_summary = std::collections::BTreeSet::new();
+    let mut probe_row_count = 0_u64;
+    for (arrays_read_count, chunk) in scan
+        .into_array_iter(&runtime)
+        .map_err(vortex_error)?
+        .enumerate()
+    {
+        let chunk = chunk.map_err(vortex_error)?;
+        let row_count = chunk.len();
+        record_reader_chunk_summary_from_vortex_chunk(
+            &chunk,
+            &projected_column_refs,
+            &mut reader_chunk_columns_observed,
+            &mut reader_chunk_dtype_summary,
+            &mut reader_chunk_encoding_summary,
+        );
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            arrays_read_count,
+            row_count,
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?;
+        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            &split.split_ref,
+            &chunk,
+        )?);
+        reader_splits.push(split);
+        probe_row_count = checked_u64_sum(probe_row_count, usize_to_u64(row_count)?)?;
+    }
+
+    let bridge = execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(
+        &selective_filter_encoded_predicates()?,
+        &source,
+        &reader_splits,
+        &encoded_kernel_inputs,
+    )?;
+    let filter_columns_observed = reader_chunk_columns_observed.contains("flag")
+        && reader_chunk_columns_observed.contains("value");
+    let probe_status = if bridge.runtime_execution_allowed {
+        "admitted_filter_column_kernel_inputs"
+    } else if reader_splits.is_empty() {
+        "requested_no_filter_column_reader_chunks_emitted"
+    } else if filter_columns_observed {
+        "observed_filter_column_reader_chunks_blocked_kernel_input_lowering"
+    } else {
+        "blocked_filter_only_columns_not_observed"
+    };
+    Ok(TraditionalEncodedPredicateProviderRuntimeEvidence {
+        requested: true,
+        requested_columns: projected_columns,
+        probe_status: probe_status.to_string(),
+        reader_split_count: reader_splits.len(),
+        probe_row_count,
+        reader_chunk_columns_observed: reader_chunk_columns_observed.into_iter().collect(),
+        reader_chunk_dtype_summary: reader_chunk_dtype_summary.into_iter().collect(),
+        reader_chunk_encoding_summary: reader_chunk_encoding_summary.into_iter().collect(),
+        encoded_kernel_input_count: encoded_kernel_inputs.len(),
+        bridge_status: bridge.status.as_str().to_string(),
+        bridge_report_id: bridge.report_id,
+        bridge_intersection_count: bridge.intersection_count,
+        bridge_selected_row_count: bridge.selected_row_count,
+        filter_column_batches_consumed: bridge.filter_column_batches_consumed,
+        selection_vector_intersection_certified: bridge.selection_vector_intersection_certified,
+        data_decoded: bridge.data_decoded,
+        data_materialized: bridge.data_materialized,
+        row_read: bridge.row_read,
+        fallback_attempted: bridge.fallback_attempted,
+        external_engine_invoked: bridge.external_engine_invoked,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn record_reader_chunk_summary_from_vortex_chunk(
+    chunk: &vortex::array::ArrayRef,
+    projected_columns: &[&str],
+    reader_chunk_columns_observed: &mut std::collections::BTreeSet<String>,
+    reader_chunk_dtype_summary: &mut std::collections::BTreeSet<String>,
+    reader_chunk_encoding_summary: &mut std::collections::BTreeSet<String>,
+) {
+    if chunk.dtype().is_struct() {
+        for (field_name, field) in chunk.named_children() {
+            let field_name = field_name.clone();
+            reader_chunk_columns_observed.insert(field_name.clone());
+            reader_chunk_dtype_summary.insert(format!("{field_name}:{:?}", field.dtype()));
+            reader_chunk_encoding_summary.insert(format!("{field_name}:{}", field.encoding_id()));
+        }
+    } else if projected_columns.len() == 1 {
+        let field_name = projected_columns[0].to_string();
+        reader_chunk_columns_observed.insert(field_name.clone());
+        reader_chunk_dtype_summary.insert(format!("{field_name}:{:?}", chunk.dtype()));
+        reader_chunk_encoding_summary.insert(format!("{field_name}:{}", chunk.encoding_id()));
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selective_filter_encoded_predicates() -> Result<Vec<PredicateExpr>> {
+    Ok(vec![
+        PredicateExpr::Compare {
+            column: ColumnRef::new("flag")?,
+            op: ComparisonOp::Eq,
+            value: StatValue::UInt64(1),
+        },
+        PredicateExpr::Compare {
+            column: ColumnRef::new("value")?,
+            op: ComparisonOp::GtEq,
+            value: StatValue::UInt64(5_000),
+        },
+    ])
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -11033,13 +11532,13 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_status")
                 .map(String::as_str),
-            Some("blocked_until_reader_generated_filter_column_batches")
+            Some("blocked_until_reader_generated_kernel_input_certificate")
         );
         assert_eq!(
             fields
                 .get("encoded_predicate_provider_classification")
                 .map(String::as_str),
-            Some("blocked_until_vortex_or_shardloom_filter_column_evidence")
+            Some("filter_column_batches_observed_kernel_input_lowering_blocked")
         );
         assert_eq!(
             fields
@@ -11057,7 +11556,7 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_blocker_id")
                 .map(String::as_str),
-            Some("gar-0026s.reader_generated_filter_column_batches_missing")
+            Some("gar-0026t.reader_generated_kernel_input_lowering_missing")
         );
         assert_eq!(
             fields
@@ -11080,7 +11579,60 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_reader_backed_bridge_status")
                 .map(String::as_str),
-            Some("bridge_available_blocked_filter_columns_not_returned_by_reader_projection")
+            Some("bridge_available_blocked_filter_column_kernel_inputs_not_lowered")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_requested")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_status")
+                .map(String::as_str),
+            Some("observed_filter_column_reader_chunks_blocked_kernel_input_lowering")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_requested_columns")
+                .map(String::as_str),
+            Some("flag,value")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed")
+                .map(String::as_str),
+            Some("flag,value")
+        );
+        assert!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary")
+                .is_some_and(|value| value.contains("flag:") && value.contains("value:"))
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_data_decoded")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_data_materialized")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
         );
         assert_eq!(
             fields
@@ -11092,13 +11644,13 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_conjunctive_bridge_status")
                 .map(String::as_str),
-            Some("available_blocked_missing_filter_column_inputs")
+            Some("blocked_prepared_batch_validation")
         );
         assert_eq!(
             fields
                 .get("encoded_predicate_provider_filter_column_batch_status")
                 .map(String::as_str),
-            Some("blocked_filter_only_columns_not_observed")
+            Some("observed_filter_column_reader_chunks_not_lowered")
         );
         assert_eq!(
             fields
@@ -11116,13 +11668,13 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_selection_vector_intersection_status")
                 .map(String::as_str),
-            Some("bridge_available_blocked_missing_filter_column_inputs")
+            Some("bridge_blocked_before_selection_vector_intersection")
         );
         assert_eq!(
             fields
                 .get("encoded_predicate_provider_kernel_input_lowering_status")
                 .map(String::as_str),
-            Some("blocked_missing_reader_generated_filter_column_batches")
+            Some("blocked_missing_encoding_specific_kernel_input_lowering")
         );
         assert_eq!(
             fields
@@ -11565,7 +12117,19 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_filter_column_batch_status")
                 .map(String::as_str),
-            Some("blocked_filter_only_columns_not_observed")
+            Some("observed_filter_column_reader_chunks_not_lowered")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed")
+                .map(String::as_str),
+            Some("flag,value")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_column_probe_status")
+                .map(String::as_str),
+            Some("observed_filter_column_reader_chunks_blocked_kernel_input_lowering")
         );
         assert_eq!(
             fields

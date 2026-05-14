@@ -201,17 +201,19 @@ classes are `encoded_native`, `residual_native`, `materialized_temporary`, and
 claim.
 The `selective filter` prepared/native row also carries
 `encoded_predicate_provider_*` fields. The current status is
-`blocked_until_reader_generated_filter_column_batches`: the row records that
-Vortex scan filter pushdown was requested, but it does not claim an admitted
-encoded predicate provider until real reader-generated `flag,value` encoded
-value batches, correctness/certificate refs, Native I/O evidence,
-materialization/decode boundaries, and no-fallback policy are attached.
+`blocked_until_reader_generated_kernel_input_certificate`: the row records that
+Vortex scan filter pushdown was requested and that a separate scoped local scan
+can project real `flag,value` reader chunks without decode/materialization, but
+it does not claim an admitted encoded predicate provider until those chunks have
+encoding-specific kernel-input lowering, correctness/certificate refs, Native
+I/O evidence, materialization/decode boundaries, and no-fallback policy.
 GAR-0026-S extends those fields with the reader-generated conjunctive
-selection-vector bridge contract: non-empty filtered scans observe projected
-chunks such as `metric:vortex.filter`, zero-result scans report no reader
-chunks, filter-only `flag,value` batches are not returned by the current scan
-projection, and the bridge remains available but blocked on missing real
-filter-column inputs for benchmark rows.
+selection-vector bridge contract. GAR-0026-T adds filter-column probe evidence:
+non-empty filtered scans observe projected chunks such as `metric:vortex.filter`,
+zero-result scans report no filtered metric reader chunks, the filter-column
+probe observes `flag:fastlanes.bitpacked` and `value:vortex.sequence`, and the
+bridge remains blocked before selection-vector intersection until those
+encodings are lowered into admitted kernel inputs.
 The current scoped `filter + projection + limit` prepared/native row is a
 residual-native fused scan path: Vortex scan filter/projection pushdown and
 bounded top-N state avoid full fact-table materialization, but the row still
