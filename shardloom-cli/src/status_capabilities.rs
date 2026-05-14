@@ -96,6 +96,11 @@ const COMPUTE_OPERATOR_EXECUTION_CLASS_VOCABULARY: &str =
 const NATIVE_VORTEX_ADMISSION_SCHEMA_VERSION: &str = "shardloom.native_vortex_admission.v1";
 const NATIVE_UNSUPPORTED_COVERAGE_SCHEMA_VERSION: &str = "shardloom.native_unsupported_coverage.v1";
 const NATIVE_UNSUPPORTED_COVERAGE_CATEGORY_VOCABULARY: &str = "source,sink,operator,workload";
+const PREDICATE_DTYPE_COVERAGE_SCHEMA_VERSION: &str = "shardloom.predicate_dtype_coverage.v1";
+const PREDICATE_DTYPE_COVERAGE_SUPPORT_STATUS_VOCABULARY: &str =
+    "unsupported,fixture_needed,executable_uncertified,fixture_certified,claim_grade";
+const PREDICATE_DTYPE_COVERAGE_CATEGORY_VOCABULARY: &str =
+    "predicate,dtype,null_semantics,nested_shape,statistics";
 
 const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
     ComputeCapabilityRow {
@@ -657,6 +662,249 @@ const NATIVE_UNSUPPORTED_COVERAGE_ROWS: &[NativeUnsupportedCoverageRow] = &[
     },
 ];
 
+const PREDICATE_DTYPE_COVERAGE_ROWS: &[PredicateDtypeCoverageRow] = &[
+    PredicateDtypeCoverageRow {
+        id: "predicate_i64_range",
+        category: "predicate",
+        family: "range_comparison",
+        surface: "i64_min_max_pruning_and_native_filter",
+        support_status: "fixture_certified",
+        runtime_surface: "metadata_pruning,prepared_vortex,native_vortex",
+        statistics_required: "row_count,min_value,max_value,null_count",
+        fixture_status: "local_fixture_present",
+        correctness_refs: "query_primitive_correctness.filtered_count,traditional_analytics.partition_pruning",
+        benchmark_refs: "traditional_analytics.partition_pruning,vortex-count-where.fixture_smoke",
+        execution_certificate_refs: "fixture_execution_certificate_required_for_claim_grade",
+        native_io_refs: "native_io_certificate_required_for_source_bound_data",
+        materialization_decode_refs: "metadata_pruning_or_encoded_filter_no_full_materialization",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar0006a.range_claim_grade_evidence_missing",
+        required_future_evidence: "claim_grade_range_fixture_matrix,benchmark_rows,native_io_certificate",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped i64 range/equality fixture coverage, not broad predicate coverage",
+    },
+    PredicateDtypeCoverageRow {
+        id: "predicate_i64_equality",
+        category: "predicate",
+        family: "equality_comparison",
+        surface: "i64_eq_ne_constant_or_minmax",
+        support_status: "executable_uncertified",
+        runtime_surface: "prepared_vortex,native_vortex",
+        statistics_required: "row_count,min_value,max_value,constant_value_indicator",
+        fixture_status: "fixture_expansion_required",
+        correctness_refs: "query_primitive_correctness.filtered_count",
+        benchmark_refs: "benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        materialization_decode_refs: "encoded_predicate_or_residual_native_filter",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar0006a.equality_fixture_matrix_missing",
+        required_future_evidence: "constant_segment_fixture,dictionary_absence_fixture,benchmark_row",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "i64 equality execution may run where admitted, but broad pruning is not claim-grade",
+    },
+    PredicateDtypeCoverageRow {
+        id: "predicate_string_dictionary",
+        category: "predicate",
+        family: "dictionary_membership",
+        surface: "utf8_dictionary_equality_or_absence",
+        support_status: "fixture_needed",
+        runtime_surface: "reader_backed_encoded,prepared_vortex",
+        statistics_required: "dictionary_values,row_count,null_count",
+        fixture_status: "fixture_needed",
+        correctness_refs: "reader_backed_dictionary_fixture_required",
+        benchmark_refs: "source_backed_benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        materialization_decode_refs: "dictionary_encoded_no_full_string_materialization_required",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar0006a.dictionary_membership_fixture_missing",
+        required_future_evidence: "dictionary_absence_fixture,string_null_fixture,source_backed_benchmark_row",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "dictionary/string predicate readiness only; no broad string predicate claim",
+    },
+    PredicateDtypeCoverageRow {
+        id: "predicate_boolean_counts",
+        category: "predicate",
+        family: "boolean_statistics",
+        surface: "true_false_count_metadata_answer",
+        support_status: "fixture_needed",
+        runtime_surface: "metadata_only",
+        statistics_required: "row_count,true_count,false_count,null_count",
+        fixture_status: "fixture_needed",
+        correctness_refs: "boolean_count_fixture_required",
+        benchmark_refs: "metadata_only_benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        materialization_decode_refs: "metadata_only_answer_no_data_read",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar0006a.boolean_statistics_fixture_missing",
+        required_future_evidence: "true_false_count_exactness_fixture,missing_stat_diagnostic,benchmark_row",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "boolean metadata-answer contract only until exact-stat fixtures exist",
+    },
+    PredicateDtypeCoverageRow {
+        id: "predicate_compound_or_not",
+        category: "predicate",
+        family: "compound_predicates",
+        surface: "and_or_not_predicate_pruning",
+        support_status: "unsupported",
+        runtime_surface: "unsupported",
+        statistics_required: "per_child_conservative_proof,three_valued_logic",
+        fixture_status: "blocked",
+        correctness_refs: "semantic_fixture_required",
+        benchmark_refs: "none",
+        execution_certificate_refs: "none",
+        native_io_refs: "none",
+        materialization_decode_refs: "unsupported_no_decode_or_materialization",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_COMPOUND_PREDICATE_PRUNING",
+        blocker_id: "gar0006a.compound_predicate_pruning_unsupported",
+        required_future_evidence: "and_or_not_semantic_fixtures,null_truth_table,deterministic_diagnostic",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "compound predicates remain unsupported for metadata pruning",
+    },
+    PredicateDtypeCoverageRow {
+        id: "dtype_int64",
+        category: "dtype",
+        family: "numeric_primitives",
+        surface: "int64_stats_and_encoded_values",
+        support_status: "fixture_certified",
+        runtime_surface: "metadata_pruning,prepared_vortex,native_vortex",
+        statistics_required: "row_count,min_value,max_value,null_count",
+        fixture_status: "local_fixture_present",
+        correctness_refs: "query_primitive_correctness,local_vortex_struct_fixture",
+        benchmark_refs: "vortex-count-benchmark.local_fixture_smoke,traditional_analytics.partition_pruning",
+        execution_certificate_refs: "certificates/cg16/local-vortex-count/execution.json",
+        native_io_refs: "certificates/cg19/local-vortex-count/native-io.json",
+        materialization_decode_refs: "metadata_or_encoded_count_no_row_materialization",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar0006a.int64_claim_grade_evidence_missing",
+        required_future_evidence: "broader_numeric_fixture_matrix,source_bound_native_io_certificate",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "int64 local fixture coverage only, not production DType coverage",
+    },
+    PredicateDtypeCoverageRow {
+        id: "dtype_utf8_dictionary",
+        category: "dtype",
+        family: "string_dictionary",
+        surface: "utf8_dictionary_encoded_values",
+        support_status: "executable_uncertified",
+        runtime_surface: "reader_backed_encoded,prepared_vortex",
+        statistics_required: "dictionary_values,row_count,null_count",
+        fixture_status: "fixture_expansion_required",
+        correctness_refs: "reader_backed_dictionary_fixture",
+        benchmark_refs: "source_backed_benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        materialization_decode_refs: "dictionary_encoded_boundary_no_full_decode_required",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar0006a.utf8_dictionary_claim_grade_missing",
+        required_future_evidence: "string_dictionary_fixture_matrix,benchmark_row,certificate_refs",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "utf8 dictionary support is not broad string or nested text support",
+    },
+    PredicateDtypeCoverageRow {
+        id: "dtype_decimal_timestamp",
+        category: "dtype",
+        family: "temporal_decimal",
+        surface: "timestamp_decimal_stats_pruning",
+        support_status: "fixture_needed",
+        runtime_surface: "metadata_pruning_planned",
+        statistics_required: "logical_type,min_value,max_value,timezone_or_scale_policy,null_count",
+        fixture_status: "fixture_needed",
+        correctness_refs: "timestamp_decimal_fixture_required",
+        benchmark_refs: "dirty_timestamp_cleanup_coverage,benchmark_row_required",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        materialization_decode_refs: "metadata_pruning_requires_logical_type_exactness",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar0006a.temporal_decimal_exactness_missing",
+        required_future_evidence: "timezone_semantics,decimal_scale_semantics,malformed_value_fixture",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "temporal/decimal pruning remains fixture-needed",
+    },
+    PredicateDtypeCoverageRow {
+        id: "null_all_null_segments",
+        category: "null_semantics",
+        family: "all_null_segments",
+        surface: "is_null_is_not_null_metadata_answer",
+        support_status: "fixture_needed",
+        runtime_surface: "metadata_only,metadata_pruning",
+        statistics_required: "row_count,null_count",
+        fixture_status: "fixture_needed",
+        correctness_refs: "all_null_segment_fixture_required",
+        benchmark_refs: "null_heavy_aggregate_coverage_row",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        materialization_decode_refs: "metadata_only_null_answer_no_data_read",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar0006a.all_null_fixture_missing",
+        required_future_evidence: "all_null_fixture,is_null_is_not_null_truth_table,benchmark_row",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "null semantics are explicit but all-null pruning is not claim-grade",
+    },
+    PredicateDtypeCoverageRow {
+        id: "null_mixed_segments",
+        category: "null_semantics",
+        family: "mixed_null_segments",
+        surface: "mixed_null_comparison_truth_table",
+        support_status: "fixture_needed",
+        runtime_surface: "prepared_vortex,native_vortex",
+        statistics_required: "row_count,null_count,min_value,max_value",
+        fixture_status: "fixture_needed",
+        correctness_refs: "mixed_null_truth_table_fixture_required",
+        benchmark_refs: "null_heavy_aggregate_coverage_row",
+        execution_certificate_refs: "execution_certificate_required",
+        native_io_refs: "native_io_certificate_required",
+        materialization_decode_refs: "conservative_native_filter_when_metadata_proof_missing",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar0006a.mixed_null_truth_table_missing",
+        required_future_evidence: "mixed_null_fixture,three_valued_logic_policy,benchmark_row",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "mixed-null paths must not prune without conservative proof",
+    },
+    PredicateDtypeCoverageRow {
+        id: "nested_field_pruning",
+        category: "nested_shape",
+        family: "nested_struct_list_map",
+        surface: "nested_json_or_struct_field_predicate",
+        support_status: "unsupported",
+        runtime_surface: "unsupported",
+        statistics_required: "nested_field_path_stats,parent_child_presence,definition_repetition_policy",
+        fixture_status: "blocked",
+        correctness_refs: "nested_json_fixture_required",
+        benchmark_refs: "nested_json_field_scan_coverage_only",
+        execution_certificate_refs: "none",
+        native_io_refs: "none",
+        materialization_decode_refs: "unsupported_no_nested_decode_or_materialization",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NESTED_FIELD_PRUNING",
+        blocker_id: "gar0006a.nested_field_pruning_unsupported",
+        required_future_evidence: "nested_path_stats,struct_list_map_semantics,deterministic_diagnostic",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "nested benchmark fixture coverage is not native nested pruning support",
+    },
+    PredicateDtypeCoverageRow {
+        id: "statistics_missing_or_inexact",
+        category: "statistics",
+        family: "missing_or_inexact_stats",
+        surface: "metadata_only_answer_when_stats_absent",
+        support_status: "unsupported",
+        runtime_surface: "unsupported_for_metadata_only",
+        statistics_required: "exact_required_stat",
+        fixture_status: "blocked",
+        correctness_refs: "missing_stats_fixture_required",
+        benchmark_refs: "none",
+        execution_certificate_refs: "none",
+        native_io_refs: "none",
+        materialization_decode_refs: "unsupported_metadata_answer_no_fallback",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_METADATA_ONLY_STATISTICS",
+        blocker_id: "gar0006a.missing_or_inexact_statistics",
+        required_future_evidence: "missing_stats_diagnostic_fixture,exactness_policy,native_execution_fallback_to_shardloom_path",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "missing stats never prove absence or authorize fallback execution",
+    },
+];
+
 pub(crate) fn handle_status(format: OutputFormat) -> ExitCode {
     let status = shardloom_exec::status();
     emit(
@@ -1152,14 +1400,36 @@ struct NativeUnsupportedCoverageRow {
     source_refs: &'static str,
 }
 
+struct PredicateDtypeCoverageRow {
+    id: &'static str,
+    category: &'static str,
+    family: &'static str,
+    surface: &'static str,
+    support_status: &'static str,
+    runtime_surface: &'static str,
+    statistics_required: &'static str,
+    fixture_status: &'static str,
+    correctness_refs: &'static str,
+    benchmark_refs: &'static str,
+    execution_certificate_refs: &'static str,
+    native_io_refs: &'static str,
+    materialization_decode_refs: &'static str,
+    unsupported_diagnostic_code: &'static str,
+    blocker_id: &'static str,
+    required_future_evidence: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+}
+
 fn compute_capability_matrix_human_text() -> String {
     let materialization_report = plan_materialization_policy_report();
     format!(
-        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nnative Vortex admission lanes: {}\nnative unsupported coverage rows: {}\nmaterialization policy rows: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
+        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nnative Vortex admission lanes: {}\nnative unsupported coverage rows: {}\npredicate/DType coverage rows: {}\nmaterialization policy rows: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
         COMPUTE_ROWS.len(),
         OPERATOR_FAMILY_ROWS.len(),
         NATIVE_VORTEX_ADMISSION_LANES.len(),
         NATIVE_UNSUPPORTED_COVERAGE_ROWS.len(),
+        PREDICATE_DTYPE_COVERAGE_ROWS.len(),
         materialization_report.rows.len()
     )
 }
@@ -1278,6 +1548,7 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
     );
     append_native_vortex_admission_fields(&mut fields);
     append_native_unsupported_coverage_fields(&mut fields);
+    append_predicate_dtype_coverage_fields(&mut fields);
     append_materialization_policy_fields(&mut fields, &plan_materialization_policy_report());
     for row in COMPUTE_ROWS {
         append_compute_capability_row_fields(&mut fields, row);
@@ -1634,6 +1905,214 @@ fn append_native_unsupported_coverage_invariant_fields(fields: &mut Vec<(String,
         "native_unsupported_coverage_benchmark_refs",
         "benchmarks/traditional_analytics coverage_table unsupported_diagnostic_code fields",
     );
+}
+
+fn append_predicate_dtype_coverage_fields(fields: &mut Vec<(String, String)>) {
+    append_predicate_dtype_coverage_summary_fields(fields);
+    append_predicate_dtype_coverage_invariant_fields(fields);
+    for row in PREDICATE_DTYPE_COVERAGE_ROWS {
+        append_predicate_dtype_coverage_row_fields(fields, row);
+    }
+}
+
+fn append_predicate_dtype_coverage_summary_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "predicate_dtype_coverage_schema_version",
+        PREDICATE_DTYPE_COVERAGE_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "predicate_dtype_coverage_status",
+        "complete_for_current_matrix",
+    );
+    push_field(
+        fields,
+        "predicate_dtype_coverage_scope",
+        "predicate_dtype_null_nested_statistics_current_runtime_readiness",
+    );
+    push_field(
+        fields,
+        "predicate_dtype_coverage_support_status_vocabulary",
+        PREDICATE_DTYPE_COVERAGE_SUPPORT_STATUS_VOCABULARY,
+    );
+    push_field(
+        fields,
+        "predicate_dtype_coverage_category_vocabulary",
+        PREDICATE_DTYPE_COVERAGE_CATEGORY_VOCABULARY,
+    );
+    push_count_field(
+        fields,
+        "predicate_dtype_coverage_row_count",
+        PREDICATE_DTYPE_COVERAGE_ROWS.len(),
+    );
+    push_field(
+        fields,
+        "predicate_dtype_coverage_row_order",
+        &predicate_dtype_coverage_row_order(),
+    );
+    for category in [
+        "predicate",
+        "dtype",
+        "null_semantics",
+        "nested_shape",
+        "statistics",
+    ] {
+        push_count_field(
+            fields,
+            &format!("predicate_dtype_coverage_{category}_count"),
+            predicate_dtype_category_count(category),
+        );
+    }
+    for status in [
+        "fixture_certified",
+        "executable_uncertified",
+        "fixture_needed",
+        "unsupported",
+    ] {
+        push_count_field(
+            fields,
+            &format!("predicate_dtype_coverage_{status}_count"),
+            predicate_dtype_support_status_count(status),
+        );
+    }
+}
+
+fn append_predicate_dtype_coverage_invariant_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "predicate_dtype_coverage_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_bool_field(
+        fields,
+        "predicate_dtype_coverage_current_matrix_complete",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "predicate_dtype_coverage_all_rows_have_support_status",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "predicate_dtype_coverage_all_rows_have_evidence_gap",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "predicate_dtype_coverage_all_rows_fallback_attempted_false",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "predicate_dtype_coverage_all_rows_external_engine_invoked_false",
+        true,
+    );
+    push_bool_field(fields, "predicate_dtype_coverage_runtime_execution", false);
+    push_bool_field(fields, "predicate_dtype_coverage_data_read", false);
+    push_bool_field(fields, "predicate_dtype_coverage_data_materialized", false);
+    push_bool_field(fields, "predicate_dtype_coverage_write_io", false);
+    push_bool_field(fields, "predicate_dtype_coverage_fallback_attempted", false);
+    push_bool_field(
+        fields,
+        "predicate_dtype_coverage_external_engine_invoked",
+        false,
+    );
+    push_field(
+        fields,
+        "predicate_dtype_coverage_benchmark_refs",
+        "docs/architecture/benchmark-suite-catalog.md,benchmarks/traditional_analytics coverage_table",
+    );
+    push_field(
+        fields,
+        "predicate_dtype_coverage_correctness_refs",
+        "docs/rfcs/0006-statistics-pruning-metadata-only-execution.md,query_primitive_correctness,correctness_fixture_manifest",
+    );
+    push_field(
+        fields,
+        "predicate_dtype_coverage_next_runtime_slice",
+        "select one fixture_needed row and promote it with correctness, benchmark, certificate, Native I/O, and no-fallback evidence",
+    );
+}
+
+fn append_predicate_dtype_coverage_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &PredicateDtypeCoverageRow,
+) {
+    let prefix = format!("predicate_dtype_coverage_row_{}", row.id);
+    push_field(fields, &format!("{prefix}_category"), row.category);
+    push_field(fields, &format!("{prefix}_family"), row.family);
+    push_field(fields, &format!("{prefix}_surface"), row.surface);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_runtime_surface"),
+        row.runtime_surface,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_statistics_required"),
+        row.statistics_required,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_fixture_status"),
+        row.fixture_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_correctness_refs"),
+        row.correctness_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_benchmark_refs"),
+        row.benchmark_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_execution_certificate_refs"),
+        row.execution_certificate_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_native_io_refs"),
+        row.native_io_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_materialization_decode_refs"),
+        row.materialization_decode_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_code"),
+        row.unsupported_diagnostic_code,
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_required_future_evidence"),
+        row.required_future_evidence,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
+    push_bool_field(fields, &format!("{prefix}_execution_attempted"), false);
+    push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+    push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
 }
 
 fn append_materialization_policy_fields(
@@ -2184,6 +2663,20 @@ fn native_unsupported_category_count(category: &str) -> usize {
         .count()
 }
 
+fn predicate_dtype_category_count(category: &str) -> usize {
+    PREDICATE_DTYPE_COVERAGE_ROWS
+        .iter()
+        .filter(|row| row.category == category)
+        .count()
+}
+
+fn predicate_dtype_support_status_count(status: &str) -> usize {
+    PREDICATE_DTYPE_COVERAGE_ROWS
+        .iter()
+        .filter(|row| row.support_status == status)
+        .count()
+}
+
 fn unadmitted_compute_row_count() -> usize {
     COMPUTE_ROWS
         .iter()
@@ -2240,6 +2733,14 @@ fn operator_family_order() -> String {
 
 fn native_unsupported_row_order() -> String {
     NATIVE_UNSUPPORTED_COVERAGE_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn predicate_dtype_coverage_row_order() -> String {
+    PREDICATE_DTYPE_COVERAGE_ROWS
         .iter()
         .map(|row| row.id)
         .collect::<Vec<_>>()

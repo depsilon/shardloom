@@ -140,15 +140,21 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0006-statistics-pruning-metadata-only-execution.md`](../rfcs/0006-statistics-pruning-metadata-only-execution.md)
-- Current read: Narrow metadata-only and pruning paths exist.
+- Current read: Narrow metadata-only and pruning paths exist, and the compute capability matrix
+  now exposes predicate/DType/null/nested/statistics coverage rows with explicit support status,
+  evidence gaps, deterministic unsupported diagnostics, and no-fallback/no-external-engine fields.
 - Evidence: `shardloom-core/src/encoded.rs`, `shardloom-vortex/src/metadata_pruning.rs`,
   `shardloom-vortex/src/metadata_executor.rs`,
   `shardloom-vortex/src/metadata_physical_kernel.rs`,
-  `shardloom-vortex/src/encoded_read_executor.rs`, `shardloom-vortex/src/query_trace.rs`
+  `shardloom-vortex/src/encoded_read_executor.rs`, `shardloom-vortex/src/query_trace.rs`,
+  `shardloom-cli/src/status_capabilities.rs`, `python/src/shardloom/client.py`,
+  `shardloom-cli/tests/compute_capability_matrix_snapshots.rs`
 - [x] Metadata pruning, metadata-only execution reporting, and encoded read readiness are present.
 - [x] CLI snapshots preserve metadata and materialization/decode evidence for supported rows.
-- [ ] Broad predicate, DType, nested, null, and production metadata-only coverage remains
-  incomplete.
+- [x] GAR-0006-A adds the predicate, DType, nested, null, and statistics coverage matrix for the
+  current runtime posture.
+- [ ] Claim-grade broad predicate, DType, nested, null, and production metadata-only runtime
+  coverage remains incomplete.
 
 ### RFC 0007 - Translation Layer Contract
 

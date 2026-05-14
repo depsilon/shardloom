@@ -262,20 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0006-A predicate, dtype, nested, and null coverage matrix
-  - Source: RFC 0006; benchmark-suite catalog; correctness fixture manifest.
-  - Current state: selected metadata-only and pruning paths exist; broad predicate/DType/nested/null
-    coverage is not claim-grade.
-  - Next slice outcome: matrix of supported, unsupported, and fixture-needed predicate/data-shape
-    families.
-  - User-visible surface: CLI capability report, benchmark catalog, docs.
-  - Implementation scope: capability report, fixture metadata, contract tests.
-  - Evidence required: correctness fixture refs, benchmark refs where supported, no-fallback refs.
-  - Acceptance: every listed family has support status and evidence gap.
-  - Verification: fixture manifest tests, benchmark catalog tests, default GAR verification.
-  - Non-goals: no new predicate runtime.
-  - Fallback/claim boundary: unsupported families stay `support_status=unsupported`.
-  - Dependencies/blockers: fixture generation and operator coverage slices.
 - [ ] GAR-0008-A object-store byte-range provider gate
   - Source: RFC 0008; object-store request planner; operational evidence policy hardening.
   - Current state: range/coalescing planning exists; object-store byte-range reads and provider

@@ -739,6 +739,33 @@ class NativeUnsupportedCoverageRow:
 
 
 @dataclass(frozen=True, slots=True)
+class PredicateDtypeCoverageRow:
+    """One predicate/DType/null/nested coverage row in the compute matrix."""
+
+    row_id: str
+    category: str
+    family: str
+    surface: str
+    support_status: str
+    runtime_surface: tuple[str, ...]
+    statistics_required: tuple[str, ...]
+    fixture_status: str
+    correctness_refs: tuple[str, ...]
+    benchmark_refs: tuple[str, ...]
+    execution_certificate_refs: tuple[str, ...]
+    native_io_refs: tuple[str, ...]
+    materialization_decode_refs: tuple[str, ...]
+    unsupported_diagnostic_code: str
+    blocker_id: str
+    required_future_evidence: tuple[str, ...]
+    claim_gate_status: str
+    claim_boundary: str
+    execution_attempted: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+
+
+@dataclass(frozen=True, slots=True)
 class MaterializationPolicyRow:
     """One shared materialization/decode policy row."""
 
@@ -1009,6 +1036,77 @@ class ComputeCapabilityMatrix:
                 "native_unsupported_coverage_current_matrix_complete",
                 False,
             )
+            is True
+        )
+
+    @property
+    def predicate_dtype_coverage_rows(self) -> tuple[PredicateDtypeCoverageRow, ...]:
+        """Return predicate, DType, null, nested, and statistics coverage rows."""
+
+        rows: list[PredicateDtypeCoverageRow] = []
+        for row_id in _csv_values(self.envelope.field("predicate_dtype_coverage_row_order")):
+            prefix = f"predicate_dtype_coverage_row_{row_id}_"
+            rows.append(
+                PredicateDtypeCoverageRow(
+                    row_id=row_id,
+                    category=_required_field(self.envelope, f"{prefix}category"),
+                    family=_required_field(self.envelope, f"{prefix}family"),
+                    surface=_required_field(self.envelope, f"{prefix}surface"),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    runtime_surface=_csv_values(self.envelope.field(f"{prefix}runtime_surface")),
+                    statistics_required=_csv_values(
+                        self.envelope.field(f"{prefix}statistics_required")
+                    ),
+                    fixture_status=_required_field(self.envelope, f"{prefix}fixture_status"),
+                    correctness_refs=_csv_values(
+                        self.envelope.field(f"{prefix}correctness_refs")
+                    ),
+                    benchmark_refs=_csv_values(self.envelope.field(f"{prefix}benchmark_refs")),
+                    execution_certificate_refs=_csv_values(
+                        self.envelope.field(f"{prefix}execution_certificate_refs")
+                    ),
+                    native_io_refs=_csv_values(self.envelope.field(f"{prefix}native_io_refs")),
+                    materialization_decode_refs=_csv_values(
+                        self.envelope.field(f"{prefix}materialization_decode_refs")
+                    ),
+                    unsupported_diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}unsupported_diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(self.envelope, f"{prefix}claim_boundary"),
+                    execution_attempted=self.envelope.field_bool(
+                        f"{prefix}execution_attempted",
+                        True,
+                    )
+                    is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def predicate_dtype_coverage_complete(self) -> bool:
+        """Whether current predicate/DType/null/nested coverage is explicit."""
+
+        return (
+            self.envelope.field_bool("predicate_dtype_coverage_current_matrix_complete", False)
             is True
         )
 
