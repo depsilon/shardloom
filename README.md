@@ -33,7 +33,7 @@ Compute less. Decode later. Materialize only at explicit boundaries.
 - correctness evidence, execution certificates, and benchmark-gated claims
 - common analytical capability through SQL, Python/API, UDF, adapter, ETL, and unstructured/media
   surfaces over time
-- batch, live, and hybrid execution modes only after they are ShardLoom-native and
+- batch, live, and hybrid engine modes only after they are ShardLoom-native and
   certificate-backed
 - REST/event/remote APIs as proof and orchestration surfaces, not hidden execution delegation
 
@@ -44,9 +44,24 @@ engines. New surfaces count as supported only when their execution path or expli
 materialization/source/sink boundary has diagnostics, certificates, correctness evidence, and
 benchmark or workload evidence for the declared workload.
 
-The intended public shape includes Python, SQL/DataFrame-style workflows, ETL, adapters, batch and
-future live/hybrid modes, remote proof/control APIs, and optional platform integrations. Those
-surfaces are evidence-gated; unsupported work must remain explicit and non-delegating.
+The intended public shape includes Python, SQL/DataFrame-style workflows, ETL, adapters, batch
+engine execution, live/hybrid engine-mode contracts, remote proof/control APIs, and optional
+platform integrations. Those surfaces are evidence-gated; unsupported work must remain explicit and
+non-delegating.
+
+## Runtime Snapshot
+
+ShardLoom tracks two different mode families. Execution modes describe the source/preparation lane;
+engine modes describe workload semantics such as bounded batch, live change streams, or
+base-plus-delta hybrid overlays.
+
+| Area | Current repo state | Planned or gated updates |
+| --- | --- | --- |
+| Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are represented in benchmark/report fields. | More prepared/native Vortex paths; `auto` must keep reporting the selected concrete mode. |
+| Batch engine mode | Current practical foundation for bounded local Vortex analytics and benchmark evidence. | Broader operator coverage, source/sink certification, and claim-grade workload evidence. |
+| Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and scoped in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. |
+| Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and scoped in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. |
+| Prepared/native Vortex runtime | Scoped residual-native paths now avoid full fact-table materialization for selected local benchmark scenarios. | Next planned runtime slice is local partition-pruning/date-range streaming; encoded-native and performance claims remain evidence-gated. |
 
 ## Current State
 
@@ -74,9 +89,9 @@ Currently wired surfaces include:
   `native_vortex`, `direct_compatibility_transient`, and `auto`
 - scoped prepared/native Vortex query paths for `selective filter`, `wide projection`,
   `filter + projection + limit`, `group by aggregation`, `multi-key group by`, `hash join`, and
-  `join + aggregate`, `top-N per group`, and `row number window`; these avoid full fact-table
-  materialization for the prepared/native row while remaining residual-native, not encoded-native
-  operator claims
+  `join + aggregate`, `top-N per group`, `row number window`, and `high-cardinality string
+  group/distinct`; these avoid full fact-table materialization for the prepared/native row while
+  remaining residual-native, not encoded-native operator claims
 - batch/live/hybrid engine-mode contracts through `engine-selection-plan`,
   `engine-capability-matrix`, `live-change-contract-plan`, Python context helpers, and scoped
   in-memory `live-fixture-run` / `hybrid-overlay-run` fixture reports
@@ -103,9 +118,9 @@ contracts, and scoped in-memory fixture reports with certificate fields and
 `fallback_attempted=false`. They are not yet broker-backed, object-store-backed, or production
 live/hybrid engines.
 
-The next prepared/native runtime work is intentionally concrete: scoped local high-cardinality
-string group/distinct and additional stateful paths, with encoded-native, production,
-SQL/DataFrame, object-store, and performance claims still gated by workload evidence.
+The next prepared/native runtime work is intentionally concrete: scoped local partition-pruning and
+date-range paths, with encoded-native, production, SQL/DataFrame, object-store, and performance
+claims still gated by workload evidence.
 
 ## Core Concepts
 

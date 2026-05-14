@@ -86,6 +86,21 @@ Diagram notation:
 | `planned` | Future surface that must remain unchecked in the phase plan until implemented. |
 | `unsupported` | Deterministic unsupported diagnostic; `fallback_attempted=false`. |
 
+## Current Runtime Snapshot
+
+This table is the shortest current-state read of the diagrams below. It separates source/preparation
+execution lanes from batch/live/hybrid workload semantics so readers do not infer a hidden runtime
+or claim.
+
+| Layer | Current repo state | Planned updates | Claim boundary |
+| --- | --- | --- | --- |
+| User access | CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces and thin adapters are report-only or planned. | Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope. | No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. |
+| Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
+| Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, top-N, row-number, and high-cardinality string group/distinct avoid full fact-table materialization in prepared/native rows. | Next planned runtime slice is `GAR-0026-I`: local partition-pruning/date-range streaming. | These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, or broad performance claims. |
+| Batch engine mode | Bounded/snapshot local Vortex analytics are the practical execution foundation. | Broader operator/source/sink coverage plus correctness and benchmark claim gates. | Batch support is scoped to evidence-backed workloads. |
+| Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. | Fixture evidence only; no production live claim. |
+| Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. | Fixture evidence only; no production hybrid, object-store, or table-commit claim. |
+
 ### View 1 - Access And Users
 
 This view is the product/API map. Every entrypoint must preserve the same typed protocol; adapters
@@ -300,8 +315,8 @@ hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, obj
 
 Planned updates are carried in the phase plan, especially `GAR-0034-A` for live/hybrid fabric
 blockers and freshness gates. The next runtime-focused updates before broad engine expansion are the
-prepared/native Vortex paths: scoped local high-cardinality string group/distinct streaming, then
-other stateful paths.
+prepared/native Vortex paths: scoped local partition-pruning/date-range streaming, then other
+stateful paths.
 
 ### View 5 - I/O, Evidence, And Downstream Use
 
@@ -658,7 +673,7 @@ selected_execution_mode must be explicit
 mode_selection_reason must be explicit
 ```
 
-## The Four Engine Modes
+## Engine Modes - Batch, Live, Hybrid, Auto
 
 | Mode | What it means | Current repo state | Planned updates |
 | --- | --- | --- | --- |
@@ -688,6 +703,17 @@ external_engine_invoked=false
 Live and hybrid fixture reports may have `runtime_execution=true`, but only for scoped in-memory
 fixtures. They must still report no external broker/object-store I/O and no fallback. Production
 claims stay blocked until workload-scoped evidence exists.
+
+Current CLI/Python-facing engine-mode surfaces:
+
+```text
+shardloom engine-selection-plan [auto|batch|live|hybrid] ...
+shardloom engine-capability-matrix
+shardloom live-change-contract-plan
+shardloom live-fixture-run [filter|project|count|count-where|group-count] ...
+shardloom hybrid-overlay-run [filter|project|count|count-where|group-count] ...
+Python: Context(engine="batch|live|hybrid|auto") plus matching typed helper methods
+```
 
 ## Canonical Stage Checklist
 
@@ -1025,12 +1051,15 @@ Optimization priorities:
 3. Fused filter + projection + limit.
 4. Single-key grouped aggregate.
 5. Multi-key group by.
-6. Join + aggregate.
-7. Top-N per group.
-8. Row number window.
-9. Source-backed Scan API path.
-10. Layout advisor applying real write/layout choices.
-11. Persistent in-process benchmark runner.
+6. Hash join.
+7. Join + aggregate.
+8. Top-N per group.
+9. Row number window.
+10. High-cardinality string group/distinct.
+11. Partition-pruning/date-range streaming.
+12. Source-backed Scan API path.
+13. Layout advisor applying real write/layout choices.
+14. Persistent in-process benchmark runner.
 ```
 
 Current scoped progress: `filter + projection + limit` has a prepared/native
@@ -1049,6 +1078,8 @@ full fact-table materialization.
 ShardLoom-native per-group ranking state without full fact-table materialization.
 `row number window` uses the same projected scan boundary with bounded rank-1 per-group state
 without full fact-table materialization.
+`high-cardinality string group/distinct` now scans projected `category`/`metric` columns into
+ShardLoom-native string grouping state without full fact-table materialization.
 None of these paths are encoded-native operator claims, and they still carry
 `operator_encoded_native_claim_allowed=false`.
 
