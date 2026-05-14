@@ -337,13 +337,14 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no sketch runtime implementation in this admission slice.
   - Fallback/claim boundary: no approximate aggregate accuracy/performance claim.
   - Dependencies/blockers: exact-reference fixture design.
-- [ ] GAR-0021-D clean/cast/filter/write prepared/native residual runtime slice
+- [ ] GAR-0021-E malformed timestamp/dirty CSV prepared/native residual runtime slice
   - Source: RFC 0021; RFC 0026; physical operator kernel contracts; traditional analytics benchmark
     suite.
-  - Current state: distinct count and null-heavy aggregate now have prepared/native projected Vortex
-    scans; clean/cast/filter/write still uses the materialized table path for prepared/native rows.
-  - Next slice outcome: scan only `raw_event_time`, `dirty_numeric`, and `dirty_flag` from local
-    Vortex artifacts, apply deterministic timestamp/numeric cleanup, and aggregate count/sum without
+  - Current state: distinct count, null-heavy aggregate, and clean/cast/filter/write now have
+    prepared/native projected Vortex scans; malformed timestamp / dirty CSV still uses the
+    materialized table path for prepared/native rows.
+  - Next slice outcome: scan only `raw_event_time` and `dirty_numeric` from local Vortex artifacts,
+    apply deterministic timestamp validation and numeric parsing, and aggregate count/sum without
     full fact-table materialization.
   - User-visible surface: `traditional-analytics-vortex-run`, prepared/native benchmark rows,
     operator blocker matrix, docs.
@@ -351,16 +352,16 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     docs, compute-flow docs, GAR/traceability docs.
   - Evidence required: correctness refs from tiny and generated fixtures; benchmark refs if emitted;
     Native I/O materialization/decode refs; operator blocker refs; no-fallback refs.
-  - Acceptance: native/prepared clean/cast/filter/write rows report projected Vortex scan evidence,
-    `data_materialized=false`, `operator_execution_class=residual_native`,
+  - Acceptance: native/prepared malformed timestamp / dirty CSV rows report projected Vortex scan
+    evidence, `data_materialized=false`, `operator_execution_class=residual_native`,
     `operator_encoded_native_claim_allowed=false`, and no fallback/external engine invocation.
   - Verification: feature-gated `shardloom-vortex` focused test, focused CLI/benchmark smoke if
     touched, `cargo fmt --all -- --check`, `cargo test --workspace --all-targets`,
     `python -m compileall -q python/src python/tests scripts examples`, `git diff --check`.
   - Non-goals: no encoded-native aggregate claim, no SQL/DataFrame runtime, no object-store/table
     runtime, no external engines, no performance/superiority claim.
-  - Fallback/claim boundary: claim only the scoped local prepared/native clean/cast/filter/write
-    residual path.
+  - Fallback/claim boundary: claim only the scoped local prepared/native malformed timestamp / dirty
+    CSV residual path.
   - Dependencies/blockers: none beyond existing local Vortex scan support.
 - [ ] GAR-0038-A facade compatibility and legacy boundary matrix
   - Source: RFC 0038; top-level plan/execution facade docs; typed envelope docs.
