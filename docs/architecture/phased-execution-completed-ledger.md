@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2D work-avoidance metric evidence schema
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/vortex-runtime-utilization-audit.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add an explicit work-avoidance evidence schema so rows avoided, segments pruned, bytes
+    avoided, encoded-vector reuse, and pushdown proof are reported as measured, not available,
+    unsupported, or not applicable before any optimization claim.
+  - Checklist:
+    - [x] Add `work_avoidance_evidence_schema` to benchmark JSON/Markdown artifacts.
+    - [x] Add row-level status/value/reason fields for work-avoidance evidence on every benchmark
+          result row.
+    - [x] Extend the ShardLoom work-avoidance table to include scenario rows and native
+          microbenchmark rows under the same schema.
+    - [x] Keep unknown rows/segments/bytes avoided as `not_available` with a reason rather than
+          converting missing measurements to zero.
+    - [x] Preserve no-fallback/no-external-engine policy and keep work-avoidance claims blocked
+          unless workload-scoped measured evidence exists.
+    - [x] Move GAR-FLOW-2D out of Planned; GAR-FLOW-3A is now the next Planned slice.
+  - Boundary:
+    - This is schema, renderer, validation, and documentation work. It does not add pruning,
+      encoded operator promotion, optimizer behavior, external-engine invocation, or performance /
+      Spark-displacement / best-default claims.
+  - Validation:
+    - `python -m py_compile benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/.venv/Scripts/python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex,pandas --formats csv --scenario "selective filter" --rows 1000 --iterations 1 --output target/codex-gar-flow-2d-smoke.json --markdown-output target/codex-gar-flow-2d-smoke.md --regenerate --skip-shardloom-native`
+    - `benchmarks/traditional_analytics/.venv/Scripts/python benchmarks/traditional_analytics/run.py --engines pandas --formats csv --scenario "selective filter" --rows 100 --iterations 1 --shardloom-native-iterations 1 --output target/codex-gar-flow-2d-native-smoke.json --markdown-output target/codex-gar-flow-2d-native-smoke.md --regenerate`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+
 - [x] Session label: GAR-FLOW-2C persistent benchmark runner admission gate
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

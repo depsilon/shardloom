@@ -625,6 +625,12 @@ unless it preserves typed envelopes, execution-mode evidence, Native I/O refs,
 operator blocker fields, materialization/decode boundaries, result-sink replay
 evidence, deterministic unsupported diagnostics, and no-fallback fields per run.
 
+The artifact also carries `work_avoidance_evidence_schema`. ShardLoom rows must
+report `measured`, `not_available`, `unsupported`, or `not_applicable` status
+for rows avoided, segments pruned, bytes avoided, encoded-vector reuse, and
+pushdown proof. `not_available` means unknown/not measured, not zero, and it
+does not permit performance or optimization claims.
+
 `auto` is selection vocabulary only. A row with `requested_execution_mode=auto`
 must preserve `selected_execution_mode` and `mode_selection_reason` so downstream
 readers can see the actual runtime path.

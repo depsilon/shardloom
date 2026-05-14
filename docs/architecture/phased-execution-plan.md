@@ -260,32 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-FLOW-2D work-avoidance metric evidence schema
-  - Source: `benchmarks/traditional_analytics/README.md`;
-    `docs/architecture/benchmark-suite-catalog.md`;
-    `docs/architecture/vortex-runtime-utilization-audit.md`; official references:
-    [Apache Arrow columnar format](https://arrow.apache.org/docs/format/Columnar.html),
-    [Spark Parquet configuration](https://spark.apache.org/docs/latest/sql-data-sources-parquet.html),
-    [DuckDB execution format](https://duckdb.org/docs/current/internals/vector), and
-    [Vortex documentation](https://docs.vortex.dev/).
-  - Current state: local smoke rows expose broad work-avoidance posture, but skipped rows, pruned
-    segments, bytes avoided, encoded-vector reuse, and pushdown proof are often unknown.
-  - Next slice outcome: benchmark/report schema that distinguishes `measured`, `not_available`,
-    `unsupported`, and `not_applicable` for work-avoidance metrics before any optimization claim.
-  - User-visible surface: benchmark JSON/Markdown work-avoidance table, capability rows, claim gate.
-  - Implementation scope: benchmark row fields, renderer text, contract tests, docs.
-  - Evidence required: benchmark refs, source/pushdown refs, materialization/decode refs, Native I/O
-    refs, no-fallback refs.
-  - Acceptance: every ShardLoom row states whether rows/segments/bytes avoided were measured or why
-    not; unknown values cannot be interpreted as zero; no Spark-displacement or superiority claim is
-    allowed from missing metrics.
-  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
-    focused benchmark smoke, `git diff --check`.
-  - Non-goals: no new pruning implementation, no encoded operator promotion, no external engine
-    invocation.
-  - Fallback/claim boundary: work-avoidance evidence is report/schema-only until workload-scoped
-    measurements and release gates pass.
-  - Dependencies/blockers: GAR-FLOW-2A and GAR-FLOW-2B.
 - [ ] GAR-FLOW-3A REST execution-mode parity report
   - Source: `docs/architecture/execution-mode-protocol-parity.md`; RFC 0035; RFC 0039; RFC 0042.
   - Current state: REST parity is documented, but there is no REST runtime/server surface.

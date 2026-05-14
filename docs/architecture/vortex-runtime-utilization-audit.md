@@ -145,6 +145,25 @@ fallback_attempted=false
 external_engine_invoked=false
 ```
 
+## Work-Avoidance Evidence Schema
+
+GAR-FLOW-2D adds a benchmark/report schema for work-avoidance evidence before any optimization or
+runtime promotion claim. Benchmark rows use only these statuses:
+
+```text
+measured
+not_available
+unsupported
+not_applicable
+```
+
+Rows avoided, segments pruned, bytes avoided, encoded-vector reuse, and pushdown proof each carry a
+status, value, and reason. `not_available` means the metric is meaningful but not yet measured; it
+must not be interpreted as zero. This is especially important for Vortex Scan API features such as
+filter/projection pushdown, split scheduling, pruning, and compressed-array reuse because those
+features require explicit evidence before ShardLoom can make performance, Spark-displacement, or
+best-default claims.
+
 ## Relationship To Planned Work
 
 This audit sharpens Priority 2.6 and precedes Priority 2.7. It does not replace the planned
