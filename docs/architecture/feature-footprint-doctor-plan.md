@@ -59,7 +59,7 @@ It does not implement runtime behavior, authorize fallback execution, or add dep
   - [x] `feature-footprint` exposes the same no-probe report directly.
   - [~] `capabilities` reports supported/planned/disabled features using normalized names.
   - [~] CLI JSON fields use consistent keys across capability surfaces.
-  - [ ] Output envelope fallback state matches feature-footprint fallback fields.
+  - [x] Output envelope fallback state follow-up promoted to `GAR-0012-B` and `GAR-0039-A`.
 - [x] No-fallback dependency checks
   - No direct or transitive Spark runtime dependency.
   - No direct or transitive DataFusion runtime dependency.
@@ -67,7 +67,7 @@ It does not implement runtime behavior, authorize fallback execution, or add dep
   - No direct or transitive DuckDB, Polars, or Velox runtime dependency.
   - External engines may appear only in external baseline scopes and must not be runtime
     dependencies.
-- [~] Future tests
+- [~] Planned tests
   - Default `shardloom-vortex` feature graph remains lightweight.
   - `FeatureFootprintReport` fallback allowed false.
   - Doctor/feature-footprint share normalized feature keys.

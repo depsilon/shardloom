@@ -26,11 +26,11 @@ shardloom cg10-object-store-runtime-gate --format json
 - [x] Aggregate object-store commit protocol readiness evidence.
 - [x] Gate object-store and distributed runtime execution through
       `ObjectStoreRuntimePromotionGateReport` before enabling runtime object-store IO.
-- [ ] Execute byte-range reads.
-- [ ] Start a coordinator or worker.
-- [ ] Execute distributed tasks.
-- [ ] Write checkpoint or attempt records.
-- [ ] Execute object-store commits.
+Out of scope until promoted GAR slices complete:
+
+- Byte-range reads are carried by `GAR-0008-A`.
+- Coordinator/worker start, distributed tasks, checkpoint/attempt records, retry execution, cleanup,
+  and object-store commits are carried by `GAR-0008-B`, `GAR-0017-A`, and `GAR-0028-A`.
 
 ## Default Policy
 

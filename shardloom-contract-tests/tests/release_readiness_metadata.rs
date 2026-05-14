@@ -728,7 +728,12 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("docs/architecture/phased-execution-completed-ledger.md"));
     assert!(plan.contains("Global Architecture Review Carry-Forward"));
     assert!(plan.contains("docs/architecture/global-architecture-review.md"));
-    assert_eq!(plan.matches("- [ ] GAR-").count(), 48);
+    assert!(plan.contains("Planned Item Detail Standard"));
+    assert!(plan.contains("claim_gate_status=not_claim_grade"));
+    assert!(plan.contains("support_status=unsupported|blocked|report_only"));
+    assert!(plan.contains("GAR-0024-A publication and API/schema stability gate"));
+    assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
+    assert!(plan.matches("- [ ] GAR-").count() >= 60);
     assert!(!plan.contains(
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));
@@ -746,7 +751,8 @@ fn security_rfc_and_p80_completion_are_traceable() {
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("P8.0 - security, vulnerability, exploit"));
     assert!(traceability.contains("RFC 0043 Security/Vulnerability/Exploit/Supply-Chain"));
-    assert!(traceability.contains("P8.4 remains open"));
+    assert!(traceability.contains("P8.4 hard release-readiness gate is complete"));
+    assert!(traceability.contains("GAR-0043 hard release-readiness validators"));
     assert!(traceability.contains("No package publication"));
     assert!(traceability.contains("docs/security/runtime-exploit-regression-suite.md"));
     assert!(traceability.contains("docs/security/release-security-gate.md"));

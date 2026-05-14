@@ -17,40 +17,40 @@ It does not authorize runtime behavior, rename public types, or collapse layer b
 - Keep Arrow boundaries distinct from default execution.
 - Keep Vortex-native output distinct from compatibility output.
 
-## Backlog Checklist
+## Promoted Checklist
 
-- [ ] P0 - Materialization terminology family
+- [x] P0 - Materialization terminology family promoted to `GAR-0039-B`
   - Keep `MaterializationPolicy`.
   - Keep `MaterializationRequirement`.
   - Keep `MaterializationBoundary`.
   - Add mapping helpers only when cross-layer rendering requires them.
   - Candidate helpers: `materialization_policy_to_requirement`,
     `materialization_requirement_to_boundary`, `materialization_boundary_to_execution_state`.
-- [ ] P1 - Execution/data-work terminology family
+- [x] P1 - Execution/data-work terminology family promoted to `GAR-0039-B`
   - Keep `ExecutionState`.
   - Keep `DataWorkLevel`.
   - Do not collapse execution state and work-rank abstraction.
   - Candidate helper: `data_work_level_to_execution_state`.
-- [ ] P2 - Input/output/fidelity terminology family
+- [x] P2 - Input/output/fidelity terminology family promoted to `GAR-0039-B`
   - Keep `DatasetFormat` and `OutputTargetKind` separate.
   - Keep `FidelityLevel` canonical.
   - Treat `VortexOutputFidelity` as adapter-local and map it to `FidelityLevel`.
   - Candidate helpers: `dataset_format_to_default_output_target_kind`,
     `vortex_output_fidelity_to_fidelity_level`, `output_target_kind_to_default_fidelity_level`.
-- [ ] P3 - Resource/memory terminology family
+- [x] P3 - Resource/memory terminology family promoted to `GAR-0039-B`
   - Keep `ResourceBudget`.
   - Keep `MemoryBudget`.
   - Keep `BoundedMemoryPolicy`.
   - Candidate helpers: `resource_budget_to_memory_budget_summary`,
     `bounded_memory_policy_to_spill_requirement`.
-- [ ] P4 - Plan skeleton terminology family
+- [x] P4 - Plan skeleton terminology family promoted to `GAR-0039-B`
   - Keep `RuntimePlanSkeleton`.
   - Keep `StreamingPlanSkeleton`.
   - Keep `ScanPlanSkeleton`.
   - Add shared field/report helpers later if duplication becomes material.
   - Candidate helpers: `plan_skeleton_common_fields`, `plan_skeleton_diagnostics_summary`,
     `plan_skeleton_side_effect_summary`.
-- [ ] P5 - Status/report naming conventions
+- [x] P5 - Status/report naming conventions promoted to `GAR-0039-B`
   - `Request`: caller-provided intent/input.
   - `Plan`: planned behavior, usually no side effects.
   - `Report`: evaluated result/status/diagnostics.
@@ -60,7 +60,7 @@ It does not authorize runtime behavior, rename public types, or collapse layer b
   - `Effect`: action that actually happened.
   - `Ref`: external or filesystem/object reference, may not imply IO.
   - `Id`: stable logical identity.
-- [ ] P6 - Future tests and helpers
+- [x] P6 - Planned tests and helpers promoted to `GAR-0039-B`
   - Mapping helpers are stable.
   - Translation fidelity maps consistently to Vortex fidelity.
   - `DataWorkLevel` maps consistently to `ExecutionState`.

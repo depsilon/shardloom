@@ -29,9 +29,11 @@ shardloom cg9-catalog-metadata-gate --format json
 - [x] Track snapshot/manifest, catalog compatibility, and commit/recovery surfaces as planned.
 - [x] Gate catalog/table metadata integration surfaces through
       `CatalogMetadataIntegrationGateReport` before enabling runtime metadata access.
-- [ ] Execute catalog/table metadata reads.
-- [ ] Execute data reads.
-- [ ] Execute compaction or table maintenance writes.
+Out of scope until promoted GAR slices complete:
+
+- Catalog/table metadata reads and data reads are carried by `GAR-0020-A`.
+- Delete/tombstone, CDC, compaction, table-maintenance writes, and table-format runtime surfaces are
+  carried by `GAR-0020-B` and `GAR-0028-A`.
 
 ## Default Policy
 
@@ -81,7 +83,8 @@ Hudi-like, catalog, manifest, recovery, or table-maintenance runtime behavior ex
 - [x] The CLI emits machine-readable JSON fields for counts, surface order, compatibility profiles,
       IO flags, dependency flags, and no-fallback status.
 - [x] Contract tests assert the aggregate report is side-effect-free.
-- [x] Future catalog/table metadata integration must update this report before enabling runtime
+- [x] Planned catalog/table metadata integration must update this report before enabling runtime
       behavior.
-- [ ] Future table-format dependencies must be approved through dependency/license policy and must
+- [x] Planned table-format dependency approval is carried by `GAR-0020-A`; dependencies must be
+      approved through dependency/license policy and must
       not introduce external execution fallback.

@@ -18,7 +18,7 @@ execution.
 - Plan/report surfaces should preserve `fallback_execution_allowed=false`.
 - User-visible CLI/parser/error plumbing should move toward stable structured diagnostics over time.
 
-## Backlog Checklist
+## Promoted Checklist
 
 - [x] P0 - Stable fallback/no-fallback diagnostics
   - Ensure unsupported execution paths report `fallback_attempted=false`.
@@ -35,20 +35,20 @@ execution.
   - Confirm configuration errors map to configuration diagnostics.
   - Confirm not-implemented maps to unsupported/not-implemented diagnostics.
   - Keep future helper candidates scoped to stable command context fields.
-- [ ] P3 - Diagnostic category consistency
+- [x] P3 - Diagnostic category consistency promoted to `GAR-0012-A`
   - Bad CLI argument -> invalid input.
   - Missing config -> configuration.
   - Planned but not implemented -> unsupported feature.
   - Object-store blocked -> object-store.
   - Materialization blocked -> materialization.
   - Fallback prohibited -> no-fallback policy.
-- [ ] P4 - Output envelope field normalization
+- [x] P4 - Output envelope field normalization promoted to `GAR-0012-B`
   - Include `schema_version`.
   - Keep diagnostics arrays stable.
   - Keep fallback object stable.
   - Derive command status from severity-aware diagnostics.
   - Avoid requiring agents to scrape human text.
-- [ ] P5 - Future diagnostic helpers
+- [x] P5 - Planned diagnostic helpers promoted to `GAR-0012-A`
   - `cli_missing_arg_diagnostic(command, arg)`
   - `cli_unknown_signal_diagnostic(command, signal)`
   - `cli_unknown_command_diagnostic(command)`
@@ -56,7 +56,7 @@ execution.
   - `object_store_blocked_diagnostic(target)`
   - `no_fallback_policy_diagnostic(feature)`
   - `report_status_to_command_status`
-- [ ] P6 - Future tests
+- [x] P6 - Planned diagnostic tests promoted to `GAR-0012-B`
   - Every JSON-capable command includes fallback attempted false.
   - Unknown command returns structured diagnostics once migration starts.
   - Unknown signal diagnostics use invalid input.

@@ -16,6 +16,49 @@
 - External engines are baselines only, never fallback execution.
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
+## Planned Item Detail Standard
+
+Every unchecked Planned item must be detailed enough for an autonomous Codex session to execute
+without guessing.
+
+A Planned item is sufficiently detailed only if it names:
+
+- Source: governing RFC, architecture doc, benchmark report, issue, PR, or review finding.
+- Current state: what exists today and what is still unsupported/report-only.
+- Next slice outcome: the exact result expected from the next PR/session.
+- User-visible surface: CLI, Python, benchmark, docs, API, capability view, evidence artifact, or
+  release gate.
+- Implementation scope: files/modules/commands expected to change.
+- Evidence required: correctness, benchmark, execution-certificate, Native I/O,
+  materialization/decode, policy, no-fallback, release/security evidence as applicable.
+- Acceptance: observable conditions that make the item done.
+- Verification: exact commands/tests/snapshots expected.
+- Non-goals: what must not be implemented in this slice.
+- Claim boundary: what can and cannot be claimed after completion.
+- Fallback boundary: expected `fallback_attempted=false` and `external_engine_invoked=false`
+  behavior.
+- Ledger rule: when complete, move the detailed completed session to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+Do not leave planned work as a bare statement such as "`<thing>` remains incomplete." Convert broad
+items into one or more evidence-bearing implementation slices. Split a Planned item when it includes
+`full`, `broad`, `general`, `production`, `universal`, `distributed`, `runtime`, `platform`,
+`lakehouse`, `object-store`, `SQL/DataFrame`, `claim`, `release`, `Foundry`, or `REST` without an
+immediate concrete scope. A split item should use child IDs such as `GAR-0032-A`; each child must be
+implementable in one focused PR or explicitly marked `report-only`, `planning-only`, or
+`diagnostic-only`.
+
+A Planned item may be checked off only when implementation or deterministic unsupported diagnostics
+exist, tests/snapshots/release checks exist, evidence refs are attached where claims are made,
+unsupported paths remain explicit, no fallback engine was invoked, completed details are moved to the
+completed ledger, and supporting docs are updated without becoming a second active queue.
+
+No item may create or imply a public claim unless it explicitly lists the evidence that supports the
+claim. Performance, superiority, Spark-displacement, production, SQL/DataFrame, object-store,
+Foundry, REST, live/hybrid, and package-release claims require workload-scoped evidence and release
+gates. If evidence is missing, the item must say `claim_gate_status=not_claim_grade` or
+`support_status=unsupported|blocked|report_only`.
+
 Status reading order:
 1. Planned: next work in logical implementation order.
 2. Completed ledger: recently finished sessions first, then historical provenance ledgers in
@@ -34,6 +77,9 @@ Status reading order:
   implementation begins.
 - If a supporting doc records completed history, keep it clearly labeled as a completed ledger or
   historical note, and do not let it become a current queue.
+- Supporting docs must not keep unchecked implementation checklists outside this file and
+  `docs/architecture/global-architecture-review.md`. Scope-boundary lists may remain, but real work
+  must be carried by a `GAR-*` item below.
 
 Supporting docs:
 - `README.md`
@@ -58,9 +104,17 @@ Supporting docs:
     modes, sinks, downstream consumers, evidence, and claim gates.
   - Status rule: planned nodes in the flow do not authorize implementation or claims until the
     corresponding item exists in this Planned queue and is completed with evidence.
+- `docs/architecture/compute-engine-flow-overhaul-review.md`,
+  `benchmark-persistent-runner-decision.md`, and
+  `performance-attribution-and-execution-structure.md`
+  - Role: historical P7.5 repo-alignment review, persistent-runner decision, and benchmark timing
+    attribution reference.
+  - Status rule: these files record completed alignment decisions only; current compute-flow follow-up
+    is represented by the GAR flow items in this Planned queue.
 - `docs/architecture/capability-certification-sequencing.md`
   - Role: CG-20 sequencing ledger and implementation-order reference.
-  - Status rule: phase-plan checklist owns planned CG-20 work items.
+  - Status rule: phase-plan checklist owns planned CG-20 work items. Remaining approximate/sketch
+    function and certification-scope coverage details are carried by `GAR-0021` and `GAR-0032`.
 - `docs/architecture/vortex-public-api-inventory.md`
   - Role: Vortex public API evidence and adapter-boundary inventory.
   - Status rule: API findings inform CG-1/CG-2/CG-3 queue items here.
@@ -76,7 +130,9 @@ Supporting docs:
 - `docs/architecture/repo-cleanup-backlog.md`, `diagnostics-normalization-backlog.md`,
   `terminology-consolidation-backlog.md`, and `feature-footprint-doctor-plan.md`
   - Role: cleanup inventories and completed cleanup ledgers.
-  - Status rule: cleanup must be promoted into this file as a concrete checklist item.
+  - Status rule: cleanup must be promoted into this file as a concrete checklist item. Remaining
+    diagnostic, terminology, command-registry, traceability, and acceptance-checker details are
+    carried by `GAR-0012`, `GAR-0039`, and `GAR-0043`.
 - `docs/architecture/canonical-terminology.md`
   - Role: authoritative glossary and concept index for ShardLoom vocabulary.
   - Status rule: defines terms and links to governing RFCs, but does not mark current phase or CG
@@ -128,12 +184,33 @@ Supporting docs:
     artifact-safety contracts for CG-20 through CG-23.
   - Status rule: contract reference only; actionable implementation work must be represented in the
     Planned queue.
+- `docs/architecture/object-store-request-planner.md`
+  - Role: CG-10 request-planning, range/coalescing/scheduling/checkpoint/retry/commit evidence
+    reference.
+  - Status rule: object-store runtime work is represented by `GAR-0008`, `GAR-0028`, and `GAR-0031`.
+- `docs/architecture/table-intelligence-layer.md`
+  - Role: CG-9 schema/table/catalog/CDC/layout/compaction evidence reference.
+  - Status rule: table/catalog runtime work is represented by `GAR-0020` and `GAR-0028`.
+- `docs/architecture/dynamic-work-shaping.md`,
+  `spill-reservation-lifecycle-integration.md`, and `effect-budget-plan.md`
+  - Role: runtime shaping, memory/spill lifecycle, and side-effect policy references.
+  - Status rule: runtime implementation must be represented by `GAR-0014`, `GAR-0016`,
+    `GAR-0019`, or `GAR-0011` before code changes.
+- `docs/architecture/correctness-differential-harness.md`,
+  `benchmark-competitive-claim-evidence.md`, and `benchmark-suite-catalog.md`
+  - Role: correctness, benchmark, claim-evidence, and catalog references.
+  - Status rule: claim-grade execution, fuzz/property expansion, comparative reruns, and public
+    claims are represented by `GAR-0015`, `GAR-0029`, `GAR-0040`, and `GAR-0041`.
+- `docs/architecture/agent-contract-pack.md`
+  - Role: agent protocol and no-fallback task contract reference.
+  - Status rule: protocol changes must remain represented by `GAR-0010`, `GAR-0037`, or `GAR-0039`.
 - `docs/architecture/vortex-upstream-alignment-hardening.md`
   - Role: Vortex compatibility, Scan API, compute-provider, residual-boundary, device,
     extension-type, object-store telemetry, integration-boundary, and benchmark-interoperability
     contract reference.
-  - Status rule: contract reference only; it does not authorize new Vortex APIs, dependencies,
-    runtime behavior, claims, or fallback execution.
+  - Status rule: contract reference only; provider promotion, Vortex-native execution, and
+    dependency changes must remain represented by the relevant GAR provider/runtime/release item
+    before implementation.
 - `docs/skills/vortex/vortex-first-provider-check.md`
   - Role: Vortex-adjacent implementation guard requiring agents to check upstream Vortex concepts
     and classify decisions before inventing new ShardLoom abstractions.
@@ -154,129 +231,1033 @@ unsupported, or not-claimable architecture work exists only in a supporting docu
 items in logical implementation order, update the global review checkbox when evidence closes, and
 move the completed session details to `docs/architecture/phased-execution-completed-ledger.md`.
 
-Completion criteria for each item:
+Default GAR verification for planning-only/docs slices:
 
-- Implement the behavior or add a deterministic unsupported diagnostic where implementation is still
-  intentionally out of scope for the slice.
-- Preserve `fallback_attempted=false` and `external_engine_invoked=false`.
-- Attach workload-scoped correctness, benchmark, execution-certificate, Native I/O,
-  materialization/decode, policy, and no-fallback evidence when a claim is made.
-- Add or update focused tests, snapshots, or release/readiness checks for the touched surface.
+```powershell
+cargo test -p shardloom-contract-tests --test release_readiness_metadata
+cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+git diff --check
+```
+
+Code-bearing GAR slices must add the focused Rust/Python/benchmark tests named in the slice and
+usually end with:
+
+```powershell
+cargo fmt --all -- --check
+cargo test --workspace --all-targets
+python -m compileall -q python/src python/tests scripts examples
+git diff --check
+```
 
 #### GAR-P0 - Execution Mode, Provider Admission, And Vortex Spine
 
-- [ ] GAR-FLOW-1: `direct_compatibility_transient` currently has vocabulary and deterministic
-      unsupported/report-only capability rows, but no direct transient runtime path.
-- [ ] GAR-FLOW-2: Prepared/native Vortex rows still rely on temporary materialized or residual
-      ShardLoom-native operator paths for some scenarios until encoded/native operator coverage
-      matures.
-- [ ] GAR-FLOW-3: REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
-      no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
-- [ ] GAR-0002A: Unsupported native coverage still produces unsupported/report-only surfaces for
-      many paths.
-- [ ] GAR-0002B: Native Vortex support is not universal across every source, sink, operator, and
-      workload.
-- [ ] GAR-0031: CG-19 is not universal across object-store/range-read, streaming sinks,
-      table/catalog, external adapters, and all production source/sink paths.
-- [ ] GAR-0042: Real Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write
-      evidence, object-store I/O, GPU/device execution, and managed-platform benchmark lanes remain
-      incomplete.
+P0 slices must preserve the canonical execution-mode vocabulary from
+`docs/architecture/compute-engine-flow-reference.md`: `auto`, `compatibility_import_certified`,
+`prepared_vortex`, `native_vortex`, and `direct_compatibility_transient`. Benchmark interpretation
+must continue to report stage timing fields (`source_read_millis`, `compatibility_parse_millis`,
+`compatibility_to_vortex_import_millis`, `vortex_write_millis`, `vortex_reopen_millis`,
+`vortex_scan_millis`, `operator_compute_millis`, `result_sink_write_millis`,
+`evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
+ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
+
+- [ ] GAR-FLOW-1A direct compatibility transient admission contract
+  - Source: `docs/architecture/compute-engine-flow-reference.md`; RFC 0033; RFC 0042.
+  - Current state: `direct_compatibility_transient` exists as vocabulary and deterministic
+    unsupported/report-only posture; no runtime path exists.
+  - Next slice outcome: explicit admission/capability report for allowed, unsupported, or
+    report-only direct transient requests.
+  - User-visible surface: CLI capability output, Python capability view, benchmark coverage rows.
+  - Implementation scope: capability structs, CLI status/capabilities, Python typed accessors, and
+    benchmark metadata fields.
+  - Evidence required: policy/no-fallback refs and unsupported diagnostic snapshots; no correctness
+    or benchmark claim evidence required for this report-only slice.
+  - Acceptance: direct transient requests emit deterministic `support_status=unsupported|blocked|report_only`;
+    no runtime execution is attempted; the mode is never reported as Vortex-native.
+  - Verification: default GAR verification plus focused capability snapshot tests and Python accessor
+    tests if code changes.
+  - Non-goals: no direct transient execution, external engine, or Vortex-native claim.
+  - Fallback/claim boundary: `fallback_attempted=false`, `external_engine_invoked=false`, and
+    `claim_gate_status=not_claim_grade`.
+  - Dependencies/blockers: direct transient runtime slices must follow this admission contract.
+- [ ] GAR-FLOW-1B direct compatibility transient local CSV smoke path
+  - Source: GAR-FLOW-1A; RFC 0033; RFC 0042; benchmark harness docs.
+  - Current state: admission/report-only posture exists; no direct compatibility compute path exists.
+  - Next slice outcome: one ShardLoom-native transient local CSV scenario that computes without
+    persistent Vortex write/reopen.
+  - User-visible surface: CLI benchmark path and benchmark coverage row.
+  - Implementation scope: local CSV source adapter, one supported operator, typed benchmark row, and
+    execution certificate fields for the scoped path.
+  - Evidence required: correctness digest, benchmark row, execution certificate, materialization/decode
+    evidence, policy/no-fallback refs.
+  - Acceptance: one local scenario runs without Vortex persistence; `vortex_native_claim_allowed=false`;
+    unsupported adjacent scenarios keep deterministic diagnostics.
+  - Verification: focused benchmark smoke, no-fallback contract test, `cargo test --workspace --all-targets`.
+  - Non-goals: no Parquet transient path, SQL/DataFrame runtime, result-sink claim, or Vortex-native
+    claim.
+  - Fallback/claim boundary: may claim one scoped transient CSV smoke path only; no speed,
+    superiority, or Vortex-native claim.
+  - Dependencies/blockers: GAR-FLOW-1A admission fields.
+- [ ] GAR-FLOW-2A execution-mode benchmark attribution contract
+  - Source: `docs/architecture/compute-engine-flow-reference.md`,
+    `docs/architecture/performance-attribution-and-execution-structure.md`,
+    `benchmarks/traditional_analytics/README.md`; RFC 0040.
+  - Current state: rows expose mode and timing data, but interpretation still depends on readers
+    understanding compatibility ingest/stage costs.
+  - Next slice outcome: lock the full stage timing contract and benchmark interpretation language
+    for `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`,
+    and `auto`.
+  - User-visible surface: benchmark Markdown/JSON output, CLI benchmark metadata, docs.
+  - Implementation scope: benchmark renderer/report structs, benchmark docs, contract tests.
+  - Evidence required: benchmark refs, materialization/decode refs, policy/no-fallback refs; no
+    performance claim unless a workload gate attaches claim-grade evidence.
+  - Acceptance: every benchmark row carries stage timing fields; compatibility rows state they time
+    ingest/stage/certification; `auto` reports selected mode plus reason.
+  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
+    benchmark smoke command named in `benchmarks/traditional_analytics/README.md`, `git diff --check`.
+  - Non-goals: no benchmark result changes, hidden fast mode, or public performance claim.
+  - Fallback/claim boundary: `claim_gate_status=not_claim_grade` unless workload-scoped evidence is
+    attached; external engines remain baselines/oracles only.
+  - Dependencies/blockers: compute-flow reference and current benchmark schema.
+- [ ] GAR-FLOW-2B prepared/native temporary-operator blocker matrix
+  - Source: compute-flow reference; RFC 0026; RFC 0042; Vortex runtime utilization audit.
+  - Current state: prepared/native Vortex rows still use temporary materialized or residual
+    ShardLoom-native operators for some scenarios.
+  - Next slice outcome: typed blocker matrix showing which operators are encoded-native,
+    residual-native, materialized-temporary, or unsupported.
+  - User-visible surface: CLI capability matrix, benchmark row fields, Python typed result view.
+  - Implementation scope: provider admission report, benchmark metadata, Python model/accessor.
+  - Evidence required: capability refs, materialization/decode refs, execution-certificate refs for
+    supported lanes, policy/no-fallback refs.
+  - Acceptance: every prepared/native row names the operator execution class and blocker; temporary
+    operators are never counted as encoded-native.
+  - Verification: provider admission tests, benchmark contract tests, Python typed accessor tests.
+  - Non-goals: no new encoded operator implementation in this slice.
+  - Fallback/claim boundary: prepared/native can claim only scoped lanes whose evidence is attached.
+  - Dependencies/blockers: GAR-0026 and GAR-0021 operator work.
+- [ ] GAR-FLOW-3A REST execution-mode parity report
+  - Source: `docs/architecture/execution-mode-protocol-parity.md`; RFC 0035; RFC 0039; RFC 0042.
+  - Current state: REST parity is documented, but there is no REST runtime/server surface.
+  - Next slice outcome: report-only REST/OpenAPI parity artifact that mirrors CLI/Python
+    mode-selection, policy, evidence, claim-gate, and no-fallback fields.
+  - User-visible surface: docs, OpenAPI/schema artifact, release/readiness check.
+  - Implementation scope: REST planning docs/schema snapshots, contract tests, release metadata.
+  - Evidence required: protocol parity refs and unsupported diagnostic refs; no runtime evidence.
+  - Acceptance: REST schemas use the shared enum and field names; unsupported mode requests are
+    specified as deterministic diagnostics.
+  - Verification: default GAR verification plus schema snapshot test if generated.
+  - Non-goals: no HTTP listener, server process, remote execution, or dependency expansion.
+  - Fallback/claim boundary: REST is report-only with `support_status=report_only`.
+  - Dependencies/blockers: GAR-0035 runtime API slices.
+- [ ] GAR-0002A native unsupported coverage diagnostics
+  - Source: RFC 0002; global architecture review; Vortex upstream alignment hardening.
+  - Current state: unsupported native coverage surfaces exist for many paths, but coverage is not
+    comprehensive across source/sink/operator combinations.
+  - Next slice outcome: deterministic unsupported diagnostics for every unadmitted native source,
+    sink, operator, and workload family in the current matrix.
+  - User-visible surface: CLI/Python capability views, benchmark coverage table, typed envelope.
+  - Implementation scope: capability matrix, diagnostic helpers, golden snapshots.
+  - Evidence required: unsupported diagnostic refs and policy/no-fallback refs.
+  - Acceptance: unsupported native requests name the missing evidence and do not attempt fallback.
+  - Verification: capability snapshot tests, diagnostic stability tests, default GAR verification.
+  - Non-goals: no new runtime provider support.
+  - Fallback/claim boundary: unsupported rows use `support_status=unsupported` and
+    `claim_gate_status=not_claim_grade`.
+  - Dependencies/blockers: coverage inventory from GAR-FLOW-2B.
+- [ ] GAR-0002B native Vortex coverage admission expansion
+  - Source: RFC 0002; RFC 0042; Vortex public API inventory.
+  - Current state: native Vortex support is scoped, not universal across sources, sinks, operators,
+    and workloads.
+  - Next slice outcome: add one narrow admitted native Vortex source/operator/sink lane or a
+    deterministic blocker row if upstream/provider evidence is missing.
+  - User-visible surface: CLI execution/capability report, benchmark row, execution certificate.
+  - Implementation scope: provider admission, Vortex adapter code, benchmark harness, certificate
+    generation for the selected lane.
+  - Evidence required: correctness refs, benchmark refs, execution certificate, Native I/O
+    certificate, materialization/decode refs, policy/no-fallback refs.
+  - Acceptance: the lane is either supported with evidence or blocked with deterministic diagnostics;
+    no ambiguous partial support.
+  - Verification: focused Vortex adapter tests, benchmark smoke, `cargo test --workspace --all-targets`.
+  - Non-goals: no broad universal Vortex support.
+  - Fallback/claim boundary: claim only the exact admitted lane.
+  - Dependencies/blockers: upstream Vortex API/version evidence.
+- [ ] GAR-0031A Native I/O envelope source/sink coverage matrix
+  - Source: RFC 0031; universal input contract; Vortex runtime utilization audit.
+  - Current state: Native I/O envelope evidence exists for current local lanes, but not for
+    object-store/range-read, streaming sinks, table/catalog, external adapters, or every source/sink.
+  - Next slice outcome: source/sink matrix with support, unsupported, report-only, and evidence
+    columns.
+  - User-visible surface: CLI native I/O envelope plan, docs, benchmark coverage table.
+  - Implementation scope: Native I/O report models, CLI plan output, contract tests.
+  - Evidence required: Native I/O refs and policy/no-fallback refs; no runtime evidence for
+    unsupported rows.
+  - Acceptance: each source/sink family has an explicit support status and required evidence.
+  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
+    Native I/O snapshot tests.
+  - Non-goals: no object-store or streaming sink runtime.
+  - Fallback/claim boundary: only rows with attached Native I/O certificates can support claims.
+  - Dependencies/blockers: GAR-0002A unsupported diagnostic taxonomy.
+- [ ] GAR-0042A Vortex Source/Split runtime admission proof
+  - Source: RFC 0042; Vortex upstream alignment hardening; Vortex public API inventory.
+  - Current state: real Source/Split runtime paths and field-mask/predicate-ordering proof are not
+    fully represented.
+  - Next slice outcome: admission proof artifact for one Vortex Source/Split path or a deterministic
+    upstream blocker if the API is not usable.
+  - User-visible surface: CLI Vortex API inventory, provider admission report, benchmark metadata.
+  - Implementation scope: Vortex adapter admission, inventory report, tests.
+  - Evidence required: provider evidence, Native I/O refs, predicate-ordering refs, policy/no-fallback
+    refs.
+  - Acceptance: the selected Source/Split path is explicitly admitted or blocked with evidence.
+  - Verification: Vortex inventory contract test, focused adapter test, default GAR verification.
+  - Non-goals: no object-store, GPU/device, or managed-platform benchmark lane.
+  - Fallback/claim boundary: no Vortex-native claim without execution certificate and Native I/O
+    evidence.
+  - Dependencies/blockers: upstream Vortex public API availability.
+- [ ] GAR-0042B layout/write/device/managed-lane evidence boundaries
+  - Source: RFC 0042; benchmark-suite catalog; Vortex runtime utilization audit.
+  - Current state: layout/write evidence, GPU/device execution, and managed-platform benchmark lanes
+    are not claim-grade.
+  - Next slice outcome: report-only boundary matrix for layout writes, device execution, object-store
+    I/O, and managed-platform comparisons.
+  - User-visible surface: benchmark capability rows, release claim gate, docs.
+  - Implementation scope: benchmark metadata, release/readiness checks, architecture docs.
+  - Evidence required: benchmark refs and policy/no-fallback refs; device/managed rows are
+    unsupported/report-only until certificates exist.
+  - Acceptance: managed-platform rows are labeled comparison-only; device/object-store lanes cannot
+    satisfy native claims without evidence.
+  - Verification: benchmark contract tests and release readiness metadata tests.
+  - Non-goals: no GPU, object-store, managed-platform credential, or dependency work.
+  - Fallback/claim boundary: `claim_gate_status=not_claim_grade` for all rows without certificates.
+  - Dependencies/blockers: GAR-0040 comparative evidence gates.
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0001A: Full SQL/DataFrame planner, distributed runtime, broad lakehouse-compatible output,
-      and general object-store execution remain incomplete.
-- [ ] GAR-0003: Full production Vortex segment extraction, broad operator coverage, and generalized
-      materialization policy remain incomplete.
-- [ ] GAR-0006: Broad predicate, DType, nested, null, and production metadata-only coverage remains
-      incomplete.
-- [ ] GAR-0008: Object-store I/O providers, probes, coordinator/worker runtime, checkpoint writes,
-      retry execution, distributed execution, and object-store commits remain incomplete.
-- [ ] GAR-0012: Runtime-wide diagnostic propagation for planned distributed and object-store paths
-      remains incomplete.
-- [ ] GAR-0013: Full streaming runtime and object-store streaming reads remain gated/report-only.
-- [ ] GAR-0014: Broad runtime spill/OOM promotion and production enforcement remain limited to
-      synthetic or local constraints.
-- [ ] GAR-0016: Runtime adaptive execution, runtime filters, skew handling, and compaction writes
-      remain incomplete.
-- [ ] GAR-0017: Broad retry, cancellation, and commit execution remain incomplete.
-- [ ] GAR-0018: Live profiling and distributed runtime introspection remain incomplete.
-- [ ] GAR-0021: Broad expression execution, full function/kernel coverage, and UDF/effectful
-      expression runtime remain incomplete.
-- [ ] GAR-0026: Generalized direct encoded count/filter/project execution and production
-      compressed-execution claims remain incomplete.
-- [ ] GAR-0027: Real SIMD/vectorized dispatch, host CPU probing, production vectorized kernel path,
-      adaptive parallelism runtime, and broad streaming runtime remain incomplete.
-- [ ] GAR-0038: SQL/DataFrame runtime, object-store runtime, writes, and legacy facade compatibility
-      remain incomplete; external engines remain baseline/oracle only.
+- [ ] GAR-0001A-A SQL/DataFrame planner readiness report
+  - Source: RFC 0001; RFC 0032; RFC 0038; rfc-phase traceability.
+  - Current state: planning and capability surfaces exist, but broad SQL/DataFrame planning is not
+    executable.
+  - Next slice outcome: report-only planner readiness matrix for SQL text, DataFrame methods, plan
+    diagnostics, and unsupported execution states.
+  - User-visible surface: CLI capability view, Python docs/accessors, architecture docs.
+  - Implementation scope: capability report models, CLI status output, Python typed models, tests.
+  - Evidence required: diagnostic refs and policy/no-fallback refs.
+  - Acceptance: unsupported SQL/DataFrame requests produce deterministic diagnostics and never imply
+    execution support.
+  - Verification: capability snapshot tests, Python compile/accessor tests, default GAR verification.
+  - Non-goals: no SQL parser execution, DataFrame runtime, distributed runtime, or lakehouse writes.
+  - Fallback/claim boundary: `support_status=report_only|unsupported` and
+    `claim_gate_status=not_claim_grade`.
+  - Dependencies/blockers: GAR-0032 SQL/DataFrame user-surface slices.
+- [ ] GAR-0001A-B distributed/object-store/lakehouse architecture gate
+  - Source: RFC 0001; RFC 0008; RFC 0028; operational evidence policy hardening.
+  - Current state: distributed, object-store, and lakehouse paths are represented as planning or
+    unsupported surfaces.
+  - Next slice outcome: single gate report that names minimum evidence before any distributed,
+    object-store, or lakehouse runtime claim.
+  - User-visible surface: release/readiness gate, CLI planning report, docs.
+  - Implementation scope: gate report struct, CLI command or existing release gate integration,
+    contract tests.
+  - Evidence required: policy/no-fallback refs, credential boundary refs, Native I/O refs for any
+    supported lane.
+  - Acceptance: no runtime claim can pass without the gate; unsupported paths have deterministic
+    diagnostics.
+  - Verification: release readiness metadata tests, focused gate tests, `cargo test --workspace --all-targets`.
+  - Non-goals: no coordinator, object-store I/O, table commits, or dependency expansion.
+  - Fallback/claim boundary: gate defaults to `claim_gate_status=not_claim_grade`.
+  - Dependencies/blockers: GAR-0008, GAR-0020, and GAR-0028 runtime evidence.
+- [ ] GAR-0003-A Vortex segment extraction admission slice
+  - Source: RFC 0003; Vortex public API inventory; Vortex upstream alignment hardening.
+  - Current state: segment extraction exists for scoped paths, but production coverage and layout
+    diversity are limited.
+  - Next slice outcome: one additional encoded segment/layout family admitted or explicitly blocked.
+  - User-visible surface: Vortex capability report, benchmark row, execution certificate.
+  - Implementation scope: Vortex adapter extraction path, tests, certificate metadata.
+  - Evidence required: correctness refs, Native I/O refs, materialization/decode refs, no-fallback refs.
+  - Acceptance: selected layout has deterministic support/unsupported status and evidence.
+  - Verification: focused Vortex adapter tests, correctness fixture test, `cargo test --workspace --all-targets`.
+  - Non-goals: no broad production coverage or new external dependency.
+  - Fallback/claim boundary: claim only the selected layout/operator combination.
+  - Dependencies/blockers: upstream Vortex API coverage.
+- [ ] GAR-0003-B materialization policy generalization
+  - Source: RFC 0003; compute-flow reference; performance attribution docs.
+  - Current state: materialization/decode fields exist, but policy is not generalized across all
+    operator paths.
+  - Next slice outcome: shared materialization policy report for encoded-native, residual-native,
+    temporary materialized, and unsupported paths.
+  - User-visible surface: CLI/Python typed envelope, benchmark rows.
+  - Implementation scope: core policy types, CLI renderer, Python typed accessors.
+  - Evidence required: materialization/decode refs and policy/no-fallback refs.
+  - Acceptance: each supported or blocked operator reports whether data decoded, materialized, or
+    stayed encoded.
+  - Verification: typed envelope snapshot tests and benchmark contract tests.
+  - Non-goals: no new operator implementation.
+  - Fallback/claim boundary: materialized temporary paths cannot satisfy encoded-native claims.
+  - Dependencies/blockers: GAR-FLOW-2B operator blocker matrix.
+- [ ] GAR-0006-A predicate, dtype, nested, and null coverage matrix
+  - Source: RFC 0006; benchmark-suite catalog; correctness fixture manifest.
+  - Current state: selected metadata-only and pruning paths exist; broad predicate/DType/nested/null
+    coverage is not claim-grade.
+  - Next slice outcome: matrix of supported, unsupported, and fixture-needed predicate/data-shape
+    families.
+  - User-visible surface: CLI capability report, benchmark catalog, docs.
+  - Implementation scope: capability report, fixture metadata, contract tests.
+  - Evidence required: correctness fixture refs, benchmark refs where supported, no-fallback refs.
+  - Acceptance: every listed family has support status and evidence gap.
+  - Verification: fixture manifest tests, benchmark catalog tests, default GAR verification.
+  - Non-goals: no new predicate runtime.
+  - Fallback/claim boundary: unsupported families stay `support_status=unsupported`.
+  - Dependencies/blockers: fixture generation and operator coverage slices.
+- [ ] GAR-0008-A object-store byte-range provider gate
+  - Source: RFC 0008; object-store request planner; operational evidence policy hardening.
+  - Current state: range/coalescing planning exists; object-store byte-range reads and provider
+    probes are not executed.
+  - Next slice outcome: provider gate for byte-range reads with credential, retry, idempotency, and
+    no-I/O default fields.
+  - User-visible surface: CLI object-store request plan, release gate, docs.
+  - Implementation scope: object-store planner report, CLI output, tests.
+  - Evidence required: policy/no-fallback refs and unsupported diagnostics; Native I/O refs only if
+    a real read path is admitted.
+  - Acceptance: default gate performs no object-store I/O and names required evidence to enable it.
+  - Verification: object-store planner tests, release readiness metadata tests.
+  - Non-goals: no cloud credentials, network read, coordinator, worker, or commit.
+  - Fallback/claim boundary: object-store support remains report-only until runtime evidence exists.
+  - Dependencies/blockers: credential/policy slices in GAR-0019.
+- [ ] GAR-0008-B coordinator, worker, checkpoint, retry, and commit blocker matrix
+  - Source: RFC 0008; object-store request planner; RFC 0017.
+  - Current state: scheduling/checkpoint/retry/commit are planned/report-only.
+  - Next slice outcome: deterministic blocker matrix for coordinator start, worker start, task
+    execution, checkpoint writes, retry attempts, cleanup, and commit records.
+  - User-visible surface: CLI plan output, diagnostics, contract snapshots.
+  - Implementation scope: report fields, diagnostic constructors, tests.
+  - Evidence required: diagnostic refs and policy/no-fallback refs.
+  - Acceptance: every action reports `allowed=false` by default and gives an evidence requirement.
+  - Verification: object-store and retry gate tests, diagnostic stability tests.
+  - Non-goals: no distributed runtime, writes, or object-store commits.
+  - Fallback/claim boundary: no distributed/object-store claim.
+  - Dependencies/blockers: GAR-0017 retry/cancellation gate.
+- [ ] GAR-0012-A diagnostic category and helper normalization
+  - Source: RFC 0012; diagnostics normalization backlog; typed command envelope docs.
+  - Current state: core diagnostics exist; not every path uses stable category/helper constructors.
+  - Next slice outcome: helper-backed invalid-input, unsupported, object-store, materialization, and
+    no-fallback diagnostics for the next command family.
+  - User-visible surface: CLI text/JSON diagnostics, Python error view.
+  - Implementation scope: diagnostic helpers, one command-family migration, tests.
+  - Evidence required: diagnostic snapshots and no-fallback refs.
+  - Acceptance: migrated paths avoid ad hoc strings and preserve machine-readable fields.
+  - Verification: diagnostic stability tests, focused CLI tests, `cargo test --workspace --all-targets`.
+  - Non-goals: no output envelope redesign.
+  - Fallback/claim boundary: diagnostics must not imply fallback or hidden execution.
+  - Dependencies/blockers: command-family priority selected from current CLI structure.
+- [ ] GAR-0012-B envelope status and distributed/object-store diagnostic propagation
+  - Source: RFC 0012; diagnostics normalization backlog; object-store request planner.
+  - Current state: envelope status derives from diagnostics for current paths; distributed and
+    object-store paths need propagation before runtime work.
+  - Next slice outcome: tests and report fields proving blocked distributed/object-store diagnostics
+    survive JSON/text/Python boundaries.
+  - User-visible surface: CLI typed envelope, Python result view.
+  - Implementation scope: output envelope, CLI renderer, Python typed model tests.
+  - Evidence required: diagnostic refs, policy/no-fallback refs.
+  - Acceptance: status matches highest severity and agents do not need to scrape human text.
+  - Verification: typed envelope snapshot tests, Python tests, default GAR verification.
+  - Non-goals: no object-store or distributed runtime.
+  - Fallback/claim boundary: unsupported paths remain explicit and not claim-grade.
+  - Dependencies/blockers: GAR-0008 blocker matrix.
+- [ ] GAR-0013-A streaming runtime capability and unsupported diagnostics
+  - Source: RFC 0013; streaming plan docs; Vortex runtime utilization audit.
+  - Current state: streaming plan/backpressure contracts exist; full streaming runtime and
+    object-store streaming reads are report-only.
+  - Next slice outcome: capability matrix for local streaming, object-store streaming reads, zero-copy,
+    zero-decode, and backpressure states.
+  - User-visible surface: CLI streaming plan, capability view, docs.
+  - Implementation scope: streaming report fields, CLI output, tests.
+  - Evidence required: diagnostic refs, materialization/decode refs, policy/no-fallback refs.
+  - Acceptance: every streaming family has support status and blocked paths emit deterministic
+    diagnostics.
+  - Verification: streaming plan snapshot tests, default GAR verification.
+  - Non-goals: no object-store streaming runtime or broker.
+  - Fallback/claim boundary: streaming runtime claims stay not claim-grade.
+  - Dependencies/blockers: object-store provider gate for remote streaming.
+- [ ] GAR-0014-A spill/OOM enforcement promotion gate
+  - Source: RFC 0014; spill reservation lifecycle integration; workspace feature matrix.
+  - Current state: memory admission and synthetic/local constraints exist; broad runtime spill/OOM
+    enforcement is not production-gated.
+  - Next slice outcome: gate that names required evidence for reservation release, native spill I/O,
+    cleanup, allocator integration, and fail-before-OOM behavior.
+  - User-visible surface: CLI memory/runtime plan, release readiness gate.
+  - Implementation scope: memory gate report, CLI output, contract tests.
+  - Evidence required: memory policy refs, no-fallback refs, security/path-safety refs for spill
+    artifacts.
+  - Acceptance: unsupported spill/OOM paths report blocked evidence without executing writes.
+  - Verification: memory gate tests, runtime exploit/path-safety tests if files are touched.
+  - Non-goals: no allocator or spill I/O implementation.
+  - Fallback/claim boundary: no production memory claim.
+  - Dependencies/blockers: release security/path-safety gates.
+- [ ] GAR-0016-A adaptive execution and runtime-filter report-only gate
+  - Source: RFC 0016; dynamic work shaping; performance attribution docs.
+  - Current state: adaptive execution/runtime filters/skew handling are represented as planning
+    concepts, not runtime behavior.
+  - Next slice outcome: gate listing prerequisites for runtime filters, skew decisions, adaptive
+    parallelism, and compaction writes.
+  - User-visible surface: CLI optimizer/adaptive plan, docs.
+  - Implementation scope: optimizer report fields, CLI output, tests.
+  - Evidence required: benchmark refs only for supported lanes; diagnostic and no-fallback refs for
+    report-only lanes.
+  - Acceptance: runtime-adaptive requests cannot be mistaken for executed behavior.
+  - Verification: optimizer plan tests, benchmark contract tests if metadata changes.
+  - Non-goals: no adaptive runtime, runtime filters, or compaction writes.
+  - Fallback/claim boundary: `support_status=report_only`.
+  - Dependencies/blockers: operator/runtime evidence from GAR-0027.
+- [ ] GAR-0017-A retry, cancellation, and recovery execution gate
+  - Source: RFC 0017; object-store request planner; operational evidence policy hardening.
+  - Current state: retry/cancellation/commit planning exists; broad execution is not enabled.
+  - Next slice outcome: gate that separates request validation, cancellation signal, retry allowed,
+    checkpoint write, cleanup, and commit execution.
+  - User-visible surface: CLI retry/recovery/object-store reports, diagnostics.
+  - Implementation scope: report fields, CLI output, tests.
+  - Evidence required: policy/no-fallback refs, idempotency refs, checkpoint/commit evidence if
+    execution is admitted.
+  - Acceptance: default gate denies execution and gives deterministic blockers.
+  - Verification: retry gate tests, object-store planner tests.
+  - Non-goals: no retries, checkpoint writes, cleanup, or commits.
+  - Fallback/claim boundary: no fault-tolerance runtime claim.
+  - Dependencies/blockers: object-store provider gate and credential policy.
+- [ ] GAR-0018-A live profiling and runtime introspection report
+  - Source: RFC 0018; operational evidence policy hardening; benchmark-suite catalog.
+  - Current state: observability schemas exist; live profiling/distributed introspection are not
+    runtime features.
+  - Next slice outcome: report-only introspection artifact for local benchmark spans, unsupported
+    live profiling, and distributed runtime blockers.
+  - User-visible surface: CLI observability plan, benchmark metadata, docs.
+  - Implementation scope: observability report fields, benchmark metadata, tests.
+  - Evidence required: benchmark refs and diagnostic/no-fallback refs.
+  - Acceptance: introspection fields distinguish measured local spans from unsupported live profiling.
+  - Verification: observability snapshot tests, benchmark contract tests.
+  - Non-goals: no live profiler, collector, distributed tracing backend, or dependency.
+  - Fallback/claim boundary: no production profiling claim.
+  - Dependencies/blockers: benchmark attribution contract.
+- [ ] GAR-0021-A approximate aggregate and sketch function admission
+  - Source: RFC 0021; capability-certification sequencing; RFC 0032.
+  - Current state: approximate/sketch requirements are documented; registry/state/update kernels are
+    not implemented broadly.
+  - Next slice outcome: admission/report contract for approximate aggregate registry entries, sketch
+    state, merge, serialization, encoded-aware update kernels, exact-reference fixtures, error
+    distribution benchmarks, and certificates.
+  - User-visible surface: CLI capability discovery, function registry report, docs.
+  - Implementation scope: expression/function report types, CLI output, tests.
+  - Evidence required: correctness fixture refs, benchmark refs, execution certificate refs, Native
+    I/O refs, no-fallback refs.
+  - Acceptance: approximate/sketch functions are either admitted with evidence requirements or
+    deterministically unsupported.
+  - Verification: function registry tests, capability snapshot tests.
+  - Non-goals: no sketch runtime implementation in this admission slice.
+  - Fallback/claim boundary: no approximate aggregate accuracy/performance claim.
+  - Dependencies/blockers: exact-reference fixture design.
+- [ ] GAR-0021-B operator/kernel coverage expansion slice
+  - Source: RFC 0021; physical operator kernel contracts; Vortex runtime utilization audit.
+  - Current state: narrow kernels exist; full function/kernel coverage does not.
+  - Next slice outcome: implement or block one concrete operator/kernel family with evidence.
+  - User-visible surface: CLI kernel registry/capability report, benchmark row if executable.
+  - Implementation scope: kernel registry, one kernel or deterministic blocker, tests.
+  - Evidence required: correctness refs, benchmark refs if executed, execution certificate, Native
+    I/O refs, materialization/decode refs, no-fallback refs.
+  - Acceptance: selected family has support status, diagnostics, and evidence.
+  - Verification: focused kernel tests, correctness fixtures, `cargo test --workspace --all-targets`.
+  - Non-goals: no UDF/effectful execution.
+  - Fallback/claim boundary: claim only the selected kernel family.
+  - Dependencies/blockers: GAR-FLOW-2B blocker matrix.
+- [ ] GAR-0026-A direct encoded count/filter/project expansion
+  - Source: RFC 0026; compute-flow reference; benchmark-suite catalog.
+  - Current state: selected encoded primitives exist; generalized direct encoded execution and
+    production compressed-execution claims are not ready.
+  - Next slice outcome: one additional count/filter/project encoded path or explicit unsupported
+    blocker with certificate fields.
+  - User-visible surface: CLI Vortex primitive command, benchmark row, execution certificate.
+  - Implementation scope: `shardloom-vortex` primitive path, CLI handler, tests.
+  - Evidence required: correctness refs, benchmark refs, execution certificate, Native I/O refs,
+    materialization/decode refs, no-fallback refs.
+  - Acceptance: selected path runs or blocks deterministically; result says whether decode/materialize
+    happened.
+  - Verification: focused Vortex primitive tests, benchmark smoke, `cargo test --workspace --all-targets`.
+  - Non-goals: no broad compressed-execution claim.
+  - Fallback/claim boundary: production claim remains not claim-grade unless gate evidence attaches.
+  - Dependencies/blockers: operator/kernel coverage.
+- [ ] GAR-0027-A CPU/SIMD/vectorization admission slice
+  - Source: RFC 0027; CPU specialization admission gates; benchmark-suite catalog.
+  - Current state: CPU/vectorization contracts exist; real SIMD dispatch and production vectorized
+    path are not broad.
+  - Next slice outcome: host CPU probing and vectorized-kernel admission report for one operator
+    family or deterministic unsupported status.
+  - User-visible surface: CLI CPU specialization report, benchmark metadata.
+  - Implementation scope: CPU report structs, selected kernel admission, tests.
+  - Evidence required: benchmark refs if measured, correctness refs, execution certificate, no-fallback
+    refs.
+  - Acceptance: host feature detection is explicit and cannot silently change semantics.
+  - Verification: CPU specialization tests, kernel tests, benchmark metadata tests.
+  - Non-goals: no adaptive parallelism or streaming runtime.
+  - Fallback/claim boundary: no broad vectorized performance claim.
+  - Dependencies/blockers: kernel family selected from GAR-0021-B.
+- [ ] GAR-0038-A facade compatibility and legacy boundary matrix
+  - Source: RFC 0038; top-level plan/execution facade docs; typed envelope docs.
+  - Current state: top-level plan/execution facade exists, but SQL/DataFrame runtime, object-store
+    runtime, writes, and legacy facade compatibility are not broad.
+  - Next slice outcome: matrix that separates executable facade paths, report-only paths, legacy
+    shims, and unsupported paths.
+  - User-visible surface: CLI top-level command, Python client, docs.
+  - Implementation scope: facade report, CLI/Python typed models, contract tests.
+  - Evidence required: diagnostic refs and no-fallback refs; execution evidence only for supported
+    paths.
+  - Acceptance: facade does not route unsupported work into external engines or hidden fallback.
+  - Verification: facade contract tests, Python tests, default GAR verification.
+  - Non-goals: no SQL/DataFrame/object-store/write runtime.
+  - Fallback/claim boundary: external engines remain baseline/oracle only.
+  - Dependencies/blockers: GAR-0039 typed-envelope migration.
 
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
 
-- [ ] GAR-0004: CDC planning, table/catalog metadata reads, object-store commits, generalized
-      manifest serialization, and broad transaction semantics remain incomplete.
-- [ ] GAR-0005: Broad Vortex reader/writer support, object-store Vortex I/O, general
-      schema/encoding writes, and upstream Vortex write integration remain incomplete.
-- [ ] GAR-0007: Actual Parquet, Arrow, Iceberg, Delta, and related compatibility output writers
-      remain unimplemented or unsupported.
-- [ ] GAR-0020: Catalog/table metadata integration, real table I/O, delete/tombstone execution, and
-      CDC execution remain incomplete.
-- [ ] GAR-0028: Object-store commit, table/catalog/lakehouse commit semantics, generalized sink
-      commit, Foundry dataset transaction commit, upstream Vortex write API execution, and
-      production output-payload fidelity remain incomplete.
+- [ ] GAR-0004-A CDC and manifest transaction planning gate
+  - Source: RFC 0004; table-intelligence layer; object-store request planner.
+  - Current state: CDC planning exists; table/catalog metadata reads, object-store commits, manifest
+    serialization, and transaction semantics are not executable broadly.
+  - Next slice outcome: gate report for CDC read/write intent, manifest serialization status,
+    transaction blockers, and unsupported commit diagnostics.
+  - User-visible surface: CLI incremental/table plan, typed envelope, docs.
+  - Implementation scope: table/intelligence report fields, CLI output, tests.
+  - Evidence required: manifest refs, diagnostic/no-fallback refs, Native I/O refs only for admitted
+    paths.
+  - Acceptance: CDC and transaction requests are explicitly supported, report-only, or unsupported.
+  - Verification: table intelligence tests, incremental plan tests, default GAR verification.
+  - Non-goals: no metadata reads, data reads, object-store commits, or transaction writes.
+  - Fallback/claim boundary: no CDC/table transaction claim.
+  - Dependencies/blockers: GAR-0020 metadata gate and GAR-0028 commit gate.
+- [ ] GAR-0005-A local Vortex reader/writer coverage slice
+  - Source: RFC 0005; Vortex public API inventory; Vortex upstream alignment hardening.
+  - Current state: scoped Vortex local read/write evidence exists; broad reader/writer support and
+    general schema/encoding writes are limited.
+  - Next slice outcome: add one local Vortex reader/writer schema or encoding lane, or record a
+    deterministic upstream blocker.
+  - User-visible surface: CLI Vortex output/scan commands, benchmark row, Native I/O certificate.
+  - Implementation scope: `shardloom-vortex` read/write path, CLI handler, tests.
+  - Evidence required: correctness refs, benchmark refs if measured, Native I/O certificate,
+    materialization/decode refs, policy/no-fallback refs.
+  - Acceptance: selected lane has certificate-backed status and unsupported neighbors are explicit.
+  - Verification: focused Vortex I/O tests, benchmark smoke, `cargo test --workspace --all-targets`.
+  - Non-goals: no object-store Vortex I/O or broad writer support.
+  - Fallback/claim boundary: claim only the selected local Vortex lane.
+  - Dependencies/blockers: upstream Vortex write/read API.
+- [ ] GAR-0005-B object-store Vortex I/O and upstream write integration gate
+  - Source: RFC 0005; RFC 0008; Vortex upstream alignment hardening.
+  - Current state: object-store Vortex I/O and upstream write integration are not enabled.
+  - Next slice outcome: report-only gate for object-store Vortex read/write provider requirements,
+    credentials, idempotency, and unsupported diagnostics.
+  - User-visible surface: CLI Vortex API inventory, object-store plan, release gate.
+  - Implementation scope: inventory/gate report fields, tests.
+  - Evidence required: policy/no-fallback refs and upstream API refs.
+  - Acceptance: object-store Vortex paths cannot be claimed without provider, credential, Native I/O,
+    and write evidence.
+  - Verification: Vortex API inventory tests, object-store planner tests.
+  - Non-goals: no network I/O, write execution, or dependency expansion.
+  - Fallback/claim boundary: `support_status=report_only|unsupported`.
+  - Dependencies/blockers: GAR-0008 provider gate and GAR-0019 credential policy.
+- [ ] GAR-0007-A compatibility output writer capability matrix
+  - Source: RFC 0007; RFC 0028; benchmark-suite catalog.
+  - Current state: compatibility output writers such as Parquet, Arrow, Iceberg, and Delta are not
+    broadly implemented as output sinks.
+  - Next slice outcome: matrix for local compatibility output writer support, unsupported formats,
+    dependency posture, and claim blockers.
+  - User-visible surface: CLI output target plan, docs, release gate.
+  - Implementation scope: output target report, docs, contract tests.
+  - Evidence required: diagnostic/no-fallback refs, dependency policy refs.
+  - Acceptance: every listed format has support status and dependency approval state.
+  - Verification: output target tests, release readiness metadata tests.
+  - Non-goals: no writer implementation.
+  - Fallback/claim boundary: no lakehouse/output writer claim.
+  - Dependencies/blockers: dependency/license policy.
+- [ ] GAR-0007-B first local compatibility writer smoke
+  - Source: GAR-0007-A; RFC 0007; RFC 0028.
+  - Current state: writer support is matrixed/report-only after GAR-0007-A.
+  - Next slice outcome: implement one local writer smoke lane, such as Parquet or Arrow IPC, with
+    scoped evidence if dependency policy allows it.
+  - User-visible surface: CLI output command, benchmark/output fixture, docs.
+  - Implementation scope: writer adapter, output payload metadata, tests.
+  - Evidence required: correctness refs, Native I/O refs, output fidelity refs, policy/no-fallback
+    refs, dependency approval.
+  - Acceptance: selected writer produces deterministic local output and unsupported formats stay
+    explicit.
+  - Verification: focused writer tests, fixture roundtrip test, `cargo test --workspace --all-targets`.
+  - Non-goals: no Iceberg/Delta table commit or object-store write.
+  - Fallback/claim boundary: claim only the selected local writer smoke lane.
+  - Dependencies/blockers: GAR-0007-A and dependency/license gate.
+- [ ] GAR-0020-A table/catalog metadata admission gate
+  - Source: RFC 0020; table-intelligence layer; RFC 0041.
+  - Current state: table intelligence reports exist; catalog/table metadata reads and data reads are
+    not executed.
+  - Next slice outcome: gate for catalog resolution, snapshot/manifest reads, table metadata reads,
+    data reads, credential use, and external table-format dependencies.
+  - User-visible surface: CLI table-intelligence plan, release readiness gate.
+  - Implementation scope: table-intelligence report fields, CLI output, tests.
+  - Evidence required: diagnostic/no-fallback refs, dependency policy refs, credential boundary refs.
+  - Acceptance: default gate performs no I/O and gives evidence requirements.
+  - Verification: table-intelligence tests, release readiness metadata tests.
+  - Non-goals: no catalog I/O, table metadata I/O, data reads, or dependency additions.
+  - Fallback/claim boundary: table/catalog support remains report-only.
+  - Dependencies/blockers: GAR-0019 credentials and GAR-0008 object-store provider gate.
+- [ ] GAR-0020-B delete/tombstone, CDC, and maintenance-write execution matrix
+  - Source: RFC 0020; RFC 0004; table-intelligence layer.
+  - Current state: delete/tombstone, CDC, compaction, and table maintenance are compatibility/planning
+    surfaces.
+  - Next slice outcome: execution matrix with support status, required fixtures, commit semantics,
+    and unsupported diagnostics.
+  - User-visible surface: CLI table plan, docs, capability view.
+  - Implementation scope: table report fields, fixture metadata, tests.
+  - Evidence required: correctness refs, commit refs, Native I/O refs for supported paths,
+    no-fallback refs.
+  - Acceptance: each operation has status and evidence gaps; unsupported paths do not execute.
+  - Verification: table compatibility tests, fixture manifest tests.
+  - Non-goals: no maintenance write runtime.
+  - Fallback/claim boundary: no table-format execution claim.
+  - Dependencies/blockers: GAR-0028 commit semantics.
+- [ ] GAR-0028-A object-store and lakehouse commit semantics gate
+  - Source: RFC 0028; object-store request planner; table-intelligence layer.
+  - Current state: local Vortex staged-output and commit markers exist; object-store/table/lakehouse
+    commit semantics are not executed broadly.
+  - Next slice outcome: gate for object-store commit, table/catalog commit, sink commit, Foundry
+    dataset transaction, upstream Vortex write API, and output-payload fidelity.
+  - User-visible surface: CLI commit/output plan, release gate, docs.
+  - Implementation scope: commit gate report, CLI output, tests.
+  - Evidence required: commit protocol refs, Native I/O refs if executed, policy/no-fallback refs.
+  - Acceptance: unsupported commit families are blocked with deterministic diagnostics and no writes.
+  - Verification: commit gate tests, object-store planner tests, release readiness metadata tests.
+  - Non-goals: no object-store writes, table commits, Foundry transactions, or upstream write calls.
+  - Fallback/claim boundary: no production output/lakehouse claim.
+  - Dependencies/blockers: GAR-0008, GAR-0020, and GAR-0036.
 
 #### GAR-P3 - User Surfaces, APIs, Adapters, And Workflow
 
-- [ ] GAR-0010: Mature ergonomic runtime APIs, DataFrame/notebook surfaces, REST runtime, and
-      user-facing package publication remain incomplete.
-- [ ] GAR-0022: Real Substrait import/export and imported-plan execution remain incomplete.
-- [ ] GAR-0030: Imported-plan execution and universal harness execution remain unimplemented
-      without capability, certificate, Native I/O, and no-fallback evidence.
-- [ ] GAR-0032: Broad SQL, DataFrame, UDF, notebook, universal adapter, unstructured/media, and
-      best-default certification remain incomplete.
-- [ ] GAR-0033: Mature DataFrame methods, SQL execution, joins, aggregations, windows, data-quality
-      APIs, object-store/table runtime, publication, production ETL certification, and external
-      baseline/oracle views remain incomplete.
-- [ ] GAR-0034: Production live/hybrid engines, broker/state-store dependencies, object-store
-      execution, freshness/exactly-once claims, and comparison-only baseline/oracle surfaces remain
-      incomplete.
-- [ ] GAR-0035: HTTP listener, remote execution, Flight/ADBC runtime bridge, broker integration,
-      production API, and dependency-expanded server remain incomplete.
-- [ ] GAR-0036: Production `shardloom-foundry`, package publication, Foundry service invocation,
-      Artifact Repository publication, Compute Module, virtual-table native execution, Foundry
-      dataset transaction runtime, and F10 workload-certified deployment remain incomplete.
-- [ ] GAR-0037: Generated clients, DB-API, SQLAlchemy, Ibis, dbt, Airflow, Dagster, Prefect, MCP,
-      Flight, ADBC, and BI connector implementations remain incomplete.
-- [ ] GAR-0039: Legacy flat `fields` mirror, remaining command-family result migration, some golden
-      fixtures, Foundry boundary fixture, and additional physical handler splits remain incomplete.
+- [ ] GAR-0010-A Python API ergonomics and typed capability view
+  - Source: RFC 0010; RFC 0037; typed envelope docs.
+  - Current state: Python wrapper and typed views exist; ergonomic runtime APIs and notebook surfaces
+    are not mature across planned features.
+  - Next slice outcome: Python capability/diagnostic view that exposes supported, report-only, and
+    unsupported states without executing unsupported work.
+  - User-visible surface: Python package, docs, examples.
+  - Implementation scope: Python client/models, docs, tests.
+  - Evidence required: diagnostic/no-fallback refs; execution evidence only for already supported
+    commands.
+  - Acceptance: Python users can inspect mode/support/claim status without scraping CLI text.
+  - Verification: Python tests or compileall, focused Rust contract tests, default GAR verification.
+  - Non-goals: no broad DataFrame runtime or package publication.
+  - Fallback/claim boundary: Python API does not expand runtime claims.
+  - Dependencies/blockers: typed envelope migration from GAR-0039.
+- [ ] GAR-0010-B DataFrame/notebook and package surface readiness report
+  - Source: RFC 0010; RFC 0024; RFC 0032.
+  - Current state: package dry-run docs exist; mature DataFrame/notebook surfaces and publication are
+    not claimable.
+  - Next slice outcome: report-only readiness matrix for DataFrame/notebook APIs, package surface,
+    examples, and unsupported diagnostics.
+  - User-visible surface: docs, Python capability view, release gate.
+  - Implementation scope: docs/report fields, Python package metadata checks, tests.
+  - Evidence required: release/package refs and diagnostic/no-fallback refs.
+  - Acceptance: readiness report distinguishes installed package smoke from runtime support.
+  - Verification: release readiness metadata tests, Python compileall, default GAR verification.
+  - Non-goals: no PyPI/Conda publication or DataFrame execution.
+  - Fallback/claim boundary: no package-release or DataFrame-runtime claim.
+  - Dependencies/blockers: GAR-0024 release/package slices.
+- [ ] GAR-0022-A Substrait import/export report-only contract
+  - Source: RFC 0022; plan IR docs; rfc-coverage followthrough.
+  - Current state: native Plan IR exists; real Substrait import/export and imported-plan execution
+    are not implemented.
+  - Next slice outcome: deterministic report for parse/export support status, unsupported diagnostics,
+    and imported-plan evidence requirements.
+  - User-visible surface: CLI plan import/export, docs.
+  - Implementation scope: plan portability report, CLI output, tests.
+  - Evidence required: diagnostic/no-fallback refs; no execution evidence in this slice.
+  - Acceptance: Substrait requests report support status without executing imported plans.
+  - Verification: plan portability tests and default GAR verification.
+  - Non-goals: no Substrait execution or dependency expansion.
+  - Fallback/claim boundary: imported plans are not runtime-supported.
+  - Dependencies/blockers: dependency/license approval for any parser library.
+- [ ] GAR-0030-A universal harness execution gate
+  - Source: RFC 0030; universal import/deployment baseline harness; RFC 0029.
+  - Current state: universal harness is report-only; imported-plan execution needs capability,
+    certificate, Native I/O, and no-fallback evidence.
+  - Next slice outcome: gate that blocks harness execution until the evidence set is attached.
+  - User-visible surface: CLI universal harness plan, docs, release gate.
+  - Implementation scope: harness report fields, CLI output, tests.
+  - Evidence required: capability refs, execution certificate refs, Native I/O refs, policy/no-fallback
+    refs.
+  - Acceptance: harness execution cannot be confused with environment/report readiness.
+  - Verification: universal harness tests, release readiness metadata tests.
+  - Non-goals: no harness execution, external engine invocation, or container publication.
+  - Fallback/claim boundary: external baselines remain comparison-only.
+  - Dependencies/blockers: GAR-0022 import/export status.
+- [ ] GAR-0032-A SQL parser/binder report-only readiness
+  - Source: RFC 0032; RFC 0010; rfc-coverage followthrough.
+  - Current state: SQL capability concepts exist; SQL parser/binder/execution is not a broad runtime.
+  - Next slice outcome: SQL text can be classified into parsed/bound/planned/unsupported diagnostics
+    without execution.
+  - User-visible surface: CLI capability output, docs, Python capability view.
+  - Implementation scope: SQL capability report, diagnostic helpers, tests.
+  - Evidence required: diagnostic/no-fallback refs.
+  - Acceptance: SQL requests return deterministic support status and no runtime execution.
+  - Verification: capability snapshot tests, diagnostic stability tests.
+  - Non-goals: no SQL execution.
+  - Fallback/claim boundary: `support_status=report_only|unsupported`.
+  - Dependencies/blockers: parser dependency approval if a real parser is introduced.
+- [ ] GAR-0032-B Python DataFrame method capability matrix
+  - Source: RFC 0032; RFC 0037; Python client docs.
+  - Current state: Python wrapper exists; broad DataFrame-like methods are not implemented.
+  - Next slice outcome: method matrix for filters, projections, joins, aggregates, windows, writes,
+    and unsupported diagnostics.
+  - User-visible surface: Python API and docs.
+  - Implementation scope: Python models/accessors, docs, tests.
+  - Evidence required: diagnostic/no-fallback refs; runtime evidence only for existing supported
+    methods.
+  - Acceptance: every advertised method has a support status and claim boundary.
+  - Verification: Python tests/compileall, default GAR verification.
+  - Non-goals: no broad DataFrame execution.
+  - Fallback/claim boundary: no DataFrame runtime claim.
+  - Dependencies/blockers: GAR-0010 Python typed capability view.
+- [ ] GAR-0032-C UDF and external-effect blocker matrix
+  - Source: RFC 0032; RFC 0011; RFC 0019.
+  - Current state: UDF/effectful operations are report-only/unsupported.
+  - Next slice outcome: classify UDFs, API calls, LLM calls, embeddings, and external effects with
+    permission/effect blockers.
+  - User-visible surface: CLI capability view, docs, diagnostics.
+  - Implementation scope: capability report, effect budget report, diagnostics, tests.
+  - Evidence required: policy/security/no-fallback refs.
+  - Acceptance: every external effect defaults to blocked and cannot execute without explicit policy.
+  - Verification: effect budget tests, security policy tests.
+  - Non-goals: no UDF, network, model, embedding, or external effect execution.
+  - Fallback/claim boundary: no external-effect runtime claim.
+  - Dependencies/blockers: GAR-0019 credential/policy and GAR-0023 sandbox.
+- [ ] GAR-0032-D unstructured/media and universal adapter capability matrix
+  - Source: RFC 0032; RFC 0033; RFC 0037.
+  - Current state: unstructured/media/universal adapter surfaces are not executable broadly.
+  - Next slice outcome: report-only matrix for documents, media, vectors, universal adapters, and
+    source/sink metadata.
+  - User-visible surface: CLI capability view, docs, Python view.
+  - Implementation scope: capability report, docs, tests.
+  - Evidence required: diagnostic/no-fallback refs and effect-policy refs.
+  - Acceptance: no vector search, media extraction, or model call is implied by capability rows.
+  - Verification: capability snapshot tests and default GAR verification.
+  - Non-goals: no unstructured runtime.
+  - Fallback/claim boundary: `support_status=report_only|unsupported`.
+  - Dependencies/blockers: external-effect blocker matrix.
+- [ ] GAR-0032-E best-default certification gate
+  - Source: RFC 0032; operational evidence policy hardening; benchmark-suite catalog.
+  - Current state: user capability and sufficiency reports exist; best-default claims are not
+    claim-grade.
+  - Next slice outcome: gate defining required correctness, benchmark, certificate, Native I/O,
+    policy, release, and UX evidence before best-default language is allowed.
+  - User-visible surface: CLI capability view, docs, release gate.
+  - Implementation scope: certification gate report, tests, docs.
+  - Evidence required: all claim evidence categories named in the gate.
+  - Acceptance: missing evidence yields `claim_gate_status=not_claim_grade`.
+  - Verification: certification gate tests, release readiness metadata tests.
+  - Non-goals: no best-default claim.
+  - Fallback/claim boundary: no best-default, performance, or replacement claim.
+  - Dependencies/blockers: benchmark/correctness/release GAR-P5 slices.
+- [ ] GAR-0033-A ETL workflow and data-quality capability slice
+  - Source: RFC 0033; user data workflow docs; benchmark-suite catalog.
+  - Current state: local workflow surfaces exist; mature joins, aggregations, windows, data-quality
+    APIs, object-store/table runtime, and production ETL certification are not broad.
+  - Next slice outcome: ETL workflow matrix for supported local paths, report-only APIs, and
+    unsupported object-store/table paths.
+  - User-visible surface: CLI workflow plan, Python docs, examples.
+  - Implementation scope: workflow report, Python view, tests.
+  - Evidence required: correctness refs for supported local paths, diagnostic/no-fallback refs for
+    unsupported paths.
+  - Acceptance: production ETL claims are blocked unless all evidence is attached.
+  - Verification: workflow/table planning tests, Python compileall if touched.
+  - Non-goals: no production ETL runtime or publication.
+  - Fallback/claim boundary: local workflow claims only for already certified paths.
+  - Dependencies/blockers: operator/table/output GAR slices.
+- [ ] GAR-0034-A live/hybrid fabric blocker and freshness gate
+  - Source: RFC 0034; live/hybrid event API docs; operational evidence policy hardening.
+  - Current state: live/hybrid engines and freshness/exactly-once claims are planning/report-only.
+  - Next slice outcome: gate for broker/state-store dependencies, object-store execution, freshness,
+    exactly-once, and baseline/oracle boundaries.
+  - User-visible surface: CLI live/hybrid plan, docs, release gate.
+  - Implementation scope: fabric report fields, diagnostics, tests.
+  - Evidence required: policy/no-fallback refs and freshness evidence if any lane is admitted.
+  - Acceptance: all live/hybrid runtime claims default to not claim-grade.
+  - Verification: live/hybrid contract tests, release readiness metadata tests.
+  - Non-goals: no broker, state store, object-store runtime, or streaming production behavior.
+  - Fallback/claim boundary: baselines/oracles remain comparison-only.
+  - Dependencies/blockers: GAR-0013 streaming and GAR-0008 object-store gates.
+- [ ] GAR-0035-A REST server/runtime unsupported contract
+  - Source: RFC 0035; execution mode protocol parity; typed envelope docs.
+  - Current state: REST/Event/API contracts are documented; HTTP listener, remote execution,
+    Flight/ADBC bridge, broker integration, and dependency-expanded server are not implemented.
+  - Next slice outcome: unsupported/runtime-readiness contract that mirrors CLI/Python fields and
+    blocks server claims.
+  - User-visible surface: REST/OpenAPI docs/schema, release readiness gate.
+  - Implementation scope: schema/docs, contract tests, release metadata.
+  - Evidence required: protocol parity refs and diagnostic/no-fallback refs.
+  - Acceptance: REST docs expose shared mode fields and deterministic unsupported diagnostics.
+  - Verification: default GAR verification plus schema snapshot tests if generated.
+  - Non-goals: no HTTP listener, remote execution, Flight/ADBC, broker, or server dependency.
+  - Fallback/claim boundary: REST remains report-only/unsupported for runtime execution.
+  - Dependencies/blockers: GAR-FLOW-3A parity report.
+- [ ] GAR-0036-A Foundry package and proof boundary matrix
+  - Source: RFC 0036; Foundry integration pack docs; release docs.
+  - Current state: local Foundry proof docs exist; production `shardloom-foundry`, package
+    publication, service invocation, Artifact Repository publication, Compute Module, virtual-table
+    native execution, dataset transaction runtime, and F10 deployment are not certified.
+  - Next slice outcome: matrix separating local proof, package readiness, service invocation,
+    virtual tables, dataset transaction, and deployment evidence.
+  - User-visible surface: Foundry docs, release gate, example outputs.
+  - Implementation scope: docs/report fields, proof script metadata, tests.
+  - Evidence required: release/package refs, Native I/O refs for any native lane, policy/no-fallback
+    refs.
+  - Acceptance: Foundry external compute is never reported as ShardLoom execution.
+  - Verification: Foundry proof script tests if touched, release readiness metadata tests.
+  - Non-goals: no Foundry invocation, publication, or platform credential.
+  - Fallback/claim boundary: Foundry remains optional integration, not a fallback engine.
+  - Dependencies/blockers: package publication and credentials gates.
+- [ ] GAR-0037-A wrapper and connector implementation registry
+  - Source: RFC 0037; client wrapper architecture docs.
+  - Current state: wrapper architecture is documented; generated clients, DB-API, SQLAlchemy, Ibis,
+    dbt, Airflow, Dagster, Prefect, MCP, Flight, ADBC, and BI connectors are not implemented.
+  - Next slice outcome: registry of wrappers/connectors with support status, transport, evidence,
+    and unsupported diagnostics.
+  - User-visible surface: docs, CLI capability view, Python package docs.
+  - Implementation scope: registry/report docs, tests.
+  - Evidence required: protocol parity refs and diagnostic/no-fallback refs.
+  - Acceptance: connectors are not advertised as runtime-supported without implementation evidence.
+  - Verification: docs/contract tests and Python compileall if models change.
+  - Non-goals: no connector implementation.
+  - Fallback/claim boundary: no wrapper ecosystem claim.
+  - Dependencies/blockers: GAR-0035 REST/transport and GAR-0010 Python API.
+- [ ] GAR-0039-A typed envelope migration and legacy field mirror closeout
+  - Source: RFC 0039; typed command result envelope docs; agent contract pack.
+  - Current state: typed output v2 exists; legacy flat `fields` mirror and some command families
+    remain.
+  - Next slice outcome: migrate one command family from legacy mirror reliance to typed refs or add
+    deterministic blockers where migration is not ready.
+  - User-visible surface: CLI JSON output, Python typed models, golden fixtures.
+  - Implementation scope: CLI renderer/typed envelope, one command-family handler, Python model/test.
+  - Evidence required: typed envelope snapshots and no-fallback refs.
+  - Acceptance: migrated family exposes typed payloads without losing backward-compatible fields where
+    still required.
+  - Verification: typed envelope snapshot tests, Python tests, `cargo test --workspace --all-targets`.
+  - Non-goals: no runtime behavior changes.
+  - Fallback/claim boundary: output migration cannot imply new support.
+  - Dependencies/blockers: command-family priority.
+- [ ] GAR-0039-B golden fixtures, Foundry boundary fixture, and helper centralization
+  - Source: RFC 0039; repo cleanup backlog; terminology consolidation backlog; diagnostics backlog.
+  - Current state: some golden fixtures, Foundry boundary fixture, command/help registry,
+    terminology mapping helpers, diagnostic constants, and report field helpers remain pending.
+  - Next slice outcome: add one focused fixture/helper centralization slice with tests and no runtime
+    behavior.
+  - User-visible surface: CLI JSON snapshots, docs, agent contract.
+  - Implementation scope: snapshot fixtures, helper module, tests.
+  - Evidence required: snapshot refs and no-fallback refs.
+  - Acceptance: helpers reduce duplication without changing public semantics.
+  - Verification: focused snapshot tests, default GAR verification.
+  - Non-goals: no command rename, public schema break, or runtime expansion.
+  - Fallback/claim boundary: cleanup does not create support claims.
+  - Dependencies/blockers: compatibility expectations for existing CLI outputs.
 
 #### GAR-P4 - Extension, Governance, And Runtime Policy
 
-- [ ] GAR-0011: Extension execution, UDF execution, LLM/API calls, embeddings, and external effects
-      remain unsupported/report-only.
-- [ ] GAR-0019: Credential lifecycle, runtime policy enforcement, sandbox execution, and production
-      governance remain incomplete.
-- [ ] GAR-0023: Real plugin ABI loading, sandbox runtime, and UDF execution remain incomplete.
+- [ ] GAR-0011-A extension manifest and external-effect capability matrix
+  - Source: RFC 0011; effect budget plan; RFC 0019.
+  - Current state: extension manifests/effect budgets are represented; execution, UDFs, LLM/API calls,
+    embeddings, and external effects are unsupported/report-only.
+  - Next slice outcome: matrix for extension types, required permissions, materialization/effect
+    metadata, and default blockers.
+  - User-visible surface: CLI extension plan, capability view, docs.
+  - Implementation scope: extension/effect report fields, diagnostics, tests.
+  - Evidence required: policy/security/no-fallback refs.
+  - Acceptance: all external effects default to blocked with deterministic diagnostics.
+  - Verification: extension planning tests, effect budget tests.
+  - Non-goals: no extension execution, network call, model call, or embedding runtime.
+  - Fallback/claim boundary: no external-effect support claim.
+  - Dependencies/blockers: GAR-0019 credential/policy.
+- [ ] GAR-0019-A credential lifecycle and policy enforcement gate
+  - Source: RFC 0019; operational evidence policy hardening; security docs.
+  - Current state: security/policy reports exist; production credential lifecycle and runtime policy
+    enforcement are not complete.
+  - Next slice outcome: gate for credential resolution, secret loading, redaction, workspace policy,
+    runtime permission checks, and unsupported diagnostics.
+  - User-visible surface: CLI security/governance plan, release security gate.
+  - Implementation scope: security report fields, CLI output, tests.
+  - Evidence required: security policy refs, redaction/path-safety refs, no-fallback refs.
+  - Acceptance: credential use defaults to denied unless a slice explicitly admits it with evidence.
+  - Verification: security/path-safety tests, release security gate tests.
+  - Non-goals: no secret loading, network credential use, or production policy runtime.
+  - Fallback/claim boundary: no governed production runtime claim.
+  - Dependencies/blockers: security release gate.
+- [ ] GAR-0019-B sandbox and governance runtime readiness
+  - Source: RFC 0019; RFC 0023; effect budget plan.
+  - Current state: sandbox/governance concepts exist; sandbox execution is not a production runtime.
+  - Next slice outcome: readiness report for sandbox isolation, filesystem/network permissions,
+    audit logs, and deny-by-default behavior.
+  - User-visible surface: CLI governance plan, docs, release gate.
+  - Implementation scope: governance report, diagnostics, tests.
+  - Evidence required: security/no-fallback refs and audit artifact refs.
+  - Acceptance: sandbox-dependent work remains blocked until isolation evidence exists.
+  - Verification: security contract tests and default GAR verification.
+  - Non-goals: no sandbox process runtime.
+  - Fallback/claim boundary: no sandbox execution claim.
+  - Dependencies/blockers: plugin ABI and credential gates.
+- [ ] GAR-0023-A plugin ABI loading and UDF sandbox blocker
+  - Source: RFC 0023; RFC 0011; RFC 0019.
+  - Current state: plugin ABI/sandbox/UDF execution are represented as planned/report-only surfaces.
+  - Next slice outcome: ABI loading contract, sandbox evidence requirements, and UDF execution
+    blockers.
+  - User-visible surface: CLI plugin/extension plan, capability view.
+  - Implementation scope: plugin report fields, diagnostics, tests.
+  - Evidence required: sandbox refs, policy/no-fallback refs.
+  - Acceptance: plugins cannot load or execute without explicit policy and sandbox evidence.
+  - Verification: plugin/extension planning tests, security tests.
+  - Non-goals: no dynamic loading or UDF execution.
+  - Fallback/claim boundary: plugin support remains report-only.
+  - Dependencies/blockers: GAR-0019 sandbox and credential gates.
 
 #### GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0001B: Spark-displacement or engine-replacement claims remain not claimable until runtime
-      and output evidence closes.
-- [ ] GAR-0009: Broad claim-grade Spark-displacement evidence and public performance claims remain
-      gated.
-- [ ] GAR-0015: Fuzz/property expansion and claim-grade benchmark superiority coverage remain
-      incomplete.
-- [ ] GAR-0024: First public release/package publication, stable API/schema windows, and signing
-      decisions remain incomplete.
-- [ ] GAR-0025: Full competitive replacement remains incomplete until correctness, benchmark,
-      Native I/O, certificate, capability, and no-fallback evidence is broad enough.
-- [ ] GAR-0029: Broad CG-5/CG-6 coverage, production stateful reuse runtime, and
-      performance/superiority claims remain incomplete.
-- [ ] GAR-0040: Full comparative reruns, source-backed claim-grade promotion, managed-platform
-      lanes, credentials, new managed dependencies, and public performance claims remain incomplete.
-- [ ] GAR-0041: Release claims remain not claimable until required matrix rows have attached passing
-      evidence.
-- [ ] GAR-0043: Full hard release-readiness gate, actual publication, and final attestation remain
-      incomplete.
+- [ ] GAR-0001B-A engine-replacement claim inventory
+  - Source: RFC 0001; RFC 0025; global architecture review.
+  - Current state: Spark-displacement/engine-replacement claims are not claimable.
+  - Next slice outcome: inventory mapping each replacement claim to required runtime, output,
+    correctness, benchmark, certificate, Native I/O, and no-fallback evidence.
+  - User-visible surface: release claim gate, docs.
+  - Implementation scope: release gate docs/report, tests.
+  - Evidence required: all claim categories as checklist refs; no execution evidence in inventory
+    slice.
+  - Acceptance: missing evidence yields `claim_gate_status=not_claim_grade`.
+  - Verification: release readiness metadata tests and default GAR verification.
+  - Non-goals: no replacement claim or benchmark rerun.
+  - Fallback/claim boundary: no public displacement language.
+  - Dependencies/blockers: GAR-0009 and GAR-0041 claim gates.
+- [ ] GAR-0009-A Spark-displacement benchmark evidence matrix
+  - Source: RFC 0009; benchmark competitive claim evidence; benchmark-suite catalog.
+  - Current state: local benchmark evidence exists; broad Spark-displacement evidence and public
+    performance claims are gated.
+  - Next slice outcome: evidence matrix tying workloads, baselines/oracles, correctness, timing,
+    environment, mode, and claim status.
+  - User-visible surface: benchmark report, docs, release claim gate.
+  - Implementation scope: benchmark metadata/report, docs, contract tests.
+  - Evidence required: correctness refs, benchmark refs, policy/no-fallback refs, environment refs.
+  - Acceptance: every claim row says claim-grade or not-claim-grade and explains why.
+  - Verification: benchmark contract tests, release readiness metadata tests.
+  - Non-goals: no public performance claim.
+  - Fallback/claim boundary: external engines are comparison baselines/oracles only.
+  - Dependencies/blockers: reproducible benchmark reruns and release gate.
+- [ ] GAR-0015-A fuzz/property and semantic differential expansion
+  - Source: RFC 0015; correctness differential harness; correctness fixture manifest.
+  - Current state: selected correctness fixtures exist; fuzz/property expansion is not broad.
+  - Next slice outcome: add one fixture family or report-only gap with expected reference artifacts.
+  - User-visible surface: correctness harness, docs, release gate.
+  - Implementation scope: fixtures, harness metadata, tests.
+  - Evidence required: correctness refs, oracle/reference refs, no-fallback refs.
+  - Acceptance: selected family has deterministic references or an explicit gap.
+  - Verification: correctness harness tests, fixture manifest tests.
+  - Non-goals: no superiority/performance claim.
+  - Fallback/claim boundary: correctness expansion alone does not create performance claims.
+  - Dependencies/blockers: operator/source coverage.
+- [ ] GAR-0024-A publication and API/schema stability gate
+  - Source: RFC 0024; release docs; workspace feature build matrix.
+  - Current state: dry-run package proof exists; first public publication, stable API/schema windows,
+    and signing decisions are not complete.
+  - Next slice outcome: release gate rows for API/schema compatibility, package identities, signing,
+    checksums, SBOM, and publication approval.
+  - User-visible surface: release readiness check, docs.
+  - Implementation scope: release scripts/docs/tests.
+  - Evidence required: release/provenance/security refs, no-fallback refs.
+  - Acceptance: gate fails closed without explicit publication evidence.
+  - Verification: release readiness tests, dependency audit gate, provenance dry-run tests.
+  - Non-goals: no package publication, tags, or signing key use.
+  - Fallback/claim boundary: no public release claim.
+  - Dependencies/blockers: security/provenance gates.
+- [ ] GAR-0025-A competitive replacement sufficiency gate
+  - Source: RFC 0025; RFC 0029; RFC 0041.
+  - Current state: full competitive replacement is not supported by broad evidence.
+  - Next slice outcome: sufficiency gate requiring correctness, benchmark, Native I/O, certificates,
+    capability coverage, no-fallback, and release evidence.
+  - User-visible surface: release claim gate and docs.
+  - Implementation scope: claim gate report, tests.
+  - Evidence required: all claim-grade evidence categories.
+  - Acceptance: replacement claims fail closed until every required evidence row passes.
+  - Verification: release readiness metadata tests and claim gate tests.
+  - Non-goals: no replacement claim or runtime expansion.
+  - Fallback/claim boundary: `claim_gate_status=not_claim_grade`.
+  - Dependencies/blockers: GAR-0009, GAR-0015, GAR-0029, GAR-0041.
+- [ ] GAR-0029-A CG-5/CG-6 and stateful reuse evidence expansion
+  - Source: RFC 0029; correctness differential harness; benchmark-suite catalog.
+  - Current state: current CG-5/CG-6 evidence is scoped; production stateful reuse runtime and
+    performance/superiority claims are not broad.
+  - Next slice outcome: one evidence expansion for correctness/benchmark/stateful reuse, or a
+    deterministic blocker report.
+  - User-visible surface: correctness harness, benchmark report, stateful reuse plan.
+  - Implementation scope: harness/benchmark metadata, CLI plan, tests.
+  - Evidence required: correctness refs, benchmark refs, execution certificates, Native I/O refs,
+    no-fallback refs.
+  - Acceptance: selected workload has attached evidence or an explicit claim blocker.
+  - Verification: correctness and benchmark contract tests, focused stateful reuse tests.
+  - Non-goals: no production cache/reuse runtime unless a separate implementation slice admits it.
+  - Fallback/claim boundary: no superiority claim.
+  - Dependencies/blockers: workload fixtures and Native I/O coverage.
+- [ ] GAR-0040-A comparative rerun and managed-platform posture gate
+  - Source: RFC 0040; benchmark-suite catalog; benchmark competitive claim evidence.
+  - Current state: full comparative reruns, source-backed claim-grade promotion, managed-platform
+    lanes, credentials, dependencies, and public performance claims are not enabled.
+  - Next slice outcome: gate separating local reruns, external baseline/oracle comparisons,
+    managed-platform lanes, credential requirements, and claim blockers.
+  - User-visible surface: benchmark report, release claim gate, docs.
+  - Implementation scope: benchmark metadata/report, release gate, tests.
+  - Evidence required: benchmark refs, environment refs, credential policy refs, no-fallback refs.
+  - Acceptance: managed-platform lanes require explicit credentials and remain comparison-only unless
+    claim evidence passes.
+  - Verification: benchmark contract tests, release readiness metadata tests.
+  - Non-goals: no managed-platform run, credential use, dependency addition, or public claim.
+  - Fallback/claim boundary: external systems are never ShardLoom execution.
+  - Dependencies/blockers: GAR-0019 credential policy and GAR-0041 claim matrix.
+- [ ] GAR-0041-A per-claim evidence attachment matrix
+  - Source: RFC 0041; workspace feature build matrix; release security gate.
+  - Current state: release claims are not claimable until required matrix rows have attached passing
+    evidence.
+  - Next slice outcome: matrix that binds each public claim to test, benchmark, certificate, Native
+    I/O, security, provenance, and unsupported-path evidence.
+  - User-visible surface: release gate output, docs.
+  - Implementation scope: release check scripts/docs/tests.
+  - Evidence required: all evidence categories named per claim.
+  - Acceptance: any missing row fails the claim gate.
+  - Verification: release readiness tests, workspace feature matrix tests.
+  - Non-goals: no new claim or publication.
+  - Fallback/claim boundary: claims fail closed by default.
+  - Dependencies/blockers: evidence-producing GAR slices.
+- [ ] GAR-0043-A hard release-readiness validators and architecture tracker
+  - Source: RFC 0043; release security gate; global architecture review.
+  - Current state: hard release-readiness gate exists, but final publication/attestation and
+    architecture tracker validation need full evidence.
+  - Next slice outcome: validator that checks traceability matrix, RFC acceptance, architecture
+    tracker status, unsupported paths, and security/provenance evidence.
+  - User-visible surface: release readiness script/report, docs.
+  - Implementation scope: release scripts, contract tests, docs.
+  - Evidence required: release/security/provenance refs, no-fallback refs, architecture review refs.
+  - Acceptance: release gate fails closed when global review unchecked items or missing evidence block
+    a claim.
+  - Verification: release readiness metadata tests, release security gate tests, default GAR
+    verification.
+  - Non-goals: no publication, tags, secrets, or package upload.
+  - Fallback/claim boundary: no final release/public claim.
+  - Dependencies/blockers: every required claim/evidence slice.
+- [ ] GAR-0043-B publication attestation and final release rehearsal
+  - Source: RFC 0043; RFC 0024; release provenance docs.
+  - Current state: dry-run/provenance scaffolding exists; actual publication and final attestation
+    are not performed.
+  - Next slice outcome: no-publication rehearsal that proves package artifacts, checksums, SBOM,
+    attestations, and unsupported-path evidence without creating tags or uploads.
+  - User-visible surface: release rehearsal report, docs.
+  - Implementation scope: release scripts/docs/tests.
+  - Evidence required: SBOM/checksum/provenance refs, security refs, no-fallback refs.
+  - Acceptance: rehearsal produces local artifacts only and marks publication as human-approved.
+  - Verification: release provenance dry-run tests, release readiness tests.
+  - Non-goals: no package publication, tag, feedstock, marketplace, or secret use.
+  - Fallback/claim boundary: rehearsal does not authorize release claims.
+  - Dependencies/blockers: GAR-0043-A validators and GAR-0024 publication gate.
 
 ## Completed
 

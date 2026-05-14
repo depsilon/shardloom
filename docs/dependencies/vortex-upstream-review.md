@@ -142,7 +142,7 @@ executable support from older PR-specific sections that say "this PR" or
   - `arrow-ipc 58.2.0` for Arrow IPC reads/writes.
   - `arrow-avro 58.2.0` for Avro reads/writes.
   - `orc-rust 0.8.0` for ORC reads/writes.
-  - `arrow-array 58.2.0` and `arrow-schema 58.2.0` for Arrow boundary arrays and schemas.
+  - `arrow-array 58.3.0` and `arrow-schema 58.3.0` for Arrow boundary arrays and schemas.
   - `arrow-json 58.2.0` is reserved under the same gate for JSON/NDJSON boundary work; the current
     deterministic JSONL fixture parser remains local and narrow.
 - License/provenance:
