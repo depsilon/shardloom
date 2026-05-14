@@ -16,6 +16,83 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0026-R reader-backed selective-filter bridge blocker slice
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: follow through on the reader-backed primitive selective-filter bridge without
+    overstating support. The prepared/native `selective filter` row now records projected reader
+    chunks such as `metric:vortex.filter` when the filtered scan emits rows, reports no reader
+    chunks for zero-result scans, keeps filter-only `flag,value` batches unclaimed, and emits
+    deterministic bridge blockers for missing filter-column batches, encoding-specific lowering,
+    two-column predicate shape, and conjunctive selection-vector intersection.
+  - Checklist:
+    - [x] Add reader-chunk observation fields to local prepared/native scan stats and propagate them
+          into `encoded_predicate_provider_*` evidence.
+    - [x] Bump `encoded_predicate_provider` schema to `v2` and add bridge-specific status,
+          blocker, filter-column batch, projected-output batch, predicate-shape,
+          selection-vector-intersection, and kernel-input-lowering fields.
+    - [x] Preserve `operator_execution_class=residual_native`,
+          `encoded_predicate_provider_encoded_native_claim_allowed=false`,
+          `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - [x] Replace GAR-0026-R in the Planned queue with GAR-0026-S, the next concrete
+          filter-column batch and conjunctive selection-vector bridge slice.
+  - Boundary:
+    - This is a deterministic blocker/evidence slice. It does not implement the encoded predicate
+      runtime bridge, claim encoded-native predicate execution, add SQL/DataFrame runtime, invoke a
+      Vortex query-engine integration, add external engines, add fallback execution, or make a
+      performance/superiority claim.
+  - Evidence:
+    - Correctness evidence: the existing prepared/native selective-filter test still compares the
+      native Vortex result against the compatibility-import result.
+    - Reader evidence: non-empty filtered scans report
+      `encoded_predicate_provider_reader_chunk_columns_observed=metric` and
+      `encoded_predicate_provider_reader_chunk_encoding_summary=metric:vortex.filter`; zero-result
+      scans report `encoded_predicate_provider_reader_chunk_columns_observed=none` and
+      `encoded_predicate_provider_projected_output_batch_status=blocked_no_reader_chunks_emitted_for_zero_result`.
+    - Blocker evidence:
+      `encoded_predicate_provider_filter_column_batch_status=blocked_filter_only_columns_not_observed`,
+      `encoded_predicate_provider_predicate_shape_status=blocked_multi_column_conjunction_not_represented_by_single_column_predicate_expr`,
+      `encoded_predicate_provider_selection_vector_intersection_status=blocked_no_conjunctive_selection_vector_intersection_certificate`,
+      and
+      `encoded_predicate_provider_kernel_input_lowering_status=blocked_missing_reader_generated_filter_column_batches`.
+    - Policy evidence: provider fields preserve
+      `encoded_predicate_provider_fallback_attempted=false` and
+      `encoded_predicate_provider_external_engine_invoked=false`.
+  - Vortex-first provider check:
+    - Subject area: selective-filter reader-backed encoded predicate bridge admission.
+    - Upstream Vortex concept checked: `VortexFile::scan.with_filter`,
+      `VortexFile::scan.with_projection`, reader-visible chunk encoding IDs, and existing
+      ShardLoom reader-generated prepared batch admission surfaces.
+    - Decision: `blocked_until_vortex_or_shardloom_evidence`; non-empty current scans expose
+      projected chunks such as `metric:vortex.filter`, but not reader-generated encoded value
+      batches for `flag,value` or a conjunctive selection-vector bridge.
+    - Residual handling: the row remains residual-native; external residual execution is
+      prohibited.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_runs_csv_through_local_vortex_io --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark selective_filter_zero_result_reports_no_reader_chunks_emitted --lib`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 64 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --shardloom-result-sink --no-markdown --output target\codex-gar0026r-reader-bridge-smoke.json --regenerate`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 512 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --shardloom-result-sink --no-markdown --output target\codex-gar0026r-reader-bridge-smoke-512.json --regenerate`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `git diff --check`
+    - Docs link check: no repo command found in `Cargo.toml`, `package.json`, `pyproject.toml`,
+      `docs`, `scripts`, or `.github`.
+
 - [x] Session label: GAR-0026-Q selective-filter encoded predicate provider blocker slice
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

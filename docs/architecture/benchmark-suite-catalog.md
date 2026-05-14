@@ -206,6 +206,11 @@ Vortex scan filter pushdown was requested, but it does not claim an admitted
 encoded predicate provider until reader-backed encoded value batches,
 selection-vector evidence, correctness/certificate refs, Native I/O evidence,
 materialization/decode boundaries, and no-fallback policy are attached.
+GAR-0026-R extends those fields with reader-backed bridge diagnostics: non-empty
+filtered scans observe projected chunks such as `metric:vortex.filter`,
+zero-result scans report no reader chunks, filter-only `flag,value` batches are
+not returned by the scan projection, and the two-column predicate plus
+conjunctive selection-vector bridge remains blocked.
 The current scoped `filter + projection + limit` prepared/native row is a
 residual-native fused scan path: Vortex scan filter/projection pushdown and
 bounded top-N state avoid full fact-table materialization, but the row still
