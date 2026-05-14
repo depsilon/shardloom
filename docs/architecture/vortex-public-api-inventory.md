@@ -33,6 +33,10 @@ phase note. They are not active queue state and do not override `phased-executio
   evidence carries `VortexNativeProviderBoundary` with provider kind, crate/version, API surface,
   feature gate, admission policy, certificate requirement, external-engine status, and fallback
   status.
+- Scoped native Vortex admission framing: `compute-capability-matrix` and
+  `vortex-count-benchmark` now expose the admitted `local_vortex_count_scalar` lane for local
+  Vortex scan `CountAll` to typed scalar result evidence. This admits the exact fixture-certified
+  lane only; broad source/sink/operator/workload support remains deferred.
 - Compute-provider report framing: execution certificates carry `ExecutionProviderKind` fields,
   while `VortexComputeProviderReport`, `VortexComputeProviderAlignmentReport`, and
   `VortexIntegrationBoundaryReport` keep upstream Vortex-native provider boundaries distinct from

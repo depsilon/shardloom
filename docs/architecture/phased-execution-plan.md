@@ -260,23 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-0002B native Vortex coverage admission expansion
-  - Source: RFC 0002; RFC 0042; Vortex public API inventory.
-  - Current state: native Vortex support is scoped, not universal across sources, sinks, operators,
-    and workloads.
-  - Next slice outcome: add one narrow admitted native Vortex source/operator/sink lane or a
-    deterministic blocker row if upstream/provider evidence is missing.
-  - User-visible surface: CLI execution/capability report, benchmark row, execution certificate.
-  - Implementation scope: provider admission, Vortex adapter code, benchmark harness, certificate
-    generation for the selected lane.
-  - Evidence required: correctness refs, benchmark refs, execution certificate, Native I/O
-    certificate, materialization/decode refs, policy/no-fallback refs.
-  - Acceptance: the lane is either supported with evidence or blocked with deterministic diagnostics;
-    no ambiguous partial support.
-  - Verification: focused Vortex adapter tests, benchmark smoke, `cargo test --workspace --all-targets`.
-  - Non-goals: no broad universal Vortex support.
-  - Fallback/claim boundary: claim only the exact admitted lane.
-  - Dependencies/blockers: upstream Vortex API/version evidence.
 - [ ] GAR-0031A Native I/O envelope source/sink coverage matrix
   - Source: RFC 0031; universal input contract; Vortex runtime utilization audit.
   - Current state: Native I/O envelope evidence exists for current local lanes, but not for

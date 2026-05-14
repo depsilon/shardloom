@@ -686,6 +686,41 @@ class OperatorFamilyCoverageRow:
 
 
 @dataclass(frozen=True, slots=True)
+class NativeVortexAdmissionLane:
+    """One scoped native Vortex provider-admission lane."""
+
+    lane_id: str
+    source_surface: str
+    operator_surface: str
+    sink_surface: str
+    admission_status: str
+    support_status: str
+    execution_mode: str
+    provider_kind: str
+    provider_api_surface: tuple[str, ...]
+    provider_crate: str
+    provider_version: str
+    feature_gate: str
+    shardloom_admission_policy: str
+    compute_row_ref: str
+    benchmark_ref: str
+    correctness_refs: tuple[str, ...]
+    execution_certificate_refs: tuple[str, ...]
+    native_io_refs: tuple[str, ...]
+    materialization_decode_refs: tuple[str, ...]
+    policy_refs: tuple[str, ...]
+    required_future_evidence: tuple[str, ...]
+    claim_gate_status: str
+    claim_boundary: str
+    residual_executor: str
+    vortex_native_claim_allowed: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    object_store_io: bool
+    write_io: bool
+
+
+@dataclass(frozen=True, slots=True)
 class NativeUnsupportedCoverageRow:
     """One deterministic unsupported native coverage row in the compute matrix."""
 
@@ -795,6 +830,95 @@ class ComputeCapabilityMatrix:
                     family_id=family_id,
                     support_status=_required_field(self.envelope, f"{prefix}support_status"),
                     next_evidence=_csv_values(self.envelope.field(f"{prefix}next_evidence")),
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def native_vortex_admission_status(self) -> str:
+        """Return the scoped native Vortex admission status."""
+
+        return _required_field(self.envelope, "native_vortex_admission_status")
+
+    @property
+    def native_vortex_admission_lanes(self) -> tuple[NativeVortexAdmissionLane, ...]:
+        """Return scoped native Vortex provider-admission lanes."""
+
+        rows: list[NativeVortexAdmissionLane] = []
+        for lane_id in _csv_values(self.envelope.field("native_vortex_admission_lane_order")):
+            prefix = f"native_vortex_admission_lane_{lane_id}_"
+            rows.append(
+                NativeVortexAdmissionLane(
+                    lane_id=lane_id,
+                    source_surface=_required_field(self.envelope, f"{prefix}source_surface"),
+                    operator_surface=_required_field(
+                        self.envelope,
+                        f"{prefix}operator_surface",
+                    ),
+                    sink_surface=_required_field(self.envelope, f"{prefix}sink_surface"),
+                    admission_status=_required_field(
+                        self.envelope,
+                        f"{prefix}admission_status",
+                    ),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    execution_mode=_required_field(self.envelope, f"{prefix}execution_mode"),
+                    provider_kind=_required_field(self.envelope, f"{prefix}provider_kind"),
+                    provider_api_surface=_csv_values(
+                        self.envelope.field(f"{prefix}provider_api_surface")
+                    ),
+                    provider_crate=_required_field(self.envelope, f"{prefix}provider_crate"),
+                    provider_version=_required_field(self.envelope, f"{prefix}provider_version"),
+                    feature_gate=_required_field(self.envelope, f"{prefix}feature_gate"),
+                    shardloom_admission_policy=_required_field(
+                        self.envelope,
+                        f"{prefix}shardloom_admission_policy",
+                    ),
+                    compute_row_ref=_required_field(self.envelope, f"{prefix}compute_row_ref"),
+                    benchmark_ref=_required_field(self.envelope, f"{prefix}benchmark_ref"),
+                    correctness_refs=_csv_values(
+                        self.envelope.field(f"{prefix}correctness_refs")
+                    ),
+                    execution_certificate_refs=_csv_values(
+                        self.envelope.field(f"{prefix}execution_certificate_refs")
+                    ),
+                    native_io_refs=_csv_values(self.envelope.field(f"{prefix}native_io_refs")),
+                    materialization_decode_refs=_csv_values(
+                        self.envelope.field(f"{prefix}materialization_decode_refs")
+                    ),
+                    policy_refs=_csv_values(self.envelope.field(f"{prefix}policy_refs")),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(self.envelope, f"{prefix}claim_boundary"),
+                    residual_executor=_required_field(
+                        self.envelope,
+                        f"{prefix}residual_executor",
+                    ),
+                    vortex_native_claim_allowed=self.envelope.field_bool(
+                        f"{prefix}vortex_native_claim_allowed",
+                        False,
+                    )
+                    is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                    object_store_io=self.envelope.field_bool(
+                        f"{prefix}object_store_io",
+                        True,
+                    )
+                    is True,
+                    write_io=self.envelope.field_bool(f"{prefix}write_io", True) is True,
                 )
             )
         return tuple(rows)

@@ -4995,6 +4995,37 @@ def run_shardloom_count_microbenchmark(
         "timing_scope": "in-command repeated local encoded count",
         "comparison_status": fields.get("comparison_status"),
         "claim_gate_status": fields.get("claim_gate_status"),
+        "native_vortex_admission_lane_ref": fields.get(
+            "native_vortex_admission_lane_ref"
+        ),
+        "native_vortex_admission_status": fields.get("native_vortex_admission_status"),
+        "native_vortex_admission_support_status": fields.get(
+            "native_vortex_admission_support_status"
+        ),
+        "native_vortex_admission_provider_kind": fields.get(
+            "native_vortex_admission_provider_kind"
+        ),
+        "native_vortex_admission_claim_boundary": fields.get(
+            "native_vortex_admission_claim_boundary"
+        ),
+        "native_vortex_admission_lane_claim_allowed": fields.get(
+            "native_vortex_admission_lane_claim_allowed"
+        ),
+        "native_vortex_admission_execution_certificate_refs": fields.get(
+            "native_vortex_admission_execution_certificate_refs"
+        ),
+        "native_vortex_admission_native_io_refs": fields.get(
+            "native_vortex_admission_native_io_refs"
+        ),
+        "native_vortex_admission_materialization_decode_refs": fields.get(
+            "native_vortex_admission_materialization_decode_refs"
+        ),
+        "native_vortex_admission_fallback_attempted": fields.get(
+            "native_vortex_admission_fallback_attempted"
+        ),
+        "native_vortex_admission_external_engine_invoked": fields.get(
+            "native_vortex_admission_external_engine_invoked"
+        ),
         "data_read": fields.get("data_read"),
         "data_decoded": fields.get("data_decoded"),
         "data_materialized": fields.get("data_materialized"),
@@ -6214,6 +6245,10 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
                 str(result.get("filter_pushdown_applied", "n/a")),
                 str(result.get("projection_pushdown_applied", "n/a")),
                 str(result.get("materialization_boundary_reported", "n/a")),
+                str(result.get("native_vortex_admission_lane_ref", "n/a")),
+                str(result.get("native_vortex_admission_status", "n/a")),
+                str(result.get("native_vortex_admission_provider_kind", "n/a")),
+                str(result.get("native_vortex_admission_claim_boundary", "n/a")),
                 str(result.get("fallback_attempted", "n/a")),
                 str(result.get("claim_gate_status", "n/a")),
             ]
@@ -6223,6 +6258,10 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
             [
                 "not run",
                 "skipped",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
                 "n/a",
                 "n/a",
                 "n/a",
@@ -6249,6 +6288,10 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
             "Filter pushdown",
             "Projection pushdown",
             "Boundary",
+            "Native lane",
+            "Admission",
+            "Provider",
+            "Native claim boundary",
             "Fallback",
             "Claim gate",
         ],
