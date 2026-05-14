@@ -225,8 +225,9 @@ format. The row records `preparation_millis`, `preparation_included_in_timing`,
 `prepared_artifact_ref`, `prepared_artifact_digest`, `execution_mode=prepared_vortex`,
 and the current materialization/scan evidence. The scoped `selective filter`, `wide projection`,
 `filter + projection + limit`, `group by aggregation`, `multi-key group by`, `hash join`, and
-`join + aggregate`, `sort and top-k`, `top-N per group`, `row number window`, and
-`high-cardinality string group/distinct`, plus scoped local `partition pruning`, prepared/native
+`join + aggregate`, `sort and top-k`, `top-N per group`, `row number window`,
+`high-cardinality string group/distinct`, and `distinct count`, plus scoped local
+`partition pruning`, prepared/native
 paths use Vortex scan filter/projection pushdown where applicable and avoid full fact-table
 materialization; other benchmark operators still materialize Vortex-derived arrays after scan.
 These rows are not broad SQL/DataFrame performance claims.
@@ -266,7 +267,8 @@ state.
 `top-N per group` now scans projected `group_key`/`id`/`metric` columns into bounded
 ShardLoom-native per-group ranking state. `row number window` uses the same projected scan boundary
 with bounded rank-1 per-group state. `high-cardinality string group/distinct` scans projected
-`category`/`metric` columns into ShardLoom-native string grouping state. `partition pruning` scans
+`category`/`metric` columns into ShardLoom-native string grouping state. `distinct count` scans only
+the projected `category` column into ShardLoom-native distinct state. `partition pruning` scans
 projected `event_date`/`metric` columns with a Vortex date-range filter before ShardLoom-native
 residual scalar aggregation; it is not an object-store partition-pruning, layout-pruning, or
 statistics-pruning claim. None of these paths are encoded-native operator claims.

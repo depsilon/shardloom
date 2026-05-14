@@ -337,19 +337,29 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no sketch runtime implementation in this admission slice.
   - Fallback/claim boundary: no approximate aggregate accuracy/performance claim.
   - Dependencies/blockers: exact-reference fixture design.
-- [ ] GAR-0021-B operator/kernel coverage expansion slice
-  - Source: RFC 0021; physical operator kernel contracts; Vortex runtime utilization audit.
-  - Current state: narrow kernels exist; full function/kernel coverage does not.
-  - Next slice outcome: implement or block one concrete operator/kernel family with evidence.
-  - User-visible surface: CLI kernel registry/capability report, benchmark row if executable.
-  - Implementation scope: kernel registry, one kernel or deterministic blocker, tests.
-  - Evidence required: correctness refs, benchmark refs if executed, execution certificate, Native
-    I/O refs, materialization/decode refs, no-fallback refs.
-  - Acceptance: selected family has support status, diagnostics, and evidence.
-  - Verification: focused kernel tests, correctness fixtures, `cargo test --workspace --all-targets`.
-  - Non-goals: no UDF/effectful execution.
-  - Fallback/claim boundary: claim only the selected kernel family.
-  - Dependencies/blockers: GAR-FLOW-2B blocker matrix.
+- [ ] GAR-0021-C null-heavy aggregate prepared/native residual runtime slice
+  - Source: RFC 0021; RFC 0026; physical operator kernel contracts; traditional analytics benchmark
+    suite.
+  - Current state: distinct count now has a prepared/native projected Vortex scan; null-heavy
+    aggregate still uses the materialized table path for prepared/native rows.
+  - Next slice outcome: scan only `nullable_metric_00` from local Vortex artifacts, ignore empty/null
+    values, parse remaining values, and aggregate count/sum without full fact-table materialization.
+  - User-visible surface: `traditional-analytics-vortex-run`, prepared/native benchmark rows,
+    operator blocker matrix, docs.
+  - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, focused tests, benchmark
+    docs, compute-flow docs, GAR/traceability docs.
+  - Evidence required: correctness refs from tiny and generated fixtures; benchmark refs if emitted;
+    Native I/O materialization/decode refs; operator blocker refs; no-fallback refs.
+  - Acceptance: native/prepared null-heavy rows report projected Vortex scan evidence,
+    `data_materialized=false`, `operator_execution_class=residual_native`,
+    `operator_encoded_native_claim_allowed=false`, and no fallback/external engine invocation.
+  - Verification: feature-gated `shardloom-vortex` focused test, focused CLI/benchmark smoke if
+    touched, `cargo fmt --all -- --check`, `cargo test --workspace --all-targets`,
+    `python -m compileall -q python/src python/tests scripts examples`, `git diff --check`.
+  - Non-goals: no encoded-native aggregate claim, no SQL/DataFrame runtime, no object-store/table
+    runtime, no external engines, no performance/superiority claim.
+  - Fallback/claim boundary: claim only the scoped local prepared/native null-heavy residual path.
+  - Dependencies/blockers: none beyond existing local Vortex scan support.
 - [ ] GAR-0038-A facade compatibility and legacy boundary matrix
   - Source: RFC 0038; top-level plan/execution facade docs; typed envelope docs.
   - Current state: top-level plan/execution facade exists, but SQL/DataFrame runtime, object-store

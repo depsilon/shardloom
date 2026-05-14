@@ -62,7 +62,7 @@ base-plus-delta hybrid overlays.
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and scoped in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and scoped in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. |
 | Streaming/zero-copy/backpressure | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, and `capabilities engines` expose a GAR-0013 matrix for local fixture evidence, object-store streaming read blockers, zero-decode, zero-copy/materialization boundaries, bounded backpressure, and live/hybrid broker runtime blockers. | Object-store streaming reads, durable broker adapters, runtime backpressure enforcement, broader operator/source/sink evidence, and claim-grade workload certification. |
-| Prepared/native Vortex runtime | Scoped residual-native paths now avoid full fact-table materialization for selected local benchmark scenarios, including local global sort/top-k and partition-pruning/date-range scan evidence. CPU specialization reporting now records side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work follows the phase-plan queue for kernel, source-backed API, facade, and evidence-gated expansion; encoded-native, SIMD dispatch, and performance claims remain evidence-gated. |
+| Prepared/native Vortex runtime | Scoped residual-native paths now avoid full fact-table materialization for selected local benchmark scenarios, including local distinct-count, global sort/top-k, and partition-pruning/date-range scan evidence. CPU specialization reporting now records side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work follows the phase-plan queue for kernel, source-backed API, facade, and evidence-gated expansion; encoded-native, SIMD dispatch, and performance claims remain evidence-gated. |
 
 ## Current State
 
@@ -91,7 +91,8 @@ Currently wired surfaces include:
 - scoped prepared/native Vortex query paths for `selective filter`, `wide projection`,
   `filter + projection + limit`, `group by aggregation`, `multi-key group by`, `hash join`, and
   `join + aggregate`, `sort and top-k`, `top-N per group`, `row number window`, and
-  `high-cardinality string group/distinct`, plus scoped local `partition pruning` date-range scans;
+  `high-cardinality string group/distinct`, `distinct count`, plus scoped local `partition pruning`
+  date-range scans;
   these avoid full
   fact-table materialization for the prepared/native row while remaining residual-native, not
   encoded-native operator claims
