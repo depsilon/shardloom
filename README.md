@@ -73,9 +73,9 @@ Currently wired surfaces include:
 - explicit execution-mode evidence for `compatibility_import_certified`, `prepared_vortex`,
   `native_vortex`, `direct_compatibility_transient`, and `auto`
 - scoped prepared/native Vortex query paths for `selective filter`, `wide projection`,
-  `filter + projection + limit`, and `group by aggregation`; these avoid full fact-table
-  materialization for the prepared/native row while remaining residual-native, not encoded-native
-  operator claims
+  `filter + projection + limit`, `group by aggregation`, and `multi-key group by`; these avoid full
+  fact-table materialization for the prepared/native row while remaining residual-native, not
+  encoded-native operator claims
 - batch/live/hybrid engine-mode contracts through `engine-selection-plan`,
   `engine-capability-matrix`, `live-change-contract-plan`, Python context helpers, and scoped
   in-memory `live-fixture-run` / `hybrid-overlay-run` fixture reports
@@ -102,8 +102,8 @@ contracts, and scoped in-memory fixture reports with certificate fields and
 `fallback_attempted=false`. They are not yet broker-backed, object-store-backed, or production
 live/hybrid engines.
 
-The next prepared/native runtime work is intentionally concrete: multi-key grouped aggregation,
-then scoped local hash-join streaming paths, with encoded-native, production, SQL/DataFrame,
+The next prepared/native runtime work is intentionally concrete: scoped local hash-join streaming,
+then join-aggregate and other stateful paths, with encoded-native, production, SQL/DataFrame,
 object-store, and performance claims still gated by workload evidence.
 
 ## Core Concepts

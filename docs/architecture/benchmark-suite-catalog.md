@@ -206,7 +206,9 @@ sets `operator_encoded_native_claim_allowed=false`. The scoped `group by
 aggregation` prepared/native row now also uses Vortex scan projection pushdown
 over `group_key`/`metric` and ShardLoom-native grouped residual state without
 full fact-table materialization; it is likewise not an encoded-native operator
-claim.
+claim. The scoped `multi-key group by` prepared/native row extends that
+residual-native pattern to composite `group_key`/`category` state after
+projection pushdown over `group_key`/`category`/`metric`.
 `compute-capability-matrix` exposes the same class vocabulary and per-row
 operator class/blocker fields so CLI capability discovery matches benchmark
 evidence.

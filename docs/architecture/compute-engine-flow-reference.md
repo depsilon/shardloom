@@ -300,7 +300,7 @@ hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, obj
 
 Planned updates are carried in the phase plan, especially `GAR-0034-A` for live/hybrid fabric
 blockers and freshness gates. The next runtime-focused updates before broad engine expansion are the
-prepared/native Vortex paths: multi-key grouped aggregation and scoped local hash-join streaming.
+prepared/native Vortex paths: scoped local hash-join streaming, then join-aggregate/stateful paths.
 
 ### View 5 - I/O, Evidence, And Downstream Use
 
@@ -1037,7 +1037,9 @@ residual-native fused scan path. It uses Vortex scan filter/projection pushdown
 and bounded top-N state to avoid full fact-table materialization. `group by
 aggregation` now also has a prepared/native residual-native scan path using
 projection pushdown over `group_key`/`metric` and ShardLoom-native grouped
-state. Neither path is an encoded-native operator claim, and both still carry
+state. `multi-key group by` extends that path to composite `group_key`/`category`
+residual state after projection pushdown over `group_key`/`category`/`metric`.
+None of these paths are encoded-native operator claims, and they still carry
 `operator_encoded_native_claim_allowed=false`.
 
 ## What Codex Should Optimize Toward

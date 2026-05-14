@@ -434,40 +434,13 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no UDF/effectful execution.
   - Fallback/claim boundary: claim only the selected kernel family.
   - Dependencies/blockers: GAR-FLOW-2B blocker matrix.
-- [ ] GAR-0026-C prepared/native multi-key group-by streaming runtime path
-  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-A and
-    GAR-0026-B.
-  - Current state: prepared/native `selective filter`, `wide projection`,
-    `filter + projection + limit`, and `group by aggregation` have scoped Vortex scan paths.
-    `multi-key group by` still materializes Vortex-derived tables before ShardLoom-native
-    aggregation.
-  - Next slice outcome: implement a scoped prepared/native Vortex scan path for `multi-key group by`
-    that projects only grouping/metric columns and aggregates through ShardLoom-native composite-key
-    group state without full fact-table materialization, or emit a deterministic unsupported
-    diagnostic if an evidence requirement is missing.
-  - User-visible surface: `traditional-analytics-vortex-run`, benchmark prepared/native rows,
-    stage timing fields, operator blocker matrix, docs.
-  - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, focused Vortex
-    traditional analytics tests, benchmark docs/contracts if emitted fields change.
-  - Evidence required: correctness refs, benchmark refs, execution certificate refs, Native I/O
-    refs, materialization/decode refs, policy/no-fallback refs.
-  - Acceptance: selected path reports `streaming_vortex_execution_used=true`,
-    `full_table_materialization_avoided=true`, projected columns, `data_materialized=false` for
-    prepared/native source-table materialization, `fallback_attempted=false`,
-    `external_engine_invoked=false`, and a residual-native claim boundary.
-  - Verification: focused Vortex traditional analytics test, benchmark harness contract tests,
-    `cargo test --workspace --all-targets`.
-  - Non-goals: no encoded-native grouped aggregate claim, no SQL/DataFrame planner, no object-store
-    execution, no join runtime, no broad compressed-execution claim.
-  - Fallback/claim boundary: production and encoded-native claims remain not claim-grade unless
-    workload-scoped gates attach evidence.
-  - Dependencies/blockers: composite-key semantic fixture coverage and operator memory/spill
-    evidence.
 - [ ] GAR-0026-D prepared/native hash-join streaming runtime path
-  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-B.
-  - Current state: fact-only prepared/native paths are becoming streaming/residual-native, but
-    `hash join` and `join aggregate` still materialize Vortex-derived fact and dimension tables
-    before ShardLoom-native execution.
+  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-B and
+    GAR-0026-C.
+  - Current state: fact-only prepared/native paths now cover `selective filter`, `wide projection`,
+    `filter + projection + limit`, `group by aggregation`, and `multi-key group by`, but `hash
+    join` and `join aggregate` still materialize Vortex-derived fact and dimension tables before
+    ShardLoom-native execution.
   - Next slice outcome: implement one scoped prepared/native local Vortex hash-join path that scans
     only required fact/dimension columns, builds bounded ShardLoom-native dimension state, streams
     fact rows through the join, and avoids full fact-table materialization, or emit deterministic
