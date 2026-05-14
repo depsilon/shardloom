@@ -507,6 +507,15 @@ plan before coding.
   decode/materialization, records `flag:fastlanes.bitpacked` and `value:vortex.sequence`, and keeps
   the conjunctive bridge blocked before selection-vector intersection until those encodings have
   admitted kernel-input lowering and certificates.
+- [x] GAR-0026-U adds scoped encoding-specific lowering for observed `flag:fastlanes.bitpacked` and
+  `value:vortex.sequence` filter-column chunks. Prepared/native `selective filter` rows can now
+  report `encoded_predicate_provider_kernel_input_count=2`,
+  `encoded_predicate_provider_conjunctive_bridge_status=intersected_selection_vectors`, and
+  `encoded_predicate_provider_selection_vector_intersection_status=selection_vectors_intersected`
+  while preserving `encoded_predicate_provider_operator_execution_class=residual_native`,
+  `encoded_predicate_provider_encoded_native_claim_allowed=false`, `fallback_attempted=false`, and
+  `external_engine_invoked=false` until selected metric aggregation consumes the admitted selection
+  vector end to end.
 - [x] Scoped prepared/native `partition pruning` uses Vortex scan projection/filter pushdown over
   `event_date`/`metric` with a local date-range predicate, then ShardLoom-native residual scalar
   aggregation without full fact-table materialization while preserving

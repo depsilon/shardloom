@@ -96,7 +96,7 @@ or claim.
 | --- | --- | --- | --- |
 | User access | CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces and thin adapters are report-only or planned. | Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope. | No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
-| Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, top-N, row-number, high-cardinality string group/distinct, and partition-pruning/date-range scans avoid full fact-table materialization in prepared/native rows. Prepared/native rows now emit explicit `source_backed_scan_*` evidence for local source roles, projected columns, residual executor, Native I/O certificate status, materialization boundary, and no-fallback status. Selective-filter rows also emit `encoded_predicate_provider_*` v4 blockers, record projected reader chunks such as `metric:vortex.filter`, separately capture real `flag,value` reader chunks without decode/materialization, and expose the reader-generated conjunctive selection-vector bridge contract while keeping benchmark rows blocked on encoding-specific kernel-input lowering for `flag:fastlanes.bitpacked` and `value:vortex.sequence`. CPU specialization reports record side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work is encoding-specific kernel-input lowering for the observed filter-column encodings, then selected-metric aggregation over admitted selection vectors. | These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, distributed sort, SIMD-dispatch, object-store pruning, layout/statistics pruning, broad CDC/table transactions, or broad performance claims. |
+| Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, top-N, row-number, high-cardinality string group/distinct, and partition-pruning/date-range scans avoid full fact-table materialization in prepared/native rows. Prepared/native rows now emit explicit `source_backed_scan_*` evidence for local source roles, projected columns, residual executor, Native I/O certificate status, materialization boundary, and no-fallback status. Selective-filter rows also emit `encoded_predicate_provider_*` v4 fields, record projected reader chunks such as `metric:vortex.filter`, separately capture real `flag,value` reader chunks without decode/materialization, lower observed `flag:fastlanes.bitpacked` and `value:vortex.sequence` chunks into admitted reader-generated encoded kernel inputs, and intersect their selection vectors. The row stays residual-native because selected metric aggregation does not yet consume that admitted selection vector end to end. CPU specialization reports record side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work is selected-metric aggregation over admitted selection vectors. | These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, distributed sort, SIMD-dispatch, object-store pruning, layout/statistics pruning, broad CDC/table transactions, or broad performance claims. |
 | Batch engine mode | Bounded/snapshot local Vortex analytics are the practical execution foundation. | Broader operator/source/sink coverage plus correctness and benchmark claim gates. | Batch support is scoped to evidence-backed workloads. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. | Fixture evidence only; no production live claim. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. | Fixture evidence only; no production hybrid, object-store, or table-commit claim. |
@@ -222,7 +222,7 @@ flowchart TD
     DIRECT_BOUNDARY["Transient compatibility boundary<br/>no persistent Vortex artifact"]
 
     PROVIDER["Provider admission<br/>Vortex provider / ShardLoom kernel / diagnostic"]
-    SELECTIVE_BLOCKER["Selective-filter encoded predicate provider<br/>current blocker until reader-backed evidence"]
+    SELECTIVE_BLOCKER["Selective-filter encoded predicate provider<br/>admitted filter inputs; metric aggregation pending"]
 
     REQUESTED --> AUTO --> SELECTED
     REQUESTED --> COMPAT
@@ -550,7 +550,7 @@ Current selective-filter provider posture:
 ```text
 source_backed_scan_provider_kind=vortex_file_projected_scan
 source_backed_scan_projected_columns=metric
-encoded_predicate_provider_status=blocked_until_reader_generated_kernel_input_certificate
+encoded_predicate_provider_status=reader_generated_filter_column_batches_admitted
 encoded_predicate_provider_filter_only_columns=flag,value
 encoded_predicate_provider_projected_output_columns=metric
 encoded_predicate_provider_filter_column_probe_requested=true
@@ -558,31 +558,32 @@ encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed=fla
 encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary=flag:fastlanes.bitpacked,value:vortex.sequence
 encoded_predicate_provider_filter_column_probe_data_decoded=false
 encoded_predicate_provider_conjunctive_bridge_schema_version=shardloom.vortex_reader_generated_conjunctive_selection_vector_bridge.v1
-encoded_predicate_provider_conjunctive_bridge_status=blocked_prepared_batch_validation
+encoded_predicate_provider_conjunctive_bridge_status=intersected_selection_vectors
+encoded_predicate_provider_conjunctive_bridge_selected_row_count=31
 encoded_predicate_provider_reader_chunk_columns_observed=metric
 encoded_predicate_provider_reader_chunk_encoding_summary=metric:vortex.filter
-encoded_predicate_provider_reader_backed_bridge_status=bridge_available_blocked_filter_column_kernel_inputs_not_lowered
+encoded_predicate_provider_reader_backed_bridge_status=bridge_consumed_reader_generated_filter_column_kernel_inputs
 encoded_predicate_provider_predicate_shape_status=conjunctive_predicate_shape_supported_by_reader_generated_bridge
-encoded_predicate_provider_selection_vector_intersection_status=bridge_blocked_before_selection_vector_intersection
-encoded_predicate_provider_kernel_input_lowering_status=blocked_missing_encoding_specific_kernel_input_lowering
+encoded_predicate_provider_filter_column_batch_status=admitted_filter_column_kernel_inputs
+encoded_predicate_provider_kernel_input_count=2
+encoded_predicate_provider_selection_vector_intersection_status=selection_vectors_intersected
+encoded_predicate_provider_kernel_input_lowering_status=reader_generated_encoded_kernel_inputs_admitted
+encoded_predicate_provider_operator_execution_class=residual_native
 encoded_predicate_provider_encoded_native_claim_allowed=false
 encoded_predicate_provider_fallback_attempted=false
 encoded_predicate_provider_external_engine_invoked=false
 ```
 
-This records that the local Vortex scan path can request filter pushdown and can separately project
-real `flag,value` reader chunks without decode/materialization, but it is not yet an admitted
-encoded predicate provider. GAR-0026-S adds a ShardLoom-native bridge that can intersect per-column
-reader-generated encoded predicate selection vectors when admitted encoded kernel inputs are
-supplied. GAR-0026-T proves the benchmark can capture filter-column chunks, but the observed
-`fastlanes.bitpacked` and `vortex.sequence` encodings still need encoding-specific lowering before
-the bridge can consume them. Non-empty filtered benchmark scans expose projected output chunks such
-as `metric:vortex.filter`; zero-result scans report
+This records that the local Vortex scan path can request filter pushdown, separately project real
+`flag,value` reader chunks without decode/materialization, lower the observed `fastlanes.bitpacked`
+and `vortex.sequence` chunks into ShardLoom-owned encoded kernel inputs, and intersect their
+reader-generated selection vectors. Non-empty filtered benchmark scans expose projected output
+chunks such as `metric:vortex.filter`; zero-result scans report
 `encoded_predicate_provider_reader_chunk_columns_observed=none` and
 `encoded_predicate_provider_projected_output_batch_status=blocked_no_reader_chunks_emitted_for_zero_result`.
-In both cases, the filter-column probe still observes `flag,value`, but encoding-specific
-kernel-input lowering, certificates, materialization/decode boundaries, and no-fallback policy must
-land before any encoded-native predicate claim is allowed.
+In both cases, encoded-native and performance claims remain blocked because selected metric
+aggregation still does not consume the admitted selection vector end to end, and unsupported or
+changed encodings must continue to return deterministic no-fallback diagnostics.
 
 ## Mode 3 - `native_vortex`
 

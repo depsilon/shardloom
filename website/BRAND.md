@@ -13,4 +13,8 @@ Use ShardLoom brand assets accurately and avoid misleading uses, including:
   lakehouse, or Foundry claims,
 - using modified marks in a way that confuses users about the source or maturity of the project.
 
-Future committed logo and icon files should live under `website/assets/logo/`.
+Committed logo and icon files live under `website/assets/logo/`:
+
+- `shardloom-logo.png`
+- `shardloom-logo-trim.png`
+- `shardloom-favicon.png`

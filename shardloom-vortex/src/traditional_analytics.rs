@@ -2845,7 +2845,7 @@ fn encoded_predicate_provider_fields(
     let selective_filter = report.scenario == TraditionalAnalyticsScenario::SelectiveFilter;
     let scenario_slug = report.scenario.as_str().replace(['/', ' ', '+'], "-");
     let report_id = format!(
-        "gar-0026t.encoded_predicate_provider.{}.{}",
+        "gar-0026u.encoded_predicate_provider.{}.{}",
         report
             .execution_mode_selection
             .selected_execution_mode
@@ -2893,7 +2893,7 @@ fn encoded_predicate_provider_fields(
             "filter_column_batches_observed_kernel_input_lowering_blocked",
             "selective_filter.flag_eq_1_and_value_gte_5000",
             "flag,value",
-            "gar-0026t.reader_generated_kernel_input_lowering_missing",
+            "gar-0026u.reader_generated_kernel_input_lowering_unsupported_encoding",
             "The scoped local Vortex scan can project flag,value filter-column reader chunks without decode/materialization, but their current encodings are not yet lowered into admitted encoded kernel inputs for the conjunctive bridge.",
             "encoding_specific_kernel_input_lowering_from_vortex_reader_chunks;selective_filter_correctness_fixture;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy",
             "filter-column reader-batch capture evidence only; no encoded predicate provider/runtime/performance claim until kernel inputs and selected metric aggregation are certified",
@@ -2966,9 +2966,9 @@ fn encoded_predicate_provider_fields(
     let bridge_blocker_ids = if selective_filter && bridge_intersected {
         "none"
     } else if selective_filter && filter_columns_observed {
-        "gar-0026t.filter_column_kernel_inputs_not_lowered;gar-0026t.selected_metric_aggregation_not_selection_vector_backed"
+        "gar-0026u.filter_column_kernel_inputs_not_admitted;gar-0026u.selected_metric_aggregation_not_selection_vector_backed"
     } else if selective_filter {
-        "gar-0026t.filter_columns_not_returned_by_scan_projection;gar-0026t.reader_generated_filter_column_inputs_missing;gar-0026t.encoding_specific_filter_column_lowering_missing;gar-0026t.projected_output_filter_array_not_filter_column_input"
+        "gar-0026t.filter_columns_not_returned_by_scan_projection;gar-0026t.reader_generated_filter_column_inputs_missing;gar-0026u.encoding_specific_filter_column_lowering_missing;gar-0026t.projected_output_filter_array_not_filter_column_input"
     } else {
         "none"
     };
@@ -10940,6 +10940,44 @@ mod tests {
         (fact_csv, dim_csv)
     }
 
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn write_sequence_encoded_selective_filter_csv_inputs(
+        root: &std::path::Path,
+        rows: usize,
+    ) -> (PathBuf, PathBuf) {
+        use std::fmt::Write as _;
+
+        std::fs::create_dir_all(root).unwrap();
+        let fact_csv = root.join("fact.csv");
+        let dim_csv = root.join("dim.csv");
+        let mut fact = String::from(
+            "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric,dirty_flag\n",
+        );
+        for index in 0..rows {
+            let id = index + 1;
+            let group_key = index % 4;
+            let dim_key = index % 16;
+            let value = index * 17;
+            let metric_whole = index;
+            let flag = usize::from(index % 7 == 0);
+            let category = char::from(b'A' + u8::try_from(index % 4).unwrap());
+            let event_date = format!("2024-{:02}-{:02}", 1 + (index % 12), 1 + (index % 28));
+            writeln!(
+                &mut fact,
+                "{id},{group_key},{dim_key},{value},{metric_whole}.5,{flag},{category},{event_date},,{event_date}T00:00:00Z,{value},{}",
+                if flag == 1 { "Y" } else { "N" }
+            )
+            .unwrap();
+        }
+        let mut dim = String::from("dim_key,dim_label,weight\n");
+        for dim_key in 0..16 {
+            writeln!(&mut dim, "{dim_key},dim-{dim_key},1.0").unwrap();
+        }
+        std::fs::write(&fact_csv, fact).unwrap();
+        std::fs::write(&dim_csv, dim).unwrap();
+        (fact_csv, dim_csv)
+    }
+
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn fact_csv_reader_accepts_generated_profile_trailing_columns() {
@@ -10956,7 +10994,7 @@ mod tests {
 
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].category, "A");
-        assert_eq!(rows[0].metric, 2.5);
+        assert!((rows[0].metric - 2.5).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -11193,6 +11231,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[allow(clippy::too_many_lines)]
     fn small_change_over_large_base_imports_cdc_delta_fixture() {
         let root = traditional_analytics_test_root("cdc-overlay");
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
@@ -11360,6 +11399,19 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn assert_field_eq(
+        fields: &std::collections::HashMap<String, String>,
+        name: &str,
+        expected: &str,
+    ) {
+        assert_eq!(
+            fields.get(name).map(String::as_str),
+            Some(expected),
+            "{name}"
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn assert_streaming_selective_filter_import_report(report: &TraditionalAnalyticsReport) {
         assert!(report.streaming_vortex_execution_used);
         assert!(report.full_table_materialization_avoided);
@@ -11378,6 +11430,7 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[allow(clippy::too_many_lines)]
     fn assert_streaming_selective_filter_native_report(report: &TraditionalAnalyticsVortexReport) {
         assert!(report.streaming_vortex_execution_used);
         assert!(report.full_table_materialization_avoided);
@@ -11556,7 +11609,7 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_blocker_id")
                 .map(String::as_str),
-            Some("gar-0026t.reader_generated_kernel_input_lowering_missing")
+            Some("gar-0026u.reader_generated_kernel_input_lowering_unsupported_encoding")
         );
         assert_eq!(
             fields
@@ -11704,6 +11757,7 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn direct_transient_csv_smoke_runs_without_vortex_persistence() {
         let root = traditional_analytics_test_root("direct-transient-csv");
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
@@ -11843,6 +11897,7 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn enabled_build_runs_csv_through_local_vortex_io() {
         let root = traditional_analytics_test_root("csv");
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
@@ -12076,6 +12131,104 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    #[allow(clippy::too_many_lines)]
+    fn selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns() {
+        let root = traditional_analytics_test_root("csv-selective-encoded");
+        let (fact_csv, dim_csv) = write_sequence_encoded_selective_filter_csv_inputs(&root, 512);
+        let report = run_traditional_analytics_benchmark(TraditionalAnalyticsRequest::new(
+            TraditionalAnalyticsScenario::SelectiveFilter,
+            fact_csv,
+            dim_csv,
+            root.join("workspace"),
+        ))
+        .unwrap();
+        assert_eq!(
+            report.result_json,
+            "{\"row_count\":31,\"metric_sum\":12601.5}"
+        );
+
+        let prepared_report = run_traditional_analytics_vortex_benchmark(
+            TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                report.fact_vortex_path.clone(),
+                report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+        let fields = field_map(prepared_report.fields());
+
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary",
+            "flag:fastlanes.bitpacked,value:vortex.sequence",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_status",
+            "reader_generated_filter_column_batches_admitted",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_classification",
+            "reader_generated_filter_column_kernel_inputs_admitted",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_kernel_input_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_conjunctive_bridge_status",
+            "intersected_selection_vectors",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_conjunctive_bridge_selected_row_count",
+            "31",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_filter_column_batch_status",
+            "admitted_filter_column_kernel_inputs",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selection_vector_intersection_status",
+            "selection_vectors_intersected",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_kernel_input_lowering_status",
+            "reader_generated_encoded_kernel_inputs_admitted",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_operator_execution_class",
+            "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_encoded_native_claim_allowed",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_external_engine_invoked",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
     fn selective_filter_zero_result_reports_no_reader_chunks_emitted() {
         let root = traditional_analytics_test_root("csv-zero-selective");
         let (fact_csv, dim_csv) = write_zero_match_traditional_csv_inputs(&root);
@@ -12149,6 +12302,7 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn expanded_taxonomy_scenarios_run_against_local_vortex_outputs() {
         let root = traditional_analytics_test_root("expanded-taxonomy");
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
@@ -12507,6 +12661,7 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn enabled_sort_top_k_uses_prepared_native_vortex_scan() {
         let root = traditional_analytics_test_root("sort-top-k");
         std::fs::create_dir_all(&root).unwrap();
@@ -13629,6 +13784,7 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn computed_result_vortex_sink_writes_and_replays_result_artifact() {
         let root = traditional_analytics_test_root("result-sink");
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);

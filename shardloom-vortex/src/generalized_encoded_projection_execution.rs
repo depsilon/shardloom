@@ -738,13 +738,7 @@ fn projected_row_count(
     let mut total = 0_u64;
     let mut saw_batch = false;
     for batch in &projection_evidence.projected_batches {
-        let row_count = match &batch.values {
-            EncodedValueBatch::Constant { row_count, .. } => Some(*row_count),
-            EncodedValueBatch::Dictionary { codes, .. } => u64::try_from(codes.len()).ok(),
-            EncodedValueBatch::RunLength { runs } => {
-                Some(runs.iter().map(|run| run.len).sum::<u64>())
-            }
-        }?;
+        let row_count = batch.values.row_count()?;
         total = total.saturating_add(row_count);
         saw_batch = true;
     }

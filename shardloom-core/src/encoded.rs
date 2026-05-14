@@ -122,6 +122,7 @@ pub enum EncodingKind {
     RunLength,
     Delta,
     BitPacked,
+    Sequence,
     FsstLike,
     FastLanesLike,
     AlpLike,
@@ -138,6 +139,7 @@ impl EncodingKind {
             Self::RunLength => "run_length",
             Self::Delta => "delta",
             Self::BitPacked => "bit_packed",
+            Self::Sequence => "sequence",
             Self::FsstLike => "fsst_like",
             Self::FastLanesLike => "fastlanes_like",
             Self::AlpLike => "alp_like",
@@ -394,8 +396,8 @@ impl EncodedValueRun {
 ///
 /// This is an execution-kernel input, not a file reader. It lets `ShardLoom`
 /// evaluate predicates against encoded forms such as constants, dictionary
-/// codes, and run-length runs without adding a fallback engine or requiring
-/// decoded row materialization.
+/// codes, run-length runs, bit-packed integer lanes, and arithmetic sequences
+/// without adding a fallback engine or requiring decoded row materialization.
 #[derive(Debug, Clone, PartialEq)]
 pub enum EncodedValueBatch {
     Constant {
@@ -409,16 +411,28 @@ pub enum EncodedValueBatch {
     RunLength {
         runs: Vec<EncodedValueRun>,
     },
+    BitPackedUnsigned {
+        bit_width: u8,
+        values: Vec<u64>,
+    },
+    ArithmeticSequence {
+        base: StatValue,
+        multiplier: StatValue,
+        row_count: u64,
+    },
 }
 impl EncodedValueBatch {
     #[must_use]
     pub fn row_count(&self) -> Option<u64> {
         match self {
-            Self::Constant { row_count, .. } => Some(*row_count),
             Self::Dictionary { codes, .. } => u64::try_from(codes.len()).ok(),
             Self::RunLength { runs } => runs
                 .iter()
                 .try_fold(0_u64, |total, run| total.checked_add(run.len)),
+            Self::BitPackedUnsigned { values, .. } => u64::try_from(values.len()).ok(),
+            Self::Constant { row_count, .. } | Self::ArithmeticSequence { row_count, .. } => {
+                Some(*row_count)
+            }
         }
     }
 
@@ -428,6 +442,8 @@ impl EncodedValueBatch {
             Self::Constant { .. } => EncodingKind::Constant,
             Self::Dictionary { .. } => EncodingKind::Dictionary,
             Self::RunLength { .. } => EncodingKind::RunLength,
+            Self::BitPackedUnsigned { .. } => EncodingKind::BitPacked,
+            Self::ArithmeticSequence { .. } => EncodingKind::Sequence,
         }
     }
 
@@ -437,6 +453,8 @@ impl EncodedValueBatch {
             Self::Constant { .. } => "constant",
             Self::Dictionary { .. } => "dictionary",
             Self::RunLength { .. } => "run_length",
+            Self::BitPackedUnsigned { .. } => "bit_packed",
+            Self::ArithmeticSequence { .. } => "sequence",
         }
     }
 }
@@ -1100,6 +1118,21 @@ fn encoded_value_selection_vector(
             }
             Ok(selection_vector_from_indices(indices, row_count))
         }
+        EncodedValueBatch::BitPackedUnsigned { values, .. } => {
+            let mut indices = Vec::new();
+            for (row_index, value) in values.iter().enumerate() {
+                if predicate_matches_encoded_value(predicate, Some(&StatValue::UInt64(*value)))? {
+                    indices.push(
+                        u64::try_from(row_index)
+                            .map_err(|_| "bit-packed row index does not fit u64".to_string())?,
+                    );
+                }
+            }
+            Ok(selection_vector_from_indices(indices, row_count))
+        }
+        EncodedValueBatch::ArithmeticSequence {
+            base, multiplier, ..
+        } => encoded_sequence_selection_vector(predicate, base, multiplier, row_count),
     }
 }
 
@@ -1110,6 +1143,64 @@ fn selection_vector_from_indices(indices: Vec<u64>, row_count: u64) -> Selection
         SelectionVector::all(row_count)
     } else {
         SelectionVector::from_indices(indices)
+    }
+}
+
+fn encoded_sequence_selection_vector(
+    predicate: &PredicateExpr,
+    base: &StatValue,
+    multiplier: &StatValue,
+    row_count: u64,
+) -> std::result::Result<SelectionVector, String> {
+    match predicate {
+        PredicateExpr::AlwaysFalse | PredicateExpr::IsNull { .. } => {
+            return Ok(SelectionVector::none());
+        }
+        PredicateExpr::AlwaysTrue | PredicateExpr::IsNotNull { .. } => {
+            return Ok(SelectionVector::all(row_count));
+        }
+        PredicateExpr::Compare { .. } => {}
+    }
+
+    let mut indices = Vec::new();
+    for row_index in 0..row_count {
+        let value = sequence_value_at(base, multiplier, row_index)?;
+        if predicate_matches_encoded_value(predicate, Some(&value))? {
+            indices.push(row_index);
+        }
+    }
+    Ok(selection_vector_from_indices(indices, row_count))
+}
+
+fn sequence_value_at(
+    base: &StatValue,
+    multiplier: &StatValue,
+    row_index: u64,
+) -> std::result::Result<StatValue, String> {
+    match (base, multiplier) {
+        (StatValue::UInt64(base), StatValue::UInt64(multiplier)) => {
+            let delta = multiplier
+                .checked_mul(row_index)
+                .ok_or_else(|| "unsigned sequence multiplier overflow".to_string())?;
+            base.checked_add(delta)
+                .map(StatValue::UInt64)
+                .ok_or_else(|| "unsigned sequence value overflow".to_string())
+        }
+        (StatValue::Int64(base), StatValue::Int64(multiplier)) => {
+            let index = i64::try_from(row_index)
+                .map_err(|_| "sequence row index does not fit i64".to_string())?;
+            let delta = multiplier
+                .checked_mul(index)
+                .ok_or_else(|| "signed sequence multiplier overflow".to_string())?;
+            base.checked_add(delta)
+                .map(StatValue::Int64)
+                .ok_or_else(|| "signed sequence value overflow".to_string())
+        }
+        _ => Err(format!(
+            "unsupported arithmetic sequence base dtype {} and multiplier dtype {}",
+            base.dtype().as_str(),
+            multiplier.dtype().as_str()
+        )),
     }
 }
 
@@ -1743,6 +1834,67 @@ mod tests {
         assert_eq!(
             report.selection_vector,
             Some(SelectionVector::from_indices(vec![2, 3, 4]))
+        );
+        assert_eq!(report.selected_count, Some(3));
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn encoded_value_bit_packed_predicate_emits_sparse_selection_vector() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(5));
+        let values = EncodedValueBatch::BitPackedUnsigned {
+            bit_width: 1,
+            values: vec![0, 1, 0, 1, 1],
+        };
+        let report = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").unwrap(),
+                op: ComparisonOp::Eq,
+                value: StatValue::UInt64(1),
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(
+            report.status,
+            EncodedPredicateEvaluationStatus::SelectedIndices
+        );
+        assert_eq!(
+            report.selection_vector,
+            Some(SelectionVector::from_indices(vec![1, 3, 4]))
+        );
+        assert_eq!(report.selected_count, Some(3));
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn encoded_value_arithmetic_sequence_predicate_emits_sparse_selection_vector() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(6));
+        let values = EncodedValueBatch::ArithmeticSequence {
+            base: StatValue::UInt64(0),
+            multiplier: StatValue::UInt64(17),
+            row_count: 6,
+        };
+        let report = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").unwrap(),
+                op: ComparisonOp::GtEq,
+                value: StatValue::UInt64(50),
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(
+            report.status,
+            EncodedPredicateEvaluationStatus::SelectedIndices
+        );
+        assert_eq!(
+            report.selection_vector,
+            Some(SelectionVector::from_indices(vec![3, 4, 5]))
         );
         assert_eq!(report.selected_count, Some(3));
         assert!(report.is_side_effect_free());

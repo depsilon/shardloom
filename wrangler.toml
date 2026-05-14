@@ -1,0 +1,5 @@
+name = "shardloom"
+compatibility_date = "2026-05-14"
+
+[assets]
+directory = "./website"
