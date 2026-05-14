@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-3A REST execution-mode parity report
+  - Primary files:
+    - `docs/api/shardloom-openapi-v1.yaml`
+    - `docs/architecture/execution-mode-protocol-parity.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-core/src/remote_api.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `python/tests/test_query_builder.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: make the report-only REST/OpenAPI contract carry the same execution-mode vocabulary
+    and selection-report field names as CLI JSON, Python, and benchmark rows without adding a REST
+    listener, server runtime, remote execution, dependency, or fallback path.
+  - Checklist:
+    - [x] Add the shared ShardLoom execution-mode enum and `ExecutionModeSelectionReport` schema to
+          the checked-in OpenAPI contract.
+    - [x] Require `requested_execution_mode` in REST execution policy schemas while retaining
+          `engine_mode` for batch/live/hybrid policy.
+    - [x] Add `execution_mode_selection` to REST planning/lifecycle response schemas and problem
+          details so unsupported mode requests have deterministic diagnostic fields.
+    - [x] Expose REST parity fields through `rest-api-contract-plan` and Python typed accessors.
+    - [x] Pin the OpenAPI and CLI/Python contract with focused snapshot/unit tests.
+    - [x] Preserve the existing benchmark README work-avoidance wording required by the contract
+          test while keeping missing metrics separate from zero.
+    - [x] Preserve `support_status=report_only`, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+    - [x] Move GAR-FLOW-3A out of Planned; GAR-0002A is now the next Planned slice.
+  - Boundary:
+    - This is protocol/schema/report-only work. It does not start an HTTP listener, add a server
+      process, implement remote execution, add dependencies, execute data, publish packages, or
+      create REST/production/performance claims.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core remote_api`
+    - `cargo test -p shardloom-cli --test api_protocol_snapshots rest_api_contract`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness traditional_benchmark_docs_state_no_fallback_and_markdown_outputs`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_rest_api_contract_plan_view python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_exposes_rest_api_contract_views`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-FLOW-2D work-avoidance metric evidence schema
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

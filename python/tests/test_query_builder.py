@@ -590,6 +590,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "openapi_contract_path", "value": "docs/api/shardloom-openapi-v1.yaml"},
                         {"key": "represented_resources", "value": "health,version,capabilities,governance"},
                         {"key": "discovery_endpoint_paths", "value": "/v1/health,/v1/capabilities"},
+                        {"key": "execution_mode_vocabulary", "value": "auto,compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient"},
+                        {"key": "execution_mode_selection_schema_version", "value": "shardloom.execution_mode_selection_report.v1"},
+                        {"key": "execution_mode_selection_fields", "value": "requested_execution_mode,selected_execution_mode,mode_selection_reason,support_status,fallback_attempted,external_engine_invoked"},
+                        {"key": "rest_execution_mode_support_status", "value": "report_only"},
+                        {"key": "unsupported_execution_mode_diagnostic_code", "value": "SL_UNSUPPORTED_EXECUTION_MODE"},
                         {"key": "openapi_contract_artifact_checked_in", "value": "true"},
                         {"key": "server_started", "value": "false"},
                         {"key": "network_listener_opened", "value": "false"},
@@ -753,6 +758,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(contract.api_version, "v1")
         self.assertEqual(contract.openapi_version, "3.2.0")
         self.assertIn("governance", contract.represented_resources)
+        self.assertIn("native_vortex", contract.execution_mode_vocabulary)
+        self.assertEqual(
+            contract.execution_mode_selection_schema_version,
+            "shardloom.execution_mode_selection_report.v1",
+        )
+        self.assertIn("fallback_attempted", contract.execution_mode_selection_fields)
+        self.assertEqual(contract.rest_execution_mode_support_status, "report_only")
+        self.assertEqual(
+            contract.unsupported_execution_mode_diagnostic_code,
+            "SL_UNSUPPORTED_EXECUTION_MODE",
+        )
         self.assertTrue(contract.contract_artifact_checked_in)
         self.assertFalse(contract.server_started)
         self.assertFalse(contract.network_listener_opened)

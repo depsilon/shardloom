@@ -1214,6 +1214,11 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "openapi_contract_path", "value": "docs/api/shardloom-openapi-v1.yaml"},
                         {"key": "represented_resources", "value": "health,version,capabilities,governance"},
                         {"key": "discovery_endpoint_paths", "value": "/v1/health,/v1/capabilities"},
+                        {"key": "execution_mode_vocabulary", "value": "auto,compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient"},
+                        {"key": "execution_mode_selection_schema_version", "value": "shardloom.execution_mode_selection_report.v1"},
+                        {"key": "execution_mode_selection_fields", "value": "requested_execution_mode,selected_execution_mode,mode_selection_reason,support_status,fallback_attempted,external_engine_invoked"},
+                        {"key": "rest_execution_mode_support_status", "value": "report_only"},
+                        {"key": "unsupported_execution_mode_diagnostic_code", "value": "SL_UNSUPPORTED_EXECUTION_MODE"},
                         {"key": "openapi_contract_artifact_checked_in", "value": "true"},
                         {"key": "server_started", "value": "false"},
                         {"key": "network_listener_opened", "value": "false"},
@@ -1232,6 +1237,17 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.openapi_contract_path, "docs/api/shardloom-openapi-v1.yaml")
         self.assertEqual(result.represented_resources[-1], "governance")
         self.assertEqual(result.discovery_endpoint_paths, ("/v1/health", "/v1/capabilities"))
+        self.assertIn("native_vortex", result.execution_mode_vocabulary)
+        self.assertEqual(
+            result.execution_mode_selection_schema_version,
+            "shardloom.execution_mode_selection_report.v1",
+        )
+        self.assertIn("fallback_attempted", result.execution_mode_selection_fields)
+        self.assertEqual(result.rest_execution_mode_support_status, "report_only")
+        self.assertEqual(
+            result.unsupported_execution_mode_diagnostic_code,
+            "SL_UNSUPPORTED_EXECUTION_MODE",
+        )
         self.assertTrue(result.contract_artifact_checked_in)
         self.assertFalse(result.server_started)
         self.assertFalse(result.network_listener_opened)

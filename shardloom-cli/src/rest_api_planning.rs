@@ -532,6 +532,47 @@ fn rest_api_contract_fields(
     );
     push_field(
         &mut fields,
+        "execution_mode_vocabulary",
+        &report.execution_mode_vocabulary.join(","),
+    );
+    push_field(
+        &mut fields,
+        "execution_mode_selection_schema_version",
+        report.execution_mode_selection_schema_version,
+    );
+    push_field(
+        &mut fields,
+        "execution_mode_selection_fields",
+        &report.execution_mode_selection_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "execution_mode_response_fields",
+        &report.execution_mode_response_fields.join(","),
+    );
+    push_field(&mut fields, "support_status", report.support_status);
+    push_field(
+        &mut fields,
+        "rest_execution_mode_support_status",
+        report.support_status,
+    );
+    push_field(
+        &mut fields,
+        "unsupported_execution_mode_diagnostic_code",
+        report.unsupported_execution_mode_diagnostic_code,
+    );
+    push_field(
+        &mut fields,
+        "unsupported_execution_mode_blocker_id",
+        report.unsupported_execution_mode_blocker_id,
+    );
+    push_field(
+        &mut fields,
+        "unsupported_execution_mode_required_future_evidence",
+        report.unsupported_execution_mode_required_future_evidence,
+    );
+    push_field(
+        &mut fields,
         "result_policy_modes",
         &report.result_policy_modes.join(","),
     );

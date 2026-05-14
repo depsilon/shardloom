@@ -87,7 +87,7 @@ fn rest_api_contract_plan_json_exposes_openapi_discovery_contract() {
     assert!(output.contains(&field("represented_resource_count", "21")));
     assert!(output.contains(&field(
         "execution_policy_fields",
-        "engine_mode,fallback_policy,materialization_policy,result_policy,evidence_policy"
+        "requested_execution_mode,engine_mode,fallback_policy,materialization_policy,result_policy,evidence_policy"
     )));
     assert!(output.contains(&field(
         "discovery_endpoint_paths",
@@ -97,6 +97,42 @@ fn rest_api_contract_plan_json_exposes_openapi_discovery_contract() {
     assert!(output.contains(
         "\"lifecycle\":{\"fields\":[{\"key\":\"command_family\",\"value\":\"rest_api_planning\""
     ));
+}
+
+#[test]
+fn rest_api_contract_plan_json_exposes_execution_mode_parity_report() {
+    let output = run_cli_json(&["rest-api-contract-plan", "--format", "json"]);
+
+    assert!(output.contains(&field(
+        "execution_mode_vocabulary",
+        "auto,compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient"
+    )));
+    assert!(output.contains(&field(
+        "execution_mode_selection_schema_version",
+        "shardloom.execution_mode_selection_report.v1"
+    )));
+    assert!(output.contains(&field(
+        "execution_mode_selection_fields",
+        "execution_mode_selection_schema_version,requested_execution_mode,selected_execution_mode,execution_mode,mode_selection_reason,execution_mode_family,source_format,workload_constitution_id,compatibility_import_included,vortex_prepare_included,vortex_write_reopen_included,direct_transient_execution,vortex_native_claim_allowed,certification_requested,result_sink_requested,prepared_artifact_available,native_vortex_provider_available,mode_supported,support_status,unsupported_diagnostic_code,blocker_id,required_future_evidence,claim_gate_status,claim_gate_reason,fallback_attempted,external_engine_invoked"
+    )));
+    assert!(output.contains(&field(
+        "execution_mode_response_fields",
+        "execution_mode_selection,fallback,diagnostics,fields"
+    )));
+    assert!(output.contains(&field("support_status", "report_only")));
+    assert!(output.contains(&field("rest_execution_mode_support_status", "report_only")));
+    assert!(output.contains(&field(
+        "unsupported_execution_mode_diagnostic_code",
+        "SL_UNSUPPORTED_EXECUTION_MODE"
+    )));
+    assert!(output.contains(&field(
+        "unsupported_execution_mode_blocker_id",
+        "GAR-FLOW-3A"
+    )));
+    assert!(output.contains(&field(
+        "unsupported_execution_mode_required_future_evidence",
+        "REST runtime/server admission and execution-mode request handling evidence"
+    )));
 }
 
 #[test]

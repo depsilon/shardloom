@@ -4,9 +4,10 @@
 //! without starting a server, opening sockets, probing datasets, reading object
 //! stores, consulting catalogs, executing plans, or enabling fallback engines.
 
+use crate::output::EXECUTION_MODE_SELECTION_REPORT_SCHEMA_VERSION;
 use crate::{
     CommandStatus, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
-    FallbackStatus,
+    FallbackStatus, ShardLoomExecutionMode,
 };
 
 pub const REST_API_CONTRACT_SCHEMA_VERSION: &str = "shardloom.rest_api_contract.v1";
@@ -74,6 +75,14 @@ pub struct RestApiContractReport {
     pub problem_details_media_type: &'static str,
     pub represented_resources: Vec<&'static str>,
     pub execution_policy_fields: Vec<&'static str>,
+    pub execution_mode_vocabulary: Vec<&'static str>,
+    pub execution_mode_selection_schema_version: &'static str,
+    pub execution_mode_selection_fields: Vec<&'static str>,
+    pub execution_mode_response_fields: Vec<&'static str>,
+    pub support_status: &'static str,
+    pub unsupported_execution_mode_diagnostic_code: &'static str,
+    pub unsupported_execution_mode_blocker_id: &'static str,
+    pub unsupported_execution_mode_required_future_evidence: &'static str,
     pub result_policy_modes: Vec<&'static str>,
     pub maturity_stages: Vec<RestApiMaturityStage>,
     pub discovery_endpoints: Vec<RestApiEndpointContract>,
@@ -992,12 +1001,26 @@ impl RestApiContractReport {
                 "standards",
             ],
             execution_policy_fields: vec![
+                "requested_execution_mode",
                 "engine_mode",
                 "fallback_policy",
                 "materialization_policy",
                 "result_policy",
                 "evidence_policy",
             ],
+            execution_mode_vocabulary: rest_execution_mode_vocabulary(),
+            execution_mode_selection_schema_version: EXECUTION_MODE_SELECTION_REPORT_SCHEMA_VERSION,
+            execution_mode_selection_fields: rest_execution_mode_selection_fields(),
+            execution_mode_response_fields: vec![
+                "execution_mode_selection",
+                "fallback",
+                "diagnostics",
+                "fields",
+            ],
+            support_status: "report_only",
+            unsupported_execution_mode_diagnostic_code: "SL_UNSUPPORTED_EXECUTION_MODE",
+            unsupported_execution_mode_blocker_id: "GAR-FLOW-3A",
+            unsupported_execution_mode_required_future_evidence: "REST runtime/server admission and execution-mode request handling evidence",
             result_policy_modes: vec![
                 "inline_json",
                 "paged_json",
@@ -1087,7 +1110,7 @@ impl RestApiContractReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "rest api contract\nschema_version: {}\nreport: {}\napi version: {}\nopenapi: {}\ncontract: {}\nresources: {}\ndiscovery endpoints: {}\nproblem details: {}\nserver started: false\nnetwork listener: false\nruntime execution: disabled\nfallback execution: disabled",
+            "rest api contract\nschema_version: {}\nreport: {}\napi version: {}\nopenapi: {}\ncontract: {}\nresources: {}\ndiscovery endpoints: {}\nexecution modes: {}\nexecution-mode support: {}\nproblem details: {}\nserver started: false\nnetwork listener: false\nruntime execution: disabled\nfallback execution: disabled",
             self.schema_version,
             self.report_id,
             self.api_version,
@@ -1095,9 +1118,52 @@ impl RestApiContractReport {
             self.openapi_contract_path,
             self.represented_resources.join(", "),
             self.endpoint_paths().join(", "),
+            self.execution_mode_vocabulary.join(", "),
+            self.support_status,
             self.problem_details_media_type,
         )
     }
+}
+
+fn rest_execution_mode_vocabulary() -> Vec<&'static str> {
+    vec![
+        ShardLoomExecutionMode::Auto.as_str(),
+        ShardLoomExecutionMode::CompatibilityImportCertified.as_str(),
+        ShardLoomExecutionMode::PreparedVortex.as_str(),
+        ShardLoomExecutionMode::NativeVortex.as_str(),
+        ShardLoomExecutionMode::DirectCompatibilityTransient.as_str(),
+    ]
+}
+
+fn rest_execution_mode_selection_fields() -> Vec<&'static str> {
+    vec![
+        "execution_mode_selection_schema_version",
+        "requested_execution_mode",
+        "selected_execution_mode",
+        "execution_mode",
+        "mode_selection_reason",
+        "execution_mode_family",
+        "source_format",
+        "workload_constitution_id",
+        "compatibility_import_included",
+        "vortex_prepare_included",
+        "vortex_write_reopen_included",
+        "direct_transient_execution",
+        "vortex_native_claim_allowed",
+        "certification_requested",
+        "result_sink_requested",
+        "prepared_artifact_available",
+        "native_vortex_provider_available",
+        "mode_supported",
+        "support_status",
+        "unsupported_diagnostic_code",
+        "blocker_id",
+        "required_future_evidence",
+        "claim_gate_status",
+        "claim_gate_reason",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ]
 }
 
 impl RestApiDiscoveryModeReport {
@@ -1467,6 +1533,7 @@ impl RestApiPlanPreviewReport {
                 "certification_preview",
             ],
             execution_policy_fields: vec![
+                "requested_execution_mode",
                 "engine_mode",
                 "fallback_policy",
                 "materialization_policy",
@@ -3662,7 +3729,41 @@ mod tests {
         assert_eq!(report.openapi_contract_path, OPENAPI_CONTRACT_PATH);
         assert!(report.represented_resources.contains(&"capabilities"));
         assert!(report.represented_resources.contains(&"governance"));
+        assert!(
+            report
+                .execution_policy_fields
+                .contains(&"requested_execution_mode")
+        );
         assert!(report.execution_policy_fields.contains(&"engine_mode"));
+        assert_eq!(
+            report.execution_mode_vocabulary,
+            vec![
+                "auto",
+                "compatibility_import_certified",
+                "prepared_vortex",
+                "native_vortex",
+                "direct_compatibility_transient"
+            ]
+        );
+        assert_eq!(
+            report.execution_mode_selection_schema_version,
+            EXECUTION_MODE_SELECTION_REPORT_SCHEMA_VERSION
+        );
+        assert!(
+            report
+                .execution_mode_selection_fields
+                .contains(&"requested_execution_mode")
+        );
+        assert!(
+            report
+                .execution_mode_selection_fields
+                .contains(&"fallback_attempted")
+        );
+        assert_eq!(report.support_status, "report_only");
+        assert_eq!(
+            report.unsupported_execution_mode_diagnostic_code,
+            "SL_UNSUPPORTED_EXECUTION_MODE"
+        );
         assert!(report.discovery_endpoints_side_effect_free());
         assert!(!report.server_started);
         assert!(!report.network_listener_opened);
@@ -4243,6 +4344,9 @@ mod tests {
         assert!(contract.contains("/v1/capabilities:"));
         assert!(contract.contains("application/problem+json"));
         assert!(contract.contains("ExecutionRequestPolicy"));
+        assert!(contract.contains("ShardLoomExecutionMode"));
+        assert!(contract.contains("ExecutionModeSelectionReport"));
+        assert_openapi_execution_mode_parity_contract(&contract);
         assert!(contract.contains("PlanPreviewResponse"));
         assert!(contract.contains("/v1/plans/{plan_handle}/certification-preview:"));
         assert!(contract.contains("LocalLifecycleResponse"));
@@ -4274,6 +4378,53 @@ mod tests {
         assert!(asyncapi.contains("asyncapi: 3.0.0"));
         assert!(asyncapi.contains("/v1/events/streams/{stream_id}/sse"));
         assert!(asyncapi.contains("CloudEventEnvelope"));
+    }
+
+    fn assert_openapi_execution_mode_parity_contract(contract: &str) {
+        let mode_block = openapi_schema_block(contract, "ShardLoomExecutionMode");
+        for mode in [
+            "auto",
+            "compatibility_import_certified",
+            "prepared_vortex",
+            "native_vortex",
+            "direct_compatibility_transient",
+        ] {
+            assert!(
+                mode_block.contains(mode),
+                "missing REST execution mode {mode}"
+            );
+        }
+
+        let policy_block = openapi_schema_block(contract, "ExecutionRequestPolicy");
+        assert!(policy_block.contains("        - requested_execution_mode"));
+        assert!(policy_block.contains("        requested_execution_mode:"));
+
+        let selection_block = openapi_schema_block(contract, "ExecutionModeSelectionReport");
+        for field in [
+            "requested_execution_mode",
+            "selected_execution_mode",
+            "mode_selection_reason",
+            "support_status",
+            "unsupported_diagnostic_code",
+            "blocker_id",
+            "required_future_evidence",
+            "claim_gate_status",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ] {
+            assert!(
+                selection_block.contains(field),
+                "missing execution-mode selection field {field}"
+            );
+        }
+
+        let preview = openapi_schema_block(contract, "PlanPreviewResponse");
+        assert!(preview.contains("            - execution_mode_selection"));
+        assert!(preview.contains("            execution_mode_selection:"));
+
+        let lifecycle = openapi_schema_block(contract, "LocalLifecycleResponse");
+        assert!(lifecycle.contains("            - execution_mode_selection"));
+        assert!(lifecycle.contains("            execution_mode_selection:"));
     }
 
     fn assert_response_uses_domain_status(contract: &str, schema: &str, field: &str) {
