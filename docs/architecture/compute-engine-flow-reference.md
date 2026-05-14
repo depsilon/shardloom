@@ -809,6 +809,12 @@ Benchmark coverage rows can point to this matrix through
 turn benchmark timing into object-store, table/catalog, streaming, external-adapter, or production
 runtime evidence.
 
+GAR-0042A adds a second Source/Split-specific admission reference:
+`vortex_source_split_admission_ref`. That ref points to the `vortex-api-inventory` proof for the
+scoped `local_vortex_file_scan_into_array_iter` fixture path. It records provider/version/API
+surface, Source/Split refs, field-mask and predicate-ordering blockers, execution and Native I/O
+refs, and no-fallback policy. It is not a generalized Source/Split runtime claim.
+
 ## Materialization And Decode Flow
 
 ```text

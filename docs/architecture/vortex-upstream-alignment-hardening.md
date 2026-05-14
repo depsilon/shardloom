@@ -153,6 +153,35 @@ Required fields:
 The report aligns `NativeWorkStream` / `NativeResultStream` with Vortex
 Source/Sink/Split concepts without treating external integrations as execution.
 
+## VortexSourceSplitRuntimeAdmissionProof
+
+GAR-0042A adds a report-only admission proof for one scoped Source/Split path. The proof must record:
+
+- `schema_version`
+- `proof_id`
+- `path_id`
+- selected-path status
+- generalized-runtime admission status
+- provider kind, crate, version, feature gate, API surface, and ShardLoom admission policy
+- source and split surfaces
+- split-ref, split-estimate, and split-serialization status
+- field-mask and predicate-ordering status
+- projection/filter/limit pushdown status
+- residual executor for the selected path and generalized path
+- correctness, benchmark, execution-certificate, Native I/O, predicate-ordering, and policy refs
+- unsupported diagnostic code, blocker id, and required future evidence
+- claim gate and claim boundary
+- `runtime_execution=false`
+- `object_store_io=false`
+- `table_catalog_io=false`
+- `write_io=false`
+- `external_engine_invoked=false`
+- `fallback_attempted=false`
+
+The current admitted evidence is fixture-scoped only. It does not authorize generalized
+Source/Split runtime, object-store scan, table/catalog scan, writes, device/GPU execution,
+managed-platform lanes, external engines, or fallback execution.
+
 ## CompositePushdownCapabilityMatrix
 
 Track combinations separately from primitive support.

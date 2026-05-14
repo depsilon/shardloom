@@ -14,8 +14,8 @@ use shardloom_core::{
 };
 use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
 use shardloom_vortex::{
-    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexCountCandidateSource,
-    VortexCountReadinessSignal, VortexDTypeMappingReport,
+    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexComputeProviderReport,
+    VortexCountCandidateSource, VortexCountReadinessSignal, VortexDTypeMappingReport,
     VortexEncodedExecutionPathSelectionReport, VortexEncodingLayoutMappingReport,
     VortexExecutionReadinessReport, VortexFileRef, VortexFilteredCountCandidateSource,
     VortexFilteredCountReadinessSignal, VortexGeneralizedEncodedPrimitiveGateReport,
@@ -24,8 +24,8 @@ use shardloom_vortex::{
     VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexProjectionCandidateSource,
     VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
     VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue, VortexReadPlan,
-    VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
-    admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
+    VortexScanCompatibilityReport, VortexStatisticsMappingReport, VortexWriteOptions,
+    VortexWritePlan, admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
     build_vortex_runtime_task_graph, evaluate_vortex_execution_readiness,
     evaluate_vortex_metadata_physical_kernels,
     execute_vortex_count_all_from_encoded_count_data_path_approval, execute_vortex_metadata_only,
@@ -38,9 +38,10 @@ use shardloom_vortex::{
     plan_vortex_generalized_encoded_primitive_gate, plan_vortex_layout_reader_driver_approval,
     plan_vortex_metadata_pruning, plan_vortex_projection_readiness, plan_vortex_query_primitive,
     plan_vortex_query_primitive_result_physical_operators_with_evidence,
-    plan_vortex_read_from_universal_input, probe_vortex_metadata_only,
-    summarize_vortex_metadata_probe, vortex_encoded_read_public_api_boundary,
-    vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
+    plan_vortex_read_from_universal_input, plan_vortex_scan_compatibility,
+    probe_vortex_metadata_only, summarize_vortex_metadata_probe,
+    vortex_encoded_read_public_api_boundary, vortex_file_io_feature_enabled,
+    vortex_metadata_executor_feature_enabled,
 };
 
 use crate::{
@@ -950,30 +951,293 @@ pub(crate) fn handle_vortex_metadata_probe(
     }
 }
 
+fn vortex_api_inventory_fields(
+    scan_report: &VortexScanCompatibilityReport,
+    provider_report: &VortexComputeProviderReport,
+) -> Vec<(String, String)> {
+    let mut fields = vortex_api_inventory_base_fields();
+    fields.extend(vortex_api_inventory_report_fields(
+        scan_report,
+        provider_report,
+    ));
+    fields.extend(vortex_source_split_identity_fields(
+        scan_report,
+        provider_report,
+    ));
+    fields.extend(vortex_source_split_pushdown_fields(scan_report));
+    fields.extend(vortex_source_split_evidence_fields(scan_report));
+    fields.extend(vortex_source_split_effect_fields(scan_report));
+    fields
+}
+
+fn vortex_api_inventory_base_fields() -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+        ("mode".to_string(), "vortex_api_inventory".to_string()),
+        (
+            "upstream_vortex_dependency".to_string(),
+            "linked".to_string(),
+        ),
+        ("actual_io".to_string(), "not_implemented".to_string()),
+        ("write_io".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("table_catalog_io".to_string(), "false".to_string()),
+        ("runtime_execution".to_string(), "false".to_string()),
+        ("data_read".to_string(), "false".to_string()),
+        ("data_decoded".to_string(), "false".to_string()),
+        ("data_materialized".to_string(), "false".to_string()),
+        ("execution".to_string(), "not_performed".to_string()),
+        ("plan_only".to_string(), "true".to_string()),
+    ]
+}
+
+fn vortex_api_inventory_report_fields(
+    scan_report: &VortexScanCompatibilityReport,
+    provider_report: &VortexComputeProviderReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "vortex_scan_compatibility_schema_version".to_string(),
+            scan_report.schema_version.to_string(),
+        ),
+        (
+            "vortex_scan_compatibility_report_id".to_string(),
+            scan_report.report_id.to_string(),
+        ),
+        (
+            "vortex_compute_provider_schema_version".to_string(),
+            provider_report.schema_version.to_string(),
+        ),
+        (
+            "vortex_compute_provider_report_id".to_string(),
+            provider_report.report_id.to_string(),
+        ),
+    ]
+}
+
+fn vortex_source_split_identity_fields(
+    scan_report: &VortexScanCompatibilityReport,
+    provider_report: &VortexComputeProviderReport,
+) -> Vec<(String, String)> {
+    let proof = scan_report.source_split_runtime_admission_proof;
+    vec![
+        (
+            "vortex_source_split_admission_schema_version".to_string(),
+            proof.schema_version.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_proof_id".to_string(),
+            proof.proof_id.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_path_id".to_string(),
+            proof.path_id.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_selected_path_status".to_string(),
+            proof.selected_path_status.as_str().to_string(),
+        ),
+        (
+            "vortex_source_split_admission_generalized_runtime_status".to_string(),
+            proof
+                .generalized_runtime_admission_status
+                .as_str()
+                .to_string(),
+        ),
+        (
+            "vortex_source_split_admission_provider_kind".to_string(),
+            proof.provider_kind.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_provider_kind_confirmed".to_string(),
+            provider_report.provider_kind.as_str().to_string(),
+        ),
+        (
+            "vortex_source_split_admission_provider_crate".to_string(),
+            proof.provider_crate.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_provider_version".to_string(),
+            proof.provider_version.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_feature_gate".to_string(),
+            proof.feature_gate.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_provider_api_surface".to_string(),
+            proof.provider_api_surface.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_policy".to_string(),
+            proof.shardloom_admission_policy.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_source_surface".to_string(),
+            proof.source_surface.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_split_surface".to_string(),
+            proof.split_surface.to_string(),
+        ),
+    ]
+}
+
+fn vortex_source_split_pushdown_fields(
+    scan_report: &VortexScanCompatibilityReport,
+) -> Vec<(String, String)> {
+    let proof = scan_report.source_split_runtime_admission_proof;
+    vec![
+        (
+            "vortex_source_split_admission_split_ref_status".to_string(),
+            proof.split_ref_status.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_split_estimate_status".to_string(),
+            proof.split_estimate_status.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_split_serialization_status".to_string(),
+            proof.split_serialization_status.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_field_mask_status".to_string(),
+            proof.field_mask_status.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_predicate_ordering_status".to_string(),
+            proof.predicate_ordering_status.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_projection_pushdown_status".to_string(),
+            proof.projection_pushdown_status.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_filter_pushdown_status".to_string(),
+            proof.filter_pushdown_status.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_limit_pushdown_status".to_string(),
+            proof.limit_pushdown_status.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_residual_executor".to_string(),
+            proof.residual_executor.as_str().to_string(),
+        ),
+        (
+            "vortex_source_split_admission_generalized_residual_executor".to_string(),
+            proof.generalized_residual_executor.as_str().to_string(),
+        ),
+    ]
+}
+
+fn vortex_source_split_evidence_fields(
+    scan_report: &VortexScanCompatibilityReport,
+) -> Vec<(String, String)> {
+    let proof = scan_report.source_split_runtime_admission_proof;
+    vec![
+        (
+            "vortex_source_split_admission_correctness_refs".to_string(),
+            proof.correctness_refs.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_benchmark_refs".to_string(),
+            proof.benchmark_refs.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_execution_certificate_refs".to_string(),
+            proof.execution_certificate_refs.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_native_io_certificate_refs".to_string(),
+            proof.native_io_certificate_refs.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_predicate_ordering_refs".to_string(),
+            proof.predicate_ordering_refs.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_policy_refs".to_string(),
+            proof.policy_refs.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_unsupported_diagnostic_code".to_string(),
+            proof.unsupported_diagnostic_code.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_blocker_id".to_string(),
+            proof.blocker_id.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_required_future_evidence".to_string(),
+            proof.required_future_evidence.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_claim_gate_status".to_string(),
+            proof.claim_gate_status.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_claim_boundary".to_string(),
+            proof.claim_boundary.to_string(),
+        ),
+    ]
+}
+
+fn vortex_source_split_effect_fields(
+    scan_report: &VortexScanCompatibilityReport,
+) -> Vec<(String, String)> {
+    let proof = scan_report.source_split_runtime_admission_proof;
+    vec![
+        (
+            "vortex_source_split_admission_runtime_execution".to_string(),
+            proof.runtime_execution.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_object_store_io".to_string(),
+            proof.object_store_io.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_table_catalog_io".to_string(),
+            proof.table_catalog_io.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_write_io".to_string(),
+            proof.write_io.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_external_engine_invoked".to_string(),
+            proof.external_engine_invoked.to_string(),
+        ),
+        (
+            "vortex_source_split_admission_fallback_attempted".to_string(),
+            proof.fallback_attempted.to_string(),
+        ),
+    ]
+}
+
 pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
     let report = VortexAdapterCapabilityReport::foundation();
+    let scan_report = plan_vortex_scan_compatibility();
+    let provider_report = VortexComputeProviderReport::local_scan_provider();
     emit(
         "vortex-api-inventory",
         format,
         CommandStatus::Success,
         "vortex API inventory".to_string(),
-        report.to_human_text(),
+        format!(
+            "{}\n{}",
+            report.to_human_text(),
+            scan_report
+                .source_split_runtime_admission_proof
+                .to_human_text()
+        ),
         report.diagnostics.clone(),
-        vec![
-            (
-                "fallback_execution_allowed".to_string(),
-                "false".to_string(),
-            ),
-            ("mode".to_string(), "vortex_api_inventory".to_string()),
-            (
-                "upstream_vortex_dependency".to_string(),
-                "linked".to_string(),
-            ),
-            ("actual_io".to_string(), "not_implemented".to_string()),
-            ("write_io".to_string(), "false".to_string()),
-            ("execution".to_string(), "not_performed".to_string()),
-            ("plan_only".to_string(), "true".to_string()),
-        ],
+        vortex_api_inventory_fields(&scan_report, &provider_report),
     );
     ExitCode::SUCCESS
 }

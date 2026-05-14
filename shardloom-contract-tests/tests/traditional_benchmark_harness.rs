@@ -83,6 +83,8 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"coverage_row_ref\""));
     assert!(script.contains("\"native_io_source_sink_coverage_ref\""));
     assert!(script.contains("NATIVE_IO_SOURCE_SINK_COVERAGE_REF"));
+    assert!(script.contains("\"vortex_source_split_admission_ref\""));
+    assert!(script.contains("VORTEX_SOURCE_SPLIT_ADMISSION_REF"));
     assert!(script.contains("\"execution_certificate_status\""));
     assert!(script.contains("\"source_native_io_certificate_status\""));
     assert!(script.contains("\"result_native_io_certificate_status\""));
@@ -248,6 +250,7 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"benchmark_row_ref\"",
         "\"coverage_row_ref\"",
         "\"native_io_source_sink_coverage_ref\"",
+        "\"vortex_source_split_admission_ref\"",
         "\"execution_certificate_status\"",
         "\"result_native_io_certificate_status\"",
         "\"materialization_decode_evidence_present\"",
@@ -585,10 +588,11 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         "completed ledger should carry completed GAR-0002B provenance"
     );
     assert!(completed_ledger.contains("GAR-0031A Native I/O envelope source/sink coverage matrix"));
-    assert!(plan.contains("GAR-0042A Vortex Source/Split runtime admission proof"));
+    assert!(completed_ledger.contains("GAR-0042A Vortex Source/Split runtime admission proof"));
+    assert!(plan.contains("GAR-0042B layout/write/device/managed-lane evidence boundaries"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 59);
+    assert!(plan.matches("- [ ] GAR-").count() >= 58);
     for required_field in [
         "Current state:",
         "Next slice outcome:",

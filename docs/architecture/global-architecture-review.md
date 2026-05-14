@@ -604,15 +604,22 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md`](../rfcs/0042-vortex-runtime-utilization-execution-spine.md)
-- Current read: Runtime utilization reporting exists; real Source/Split and layout execution are
-  incomplete.
+- Current read: Runtime utilization reporting exists; the scoped Source/Split admission proof is
+  now explicit, while generalized Source/Split and layout execution remain incomplete.
 - Evidence: `shardloom-vortex/src/runtime_utilization.rs`,
+  `shardloom-vortex/src/vortex_scan_compatibility.rs`,
+  `shardloom-cli/src/vortex_planning.rs`,
   `docs/architecture/vortex-runtime-utilization-audit.md`,
   `docs/architecture/vortex-upstream-alignment-hardening.md`
 - [x] Report-only Vortex-native utilization and execution-spine evidence exists.
 - [x] Provider terminology keeps upstream Vortex APIs policy-admitted and certificate-backed.
-- [ ] Real Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write evidence,
-  object-store I/O, GPU/device execution, and managed-platform benchmark lanes remain incomplete.
+- [x] `vortex-api-inventory` now exposes a GAR-0042A source/split admission proof for the scoped
+  local Vortex scan fixture path, with provider/version/feature-gate/API surface, split-ref status,
+  field-mask and predicate-ordering blockers, certificate refs, Native I/O refs, no-fallback fields,
+  and a fixture-only claim boundary.
+- [ ] Generalized Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write
+  evidence, object-store I/O, GPU/device execution, and managed-platform benchmark lanes remain
+  incomplete.
 
 ### RFC 0043 - Security, Vulnerability, Exploit, and Supply-Chain Hardening
 

@@ -41,6 +41,13 @@ phase note. They are not active queue state and do not override `phased-executio
   while `VortexComputeProviderReport`, `VortexComputeProviderAlignmentReport`, and
   `VortexIntegrationBoundaryReport` keep upstream Vortex-native provider boundaries distinct from
   Vortex query-engine integrations and external baselines.
+- Source/Split admission framing: `vortex-api-inventory` now exposes
+  `shardloom.vortex_source_split_runtime_admission.v1` for the scoped
+  `local_vortex_file_scan_into_array_iter` fixture path. The proof records `vortex` version `0.70`,
+  `vortex-local-primitives`, `VortexFile::scan` / `ScanBuilder` API surfaces, source/split refs,
+  field-mask and predicate-ordering blockers, execution/Native I/O refs, and
+  `fallback_attempted=false`. This classifies the fixture path only; generalized Source/Split,
+  object-store, table/catalog, split serialization, and residual execution remain blocked.
 - Residual boundary framing: reader-generated prepared-batch reports carry
   `VortexResidualBoundaryReport`; admitted constant/dictionary/run-end kernel inputs use
   `residual_executor=none`, while opaque/sparse/nullable/unsupported chunks use
@@ -155,9 +162,10 @@ phase note. They are not active queue state and do not override `phased-executio
   `ScanBuilder::with_projection`, `ScanBuilder::with_concurrency`, and
   `ScanBuilder::into_array_iter`.
 - Use now: yes, for approved feature-gated local primitive scan paths and reader split evidence.
-- Stability: acceptable only for local primitive evidence; generalized Source/Sink, object-store,
-  table/catalog, split serialization, and residual execution remain staged.
-- Adapter support: local scan evidence only.
+- Stability: acceptable only for local primitive evidence and the GAR-0042A admission proof;
+  generalized Source/Sink, object-store, table/catalog, split serialization, and residual execution
+  remain staged.
+- Adapter support: local scan evidence plus report-only source/split admission proof.
 - Risks: accidental execution coupling.
 
 ### Write/sink APIs
