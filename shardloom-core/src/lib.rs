@@ -113,8 +113,8 @@ pub use correctness::{
     plan_correctness_differential_harness,
 };
 pub use cpu_specialization::{
-    CpuInstructionClass, CpuOperatorSpecializationEntry, CpuOperatorSpecializationReport,
-    CpuSpecializationStatus, plan_cpu_operator_specialization,
+    CpuHostFeatureProbeReport, CpuInstructionClass, CpuOperatorSpecializationEntry,
+    CpuOperatorSpecializationReport, CpuSpecializationStatus, plan_cpu_operator_specialization,
 };
 pub use dataset::{
     DatasetFormat, DatasetId, DatasetRef, DatasetUri, ManifestId, SnapshotId, UriScheme,

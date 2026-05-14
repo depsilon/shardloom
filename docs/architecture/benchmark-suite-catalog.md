@@ -231,6 +231,10 @@ statistics-pruning claim.
 `compute-capability-matrix` exposes the same class vocabulary and per-row
 operator class/blocker fields so CLI capability discovery matches benchmark
 evidence.
+`cpu-specialization-plan` now contributes host CPU feature labels and a
+filter/encoded vector-kernel admission status to the same evidence posture.
+The admission is diagnostic-only until correctness and benchmark evidence are
+attached; it is not a SIMD-dispatch or performance-claim benchmark row.
 
 P7.5.7 keeps the Python-driven per-scenario CLI runner and publishes
 `docs/architecture/benchmark-persistent-runner-decision.md` as the decision record. ShardLoom rows

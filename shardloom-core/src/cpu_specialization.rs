@@ -138,6 +138,82 @@ pub struct CpuOperatorSpecializationEntry {
     pub deterministic_dispatch_required: bool,
 }
 
+/// Side-effect-free host CPU feature probe used for admission diagnostics.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CpuHostFeatureProbeReport {
+    /// Host architecture label.
+    pub architecture: String,
+    /// Whether this target has a stable feature probe path.
+    pub probe_supported: bool,
+    /// Whether the probe ran.
+    pub probe_performed: bool,
+    /// CPU feature probing is metadata-only and does not execute kernels.
+    pub probe_effect_free: bool,
+    /// Stable feature labels detected for the current host.
+    pub detected_features: Vec<String>,
+    /// Whether any SIMD-family feature was detected.
+    pub simd_feature_detected: bool,
+}
+
+impl CpuHostFeatureProbeReport {
+    /// Detects host CPU features without dispatching a specialized kernel.
+    #[must_use]
+    pub fn detect() -> Self {
+        let mut detected_features = Vec::new();
+
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            if std::is_x86_feature_detected!("sse2") {
+                detected_features.push("sse2".to_string());
+            }
+            if std::is_x86_feature_detected!("avx2") {
+                detected_features.push("avx2".to_string());
+            }
+            if std::is_x86_feature_detected!("avx512f") {
+                detected_features.push("avx512f".to_string());
+            }
+        }
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            if std::arch::is_aarch64_feature_detected!("neon") {
+                detected_features.push("neon".to_string());
+            }
+        }
+
+        detected_features.sort();
+        detected_features.dedup();
+
+        Self {
+            architecture: std::env::consts::ARCH.to_string(),
+            probe_supported: cfg!(any(
+                target_arch = "x86",
+                target_arch = "x86_64",
+                target_arch = "aarch64"
+            )),
+            probe_performed: cfg!(any(
+                target_arch = "x86",
+                target_arch = "x86_64",
+                target_arch = "aarch64"
+            )),
+            probe_effect_free: true,
+            simd_feature_detected: !detected_features.is_empty(),
+            detected_features,
+        }
+    }
+
+    /// Stable comma-separated feature labels for CLI reporting.
+    #[must_use]
+    pub fn detected_feature_labels(&self) -> String {
+        if self.detected_features.is_empty() {
+            "none".to_string()
+        } else {
+            self.detected_features.join(",")
+        }
+    }
+}
+
 impl CpuOperatorSpecializationEntry {
     /// Creates a planned specialization candidate with missing evidence gates.
     #[must_use]
@@ -194,6 +270,69 @@ impl CpuOperatorSpecializationEntry {
     }
 }
 
+fn cg15_foundation_entries() -> Vec<CpuOperatorSpecializationEntry> {
+    vec![
+        CpuOperatorSpecializationEntry::planned(
+            PhysicalOperatorKind::Filter,
+            KernelKind::Encoded,
+            vec![
+                CpuInstructionClass::SimdPortable,
+                CpuInstructionClass::Avx2Candidate,
+                CpuInstructionClass::BranchReduced,
+                CpuInstructionClass::DictionaryAware,
+                CpuInstructionClass::SelectionVectorAware,
+            ],
+        ),
+        CpuOperatorSpecializationEntry::planned(
+            PhysicalOperatorKind::Project,
+            KernelKind::Encoded,
+            vec![
+                CpuInstructionClass::SimdPortable,
+                CpuInstructionClass::CacheTiled,
+                CpuInstructionClass::SelectionVectorAware,
+                CpuInstructionClass::BitPacked,
+            ],
+        ),
+        CpuOperatorSpecializationEntry::planned(
+            PhysicalOperatorKind::CountAggregate,
+            KernelKind::Encoded,
+            vec![
+                CpuInstructionClass::SimdPortable,
+                CpuInstructionClass::Avx2Candidate,
+                CpuInstructionClass::RunAware,
+                CpuInstructionClass::BitPacked,
+            ],
+        ),
+        CpuOperatorSpecializationEntry::planned(
+            PhysicalOperatorKind::Aggregate,
+            KernelKind::PartialDecode,
+            vec![
+                CpuInstructionClass::ScalarPortable,
+                CpuInstructionClass::SimdPortable,
+                CpuInstructionClass::CacheTiled,
+            ],
+        ),
+        CpuOperatorSpecializationEntry::planned(
+            PhysicalOperatorKind::Sort,
+            KernelKind::PartialDecode,
+            vec![
+                CpuInstructionClass::ScalarPortable,
+                CpuInstructionClass::CacheTiled,
+                CpuInstructionClass::BranchReduced,
+            ],
+        ),
+        CpuOperatorSpecializationEntry::planned(
+            PhysicalOperatorKind::Join,
+            KernelKind::PartialDecode,
+            vec![
+                CpuInstructionClass::ScalarPortable,
+                CpuInstructionClass::CacheTiled,
+                CpuInstructionClass::BranchReduced,
+            ],
+        ),
+    ]
+}
+
 /// CG-15 report-only CPU operator specialization plan.
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -224,6 +363,18 @@ pub struct CpuOperatorSpecializationReport {
     pub portable_native_baseline_required: bool,
     /// Dispatch decisions must be stable and explainable.
     pub deterministic_dispatch_required: bool,
+    /// Host CPU feature probe details.
+    pub host_cpu_feature_probe: CpuHostFeatureProbeReport,
+    /// Operator family selected for the first vector-kernel admission slice.
+    pub vectorized_kernel_admission_operator: PhysicalOperatorKind,
+    /// Kernel kind selected for the first vector-kernel admission slice.
+    pub vectorized_kernel_admission_kernel: KernelKind,
+    /// Admission status for the selected vector-kernel slice.
+    pub vectorized_kernel_admission_status: CpuSpecializationStatus,
+    /// Reason the selected vector-kernel slice is or is not admitted.
+    pub vectorized_kernel_admission_reason: String,
+    /// Whether selected vector-kernel dispatch may run.
+    pub vectorized_kernel_admission_allowed: bool,
     /// SIMD-family dispatch is not allowed until evidence gates open.
     pub simd_dispatch_allowed: bool,
     /// Cache-aware dispatch is not allowed until evidence gates open.
@@ -232,7 +383,7 @@ pub struct CpuOperatorSpecializationReport {
     pub encoded_layout_dispatch_allowed: bool,
     /// Runtime specialization remains disabled until all admission gates open.
     pub specialization_runtime_allowed: bool,
-    /// This report does not inspect the host CPU.
+    /// This report inspects host CPU feature metadata without dispatching kernels.
     pub host_cpu_probe: bool,
     /// This report does not implement runtime dispatch.
     pub runtime_dispatch_implemented: bool,
@@ -276,70 +427,13 @@ impl CpuOperatorSpecializationReport {
     /// Creates the CG-15 report-only foundation for CPU specialization.
     #[must_use]
     pub fn cg15_foundation() -> Self {
+        let host_cpu_feature_probe = CpuHostFeatureProbeReport::detect();
+        let host_cpu_probe_performed = host_cpu_feature_probe.probe_performed;
         Self {
             schema_version: CPU_SPECIALIZATION_SCHEMA_VERSION,
             report_id: CPU_SPECIALIZATION_REPORT_ID.to_string(),
             status: CpuSpecializationStatus::ReportOnlyPlanned,
-            entries: vec![
-                CpuOperatorSpecializationEntry::planned(
-                    PhysicalOperatorKind::Filter,
-                    KernelKind::Encoded,
-                    vec![
-                        CpuInstructionClass::SimdPortable,
-                        CpuInstructionClass::Avx2Candidate,
-                        CpuInstructionClass::BranchReduced,
-                        CpuInstructionClass::DictionaryAware,
-                        CpuInstructionClass::SelectionVectorAware,
-                    ],
-                ),
-                CpuOperatorSpecializationEntry::planned(
-                    PhysicalOperatorKind::Project,
-                    KernelKind::Encoded,
-                    vec![
-                        CpuInstructionClass::SimdPortable,
-                        CpuInstructionClass::CacheTiled,
-                        CpuInstructionClass::SelectionVectorAware,
-                        CpuInstructionClass::BitPacked,
-                    ],
-                ),
-                CpuOperatorSpecializationEntry::planned(
-                    PhysicalOperatorKind::CountAggregate,
-                    KernelKind::Encoded,
-                    vec![
-                        CpuInstructionClass::SimdPortable,
-                        CpuInstructionClass::Avx2Candidate,
-                        CpuInstructionClass::RunAware,
-                        CpuInstructionClass::BitPacked,
-                    ],
-                ),
-                CpuOperatorSpecializationEntry::planned(
-                    PhysicalOperatorKind::Aggregate,
-                    KernelKind::PartialDecode,
-                    vec![
-                        CpuInstructionClass::ScalarPortable,
-                        CpuInstructionClass::SimdPortable,
-                        CpuInstructionClass::CacheTiled,
-                    ],
-                ),
-                CpuOperatorSpecializationEntry::planned(
-                    PhysicalOperatorKind::Sort,
-                    KernelKind::PartialDecode,
-                    vec![
-                        CpuInstructionClass::ScalarPortable,
-                        CpuInstructionClass::CacheTiled,
-                        CpuInstructionClass::BranchReduced,
-                    ],
-                ),
-                CpuOperatorSpecializationEntry::planned(
-                    PhysicalOperatorKind::Join,
-                    KernelKind::PartialDecode,
-                    vec![
-                        CpuInstructionClass::ScalarPortable,
-                        CpuInstructionClass::CacheTiled,
-                        CpuInstructionClass::BranchReduced,
-                    ],
-                ),
-            ],
+            entries: cg15_foundation_entries(),
             correctness_evidence_required: true,
             benchmark_evidence_required: true,
             certified_primitive_kernel_required: true,
@@ -349,11 +443,19 @@ impl CpuOperatorSpecializationReport {
             cpu_feature_guard_required: true,
             portable_native_baseline_required: true,
             deterministic_dispatch_required: true,
+            host_cpu_feature_probe,
+            vectorized_kernel_admission_operator: PhysicalOperatorKind::Filter,
+            vectorized_kernel_admission_kernel: KernelKind::Encoded,
+            vectorized_kernel_admission_status:
+                CpuSpecializationStatus::BlockedByMissingCorrectnessEvidence,
+            vectorized_kernel_admission_reason:
+                "host_cpu_probe_recorded_but_correctness_and_benchmark_evidence_missing".to_string(),
+            vectorized_kernel_admission_allowed: false,
             simd_dispatch_allowed: false,
             cache_aware_dispatch_allowed: false,
             encoded_layout_dispatch_allowed: false,
             specialization_runtime_allowed: false,
-            host_cpu_probe: false,
+            host_cpu_probe: host_cpu_probe_performed,
             runtime_dispatch_implemented: false,
             unsafe_code_required: false,
             gpu_required: false,
@@ -442,6 +544,7 @@ impl CpuOperatorSpecializationReport {
     pub const fn specialization_admission_open(&self) -> bool {
         self.correctness_gate_open
             && self.benchmark_gate_open
+            && self.vectorized_kernel_admission_allowed
             && self.specialization_runtime_allowed
             && self.runtime_dispatch_implemented
             && !self.dispatch_classes_blocked()
@@ -458,7 +561,7 @@ impl CpuOperatorSpecializationReport {
     /// Returns whether this report avoids all side effects and execution.
     #[must_use]
     pub const fn is_side_effect_free(&self) -> bool {
-        !self.host_cpu_probe
+        self.host_cpu_feature_probe.probe_effect_free
             && !self.runtime_execution
             && !self.data_read
             && !self.data_decoded
@@ -489,7 +592,7 @@ impl CpuOperatorSpecializationReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "cpu operator specialization plan\nschema_version: {}\nreport: {}\nstatus: {}\noperators: {}\nsimd candidates: {}\ncache-aware candidates: {}\nencoded-layout-aware candidates: {}\nspecialization admission open: {}\nhost CPU probe: disabled\nruntime dispatch: disabled\nfallback execution: disabled",
+            "cpu operator specialization plan\nschema_version: {}\nreport: {}\nstatus: {}\noperators: {}\nsimd candidates: {}\ncache-aware candidates: {}\nencoded-layout-aware candidates: {}\nspecialization admission open: {}\nhost CPU architecture: {}\nhost CPU features: {}\nhost CPU probe: {}\nvectorized kernel admission: {}\nvectorized kernel admission allowed: {}\nruntime dispatch: disabled\nfallback execution: disabled",
             self.schema_version,
             self.report_id,
             self.status.as_str(),
@@ -498,6 +601,11 @@ impl CpuOperatorSpecializationReport {
             self.cache_aware_candidate_count(),
             self.encoded_layout_aware_candidate_count(),
             self.specialization_admission_open(),
+            self.host_cpu_feature_probe.architecture,
+            self.host_cpu_feature_probe.detected_feature_labels(),
+            self.host_cpu_probe,
+            self.vectorized_kernel_admission_status.as_str(),
+            self.vectorized_kernel_admission_allowed,
         )
     }
 }
@@ -539,6 +647,25 @@ mod tests {
         assert!(report.cpu_feature_guard_required);
         assert!(report.portable_native_baseline_required);
         assert!(report.deterministic_dispatch_required);
+        assert_eq!(
+            report.host_cpu_probe,
+            report.host_cpu_feature_probe.probe_performed
+        );
+        assert!(report.host_cpu_feature_probe.probe_effect_free);
+        assert!(!report.host_cpu_feature_probe.architecture.is_empty());
+        assert_eq!(
+            report.vectorized_kernel_admission_operator,
+            PhysicalOperatorKind::Filter
+        );
+        assert_eq!(
+            report.vectorized_kernel_admission_kernel,
+            KernelKind::Encoded
+        );
+        assert_eq!(
+            report.vectorized_kernel_admission_status,
+            CpuSpecializationStatus::BlockedByMissingCorrectnessEvidence
+        );
+        assert!(!report.vectorized_kernel_admission_allowed);
         assert!(!report.simd_dispatch_allowed);
         assert!(!report.cache_aware_dispatch_allowed);
         assert!(!report.encoded_layout_dispatch_allowed);
@@ -547,7 +674,6 @@ mod tests {
         assert!(report.dispatch_classes_blocked());
         assert!(report.is_side_effect_free());
         assert!(!report.has_errors());
-        assert!(!report.host_cpu_probe);
         assert!(!report.runtime_dispatch_implemented);
         assert!(!report.unsafe_code_required);
         assert!(!report.gpu_required);
@@ -572,6 +698,7 @@ mod tests {
         let mut report = CpuOperatorSpecializationReport::cg15_foundation();
         report.correctness_gate_open = true;
         report.benchmark_gate_open = true;
+        report.vectorized_kernel_admission_allowed = true;
         report.specialization_runtime_allowed = true;
         report.runtime_dispatch_implemented = true;
 

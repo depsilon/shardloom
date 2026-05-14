@@ -446,14 +446,20 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0027-cpu-vectorized-kernels-streaming-runtime-adaptivity.md`](../rfcs/0027-cpu-vectorized-kernels-streaming-runtime-adaptivity.md)
-- Current read: Report surfaces exist; real vectorized dispatch and runtime adaptivity are not broad.
+- Current read: Report surfaces exist, including side-effect-free host CPU feature probing and a
+  blocked filter/encoded vector-kernel admission diagnostic; real vectorized dispatch and runtime
+  adaptivity are not broad.
 - Evidence: `shardloom-core/src/cpu_specialization.rs`,
+  `shardloom-cli/src/optimizer_planning.rs`,
   `shardloom-cli/tests/cpu_specialization_snapshots.rs`,
   `shardloom-vortex/src/streaming_batch_runtime.rs`
 - [x] CPU specialization, streaming, sizing, and runtime-promotion evidence surfaces exist.
 - [x] Current reports keep production and fallback claims not claimable.
-- [ ] Real SIMD/vectorized dispatch, host CPU probing, production vectorized kernel path, adaptive
-  parallelism runtime, and broad streaming runtime remain incomplete.
+- [x] `cpu-specialization-plan` records deterministic host CPU architecture/feature labels and a
+  filter/encoded vector-kernel admission status without dispatching CPU-specialized kernels,
+  reading data, invoking unsafe code, or attempting fallback.
+- [ ] Real SIMD/vectorized dispatch, production vectorized kernel path, adaptive parallelism
+  runtime, and broad streaming runtime remain incomplete.
 
 ### RFC 0028 - Output Payloads, Manifest Finalization, Commit Execution, and Lakehouse Semantics
 

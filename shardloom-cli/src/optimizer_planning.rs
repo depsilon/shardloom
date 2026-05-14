@@ -868,6 +868,31 @@ fn append_cpu_specialization_evidence_fields(
         "deterministic_dispatch_required",
         report.deterministic_dispatch_required,
     );
+    push_field(
+        fields,
+        "vectorized_kernel_admission_operator",
+        report.vectorized_kernel_admission_operator.as_str(),
+    );
+    push_field(
+        fields,
+        "vectorized_kernel_admission_kernel",
+        report.vectorized_kernel_admission_kernel.as_str(),
+    );
+    push_field(
+        fields,
+        "vectorized_kernel_admission_status",
+        report.vectorized_kernel_admission_status.as_str(),
+    );
+    push_field(
+        fields,
+        "vectorized_kernel_admission_reason",
+        &report.vectorized_kernel_admission_reason,
+    );
+    push_bool_field(
+        fields,
+        "vectorized_kernel_admission_allowed",
+        report.vectorized_kernel_admission_allowed,
+    );
 }
 
 fn append_cpu_specialization_accelerator_fields(
@@ -875,6 +900,31 @@ fn append_cpu_specialization_accelerator_fields(
     report: &CpuOperatorSpecializationReport,
 ) {
     push_bool_field(fields, "host_cpu_probe", report.host_cpu_probe);
+    push_bool_field(
+        fields,
+        "host_cpu_probe_supported",
+        report.host_cpu_feature_probe.probe_supported,
+    );
+    push_bool_field(
+        fields,
+        "host_cpu_probe_effect_free",
+        report.host_cpu_feature_probe.probe_effect_free,
+    );
+    push_field(
+        fields,
+        "host_cpu_arch",
+        &report.host_cpu_feature_probe.architecture,
+    );
+    push_field(
+        fields,
+        "host_cpu_detected_features",
+        &report.host_cpu_feature_probe.detected_feature_labels(),
+    );
+    push_bool_field(
+        fields,
+        "host_cpu_simd_feature_detected",
+        report.host_cpu_feature_probe.simd_feature_detected,
+    );
     push_bool_field(
         fields,
         "runtime_dispatch_implemented",

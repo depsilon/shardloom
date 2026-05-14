@@ -43,7 +43,8 @@ CG-15 starts with a report-only contract before any runtime specialization is im
 - CPU feature guard requirement
 - portable native baseline requirement
 - deterministic dispatch requirement
-- host CPU probe disabled
+- side-effect-free host CPU architecture/feature probe
+- filter/encoded vector-kernel admission status
 - runtime dispatch disabled
 - unsafe code requirement disabled
 - GPU/FPGA requirement disabled
@@ -62,6 +63,18 @@ CG-15 starts with a report-only contract before any runtime specialization is im
 - CPU feature guard requirement
 - portable native baseline requirement
 - deterministic dispatch requirement
+
+`CpuHostFeatureProbeReport` records:
+- architecture label
+- probe support status
+- probe performed status
+- detected CPU feature labels
+- SIMD-family feature presence
+- side-effect-free probe status
+
+The first vector-kernel admission slice records the filter/encoded operator family. Its admission
+status is blocked until correctness evidence and benchmark evidence exist. It does not enable SIMD
+dispatch.
 
 Candidate instruction/layout classes include:
 - scalar_portable
@@ -84,9 +97,9 @@ Initial CG-15 report-only candidates cover:
 - partial-decode sort kernels
 - partial-decode join kernels
 
-The report is intentionally not a CPU profiler or runtime dispatcher. It is a
-deterministic capability and evidence surface so future specialization work can
-be reviewed without hiding execution behavior.
+The report is intentionally not a CPU profiler or runtime dispatcher. The host CPU probe is a
+metadata-only capability and evidence surface so future specialization work can be reviewed without
+hiding execution behavior.
 
 ## CG-15 acceptance gates
 
