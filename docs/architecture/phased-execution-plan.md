@@ -434,14 +434,16 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no UDF/effectful execution.
   - Fallback/claim boundary: claim only the selected kernel family.
   - Dependencies/blockers: GAR-FLOW-2B blocker matrix.
-- [ ] GAR-0026-G prepared/native row-number window streaming runtime path
-  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-F.
-  - Current state: prepared/native local fact-only, group-by, join, join-aggregate, and top-N
-    scenarios now avoid full fact-table materialization; `row number window` still materializes
-    Vortex-derived fact tables before ShardLoom-native ranking.
-  - Next slice outcome: implement one scoped prepared/native local Vortex `row number window` path
-    that scans only required fact columns, maintains bounded ShardLoom-native per-group rank-1 state,
-    and avoids full fact-table materialization, or emit deterministic unsupported diagnostics.
+- [ ] GAR-0026-H prepared/native high-cardinality string group/distinct streaming runtime path
+  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-G.
+  - Current state: prepared/native local fact-only, group-by, join, join-aggregate, top-N, and
+    row-number scenarios now avoid full fact-table materialization; `high-cardinality string
+    group/distinct` still materializes Vortex-derived fact tables before ShardLoom-native string
+    grouping.
+  - Next slice outcome: implement one scoped prepared/native local Vortex `high-cardinality string
+    group/distinct` path that scans only required fact columns, maintains ShardLoom-native string
+    group/distinct state, and avoids full fact-table materialization, or emit deterministic
+    unsupported diagnostics.
   - User-visible surface: `traditional-analytics-vortex-run`, benchmark prepared/native rows,
     stage timing fields, operator blocker matrix, docs.
   - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, focused Vortex
@@ -453,11 +455,11 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     `fallback_attempted=false`, and `external_engine_invoked=false`.
   - Verification: focused Vortex traditional analytics test, benchmark harness contract tests,
     `cargo test --workspace --all-targets`.
-  - Non-goals: no distributed ranking, no object-store ranking, no SQL/DataFrame planner, no
-    encoded-native window/rank claim, no broad performance claim.
-  - Fallback/claim boundary: may claim only a scoped local prepared/native residual row-number window
-    path when evidence is attached.
-  - Dependencies/blockers: row-number fixture coverage, per-group bounded-state sizing evidence, and
+  - Non-goals: no distributed distinct, no object-store distinct, no SQL/DataFrame planner, no
+    encoded-native string/dictionary claim, no broad performance claim.
+  - Fallback/claim boundary: may claim only a scoped local prepared/native residual string
+    group/distinct path when evidence is attached.
+  - Dependencies/blockers: string/distinct fixture coverage, group-state sizing evidence, and
     memory/spill policy follow-through.
 - [ ] GAR-0027-A CPU/SIMD/vectorization admission slice
   - Source: RFC 0027; CPU specialization admission gates; benchmark-suite catalog.
