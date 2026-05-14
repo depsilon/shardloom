@@ -114,7 +114,11 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
 fn is_status_capabilities_command(command: &str) -> bool {
     matches!(
         command,
-        "status" | "capabilities" | "compute-capability-matrix" | "semantic-conformance-suite"
+        "status"
+            | "capabilities"
+            | "compute-capability-matrix"
+            | "global-architecture-gate"
+            | "semantic-conformance-suite"
     )
 }
 
@@ -430,6 +434,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("semantic-conformance-suite"),
+            CommandFamily::StatusCapabilities
+        );
+        assert_eq!(
+            classify_command("global-architecture-gate"),
             CommandFamily::StatusCapabilities
         );
         assert_eq!(

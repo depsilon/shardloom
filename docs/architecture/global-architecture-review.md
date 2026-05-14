@@ -56,8 +56,16 @@ plan before coding.
   and unsupported execution states are visible as `support_status=report_only|unsupported`,
   `claim_gate_status=not_claim_grade`, with deterministic diagnostic codes, blocker ids, no parser,
   no binder, no planner, no runtime, no external engine, and no fallback.
+- [x] GAR-0001A-B adds `global-architecture-gate`, a report-only runtime-claim gate for
+  distributed coordinator/worker/task execution, object-store range/full-file read, object-store
+  write/commit, lakehouse catalog metadata, lakehouse transaction commit, and CDC/delete/tombstone
+  execution. The gate is release/readiness evidence, keeps `claim_gate_status=not_claim_grade`,
+  lists deterministic diagnostic codes and blocker ids, and preserves no runtime execution, no
+  credentials, no data reads, no object-store/table/catalog/write I/O, no external engine, and no
+  fallback.
 - [ ] Executable SQL/DataFrame runtime, distributed runtime, broad lakehouse-compatible output, and
-  general object-store execution remain incomplete.
+  general object-store execution remain incomplete; GAR-0001A-B blocks those claims until the
+  narrower GAR-0008, GAR-0020, and GAR-0028 evidence slices land.
 - [ ] Spark-displacement or engine-replacement claims remain not claimable until runtime and output
   evidence closes.
 

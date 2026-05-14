@@ -828,6 +828,12 @@ runtime-utilization boundary matrix for layout/write, device execution, object-s
 managed-platform comparison lanes. Those lanes stay `not_claim_grade`; managed platforms remain
 comparison-only and cannot satisfy ShardLoom-native execution claims.
 
+GAR-0001A-B adds `global_architecture_runtime_claim_gate_ref` through
+`global-architecture-gate`. That gate aggregates distributed coordinator/worker/task execution,
+object-store reads/writes/commits, and lakehouse/catalog/CDC/delete/tombstone runtime-claim
+boundaries. It is `not_claim_grade`, side-effect-free, and required release/readiness evidence
+before any distributed, object-store, or lakehouse runtime claim can be made.
+
 ## Materialization And Decode Flow
 
 ```text

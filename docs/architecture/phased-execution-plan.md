@@ -262,23 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0001A-B distributed/object-store/lakehouse architecture gate
-  - Source: RFC 0001; RFC 0008; RFC 0028; operational evidence policy hardening.
-  - Current state: distributed, object-store, and lakehouse paths are represented as planning or
-    unsupported surfaces.
-  - Next slice outcome: single gate report that names minimum evidence before any distributed,
-    object-store, or lakehouse runtime claim.
-  - User-visible surface: release/readiness gate, CLI planning report, docs.
-  - Implementation scope: gate report struct, CLI command or existing release gate integration,
-    contract tests.
-  - Evidence required: policy/no-fallback refs, credential boundary refs, Native I/O refs for any
-    supported lane.
-  - Acceptance: no runtime claim can pass without the gate; unsupported paths have deterministic
-    diagnostics.
-  - Verification: release readiness metadata tests, focused gate tests, `cargo test --workspace --all-targets`.
-  - Non-goals: no coordinator, object-store I/O, table commits, or dependency expansion.
-  - Fallback/claim boundary: gate defaults to `claim_gate_status=not_claim_grade`.
-  - Dependencies/blockers: GAR-0008, GAR-0020, and GAR-0028 runtime evidence.
 - [ ] GAR-0003-A Vortex segment extraction admission slice
   - Source: RFC 0003; Vortex public API inventory; Vortex upstream alignment hardening.
   - Current state: segment extraction exists for scoped paths, but production coverage and layout

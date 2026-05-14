@@ -73,6 +73,10 @@ REQUIRED_VALIDATION_COMMANDS = [
         "release_dry_run_proof",
         [sys.executable, "scripts/release_dry_run_proof.py", "--rows", "64", "--iterations", "1"],
     ),
+    (
+        "global_architecture_gate",
+        ["cargo", "run", "-q", "-p", "shardloom-cli", "--", "global-architecture-gate", "--format", "json"],
+    ),
     ("release_security_gate", [sys.executable, "scripts/check_release_security_gate.py"]),
 ]
 
