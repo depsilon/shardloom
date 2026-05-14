@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0021-F nested JSON field scan prepared/native Vortex residual runtime slice
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: promote the local prepared/native `nested JSON field scan` benchmark scenario from the
+    materialized-table path to a projected Vortex scan over `nested_payload`, feeding
+    ShardLoom-native generated-field extraction state without full fact-table materialization.
+  - Checklist:
+    - [x] Add a `NestedJsonFieldScan` prepared/native path through
+          `run_vortex_derived_scenario_from_files` that scans only projected `nested_payload`.
+    - [x] Preserve deterministic generated JSON extraction by reusing score/flag parsing and
+          preserving row-indexed diagnostics.
+    - [x] Keep the operator blocker matrix honest:
+          `operator_execution_class=residual_native`,
+          `operator_temporary_materialization_used=false`, and
+          `operator_encoded_native_claim_allowed=false`.
+    - [x] Update README, benchmark, compute-flow, GAR, traceability, and phase-plan docs so nested
+          JSON field scan appears in prepared/native residual runtime coverage.
+    - [x] Keep CDC, broad encoded-native JSON, SQL/DataFrame, and object-store/table work in Planned
+          rather than implying broad operator completion.
+  - Boundary:
+    - This is a scoped local prepared/native Vortex residual runtime path for `nested JSON field
+      scan` only. It does not add encoded-native JSON kernels, SQL/DataFrame execution,
+      object-store/table runtime, external engines, fallback execution, or performance/superiority
+      claims.
+  - Evidence:
+    - Correctness evidence: the feature-gated `nested_json_field_scan_runs_jsonl_fixture` test now
+      compares native Vortex output against the compatibility-import result.
+    - Native I/O/materialization evidence: native prepared rows assert projected-column scan evidence,
+      `materialization_boundary_rows=0`, and `data_materialized=false`.
+    - Policy evidence: operator fields remain residual-native, not encoded-native, with no fallback
+      or external engine claim.
+    - Benchmark evidence: focused benchmark smoke confirms `prepared_vortex`, projected
+      `nested_payload`, residual-native operator evidence, and `fallback_attempted=false`; no
+      performance claim is added.
+  - Vortex-first provider check:
+    - Subject area: prepared/native Vortex `nested JSON field scan` over local Vortex artifacts.
+    - Upstream Vortex concept checked: reuse existing Vortex file scan projection provider through
+      `scan_fact_vortex_projected`; do not invent a separate ShardLoom source abstraction.
+    - Decision: `wrap_vortex_concept` for projected scan; execute only residual generated-field
+      extraction state in ShardLoom-native code.
+    - Residual handling: projected `nested_payload` values feed local generated JSON extraction
+      state; residual state is not encoded-native and cannot satisfy encoded-native operator claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark nested_json_field_scan_runs_jsonl_fixture --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats jsonl --scenario "nested JSON field scan" --dataset-profile nested_json --rows 64 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --shardloom-result-sink --no-markdown --output target\codex-gar0021f-nested-json-prepared-smoke.json --regenerate`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom --formats jsonl --scenario "nested JSON field scan" --dataset-profile nested_json --rows 64 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --shardloom-result-sink --no-markdown --output target\codex-gar0021f-nested-json-smoke.json --regenerate`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0021f-workspace-test'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+
 - [x] Session label: GAR-0021-E malformed timestamp/dirty CSV prepared/native Vortex residual runtime slice
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

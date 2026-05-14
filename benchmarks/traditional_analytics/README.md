@@ -227,8 +227,8 @@ and the current materialization/scan evidence. The scoped `selective filter`, `w
 `filter + projection + limit`, `group by aggregation`, `multi-key group by`, `hash join`, and
 `join + aggregate`, `sort and top-k`, `top-N per group`, `row number window`,
 `high-cardinality string group/distinct`, `distinct count`, `null-heavy aggregate`,
-`clean/cast/filter/write`, and `malformed timestamp / dirty CSV`, plus scoped local
-`partition pruning`, prepared/native
+`clean/cast/filter/write`, `malformed timestamp / dirty CSV`, and `nested JSON field scan`, plus
+scoped local `partition pruning`, prepared/native
 paths use Vortex scan filter/projection pushdown where applicable and avoid full fact-table
 materialization; other benchmark operators still materialize Vortex-derived arrays after scan.
 These rows are not broad SQL/DataFrame performance claims.
@@ -274,10 +274,11 @@ only projected `nullable_metric_00` values into ShardLoom-native null-skipping a
 `clean/cast/filter/write` scans only projected `raw_event_time`, `dirty_numeric`, and `dirty_flag`
 values into ShardLoom-native cleanup/filter/aggregate state. `malformed timestamp / dirty CSV`
 scans only projected `raw_event_time` and `dirty_numeric` values into ShardLoom-native
-validation/parse/aggregate state. `partition pruning` scans projected `event_date`/`metric` columns
-with a Vortex date-range filter before ShardLoom-native residual scalar aggregation; it is not an
-object-store partition-pruning, layout-pruning, or statistics-pruning claim. None of these paths are
-encoded-native operator claims.
+validation/parse/aggregate state. `nested JSON field scan` scans only projected `nested_payload`
+values into ShardLoom-native generated-field extraction state. `partition pruning` scans projected
+`event_date`/`metric` columns with a Vortex date-range filter before ShardLoom-native residual
+scalar aggregation; it is not an object-store partition-pruning, layout-pruning, or
+statistics-pruning claim. None of these paths are encoded-native operator claims.
 Prepared/native rows also emit an operator blocker matrix:
 `operator_execution_class`, `operator_admission_status`, `operator_blocker_id`,
 `operator_blocker_reason`, and `operator_encoded_native_claim_allowed`. Current

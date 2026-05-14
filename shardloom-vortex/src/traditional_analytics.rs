@@ -7649,6 +7649,9 @@ fn run_vortex_derived_scenario_from_files(
         TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
             run_streaming_malformed_timestamp_dirty_csv_scenario(fact_path, dim_path)
         }
+        TraditionalAnalyticsScenario::NestedJsonFieldScan => {
+            run_streaming_nested_json_field_scan_scenario(fact_path, dim_path)
+        }
         TraditionalAnalyticsScenario::MultiKeyGroupBy => {
             run_streaming_multi_key_group_by_scenario(fact_path, dim_path)
         }
@@ -8321,6 +8324,68 @@ fn run_streaming_malformed_timestamp_dirty_csv_scenario(
     }
     Ok(TraditionalScenarioExecution {
         result_json: scalar_result_json(accum.row_count, accum.metric_sum),
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_nested_json_field_scan_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut saw_nested_payload = false;
+    let mut source_row_offset = 0_usize;
+    let mut row_count = 0_u64;
+    let mut metric_sum = 0.0;
+    let mut flagged = 0_u64;
+    let stats = scan_fact_vortex_projected(
+        fact_path,
+        &["nested_payload"],
+        None,
+        |fields, chunk_rows| {
+            let nested_payloads = utf8_field(fields, "nested_payload")?;
+            if nested_payloads.len() != chunk_rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "nested JSON field scan Vortex chunk length mismatch: chunk_rows={chunk_rows}, nested_payload_len={}",
+                    nested_payloads.len()
+                )));
+            }
+            for (index, payload) in nested_payloads.into_iter().enumerate() {
+                if payload.is_empty() {
+                    continue;
+                }
+                saw_nested_payload = true;
+                let row_index = source_row_offset + index;
+                metric_sum += generated_nested_score(&payload, row_index)?;
+                if generated_nested_flag(&payload, row_index)? {
+                    flagged += 1;
+                }
+                row_count += 1;
+            }
+            source_row_offset = source_row_offset.checked_add(chunk_rows).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "nested JSON field scan source row offset overflow".to_string(),
+                )
+            })?;
+            Ok(())
+        },
+    )?;
+    if !saw_nested_payload {
+        return Err(ShardLoomError::InvalidOperation(
+            "nested JSON field scan requires nested_payload fixture column".to_string(),
+        ));
+    }
+    Ok(TraditionalScenarioExecution {
+        result_json: format!(
+            "{{\"row_count\":{row_count},\"metric_sum\":{},\"flagged\":{flagged}}}",
+            json_float(metric_sum)
+        ),
         fact_rows: stats.source_row_count,
         dim_rows,
         cdc_delta_rows: 0,
@@ -9707,6 +9772,53 @@ mod tests {
         assert!(report.output_replay_verified);
         assert!(report.computed_result_sink_replay_verified);
         assert!(!report.fallback_execution_allowed);
+        assert!(report.streaming_vortex_execution_used);
+        assert!(report.full_table_materialization_avoided);
+        assert!(!report.streaming_filter_pushdown_applied);
+        assert!(report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            report.streaming_projected_columns,
+            vec!["nested_payload".to_string()]
+        );
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::NestedJsonFieldScan,
+                report.fact_vortex_path.clone(),
+                report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+        assert_eq!(native_report.result_json, report.result_json);
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(!native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec!["nested_payload".to_string()]
+        );
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
+        assert_eq!(native_report.rows_materialized, 1);
+        let native_fields = field_map(native_report.fields());
+        assert_eq!(
+            native_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_temporary_materialization_used")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }

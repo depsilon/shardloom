@@ -337,31 +337,33 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no sketch runtime implementation in this admission slice.
   - Fallback/claim boundary: no approximate aggregate accuracy/performance claim.
   - Dependencies/blockers: exact-reference fixture design.
-- [ ] GAR-0021-F nested JSON field scan prepared/native residual runtime slice
+- [ ] GAR-0021-G CDC overlay prepared/native residual runtime slice
   - Source: RFC 0021; RFC 0026; physical operator kernel contracts; traditional analytics benchmark
     suite.
-  - Current state: distinct count, null-heavy aggregate, clean/cast/filter/write, and malformed
-    timestamp / dirty CSV now have prepared/native projected Vortex scans; nested JSON field scan
-    still uses the materialized table path for prepared/native rows.
-  - Next slice outcome: scan only `nested_payload` from local Vortex artifacts, apply deterministic
-    generated nested score/flag extraction, and aggregate row count, score sum, and flagged count
-    without full fact-table materialization.
+  - Current state: distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp
+    / dirty CSV, and nested JSON field scan now have prepared/native projected Vortex scans; small
+    change over large base still uses the materialized base-plus-CDC table path for prepared/native
+    rows.
+  - Next slice outcome: scan projected base `id`/`metric` values and CDC delta
+    `id`/`op`/`value`/`metric`/`effective_ts` values from local Vortex artifacts, apply deterministic
+    append/update/delete overlay semantics, and aggregate count/sum without full fact-table
+    materialization.
   - User-visible surface: `traditional-analytics-vortex-run`, prepared/native benchmark rows,
     operator blocker matrix, docs.
   - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, focused tests, benchmark
     docs, compute-flow docs, GAR/traceability docs.
   - Evidence required: correctness refs from tiny and generated fixtures; benchmark refs if emitted;
     Native I/O materialization/decode refs; operator blocker refs; no-fallback refs.
-  - Acceptance: native/prepared nested JSON field scan rows report projected Vortex scan evidence,
-    `data_materialized=false`, `operator_execution_class=residual_native`,
+  - Acceptance: native/prepared small change over large base rows report projected Vortex scan
+    evidence for both base and CDC delta inputs, `data_materialized=false`,
+    `operator_execution_class=residual_native`,
     `operator_encoded_native_claim_allowed=false`, and no fallback/external engine invocation.
   - Verification: feature-gated `shardloom-vortex` focused test, focused CLI/benchmark smoke if
     touched, `cargo fmt --all -- --check`, `cargo test --workspace --all-targets`,
     `python -m compileall -q python/src python/tests scripts examples`, `git diff --check`.
   - Non-goals: no encoded-native aggregate claim, no SQL/DataFrame runtime, no object-store/table
     runtime, no external engines, no performance/superiority claim.
-  - Fallback/claim boundary: claim only the scoped local prepared/native nested JSON field scan
-    residual path.
+  - Fallback/claim boundary: claim only the scoped local prepared/native CDC overlay residual path.
   - Dependencies/blockers: none beyond existing local Vortex scan support.
 - [ ] GAR-0038-A facade compatibility and legacy boundary matrix
   - Source: RFC 0038; top-level plan/execution facade docs; typed envelope docs.
