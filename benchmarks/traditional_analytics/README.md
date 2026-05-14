@@ -260,6 +260,14 @@ projected columns, pushdown flags, Native I/O certificate status, materializatio
 residual executor, claim gate, and `fallback_attempted=false` /
 `external_engine_invoked=false`. This makes benchmark rows easier to interpret without relabeling
 residual-native work as encoded-native or claim-grade performance evidence.
+For `selective filter`, prepared/native rows also emit `encoded_predicate_provider_*` fields. Those
+fields currently report
+`encoded_predicate_provider_status=blocked_until_reader_backed_encoded_predicate_evidence`,
+`encoded_predicate_provider_filter_only_columns=flag,value`,
+`encoded_predicate_provider_projected_output_columns=metric`, and
+`encoded_predicate_provider_encoded_native_claim_allowed=false`. This records that Vortex scan
+filter pushdown was requested, but no reader-backed encoded predicate provider certificate exists
+yet.
 `filter + projection + limit` now reports a scoped residual-native fused scan path for prepared/native
 rows when filter/projection pushdown runs without full-table materialization. `group by aggregation`
 now reports a scoped residual-native grouped scan path when projection pushdown over

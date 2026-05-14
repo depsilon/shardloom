@@ -96,7 +96,7 @@ or claim.
 | --- | --- | --- | --- |
 | User access | CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces and thin adapters are report-only or planned. | Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope. | No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
-| Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, top-N, row-number, high-cardinality string group/distinct, and partition-pruning/date-range scans avoid full fact-table materialization in prepared/native rows. Prepared/native rows now emit explicit `source_backed_scan_*` evidence for local source roles, projected columns, residual executor, Native I/O certificate status, materialization boundary, and no-fallback status. CPU specialization reports now record side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work follows the phase-plan queue for narrow encoded/provider promotion, facade coverage, and evidence-gated expansion. | These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, distributed sort, SIMD-dispatch, object-store pruning, layout/statistics pruning, broad CDC/table transactions, or broad performance claims. |
+| Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, top-N, row-number, high-cardinality string group/distinct, and partition-pruning/date-range scans avoid full fact-table materialization in prepared/native rows. Prepared/native rows now emit explicit `source_backed_scan_*` evidence for local source roles, projected columns, residual executor, Native I/O certificate status, materialization boundary, and no-fallback status. Selective-filter rows also emit `encoded_predicate_provider_*` blockers so Vortex scan filter pushdown is not confused with an admitted encoded predicate provider. CPU specialization reports record side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work is the reader-backed primitive selective-filter encoded predicate bridge, then evidence-gated provider/runtime expansion. | These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, distributed sort, SIMD-dispatch, object-store pruning, layout/statistics pruning, broad CDC/table transactions, or broad performance claims. |
 | Batch engine mode | Bounded/snapshot local Vortex analytics are the practical execution foundation. | Broader operator/source/sink coverage plus correctness and benchmark claim gates. | Batch support is scoped to evidence-backed workloads. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. | Fixture evidence only; no production live claim. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. | Fixture evidence only; no production hybrid, object-store, or table-commit claim. |
@@ -222,6 +222,7 @@ flowchart TD
     DIRECT_BOUNDARY["Transient compatibility boundary<br/>no persistent Vortex artifact"]
 
     PROVIDER["Provider admission<br/>Vortex provider / ShardLoom kernel / diagnostic"]
+    SELECTIVE_BLOCKER["Selective-filter encoded predicate provider<br/>current blocker until reader-backed evidence"]
 
     REQUESTED --> AUTO --> SELECTED
     REQUESTED --> COMPAT
@@ -237,6 +238,7 @@ flowchart TD
     PREPARED --> PREPARED_BOUNDARY --> PROVIDER
     NATIVE --> NATIVE_BOUNDARY --> PROVIDER
     DIRECT --> DIRECT_BOUNDARY --> PROVIDER
+    PROVIDER -->|"selective filter today"| SELECTIVE_BLOCKER
 ```
 
 Mode timing fields must stay visible:
@@ -542,6 +544,25 @@ native_io_certificate_required=true
 fallback_attempted=false
 external_engine_invoked=false
 ```
+
+Current selective-filter provider posture:
+
+```text
+source_backed_scan_provider_kind=vortex_file_projected_scan
+source_backed_scan_projected_columns=metric
+encoded_predicate_provider_status=blocked_until_reader_backed_encoded_predicate_evidence
+encoded_predicate_provider_filter_only_columns=flag,value
+encoded_predicate_provider_projected_output_columns=metric
+encoded_predicate_provider_encoded_native_claim_allowed=false
+encoded_predicate_provider_fallback_attempted=false
+encoded_predicate_provider_external_engine_invoked=false
+```
+
+This records that the local Vortex scan path can request filter pushdown, but it is not yet an
+admitted encoded predicate provider. The next runtime slice is the reader-backed primitive
+selective-filter bridge that must prove encoded value batches, selection-vector evidence,
+certificates, materialization/decode boundaries, and no-fallback policy before any encoded-native
+predicate claim is allowed.
 
 ## Mode 3 - `native_vortex`
 

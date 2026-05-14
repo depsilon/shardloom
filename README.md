@@ -62,7 +62,7 @@ base-plus-delta hybrid overlays.
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and scoped in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and scoped in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. |
 | Streaming/zero-copy/backpressure | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, and `capabilities engines` expose a GAR-0013 matrix for local fixture evidence, object-store streaming read blockers, zero-decode, zero-copy/materialization boundaries, bounded backpressure, and live/hybrid broker runtime blockers. | Object-store streaming reads, durable broker adapters, runtime backpressure enforcement, broader operator/source/sink evidence, and claim-grade workload certification. |
-| Prepared/native Vortex runtime | Scoped residual-native paths now avoid full fact-table materialization for selected local benchmark scenarios, including local distinct-count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, and partition-pruning/date-range scan evidence. Prepared/native rows also emit explicit `source_backed_scan_*` fields for source roles, projected columns, residual executor, Native I/O certificate status, materialization boundary, and no-fallback evidence. CPU specialization reporting now records side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work follows the phase-plan queue for encoded/provider promotion, facade coverage, and evidence-gated expansion; encoded-native, SIMD dispatch, and performance claims remain evidence-gated. |
+| Prepared/native Vortex runtime | Scoped residual-native paths now avoid full fact-table materialization for selected local benchmark scenarios, including local distinct-count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, and partition-pruning/date-range scan evidence. Prepared/native rows also emit explicit `source_backed_scan_*` fields for source roles, projected columns, residual executor, Native I/O certificate status, materialization boundary, and no-fallback evidence. The `selective filter` row now emits `encoded_predicate_provider_*` blocker fields so Vortex scan filter pushdown is not confused with an admitted encoded predicate provider. CPU specialization reporting records side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work is the reader-backed primitive selective-filter encoded predicate bridge; encoded-native, SIMD dispatch, and performance claims remain evidence-gated. |
 
 ## Current State
 
@@ -97,7 +97,10 @@ Currently wired surfaces include:
   these avoid full fact-table materialization for the prepared/native row while remaining
   residual-native, not encoded-native operator claims; prepared/native rows expose
   `source_backed_scan_*` evidence for source role, projected-column, residual, materialization, and
-  no-fallback review
+  no-fallback review; the `selective filter` row also exposes
+  `encoded_predicate_provider_*` fields that block encoded predicate claims until reader-backed
+  encoded value batches, selection-vector evidence, certificates, and no-fallback evidence are
+  attached
 - batch/live/hybrid engine-mode contracts through `engine-selection-plan`,
   `engine-capability-matrix`, `live-change-contract-plan`, Python context helpers, and scoped
   in-memory `live-fixture-run` / `hybrid-overlay-run` fixture reports
