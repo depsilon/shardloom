@@ -27,6 +27,8 @@ const BENCHMARK_FLOAT_DIGITS: i32 = 4;
 const MAX_EXACT_F64_INTEGER: u64 = 9_007_199_254_740_992;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID: &str = "local_vortex_analytics_v1";
+const SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.source_backed_scan_evidence.v1";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
@@ -2229,6 +2231,7 @@ impl TraditionalAnalyticsVortexReport {
     pub fn fields(&self) -> Vec<(String, String)> {
         let mut fields = self.base_fields();
         fields.extend(streaming_execution_fields(self));
+        fields.extend(source_backed_scan_evidence_fields(self));
         fields.extend(traditional_vortex_provider_admission_fields(
             self.scenario,
             self.execution_mode_selection
@@ -2649,6 +2652,216 @@ fn streaming_execution_fields(report: &impl StreamingExecutionFieldView) -> Vec<
             report.streaming_projected_columns().join(","),
         ),
     ]
+}
+
+#[allow(clippy::too_many_lines)]
+fn source_backed_scan_evidence_fields(
+    report: &TraditionalAnalyticsVortexReport,
+) -> Vec<(String, String)> {
+    let operator_classification = traditional_operator_execution_class(
+        report.streaming_vortex_execution_used,
+        report.data_materialized,
+    );
+    let residual_executor = match operator_classification {
+        TraditionalOperatorExecutionClass::EncodedNative => "none",
+        TraditionalOperatorExecutionClass::ResidualNative => "shardloom_native_residual_operator",
+        TraditionalOperatorExecutionClass::MaterializedTemporary => {
+            "shardloom_native_temporary_operator"
+        }
+        TraditionalOperatorExecutionClass::Unsupported => "unsupported",
+    };
+    let evidence_status = if report.streaming_vortex_execution_used && !report.data_materialized {
+        "scoped_local_vortex_scan_evidence"
+    } else if report.streaming_vortex_execution_used {
+        "scan_evidence_has_materialization_boundary"
+    } else {
+        "not_admitted_for_source_backed_scan_evidence"
+    };
+    let provider_kind = if report.streaming_vortex_execution_used {
+        "vortex_file_projected_scan"
+    } else {
+        "unsupported"
+    };
+    let source_roles =
+        source_backed_scan_source_roles(report.scenario, &report.streaming_projected_columns);
+    let (source_refs, source_digests) = source_backed_scan_sources(report, &source_roles);
+    vec![
+        (
+            "source_backed_scan_evidence_schema_version".to_string(),
+            SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "source_backed_scan_evidence_report_id".to_string(),
+            format!(
+                "gar-0021h.source_backed_scan.{}.{}",
+                report
+                    .execution_mode_selection
+                    .selected_execution_mode
+                    .as_str(),
+                report.scenario.as_str().replace(['/', ' ', '+'], "-")
+            ),
+        ),
+        (
+            "source_backed_scan_evidence_status".to_string(),
+            evidence_status.to_string(),
+        ),
+        (
+            "source_backed_scan_provider_kind".to_string(),
+            provider_kind.to_string(),
+        ),
+        (
+            "source_backed_scan_provider_surface".to_string(),
+            "traditional_analytics_vortex_file_scan".to_string(),
+        ),
+        (
+            "source_backed_scan_provider_scope".to_string(),
+            "local_vortex_prepared_or_native_rows_only".to_string(),
+        ),
+        (
+            "source_backed_scan_source_roles".to_string(),
+            source_roles,
+        ),
+        (
+            "source_backed_scan_source_ref".to_string(),
+            source_refs.join(","),
+        ),
+        (
+            "source_backed_scan_source_digest".to_string(),
+            source_digests.join(","),
+        ),
+        (
+            "source_backed_scan_projected_columns".to_string(),
+            report.streaming_projected_columns.join(","),
+        ),
+        (
+            "source_backed_scan_filter_pushdown_applied".to_string(),
+            report.streaming_filter_pushdown_applied.to_string(),
+        ),
+        (
+            "source_backed_scan_projection_pushdown_applied".to_string(),
+            report.streaming_projection_pushdown_applied.to_string(),
+        ),
+        (
+            "source_backed_scan_rows_scanned".to_string(),
+            report.rows_scanned.to_string(),
+        ),
+        (
+            "source_backed_scan_arrays_read_count".to_string(),
+            report.streaming_arrays_read_count.to_string(),
+        ),
+        (
+            "source_backed_scan_max_chunk_rows".to_string(),
+            report.streaming_max_chunk_rows.to_string(),
+        ),
+        (
+            "source_backed_scan_materialization_boundary_rows".to_string(),
+            report.materialization_boundary_rows.to_string(),
+        ),
+        (
+            "source_backed_scan_data_materialized".to_string(),
+            report.data_materialized.to_string(),
+        ),
+        (
+            "source_backed_scan_native_io_certificate_id".to_string(),
+            report.native_io_certificate.certificate_id.clone(),
+        ),
+        (
+            "source_backed_scan_native_io_certificate_status".to_string(),
+            report.native_io_certificate.status().to_string(),
+        ),
+        (
+            "source_backed_scan_operator_execution_class".to_string(),
+            operator_classification.as_str().to_string(),
+        ),
+        (
+            "source_backed_scan_residual_executor".to_string(),
+            residual_executor.to_string(),
+        ),
+        (
+            "source_backed_scan_encoded_native_claim_allowed".to_string(),
+            (operator_classification == TraditionalOperatorExecutionClass::EncodedNative)
+                .to_string(),
+        ),
+        (
+            "source_backed_scan_claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        (
+            "source_backed_scan_claim_boundary".to_string(),
+            "scoped local prepared/native Vortex scan evidence only; no SQL/DataFrame, object-store, distributed, encoded-native operator, or performance claim".to_string(),
+        ),
+        (
+            "source_backed_scan_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "source_backed_scan_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+    ]
+}
+
+fn source_backed_scan_source_roles(
+    scenario: TraditionalAnalyticsScenario,
+    projected_columns: &[String],
+) -> String {
+    let mut roles = Vec::new();
+    for column in projected_columns {
+        let role = column.split_once('.').map_or_else(
+            || match scenario {
+                TraditionalAnalyticsScenario::SmallChangeOverLargeBase => "base",
+                _ => "fact",
+            },
+            |(prefix, _)| match prefix {
+                "fact" | "dim" | "base" | "cdc_delta" => prefix,
+                _ => "fact",
+            },
+        );
+        if !roles.contains(&role) {
+            roles.push(role);
+        }
+    }
+    if roles.is_empty() && scenario == TraditionalAnalyticsScenario::SmallChangeOverLargeBase {
+        roles.push("base");
+        roles.push("cdc_delta");
+    } else if roles.is_empty() {
+        roles.push("fact");
+    }
+    roles.join(",")
+}
+
+fn source_backed_scan_sources(
+    report: &TraditionalAnalyticsVortexReport,
+    source_roles: &str,
+) -> (Vec<String>, Vec<String>) {
+    let mut refs = Vec::new();
+    let mut digests = Vec::new();
+    for role in source_roles.split(',') {
+        match role {
+            "fact" => {
+                refs.push(format!("fact={}", report.fact_vortex_path.display()));
+                digests.push(format!("fact={}", report.fact_vortex_digest));
+            }
+            "dim" => {
+                refs.push(format!("dim={}", report.dim_vortex_path.display()));
+                digests.push(format!("dim={}", report.dim_vortex_digest));
+            }
+            "base" => {
+                refs.push(format!("base={}", report.fact_vortex_path.display()));
+                digests.push(format!("base={}", report.fact_vortex_digest));
+            }
+            "cdc_delta" => {
+                if let Some(cdc_delta_path) = report.cdc_delta_vortex_path.as_ref() {
+                    refs.push(format!("cdc_delta={}", cdc_delta_path.display()));
+                }
+                if let Some(cdc_delta_digest) = report.cdc_delta_vortex_digest.as_ref() {
+                    digests.push(format!("cdc_delta={cdc_delta_digest}"));
+                }
+            }
+            _ => {}
+        }
+    }
+    (refs, digests)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -10153,6 +10366,38 @@ mod tests {
                 .get("prepared_artifact_cdc_delta_ref")
                 .is_some_and(|value| !value.is_empty())
         );
+        assert_eq!(
+            native_fields
+                .get("source_backed_scan_source_roles")
+                .map(String::as_str),
+            Some("base,cdc_delta")
+        );
+        assert_eq!(
+            native_fields
+                .get("source_backed_scan_projected_columns")
+                .map(String::as_str),
+            Some(
+                "base.id,base.metric,cdc_delta.id,cdc_delta.op,cdc_delta.value,cdc_delta.metric,cdc_delta.effective_ts"
+            )
+        );
+        assert_eq!(
+            native_fields
+                .get("source_backed_scan_materialization_boundary_rows")
+                .map(String::as_str),
+            Some("0")
+        );
+        assert_eq!(
+            native_fields
+                .get("source_backed_scan_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("source_backed_scan_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -10270,6 +10515,79 @@ mod tests {
             accepted
                 .iter()
                 .any(|operation| operation == "vortex_scan_projection")
+        );
+        let fields = field_map(report.fields());
+        assert_eq!(
+            fields
+                .get("source_backed_scan_evidence_schema_version")
+                .map(String::as_str),
+            Some(SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION)
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_evidence_status")
+                .map(String::as_str),
+            Some("scoped_local_vortex_scan_evidence")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_provider_kind")
+                .map(String::as_str),
+            Some("vortex_file_projected_scan")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_provider_scope")
+                .map(String::as_str),
+            Some("local_vortex_prepared_or_native_rows_only")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_source_roles")
+                .map(String::as_str),
+            Some("fact")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_projected_columns")
+                .map(String::as_str),
+            Some("metric")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_materialization_boundary_rows")
+                .map(String::as_str),
+            Some("0")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_data_materialized")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_residual_executor")
+                .map(String::as_str),
+            Some("shardloom_native_residual_operator")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("source_backed_scan_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
         );
     }
 
@@ -10569,6 +10887,20 @@ mod tests {
         assert!(prepared_fields.iter().any(|(key, value)| {
             key == "result_sink_claim_gate_status"
                 && value == "not_claim_grade_missing_result_sink_evidence"
+        }));
+        assert!(prepared_fields.iter().any(|(key, value)| {
+            key == "source_backed_scan_evidence_report_id"
+                && value.starts_with("gar-0021h.source_backed_scan.prepared_vortex.")
+        }));
+        assert!(prepared_fields.iter().any(|(key, value)| {
+            key == "source_backed_scan_evidence_status"
+                && value == "scoped_local_vortex_scan_evidence"
+        }));
+        assert!(prepared_fields.iter().any(|(key, value)| {
+            key == "source_backed_scan_projected_columns" && value == "metric"
+        }));
+        assert!(prepared_fields.iter().any(|(key, value)| {
+            key == "source_backed_scan_claim_gate_status" && value == "not_claim_grade"
         }));
 
         let prepared_sink_report = run_traditional_analytics_vortex_benchmark(

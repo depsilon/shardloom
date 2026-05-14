@@ -484,6 +484,11 @@ plan before coding.
   over base `id`/`metric` plus CDC delta `id`/`op`/`value`/`metric`/`effective_ts`, then
   ShardLoom-native overlay state without full fact-table materialization while preserving
   `operator_encoded_native_claim_allowed=false`.
+- [x] Prepared/native rows emit explicit `source_backed_scan_*` evidence for local source roles,
+  source refs/digests, projected columns, provider scope, Native I/O certificate status,
+  materialization boundary rows, residual executor, `fallback_attempted=false`, and
+  `external_engine_invoked=false`; this remains scoped scan evidence, not a generalized source API
+  runtime or encoded-native operator claim.
 - [x] Scoped prepared/native `partition pruning` uses Vortex scan projection/filter pushdown over
   `event_date`/`metric` with a local date-range predicate, then ShardLoom-native residual scalar
   aggregation without full fact-table materialization while preserving
@@ -786,9 +791,10 @@ plan before coding.
   capability rows, CLI JSON envelopes, Python typed accessors, and benchmark coverage rows, plus
   one scoped local CSV selective-filter smoke path; broader formats, operators, result sinks, and
   SQL/DataFrame direct transient runtime remain incomplete.
-- [ ] Prepared/native Vortex rows now carry a typed operator blocker matrix, but still rely on
-  temporary materialized or residual ShardLoom-native operator paths for some scenarios until
-  encoded/native operator coverage matures.
+- [ ] Prepared/native Vortex rows now carry a typed operator blocker matrix and explicit
+  `source_backed_scan_*` evidence, but still rely on temporary materialized or residual
+  ShardLoom-native operator paths for some scenarios until encoded/native operator coverage
+  matures.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

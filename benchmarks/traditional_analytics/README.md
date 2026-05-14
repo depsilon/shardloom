@@ -254,6 +254,12 @@ SQL/DataFrame access remain unsupported unless later phase-plan slices add evide
 Prepared/native rows also expose provider-admission evidence. The current local Vortex file
 scan/source boundary is admitted as the Vortex-native provider surface; residual scenario operators
 remain explicitly ShardLoom-native temporary/materialized where that is still the implementation.
+They also emit `source_backed_scan_*` evidence fields for the scoped local prepared/native scan:
+schema version, report ID, provider kind/surface/scope, source roles, source refs/digests,
+projected columns, pushdown flags, Native I/O certificate status, materialization boundary rows,
+residual executor, claim gate, and `fallback_attempted=false` /
+`external_engine_invoked=false`. This makes benchmark rows easier to interpret without relabeling
+residual-native work as encoded-native or claim-grade performance evidence.
 `filter + projection + limit` now reports a scoped residual-native fused scan path for prepared/native
 rows when filter/projection pushdown runs without full-table materialization. `group by aggregation`
 now reports a scoped residual-native grouped scan path when projection pushdown over

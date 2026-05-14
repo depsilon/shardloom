@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0021-H source-backed prepared/native scan evidence slice
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: expose explicit `source_backed_scan_*` evidence for prepared/native local Vortex rows so
+    source-backed scan/provider details are no longer inferred from scattered projected-column,
+    Native I/O, residual-executor, and no-fallback fields.
+  - Checklist:
+    - [x] Add a reusable prepared/native source-backed scan evidence field group with schema
+          version, report ID, status, provider kind/surface/scope, source roles, source refs,
+          projected columns, pushdown flags, materialization boundary rows, Native I/O certificate
+          status, residual executor, claim gate, and no-fallback/no-external-engine fields.
+    - [x] Assert representative `native_vortex` and `prepared_vortex` selective-filter rows emit
+          `scoped_local_vortex_scan_evidence` while preserving `data_materialized=false`,
+          `materialization_boundary_rows=0`, residual-native operator evidence, and no fallback.
+    - [x] Assert the CDC overlay row reports multi-source roles (`base,cdc_delta`) and the projected
+          base/delta columns without broad CDC/table transaction claims.
+    - [x] Replace GAR-0021-H in the Planned queue with the next meaningful runtime/provider slice,
+          GAR-0026-Q selective-filter encoded predicate provider promotion.
+    - [x] Update README, benchmark, compute-flow, GAR, and traceability docs so the new evidence is
+          represented without creating a SQL/DataFrame, object-store, encoded-native, or performance
+          claim.
+  - Boundary:
+    - This is a scoped evidence-surface improvement for local prepared/native Vortex benchmark rows.
+      It does not add a generalized source runtime, object-store runtime, SQL/DataFrame execution,
+      encoded-native operator execution, Vortex query-engine integration, external engines, fallback
+      execution, or performance/superiority claims.
+  - Evidence:
+    - Correctness evidence: existing prepared/native selective-filter and CDC overlay tests still
+      compare native Vortex output against the compatibility-import result.
+    - Source-backed scan/provider evidence: `source_backed_scan_*` fields now record source roles,
+      source refs/digests, projected columns, provider surface, and local scope.
+    - Native I/O/materialization evidence: representative rows assert Native I/O certificate status,
+      `source_backed_scan_materialization_boundary_rows=0`, and
+      `source_backed_scan_data_materialized=false`.
+    - Policy evidence: source-backed scan fields and provider admission fields preserve
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+  - Vortex-first provider check:
+    - Subject area: source-backed scan evidence for prepared/native local Vortex benchmark rows.
+    - Upstream Vortex concept checked: local Vortex file scan projection/filter pushdown as the
+      native provider boundary.
+    - Decision: `wrap_vortex_concept` by exposing ShardLoom evidence fields around the admitted
+      local Vortex scan provider; residual scenario operators remain ShardLoom-native.
+    - Residual handling: residual executor remains explicit as
+      `shardloom_native_residual_operator`; encoded-native claims remain blocked.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_runs_csv_through_local_vortex_io --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark small_change_over_large_base_imports_cdc_delta_fixture --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 64 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --shardloom-result-sink --no-markdown --output target\codex-gar0021h-source-backed-scan-smoke.json --regenerate`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0021h-workspace-test'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+
 - [x] Session label: GAR-0021-G CDC overlay prepared/native Vortex residual runtime slice
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

@@ -337,32 +337,47 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no sketch runtime implementation in this admission slice.
   - Fallback/claim boundary: no approximate aggregate accuracy/performance claim.
   - Dependencies/blockers: exact-reference fixture design.
-- [ ] GAR-0021-H source-backed prepared/native scan evidence slice
-  - Source: RFC 0021; RFC 0026; RFC 0031; compute-engine flow reference; Vortex scan compatibility
-    reports.
-  - Current state: many prepared/native benchmark scenarios now use local Vortex projected scans, but
-    the reusable source-backed scan/provider evidence is still implicit in helper code and broad
-    source-backed API claims remain blocked.
-  - Next slice outcome: expose one reusable source-backed scan evidence path for local Vortex
-    prepared/native rows, including source role, projected columns, residual executor, materialization
-    boundary, and no-fallback fields without changing unsupported neighbors.
+- [ ] GAR-0026-Q selective-filter encoded predicate provider promotion slice
+  - Source: RFC 0021; RFC 0026; RFC 0031; Vortex-first provider check; GAR-0021-H source-backed
+    scan evidence; compute-engine flow reference.
+  - Current state:
+    - Prepared/native selective-filter rows now emit explicit `source_backed_scan_*` evidence for
+      the local Vortex projected scan boundary.
+    - The row remains `operator_execution_class=residual_native` with
+      `operator_encoded_native_claim_allowed=false`; no encoded predicate or encoded operator claim
+      is supported yet.
+  - Next slice outcome: promote one narrow selective-filter predicate path toward encoded-native
+    provider execution if an upstream Vortex or ShardLoom-native encoded provider can be admitted;
+    otherwise emit deterministic provider blockers with required future evidence.
   - User-visible surface: `traditional-analytics-vortex-run`, prepared/native benchmark rows,
-    Python typed fields, compute-flow docs, Native I/O evidence.
-  - Implementation scope: `shardloom-vortex` scan/evidence helpers, CLI/Python field propagation if
-    needed, focused tests, benchmark docs, GAR/traceability docs.
-  - Evidence required: correctness refs from representative prepared/native scenarios; source-backed
-    scan/provider refs; Native I/O materialization/decode refs; residual-boundary refs; no-fallback
-    refs.
-  - Acceptance: at least one representative prepared/native row emits explicit source-backed scan
-    provider evidence while preserving `data_materialized=false`, residual-native operator evidence,
-    `fallback_attempted=false`, and `external_engine_invoked=false`.
-  - Verification: feature-gated `shardloom-vortex` focused tests, prepared/native benchmark smoke,
-    Python wrapper tests if fields change, default GAR verification.
-  - Non-goals: no generalized object-store source runtime, SQL/DataFrame runtime, encoded-native
-    operator claim, Vortex query-engine integration, or performance/superiority claim.
-  - Fallback/claim boundary: claim only scoped local source-backed scan evidence for the selected
-    prepared/native row.
-  - Dependencies/blockers: existing local Vortex projected scan support.
+    provider-admission fields, compute-capability/operator fields, benchmark docs, compute-flow
+    docs.
+  - Implementation scope: `shardloom-vortex` selective-filter scan/operator evidence, existing
+    Vortex compute/source-backed provider reports if applicable, focused Rust tests, benchmark smoke,
+    docs/ledger updates.
+  - Evidence required: correctness refs comparing the scoped predicate result against the existing
+    decoded/reference path; execution certificate refs; Native I/O refs; materialization/decode refs;
+    provider admission refs; benchmark row refs if any timing claim is made; no-fallback and
+    no-external-engine refs.
+  - Acceptance:
+    - The selective-filter prepared/native row either reports a certified scoped encoded predicate
+      provider path with `operator_execution_class=encoded_native`, or reports a deterministic
+      `blocked_until_vortex_or_shardloom_evidence` provider blocker with exact missing evidence.
+    - Any admitted path preserves the explicit source-backed scan evidence, result correctness,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and no hidden fast-mode toggle.
+    - If the slice is blocker-only, it does not relabel residual-native execution as encoded-native.
+  - Verification:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_runs_csv_through_local_vortex_io --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - Focused prepared/native benchmark smoke for `selective filter`.
+    - Default GAR verification before merge.
+  - Non-goals: no broad filter/project kernel family, no SQL/DataFrame runtime, no object-store
+    source runtime, no SIMD dispatch, no Vortex query-engine integration, no performance/superiority
+    claim.
+  - Fallback/claim boundary: claim only the scoped encoded predicate provider if all evidence lands;
+    otherwise keep the row residual-native or blocked and `claim_gate_status=not_claim_grade`.
+  - Dependencies/blockers: GAR-0021-H source-backed scan evidence and a Vortex-first provider
+    decision for predicate evaluation.
 - [ ] GAR-0038-A facade compatibility and legacy boundary matrix
   - Source: RFC 0038; top-level plan/execution facade docs; typed envelope docs.
   - Current state: top-level plan/execution facade exists, but SQL/DataFrame runtime, object-store
