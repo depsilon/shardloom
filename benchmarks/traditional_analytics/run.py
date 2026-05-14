@@ -5991,6 +5991,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom direct-transient rows, when requested with `shardloom-direct-transient`, are scoped local CSV smoke rows without Vortex persistence and are never Vortex-native or performance-claim rows.",
         "ShardLoom prepared Vortex rows start timing from prepared Vortex artifacts; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "Prepared/native rows carry operator_execution_class and operator_blocker_id so residual-native and materialized-temporary operators are not counted as encoded-native.",
+        "Prepared/native selective-filter rows carry encoded_predicate_provider_* blocker fields; Vortex scan filter pushdown is not counted as an admitted encoded predicate provider until reader-backed encoded predicate evidence exists.",
         "ShardLoom coverage rows carry materialization_policy_ref, which points to the GAR-0003-B shared materialization/decode policy in compute-capability-matrix; materialized-temporary rows cannot satisfy encoded-native claims.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Coverage rows now carry support_status, claim_gate_status, native_unsupported_coverage_ref, and unsupported_diagnostic_code so unsupported capability rows stay distinct from timing rows.",

@@ -489,6 +489,10 @@ plan before coding.
   materialization boundary rows, residual executor, `fallback_attempted=false`, and
   `external_engine_invoked=false`; this remains scoped scan evidence, not a generalized source API
   runtime or encoded-native operator claim.
+- [x] Prepared/native `selective filter` rows emit explicit `encoded_predicate_provider_*` blocker
+  fields with `blocked_until_reader_backed_encoded_predicate_evidence`, `flag,value` filter-only
+  columns, `metric` projected output, required future evidence, and no-fallback/no-external-engine
+  status; Vortex scan filter pushdown is not reported as an admitted encoded predicate provider.
 - [x] Scoped prepared/native `partition pruning` uses Vortex scan projection/filter pushdown over
   `event_date`/`metric` with a local date-range predicate, then ShardLoom-native residual scalar
   aggregation without full fact-table materialization while preserving

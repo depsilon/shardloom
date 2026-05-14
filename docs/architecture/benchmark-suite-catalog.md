@@ -199,6 +199,13 @@ Prepared/native rows also carry the operator blocker matrix:
 classes are `encoded_native`, `residual_native`, `materialized_temporary`, and
 `unsupported`; only `encoded_native` can support an encoded-native operator
 claim.
+The `selective filter` prepared/native row also carries
+`encoded_predicate_provider_*` fields. The current status is
+`blocked_until_reader_backed_encoded_predicate_evidence`: the row records that
+Vortex scan filter pushdown was requested, but it does not claim an admitted
+encoded predicate provider until reader-backed encoded value batches,
+selection-vector evidence, correctness/certificate refs, Native I/O evidence,
+materialization/decode boundaries, and no-fallback policy are attached.
 The current scoped `filter + projection + limit` prepared/native row is a
 residual-native fused scan path: Vortex scan filter/projection pushdown and
 bounded top-N state avoid full fact-table materialization, but the row still

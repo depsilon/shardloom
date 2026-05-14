@@ -29,6 +29,8 @@ const MAX_EXACT_F64_INTEGER: u64 = 9_007_199_254_740_992;
 const LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID: &str = "local_vortex_analytics_v1";
 const SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_backed_scan_evidence.v1";
+const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.encoded_predicate_provider.v1";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
@@ -2232,6 +2234,7 @@ impl TraditionalAnalyticsVortexReport {
         let mut fields = self.base_fields();
         fields.extend(streaming_execution_fields(self));
         fields.extend(source_backed_scan_evidence_fields(self));
+        fields.extend(encoded_predicate_provider_fields(self));
         fields.extend(traditional_vortex_provider_admission_fields(
             self.scenario,
             self.execution_mode_selection
@@ -2796,6 +2799,150 @@ fn source_backed_scan_evidence_fields(
         ),
         (
             "source_backed_scan_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+    ]
+}
+
+#[allow(clippy::too_many_lines)]
+fn encoded_predicate_provider_fields(
+    report: &TraditionalAnalyticsVortexReport,
+) -> Vec<(String, String)> {
+    let operator_classification = traditional_operator_execution_class(
+        report.streaming_vortex_execution_used,
+        report.data_materialized,
+    );
+    let selective_filter = report.scenario == TraditionalAnalyticsScenario::SelectiveFilter;
+    let scenario_slug = report.scenario.as_str().replace(['/', ' ', '+'], "-");
+    let report_id = format!(
+        "gar-0026q.encoded_predicate_provider.{}.{}",
+        report
+            .execution_mode_selection
+            .selected_execution_mode
+            .as_str(),
+        scenario_slug
+    );
+    let (
+        checked,
+        status,
+        classification,
+        candidate,
+        filter_columns,
+        blocker_id,
+        blocker_reason,
+        required_future_evidence,
+        claim_boundary,
+    ) = if selective_filter {
+        (
+            "true",
+            "blocked_until_reader_backed_encoded_predicate_evidence",
+            "blocked_until_vortex_or_shardloom_evidence",
+            "selective_filter.flag_eq_1_and_value_gte_5000",
+            "flag,value",
+            "gar-0026q.missing_reader_backed_encoded_predicate_provider_certificate",
+            "Vortex scan filter pushdown is requested, but this row does not expose reader-backed encoded predicate batches, selection-vector evidence, or a provider certificate for the filter columns",
+            "reader_generated_encoded_value_batches_for_filter_columns;selection_vector_filter_kernel_admission;predicate_correctness_fixture;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy",
+            "filter pushdown visibility only; no encoded predicate runtime/provider/performance claim",
+        )
+    } else {
+        (
+            "false",
+            "not_applicable_no_selective_filter_predicate",
+            "not_applicable",
+            "none",
+            "none",
+            "none",
+            "scenario does not use the GAR-0026-Q selective-filter predicate",
+            "none",
+            "no encoded predicate provider claim",
+        )
+    };
+    let filter_pushdown_status = if selective_filter && report.streaming_filter_pushdown_applied {
+        "requested_unverified_encoded_provider"
+    } else if report.streaming_filter_pushdown_applied {
+        "not_checked_non_selective_filter"
+    } else {
+        "not_requested"
+    };
+    vec![
+        (
+            "encoded_predicate_provider_schema_version".to_string(),
+            ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_report_id".to_string(),
+            report_id,
+        ),
+        (
+            "encoded_predicate_provider_checked".to_string(),
+            checked.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_status".to_string(),
+            status.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_classification".to_string(),
+            classification.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_candidate".to_string(),
+            candidate.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_api_surface_checked".to_string(),
+            "VortexFile::scan.with_filter;shardloom_prepared_encoded_predicate_reports".to_string(),
+        ),
+        (
+            "encoded_predicate_provider_current_surface".to_string(),
+            "traditional_analytics_vortex_scan_filter_pushdown".to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_pushdown_status".to_string(),
+            filter_pushdown_status.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_filter_only_columns".to_string(),
+            filter_columns.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_projected_output_columns".to_string(),
+            report.streaming_projected_columns.join(","),
+        ),
+        (
+            "encoded_predicate_provider_blocker_id".to_string(),
+            blocker_id.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_blocker_reason".to_string(),
+            blocker_reason.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_required_future_evidence".to_string(),
+            required_future_evidence.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_operator_execution_class".to_string(),
+            operator_classification.as_str().to_string(),
+        ),
+        (
+            "encoded_predicate_provider_encoded_native_claim_allowed".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "encoded_predicate_provider_claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        (
+            "encoded_predicate_provider_claim_boundary".to_string(),
+            claim_boundary.to_string(),
+        ),
+        (
+            "encoded_predicate_provider_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "encoded_predicate_provider_external_engine_invoked".to_string(),
             "false".to_string(),
         ),
     ]
@@ -10586,6 +10733,72 @@ mod tests {
         assert_eq!(
             fields
                 .get("source_backed_scan_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_schema_version")
+                .map(String::as_str),
+            Some(ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION)
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_checked")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_status")
+                .map(String::as_str),
+            Some("blocked_until_reader_backed_encoded_predicate_evidence")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_classification")
+                .map(String::as_str),
+            Some("blocked_until_vortex_or_shardloom_evidence")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_filter_only_columns")
+                .map(String::as_str),
+            Some("flag,value")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_projected_output_columns")
+                .map(String::as_str),
+            Some("metric")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_blocker_id")
+                .map(String::as_str),
+            Some("gar-0026q.missing_reader_backed_encoded_predicate_provider_certificate")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_external_engine_invoked")
                 .map(String::as_str),
             Some("false")
         );

@@ -16,6 +16,77 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0026-Q selective-filter encoded predicate provider blocker slice
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: make the selective-filter prepared/native row distinguish Vortex scan filter pushdown
+    from an admitted encoded predicate provider. The row now emits an
+    `encoded_predicate_provider_*` field group with a deterministic
+    `blocked_until_reader_backed_encoded_predicate_evidence` status and the exact future evidence
+    needed before the predicate can be claimed as encoded-native.
+  - Checklist:
+    - [x] Add `encoded_predicate_provider_*` fields for schema/report ID, provider check status,
+          classification, candidate predicate, filter-only columns, projected output columns,
+          checked API surfaces, blocker ID/reason, required future evidence, claim boundary, and
+          no-fallback/no-external-engine status.
+    - [x] Preserve `operator_execution_class=residual_native` and
+          `operator_encoded_native_claim_allowed=false`; this blocker slice does not relabel the
+          existing Vortex scan filter path as encoded-native.
+    - [x] Assert the representative prepared/native selective-filter row reports the deterministic
+          blocker, `flag,value` filter-only columns, `metric` projected output column, residual
+          operator class, and `fallback_attempted=false` / `external_engine_invoked=false`.
+    - [x] Reorder the planned queue so the next top-down runtime/provider slice is GAR-0026-R
+          reader-backed primitive selective-filter encoded predicate bridge rather than lower-value
+          sequential cleanup.
+  - Boundary:
+    - This is an evidence and diagnostic contract slice. It does not add a generalized encoded
+      predicate runtime, claim Vortex encoded predicate execution, add SQL/DataFrame runtime,
+      integrate a Vortex query engine, invoke external engines, add fallback execution, or make a
+      performance/superiority claim.
+  - Evidence:
+    - Correctness evidence: the existing prepared/native selective-filter test still compares the
+      native Vortex result against the compatibility-import result.
+    - Provider evidence: `encoded_predicate_provider_status` is
+      `blocked_until_reader_backed_encoded_predicate_evidence` with required future evidence for
+      reader-generated encoded value batches, selection-vector admission, correctness fixtures,
+      execution certificate, Native I/O certificate, materialization/decode boundary, and
+      no-fallback policy.
+    - Native I/O/materialization evidence: the row keeps source-backed scan evidence and
+      `source_backed_scan_materialization_boundary_rows=0`.
+    - Policy evidence: new provider fields preserve `encoded_predicate_provider_fallback_attempted=false`
+      and `encoded_predicate_provider_external_engine_invoked=false`.
+  - Vortex-first provider check:
+    - Subject area: selective-filter encoded predicate provider promotion from prepared/native local
+      Vortex benchmark rows.
+    - Upstream Vortex concept checked: `VortexFile::scan.with_filter` and existing ShardLoom
+      prepared encoded predicate / selection-vector evidence surfaces.
+    - Decision: `blocked_until_vortex_or_shardloom_evidence`; scan filter pushdown is visible, but
+      there is no reader-backed encoded predicate batch/certificate path for the filter-only columns
+      yet.
+    - Residual handling: the benchmark row remains residual-native; external residual execution is
+      prohibited.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_runs_csv_through_local_vortex_io --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 64 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --shardloom-result-sink --no-markdown --output target\codex-gar0026q-encoded-predicate-provider-smoke.json --regenerate`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026q-workspace-test'; cargo test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-0021-H source-backed prepared/native scan evidence slice
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
