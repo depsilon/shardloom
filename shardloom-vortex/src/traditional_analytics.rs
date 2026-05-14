@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use shardloom_core::{
     Diagnostic, ExecutionCertificate, NativeIoCertificate, Result, ShardLoomError,
+    ShardLoomExecutionMode, ShardLoomExecutionModeSelectionReport,
 };
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -10,6 +11,7 @@ use shardloom_core::{
     NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
     NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
     NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState,
+    ShardLoomExecutionModeSelectionRequest,
 };
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_exec::{
@@ -488,6 +490,7 @@ pub struct TraditionalAnalyticsRequest {
     pub verify_native_vortex_replay: bool,
     pub write_result_vortex: bool,
     pub resource_policy: TraditionalAnalyticsResourcePolicy,
+    pub requested_execution_mode: ShardLoomExecutionMode,
 }
 
 impl TraditionalAnalyticsRequest {
@@ -509,6 +512,7 @@ impl TraditionalAnalyticsRequest {
             verify_native_vortex_replay: false,
             write_result_vortex: false,
             resource_policy: TraditionalAnalyticsResourcePolicy::default(),
+            requested_execution_mode: ShardLoomExecutionMode::CompatibilityImportCertified,
         }
     }
 
@@ -556,6 +560,12 @@ impl TraditionalAnalyticsRequest {
         self.write_result_vortex = value;
         self
     }
+
+    #[must_use]
+    pub const fn with_requested_execution_mode(mut self, value: ShardLoomExecutionMode) -> Self {
+        self.requested_execution_mode = value;
+        self
+    }
 }
 
 /// Request for the feature-gated native Vortex traditional analytics runner.
@@ -564,6 +574,9 @@ pub struct TraditionalAnalyticsVortexRequest {
     pub scenario: TraditionalAnalyticsScenario,
     pub fact_vortex: PathBuf,
     pub dim_vortex: PathBuf,
+    pub requested_execution_mode: ShardLoomExecutionMode,
+    pub result_workspace_dir: Option<PathBuf>,
+    pub write_result_vortex: bool,
 }
 
 impl TraditionalAnalyticsVortexRequest {
@@ -577,7 +590,28 @@ impl TraditionalAnalyticsVortexRequest {
             scenario,
             fact_vortex,
             dim_vortex,
+            requested_execution_mode: ShardLoomExecutionMode::NativeVortex,
+            result_workspace_dir: None,
+            write_result_vortex: false,
         }
+    }
+
+    #[must_use]
+    pub const fn with_requested_execution_mode(mut self, value: ShardLoomExecutionMode) -> Self {
+        self.requested_execution_mode = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_result_workspace_dir(mut self, value: Option<PathBuf>) -> Self {
+        self.result_workspace_dir = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_result_vortex_write(mut self, value: bool) -> Self {
+        self.write_result_vortex = value;
+        self
     }
 }
 
@@ -617,6 +651,7 @@ pub struct TraditionalVortexLayoutAdvisorReport {
 pub struct TraditionalAnalyticsReport {
     pub scenario: TraditionalAnalyticsScenario,
     pub input_format: TraditionalAnalyticsInputFormat,
+    pub execution_mode_selection: ShardLoomExecutionModeSelectionReport,
     pub resource_policy: TraditionalAnalyticsResourcePolicy,
     pub result_json: String,
     pub fact_rows: u64,
@@ -659,6 +694,10 @@ pub struct TraditionalAnalyticsReport {
     pub computed_result_sink_rows: u64,
     pub computed_result_sink_rows_materialized: u64,
     pub computed_result_sink_schema_summary: String,
+    pub source_read_micros: u64,
+    pub compatibility_to_vortex_import_micros: u64,
+    pub vortex_write_micros: u64,
+    pub vortex_reopen_scan_micros: u64,
     pub scenario_compute_micros: u64,
     pub computed_result_sink_write_micros: Option<u64>,
     pub computed_result_sink_replay_result_json: Option<String>,
@@ -793,13 +832,12 @@ impl TraditionalAnalyticsReport {
                 "external_engines_are_fallback".to_string(),
                 "false".to_string(),
             ),
+        ];
+        fields.extend(self.execution_mode_selection.fields());
+        fields.extend(vec![
             ("scenario".to_string(), self.scenario.as_str().to_string()),
             (
                 "input_format".to_string(),
-                self.input_format.as_str().to_string(),
-            ),
-            (
-                "source_format".to_string(),
                 self.input_format.as_str().to_string(),
             ),
             (
@@ -889,6 +927,57 @@ impl TraditionalAnalyticsReport {
                 self.dim_vortex_path.display().to_string(),
             ),
             (
+                "prepared_artifact_ref".to_string(),
+                format!(
+                    "fact={},dim={}",
+                    self.fact_vortex_path.display(),
+                    self.dim_vortex_path.display()
+                ),
+            ),
+            (
+                "prepared_artifact_fact_ref".to_string(),
+                self.fact_vortex_path.display().to_string(),
+            ),
+            (
+                "prepared_artifact_dim_ref".to_string(),
+                self.dim_vortex_path.display().to_string(),
+            ),
+            (
+                "prepared_artifact_digest".to_string(),
+                format!(
+                    "fact={},dim={}",
+                    self.fact_vortex_digest, self.dim_vortex_digest
+                ),
+            ),
+            (
+                "prepared_artifact_fact_digest".to_string(),
+                self.fact_vortex_digest.clone(),
+            ),
+            (
+                "prepared_artifact_dim_digest".to_string(),
+                self.dim_vortex_digest.clone(),
+            ),
+            (
+                "prepared_artifact_lifecycle_status".to_string(),
+                "prepared_available".to_string(),
+            ),
+            (
+                "prepared_artifact_cleanup_policy".to_string(),
+                self.rollback_cleanup_status.clone(),
+            ),
+            (
+                "prepared_artifact_reuse_eligible".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepared_artifact_workspace".to_string(),
+                self.workspace_dir.display().to_string(),
+            ),
+            (
+                "source_native_io_certificate_status".to_string(),
+                self.native_io_certificate.status().to_string(),
+            ),
+            (
                 "cdc_delta_vortex_path".to_string(),
                 self.cdc_delta_vortex_path
                     .as_ref()
@@ -905,10 +994,6 @@ impl TraditionalAnalyticsReport {
                 self.dim_compatibility_output_path
                     .as_ref()
                     .map_or_else(String::new, |path| path.display().to_string()),
-            ),
-            (
-                "workload_constitution_id".to_string(),
-                self.workload_constitution_id.clone(),
             ),
             (
                 "workload_scorecard_status".to_string(),
@@ -1019,6 +1104,43 @@ impl TraditionalAnalyticsReport {
             (
                 "computed_result_sink_schema_summary".to_string(),
                 self.computed_result_sink_schema_summary.clone(),
+            ),
+            (
+                "source_read_micros".to_string(),
+                self.source_read_micros.to_string(),
+            ),
+            (
+                "compatibility_parse_micros".to_string(),
+                self.source_read_micros.to_string(),
+            ),
+            (
+                "compatibility_to_vortex_import_micros".to_string(),
+                self.compatibility_to_vortex_import_micros.to_string(),
+            ),
+            (
+                "vortex_write_micros".to_string(),
+                self.vortex_write_micros.to_string(),
+            ),
+            (
+                "vortex_reopen_micros".to_string(),
+                self.vortex_reopen_scan_micros.to_string(),
+            ),
+            (
+                "vortex_scan_micros".to_string(),
+                self.vortex_reopen_scan_micros.to_string(),
+            ),
+            (
+                "operator_compute_micros".to_string(),
+                self.scenario_compute_micros.to_string(),
+            ),
+            (
+                "result_sink_write_micros".to_string(),
+                self.computed_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "evidence_render_micros".to_string(),
+                "not_measured".to_string(),
             ),
             (
                 "scenario_compute_micros".to_string(),
@@ -1485,8 +1607,12 @@ impl TraditionalAnalyticsReport {
                 "spill_io_performed".to_string(),
                 self.spill_io_performed.to_string(),
             ),
-        ];
+        ]);
         fields.extend(streaming_execution_fields(self));
+        fields.extend(traditional_vortex_provider_admission_fields(
+            self.scenario,
+            "compatibility_import_certified",
+        ));
         fields.extend(native_io_certificate_fields(&self.native_io_certificate));
         fields
     }
@@ -1497,6 +1623,7 @@ impl TraditionalAnalyticsReport {
 #[allow(clippy::struct_excessive_bools)]
 pub struct TraditionalAnalyticsVortexReport {
     pub scenario: TraditionalAnalyticsScenario,
+    pub execution_mode_selection: ShardLoomExecutionModeSelectionReport,
     pub result_json: String,
     pub fact_rows: u64,
     pub dim_rows: u64,
@@ -1506,8 +1633,29 @@ pub struct TraditionalAnalyticsVortexReport {
     pub dim_vortex_path: PathBuf,
     pub fact_vortex_bytes: u64,
     pub dim_vortex_bytes: u64,
+    pub fact_vortex_digest: String,
+    pub dim_vortex_digest: String,
     pub source_bytes_read: u64,
     pub materialization_boundary_rows: u64,
+    pub scenario_compute_micros: u64,
+    pub vortex_scan_micros: u64,
+    pub computed_result_sink_requested: bool,
+    pub computed_result_sink_written: bool,
+    pub computed_result_sink_replay_verified: bool,
+    pub computed_result_vortex_path: Option<PathBuf>,
+    pub computed_result_vortex_bytes: u64,
+    pub computed_result_vortex_digest: Option<String>,
+    pub computed_result_sink_rows: u64,
+    pub computed_result_sink_rows_materialized: u64,
+    pub computed_result_sink_schema_summary: String,
+    pub computed_result_sink_write_micros: Option<u64>,
+    pub computed_result_sink_replay_result_json: Option<String>,
+    pub computed_result_sink_native_io_certificate_id: Option<String>,
+    pub computed_result_sink_native_io_certificate_status: Option<String>,
+    pub result_sink_claim_gate_status: String,
+    pub result_sink_claim_gate_reason: String,
+    pub commit_state: String,
+    pub rollback_cleanup_status: String,
     pub native_io_certificate: NativeIoCertificate,
     pub native_work_envelope_created: bool,
     pub native_work_stream_created: bool,
@@ -1553,12 +1701,19 @@ impl TraditionalAnalyticsVortexReport {
     pub fn fields(&self) -> Vec<(String, String)> {
         let mut fields = self.base_fields();
         fields.extend(streaming_execution_fields(self));
+        fields.extend(traditional_vortex_provider_admission_fields(
+            self.scenario,
+            self.execution_mode_selection
+                .selected_execution_mode
+                .as_str(),
+        ));
         fields.extend(native_io_certificate_fields(&self.native_io_certificate));
         fields
     }
 
+    #[allow(clippy::too_many_lines)]
     fn base_fields(&self) -> Vec<(String, String)> {
-        let fields = vec![
+        let mut fields = vec![
             (
                 "fallback_execution_allowed".to_string(),
                 self.fallback_execution_allowed.to_string(),
@@ -1567,8 +1722,10 @@ impl TraditionalAnalyticsVortexReport {
                 "external_engines_are_fallback".to_string(),
                 "false".to_string(),
             ),
+        ];
+        fields.extend(self.execution_mode_selection.fields());
+        fields.extend(vec![
             ("scenario".to_string(), self.scenario.as_str().to_string()),
-            ("source_format".to_string(), "vortex".to_string()),
             ("result_json".to_string(), self.result_json.clone()),
             ("fact_rows".to_string(), self.fact_rows.to_string()),
             ("dim_rows".to_string(), self.dim_rows.to_string()),
@@ -1586,6 +1743,68 @@ impl TraditionalAnalyticsVortexReport {
                 self.dim_vortex_path.display().to_string(),
             ),
             (
+                "prepared_artifact_ref".to_string(),
+                format!(
+                    "fact={},dim={}",
+                    self.fact_vortex_path.display(),
+                    self.dim_vortex_path.display()
+                ),
+            ),
+            (
+                "prepared_artifact_fact_ref".to_string(),
+                self.fact_vortex_path.display().to_string(),
+            ),
+            (
+                "prepared_artifact_dim_ref".to_string(),
+                self.dim_vortex_path.display().to_string(),
+            ),
+            (
+                "prepared_artifact_digest".to_string(),
+                format!(
+                    "fact={},dim={}",
+                    self.fact_vortex_digest, self.dim_vortex_digest
+                ),
+            ),
+            (
+                "prepared_artifact_fact_digest".to_string(),
+                self.fact_vortex_digest.clone(),
+            ),
+            (
+                "prepared_artifact_dim_digest".to_string(),
+                self.dim_vortex_digest.clone(),
+            ),
+            (
+                "prepared_artifact_lifecycle_status".to_string(),
+                if self.execution_mode_selection.selected_execution_mode
+                    == ShardLoomExecutionMode::PreparedVortex
+                {
+                    "reused_prepared_artifact"
+                } else {
+                    "native_vortex_artifact_supplied"
+                }
+                .to_string(),
+            ),
+            (
+                "prepared_artifact_cleanup_policy".to_string(),
+                "caller_owned_input_artifacts".to_string(),
+            ),
+            (
+                "prepared_artifact_reuse_eligible".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "source_native_io_certificate_status".to_string(),
+                self.native_io_certificate.status().to_string(),
+            ),
+            (
+                "result_sink_claim_gate_status".to_string(),
+                self.result_sink_claim_gate_status.clone(),
+            ),
+            (
+                "result_sink_claim_gate_reason".to_string(),
+                self.result_sink_claim_gate_reason.clone(),
+            ),
+            (
                 "fact_vortex_bytes".to_string(),
                 self.fact_vortex_bytes.to_string(),
             ),
@@ -1594,12 +1813,109 @@ impl TraditionalAnalyticsVortexReport {
                 self.dim_vortex_bytes.to_string(),
             ),
             (
+                "fact_vortex_digest".to_string(),
+                self.fact_vortex_digest.clone(),
+            ),
+            (
+                "dim_vortex_digest".to_string(),
+                self.dim_vortex_digest.clone(),
+            ),
+            (
                 "source_bytes_read".to_string(),
                 self.source_bytes_read.to_string(),
             ),
             (
                 "materialization_boundary_rows".to_string(),
                 self.materialization_boundary_rows.to_string(),
+            ),
+            (
+                "scenario_compute_micros".to_string(),
+                self.scenario_compute_micros.to_string(),
+            ),
+            (
+                "operator_compute_micros".to_string(),
+                self.scenario_compute_micros.to_string(),
+            ),
+            (
+                "vortex_scan_micros".to_string(),
+                self.vortex_scan_micros.to_string(),
+            ),
+            (
+                "result_sink_write_micros".to_string(),
+                self.computed_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "computed_result_sink_write_micros".to_string(),
+                self.computed_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "evidence_render_micros".to_string(),
+                "not_measured".to_string(),
+            ),
+            (
+                "computed_result_sink_requested".to_string(),
+                self.computed_result_sink_requested.to_string(),
+            ),
+            (
+                "computed_result_sink_written".to_string(),
+                self.computed_result_sink_written.to_string(),
+            ),
+            (
+                "computed_result_sink_replay_verified".to_string(),
+                self.computed_result_sink_replay_verified.to_string(),
+            ),
+            (
+                "computed_result_vortex_path".to_string(),
+                self.computed_result_vortex_path
+                    .as_ref()
+                    .map_or_else(String::new, |path| path.display().to_string()),
+            ),
+            (
+                "computed_result_vortex_bytes".to_string(),
+                self.computed_result_vortex_bytes.to_string(),
+            ),
+            (
+                "computed_result_vortex_digest".to_string(),
+                self.computed_result_vortex_digest
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "computed_result_sink_rows".to_string(),
+                self.computed_result_sink_rows.to_string(),
+            ),
+            (
+                "computed_result_sink_rows_materialized".to_string(),
+                self.computed_result_sink_rows_materialized.to_string(),
+            ),
+            (
+                "computed_result_sink_schema_summary".to_string(),
+                self.computed_result_sink_schema_summary.clone(),
+            ),
+            (
+                "computed_result_sink_replay_result_json".to_string(),
+                self.computed_result_sink_replay_result_json
+                    .clone()
+                    .unwrap_or_default(),
+            ),
+            (
+                "computed_result_sink_native_io_certificate_id".to_string(),
+                self.computed_result_sink_native_io_certificate_id
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "computed_result_sink_native_io_certificate_status".to_string(),
+                self.computed_result_sink_native_io_certificate_status
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            ("commit_state".to_string(), self.commit_state.clone()),
+            (
+                "rollback_cleanup_status".to_string(),
+                self.rollback_cleanup_status.clone(),
             ),
             (
                 "native_work_envelope_created".to_string(),
@@ -1652,7 +1968,7 @@ impl TraditionalAnalyticsVortexReport {
                 "spill_io_performed".to_string(),
                 self.spill_io_performed.to_string(),
             ),
-        ];
+        ]);
         fields
     }
 }
@@ -2064,6 +2380,98 @@ fn native_io_certificate_fields(certificate: &NativeIoCertificate) -> Vec<(Strin
     ]
 }
 
+fn traditional_vortex_provider_admission_fields(
+    scenario: TraditionalAnalyticsScenario,
+    report_id_suffix: &str,
+) -> Vec<(String, String)> {
+    let residual_operator = if scenario == TraditionalAnalyticsScenario::CsvFileIngest {
+        "none"
+    } else {
+        "shardloom_native_temporary_operator"
+    };
+    let residual_boundary = if residual_operator == "none" {
+        "none"
+    } else {
+        "vortex_scan_to_shardloom_materialized_residual"
+    };
+    let encoded_status = if residual_operator == "none" {
+        "vortex_scan_only_no_residual_operator"
+    } else {
+        "vortex_scan_admitted_residual_materialized"
+    };
+    let fusion_status = if scenario == TraditionalAnalyticsScenario::FilterProjectionLimit {
+        "not_fused_materialized_residual"
+    } else {
+        "not_applicable"
+    };
+    let fusion_blocker = if scenario == TraditionalAnalyticsScenario::FilterProjectionLimit {
+        "p75.native_provider.filter_project_limit_fusion_missing"
+    } else {
+        "none"
+    };
+    vec![
+        (
+            "provider_admission_report_id".to_string(),
+            format!("p75.provider_admission.{report_id_suffix}"),
+        ),
+        (
+            "vortex_first_provider_check_performed".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "provider_admission_classification".to_string(),
+            "use_vortex_native_provider".to_string(),
+        ),
+        ("provider_kind".to_string(), "vortex_scan".to_string()),
+        (
+            "provider_api_surface".to_string(),
+            "traditional_analytics_vortex_file_scan".to_string(),
+        ),
+        (
+            "source_backed_encoded_provider_checked".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "source_backed_encoded_provider_status".to_string(),
+            "scan_admitted_residual_recorded".to_string(),
+        ),
+        (
+            "residual_executor".to_string(),
+            residual_operator.to_string(),
+        ),
+        (
+            "residual_boundary".to_string(),
+            residual_boundary.to_string(),
+        ),
+        (
+            "encoded_native_execution_status".to_string(),
+            encoded_status.to_string(),
+        ),
+        (
+            "filter_project_limit_fused".to_string(),
+            (fusion_status == "fused").to_string(),
+        ),
+        ("fusion_status".to_string(), fusion_status.to_string()),
+        ("fusion_blocker".to_string(), fusion_blocker.to_string()),
+        (
+            "materialization_required".to_string(),
+            (residual_operator != "none").to_string(),
+        ),
+        (
+            "decode_required".to_string(),
+            (residual_operator != "none").to_string(),
+        ),
+        (
+            "provider_admission_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "provider_admission_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+    ]
+}
+
 /// Runs a local traditional analytics scenario through CSV import into Vortex files.
 ///
 /// # Errors
@@ -2391,6 +2799,26 @@ fn run_traditional_analytics_benchmark_enabled(
 ) -> Result<TraditionalAnalyticsReport> {
     use std::fs;
 
+    let execution_mode_selection = ShardLoomExecutionModeSelectionReport::from_request(
+        ShardLoomExecutionModeSelectionRequest::new(request.requested_execution_mode)
+            .with_source_format(request.input_format.as_str())
+            .with_workload_constitution(LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID)
+            .with_compatibility_input(true)
+            .with_certification_requested(true)
+            .with_result_sink_requested(
+                request.write_result_vortex || request.verify_native_vortex_replay,
+            ),
+    );
+    if !execution_mode_selection.mode_supported {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "traditional analytics execution mode {} is unsupported for compatibility import: {}; required future evidence: {}; fallback execution was not attempted",
+            execution_mode_selection.requested_execution_mode.as_str(),
+            execution_mode_selection.unsupported_diagnostic_code,
+            execution_mode_selection.required_future_evidence
+        )));
+    }
+
+    let compatibility_import_start = std::time::Instant::now();
     fs::create_dir_all(&request.workspace_dir).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to create traditional analytics Vortex workspace '{}': {error}",
@@ -2421,6 +2849,7 @@ fn run_traditional_analytics_benchmark_enabled(
     let resource_policy = request
         .resource_policy
         .resolve_for_sources(source_bytes_read);
+    let source_read_start = std::time::Instant::now();
     let fact_rows =
         read_traditional_fact_rows(&request.fact_csv, request.input_format, resource_policy)?;
     let dim_rows =
@@ -2429,6 +2858,7 @@ fn run_traditional_analytics_benchmark_enabled(
         || Ok(Vec::new()),
         |path| read_traditional_cdc_delta_csv(path),
     )?;
+    let source_read_micros = duration_to_micros(source_read_start.elapsed());
     let source_rows_materialized = checked_usize_sum_to_u64(fact_rows.len(), dim_rows.len())?
         .checked_add(usize_to_u64(cdc_delta_rows.len())?)
         .ok_or_else(|| {
@@ -2442,11 +2872,15 @@ fn run_traditional_analytics_benchmark_enabled(
         .cdc_delta_csv
         .as_ref()
         .map(|_| request.workspace_dir.join("cdc_delta.vortex"));
+    let vortex_write_start = std::time::Instant::now();
     write_fact_vortex(&fact_rows, &fact_vortex_path)?;
     write_dim_vortex(&dim_rows, &dim_vortex_path)?;
     if let Some(path) = &cdc_delta_vortex_path {
         write_cdc_delta_vortex(&cdc_delta_rows, path)?;
     }
+    let vortex_write_micros = duration_to_micros(vortex_write_start.elapsed());
+    let compatibility_to_vortex_import_micros =
+        duration_to_micros(compatibility_import_start.elapsed());
     let mut compatibility_output = None;
     let scenario_compute_start = std::time::Instant::now();
     let scenario_execution = if let Some(output_format) = request.compatibility_output_format {
@@ -2476,6 +2910,7 @@ fn run_traditional_analytics_benchmark_enabled(
         )?
     };
     let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
+    let vortex_reopen_scan_micros = scenario_compute_micros;
     let fact_vortex_bytes = file_len(&fact_vortex_path, "fact Vortex file")?;
     let dim_vortex_bytes = file_len(&dim_vortex_path, "dimension Vortex file")?;
     let cdc_delta_vortex_bytes = cdc_delta_vortex_path
@@ -2581,6 +3016,7 @@ fn run_traditional_analytics_benchmark_enabled(
     Ok(TraditionalAnalyticsReport {
         scenario: request.scenario,
         input_format: request.input_format,
+        execution_mode_selection,
         resource_policy,
         result_json: scenario_execution.result_json,
         fact_rows: scenario_execution.fact_rows,
@@ -2647,6 +3083,10 @@ fn run_traditional_analytics_benchmark_enabled(
             .as_ref()
             .map_or(0, |sink| sink.rows_materialized),
         computed_result_sink_schema_summary: COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY.to_string(),
+        source_read_micros,
+        compatibility_to_vortex_import_micros,
+        vortex_write_micros,
+        vortex_reopen_scan_micros,
         scenario_compute_micros,
         computed_result_sink_write_micros: computed_result_sink
             .as_ref()
@@ -2926,9 +3366,12 @@ fn build_traditional_runtime_evidence(
     )?;
     let max_parallelism = resource_policy.max_parallelism.max(1);
     let scheduler_batch_count = tasks.len().div_ceil(max_parallelism).max(1);
-    let queue_limit_enforced = tasks
+    let observed_max_batch_len = tasks
         .chunks(max_parallelism)
-        .all(|chunk| chunk.len() <= max_parallelism);
+        .map(<[_]>::len)
+        .max()
+        .unwrap_or(0);
+    let queue_limit_enforced = observed_max_batch_len <= max_parallelism;
     let memory_budget = MemoryBudget::from_gib(u64::from(resource_policy.memory_gb))?;
     let mut memory_pool = MemoryPoolPlan::new(memory_budget.clone());
     let mut memory_reservations_requested = 0;
@@ -2936,26 +3379,32 @@ fn build_traditional_runtime_evidence(
     let mut memory_reservations_released = 0;
     let mut memory_reservations_denied = 0;
     let mut memory_peak_reserved_bytes = 0;
-    for task in &tasks {
-        memory_reservations_requested += 1;
-        let reservation_id =
-            MemoryReservationId::new(format!("traditional-runtime-{}", task.task_id.as_str()))?;
-        let owner =
-            MemoryOwner::new(task.operator_class, task.label)?.with_task_id(task.task_id.clone());
-        let admission = memory_pool.admit_reservation(
-            reservation_id.clone(),
-            owner,
-            ByteSize::from_bytes(task.estimated_memory_bytes),
-        )?;
-        memory_peak_reserved_bytes = memory_peak_reserved_bytes
-            .max(admission.reserved_after.as_bytes())
-            .max(admission.reserved_before.as_bytes());
-        if admission.granted_decision() {
-            memory_reservations_granted += 1;
+    for batch in tasks.chunks(max_parallelism) {
+        let mut granted_reservations = Vec::new();
+        for task in batch {
+            memory_reservations_requested += 1;
+            let reservation_id =
+                MemoryReservationId::new(format!("traditional-runtime-{}", task.task_id.as_str()))?;
+            let owner = MemoryOwner::new(task.operator_class, task.label)?
+                .with_task_id(task.task_id.clone());
+            let admission = memory_pool.admit_reservation(
+                reservation_id.clone(),
+                owner,
+                ByteSize::from_bytes(task.estimated_memory_bytes),
+            )?;
+            memory_peak_reserved_bytes = memory_peak_reserved_bytes
+                .max(admission.reserved_after.as_bytes())
+                .max(admission.reserved_before.as_bytes());
+            if admission.granted_decision() {
+                memory_reservations_granted += 1;
+                granted_reservations.push(reservation_id);
+            } else {
+                memory_reservations_denied += 1;
+            }
+        }
+        for reservation_id in granted_reservations {
             memory_pool.release_reservation(&reservation_id)?;
             memory_reservations_released += 1;
-        } else {
-            memory_reservations_denied += 1;
         }
     }
     let retry_gate = ShardLoomRetryExecutionGateReport::from_request(
@@ -3564,8 +4013,31 @@ fn traditional_coverage_row_ref(
 fn run_traditional_analytics_vortex_benchmark_enabled(
     request: TraditionalAnalyticsVortexRequest,
 ) -> Result<TraditionalAnalyticsVortexReport> {
+    let execution_mode_selection = ShardLoomExecutionModeSelectionReport::from_request(
+        ShardLoomExecutionModeSelectionRequest::new(request.requested_execution_mode)
+            .with_source_format("vortex")
+            .with_workload_constitution(LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID)
+            .with_source_already_vortex(true)
+            .with_prepared_artifact_available(true)
+            .with_prepared_artifact_reuse_requested(
+                request.requested_execution_mode == ShardLoomExecutionMode::PreparedVortex,
+            )
+            .with_result_sink_requested(request.write_result_vortex)
+            .with_native_vortex_provider_available(true),
+    );
+    if !execution_mode_selection.mode_supported {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "traditional analytics execution mode {} is unsupported for native Vortex input: {}; required future evidence: {}; fallback execution was not attempted",
+            execution_mode_selection.requested_execution_mode.as_str(),
+            execution_mode_selection.unsupported_diagnostic_code,
+            execution_mode_selection.required_future_evidence
+        )));
+    }
+
     let fact_vortex_bytes = file_len(&request.fact_vortex, "fact Vortex file")?;
     let dim_vortex_bytes = file_len(&request.dim_vortex, "dimension Vortex file")?;
+    let fact_vortex_digest = file_digest(&request.fact_vortex, "fact Vortex file")?;
+    let dim_vortex_digest = file_digest(&request.dim_vortex, "dimension Vortex file")?;
     let source_bytes_read = fact_vortex_bytes
         .checked_add(dim_vortex_bytes)
         .ok_or_else(|| {
@@ -3573,12 +4045,14 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
                 "native Vortex traditional analytics source byte count overflow".to_string(),
             )
         })?;
+    let scenario_compute_start = std::time::Instant::now();
     let scenario_execution = run_vortex_derived_scenario_from_files(
         request.scenario,
         &request.fact_vortex,
         &request.dim_vortex,
         None,
     )?;
+    let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
     let materialization_boundary_rows = if scenario_execution.evidence.data_materialized {
         checked_u64_sum(scenario_execution.fact_rows, scenario_execution.dim_rows)?
     } else {
@@ -3596,9 +4070,42 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
                 .to_string(),
         ));
     }
+    let computed_result_sink = if request.write_result_vortex {
+        let Some(result_workspace_dir) = request.result_workspace_dir.as_ref() else {
+            return Err(ShardLoomError::InvalidOperation(
+                "traditional-analytics-vortex-run --write-result-vortex requires --workspace for caller-owned result artifact output; fallback execution was not attempted"
+                    .to_string(),
+            ));
+        };
+        std::fs::create_dir_all(result_workspace_dir).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create native Vortex result-sink workspace '{}': {error}",
+                result_workspace_dir.display()
+            ))
+        })?;
+        Some(write_and_verify_computed_result_sink(
+            request.scenario,
+            &scenario_execution.result_json,
+            scenario_execution.rows_materialized,
+            result_workspace_dir,
+        )?)
+    } else {
+        None
+    };
+    let result_sink_claim_gate_status = if computed_result_sink.is_some() {
+        "result_sink_replay_certified"
+    } else {
+        "not_claim_grade_missing_result_sink_evidence"
+    };
+    let result_sink_claim_gate_reason = if computed_result_sink.is_some() {
+        "prepared_native_result_sink_replay_certificate_present"
+    } else {
+        "prepared_native_claim_grade_requires_result_sink_replay_when_result_sink_required"
+    };
 
     Ok(TraditionalAnalyticsVortexReport {
         scenario: request.scenario,
+        execution_mode_selection,
         result_json: scenario_execution.result_json,
         fact_rows: scenario_execution.fact_rows,
         dim_rows: scenario_execution.dim_rows,
@@ -3608,8 +4115,51 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         dim_vortex_path: request.dim_vortex,
         fact_vortex_bytes,
         dim_vortex_bytes,
+        fact_vortex_digest,
+        dim_vortex_digest,
         source_bytes_read,
         materialization_boundary_rows,
+        scenario_compute_micros,
+        vortex_scan_micros: scenario_compute_micros,
+        computed_result_sink_requested: request.write_result_vortex,
+        computed_result_sink_written: computed_result_sink.is_some(),
+        computed_result_sink_replay_verified: computed_result_sink.is_some(),
+        computed_result_vortex_path: computed_result_sink.as_ref().map(|sink| sink.path.clone()),
+        computed_result_vortex_bytes: computed_result_sink.as_ref().map_or(0, |sink| sink.bytes),
+        computed_result_vortex_digest: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.digest.clone()),
+        computed_result_sink_rows: computed_result_sink
+            .as_ref()
+            .map_or(0, |sink| sink.rows_written),
+        computed_result_sink_rows_materialized: computed_result_sink
+            .as_ref()
+            .map_or(0, |sink| sink.rows_materialized),
+        computed_result_sink_schema_summary: COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY.to_string(),
+        computed_result_sink_write_micros: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.write_micros),
+        computed_result_sink_replay_result_json: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.replay_result_json.clone()),
+        computed_result_sink_native_io_certificate_id: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.native_io_certificate.certificate_id.clone()),
+        computed_result_sink_native_io_certificate_status: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.native_io_certificate.status().to_string()),
+        result_sink_claim_gate_status: result_sink_claim_gate_status.to_string(),
+        result_sink_claim_gate_reason: result_sink_claim_gate_reason.to_string(),
+        commit_state: if computed_result_sink.is_some() {
+            "native_vortex_result_sink_written_uncommitted".to_string()
+        } else {
+            "native_vortex_input_read_only".to_string()
+        },
+        rollback_cleanup_status: if computed_result_sink.is_some() {
+            "caller_owned_workspace_cleanup".to_string()
+        } else {
+            "caller_owned_input_artifacts".to_string()
+        },
         native_io_certificate,
         native_work_envelope_created: true,
         native_work_stream_created: true,
@@ -3637,7 +4187,7 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         row_read: scenario_execution.evidence.row_read,
         arrow_converted: false,
         object_store_io: false,
-        write_io: false,
+        write_io: computed_result_sink.is_some(),
         spill_io_performed: false,
         fallback_execution_allowed: false,
         diagnostics: Vec::new(),
@@ -5036,11 +5586,13 @@ fn read_traditional_fact_rows(
     if path.is_dir() {
         let mut rows = Vec::new();
         for part in fact_input_part_paths(path, input_format, "fact input")? {
-            rows.extend(read_traditional_fact_rows(
-                &part,
-                input_format,
-                resource_policy,
-            )?);
+            match read_traditional_fact_rows(&part, input_format, resource_policy) {
+                Ok(part_rows) => rows.extend(part_rows),
+                Err(error)
+                    if input_format == TraditionalAnalyticsInputFormat::JsonLines
+                        && error.to_string().contains("contains no rows") => {}
+                Err(error) => return Err(error),
+            }
         }
         if rows.is_empty() {
             return Err(ShardLoomError::InvalidOperation(format!(
@@ -6066,7 +6618,25 @@ fn arrow_optional_string_field(
     if array.is_null(row_index) {
         return Ok(None);
     }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::Date32Array>() {
+        return Ok(Some(date32_days_to_yyyy_mm_dd(values.value(row_index))));
+    }
     arrow_string_field(batch, path, row_index, field).map(Some)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn date32_days_to_yyyy_mm_dd(days_since_epoch: i32) -> String {
+    let z = i64::from(days_since_epoch) + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let mut year = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = mp + if mp < 10 { 3 } else { -9 };
+    year += if month <= 2 { 1 } else { 0 };
+    format!("{year:04}-{month:02}-{day:02}")
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -6488,7 +7058,7 @@ fn run_vortex_derived_scenario(
             scalar_result_json(usize_to_u64(fact.len())?, fact.metric.iter().sum())
         }
         TraditionalAnalyticsScenario::NullHeavyAggregate => null_heavy_aggregate_json(fact)?,
-        TraditionalAnalyticsScenario::CleanCastFilterWrite => clean_cast_filter_write_json(fact),
+        TraditionalAnalyticsScenario::CleanCastFilterWrite => clean_cast_filter_write_json(fact)?,
         TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
             malformed_timestamp_dirty_csv_json(fact)?
         }
@@ -6547,7 +7117,16 @@ fn scalar_result_json(row_count: u64, metric_sum: f64) -> String {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn clean_cast_filter_write_json(fact: &VortexFactTable) -> String {
+fn clean_cast_filter_write_json(fact: &VortexFactTable) -> Result<String> {
+    if fact.raw_event_time.iter().all(String::is_empty)
+        || fact.dirty_numeric.iter().all(String::is_empty)
+        || fact.dirty_flag.iter().all(String::is_empty)
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "clean/cast/filter/write requires raw_event_time, dirty_numeric, and dirty_flag fixture columns"
+                .to_string(),
+        ));
+    }
     let mut accum = TraditionalGroupAccum::default();
     for index in 0..fact.len() {
         if fact.dirty_flag[index] != "Y"
@@ -6562,7 +7141,7 @@ fn clean_cast_filter_write_json(fact: &VortexFactTable) -> String {
             accum.add(value);
         }
     }
-    scalar_result_json(accum.row_count, accum.metric_sum)
+    Ok(scalar_result_json(accum.row_count, accum.metric_sum))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -6584,11 +7163,6 @@ fn partition_pruning_json(fact: &VortexFactTable) -> Result<String> {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn null_heavy_aggregate_json(fact: &VortexFactTable) -> Result<String> {
-    if fact.nullable_metric_00.iter().all(String::is_empty) {
-        return Err(ShardLoomError::InvalidOperation(
-            "null-heavy aggregate requires nullable_metric_00 fixture column".to_string(),
-        ));
-    }
     let mut accum = TraditionalGroupAccum::default();
     for index in 0..fact.len() {
         if fact.nullable_metric_00[index].is_empty() {
@@ -6767,7 +7341,7 @@ fn generated_nested_flag(payload: &str, row_index: usize) -> Result<bool> {
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn generated_timestamp_shape_is_valid(value: &str) -> bool {
     let bytes = value.as_bytes();
-    bytes.len() == 20
+    if !(bytes.len() == 20
         && bytes[4] == b'-'
         && bytes[7] == b'-'
         && bytes[10] == b'T'
@@ -6777,7 +7351,62 @@ fn generated_timestamp_shape_is_valid(value: &str) -> bool {
         && bytes.iter().enumerate().all(|(index, byte)| match index {
             4 | 7 | 10 | 13 | 16 | 19 => true,
             _ => byte.is_ascii_digit(),
-        })
+        }))
+    {
+        return false;
+    }
+    let Some(year) = parse_ascii_u32(&bytes[0..4]) else {
+        return false;
+    };
+    let Some(month) = parse_ascii_u32(&bytes[5..7]) else {
+        return false;
+    };
+    let Some(day) = parse_ascii_u32(&bytes[8..10]) else {
+        return false;
+    };
+    let Some(hour) = parse_ascii_u32(&bytes[11..13]) else {
+        return false;
+    };
+    let Some(minute) = parse_ascii_u32(&bytes[14..16]) else {
+        return false;
+    };
+    let Some(second) = parse_ascii_u32(&bytes[17..19]) else {
+        return false;
+    };
+    (1..=12).contains(&month)
+        && day >= 1
+        && day <= days_in_month(year, month)
+        && hour < 24
+        && minute < 60
+        && second < 60
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_ascii_u32(bytes: &[u8]) -> Option<u32> {
+    let mut value = 0_u32;
+    for byte in bytes {
+        if !byte.is_ascii_digit() {
+            return None;
+        }
+        value = value * 10 + u32::from(byte - b'0');
+    }
+    Some(value)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn days_in_month(year: u32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if is_leap_year(year) => 29,
+        2 => 28,
+        _ => 0,
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn is_leap_year(year: u32) -> bool {
+    year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -7230,6 +7859,107 @@ mod tests {
 
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn fact_directory_reader_skips_empty_jsonl_parts() {
+        let root = traditional_analytics_test_root("split-jsonl-empty");
+        let parts_dir = root.join("fact_parts");
+        std::fs::create_dir_all(&parts_dir).unwrap();
+        std::fs::write(parts_dir.join("part-00000.jsonl"), "").unwrap();
+        std::fs::write(
+            parts_dir.join("part-00001.jsonl"),
+            "{\"id\":1,\"group_key\":10,\"dim_key\":1,\"value\":6000,\"metric\":2.5,\"flag\":1,\"category\":\"A\"}\n",
+        )
+        .unwrap();
+
+        let rows = read_traditional_fact_rows(
+            &parts_dir,
+            TraditionalAnalyticsInputFormat::JsonLines,
+            TraditionalAnalyticsResourcePolicy::auto().resolve_for_sources(128),
+        )
+        .unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, 1);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn null_heavy_aggregate_accepts_all_null_metric_column() {
+        let root = traditional_analytics_test_root("null-heavy-all-null");
+        std::fs::create_dir_all(&root).unwrap();
+        let fact_csv = root.join("fact.csv");
+        let dim_csv = root.join("dim.csv");
+        std::fs::write(
+            &fact_csv,
+            "id,group_key,dim_key,value,metric,flag,category,nullable_metric_00\n1,10,1,6000,2.5,1,A,\n2,11,2,1000,3.5,0,B,\n",
+        )
+        .unwrap();
+        std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").unwrap();
+
+        let report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::NullHeavyAggregate,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        assert_eq!(report.result_json, "{\"row_count\":0,\"metric_sum\":0.0}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn clean_cast_filter_write_requires_dirty_columns() {
+        let root = traditional_analytics_test_root("missing-dirty-columns");
+        std::fs::create_dir_all(&root).unwrap();
+        let fact_csv = root.join("fact.csv");
+        let dim_csv = root.join("dim.csv");
+        std::fs::write(
+            &fact_csv,
+            "id,group_key,dim_key,value,metric,flag,category\n1,10,1,6000,2.5,1,A\n",
+        )
+        .unwrap();
+        std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n").unwrap();
+
+        let error = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::CleanCastFilterWrite,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("requires raw_event_time"));
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn timestamp_validation_rejects_impossible_dates_and_times() {
+        assert!(generated_timestamp_shape_is_valid("2024-02-29T23:59:59Z"));
+        assert!(!generated_timestamp_shape_is_valid("2023-02-29T00:00:00Z"));
+        assert!(!generated_timestamp_shape_is_valid("2024-13-40T25:61:61Z"));
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn date32_conversion_preserves_event_date_strings() {
+        assert_eq!(date32_days_to_yyyy_mm_dd(0), "1970-01-01");
+        assert_eq!(date32_days_to_yyyy_mm_dd(19_783), "2024-03-01");
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn nested_json_field_scan_runs_jsonl_fixture() {
         let root = traditional_analytics_test_root("nested-jsonl");
         std::fs::create_dir_all(&root).unwrap();
@@ -7475,6 +8205,30 @@ mod tests {
         assert!(report.materialization_boundary_report_emitted);
         assert!(report.row_read);
         assert!(!report.fallback_execution_allowed);
+        let import_fields = report.fields();
+        assert_eq!(
+            import_fields
+                .iter()
+                .filter(|(key, _)| key == "selected_execution_mode")
+                .count(),
+            1
+        );
+        assert!(import_fields.iter().any(|(key, value)| {
+            key == "selected_execution_mode" && value == "compatibility_import_certified"
+        }));
+        assert!(
+            import_fields
+                .iter()
+                .any(|(key, value)| { key == "claim_gate_status" && value == "not_claim_grade" })
+        );
+        assert!(
+            import_fields.iter().any(|(key, value)| {
+                key == "prepared_artifact_reuse_eligible" && value == "true"
+            })
+        );
+        assert!(import_fields.iter().any(|(key, value)| {
+            key == "prepared_artifact_cleanup_policy" && value == "caller_owned_workspace_cleanup"
+        }));
 
         let native_report =
             run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
@@ -7499,6 +8253,113 @@ mod tests {
         assert!(!native_report.row_read);
         assert!(!native_report.write_io);
         assert!(!native_report.fallback_execution_allowed);
+        let native_fields = native_report.fields();
+        assert_eq!(
+            native_fields
+                .iter()
+                .filter(|(key, _)| key == "selected_execution_mode")
+                .count(),
+            1
+        );
+        assert!(
+            native_fields.iter().any(|(key, value)| {
+                key == "selected_execution_mode" && value == "native_vortex"
+            })
+        );
+        assert!(native_fields.iter().any(|(key, value)| {
+            key == "mode_selection_reason" && value == "input_already_vortex"
+        }));
+        assert!(native_fields.iter().any(|(key, value)| {
+            key == "vortex_first_provider_check_performed" && value == "true"
+        }));
+        assert!(native_fields.iter().any(|(key, value)| {
+            key == "provider_admission_classification" && value == "use_vortex_native_provider"
+        }));
+        assert!(native_fields.iter().any(|(key, value)| {
+            key == "residual_executor" && value == "shardloom_native_temporary_operator"
+        }));
+
+        let prepared_report = run_traditional_analytics_vortex_benchmark(
+            TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                report.fact_vortex_path.clone(),
+                report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+        let prepared_fields = prepared_report.fields();
+        assert!(prepared_fields.iter().any(|(key, value)| {
+            key == "requested_execution_mode" && value == "prepared_vortex"
+        }));
+        assert!(prepared_fields.iter().any(|(key, value)| {
+            key == "selected_execution_mode" && value == "prepared_vortex"
+        }));
+        assert!(prepared_fields.iter().any(|(key, value)| {
+            key == "mode_selection_reason"
+                && value == "prepared_vortex_artifacts_available_before_scenario_timing"
+        }));
+        assert!(prepared_fields.iter().any(|(key, value)| {
+            key == "result_sink_claim_gate_status"
+                && value == "not_claim_grade_missing_result_sink_evidence"
+        }));
+
+        let prepared_sink_report = run_traditional_analytics_vortex_benchmark(
+            TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                report.fact_vortex_path.clone(),
+                report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+            .with_result_workspace_dir(Some(root.join("prepared-result-sink")))
+            .with_result_vortex_write(true),
+        )
+        .unwrap();
+        assert!(prepared_sink_report.computed_result_sink_requested);
+        assert!(prepared_sink_report.computed_result_sink_written);
+        assert!(prepared_sink_report.computed_result_sink_replay_verified);
+        assert!(prepared_sink_report.computed_result_vortex_bytes > 0);
+        assert_eq!(
+            prepared_sink_report
+                .computed_result_sink_native_io_certificate_status
+                .as_deref(),
+            Some("certified")
+        );
+        assert_eq!(
+            prepared_sink_report.result_sink_claim_gate_status,
+            "result_sink_replay_certified"
+        );
+        assert_eq!(
+            prepared_sink_report.commit_state,
+            "native_vortex_result_sink_written_uncommitted"
+        );
+        assert_eq!(
+            prepared_sink_report.rollback_cleanup_status,
+            "caller_owned_workspace_cleanup"
+        );
+        assert!(prepared_sink_report.write_io);
+        assert_eq!(
+            prepared_sink_report.result_json,
+            prepared_sink_report
+                .computed_result_sink_replay_result_json
+                .as_deref()
+                .unwrap()
+        );
+        let prepared_sink_fields = prepared_sink_report.fields();
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "computed_result_sink_replay_verified" && value == "true"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "computed_result_sink_native_io_certificate_status" && value == "certified"
+        }));
+        assert!(
+            prepared_sink_fields.iter().any(|(key, value)| {
+                key == "computed_result_sink_write_micros" && value != "none"
+            })
+        );
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "result_sink_claim_gate_status" && value == "result_sink_replay_certified"
+        }));
 
         let _ = std::fs::remove_dir_all(root);
     }

@@ -43,6 +43,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rows", type=int, default=64)
     parser.add_argument("--iterations", type=int, default=1)
     parser.add_argument(
+        "--conda-env-dir",
+        type=Path,
+        default=Path("target/release-dry-run-proof/conda-env"),
+        help="Clean Conda-style environment prefix, relative to the repo root by default.",
+    )
+    parser.add_argument(
+        "--conda-executable",
+        type=Path,
+        help="Explicit conda, mamba, or micromamba executable for clean Conda proof.",
+    )
+    parser.add_argument(
+        "--conda-python-version",
+        default="3.11",
+        help="Python version requested for the clean Conda proof environment.",
+    )
+    parser.add_argument(
+        "--skip-clean-conda",
+        action="store_true",
+        help="Record clean Conda proof as skipped. The hard release gate will remain blocked.",
+    )
+    parser.add_argument(
+        "--require-clean-conda",
+        action="store_true",
+        help="Fail this dry run when clean Conda proof cannot pass.",
+    )
+    parser.add_argument(
         "--skip-benchmark-smoke",
         action="store_true",
         help="Skip the local benchmark smoke. Intended only for focused packaging troubleshooting.",
@@ -61,11 +87,50 @@ def venv_python(venv_dir: Path) -> Path:
     return venv_dir / "bin" / "python"
 
 
+def conda_env_python(env_dir: Path) -> Path:
+    if os.name == "nt":
+        return env_dir / "python.exe"
+    return env_dir / "bin" / "python"
+
+
 def shardloom_binary(repo_root: Path) -> Path:
     binary = repo_root / "target" / "debug" / "shardloom"
     if os.name == "nt":
         binary = binary.with_suffix(".exe")
     return binary
+
+
+def find_conda_tool(explicit: Path | None) -> Path | None:
+    if explicit is not None:
+        found = shutil.which(str(explicit))
+        resolved = Path(found).resolve() if found else explicit.resolve()
+        return resolved if resolved.exists() else None
+    for candidate in ["mamba", "conda", "micromamba"]:
+        found = shutil.which(candidate)
+        if found:
+            return Path(found)
+    return None
+
+
+def conda_create_command(tool: Path, env_dir: Path, python_version: str) -> list[str]:
+    command = [
+        str(tool),
+        "create",
+        "-y",
+        "-p",
+        str(env_dir),
+        f"python={python_version}",
+        "pip",
+    ]
+    if "micromamba" in tool.name.lower():
+        command.extend(["-c", "conda-forge"])
+    return command
+
+
+def env_with_path_prepend(directory: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env["PATH"] = str(directory) + os.pathsep + env.get("PATH", "")
+    return env
 
 
 def run_step(
@@ -103,18 +168,28 @@ def newest_wheel(dist_dir: Path) -> Path:
     return wheels[-1]
 
 
+def remove_tree_under_repo(repo_root: Path, path: Path) -> None:
+    resolved = path.resolve()
+    if resolved != repo_root and repo_root not in resolved.parents:
+        raise ValueError(f"refusing to remove path outside repo: {resolved}")
+    shutil.rmtree(resolved)
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
     venv_dir = resolve_under_repo(repo_root, args.venv_dir)
+    conda_env_dir = resolve_under_repo(repo_root, args.conda_env_dir)
     output = resolve_under_repo(repo_root, args.output)
     dist_dir = repo_root / "python" / "dist"
     binary = shardloom_binary(repo_root)
+    clean_conda_status = "not_run_prerequisite_failed"
+    clean_conda_tool: Path | None = None
 
     steps: list[dict[str, Any]] = []
 
     if venv_dir.exists():
-        shutil.rmtree(venv_dir)
+        remove_tree_under_repo(repo_root, venv_dir)
     output.parent.mkdir(parents=True, exist_ok=True)
 
     steps.append(
@@ -140,7 +215,19 @@ def main() -> int:
     )
 
     if any(step["returncode"] != 0 for step in steps):
-        return write_transcript(repo_root, output, venv_dir, binary, None, steps, False)
+        return write_transcript(
+            repo_root,
+            output,
+            venv_dir,
+            conda_env_dir,
+            binary,
+            None,
+            steps,
+            False,
+            clean_conda_status,
+            clean_conda_tool,
+            args.require_clean_conda,
+        )
 
     wheel = newest_wheel(dist_dir)
     clean_python = venv_python(venv_dir)
@@ -156,9 +243,7 @@ def main() -> int:
                 "pip",
                 "install",
                 "--no-index",
-                "--find-links",
-                str(dist_dir),
-                "shardloom",
+                str(wheel),
             ],
             cwd=repo_root,
         )
@@ -182,6 +267,68 @@ def main() -> int:
             env=smoke_env,
         )
     )
+    if args.skip_clean_conda:
+        clean_conda_status = "skipped_by_request"
+    else:
+        clean_conda_tool = find_conda_tool(args.conda_executable)
+        if clean_conda_tool is None:
+            clean_conda_status = "skipped_tool_missing"
+        else:
+            if conda_env_dir.exists():
+                remove_tree_under_repo(repo_root, conda_env_dir)
+            before = len(steps)
+            steps.append(
+                run_step(
+                    name="create_clean_conda_env",
+                    command=conda_create_command(
+                        clean_conda_tool,
+                        conda_env_dir,
+                        args.conda_python_version,
+                    ),
+                    cwd=repo_root,
+                    env=env_with_path_prepend(clean_conda_tool.parent),
+                )
+            )
+            clean_conda_python = conda_env_python(conda_env_dir)
+            if steps[-1]["returncode"] == 0:
+                steps.append(
+                    run_step(
+                        name="install_local_wheel_clean_conda",
+                        command=[
+                            str(clean_conda_python),
+                            "-m",
+                            "pip",
+                            "install",
+                            "--no-index",
+                            str(wheel),
+                        ],
+                        cwd=repo_root,
+                    )
+                )
+            if steps[-1]["returncode"] == 0:
+                steps.append(
+                    run_step(
+                        name="conda_wheel_import_and_client_smoke",
+                        command=[
+                            str(clean_conda_python),
+                            "-c",
+                            (
+                                "from shardloom import ShardLoomClient; "
+                                "client=ShardLoomClient.from_env(); "
+                                "smoke=client.smoke_check(); "
+                                "print('fallback_attempted=' + str(smoke.fallback_attempted))"
+                            ),
+                        ],
+                        cwd=repo_root,
+                        env=smoke_env,
+                    )
+                )
+            conda_steps = steps[before:]
+            clean_conda_status = (
+                "passed"
+                if conda_steps and all(step["returncode"] == 0 for step in conda_steps)
+                else "failed"
+            )
     steps.append(
         run_step(
             name="cli_status_json",
@@ -215,7 +362,7 @@ def main() -> int:
             run_step(
                 name="example_local_vortex_benchmark_smoke",
                 command=[
-                    sys.executable,
+                    str(clean_python),
                     "examples/local-vortex-benchmark/run.py",
                     "--repo-root",
                     str(repo_root),
@@ -227,25 +374,60 @@ def main() -> int:
                 cwd=repo_root,
             )
         )
+    steps.append(
+        run_step(
+            name="release_provenance_dry_run",
+            command=[
+                sys.executable,
+                "scripts/release_provenance_dry_run.py",
+                "--repo-root",
+                str(repo_root),
+                "--skip-build",
+            ],
+            cwd=repo_root,
+        )
+    )
 
-    passed = all(step["returncode"] == 0 for step in steps)
-    return write_transcript(repo_root, output, venv_dir, binary, wheel, steps, passed)
+    passed = all(step["returncode"] == 0 for step in steps) and (
+        clean_conda_status == "passed" or not args.require_clean_conda
+    )
+    return write_transcript(
+        repo_root,
+        output,
+        venv_dir,
+        conda_env_dir,
+        binary,
+        wheel,
+        steps,
+        passed,
+        clean_conda_status,
+        clean_conda_tool,
+        args.require_clean_conda,
+    )
 
 
 def write_transcript(
     repo_root: Path,
     output: Path,
     venv_dir: Path,
+    conda_env_dir: Path,
     binary: Path,
     wheel: Path | None,
     steps: list[dict[str, Any]],
     passed: bool,
+    clean_conda_status: str,
+    clean_conda_tool: Path | None,
+    clean_conda_required: bool,
 ) -> int:
     transcript = {
         "schema_version": "shardloom.release_dry_run_proof.v1",
         "proof_status": "passed" if passed else "failed",
         "repo_root": str(repo_root),
         "clean_venv": str(venv_dir),
+        "clean_conda_env": str(conda_env_dir),
+        "clean_conda_env_install_status": clean_conda_status,
+        "clean_conda_env_install_tool": str(clean_conda_tool) if clean_conda_tool else None,
+        "clean_conda_env_install_required": clean_conda_required,
         "local_wheel": str(wheel) if wheel is not None else None,
         "local_cli_binary": str(binary),
         "publication_attempted": False,
@@ -253,6 +435,13 @@ def write_transcript(
         "secrets_required": False,
         "external_runtime_dependencies_added": False,
         "fallback_engine_dependency_added": False,
+        "provenance_dry_run_performed": any(
+            step["name"] == "release_provenance_dry_run" for step in steps
+        ),
+        "sbom_checksum_manifest_generated": any(
+            step["name"] == "release_provenance_dry_run" and step["returncode"] == 0
+            for step in steps
+        ),
         "steps": steps,
     }
     output.write_text(json.dumps(transcript, indent=2, sort_keys=True) + "\n", encoding="utf-8")

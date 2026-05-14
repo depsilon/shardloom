@@ -38,6 +38,7 @@ ENGINE_ORDER = (
     "datafusion",
     "dask",
 )
+ENGINE_CHOICES = ENGINE_ORDER + ("shardloom-prepared-vortex",)
 ENGINE_ALIASES = {"spark": ("spark-default", "spark-local-tuned")}
 BENCHMARK_SUITE = "local_analytics"
 DEFAULT_DATASET_PROFILE = "narrow_fact_dim"
@@ -86,6 +87,7 @@ TAXONOMY_EXTRA_SCENARIO_ORDER = (
 FORMAT_ORDER = ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
 DEFAULT_FORMAT_ORDER = ("csv", "parquet")
 SHARDLOOM_VORTEX_FORMAT = "vortex"
+SHARDLOOM_BUILD_TIMINGS: dict[str, float] = {}
 STRESS_SCENARIO_ORDER = (
     "scale stress skewed join aggregation",
     "scale stress multi-stage etl",
@@ -204,10 +206,12 @@ class EngineRunner:
     version: str
     scenarios: dict[str, Callable[[DatasetPaths, str], Any]]
     formats: tuple[str, ...] = ("csv",)
-    prepare: Callable[[DatasetPaths], None] | None = None
+    prepare: Callable[[DatasetPaths, tuple[str, ...]], None] | None = None
     warmup: Callable[[], None] | None = None
     close: Callable[[], None] | None = None
     startup_time_millis: float | None = None
+    preparation_time_millis: float | None = None
+    build_time_millis: float | None = None
 
 
 @dataclass(frozen=True)
@@ -317,7 +321,8 @@ def expand_engine_aliases(engine_names: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def option_was_provided(option: str, argv: list[str]) -> bool:
-    return option in argv or any(arg.startswith(f"{option}=") for arg in argv)
+    prefix = f"{option}="
+    return option in argv or any(arg.startswith(prefix) for arg in argv)
 
 
 class MemorySampler:
@@ -370,19 +375,19 @@ class MemorySampler:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--rows", type=int, default=100_000)
     parser.add_argument("--dim-rows", type=int, default=1_000)
     parser.add_argument("--iterations", type=int, default=3)
     parser.add_argument(
         "--engines",
         default=",".join(ENGINE_ORDER),
-        help="Comma-separated engines: shardloom,shardloom-vortex,pandas,polars,duckdb,spark-default,spark-local-tuned,datafusion,dask. Alias: spark expands to both Spark profiles.",
+        help="Comma-separated engines: shardloom,shardloom-vortex,shardloom-prepared-vortex,pandas,polars,duckdb,spark-default,spark-local-tuned,datafusion,dask. Alias: spark expands to both Spark profiles.",
     )
     parser.add_argument(
         "--formats",
         default=",".join(DEFAULT_FORMAT_ORDER),
-        help="Comma-separated external storage formats to run where supported: csv,jsonl,parquet,arrow-ipc,avro,orc. ShardLoom native Vortex rows use the shardloom-vortex engine.",
+        help="Comma-separated external storage formats to run where supported: csv,jsonl,parquet,arrow-ipc,avro,orc. ShardLoom native/prepared Vortex rows are reported under the requested source formats with separate preparation metadata.",
     )
     parser.add_argument(
         "--scenario",
@@ -505,7 +510,7 @@ def parse_args() -> argparse.Namespace:
         if engine.strip()
     )
     engines = expand_engine_aliases(requested_engines)
-    unknown = sorted(set(engines) - set(ENGINE_ORDER))
+    unknown = sorted(set(engines) - set(ENGINE_CHOICES))
     if unknown:
         parser.error(f"unknown engines: {','.join(unknown)}")
     args.engine_list = engines
@@ -1195,7 +1200,11 @@ def shardloom_runner() -> EngineRunner:
                     "many-small-files scan requires split CSV or JSONL fact parts"
                 )
             return parts[0].parent
-        if scenario == "nested JSON field scan" and data_format == "csv":
+        if scenario == "nested JSON field scan" and data_format not in {
+            "jsonl",
+            "parquet",
+            "arrow-ipc",
+        }:
             raise BenchmarkUnsupported(
                 "nested JSON field scan requires JSONL or Arrow-family fixture input for ShardLoom"
             )
@@ -1236,6 +1245,14 @@ def shardloom_runner() -> EngineRunner:
         if completed["returncode"] != 0:
             raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
         fields = parse_output_fields(payload)
+        fields["cli_process_wall_millis"] = str(
+            completed.get("process_wall_millis", "not_measured")
+        )
+        fields["process_startup_attribution"] = "per_scenario_cli_process_wall_measured"
+        fields["python_harness_overhead_status"] = (
+            "outer_harness_wall_minus_cli_process_wall"
+        )
+        fields["build_time_excluded"] = "true"
         if payload.get("status") != "success":
             reason = fields.get("reason") or payload.get("human_text") or "unsupported"
             raise BenchmarkUnsupported(str(reason))
@@ -1366,10 +1383,11 @@ def shardloom_runner() -> EngineRunner:
             for scenario in SHARDLOOM_EXECUTABLE_SCENARIOS
         },
         formats=FORMAT_ORDER,
+        build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
 
 
-def shardloom_vortex_runner() -> EngineRunner:
+def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunner:
     root = workspace_root()
     binary = build_shardloom_cli(
         root,
@@ -1378,24 +1396,30 @@ def shardloom_vortex_runner() -> EngineRunner:
     )
     env = os.environ.copy()
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
-    prepared_paths: dict[str, Path] = {}
+    prepared_paths: dict[str, dict[str, Path | float | str]] = {}
 
-    def prepare(paths: DatasetPaths) -> None:
-        if prepared_paths:
+    def prepare_format(paths: DatasetPaths, data_format: str) -> None:
+        if data_format in prepared_paths:
             return
-        workspace = paths.root / "shardloom_native_vortex_inputs"
+        workspace = paths.root / "shardloom_native_vortex_inputs" / data_format
         command = [
             str(binary),
             "traditional-analytics-run",
             "csv/file ingest",
-            str(paths.fact_csv),
-            str(paths.dim_csv),
+            str(fact_path(paths, data_format)),
+            str(dim_path(paths, data_format)),
             "--workspace",
             str(workspace),
+            "--input-format",
+            data_format,
+            "--execution-mode",
+            "compatibility_import_certified",
             "--format",
             "json",
         ]
+        started = time.perf_counter()
         completed = subprocess_run(command, root, env)
+        preparation_millis = (time.perf_counter() - started) * 1000.0
         if completed["returncode"] != 0:
             raise BenchmarkUnsupported(
                 completed["stderr"] or completed["stdout"] or "native Vortex input setup failed"
@@ -1413,22 +1437,57 @@ def shardloom_vortex_runner() -> EngineRunner:
             raise BenchmarkUnsupported(
                 "ShardLoom native Vortex setup did not produce fact/dim .vortex files"
             )
-        prepared_paths["fact"] = fact_vortex
-        prepared_paths["dim"] = dim_vortex
+        prepared_paths[data_format] = {
+            "fact": fact_vortex,
+            "dim": dim_vortex,
+            "preparation_millis": round(preparation_millis, 4),
+            "preparation_cli_process_wall_millis": completed.get(
+                "process_wall_millis", preparation_millis
+            ),
+            "fact_digest": fields.get("fact_vortex_digest", ""),
+            "dim_digest": fields.get("dim_vortex_digest", ""),
+            "source_native_io_certificate_status": fields.get(
+                "native_io_certificate_status", ""
+            ),
+            "source_native_io_certificate_id": fields.get(
+                "native_io_certificate_id", ""
+            ),
+        }
+
+    def prepare(paths: DatasetPaths, report_formats: tuple[str, ...]) -> None:
+        for data_format in report_formats:
+            if data_format == SHARDLOOM_VORTEX_FORMAT:
+                continue
+            prepare_format(paths, data_format)
 
     def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
-        if data_format != SHARDLOOM_VORTEX_FORMAT:
-            raise BenchmarkUnsupported("shardloom-vortex only runs native .vortex inputs")
-        prepare(paths)
+        if data_format == SHARDLOOM_VORTEX_FORMAT:
+            raise BenchmarkUnsupported(
+                "shardloom-vortex reports prepared/native results under the requested source format rows"
+            )
+        prepare_format(paths, data_format)
+        prepared = prepared_paths[data_format]
         command = [
             str(binary),
             "traditional-analytics-vortex-run",
             scenario,
-            str(prepared_paths["fact"]),
-            str(prepared_paths["dim"]),
+            str(prepared["fact"]),
+            str(prepared["dim"]),
+            "--execution-mode",
+            "prepared_vortex",
             "--format",
             "json",
         ]
+        if SHARDLOOM_RESULT_SINK:
+            result_workspace = (
+                paths.root
+                / "shardloom_prepared_vortex_result_sinks"
+                / data_format
+                / scenario_slug(scenario)
+            )
+            command.extend(
+                ["--workspace", str(result_workspace), "--write-result-vortex"]
+            )
         completed = subprocess_run(command, root, env)
         try:
             payload = json.loads(completed["stdout"].splitlines()[0])
@@ -1441,6 +1500,14 @@ def shardloom_vortex_runner() -> EngineRunner:
         if completed["returncode"] != 0:
             raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
         fields = parse_output_fields(payload)
+        fields["cli_process_wall_millis"] = str(
+            completed.get("process_wall_millis", "not_measured")
+        )
+        fields["process_startup_attribution"] = "per_scenario_cli_process_wall_measured"
+        fields["python_harness_overhead_status"] = (
+            "outer_harness_wall_minus_cli_process_wall"
+        )
+        fields["build_time_excluded"] = "true"
         if payload.get("status") != "success":
             reason = fields.get("reason") or payload.get("human_text") or "unsupported"
             raise BenchmarkUnsupported(str(reason))
@@ -1477,16 +1544,79 @@ def shardloom_vortex_runner() -> EngineRunner:
                 "ShardLoom NativeIoCertificate path was unexpected: "
                 + str(fields.get("native_io_certificate_path_id", "missing"))
             )
+        if SHARDLOOM_RESULT_SINK:
+            for field in (
+                "computed_result_sink_requested",
+                "computed_result_sink_written",
+                "computed_result_sink_replay_verified",
+            ):
+                if fields.get(field) != "true":
+                    raise RuntimeError(
+                        "ShardLoom prepared/native result sink evidence was missing: "
+                        + field
+                    )
+            if (
+                fields.get("computed_result_sink_native_io_certificate_status")
+                != "certified"
+            ):
+                raise RuntimeError(
+                    "ShardLoom prepared/native result sink NativeIoCertificate was not certified: "
+                    + str(
+                        fields.get(
+                            "computed_result_sink_native_io_certificate_status",
+                            "missing",
+                        )
+                    )
+                )
+            if fields.get("result_sink_claim_gate_status") != "result_sink_replay_certified":
+                raise RuntimeError(
+                    "ShardLoom prepared/native result sink claim gate was not certified: "
+                    + str(fields.get("result_sink_claim_gate_status", "missing"))
+                )
         result_json = fields.get("result_json")
         if result_json is None:
             raise RuntimeError("ShardLoom result_json field was missing")
+        fields.update(
+            {
+                "requested_execution_mode": "prepared_vortex",
+                "selected_execution_mode": "prepared_vortex",
+                "execution_mode": "prepared_vortex",
+                "mode_selection_reason": (
+                    "compatibility input was prepared into Vortex once before scenario timing"
+                ),
+                "execution_mode_family": "native_vortex",
+                "preparation_millis": str(prepared["preparation_millis"]),
+                "preparation_cli_process_wall_millis": str(
+                    prepared["preparation_cli_process_wall_millis"]
+                ),
+                "preparation_included_in_timing": "false",
+                "prepared_artifact_ref": (
+                    f"{prepared['fact']}|{prepared['dim']}"
+                ),
+                "prepared_artifact_digest": (
+                    f"{prepared['fact_digest']}|{prepared['dim_digest']}"
+                ),
+                "source_native_io_certificate_status": str(
+                    prepared["source_native_io_certificate_status"]
+                ),
+                "source_native_io_certificate_id": str(
+                    prepared["source_native_io_certificate_id"]
+                ),
+                "compatibility_import_included": "false",
+                "compatibility_to_vortex_included": "false",
+                "vortex_prepare_included": "false",
+                "vortex_write_reopen_included": "false",
+                "direct_transient_execution": "false",
+                "persistent_runner_status": "process_per_scenario_attributed_not_reduced",
+            }
+        )
         return {
             "__benchmark_result": json.loads(result_json),
             "__shardloom_evidence": fields,
         }
 
     return EngineRunner(
-        "shardloom-vortex",
+        engine_name,
         shardloom_version(root, SHARDLOOM_BUILD_PROFILE),
         {
             scenario: (
@@ -1494,11 +1624,16 @@ def shardloom_vortex_runner() -> EngineRunner:
                     scenario, paths, data_format
                 )
             )
-            for scenario in SHARDLOOM_TRADITIONAL_SCENARIOS
+            for scenario in SHARDLOOM_EXECUTABLE_SCENARIOS
         },
-        formats=(SHARDLOOM_VORTEX_FORMAT,),
+        formats=FORMAT_ORDER,
         prepare=prepare,
+        build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
+
+
+def shardloom_prepared_vortex_runner() -> EngineRunner:
+    return shardloom_vortex_runner("shardloom-prepared-vortex")
 
 
 def available_runners(engine_names: tuple[str, ...]) -> tuple[dict[str, EngineRunner], dict[str, str]]:
@@ -1509,7 +1644,11 @@ def available_runners(engine_names: tuple[str, ...]) -> tuple[dict[str, EngineRu
             started = time.perf_counter()
             runner = ENGINE_FACTORIES[engine]()
             startup_time = (time.perf_counter() - started) * 1000.0
-            runners[engine] = replace(runner, startup_time_millis=round(startup_time, 4))
+            build_time = runner.build_time_millis or 0.0
+            startup_without_build = max(0.0, startup_time - build_time)
+            runners[engine] = replace(
+                runner, startup_time_millis=round(startup_without_build, 4)
+            )
         except Exception as exc:
             missing[engine] = f"{type(exc).__name__}: {exc}"
     return runners, missing
@@ -1525,14 +1664,19 @@ def warmup_runner(runner: EngineRunner) -> EngineRunner:
     return replace(runner, startup_time_millis=round(startup_time, 4))
 
 
-def prepare_runner(runner: EngineRunner, paths: DatasetPaths) -> EngineRunner:
+def prepare_runner(
+    runner: EngineRunner, paths: DatasetPaths, report_formats: tuple[str, ...]
+) -> EngineRunner:
     if runner.prepare is None:
         return runner
     started = time.perf_counter()
-    runner.prepare(paths)
+    runner.prepare(paths, report_formats)
     prepare_time = (time.perf_counter() - started) * 1000.0
-    startup_time = (runner.startup_time_millis or 0.0) + prepare_time
-    return replace(runner, startup_time_millis=round(startup_time, 4))
+    return replace(
+        runner,
+        startup_time_millis=runner.startup_time_millis,
+        preparation_time_millis=round(prepare_time, 4),
+    )
 
 
 def round_float(value: Any) -> float:
@@ -1561,6 +1705,15 @@ def parse_optional_int(value: Any) -> int | None:
         return None
     try:
         return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_optional_float(value: Any) -> float | None:
+    if value is None or value == "none" or value == "":
+        return None
+    try:
+        return float(value)
     except (TypeError, ValueError):
         return None
 
@@ -1632,6 +1785,9 @@ def build_shardloom_cli(root: Path, features: str, profile: str) -> Path:
     binary = shardloom_binary_path(root, profile)
     if not binary.exists():
         raise BenchmarkUnsupported(f"ShardLoom binary was not found after build: {binary}")
+    SHARDLOOM_BUILD_TIMINGS[str(binary)] = round(
+        float(completed.get("process_wall_millis") or 0.0), 4
+    )
     return binary
 
 
@@ -3077,6 +3233,7 @@ def dask_runner() -> EngineRunner:
 ENGINE_FACTORIES: dict[str, Callable[[], EngineRunner]] = {
     "shardloom": shardloom_runner,
     "shardloom-vortex": shardloom_vortex_runner,
+    "shardloom-prepared-vortex": shardloom_prepared_vortex_runner,
     "pandas": pandas_runner,
     "polars": polars_runner,
     "duckdb": duckdb_runner,
@@ -3102,6 +3259,12 @@ def scenario_bytes(paths: DatasetPaths, scenario: str, data_format: str) -> int:
     for name in SCENARIO_BYTES[scenario]:
         path = fact_path(paths, data_format) if name == "fact" else dim_path(paths, data_format)
         total += path.stat().st_size
+    if (
+        scenario == "small change over large base"
+        and paths.cdc_delta_csv is not None
+        and paths.cdc_delta_csv.exists()
+    ):
+        total += paths.cdc_delta_csv.stat().st_size
     return total
 
 
@@ -3125,14 +3288,18 @@ def rows_materialized(value: Any) -> int:
 
 
 def materialization_policy(engine: str, data_format: str) -> str:
-    if engine == "shardloom-vortex" or data_format == SHARDLOOM_VORTEX_FORMAT:
-        return "native_vortex_input_prepared_before_scenario_timing"
+    if engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
+        return "prepared_vortex_input_before_scenario_timing"
+    if data_format == SHARDLOOM_VORTEX_FORMAT:
+        return "native_vortex_input"
     if engine == "shardloom":
         return "compatibility_source_to_local_vortex_import_included"
     return "engine_local_compatibility_reader_policy"
 
 
 def native_vortex_or_compatibility_import(engine: str, data_format: str) -> str:
+    if engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
+        return "prepared_vortex"
     if data_format == SHARDLOOM_VORTEX_FORMAT:
         return "native_vortex"
     if engine == "shardloom":
@@ -3196,7 +3363,7 @@ def claim_grade_readiness(result: dict[str, Any]) -> dict[str, Any]:
                 "external baseline rows are comparison-only"
             ],
         }
-    if engine == "shardloom-vortex":
+    if engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
         return {
             "claim_gate_status": "fixture_smoke_only",
             "claim_grade_requirements_met": False,
@@ -3247,6 +3414,13 @@ def benchmark_constitution(
         "warmup_policy": "engine startup/warmup recorded separately",
         "correctness_oracle": "first successful digest per formatted scenario",
         "materialization_policy": materialization_policy(engine, data_format),
+        "requested_execution_mode": result.get("requested_execution_mode"),
+        "selected_execution_mode": result.get("selected_execution_mode"),
+        "execution_mode_family": result.get("execution_mode_family"),
+        "compatibility_import_included": result.get("compatibility_import_included"),
+        "vortex_prepare_included": result.get("vortex_prepare_included"),
+        "vortex_write_reopen_included": result.get("vortex_write_reopen_included"),
+        "direct_transient_execution": result.get("direct_transient_execution"),
         "resource_policy": "engine defaults; ShardLoom auto sizing recorded in evidence",
         "claim_level": result.get("claim_gate_status", "not_claim_grade"),
     }
@@ -3280,7 +3454,7 @@ def coverage_status(result: dict[str, Any]) -> str:
         if result["status"] == "missing_dependency":
             return "blocked"
         return "blocked"
-    if result["engine"] == "shardloom-vortex":
+    if result["engine"] in ("shardloom-vortex", "shardloom-prepared-vortex"):
         return "fixture_smoke_only"
     if result["engine"] == "shardloom":
         return str(result.get("claim_gate_status", "not_claim_grade"))
@@ -3344,6 +3518,26 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "computed_result_sink_write_millis": result["metrics"].get(
                     "computed_result_sink_write_millis"
                 ),
+                "execution_mode": result.get("execution_mode"),
+                "requested_execution_mode": result.get("requested_execution_mode"),
+                "selected_execution_mode": result.get("selected_execution_mode"),
+                "mode_selection_reason": result.get("mode_selection_reason"),
+                "execution_mode_family": result.get("execution_mode_family"),
+                "vortex_native_claim_allowed": result.get(
+                    "vortex_native_claim_allowed"
+                ),
+                "compatibility_import_included": result.get(
+                    "compatibility_import_included"
+                ),
+                "vortex_prepare_included": result.get("vortex_prepare_included"),
+                "vortex_write_reopen_included": result.get(
+                    "vortex_write_reopen_included"
+                ),
+                "direct_transient_execution": result.get("direct_transient_execution"),
+                "preparation_millis": result["metrics"].get("preparation_millis"),
+                "preparation_included_in_timing": result["metrics"].get(
+                    "preparation_included_in_timing"
+                ),
                 "benchmark_constitution_id": constitution["constitution_id"],
                 "benchmark_row_ref": evidence.get("benchmark_row_ref"),
                 "coverage_row_ref": evidence.get("coverage_row_ref"),
@@ -3372,6 +3566,53 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def format_preparation_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        if not is_shardloom_engine(result["engine"]):
+            continue
+        metrics = result["metrics"]
+        data_format = result["storage_format"]
+        selected_mode = result.get("selected_execution_mode") or result.get("execution_mode")
+        row_scope = (
+            "compatibility_preparation_and_query"
+            if result["engine"] == "shardloom"
+            else "prepared_vortex_query_from_prepared_artifact"
+        )
+        rows.append(
+            {
+                "storage_format": data_format,
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": selected_mode,
+                "row_scope": row_scope,
+                "native_execution_format": "vortex",
+                "compatibility_preparation_input": data_format
+                != SHARDLOOM_VORTEX_FORMAT,
+                "preparation_included_in_timing": metrics.get(
+                    "preparation_included_in_timing"
+                ),
+                "preparation_millis": metrics.get("preparation_millis"),
+                "source_read_millis": metrics.get("source_read_millis"),
+                "compatibility_parse_millis": metrics.get("compatibility_parse_millis"),
+                "compatibility_to_vortex_import_millis": metrics.get(
+                    "compatibility_to_vortex_import_millis"
+                ),
+                "vortex_write_millis": metrics.get("vortex_write_millis"),
+                "vortex_reopen_millis": metrics.get("vortex_reopen_millis"),
+                "vortex_scan_millis": metrics.get("vortex_scan_millis"),
+                "operator_compute_millis": metrics.get("operator_compute_millis"),
+                "result_sink_write_millis": metrics.get("result_sink_write_millis"),
+                "evidence_render_millis": metrics.get("evidence_render_millis"),
+                "total_runtime_millis": metrics.get("total_runtime_millis"),
+                "persistent_runner_status": metrics.get("persistent_runner_status"),
+                "claim_gate_status": result.get("claim_gate_status"),
+            }
+        )
+    return rows
+
+
 def catalog_coverage_summary(catalog: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         {
@@ -3388,6 +3629,71 @@ def catalog_coverage_summary(catalog: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def execution_mode_metadata(
+    engine: str, data_format: str, evidence: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    if engine == "shardloom":
+        selected = "compatibility_import_certified"
+        reason = "certified compatibility import/stage workflow"
+        family = "compatibility"
+        vortex_native_claim_allowed = False
+        compatibility_import_included = True
+        vortex_prepare_included = True
+        vortex_write_reopen_included = True
+        direct_transient_execution = False
+    elif engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
+        selected = str(evidence.get("selected_execution_mode") or "prepared_vortex")
+        reason = str(
+            evidence.get("mode_selection_reason")
+            or "prepared Vortex artifacts were created before scenario timing"
+        )
+        family = "native_vortex"
+        vortex_native_claim_allowed = True
+        compatibility_import_included = False
+        vortex_prepare_included = False
+        vortex_write_reopen_included = False
+        direct_transient_execution = False
+    elif data_format == SHARDLOOM_VORTEX_FORMAT:
+        selected = "native_vortex"
+        reason = "native Vortex format selected"
+        family = "native_vortex"
+        vortex_native_claim_allowed = True
+        compatibility_import_included = False
+        vortex_prepare_included = False
+        vortex_write_reopen_included = False
+        direct_transient_execution = False
+    else:
+        selected = "external_baseline_only"
+        reason = "local comparison baseline; never ShardLoom runtime fallback"
+        family = "external_baseline"
+        vortex_native_claim_allowed = False
+        compatibility_import_included = False
+        vortex_prepare_included = False
+        vortex_write_reopen_included = False
+        direct_transient_execution = False
+
+    requested = str(evidence.get("requested_execution_mode") or selected)
+    return {
+        "requested_execution_mode": requested,
+        "selected_execution_mode": selected,
+        "execution_mode": selected,
+        "mode_selection_reason": reason,
+        "execution_mode_family": family,
+        "vortex_native_claim_allowed": vortex_native_claim_allowed,
+        "compatibility_import_included": compatibility_import_included,
+        "vortex_prepare_included": vortex_prepare_included,
+        "vortex_write_reopen_included": vortex_write_reopen_included,
+        "direct_transient_execution": direct_transient_execution,
+        "claim_gate_status": str(evidence.get("claim_gate_status") or ""),
+    }
+
+
+def micros_to_millis_field(value: Any) -> float | None:
+    micros = parse_optional_int(value)
+    return None if micros is None else round(micros / 1000.0, 4)
+
+
 def failed_result(
     engine: str,
     scenario: str,
@@ -3398,9 +3704,11 @@ def failed_result(
     iterations: int,
     elapsed_millis: float | None = None,
 ) -> dict[str, Any]:
+    execution_mode = execution_mode_metadata(engine, data_format)
     metrics = {
         "wall_time_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
         "query_runtime_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
+        "total_runtime_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
         "peak_memory_bytes": None,
         "bytes_read": scenario_bytes(paths, scenario, data_format),
         "bytes_written": None,
@@ -3417,7 +3725,38 @@ def failed_result(
         "spill_required_bytes": None,
         "scenario_compute_millis": None,
         "computed_result_sink_write_millis": None,
+        "result_sink_write_millis": None,
         "computed_result_sink_bytes": None,
+        "operator_compute_millis": None,
+        "cli_process_wall_millis": None,
+        "python_harness_overhead_millis": None,
+        "startup_warmup_millis": None,
+        "build_time_millis": None,
+        "preparation_millis": None,
+        "preparation_cli_process_wall_millis": None,
+        "preparation_included_in_timing": False,
+        "prepared_artifact_ref": None,
+        "prepared_artifact_digest": None,
+        "source_read_millis": None,
+        "compatibility_parse_millis": None,
+        "compatibility_to_vortex_import_millis": None,
+        "vortex_write_millis": None,
+        "vortex_reopen_millis": None,
+        "vortex_scan_millis": None,
+        "evidence_render_millis": None,
+        "build_time_excluded": True,
+        "compatibility_to_vortex_included": execution_mode["compatibility_import_included"],
+        "vortex_reopen_scan_included": execution_mode["vortex_write_reopen_included"],
+        "result_sink_included": False,
+        "representation_transition_summary": "not_executed",
+        "encoded_native_execution_status": "not_executed",
+        "fusion_status": "not_executed",
+        "filter_project_limit_fused": False,
+        "fusion_blocker": "not_executed",
+        "materialization_required": None,
+        "decode_required": None,
+        "scan_api_status": "not_executed",
+        "persistent_runner_status": "not_executed",
     }
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
@@ -3435,6 +3774,7 @@ def failed_result(
         "shardloom_evidence": {},
         "fallback_attempted": False,
         "external_baseline_only": not is_shardloom_engine(engine),
+        **execution_mode,
     }
 
 
@@ -3500,37 +3840,108 @@ def run_one(
     digest = canonical_digest(values[-1])
     stable = all(canonical_digest(value) == digest for value in values)
     evidence = evidence_rows[-1] if evidence_rows else {}
+
+    def mean_evidence_micros(field: str) -> float | None:
+        values = [
+            parsed
+            for row in evidence_rows
+            if row
+            for parsed in [parse_optional_int(row.get(field))]
+            if parsed is not None
+        ]
+        return None if not values else round(statistics.mean(values) / 1000.0, 4)
+
+    def mean_evidence_float(field: str) -> float | None:
+        values = [
+            parsed
+            for row in evidence_rows
+            if row
+            for parsed in [parse_optional_float(row.get(field))]
+            if parsed is not None
+        ]
+        return None if not values else round(statistics.mean(values), 4)
     bytes_written = None
     computed_result_sink_bytes = None
     scenario_compute_millis = None
     computed_result_sink_write_millis = None
+    source_read_millis = None
+    compatibility_parse_millis = None
+    compatibility_to_vortex_import_millis = None
+    vortex_write_millis = None
+    vortex_reopen_millis = None
+    vortex_scan_millis = None
+    operator_compute_millis = None
+    evidence_render_millis = None
+    preparation_millis = None
+    preparation_cli_process_wall_millis = None
+    preparation_included_in_timing = False
+    prepared_artifact_ref = None
+    prepared_artifact_digest = None
+    cli_process_wall_millis = None
     if evidence:
         fact_vortex_bytes = parse_optional_int(evidence.get("fact_vortex_bytes"))
         dim_vortex_bytes = parse_optional_int(evidence.get("dim_vortex_bytes"))
+        cdc_delta_vortex_bytes = parse_optional_int(evidence.get("cdc_delta_vortex_bytes"))
         computed_result_sink_bytes = parse_optional_int(
             evidence.get("computed_result_vortex_bytes")
         )
         if (
             fact_vortex_bytes is not None
             or dim_vortex_bytes is not None
+            or cdc_delta_vortex_bytes is not None
             or computed_result_sink_bytes is not None
         ):
             bytes_written = (
                 (fact_vortex_bytes or 0)
                 + (dim_vortex_bytes or 0)
+                + (cdc_delta_vortex_bytes or 0)
                 + (computed_result_sink_bytes or 0)
             )
-        scenario_compute_micros = parse_optional_int(evidence.get("scenario_compute_micros"))
-        computed_result_sink_write_micros = parse_optional_int(
-            evidence.get("computed_result_sink_write_micros")
+        scenario_compute_millis = mean_evidence_micros("scenario_compute_micros")
+        computed_result_sink_write_millis = mean_evidence_micros(
+            "computed_result_sink_write_micros"
         )
-        if scenario_compute_micros is not None:
-            scenario_compute_millis = round(scenario_compute_micros / 1000.0, 4)
-        if computed_result_sink_write_micros is not None:
-            computed_result_sink_write_millis = round(
-                computed_result_sink_write_micros / 1000.0, 4
-            )
+        if scenario_compute_millis is not None:
+            operator_compute_millis = scenario_compute_millis
+        source_read_millis = mean_evidence_micros("source_read_micros")
+        compatibility_parse_millis = mean_evidence_micros("compatibility_parse_micros")
+        compatibility_to_vortex_import_millis = mean_evidence_micros(
+            "compatibility_to_vortex_import_micros"
+        )
+        vortex_write_millis = mean_evidence_micros("vortex_write_micros")
+        vortex_reopen_millis = mean_evidence_micros("vortex_reopen_micros")
+        vortex_scan_millis = mean_evidence_micros("vortex_scan_micros")
+        evidence_render_millis = mean_evidence_micros("evidence_render_micros")
+        preparation_millis = parse_optional_float(evidence.get("preparation_millis"))
+        preparation_cli_process_wall_millis = parse_optional_float(
+            evidence.get("preparation_cli_process_wall_millis")
+        )
+        preparation_included_in_timing = (
+            parse_optional_bool(evidence.get("preparation_included_in_timing")) is True
+        )
+        prepared_artifact_ref = evidence.get("prepared_artifact_ref")
+        prepared_artifact_digest = evidence.get("prepared_artifact_digest")
+        cli_process_wall_millis = mean_evidence_float("cli_process_wall_millis")
     bytes_read = parse_optional_int(evidence.get("source_bytes_read")) if evidence else None
+    execution_mode = execution_mode_metadata(runner.name, data_format, evidence)
+    result_sink_included = computed_result_sink_write_millis is not None
+    query_runtime_millis = round(statistics.mean(timings), 4)
+    python_harness_overhead_millis = (
+        round(max(0.0, query_runtime_millis - cli_process_wall_millis), 4)
+        if cli_process_wall_millis is not None
+        else None
+    )
+    filter_project_limit_fused = (
+        scenario == "filter + projection + limit"
+        and parse_optional_bool(evidence.get("streaming_filter_pushdown_applied")) is True
+        and parse_optional_bool(evidence.get("streaming_projection_pushdown_applied")) is True
+        and parse_optional_bool(evidence.get("data_materialized")) is False
+    )
+    fusion_blocker = (
+        "none"
+        if filter_project_limit_fused
+        else "temporary benchmark operator materializes Vortex-derived arrays after scan"
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -3541,7 +3952,8 @@ def run_one(
         "iteration_wall_time_millis": [round(value, 4) for value in timings],
         "metrics": {
             "wall_time_millis": round(sum(timings), 4),
-            "query_runtime_millis": round(statistics.mean(timings), 4),
+            "query_runtime_millis": query_runtime_millis,
+            "total_runtime_millis": query_runtime_millis,
             "peak_memory_bytes": max(peak_memory) if peak_memory else None,
             "bytes_read": bytes_read
             if bytes_read is not None
@@ -3561,8 +3973,68 @@ def run_one(
             "object_store_requests": 0,
             "spill_required_bytes": None,
             "scenario_compute_millis": scenario_compute_millis,
+            "operator_compute_millis": operator_compute_millis,
+            "cli_process_wall_millis": cli_process_wall_millis,
+            "python_harness_overhead_millis": python_harness_overhead_millis,
             "computed_result_sink_write_millis": computed_result_sink_write_millis,
+            "result_sink_write_millis": computed_result_sink_write_millis,
             "computed_result_sink_bytes": computed_result_sink_bytes,
+            "startup_warmup_millis": runner.startup_time_millis,
+            "build_time_millis": runner.build_time_millis,
+            "preparation_millis": preparation_millis
+            if preparation_millis is not None
+            else runner.preparation_time_millis,
+            "preparation_cli_process_wall_millis": preparation_cli_process_wall_millis,
+            "preparation_included_in_timing": preparation_included_in_timing,
+            "prepared_artifact_ref": prepared_artifact_ref,
+            "prepared_artifact_digest": prepared_artifact_digest,
+            "source_read_millis": source_read_millis,
+            "compatibility_parse_millis": compatibility_parse_millis,
+            "compatibility_to_vortex_import_millis": compatibility_to_vortex_import_millis,
+            "vortex_write_millis": vortex_write_millis,
+            "vortex_reopen_millis": vortex_reopen_millis,
+            "vortex_scan_millis": vortex_scan_millis,
+            "evidence_render_millis": evidence_render_millis,
+            "build_time_excluded": True,
+            "process_startup_attribution": evidence.get(
+                "process_startup_attribution", "not_measured"
+            ),
+            "python_harness_overhead_status": evidence.get(
+                "python_harness_overhead_status", "not_measured"
+            ),
+            "compatibility_to_vortex_included": execution_mode[
+                "compatibility_import_included"
+            ],
+            "vortex_reopen_scan_included": (
+                execution_mode["vortex_write_reopen_included"]
+                or vortex_scan_millis is not None
+            ),
+            "result_sink_included": result_sink_included,
+            "representation_transition_summary": evidence.get(
+                "native_io_representation_transitions", "not_reported"
+            ),
+            "encoded_native_execution_status": (
+                "materialized_vortex_derived_arrays"
+                if parse_optional_bool(evidence.get("data_materialized")) is True
+                else "streaming_or_native_vortex_evidence_present"
+            ),
+            "fusion_status": (
+                "filter_project_limit_fused=true"
+                if filter_project_limit_fused
+                else "not_fused_or_not_applicable"
+            ),
+            "filter_project_limit_fused": filter_project_limit_fused,
+            "fusion_blocker": fusion_blocker,
+            "materialization_required": parse_optional_bool(
+                evidence.get("data_materialized")
+            ),
+            "decode_required": parse_optional_bool(evidence.get("data_decoded")),
+            "scan_api_status": evidence.get(
+                "scan_api_status", "local_file_reopen_scan_path"
+            ),
+            "persistent_runner_status": evidence.get(
+                "persistent_runner_status", "process_per_scenario_attributed_not_reduced"
+            ),
         },
         "correctness_digest": digest,
         "correctness_digest_stable": stable,
@@ -3570,6 +4042,7 @@ def run_one(
         "shardloom_evidence": evidence,
         "fallback_attempted": False,
         "external_baseline_only": not is_shardloom_engine(runner.name),
+        **execution_mode,
     }
 
 
@@ -3981,6 +4454,7 @@ def prepare_shardloom_commit_workspace(workspace: Path, iteration: int) -> None:
 def subprocess_run(command: list[str], cwd: Path, env: dict[str, str]) -> dict[str, Any]:
     import subprocess
 
+    started = time.perf_counter()
     completed = subprocess.run(
         command,
         cwd=cwd,
@@ -3989,10 +4463,12 @@ def subprocess_run(command: list[str], cwd: Path, env: dict[str, str]) -> dict[s
         capture_output=True,
         text=True,
     )
+    process_wall_millis = (time.perf_counter() - started) * 1000.0
     return {
         "returncode": completed.returncode,
         "stdout": completed.stdout,
         "stderr": completed.stderr,
+        "process_wall_millis": round(process_wall_millis, 4),
     }
 
 
@@ -4075,7 +4551,7 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "status": "local_smoke_not_claim_grade",
         "rows": paths.rows,
         "dim_rows": paths.dim_rows,
-        "storage_format": "CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC where supported; ShardLoom compatibility source adapters import into local Vortex files; shardloom-vortex native .vortex rows",
+        "storage_format": "CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC where supported; ShardLoom compatibility rows import into local Vortex files; shardloom-vortex rows report prepared/native Vortex execution under the requested source-format rows",
         "benchmark_suite": BENCHMARK_SUITE,
         "scenario_catalog_schema": SCENARIO_CATALOG["schema_version"],
         "dataset_profile": args.dataset_profile,
@@ -4113,7 +4589,10 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "avro_included": "avro" in args.format_list,
         "orc_included": "orc" in args.format_list,
         "shardloom_resource_sizing": "auto by default; optional --memory-gb and --max-parallelism caps are reflected in ShardLoom evidence fields",
-        "native_vortex_included": "shardloom-vortex" in args.engine_list,
+        "native_vortex_included": any(
+            engine in ("shardloom-vortex", "shardloom-prepared-vortex")
+            for engine in args.engine_list
+        ),
         "shardloom_universal_io_smoke_included": True,
         "shardloom_native_microbenchmarks_included": not args.skip_shardloom_native,
         "claim_grade_requirements": [
@@ -4133,22 +4612,14 @@ def default_output_path() -> Path:
 
 
 def report_format_order(args: argparse.Namespace) -> tuple[str, ...]:
-    formats = list(args.format_list) if any(
-        engine != "shardloom-vortex" for engine in args.engine_list
-    ) else []
-    if "shardloom-vortex" in args.engine_list and SHARDLOOM_VORTEX_FORMAT not in formats:
-        formats.append(SHARDLOOM_VORTEX_FORMAT)
-    return tuple(formats)
+    return tuple(args.format_list)
 
 
 def formats_for_engine_report(
     engine: str, runner: EngineRunner | None, report_formats: tuple[str, ...]
 ) -> tuple[str, ...]:
-    if engine == "shardloom-vortex":
-        return (SHARDLOOM_VORTEX_FORMAT,)
-    if runner is not None and runner.formats == (SHARDLOOM_VORTEX_FORMAT,):
-        return (SHARDLOOM_VORTEX_FORMAT,)
-    return tuple(data_format for data_format in report_formats if data_format != SHARDLOOM_VORTEX_FORMAT)
+    supported_formats = runner.formats if runner is not None else FORMAT_ORDER
+    return tuple(data_format for data_format in report_formats if data_format in supported_formats)
 
 
 def expanded_scenario_order(
@@ -4221,6 +4692,7 @@ def render_engine_overview(artifact: dict[str, Any]) -> str:
                 "yes" if version_info.get("available") else "no",
                 str(version_info.get("version") or version_info.get("reason") or "n/a"),
                 format_metric(version_info.get("startup_time_millis"), " ms"),
+                format_metric(version_info.get("build_time_millis"), " ms"),
                 str(sum(1 for result in engine_results if result["status"] == "success")),
                 str(sum(1 for result in engine_results if result["status"] != "success")),
             ]
@@ -4231,6 +4703,7 @@ def render_engine_overview(artifact: dict[str, Any]) -> str:
             "Available",
             "Version / reason",
             "Startup / warmup",
+            "Build time (excluded)",
             "Successful scenarios",
             "Failed scenarios",
         ],
@@ -4292,17 +4765,19 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
         "External baseline rows measure each engine's local compatibility-file paths where supported. Unsupported format rows are captured explicitly instead of blocking the report.",
         "ShardLoom rows use compatibility source adapters into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
-        "ShardLoom native Vortex rows start timing from existing `.vortex` inputs prepared before scenario timing; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
+        "ShardLoom native/prepared Vortex rows are reported under the requested source-format rows, such as CSV or Parquet, with preparation metadata rather than standalone `.vortex` report rows.",
+        "ShardLoom prepared Vortex rows start timing from prepared Vortex artifacts; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Coverage rows now carry claim_gate_status so fixture-smoke, unsupported, external-baseline-only, not-claim-grade, and claim-grade rows stay distinct from timing rows.",
         "Claim-grade ShardLoom timing rows require at least three iterations, stable correctness digests, and the full evidence set; one-iteration smoke rows remain not-claim-grade.",
         "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
+        "ShardLoom rows expose cli_process_wall_millis and python_harness_overhead_millis where the Python harness can measure them. Build time is reported separately and excluded from per-scenario timing.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
         "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
         "Spark rows require Java/JDK. Missing Spark rows mean local setup is incomplete, not that Spark failed the workload.",
         "Stress rows are opt-in; they become meaningful Spark-style scale tests only with larger-than-memory data, stable cache policy, and explicit hardware/runtime settings.",
-        "ShardLoom benchmark build time is excluded from per-scenario timing; compatibility-to-Vortex import, Vortex file write/read, scan, and the temporary benchmark operator are included.",
+        "ShardLoom benchmark build time is excluded from per-scenario timing. Rows expose execution_mode, preparation_millis, total_runtime_millis, operator_compute_millis, source/import/write/reopen/scan fields, and whether preparation is included in timing.",
     ]
     return "\n".join(f"- {note}" for note in notes)
 
@@ -4340,6 +4815,9 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 row["support_status"],
                 str(row["timing_row_present"]),
                 row["claim_gate_status"],
+                str(row["selected_execution_mode"]),
+                str(row["preparation_millis"]),
+                str(row["preparation_included_in_timing"]),
                 str(row["claim_grade_requirements_met"]),
                 str(row["reproducible_benchmark_row"]),
                 str(row["correctness_digest_stable"]),
@@ -4368,6 +4846,9 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Support",
             "Timing row",
             "Claim gate",
+            "Mode",
+            "Prep ms",
+            "Prep in timing",
             "Claim-grade",
             "Repro row",
             "Stable digest",
@@ -4387,6 +4868,85 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_format_preparation_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["format_preparation_matrix"]:
+        rows.append(
+            [
+                row["storage_format"],
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                row["execution_mode"],
+                row["row_scope"],
+                row["native_execution_format"],
+                str(row["preparation_included_in_timing"]),
+                format_metric(row["preparation_millis"], " ms"),
+                format_metric(row["source_read_millis"], " ms"),
+                format_metric(row["compatibility_parse_millis"], " ms"),
+                format_metric(row["compatibility_to_vortex_import_millis"], " ms"),
+                format_metric(row["vortex_write_millis"], " ms"),
+                format_metric(row["vortex_reopen_millis"], " ms"),
+                format_metric(row["vortex_scan_millis"], " ms"),
+                format_metric(row["operator_compute_millis"], " ms"),
+                format_metric(row["result_sink_write_millis"], " ms"),
+                format_metric(row["total_runtime_millis"], " ms"),
+                str(row["persistent_runner_status"]),
+                str(row["claim_gate_status"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "none",
+                "missing",
+                "none",
+                "none",
+                "vortex",
+                "false",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "not_executed",
+                "blocked",
+            ]
+        )
+    return markdown_table(
+        [
+            "Format",
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Scope",
+            "Native exec format",
+            "Prep in timing",
+            "Prep",
+            "Source read",
+            "Parse",
+            "Import",
+            "Vortex write",
+            "Vortex reopen",
+            "Vortex scan",
+            "Operator",
+            "Result sink",
+            "Total runtime",
+            "Runner",
+            "Claim gate",
+        ],
+        rows,
+    )
+
+
 def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
     rows = []
     for result in artifact["results"]:
@@ -4398,6 +4958,16 @@ def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
                 result["status"],
                 format_metric(metrics.get("query_runtime_millis"), " ms"),
                 format_metric(metrics.get("scenario_compute_millis"), " ms"),
+                format_metric(metrics.get("operator_compute_millis"), " ms"),
+                format_metric(metrics.get("cli_process_wall_millis"), " ms"),
+                format_metric(metrics.get("python_harness_overhead_millis"), " ms"),
+                format_metric(metrics.get("preparation_millis"), " ms"),
+                format_metric(metrics.get("preparation_cli_process_wall_millis"), " ms"),
+                str(metrics.get("preparation_included_in_timing")),
+                format_metric(metrics.get("source_read_millis"), " ms"),
+                format_metric(metrics.get("compatibility_to_vortex_import_millis"), " ms"),
+                format_metric(metrics.get("vortex_write_millis"), " ms"),
+                format_metric(metrics.get("vortex_scan_millis"), " ms"),
                 format_metric(metrics.get("computed_result_sink_write_millis"), " ms"),
                 format_bytes(metrics.get("peak_memory_bytes")),
                 format_bytes(metrics.get("bytes_read")),
@@ -4414,6 +4984,16 @@ def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
             "Status",
             "Runtime",
             "Scenario compute",
+            "Operator compute",
+            "CLI process wall",
+            "Python harness overhead",
+            "Preparation",
+            "Prep CLI wall",
+            "Prep in timing",
+            "Source read",
+            "Compat import",
+            "Vortex write",
+            "Vortex scan",
             "Result write",
             "Peak RSS",
             "Bytes read",
@@ -4904,6 +5484,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_coverage_table(artifact),
         "",
+        "## ShardLoom Format Preparation Matrix",
+        "",
+        "This table separates compatibility source preparation from prepared/native Vortex query timing. CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC remain compatibility preparation inputs; Vortex is the native execution format.",
+        "",
+        render_format_preparation_matrix(artifact),
+        "",
         "## Resource Metrics",
         "",
         "Memory is sampled process RSS when `psutil` is available. Bytes read and written are declared local file bytes for the scenario; ShardLoom bytes written include temporary Vortex artifacts from the universal-I/O smoke path.",
@@ -5027,8 +5613,8 @@ def main() -> int:
                         engine,
                         scenario,
                         data_format,
-                        "blocked" if profile_block else "missing_dependency",
-                        profile_block or reason,
+                        "missing_dependency",
+                        reason if not profile_block else f"{reason}; {profile_block}",
                         paths,
                         args.iterations,
                     )
@@ -5037,7 +5623,7 @@ def main() -> int:
         try:
             try:
                 runner = warmup_runner(runner)
-                runner = prepare_runner(runner, paths)
+                runner = prepare_runner(runner, paths, engine_formats)
                 runners[engine] = runner
             except Exception as exc:
                 reason = f"{type(exc).__name__}: {exc}"
@@ -5091,6 +5677,9 @@ def main() -> int:
             "available": engine in runners,
             "version": runners[engine].version,
             "startup_time_millis": runners[engine].startup_time_millis,
+            "preparation_time_millis": runners[engine].preparation_time_millis,
+            "build_time_millis": runners[engine].build_time_millis,
+            "build_time_excluded": True,
         }
         for engine in runners
     }
@@ -5100,6 +5689,8 @@ def main() -> int:
             "version": None,
             "reason": reason,
             "startup_time_millis": None,
+            "build_time_millis": None,
+            "build_time_excluded": True,
         }
 
     artifact = {
@@ -5166,6 +5757,7 @@ def main() -> int:
         "scenario_catalog_path": str(scenario_catalog_path()),
         "scenario_catalog": catalog_coverage_summary(SCENARIO_CATALOG),
         "coverage_table": coverage_table(results),
+        "format_preparation_matrix": format_preparation_matrix(results),
         "results": results,
         "shardloom_native_microbenchmarks": []
         if args.skip_shardloom_native
@@ -5177,7 +5769,7 @@ def main() -> int:
             "Compatibility-file workloads include local file read cost and do not represent object-store behavior.",
             "Parquet, Arrow IPC, Avro, and ORC workloads use generated local files with engine-default read settings; they do not represent tuned lakehouse/table-format layouts.",
             "ShardLoom traditional rows include local compatibility-to-Vortex import and Vortex scan, but current temporary operators materialize Vortex-derived arrays instead of executing the full mature encoded SQL/operator surface.",
-            "ShardLoom native Vortex rows exclude compatibility-to-Vortex setup from scenario timing but still use the current temporary benchmark operators after Vortex scan.",
+            "ShardLoom native/prepared Vortex rows are reported under requested source-format rows and exclude compatibility-to-Vortex setup from scenario timing; preparation timing and artifact refs are recorded separately.",
             "ShardLoom native microbenchmark rows separately expose local Vortex scan filter/projection pushdown evidence; those rows are not a mature SQL/DataFrame/API benchmark surface.",
             "Dask performance is sensitive to partitioning and scheduler settings; this report records the selected blocksize and scheduler.",
             "Engine startup/warmup time is recorded separately from per-scenario timing. Spark profiles warm an isolated Spark session before their scenario rows and are closed before the next engine runs.",

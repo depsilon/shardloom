@@ -142,6 +142,66 @@ class LiveEtlReplayResult:
 
 
 @dataclass(frozen=True, slots=True)
+class PreparedVortexArtifacts:
+    """Prepared local Vortex artifacts emitted by a compatibility ingest/stage run."""
+
+    prepare: OutputEnvelope
+
+    @property
+    def fact_vortex_path(self) -> str:
+        """Return the prepared fact-table Vortex artifact path."""
+
+        return _required_field(self.prepare, "prepared_artifact_fact_ref")
+
+    @property
+    def dim_vortex_path(self) -> str:
+        """Return the prepared dimension-table Vortex artifact path."""
+
+        return _required_field(self.prepare, "prepared_artifact_dim_ref")
+
+    @property
+    def artifact_ref(self) -> str:
+        """Return the combined prepared artifact ref."""
+
+        return _required_field(self.prepare, "prepared_artifact_ref")
+
+    @property
+    def artifact_digest(self) -> str:
+        """Return the combined prepared artifact digest summary."""
+
+        return _required_field(self.prepare, "prepared_artifact_digest")
+
+    @property
+    def cleanup_policy(self) -> str:
+        """Return the caller-visible cleanup policy for prepared artifacts."""
+
+        return _required_field(self.prepare, "prepared_artifact_cleanup_policy")
+
+    @property
+    def reuse_eligible(self) -> bool:
+        """Whether the prepared artifact pair is eligible for native/prepared replay."""
+
+        return self.prepare.field_bool("prepared_artifact_reuse_eligible", False) is True
+
+    def run_prepared(
+        self,
+        client: "ShardLoomClient",
+        scenario: str,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run a scenario from the prepared Vortex artifacts."""
+
+        return client.traditional_analytics_vortex_run(
+            scenario,
+            self.fact_vortex_path,
+            self.dim_vortex_path,
+            execution_mode="prepared_vortex",
+            check=check,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class LocalVortexPrimitiveSmokeReport:
     """Result of the explicit local Vortex primitive smoke workflow."""
 
@@ -397,7 +457,7 @@ class EngineSelectionPlan:
     def external_engine_invoked(self) -> bool:
         """Whether engine selection invoked an external engine."""
 
-        return self.envelope.field_bool("external_engine_invoked", False) is True
+        return _envelope_external_engine_invoked(self.envelope)
 
 
 @dataclass(frozen=True, slots=True)
@@ -432,7 +492,7 @@ class EngineCapabilityMatrix:
     def external_engine_invoked(self) -> bool:
         """Whether matrix discovery invoked an external engine."""
 
-        return self.envelope.field_bool("external_engine_invoked", False) is True
+        return _envelope_external_engine_invoked(self.envelope)
 
 
 @dataclass(frozen=True, slots=True)
@@ -598,6 +658,7 @@ class ComputeCapabilityRow:
     family: str
     support_status: str
     engine_mode: str
+    execution_mode: str
     provider_kind: str
     semantic_profile: str
     materialization_decode_requirement: str
@@ -609,6 +670,8 @@ class ComputeCapabilityRow:
     unsupported_diagnostic_code: str
     blocker_id: str
     required_future_evidence: tuple[str, ...]
+    claim_gate_status: str
+    vortex_native_claim_allowed: bool
     fallback_attempted: bool
     external_engine_invoked: bool
 
@@ -654,6 +717,7 @@ class ComputeCapabilityMatrix:
                     family=_required_field(self.envelope, f"{prefix}family"),
                     support_status=_required_field(self.envelope, f"{prefix}support_status"),
                     engine_mode=_required_field(self.envelope, f"{prefix}engine_mode"),
+                    execution_mode=_required_field(self.envelope, f"{prefix}execution_mode"),
                     provider_kind=_required_field(self.envelope, f"{prefix}provider_kind"),
                     semantic_profile=_required_field(self.envelope, f"{prefix}semantic_profile"),
                     materialization_decode_requirement=_required_field(
@@ -678,6 +742,15 @@ class ComputeCapabilityMatrix:
                     required_future_evidence=_csv_values(
                         self.envelope.field(f"{prefix}required_future_evidence")
                     ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    vortex_native_claim_allowed=self.envelope.field_bool(
+                        f"{prefix}vortex_native_claim_allowed",
+                        False,
+                    )
+                    is True,
                     fallback_attempted=self.envelope.field_bool(
                         f"{prefix}fallback_attempted",
                         True,
@@ -942,6 +1015,207 @@ class ExecutionResultEnvelopeView:
         return _csv_values(self.envelope.field("representation_transitions"))
 
     @property
+    def execution_mode_selection_fields(self) -> Mapping[str, str]:
+        """Return the typed execution-mode selection report fields when present."""
+
+        artifact = next(
+            (
+                artifact
+                for artifact in self.envelope.artifacts
+                if artifact.get("artifact_kind") == "execution_mode_selection_report"
+            ),
+            None,
+        )
+        if artifact is not None:
+            fields = _artifact_payload_field_map(artifact)
+            if fields:
+                return fields
+        keys = (
+            "execution_mode_selection_schema_version",
+            "requested_execution_mode",
+            "selected_execution_mode",
+            "execution_mode",
+            "mode_selection_reason",
+            "execution_mode_family",
+            "source_format",
+            "workload_constitution_id",
+            "compatibility_import_included",
+            "vortex_prepare_included",
+            "vortex_write_reopen_included",
+            "direct_transient_execution",
+            "vortex_native_claim_allowed",
+            "certification_requested",
+            "result_sink_requested",
+            "prepared_artifact_available",
+            "native_vortex_provider_available",
+            "mode_supported",
+            "unsupported_diagnostic_code",
+            "blocker_id",
+            "required_future_evidence",
+            "claim_gate_status",
+            "claim_gate_reason",
+            "fallback_attempted",
+            "external_engine_invoked",
+        )
+        return {
+            key: value
+            for key in keys
+            if (value := self.envelope.field(key)) is not None
+        }
+
+    @property
+    def compute_flow_evidence_fields(self) -> Mapping[str, str]:
+        """Return typed compute-flow evidence fields when present."""
+
+        artifact = next(
+            (
+                artifact
+                for artifact in self.envelope.artifacts
+                if artifact.get("artifact_kind") == "compute_flow_evidence"
+            ),
+            None,
+        )
+        if artifact is not None:
+            fields = _artifact_payload_field_map(artifact)
+            if fields:
+                return fields
+        return {}
+
+    def _execution_mode_field(self, key: str) -> str | None:
+        return self.execution_mode_selection_fields.get(key) or self.envelope.field(key)
+
+    def _execution_mode_bool(self, key: str, default: bool = False) -> bool:
+        value = self.execution_mode_selection_fields.get(key)
+        if value is not None:
+            return _string_bool_value(value, key)
+        return self.envelope.field_bool(key, default) is True
+
+    def _compute_flow_field(self, key: str) -> str | None:
+        return self.compute_flow_evidence_fields.get(key) or self.envelope.field(key)
+
+    def _compute_flow_bool(self, key: str, default: bool = False) -> bool:
+        value = self.compute_flow_evidence_fields.get(key)
+        if value is not None and value != "evidence_incomplete":
+            return _string_bool_value(value, key)
+        return self.envelope.field_bool(key, default) is True
+
+    @property
+    def requested_execution_mode(self) -> str | None:
+        """Return the requested execution mode when the envelope reports one."""
+
+        return self._execution_mode_field("requested_execution_mode")
+
+    @property
+    def selected_execution_mode(self) -> str | None:
+        """Return the execution mode selected by ShardLoom."""
+
+        return self._execution_mode_field("selected_execution_mode") or (
+            self._execution_mode_field("execution_mode")
+        )
+
+    @property
+    def mode_selection_reason(self) -> str | None:
+        """Return the reported execution-mode selection reason."""
+
+        return self._execution_mode_field("mode_selection_reason")
+
+    @property
+    def execution_mode_family(self) -> str | None:
+        """Return the execution-mode family."""
+
+        return self._execution_mode_field("execution_mode_family")
+
+    @property
+    def mode_supported(self) -> bool:
+        """Whether the requested mode was admitted as supported."""
+
+        return self._execution_mode_bool("mode_supported")
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the workload/row claim-gate status."""
+
+        return self._execution_mode_field("claim_gate_status")
+
+    @property
+    def claim_gate_reason(self) -> str | None:
+        """Return the reason for the claim-gate status."""
+
+        return self._execution_mode_field("claim_gate_reason")
+
+    @property
+    def unsupported_diagnostic_code(self) -> str | None:
+        """Return the unsupported diagnostic for blocked mode admission."""
+
+        return self._execution_mode_field("unsupported_diagnostic_code")
+
+    @property
+    def blocker_id(self) -> str | None:
+        """Return the blocker identifier for unsupported mode admission."""
+
+        return self._execution_mode_field("blocker_id")
+
+    @property
+    def required_future_evidence(self) -> str | None:
+        """Return required future evidence for unsupported mode admission."""
+
+        return self._execution_mode_field("required_future_evidence")
+
+    @property
+    def vortex_native_claim_allowed(self) -> bool:
+        """Whether this envelope can satisfy the native Vortex claim gate."""
+
+        return self._execution_mode_bool("vortex_native_claim_allowed")
+
+    @property
+    def compatibility_import_included(self) -> bool:
+        """Whether compatibility import is included in the reported timing scope."""
+
+        return self._execution_mode_bool("compatibility_import_included")
+
+    @property
+    def vortex_prepare_included(self) -> bool:
+        """Whether Vortex preparation is included in the reported timing scope."""
+
+        return self._execution_mode_bool("vortex_prepare_included")
+
+    @property
+    def vortex_write_reopen_included(self) -> bool:
+        """Whether Vortex write/reopen is included in the reported timing scope."""
+
+        return self._execution_mode_bool("vortex_write_reopen_included")
+
+    @property
+    def direct_transient_execution(self) -> bool:
+        """Whether the execution used the direct transient compatibility mode."""
+
+        return self._execution_mode_bool("direct_transient_execution")
+
+    @property
+    def result_sink_claim_gate_status(self) -> str | None:
+        """Return result-sink-specific claim-gate status when present."""
+
+        return self._compute_flow_field("result_sink_claim_gate_status")
+
+    @property
+    def result_sink_claim_gate_reason(self) -> str | None:
+        """Return result-sink-specific claim-gate reason when present."""
+
+        return self._compute_flow_field("result_sink_claim_gate_reason")
+
+    @property
+    def computed_result_sink_replay_verified(self) -> bool:
+        """Whether a computed result sink was replay-verified."""
+
+        return self._compute_flow_bool("computed_result_sink_replay_verified")
+
+    @property
+    def computed_result_sink_native_io_certificate_status(self) -> str | None:
+        """Return the result-sink Native I/O certificate status when present."""
+
+        return self._compute_flow_field("computed_result_sink_native_io_certificate_status")
+
+    @property
     def evidence_slots(self) -> tuple[ExecutionEvidenceSlot, ...]:
         """Return explicit present/not-required/evidence-incomplete slot statuses."""
 
@@ -990,14 +1264,7 @@ class ExecutionResultEnvelopeView:
     def external_engine_invoked(self) -> bool:
         """Whether execution invoked an external engine."""
 
-        typed_policy = _typed_payload_field_bool(
-            self.envelope.policy,
-            "external_engine_invoked",
-            None,
-        )
-        if typed_policy is not None:
-            return typed_policy is True
-        return self.envelope.field_bool("external_engine_invoked", False) is True
+        return _envelope_external_engine_invoked(self.envelope)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1904,7 +2171,7 @@ class LiveFixtureRunReport:
     def external_engine_invoked(self) -> bool:
         """Whether the fixture command invoked an external engine."""
 
-        return self.envelope.field_bool("external_engine_invoked", False) is True
+        return _envelope_external_engine_invoked(self.envelope)
 
     @property
     def data_read(self) -> bool:
@@ -1998,7 +2265,7 @@ class HybridOverlayRunReport:
     def external_engine_invoked(self) -> bool:
         """Whether the fixture command invoked an external engine."""
 
-        return self.envelope.field_bool("external_engine_invoked", False) is True
+        return _envelope_external_engine_invoked(self.envelope)
 
     @property
     def data_read(self) -> bool:
@@ -2589,6 +2856,7 @@ class ShardLoomClient:
         write_result_vortex: bool = False,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
+        execution_mode: str | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the explicit traditional analytics universal-I/O smoke command."""
@@ -2613,6 +2881,8 @@ class ShardLoomClient:
             args.extend(["--memory-gb", str(memory_gb)])
         if max_parallelism is not None:
             args.extend(["--max-parallelism", str(max_parallelism)])
+        if execution_mode is not None:
+            args.extend(["--execution-mode", execution_mode])
         return self.run(args, check=check)
 
     def traditional_analytics_vortex_run(
@@ -2621,19 +2891,52 @@ class ShardLoomClient:
         fact_vortex: str | os.PathLike[str],
         dim_vortex: str | os.PathLike[str],
         *,
+        workspace: str | os.PathLike[str] | None = None,
+        write_result_vortex: bool = False,
+        execution_mode: str | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the explicit native Vortex traditional analytics smoke command."""
 
-        return self.run(
-            [
-                "traditional-analytics-vortex-run",
-                scenario,
-                str(fact_vortex),
-                str(dim_vortex),
-            ],
+        args = [
+            "traditional-analytics-vortex-run",
+            scenario,
+            str(fact_vortex),
+            str(dim_vortex),
+        ]
+        if workspace is not None:
+            args.extend(["--workspace", str(workspace)])
+        if write_result_vortex:
+            args.append("--write-result-vortex")
+        if execution_mode is not None:
+            args.extend(["--execution-mode", execution_mode])
+        return self.run(args, check=check)
+
+    def prepare_traditional_analytics_vortex_artifacts(
+        self,
+        fact_input: str | os.PathLike[str],
+        dim_input: str | os.PathLike[str],
+        *,
+        workspace: str | os.PathLike[str],
+        input_format: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> PreparedVortexArtifacts:
+        """Prepare reusable local Vortex artifacts through the certified ingest/stage path."""
+
+        envelope = self.traditional_analytics_run(
+            "csv/file ingest",
+            fact_input,
+            dim_input,
+            workspace=workspace,
+            input_format=input_format,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            execution_mode="compatibility_import_certified",
             check=check,
         )
+        return PreparedVortexArtifacts(prepare=envelope)
 
     def live_etl_smoke(
         self,
@@ -2679,20 +2982,21 @@ class ShardLoomClient:
                 max_parallelism=max_parallelism,
                 check=check,
             )
-        if workspace is not None:
-            raise ValueError("workspace is only supported for compatibility-file live ETL smoke runs")
         if verify_native_replay:
             raise ValueError(
                 "verify_native_replay is only supported for compatibility-file live ETL smoke runs"
             )
-        if write_result_vortex:
+        if write_result_vortex and workspace is None:
             raise ValueError(
-                "write_result_vortex is only supported for compatibility-file live ETL smoke runs"
+                "write_result_vortex for existing Vortex inputs requires workspace"
             )
         return self.traditional_analytics_vortex_run(
             scenario,
             fact_input,
             dim_input,
+            workspace=workspace,
+            write_result_vortex=write_result_vortex,
+            execution_mode="native_vortex",
             check=check,
         )
 
@@ -2736,6 +3040,11 @@ class ShardLoomClient:
                 scenario,
                 _required_field(csv_import, "fact_vortex_path"),
                 _required_field(csv_import, "dim_vortex_path"),
+                workspace=str(Path(workspace) / "native_replay_result_sink")
+                if write_result_vortex
+                else None,
+                write_result_vortex=write_result_vortex,
+                execution_mode="native_vortex",
                 check=check,
             )
         return LiveEtlReplayResult(csv_import=csv_import, native_vortex=native_vortex)
@@ -3524,6 +3833,13 @@ def _any_bool_field(envelope: OutputEnvelope, keys: Sequence[str]) -> bool:
     )
 
 
+def _envelope_external_engine_invoked(envelope: OutputEnvelope) -> bool:
+    typed_policy = _typed_payload_field_bool(envelope.policy, "external_engine_invoked", None)
+    if typed_policy is not None:
+        return typed_policy is True
+    return envelope.field_bool("external_engine_invoked", False) is True
+
+
 def _artifact_payload_field_map(artifact: Mapping[str, Any]) -> dict[str, str]:
     payload = artifact.get("payload")
     if not isinstance(payload, Mapping):
@@ -3550,6 +3866,10 @@ def _typed_payload_field_bool(
     value = _typed_payload_field_map(payload).get(key)
     if value is None:
         return default
+    return _string_bool_value(value, key)
+
+
+def _string_bool_value(value: str, key: str) -> bool:
     normalized = value.strip().lower()
     if normalized == "true":
         return True

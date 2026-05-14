@@ -115,6 +115,95 @@ performance claims. P7.4.4 is closed for the local taxonomy/claim-readiness scop
 not-claim-grade classification; broader table/catalog/object-store/runtime claims remain blocked
 outside this benchmark closeout.
 
+## P7.4.8/P7.4.9 Execution-Mode Attribution Follow-Up
+
+The next benchmark correction is structural rather than a new architecture category. The harness
+must make execution mode and timing scope explicit so readers do not compare a certified
+compatibility ingest/stage workflow against direct CSV/Parquet local baselines as if both were pure
+query compute.
+
+Use `docs/architecture/compute-engine-flow-reference.md` as the canonical flow reference for
+execution-mode semantics. Use
+`docs/architecture/performance-attribution-and-execution-structure.md` for the companion timing
+vocabulary and stage-attribution fields. Use
+`docs/architecture/compute-engine-flow-overhaul-review.md` for the repo-alignment gaps and P7.5
+overhaul sequence.
+
+Required execution modes:
+
+```text
+compatibility_import_certified
+prepared_vortex
+direct_compatibility_transient
+native_vortex
+auto
+```
+
+Required benchmark distinction:
+
+```text
+compatibility_import_certified rows include source parse/import, Vortex preparation, Vortex
+write/reopen/scan, optional result-sink proof, evidence rendering, and process overhead.
+
+prepared_vortex rows record preparation once per dataset/profile/format and start scenario timing
+from prepared Vortex artifacts.
+
+Prepared Vortex artifacts are now represented as lifecycle evidence, not just benchmark temp files:
+rows should expose artifact refs, digests when generated, source Native I/O certificate status,
+reuse eligibility, lifecycle status, workspace or owner, and cleanup policy separately from query
+timing.
+
+Prepared/native Vortex result sinks are opt-in and caller-owned. When enabled, rows must expose
+`computed_result_sink_requested`, `computed_result_sink_written`,
+`computed_result_sink_replay_verified`, `computed_result_sink_write_micros`,
+`computed_result_sink_native_io_certificate_status`, `result_sink_claim_gate_status`,
+`commit_state`, and `rollback_cleanup_status`. Missing result-sink replay or certificate evidence
+must block claim-grade promotion rather than silently omitting the sink proof.
+
+shardloom-vortex and shardloom-prepared-vortex rows are reported under requested source-format rows
+such as CSV, JSONL, Parquet, Arrow IPC, Avro, or ORC. They do not add a synthetic standalone
+`.vortex` report format row; preparation metadata records the Vortex artifact boundary.
+
+native_vortex rows start from existing `.vortex` input and are the cleanest future ShardLoom
+performance lane once operator coverage matures. Current native rows can still use temporary
+ShardLoom operator paths unless their representation-transition, materialization/decode,
+provider-admission, and certificate evidence prove encoded/native execution.
+
+direct_compatibility_transient rows, if introduced, are small one-shot compatibility rows and are
+not Vortex-native claims.
+
+External-engine rows remain benchmark baseline comparisons only. They cannot satisfy ShardLoom
+execution certificates, Native I/O certificates, Vortex-native claim gates, or no-fallback proof,
+and they must never run unsupported ShardLoom work as fallback.
+```
+
+Required row fields include requested/selected execution mode, mode-selection reason, preparation
+timing, prepared artifact refs/digests, source read/parse/import timing, Vortex write/reopen/scan
+timing, operator compute timing, result-sink write timing, evidence-rendering timing,
+representation-transition summary, encoded-native status, fusion status, Scan API status,
+persistent-runner/process-overhead status, no-fallback status, and external-engine invocation
+status. Unknown or not-yet-isolated fields must be represented explicitly instead of silently
+omitted.
+
+P7.5.7 keeps the Python-driven per-scenario CLI runner and publishes
+`docs/architecture/benchmark-persistent-runner-decision.md` as the decision record. ShardLoom rows
+must report `cli_process_wall_millis`, derived `python_harness_overhead_millis`,
+`build_time_millis`, `build_time_excluded`, `preparation_cli_process_wall_millis`, and
+`persistent_runner_status` where feasible. Build time and prepared-artifact setup are not pure
+query/operator timing.
+
+P7.5.9 adds `format_preparation_matrix` to the JSON/Markdown report. The matrix is limited to
+ShardLoom rows and separates source read, compatibility parse, compatibility-to-Vortex import,
+Vortex write/reopen/scan, operator compute, result sink, evidence rendering, and total runtime by
+source format. It records `native_execution_format=vortex` for every row and treats CSV, JSONL,
+Parquet, Arrow IPC, Avro, and ORC as compatibility preparation inputs, not native execution
+formats.
+
+Capability discovery is mode-aware: `compute-capability-matrix` rows now distinguish
+`compatibility_import_certified`, `prepared_vortex`, `native_vortex`,
+`direct_compatibility_transient`, and `auto`, and direct transient remains an unsupported
+non-Vortex-native row until ShardLoom-native transient execution evidence exists.
+
 ## Code Surfaces
 
 ShardLoom core owns the suite-level benchmark catalog:

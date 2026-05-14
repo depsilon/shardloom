@@ -6,6 +6,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 from shardloom import QuickstartProofReport, ShardLoomClient, quickstart_proof
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(

@@ -12,6 +12,7 @@
 
 use crate::{Diagnostic, DiagnosticCode, ObservedField, Result, ShardLoomError};
 use std::fmt::Write as _;
+use std::path::{Component, Path, PathBuf};
 
 fn validate_non_empty(label: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
@@ -937,6 +938,353 @@ impl SecurityReport {
     }
 }
 
+fn lexically_normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    normalized.push("..");
+                }
+            }
+            Component::Normal(part) => normalized.push(part),
+            Component::RootDir | Component::Prefix(_) => normalized.push(component.as_os_str()),
+        }
+    }
+    normalized
+}
+
+fn path_has_parent_traversal(path: &Path) -> bool {
+    path.components()
+        .any(|component| matches!(component, Component::ParentDir))
+}
+
+fn invalid_security_input(feature: &str, reason: impl Into<String>) -> Diagnostic {
+    Diagnostic::invalid_input(
+        feature,
+        reason,
+        "Reject the input or route it through an explicit ShardLoom safety policy.",
+    )
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeInputSafetyReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub input_kind: String,
+    pub input_path: String,
+    pub canonicalized_path: String,
+    pub path_traversal_checked: bool,
+    pub symlink_policy: String,
+    pub hardlink_policy: String,
+    pub max_size_policy: String,
+    pub max_depth_policy: String,
+    pub invalid_utf8_policy: String,
+    pub malformed_input_policy: String,
+    pub panic_free_status: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl RuntimeInputSafetyReport {
+    #[must_use]
+    pub fn deterministic_block(
+        input_kind: impl Into<String>,
+        input_path: impl AsRef<Path>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let input_kind = input_kind.into();
+        let input_path_ref = input_path.as_ref();
+        let canonicalized_path = lexically_normalize_path(input_path_ref);
+        Self {
+            schema_version: "shardloom.runtime_input_safety_report.v1",
+            report_id: format!("runtime_input_safety.{input_kind}"),
+            input_kind,
+            input_path: input_path_ref.display().to_string(),
+            canonicalized_path: canonicalized_path.display().to_string(),
+            path_traversal_checked: true,
+            symlink_policy: "not_followed_without_explicit_workspace_policy".to_string(),
+            hardlink_policy: "not_trusted_without_explicit_workspace_policy".to_string(),
+            max_size_policy: "bounded_by_calling_surface_or_blocked".to_string(),
+            max_depth_policy: "bounded_by_calling_surface_or_blocked".to_string(),
+            invalid_utf8_policy: "deterministic_invalid_input_diagnostic".to_string(),
+            malformed_input_policy: "deterministic_invalid_or_unsupported_diagnostic".to_string(),
+            panic_free_status: "diagnostic_no_panic".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            diagnostics: vec![invalid_security_input(
+                "runtime_input_safety",
+                reason.into(),
+            )],
+        }
+    }
+
+    #[must_use]
+    pub fn malformed_without_panic(
+        input_kind: impl Into<String>,
+        input_path: impl AsRef<Path>,
+    ) -> Self {
+        Self::deterministic_block(
+            input_kind,
+            input_path,
+            "malformed input is blocked with a deterministic diagnostic before release claims",
+        )
+    }
+
+    #[must_use]
+    pub fn invalid_utf8_without_panic(input_path: impl AsRef<Path>) -> Self {
+        Self::deterministic_block(
+            "text",
+            input_path,
+            "invalid UTF-8 is blocked with a deterministic diagnostic",
+        )
+    }
+
+    #[must_use]
+    pub fn oversized_or_deeply_nested_blocker(
+        input_kind: impl Into<String>,
+        input_path: impl AsRef<Path>,
+    ) -> Self {
+        Self::deterministic_block(
+            input_kind,
+            input_path,
+            "oversized or deeply nested input requires bounded parser evidence before release claims",
+        )
+    }
+
+    #[must_use]
+    pub fn no_fallback_invariant_holds(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.diagnostics.iter().all(|d| !d.fallback.attempted)
+    }
+
+    #[must_use]
+    pub fn deterministic_no_panic(&self) -> bool {
+        self.panic_free_status == "diagnostic_no_panic" && !self.diagnostics.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspacePathSafetyReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub workspace_root: String,
+    pub canonical_workspace_root: String,
+    pub requested_output_path: String,
+    pub canonical_output_path: String,
+    pub path_traversal_checked: bool,
+    pub within_workspace: bool,
+    pub symlink_followed: bool,
+    pub symlink_policy: String,
+    pub hardlink_policy: String,
+    pub overwrite_policy: String,
+    pub cleanup_policy: String,
+    pub rollback_policy: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl WorkspacePathSafetyReport {
+    #[must_use]
+    pub fn evaluate(
+        workspace_root: impl AsRef<Path>,
+        requested_output_path: impl AsRef<Path>,
+    ) -> Self {
+        let workspace_root = workspace_root.as_ref();
+        let requested_output_path = requested_output_path.as_ref();
+        let canonical_workspace_root = lexically_normalize_path(workspace_root);
+        let requested_absolute = if requested_output_path.is_absolute() {
+            requested_output_path.to_path_buf()
+        } else {
+            canonical_workspace_root.join(requested_output_path)
+        };
+        let canonical_output_path = lexically_normalize_path(&requested_absolute);
+        let parent_traversal = path_has_parent_traversal(requested_output_path);
+        let within_workspace =
+            !parent_traversal && canonical_output_path.starts_with(&canonical_workspace_root);
+        let mut diagnostics = Vec::new();
+        if parent_traversal {
+            diagnostics.push(invalid_security_input(
+                "workspace_path_safety",
+                "output path contains parent-directory traversal",
+            ));
+        }
+        if !canonical_output_path.starts_with(&canonical_workspace_root) {
+            diagnostics.push(invalid_security_input(
+                "workspace_path_safety",
+                "output path resolves outside the declared workspace",
+            ));
+        }
+
+        Self {
+            schema_version: "shardloom.workspace_path_safety_report.v1",
+            report_id: "workspace_path_safety.local_output".to_string(),
+            workspace_root: workspace_root.display().to_string(),
+            canonical_workspace_root: canonical_workspace_root.display().to_string(),
+            requested_output_path: requested_output_path.display().to_string(),
+            canonical_output_path: canonical_output_path.display().to_string(),
+            path_traversal_checked: true,
+            within_workspace,
+            symlink_followed: false,
+            symlink_policy: "do_not_follow_untrusted_output_symlinks".to_string(),
+            hardlink_policy: "block_or_require_explicit_policy_for_untrusted_hardlinks".to_string(),
+            overwrite_policy: "explicit_only".to_string(),
+            cleanup_policy: "caller_workspace_scoped_cleanup".to_string(),
+            rollback_policy: "deterministic_cleanup_or_blocked_before_commit".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn accepted(&self) -> bool {
+        self.within_workspace
+            && self.path_traversal_checked
+            && !self.symlink_followed
+            && self.diagnostics.is_empty()
+            && self.no_fallback_invariant_holds()
+    }
+
+    #[must_use]
+    pub fn no_fallback_invariant_holds(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.diagnostics.iter().all(|d| !d.fallback.attempted)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvidenceArtifactSafetyReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub artifact_id: String,
+    pub contains_credentials: bool,
+    pub contains_paths: bool,
+    pub contains_user_values: bool,
+    pub contains_query_text: bool,
+    pub contains_schema_names: bool,
+    pub contains_samples: bool,
+    pub redaction_policy: String,
+    pub retention_policy: String,
+    pub export_allowed: bool,
+    pub agent_visible: bool,
+    pub redacted_preview: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl EvidenceArtifactSafetyReport {
+    #[must_use]
+    pub fn inspect_text(
+        artifact_id: impl Into<String>,
+        text: impl AsRef<str>,
+        redaction_policy: &RedactionPolicy,
+    ) -> Self {
+        let artifact_id = artifact_id.into();
+        let raw = text.as_ref();
+        let redacted_preview = redact_credential_like_values(raw);
+        let contains_credentials = redacted_preview != raw;
+        let mut diagnostics = Vec::new();
+        if contains_credentials {
+            diagnostics.push(invalid_security_input(
+                "evidence_artifact_safety",
+                "credential-like value detected and redacted; export remains blocked until reviewed",
+            ));
+        }
+        Self {
+            schema_version: "shardloom.evidence_artifact_safety_report.v1",
+            report_id: format!("evidence_artifact_safety.{artifact_id}"),
+            artifact_id,
+            contains_credentials,
+            contains_paths: raw.contains(":\\") || raw.contains("://") || raw.contains('/'),
+            contains_user_values: !raw.trim().is_empty(),
+            contains_query_text: raw.to_ascii_lowercase().contains("select "),
+            contains_schema_names: raw.to_ascii_lowercase().contains("schema"),
+            contains_samples: raw.to_ascii_lowercase().contains("sample"),
+            redaction_policy: redaction_policy.summary(),
+            retention_policy: "release_gate_review_required_before_export".to_string(),
+            export_allowed: !contains_credentials
+                && redaction_policy.kind != RedactionPolicyKind::None,
+            agent_visible: !contains_credentials && redaction_policy.redact_payloads,
+            redacted_preview,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn no_raw_credential_preview(&self, forbidden: &str) -> bool {
+        !self.redacted_preview.contains(forbidden)
+    }
+
+    #[must_use]
+    pub fn no_fallback_invariant_holds(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.diagnostics.iter().all(|d| !d.fallback.attempted)
+    }
+}
+
+#[must_use]
+pub fn redact_credential_like_values(input: &str) -> String {
+    let mut output = Vec::new();
+    let mut redact_next = false;
+    for token in input.split_whitespace() {
+        let lower = token.to_ascii_lowercase();
+        if redact_next {
+            if matches!(lower.as_str(), "bearer" | "basic") {
+                output.push(token.to_string());
+                redact_next = true;
+            } else {
+                output.push("<redacted>".to_string());
+                redact_next = false;
+            }
+            continue;
+        }
+
+        if matches!(lower.as_str(), "bearer" | "basic") {
+            output.push(token.to_string());
+            redact_next = true;
+            continue;
+        }
+        if lower == "authorization:" || lower == "auth:" {
+            output.push(token.to_string());
+            redact_next = true;
+            continue;
+        }
+
+        let redacted = [
+            "password=",
+            "password:",
+            "passwd=",
+            "passwd:",
+            "token=",
+            "token:",
+            "api_key=",
+            "api_key:",
+            "apikey=",
+            "apikey:",
+            "secret=",
+            "secret:",
+            "authorization=",
+            "authorization:",
+        ]
+        .iter()
+        .find_map(|prefix| {
+            lower
+                .starts_with(prefix)
+                .then(|| format!("{}<redacted>", &token[..prefix.len()]))
+        });
+
+        output.push(redacted.unwrap_or_else(|| token.to_string()));
+    }
+    output.join(" ")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecurityGovernanceEvidenceArea {
     CredentialReference,
@@ -1274,6 +1622,11 @@ pub fn plan_security_governance_evidence_gate() -> SecurityGovernanceEvidenceGat
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn workspace_path_fixture_root(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("shardloom_{name}"))
+    }
+
     #[test]
     fn secret_ref_id_rejects_empty() {
         assert!(SecretRefId::new("  ").is_err());
@@ -1408,6 +1761,117 @@ mod tests {
         let r = SecurityReport::from_plan(SecurityPlan::default_safe());
         assert!(!r.has_errors());
         assert!(!r.plan.allows_external_effects());
+    }
+
+    #[test]
+    fn runtime_input_safety_report_blocks_malformed_inputs_without_fallback() {
+        let report = RuntimeInputSafetyReport::malformed_without_panic(
+            "vortex",
+            "fixtures/malformed.vortex",
+        );
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.runtime_input_safety_report.v1"
+        );
+        assert!(report.deterministic_no_panic());
+        assert!(report.no_fallback_invariant_holds());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert_eq!(report.diagnostics[0].code, DiagnosticCode::InvalidInput);
+        assert!(!report.diagnostics[0].fallback.attempted);
+    }
+
+    #[test]
+    fn runtime_input_safety_report_covers_utf8_size_and_depth_blockers() {
+        let invalid_utf8 = RuntimeInputSafetyReport::invalid_utf8_without_panic("fixtures/bad.csv");
+        assert_eq!(
+            invalid_utf8.invalid_utf8_policy,
+            "deterministic_invalid_input_diagnostic"
+        );
+        assert!(invalid_utf8.deterministic_no_panic());
+        assert!(invalid_utf8.no_fallback_invariant_holds());
+
+        let oversized = RuntimeInputSafetyReport::oversized_or_deeply_nested_blocker(
+            "jsonl",
+            "fixtures/deep.jsonl",
+        );
+        assert_eq!(
+            oversized.max_depth_policy,
+            "bounded_by_calling_surface_or_blocked"
+        );
+        assert!(
+            oversized.diagnostics[0]
+                .reason
+                .as_deref()
+                .unwrap()
+                .contains("oversized or deeply nested input")
+        );
+        assert!(oversized.no_fallback_invariant_holds());
+    }
+
+    #[test]
+    fn workspace_path_safety_accepts_workspace_scoped_outputs() {
+        let workspace = workspace_path_fixture_root("workspace");
+        let report = WorkspacePathSafetyReport::evaluate(&workspace, "results/out.vortex");
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.workspace_path_safety_report.v1"
+        );
+        assert!(report.accepted());
+        assert!(report.within_workspace);
+        assert!(!report.symlink_followed);
+        assert_eq!(report.overwrite_policy, "explicit_only");
+        assert!(report.no_fallback_invariant_holds());
+    }
+
+    #[test]
+    fn workspace_path_safety_rejects_parent_traversal_and_external_outputs() {
+        let workspace = workspace_path_fixture_root("workspace");
+        let traversal = WorkspacePathSafetyReport::evaluate(&workspace, "../escape/out.vortex");
+        assert!(!traversal.accepted());
+        assert!(!traversal.within_workspace);
+        assert!(traversal.path_traversal_checked);
+        assert_eq!(traversal.diagnostics[0].code, DiagnosticCode::InvalidInput);
+        assert!(traversal.no_fallback_invariant_holds());
+
+        let external = WorkspacePathSafetyReport::evaluate(
+            &workspace,
+            workspace_path_fixture_root("other").join("out.vortex"),
+        );
+        assert!(!external.accepted());
+        assert!(!external.within_workspace);
+        assert!(external.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .reason
+                .as_deref()
+                .unwrap()
+                .contains("outside the declared workspace")
+        }));
+        assert!(external.no_fallback_invariant_holds());
+    }
+
+    #[test]
+    fn evidence_artifact_safety_redacts_credential_like_values() {
+        let report = EvidenceArtifactSafetyReport::inspect_text(
+            "runtime-diagnostic",
+            "Authorization: Bearer sk-live token=abc123 schema=orders",
+            &RedactionPolicy::strict(),
+        );
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.evidence_artifact_safety_report.v1"
+        );
+        assert!(report.contains_credentials);
+        assert!(report.contains_schema_names);
+        assert!(!report.export_allowed);
+        assert!(!report.agent_visible);
+        assert!(report.redacted_preview.contains("<redacted>"));
+        assert!(report.no_raw_credential_preview("sk-live"));
+        assert!(report.no_raw_credential_preview("abc123"));
+        assert!(report.no_fallback_invariant_holds());
     }
 
     #[test]

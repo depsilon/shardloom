@@ -16,6 +16,694 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: workspace path safety CI portability repair
+  - Primary files:
+    - `shardloom-core/src/security.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: make the workspace path safety regression tests portable across Windows and Linux so
+    PR #559's CI `checks` job can validate the intended outside-workspace rejection. The previous
+    test used `C:/...` literals, which are not absolute paths on Linux and allowed the external
+    path assertion to pass through the workspace-relative branch.
+  - Checklist:
+    - [x] Use platform-native temp-directory roots for workspace-scoped and external-output path
+          fixtures.
+    - [x] Update release-readiness metadata tests to read completed P8.0 provenance from the
+          completed ledger after phase-plan compaction.
+    - [x] Update benchmark harness contract tests to read completed P7.5 provenance from the
+          completed ledger after phase-plan compaction.
+    - [x] Preserve the parent-traversal and outside-workspace rejection assertions.
+    - [x] Keep the no-fallback and no-external-engine security invariants unchanged.
+  - Validation:
+    - `cargo test -p shardloom-core security::tests::workspace_path_safety_rejects_parent_traversal_and_external_outputs --lib`
+    - `cargo test -p shardloom-core security::tests::workspace_path_safety_accepts_workspace_scoped_outputs --lib`
+    - `cargo test -p shardloom-core --lib`
+    - `cargo clippy -p shardloom-core --all-targets -- -D warnings`
+
+- [x] Session label: phased-plan completed queue compaction after P7-P9 closeout
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: move completed status out of the active Planned queue after P7.4, the P7.4 benchmark
+    follow-up, P7.5, P8, and P9 were closed. The detailed completion evidence remains in the
+    existing completed-ledger sessions for the individual slices; this entry records the phase-plan
+    source-of-truth cleanup.
+  - Moved/covered completed phase-plan blocks:
+    - [x] Top Findings Intake review sweeps and PR #534 review findings.
+    - [x] Priority 7.4 claim-grade compute-engine completion.
+    - [x] Priority 7.4 follow-up benchmark execution semantics and prepared/native performance
+          lanes.
+    - [x] Priority 7.5 compute-engine flow overhaul and execution-spine alignment.
+    - [x] Priority 8 general availability and external proof-of-use, including P8.5 clean Conda
+          package/install proof closure.
+    - [x] Priority 9 RFC 0036 Foundry integration pack and platform availability.
+  - Result:
+    - [x] `docs/architecture/phased-execution-plan.md` now keeps Planned as the compact autonomous
+          queue and contains no checked-off completed implementation blocks.
+    - [x] The plan Completed section remains a pointer to this ledger.
+    - [x] No unchecked Planned items remain on this branch; the next implementation phase must be
+          added to Planned before work starts.
+  - Validation:
+    - `rg -n "^- \[x\]|^  - \[x\]|^    - \[x\]" docs\architecture\phased-execution-plan.md`
+    - `rg -n "^- \[ \]|^  - \[ \]|^    - \[ \]" docs\architecture\phased-execution-plan.md`
+
+- [x] Session label: compute-flow reference polish, current benchmark synthesis, and release proof hardening
+  - Primary files:
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `scripts/release_dry_run_proof.py`
+    - `scripts/check_release_readiness.py`
+    - `scripts/run_release_validation_evidence.py`
+    - `docs/release/release-dry-run-proof.md`
+    - `docs/release/hard-release-readiness-gate.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: clarify benchmark interpretation around compatibility-import-certified versus
+    prepared/native Vortex rows, generate the current local comparative benchmark artifacts, copy a
+    human-readable summary/dashboard to the adjacent `spark-retire` workspace, and harden release
+    proof transcript semantics around clean Conda evidence. This session also reviewed unresolved
+    Codex review comments for PR #520 and later and incorporated the remaining actionable fixes into
+    the benchmark, dependency-audit, release-proof, and Vortex traditional analytics surfaces.
+  - Checklist:
+    - [x] Keep `shardloom-vortex` native/prepared results under the requested source-format rows
+          rather than adding standalone `.vortex` rows.
+    - [x] Document that current compatibility rows measure ingest/stage/certification costs, while
+          prepared/native Vortex rows are the future performance-comparison lanes and may still use
+          temporary ShardLoom operators unless encoded/native evidence proves otherwise.
+    - [x] Run the current comparative benchmark across ShardLoom compatibility, native/prepared
+          Vortex, and available local baselines for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC.
+    - [x] Copy raw benchmark JSON/Markdown plus a summary/dashboard into
+          `C:\Users\djhei\Projects\spark-retire\docs\`.
+    - [x] Add explicit `clean_conda_env_install_status` recording to the release dry-run transcript
+          and keep the hard release gate blocked unless that status is `passed`.
+    - [x] Bootstrap a local Miniforge toolchain under `target/release-tools/`, run the clean Conda
+          proof with `--require-clean-conda`, and refresh the hard release gate to `status=passed`
+          without publication, tags, secrets, or fallback runtime dependencies.
+    - [x] Close remaining actionable PR #520+ Codex review findings: exact wheel install in clean
+          proof environments, clean-venv benchmark smoke execution, target-scoped Cargo dependency
+          audit parsing, PEP 508 direct-reference handling, missing-dependency row preservation,
+          unsupported format/profile coverage blockers, averaged ShardLoom stage timings, CDC
+          sidecar byte accounting, dirty-column/timestamp validation, Date32 conversion, empty
+          JSONL split handling, all-null null-heavy aggregate behavior, and concurrent memory
+          reservation evidence.
+    - [x] Re-check PR #530+ review-thread findings during the final polish pass, align the
+          compute-engine flow diagram so transparent `auto` mode proceeds into the selected
+          explicit mode, update the P7.5 alignment review to current completed status, and make
+          Python client external-engine policy views prefer typed policy evidence consistently.
+  - Release posture:
+    - No packages were published, no tags were created, no secrets were added, no external fallback
+      engines were introduced, and comparative engines remain baseline-only.
+  - Validation:
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,pandas,polars,duckdb,datafusion,dask,spark-default,spark-local-tuned --formats csv,parquet,jsonl,arrow-ipc,avro,orc --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 10000 --iterations 3 --shardloom-build-profile release --shardloom-result-sink --output target\current-comparative-benchmark.json --markdown-output target\current-comparative-benchmark.md --regenerate`
+    - `python scripts\run_release_validation_evidence.py --continue-on-failure --output target\release-validation-evidence.json`
+    - `python scripts\check_release_security_gate.py --output target\release-security-gate-report.json`
+    - `python scripts\release_dry_run_proof.py --conda-executable target\release-tools\miniforge3\_conda.exe --require-clean-conda --rows 64 --iterations 1`
+    - `python scripts\check_release_readiness.py --output target\hard-release-readiness-gate.json`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m unittest discover python/tests`
+    - `python -m compileall -q python\src python\tests scripts examples`
+    - `python scripts\check_dependency_audit.py --release-gate --json-output target\dependency-audit-report.json`
+
+- [x] Session label: Priority 9 Foundry integration pack and proof-of-use certification
+  - Primary files:
+    - `scripts/foundry_proof_of_use.py`
+    - `docs/foundry/integration-pack-readiness.md`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `examples/foundry-lightweight-transform/run.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: close Priority 9 as a local Foundry-style proof and report-schema posture without
+    invoking Foundry or treating external compute as ShardLoom execution.
+  - Checklist:
+    - [x] Document the F0-F10 Foundry maturity ladder.
+    - [x] Document Priority 9 report-schema contracts for execution context, datasets, Data Health,
+          lineage, governance, virtual tables, S3/Iceberg/media, model/function/AIP/BYOC/Compute
+          Module/Marketplace, and proof-of-use surfaces.
+    - [x] Add a local proof script that builds/resolves the CLI, runs the Foundry-style transform
+          smoke, runs a local Vortex execution smoke, writes certificate output and benchmark
+          metrics refs, and emits `shardloom.foundry_proof_of_use_report.v1`.
+    - [x] Preserve `foundry_runtime_invoked=false`, `foundry_compute_invoked=false`,
+          `foundry_spark_invoked=false`, `snowflake_databricks_bigquery_invoked=false`,
+          `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Foundry boundary:
+    - This is a local source-checkout proof only. It does not publish `shardloom-foundry`, install
+      into real Foundry, invoke Foundry services, use Foundry compute, or certify virtual-table
+      native execution.
+  - Validation:
+    - `python -m py_compile scripts/foundry_proof_of_use.py`
+    - `python scripts/foundry_proof_of_use.py --rows 16 --iterations 1`
+    - `python -m json.tool target/foundry-proof-of-use/report.json`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata foundry`
+
+- [x] Session label: P8.4 hard release-readiness gate bundle
+  - Primary files:
+    - `scripts/check_release_readiness.py`
+    - `docs/release/hard-release-readiness-gate.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a hard release-readiness gate command that aggregates runtime, protocol,
+    packaging, benchmark, provenance, security, and known-unsupported-path evidence and refuses
+    public release claims while any evidence is missing.
+  - Checklist:
+    - [x] Emit `shardloom.hard_release_readiness_gate.v1`.
+    - [x] Aggregate release dry-run, security gate, package metadata/license, feature/build matrix,
+          typed-envelope compatibility, and required validation command evidence.
+    - [x] Keep `public_release_claim_allowed=false` and `public_package_claim_allowed=false` unless
+          every blocker clears.
+    - [x] Document required validation commands and blocked-state semantics.
+  - Release posture:
+    - The gate is fail-closed and local-only. It does not publish packages, create tags, add
+      secrets, add runtime dependencies, invoke external engines, or allow fallback execution.
+  - Validation:
+    - `python -m py_compile scripts/check_release_readiness.py`
+    - `python scripts/check_release_readiness.py --allow-blocked --output target/p84-release-readiness-gate.json`
+    - `python -m json.tool target/p84-release-readiness-gate.json`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata hard_release`
+
+- [x] Session label: P8.0G security evidence integration into hard release gate
+  - Primary files:
+    - `scripts/check_release_security_gate.py`
+    - `docs/security/release-security-gate.md`
+    - `docs/release/known-unsupported-paths.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: connect P8.0 security evidence to the P8.4 hard release gate so public release claims
+    are blocked when security evidence is missing or incomplete.
+  - Checklist:
+    - [x] Emit `shardloom.release_security_gate_report.v1`.
+    - [x] Require refs for `SecurityThreatModelReport`, `VulnerabilityResponseReport`,
+          `DependencyAuditReport`, `SupplyChainReleaseEvidence`, `RuntimeInputSafetyReport`,
+          `OpenSourceSecurityPostureReport`, and `KnownUnsupportedPathsReport`.
+    - [x] Block when threat model, `SECURITY.md`, dependency audit, SBOM/checksum/provenance,
+          malicious-input tests, workflow-hardening checks, or known unsupported paths are missing.
+    - [x] Add `docs/security/release-security-gate.md` and `docs/release/known-unsupported-paths.md`.
+    - [x] Mark P8.0 complete while leaving P8.4 as the broader release-readiness gate.
+  - Security posture:
+    - The gate reports local evidence only. It does not publish packages, create tags, require
+      secrets, add runtime dependencies, invoke external engines, or allow fallback execution.
+  - Validation:
+    - `python -m py_compile scripts/check_release_security_gate.py`
+    - `python scripts/check_release_security_gate.py --allow-blocked --output target/p80g-release-security-gate.json`
+    - `python -m json.tool target/p80g-release-security-gate.json`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata release_security_gate`
+
+- [x] Session label: P8.0F open-source security posture checks
+  - Primary files:
+    - `.github/workflows/codeql-analysis.yml`
+    - `.github/workflows/scorecard.yml`
+    - `.github/dependabot.yml`
+    - `scripts/check_security_posture.py`
+    - `docs/security/open-source-security-posture.md`
+  - Scope: add first-class open-source security posture checks and maintainer-setting guidance for
+    public release readiness.
+  - Checklist:
+    - [x] Add CodeQL workflow for Rust and Python using manual, PR, and scheduled triggers.
+    - [x] Add OpenSSF Scorecard workflow with SARIF upload and public result publication disabled.
+    - [x] Add Dependabot weekly checks for Cargo, Python, and GitHub Actions.
+    - [x] Document secret scanning, push protection, branch protection, required checks, protected
+          `pypi` environment, protected tags, action pinning/waivers, and no-fallback security
+          boundaries.
+    - [x] Add `scripts/check_security_posture.py` to emit
+          `shardloom.open_source_security_posture_report.v1`.
+  - Security posture:
+    - Workflows and configs do not publish packages, create tags, add secrets, add runtime
+      dependencies, invoke external engines, or weaken no-fallback policy.
+  - Validation:
+    - `python -m py_compile scripts/check_security_posture.py`
+    - `python scripts/check_security_posture.py --json-output target/p80f-security-posture-report.json`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata open_source_security_posture`
+
+- [x] Session label: P8.0E release provenance, SBOM, checksum, and workflow hardening
+  - Primary files:
+    - `scripts/release_provenance_dry_run.py`
+    - `scripts/release_dry_run_proof.py`
+    - `docs/release/release-provenance-dry-run.md`
+    - `docs/release/sbom-generation-plan.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make release provenance, SBOM, checksum, and PyPI workflow policy evidence executable
+    locally without publishing artifacts or requiring secrets.
+  - Checklist:
+    - [x] Add a local `SupplyChainReleaseEvidence` dry-run generator.
+    - [x] Emit Rust workspace, Python artifact, and CLI binary CycloneDX-style SBOM JSON under
+          `target/release-provenance-dry-run/`.
+    - [x] Emit `checksums.sha256`, `workflow-policy-snapshot.json`, and
+          `supply-chain-release-evidence.json`.
+    - [x] Integrate the provenance dry run into `scripts/release_dry_run_proof.py`.
+    - [x] Document current PyPI workflow hardening: manual dispatch, `publish_approved` input,
+          `pypi` environment, OIDC, least privilege, no long-lived token, and third-party action
+          SHA pinning/waiver requirement before real publication.
+  - Security posture:
+    - No packages are published, no release tags are created, no secrets are added, and no external
+      fallback engines or runtime dependencies are introduced.
+  - Validation:
+    - `python -m py_compile scripts/release_provenance_dry_run.py scripts/release_dry_run_proof.py`
+    - `python scripts/release_provenance_dry_run.py --skip-build --output-dir target/p80e-provenance-smoke`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata release_provenance`
+
+- [x] Session label: P8.0D runtime exploit and malicious-input regression suite
+  - Primary files:
+    - `shardloom-core/src/security.rs`
+    - `docs/security/runtime-exploit-regression-suite.md`
+    - `docs/security/threat-model.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add deterministic report-level security contracts and regression tests for malicious
+    input, workspace path safety, and evidence artifact redaction before public release gates.
+  - Checklist:
+    - [x] Add `RuntimeInputSafetyReport` with deterministic malformed-input, invalid-UTF-8, and
+          oversized/deeply-nested blockers.
+    - [x] Add `WorkspacePathSafetyReport` with parent traversal rejection, outside-workspace output
+          rejection, symlink/hardlink policy fields, cleanup/rollback policy, and no-fallback
+          invariants.
+    - [x] Add `EvidenceArtifactSafetyReport` plus credential-like redaction for diagnostics and
+          evidence previews.
+    - [x] Add Rust tests proving diagnostics are deterministic, no panic is represented by the
+          report status, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - [x] Document the P8.0D regression suite and remaining P8.0G/P8.4 runtime wiring.
+  - Security posture:
+    - This is a local report/test layer only. It does not publish packages, create tags, add
+      secrets, add runtime dependencies, start servers, add external engine fallback, or weaken the
+      no-fallback invariant.
+  - Validation:
+    - `cargo test -p shardloom-core security --lib`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata security`
+
+- [x] Session label: P7.5.9 file-format preparation matrix
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a benchmark report matrix that separates compatibility preparation costs by source
+    format while keeping Vortex as the native execution format.
+  - Checklist:
+    - [x] Add JSON `format_preparation_matrix` rows for ShardLoom compatibility and
+          prepared/native Vortex rows.
+    - [x] Include source read, compatibility parse, compatibility-to-Vortex import, Vortex
+          write/reopen/scan, operator compute, result sink, evidence rendering, total runtime,
+          runner status, claim gate, execution mode, and row scope fields.
+    - [x] Render the matrix in Markdown with an explicit statement that CSV, JSONL, Parquet,
+          Arrow IPC, Avro, and ORC are compatibility preparation inputs and Vortex is the native
+          execution format.
+    - [x] Keep prepared/native query timing separate from compatibility preparation timing.
+  - Vortex-first provider check:
+    - Subject area: benchmark report structure for source-format preparation into Vortex.
+    - Decision: `wrap_vortex_concept`; the matrix reports the Vortex preparation/native execution
+      boundary without adding new runtime behavior.
+    - Residual handling: unchanged; external engines remain comparison baselines only.
+    - fallback_attempted=false: preserved in underlying ShardLoom rows.
+  - Validation:
+    - `python -m py_compile benchmarks/traditional_analytics/run.py`
+
+- [x] Session label: P7.5.8 Python and future REST mode parity
+  - Primary files:
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/execution-mode-protocol-parity.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make Python request/read surfaces and future REST documentation use the same execution
+    mode vocabulary, selection report, and compute-flow evidence fields as CLI typed envelopes.
+  - Checklist:
+    - [x] Expose Python accessors for `mode_supported`, claim-gate fields, unsupported diagnostic
+          fields, Vortex prepare/write-reopen timing scope, and result-sink claim/certificate
+          status.
+    - [x] Verify Python request serialization for `execution_mode="auto"` on compatibility-import
+          and native/prepared Vortex commands.
+    - [x] Add future REST/OpenAPI parity documentation with the shared enum and required response
+          fields.
+    - [x] Preserve unsupported diagnostics and no-fallback fields across CLI/Python/future REST
+          vocabulary.
+  - Vortex-first provider check:
+    - Subject area: protocol parity for prepared/native Vortex and compatibility-import mode
+      selection.
+    - Decision: `wrap_vortex_concept`; protocol surfaces preserve existing evidence rather than
+      adding new Vortex runtime behavior.
+    - Residual handling: unsupported modes remain deterministic diagnostics; direct transient
+      remains blocked until ShardLoom-native evidence exists.
+    - fallback_attempted=false: required by the parity contract.
+  - Validation:
+    - `PYTHONPATH=python/src python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_execution_result_view_preserves_artifact_rich_slots python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_methods_can_request_auto_mode`
+    - `python -m py_compile python/src/shardloom/client.py python/tests/test_cli_client.py`
+
+- [x] Session label: P7.5.7 benchmark attribution and persistent-runner decision
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-persistent-runner-decision.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make benchmark process attribution explicit and document why the current comparative
+    harness keeps the per-scenario CLI runner rather than adding a benchmark-only persistent runner
+    in this slice.
+  - Checklist:
+    - [x] Measure `cli_process_wall_millis` for ShardLoom CLI invocations.
+    - [x] Derive `python_harness_overhead_millis` from outer harness timing minus CLI process wall
+          time.
+    - [x] Record `build_time_millis` separately and keep `build_time_excluded=true` for
+          per-scenario rows.
+    - [x] Keep prepared Vortex setup in `preparation_millis` /
+          `preparation_cli_process_wall_millis` instead of folding it into startup or pure query
+          timing.
+    - [x] Publish `docs/architecture/benchmark-persistent-runner-decision.md` with the future
+          typed-envelope-preserving persistent-runner requirements.
+  - Vortex-first provider check:
+    - Subject area: benchmark structure and prepared/native Vortex attribution.
+    - Decision: no new execution provider. Prepared Vortex reuse remains the primary structure
+      improvement; process overhead is attributed until a persistent runner can preserve the same
+      Vortex evidence and typed envelopes.
+    - Residual handling: unchanged; residual scenario operators remain explicit and no external
+      engine fallback is allowed.
+    - fallback_attempted=false: preserved in benchmark rows and decision record.
+  - Validation:
+    - `python -m py_compile benchmarks/traditional_analytics/run.py`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps`
+
+- [x] Session label: P7.5.6 prepared/native result-sink replay proof
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `python/src/shardloom/client.py`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add opt-in result-sink write/replay proof to prepared/native Vortex rows without
+    mixing sink cost into operator timing or promoting broad performance claims.
+  - Checklist:
+    - [x] Add `--workspace <dir> --write-result-vortex` support to
+          `traditional-analytics-vortex-run` for caller-owned result artifacts.
+    - [x] Reuse the certified local Vortex result sink writer/replay verifier and Native I/O
+          certificate vocabulary for prepared/native rows.
+    - [x] Emit `computed_result_sink_*` fields, result-sink Native I/O certificate refs, separate
+          sink write timing, commit/cleanup status, and `result_sink_claim_gate_status`.
+    - [x] Keep missing result-sink evidence as a negative claim gate instead of silently omitting
+          the proof.
+    - [x] Let Python and the comparative benchmark harness request prepared/native result sinks
+          explicitly while preserving no-fallback evidence.
+  - Vortex-first provider check:
+    - Subject area: prepared/native Vortex result persistence and replay.
+    - Decision: `use_vortex_native_provider` for the Vortex result artifact sink/reopen path that
+      already backs compatibility-import certified rows; no new external writer or query-engine
+      integration was introduced.
+    - Residual handling: result verification replays ShardLoom-written Vortex output and compares
+      the stored result JSON/row count; unsupported execution still blocks deterministically.
+    - fallback_attempted=false: preserved in execution mode, Native I/O, provider admission, and
+      benchmark evidence fields.
+  - Validation:
+    - `cargo fmt --all`
+    - `cargo test -p shardloom-vortex enabled_build_runs_csv_through_local_vortex_io --lib --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-cli typed_envelope --bin shardloom`
+    - `PYTHONPATH=python/src python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_vortex_run_can_request_result_sink python.tests.test_cli_client.ShardLoomClientTests.test_live_etl_smoke_dispatches_native_result_sink_with_workspace python.tests.test_cli_client.ShardLoomClientTests.test_live_etl_smoke_rejects_result_sink_for_existing_vortex_inputs`
+    - `python -m py_compile python/src/shardloom/client.py python/tests/test_cli_client.py benchmarks/traditional_analytics/run.py`
+
+- [x] Session label: P7.5.5 native provider admission for prepared/native operators
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: expose Vortex-first provider admission facts for current traditional analytics
+    compatibility/native/prepared rows without relabeling residual materialized operators as
+    fully encoded-native execution.
+  - Checklist:
+    - [x] Emit provider-admission report id, Vortex-first check status, admission classification,
+          provider kind/API surface, source-backed encoded provider status, residual executor,
+          residual boundary, encoded/native execution status, fusion status/blocker,
+          materialization/decode requirement, and no-fallback fields.
+    - [x] Record current Vortex file scan/source boundary as admitted while residual scenario
+          operators remain ShardLoom-native temporary/materialized where applicable.
+    - [x] Keep filter/project/limit fusion explicitly blocked until a true fused path exists.
+    - [x] Route provider-admission fields into typed compute-flow evidence artifacts.
+  - Vortex-first provider check:
+    - Subject area: prepared/native Vortex scan/operator provider admission.
+    - Decision: `use_vortex_native_provider` for the admitted local Vortex scan/source boundary;
+      ShardLoom residuals remain explicit and materialized until stronger encoded/provider evidence
+      exists.
+    - Residual handling: residual executor is `shardloom_native_temporary_operator` or `none`;
+      external engines remain prohibited.
+    - fallback_attempted=false: emitted for provider admission and enclosing execution rows.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex enabled_build_runs_csv_through_local_vortex_io --lib --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-cli typed_envelope --bin shardloom`
+
+- [x] Session label: P7.5.4 mode-aware capability matrix and direct-transient unsupported parity
+  - Primary files:
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make compute capability discovery distinguish execution modes and keep direct transient
+    deterministic unsupported until a ShardLoom-native transient executor exists.
+  - Checklist:
+    - [x] Add execution-mode vocabulary and mode-awareness flags to `compute-capability-matrix`.
+    - [x] Add per-row `execution_mode`, `claim_gate_status`, and
+          `vortex_native_claim_allowed` fields.
+    - [x] Add explicit `direct_compatibility_transient` capability row with
+          `support_status=unsupported`, stable unsupported diagnostic, blocker id, future evidence,
+          no Native Vortex claim allowance, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+    - [x] Update Python `ComputeCapabilityRow` parsing and unit coverage for mode-aware rows.
+  - Vortex-first provider check:
+    - Subject area: capability discovery for compatibility import, prepared Vortex, native Vortex,
+      direct transient, and auto mode.
+    - Decision: `wrap_vortex_concept` for capability reporting; direct transient remains
+      `blocked_until_vortex_or_shardloom_evidence`.
+    - Residual handling: unsupported direct transient cannot use external engines and cannot satisfy
+      Vortex-native claim gates.
+    - fallback_attempted=false: asserted per row.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli compute_capability --bin shardloom`
+    - `PYTHONPATH=python/src python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_compute_capability_matrix_view`
+    - `python -m py_compile python/src/shardloom/client.py python/tests/test_cli_client.py`
+
+- [x] Session label: P7.5.3 prepared Vortex artifact lifecycle
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: promote prepared Vortex artifacts from benchmark-local setup vocabulary into explicit
+    lifecycle evidence and Python client surfaces.
+  - Checklist:
+    - [x] Emit prepared artifact refs, fact/dim refs, combined digest summaries, fact/dim digests,
+          workspace, lifecycle status, source Native I/O status, reuse eligibility, and cleanup
+          policy from compatibility ingest/stage reports.
+    - [x] Emit supplied/reused prepared artifact lifecycle status and caller-owned cleanup policy
+          from native/prepared Vortex report rows.
+    - [x] Add typed compute-flow artifact keys for prepared artifact lifecycle evidence.
+    - [x] Add Python `PreparedVortexArtifacts`,
+          `prepare_traditional_analytics_vortex_artifacts(...)`, and
+          `PreparedVortexArtifacts.run_prepared(...)` surfaces.
+    - [x] Preserve cleanup as an explicit caller-owned policy; no automatic deletion or hidden
+          destructive cleanup is added.
+  - Vortex-first provider check:
+    - Subject area: local prepared Vortex artifact lifecycle and reuse.
+    - Decision: `wrap_vortex_concept`; this slice reports Vortex file artifacts and reuse state
+      around the existing compatibility import/native Vortex runners.
+    - Residual handling: reuse still executes only through admitted ShardLoom/native Vortex paths;
+      no external engine fallback.
+    - fallback_attempted=false: preserved in CLI fields, typed compute-flow artifacts, and Python
+      client surfaces.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex enabled_build_runs_csv_through_local_vortex_io --lib --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-cli typed_envelope --bin shardloom`
+    - `PYTHONPATH=python/src python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_prepare_traditional_analytics_vortex_artifacts_reports_lifecycle python.tests.test_cli_client.ShardLoomClientTests.test_live_etl_smoke_dispatches_csv_and_vortex_modes python.tests.test_cli_client.ShardLoomClientTests.test_live_etl_csv_to_vortex_replay_runs_import_then_native_replay`
+
+- [x] Session label: P7.5.2 typed-envelope evidence routing for compute-flow fields
+  - Primary files:
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: preserve legacy flat fields while giving clients typed inline artifacts for
+    execution-mode selection and compute-flow evidence.
+  - Checklist:
+    - [x] Add inline `execution_mode_selection_report` artifacts when execution-mode fields are
+          present.
+    - [x] Add inline `compute_flow_evidence` artifacts covering prepared artifact refs/digests,
+          source/result Native I/O evidence, execution certificate status, provider/materialization
+          fields, claim-gate status, and no-fallback fields where available.
+    - [x] Emit `evidence_incomplete` inside typed compute-flow artifacts for missing evidence slots
+          instead of silently omitting them.
+    - [x] Update Python `ExecutionResultEnvelopeView` so execution-mode accessors prefer typed
+          artifacts, and expose `compute_flow_evidence_fields` for typed client inspection.
+  - Vortex-first provider check:
+    - Subject area: typed evidence routing for existing compatibility/native/prepared Vortex
+      execution reports.
+    - Decision: `wrap_vortex_concept`; this slice does not add runtime Vortex calls or change
+      execution semantics.
+    - Residual handling: typed artifacts report existing fields only; unsupported work remains
+      blocked or report-only.
+    - fallback_attempted=false: preserved in both legacy fields and typed artifacts.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli typed_envelope --bin shardloom`
+    - `PYTHONPATH=python/src python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_execution_result_view_preserves_artifact_rich_slots`
+    - `python -m py_compile python/src/shardloom/client.py python/tests/test_cli_client.py`
+
+- [x] Session label: P7.5.1 shared execution-mode admission and selection report
+  - Primary files:
+    - `shardloom-core/src/output.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: move execution-mode selection from benchmark/CLI-local field construction into a shared
+    provider-neutral report that can be reused by CLI, Python, benchmark, and future REST/API
+    surfaces without changing execution semantics or weakening no-fallback policy.
+  - Checklist:
+    - [x] Add `ShardLoomExecutionModeSelectionRequest` and
+          `ShardLoomExecutionModeSelectionReport` to `shardloom-core`.
+    - [x] Emit requested mode, selected mode, selection reason, family, source format, workload
+          constitution, timing-scope flags, certification/result-sink policy, provider-availability
+          facts, stable unsupported diagnostics, blocker id, required future evidence,
+          claim-gate status, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - [x] Make `auto` transparent for certified ingest/stage and native/prepared Vortex contexts.
+    - [x] Keep `direct_compatibility_transient` deterministic unsupported/report-only until a
+          ShardLoom-native transient path and evidence model are implemented.
+    - [x] Wire traditional compatibility and native/prepared Vortex reports through the shared
+          selection report so CLI output does not append contradictory duplicate mode fields.
+    - [x] Add focused tests for auto selection, prepared Vortex scope, direct-transient blockers,
+          and single authoritative selected-mode fields in benchmark reports.
+  - Vortex-first provider check:
+    - Subject area: execution-mode admission/reporting for compatibility import, prepared Vortex,
+      native Vortex, direct transient, and auto selection.
+    - Decision: `wrap_vortex_concept`; this slice adds provider-neutral reporting around existing
+      compatibility/Vortex paths and does not introduce a new Vortex API call, new provider, or
+      external fallback path.
+    - Residual handling: unsupported requested modes remain deterministic diagnostics; no residuals
+      are delegated to external engines.
+    - fallback_attempted=false: emitted by the shared report for supported and unsupported mode
+      selections.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core execution_mode_selection --lib`
+    - `cargo test -p shardloom-vortex enabled_build_runs_csv_through_local_vortex_io --lib --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-cli --bin shardloom traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps`
+
+- [x] Session label: P7.5.0 compute-engine flow repo-alignment review
+  - Primary files:
+    - `docs/architecture/compute-engine-flow-overhaul-review.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: compare the canonical compute-engine flow reference against the current Rust, Python,
+    CLI, Vortex, benchmark, typed-envelope, and capability surfaces, then add the missing P7.5
+    overhaul sequence before release-readiness work depends on the flow.
+  - Checklist:
+    - [x] Record aligned surfaces for execution-mode vocabulary, compatibility-import timing,
+          prepared-vortex benchmark rows, Native I/O/materialization evidence, and source-backed
+          encoded provider foundations.
+    - [x] Record gaps for shared mode admission, prepared artifact lifecycle, typed-envelope
+          routing, mode-aware capabilities, native provider admission, direct transient parity,
+          prepared/native result-sink replay, stage timing attribution, Python/REST parity, and
+          file-format preparation matrices.
+    - [x] Add Priority 7.5 overhaul slices to the phase plan.
+    - [x] Add a contract test guard for the review doc and P7.5 phase-plan entries.
+  - Vortex-first provider check:
+    - Subject area: execution-mode selection, prepared Vortex lifecycle, source-backed encoded
+      provider admission, Scan/source/sink timing, and benchmark claim gates.
+    - Decision: `wrap_vortex_concept` for selection and typed evidence routing;
+      `use_vortex_native_provider` only for admitted prepared/native Vortex provider paths;
+      `blocked_until_vortex_or_shardloom_evidence` for direct transient execution, unfused
+      filter/project/limit, unsupported source-backed operators, and missing result-sink replay.
+    - Residual handling: residuals remain ShardLoom-native or deterministically blocked; no
+      external engine fallback.
+    - fallback_attempted=false: remains mandatory for every ShardLoom mode.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+
+- [x] Session label: P7.4.8/P7.4.9 benchmark execution semantics and prepared/native Vortex lane
+      bundle
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-core/src/output.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: correct performance attribution and benchmark-row structure after P7.4.4 by making
+    execution modes and timing scope explicit, then promote prepared/native Vortex timing as the
+    comparative ShardLoom lane without weakening the certified compatibility ingest/stage workflow.
+  - Checklist:
+    - [x] Add `ShardLoomExecutionMode` and `ShardLoomExecutionModeFamily` core types for `auto`,
+          `compatibility_import_certified`, `prepared_vortex`,
+          `direct_compatibility_transient`, and `native_vortex`.
+    - [x] Add execution-mode fields to traditional analytics CLI reports and Python
+          `ExecutionResultEnvelopeView` accessors.
+    - [x] Add stage timing attribution fields for total runtime, operator/scenario compute,
+          source read/compatibility parse/import, Vortex write/reopen/scan, result-sink write,
+          preparation, evidence-rendering status, build-time exclusion, and persistent-runner
+          overhead status.
+    - [x] Change `shardloom-vortex` benchmark reporting so prepared/native results appear under the
+          requested CSV/JSONL/Parquet/Arrow IPC/Avro/ORC source-format rows, not a synthetic
+          standalone `.vortex` row.
+    - [x] Add `shardloom-prepared-vortex` as an explicit focused-validation alias while leaving
+          default engine order unchanged.
+    - [x] Prepare Vortex artifacts once per dataset/profile/format before scenario timing and record
+          prepared artifact refs/digests plus source Native I/O certificate status.
+    - [x] Expand prepared/native Vortex scenario coverage to the executable ShardLoom taxonomy set
+          and keep unsupported paths deterministic.
+    - [x] Preserve native microbenchmark rows and add explicit filter/project/limit fusion status,
+          fusion blocker, materialization-required, and decode-required fields.
+    - [x] Add `docs/architecture/compute-engine-flow-reference.md` as the canonical
+          compute-engine flow reference for mode selection, provider admission, source/sink,
+          materialization/decode, evidence, and claim-gate flow.
+    - [x] Add `docs/architecture/performance-attribution-and-execution-structure.md` with the
+          Vortex-first provider note and structural path definitions.
+  - Vortex-first provider check:
+    - Subject area: prepared/native benchmark execution, compatibility ingest/stage attribution,
+      Vortex Scan/I/O timing, and fused/encoded-native operator evidence.
+    - Upstream Vortex concept checked: arrays/deferred representations, Scan Source/Sink/Split and
+      pushdown vocabulary, execution fusion, and I/O coalescing/prefetch/backpressure concepts.
+    - Decision: `wrap_vortex_concept` for stage attribution and execution-mode reporting;
+      `use_vortex_native_provider` for current prepared/native local Vortex file provider paths;
+      `blocked_until_vortex_or_shardloom_evidence` for unfused or not-yet-encoded-native taxonomy
+      rows.
+    - Vortex API/provider surface: current local Vortex write/reopen/scan path and future Scan API
+      Source/Sink/Split alignment.
+    - ShardLoom provider/report/certificate surface: benchmark rows, typed envelopes, Native I/O
+      certificates, execution certificates, prepared artifact refs/digests, and deterministic
+      blockers.
+    - Residual handling: residuals remain ShardLoom-native temporary operators or blocked; no
+      external query engine fallback.
+    - Materialization/decode boundary: rows now expose representation/fusion/materialization/decode
+      status rather than hiding it inside total timing.
+    - Evidence added: prepared/native benchmark lane smoke artifacts, stage-timing fields, and
+      explicit no-fallback/no-external-engine mode fields.
+    - Gates still blocked: broad SQL/DataFrame support, production performance claims, object-store
+      runtime, table/catalog runtime, and Spark-displacement claims.
+    - fallback_attempted=false: preserved on ShardLoom rows.
+  - Validation:
+    - `python -m py_compile benchmarks/traditional_analytics/run.py`
+    - `python -m json.tool benchmarks/common/scenario_catalog.json`
+    - `cargo test -p shardloom-core execution_mode --lib`
+    - `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-cli --bin shardloom`
+    - `PYTHONPATH=python/src python -m unittest discover python/tests`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - prepared/native smoke artifacts under `target/p744-*.json`
+
 - [x] Session label: P8.0C dependency/license/advisory release gate bundle
   - Primary files:
     - `deny.toml`

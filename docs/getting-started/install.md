@@ -52,5 +52,9 @@ environment before any publication is approved:
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 ```
 
-The proof installs from `python/dist` with `pip --no-index`, resolves the local
-CLI through `SHARDLOOM_BIN`, and writes a transcript under `target/`.
+The proof installs the exact wheel built during the dry run with `pip --no-index`, resolves the
+local CLI through `SHARDLOOM_BIN`, and writes a transcript under `target/`.
+
+If `mamba`, `conda`, or `micromamba` is available, the same proof attempts a clean Conda-style
+environment install from the local wheel. Public release readiness still requires
+`clean_conda_env_install_status=passed`.

@@ -655,12 +655,15 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("schema_version", "shardloom.compute_capability_matrix.v1"),
                 ("matrix_status", "report_only"),
-                ("compute_row_count", "12"),
+                ("compute_row_count", "13"),
                 ("operator_family_count", "14"),
                 ("production_certified_count", "0"),
                 ("no_fallback", "true"),
             ],
-            fragments: &["\"artifact_kind\":\"compute_capability_matrix_report\""],
+            fragments: &[
+                "\"artifact_kind\":\"compute_capability_matrix_report\"",
+                "direct_compatibility_transient",
+            ],
         },
         EnvelopeCase {
             name: "semantic conformance suite",

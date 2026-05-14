@@ -8,6 +8,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 from shardloom import (
     __version__,
     context as shardloom_context,
@@ -24,6 +26,7 @@ from shardloom import (
     ShardLoomContext,
     ShardLoomProtocolError,
     OutputEnvelope,
+    PreparedVortexArtifacts,
     RestApiContractPlan,
     RestApiDataPlane,
     RestApiDiscoveryContract,
@@ -198,6 +201,61 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": "evidence_slot_native_io_certificate_refs_detail", "value": "Native I/O certificate missing"},
                             ]
                         },
+                    },
+                    {
+                        "artifact_id": "top-level-exec.execution_mode_selection_report",
+                        "artifact_kind": "execution_mode_selection_report",
+                        "status": "available",
+                        "payload": {
+                            "fields": [
+                                {"key": "execution_mode_selection_schema_version", "value": "shardloom.execution_mode_selection_report.v1"},
+                                {"key": "requested_execution_mode", "value": "auto"},
+                                {"key": "selected_execution_mode", "value": "prepared_vortex"},
+                                {"key": "execution_mode", "value": "prepared_vortex"},
+                                {"key": "mode_selection_reason", "value": "typed report selected prepared artifact reuse"},
+                                {"key": "execution_mode_family", "value": "native_vortex"},
+                                {"key": "source_format", "value": "vortex"},
+                                {"key": "workload_constitution_id", "value": "local_vortex_analytics_v1"},
+                                {"key": "compatibility_import_included", "value": "false"},
+                                {"key": "vortex_prepare_included", "value": "false"},
+                                {"key": "vortex_write_reopen_included", "value": "false"},
+                                {"key": "direct_transient_execution", "value": "false"},
+                                {"key": "vortex_native_claim_allowed", "value": "true"},
+                                {"key": "certification_requested", "value": "false"},
+                                {"key": "result_sink_requested", "value": "false"},
+                                {"key": "prepared_artifact_available", "value": "true"},
+                                {"key": "native_vortex_provider_available", "value": "true"},
+                                {"key": "mode_supported", "value": "true"},
+                                {"key": "unsupported_diagnostic_code", "value": "none"},
+                                {"key": "blocker_id", "value": "none"},
+                                {"key": "required_future_evidence", "value": "none"},
+                                {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                                {"key": "claim_gate_reason", "value": "operator evidence required"},
+                                {"key": "fallback_attempted", "value": "false"},
+                                {"key": "external_engine_invoked", "value": "false"},
+                            ]
+                        },
+                    },
+                    {
+                        "artifact_id": "top-level-exec.compute_flow_evidence",
+                        "artifact_kind": "compute_flow_evidence",
+                        "status": "fixture_smoke_only",
+                        "payload": {
+                            "fields": [
+                                {"key": "selected_execution_mode", "value": "prepared_vortex"},
+                                {"key": "source_format", "value": "vortex"},
+                                {"key": "prepared_artifact_ref", "value": "artifact.fact.vortex"},
+                                {"key": "fact_vortex_digest", "value": "sha256:abc"},
+                                {"key": "native_io_certificate_status", "value": "certified"},
+                                {"key": "computed_result_sink_replay_verified", "value": "true"},
+                                {"key": "computed_result_sink_native_io_certificate_status", "value": "certified"},
+                                {"key": "result_sink_claim_gate_status", "value": "result_sink_replay_certified"},
+                                {"key": "result_sink_claim_gate_reason", "value": "result sink replay present"},
+                                {"key": "materialization_boundary_report_emitted", "value": "true"},
+                                {"key": "fallback_attempted", "value": "false"},
+                                {"key": "external_engine_invoked", "value": "false"},
+                            ]
+                        },
                     }
                 ],
                 "artifact_refs": [{"id": "vortex_local_engine_report", "kind": "execution_artifact", "status": "available", "uri": None}],
@@ -218,6 +276,13 @@ class ShardLoomClientTests(unittest.TestCase):
                     {"key": "execution_certificate_refs", "value": "cert.execution"},
                     {"key": "native_io_certificate_refs", "value": "cert.native_io"},
                     {"key": "representation_transitions", "value": "vortex_encoded->vortex_encoded"},
+                    {"key": "requested_execution_mode", "value": "auto"},
+                    {"key": "selected_execution_mode", "value": "prepared_vortex"},
+                    {"key": "mode_selection_reason", "value": "input was already prepared"},
+                    {"key": "execution_mode_family", "value": "native_vortex"},
+                    {"key": "vortex_native_claim_allowed", "value": "true"},
+                    {"key": "compatibility_import_included", "value": "false"},
+                    {"key": "direct_transient_execution", "value": "false"},
                     {"key": "fallback_attempted", "value": "false"},
                     {"key": "external_engine_invoked", "value": "false"},
                 ],
@@ -233,6 +298,41 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.execution_certificate_refs, ("cert.execution",))
         self.assertEqual(result.native_io_certificate_refs, ("cert.native_io",))
         self.assertEqual(result.representation_transitions, ("vortex_encoded->vortex_encoded",))
+        self.assertEqual(result.requested_execution_mode, "auto")
+        self.assertEqual(result.selected_execution_mode, "prepared_vortex")
+        self.assertEqual(
+            result.mode_selection_reason,
+            "typed report selected prepared artifact reuse",
+        )
+        self.assertEqual(result.execution_mode_family, "native_vortex")
+        self.assertTrue(result.mode_supported)
+        self.assertEqual(result.claim_gate_status, "fixture_smoke_only")
+        self.assertEqual(result.claim_gate_reason, "operator evidence required")
+        self.assertEqual(result.unsupported_diagnostic_code, "none")
+        self.assertEqual(result.blocker_id, "none")
+        self.assertEqual(result.required_future_evidence, "none")
+        self.assertEqual(
+            result.execution_mode_selection_fields["source_format"],
+            "vortex",
+        )
+        self.assertEqual(
+            result.compute_flow_evidence_fields["prepared_artifact_ref"],
+            "artifact.fact.vortex",
+        )
+        self.assertTrue(result.vortex_native_claim_allowed)
+        self.assertFalse(result.compatibility_import_included)
+        self.assertFalse(result.vortex_prepare_included)
+        self.assertFalse(result.vortex_write_reopen_included)
+        self.assertFalse(result.direct_transient_execution)
+        self.assertTrue(result.computed_result_sink_replay_verified)
+        self.assertEqual(
+            result.computed_result_sink_native_io_certificate_status,
+            "certified",
+        )
+        self.assertEqual(
+            result.result_sink_claim_gate_status,
+            "result_sink_replay_certified",
+        )
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.external_engine_invoked)
         self.assertEqual(len(result.evidence_slots), 3)
@@ -1406,11 +1506,12 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [
                         {"key": "matrix_status", "value": "report_only"},
                         {"key": "claim_grade_status", "value": "evidence_incomplete"},
-                        {"key": "compute_row_order", "value": "local_vortex_count,sql_frontend"},
+                        {"key": "compute_row_order", "value": "local_vortex_count,direct_compatibility_transient,sql_frontend"},
                         {"key": "compute_row_local_vortex_count_surface", "value": "vortex_file_scan_count"},
                         {"key": "compute_row_local_vortex_count_family", "value": "scan"},
                         {"key": "compute_row_local_vortex_count_support_status", "value": "fixture_certified"},
                         {"key": "compute_row_local_vortex_count_engine_mode", "value": "batch"},
+                        {"key": "compute_row_local_vortex_count_execution_mode", "value": "native_vortex"},
                         {"key": "compute_row_local_vortex_count_provider_kind", "value": "vortex_scan"},
                         {"key": "compute_row_local_vortex_count_semantic_profile", "value": "ShardLoomNative"},
                         {"key": "compute_row_local_vortex_count_materialization_decode_requirement", "value": "metadata_or_scan_count_no_row_materialization"},
@@ -1422,12 +1523,35 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "compute_row_local_vortex_count_unsupported_diagnostic_code", "value": "none"},
                         {"key": "compute_row_local_vortex_count_blocker_id", "value": "none"},
                         {"key": "compute_row_local_vortex_count_required_future_evidence", "value": "none"},
+                        {"key": "compute_row_local_vortex_count_claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "compute_row_local_vortex_count_vortex_native_claim_allowed", "value": "true"},
                         {"key": "compute_row_local_vortex_count_fallback_attempted", "value": "false"},
                         {"key": "compute_row_local_vortex_count_external_engine_invoked", "value": "false"},
+                        {"key": "compute_row_direct_compatibility_transient_surface", "value": "direct_compatibility_transient_query"},
+                        {"key": "compute_row_direct_compatibility_transient_family", "value": "compatibility_transient"},
+                        {"key": "compute_row_direct_compatibility_transient_support_status", "value": "unsupported"},
+                        {"key": "compute_row_direct_compatibility_transient_engine_mode", "value": "batch"},
+                        {"key": "compute_row_direct_compatibility_transient_execution_mode", "value": "direct_compatibility_transient"},
+                        {"key": "compute_row_direct_compatibility_transient_provider_kind", "value": "shardloom_kernel"},
+                        {"key": "compute_row_direct_compatibility_transient_semantic_profile", "value": "ShardLoomNative"},
+                        {"key": "compute_row_direct_compatibility_transient_materialization_decode_requirement", "value": "direct_transient_executor_missing"},
+                        {"key": "compute_row_direct_compatibility_transient_memory_spill_requirement", "value": "unsupported_until_transient_executor_exists"},
+                        {"key": "compute_row_direct_compatibility_transient_correctness_refs", "value": "none"},
+                        {"key": "compute_row_direct_compatibility_transient_benchmark_refs", "value": "none"},
+                        {"key": "compute_row_direct_compatibility_transient_execution_certificate_refs", "value": "none"},
+                        {"key": "compute_row_direct_compatibility_transient_native_io_refs", "value": "not_vortex_native"},
+                        {"key": "compute_row_direct_compatibility_transient_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT"},
+                        {"key": "compute_row_direct_compatibility_transient_blocker_id", "value": "p75.direct_transient.executor_missing"},
+                        {"key": "compute_row_direct_compatibility_transient_required_future_evidence", "value": "shardloom_native_transient_executor,direct_mode_certificate"},
+                        {"key": "compute_row_direct_compatibility_transient_claim_gate_status", "value": "unsupported"},
+                        {"key": "compute_row_direct_compatibility_transient_vortex_native_claim_allowed", "value": "false"},
+                        {"key": "compute_row_direct_compatibility_transient_fallback_attempted", "value": "false"},
+                        {"key": "compute_row_direct_compatibility_transient_external_engine_invoked", "value": "false"},
                         {"key": "compute_row_sql_frontend_surface", "value": "sql_parse_bind_plan_execute"},
                         {"key": "compute_row_sql_frontend_family", "value": "sql"},
                         {"key": "compute_row_sql_frontend_support_status", "value": "unsupported"},
                         {"key": "compute_row_sql_frontend_engine_mode", "value": "batch"},
+                        {"key": "compute_row_sql_frontend_execution_mode", "value": "auto"},
                         {"key": "compute_row_sql_frontend_provider_kind", "value": "shardloom_kernel"},
                         {"key": "compute_row_sql_frontend_semantic_profile", "value": "ShardLoomNative"},
                         {"key": "compute_row_sql_frontend_materialization_decode_requirement", "value": "unsupported_no_materialization"},
@@ -1439,6 +1563,8 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "compute_row_sql_frontend_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_SQL"},
                         {"key": "compute_row_sql_frontend_blocker_id", "value": "cg21.workflow.sql.frontend_unsupported"},
                         {"key": "compute_row_sql_frontend_required_future_evidence", "value": "parser,binder,planner,semantic_fixtures"},
+                        {"key": "compute_row_sql_frontend_claim_gate_status", "value": "unsupported"},
+                        {"key": "compute_row_sql_frontend_vortex_native_claim_allowed", "value": "false"},
                         {"key": "compute_row_sql_frontend_fallback_attempted", "value": "false"},
                         {"key": "compute_row_sql_frontend_external_engine_invoked", "value": "false"},
                         {"key": "operator_family_order", "value": "predicates,joins"},
@@ -1463,12 +1589,24 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.claim_grade_status, "evidence_incomplete")
         rows = {row.row_id: row for row in result.rows}
         self.assertEqual(rows["local_vortex_count"].support_status, "fixture_certified")
+        self.assertEqual(rows["local_vortex_count"].execution_mode, "native_vortex")
         self.assertEqual(rows["local_vortex_count"].provider_kind, "vortex_scan")
+        self.assertEqual(rows["local_vortex_count"].claim_gate_status, "fixture_smoke_only")
+        self.assertTrue(rows["local_vortex_count"].vortex_native_claim_allowed)
         self.assertEqual(
             rows["local_vortex_count"].native_io_refs,
             ("certificates/cg19/local-vortex-count/native-io.json",),
         )
         self.assertFalse(rows["local_vortex_count"].fallback_attempted)
+        self.assertEqual(
+            rows["direct_compatibility_transient"].execution_mode,
+            "direct_compatibility_transient",
+        )
+        self.assertEqual(
+            rows["direct_compatibility_transient"].unsupported_diagnostic_code,
+            "SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT",
+        )
+        self.assertFalse(rows["direct_compatibility_transient"].vortex_native_claim_allowed)
         self.assertEqual(rows["sql_frontend"].unsupported_diagnostic_code, "SL_UNSUPPORTED_SQL")
         self.assertIn("parser", rows["sql_frontend"].required_future_evidence)
         families = {row.family_id: row for row in result.operator_families}
@@ -1999,6 +2137,188 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(result.field_int("rows_scanned"), 42)
 
+    def test_traditional_analytics_vortex_run_can_request_result_sink(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-vortex-run",
+                    "selective filter",
+                    "fact.vortex",
+                    "dim.vortex",
+                    "--workspace",
+                    "sink-work",
+                    "--write-result-vortex",
+                    "--execution-mode",
+                    "prepared_vortex",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-vortex-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "computed_result_sink_requested", "value": "true"},
+                        {"key": "computed_result_sink_replay_verified", "value": "true"},
+                        {"key": "computed_result_sink_native_io_certificate_status", "value": "certified"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).traditional_analytics_vortex_run(
+            "selective filter",
+            "fact.vortex",
+            "dim.vortex",
+            workspace="sink-work",
+            write_result_vortex=True,
+            execution_mode="prepared_vortex",
+        )
+
+        self.assertEqual(result.field("computed_result_sink_requested"), "true")
+        self.assertEqual(
+            result.field("computed_result_sink_native_io_certificate_status"),
+            "certified",
+        )
+
+    def test_traditional_analytics_methods_can_request_auto_mode(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                if args == [
+                    "traditional-analytics-run",
+                    "selective filter",
+                    "fact.csv",
+                    "dim.csv",
+                    "--workspace",
+                    "work",
+                    "--input-format",
+                    "csv",
+                    "--execution-mode",
+                    "auto",
+                    "--format",
+                    "json",
+                ]:
+                    command = "traditional-analytics-run"
+                elif args == [
+                    "traditional-analytics-vortex-run",
+                    "selective filter",
+                    "fact.vortex",
+                    "dim.vortex",
+                    "--execution-mode",
+                    "auto",
+                    "--format",
+                    "json",
+                ]:
+                    command = "traditional-analytics-vortex-run"
+                else:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "requested_execution_mode", "value": "auto"},
+                        {"key": "selected_execution_mode", "value": "native_vortex"},
+                        {"key": "mode_selection_reason", "value": "auto selected explicit test path"}
+                    ],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        compatibility = client.traditional_analytics_run(
+            "selective filter",
+            "fact.csv",
+            "dim.csv",
+            workspace="work",
+            input_format="csv",
+            execution_mode="auto",
+        )
+        native = client.traditional_analytics_vortex_run(
+            "selective filter",
+            "fact.vortex",
+            "dim.vortex",
+            execution_mode="auto",
+        )
+
+        self.assertEqual(
+            ExecutionResultEnvelopeView(compatibility).requested_execution_mode,
+            "auto",
+        )
+        self.assertEqual(
+            ExecutionResultEnvelopeView(native).requested_execution_mode,
+            "auto",
+        )
+
+    def test_prepare_traditional_analytics_vortex_artifacts_reports_lifecycle(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-run",
+                    "csv/file ingest",
+                    "fact.csv",
+                    "dim.csv",
+                    "--workspace",
+                    "work",
+                    "--input-format",
+                    "csv",
+                    "--execution-mode",
+                    "compatibility_import_certified",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "prepared_artifact_ref", "value": "fact=fact.vortex,dim=dim.vortex"},
+                        {"key": "prepared_artifact_fact_ref", "value": "fact.vortex"},
+                        {"key": "prepared_artifact_dim_ref", "value": "dim.vortex"},
+                        {"key": "prepared_artifact_digest", "value": "fact=sha256:f,dim=sha256:d"},
+                        {"key": "prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
+                        {"key": "prepared_artifact_reuse_eligible", "value": "true"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        artifacts = ShardLoomClient(binary=binary).prepare_traditional_analytics_vortex_artifacts(
+            "fact.csv",
+            "dim.csv",
+            workspace="work",
+            input_format="csv",
+        )
+
+        self.assertIsInstance(artifacts, PreparedVortexArtifacts)
+        self.assertEqual(artifacts.fact_vortex_path, "fact.vortex")
+        self.assertEqual(artifacts.dim_vortex_path, "dim.vortex")
+        self.assertEqual(artifacts.artifact_digest, "fact=sha256:f,dim=sha256:d")
+        self.assertEqual(artifacts.cleanup_policy, "caller_owned_workspace_cleanup")
+        self.assertTrue(artifacts.reuse_eligible)
+
     def test_live_etl_smoke_dispatches_csv_and_vortex_modes(self) -> None:
         csv_binary = self.fake_cli(
             textwrap.dedent(
@@ -2047,6 +2367,8 @@ class ShardLoomClientTests(unittest.TestCase):
                     "wide projection",
                     "fact.vortex",
                     "dim.vortex",
+                    "--execution-mode",
+                    "native_vortex",
                     "--format",
                     "json",
                 ], sys.argv
@@ -2151,6 +2473,53 @@ class ShardLoomClientTests(unittest.TestCase):
                 write_result_vortex=True,
             )
 
+    def test_live_etl_smoke_dispatches_native_result_sink_with_workspace(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-vortex-run",
+                    "wide projection",
+                    "fact.vortex",
+                    "dim.vortex",
+                    "--workspace",
+                    "sink-work",
+                    "--write-result-vortex",
+                    "--execution-mode",
+                    "native_vortex",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-vortex-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "computed_result_sink_requested", "value": "true"},
+                        {"key": "computed_result_sink_replay_verified", "value": "true"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).live_etl_smoke(
+            "wide projection",
+            "fact.vortex",
+            "dim.vortex",
+            input_format="vortex",
+            workspace="sink-work",
+            write_result_vortex=True,
+        )
+
+        self.assertEqual(result.command, "traditional-analytics-vortex-run")
+        self.assertEqual(result.field("computed_result_sink_requested"), "true")
+
     def test_live_etl_csv_to_vortex_replay_runs_import_then_native_replay(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -2187,6 +2556,8 @@ class ShardLoomClientTests(unittest.TestCase):
                     "selective filter",
                     "work/fact.vortex",
                     "work/dim.vortex",
+                    "--execution-mode",
+                    "native_vortex",
                     "--format",
                     "json",
                 ]:

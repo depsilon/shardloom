@@ -228,7 +228,9 @@ pub use operator::{
 
 pub use output::{
     CliApiJsonProtocolReport, CommandStatus, OutputEnvelope, OutputFormat, OutputTypedArtifact,
-    OutputTypedPayload, OutputTypedRef, PythonWrapperFoundationReport,
+    OutputTypedPayload, OutputTypedRef, PythonWrapperFoundationReport, ShardLoomExecutionMode,
+    ShardLoomExecutionModeFamily, ShardLoomExecutionModeSelectionReport,
+    ShardLoomExecutionModeSelectionRequest,
 };
 
 pub use release::{
@@ -277,12 +279,14 @@ pub use schema::{
 
 pub use security::{
     AgentSafetyMode, ApprovalRequirement, AuditActionKind, AuditRecord, CredentialScope,
-    CredentialScopeKind, DataSensitivity, DryRunSafety, ExternalEffectKind, ExternalEffectPolicy,
-    PermissionKind, PermissionRequirement, PermissionStatus, RedactionPolicy, RedactionPolicyKind,
+    CredentialScopeKind, DataSensitivity, DryRunSafety, EvidenceArtifactSafetyReport,
+    ExternalEffectKind, ExternalEffectPolicy, PermissionKind, PermissionRequirement,
+    PermissionStatus, RedactionPolicy, RedactionPolicyKind, RuntimeInputSafetyReport,
     SecretProviderKind, SecretRef, SecretRefId, SecurityGovernanceEvidenceArea,
     SecurityGovernanceEvidenceEntry, SecurityGovernanceEvidenceGateReport,
     SecurityGovernanceEvidenceStatus, SecurityPlan, SecurityPolicyStatus, SecurityReport,
-    SensitiveField, plan_security_governance_evidence_gate,
+    SensitiveField, WorkspacePathSafetyReport, plan_security_governance_evidence_gate,
+    redact_credential_like_values,
 };
 
 pub use session::{

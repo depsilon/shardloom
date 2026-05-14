@@ -139,6 +139,8 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(script.contains("fallback_dependency_absent"));
     assert!(script.contains("FORBIDDEN_FALLBACK_DEPENDENCIES"));
     assert!(script.contains("benchmark_only_external_baselines"));
+    assert!(script.contains("target_tables"));
+    assert!(script.contains(" @ "));
     assert!(script.contains("skipped_missing"));
     assert!(script.contains("missing"));
 
@@ -150,12 +152,116 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(dry_run.contains("SHARDLOOM_BIN"));
     assert!(dry_run.contains("ShardLoomClient.from_env()"));
     assert!(dry_run.contains("smoke_check()"));
+    assert!(dry_run.contains("clean_conda_env_install_status"));
+    assert!(dry_run.contains("--require-clean-conda"));
+    assert!(dry_run.contains("mamba"));
+    assert!(dry_run.contains("micromamba"));
     assert!(dry_run.contains("examples/local-python-smoke/run.py"));
     assert!(dry_run.contains("examples/local-vortex-benchmark/run.py"));
     assert!(dry_run.contains("publication_attempted"));
     assert!(dry_run.contains("tag_created"));
     assert!(dry_run.contains("secrets_required"));
     assert!(dry_run.contains("fallback_engine_dependency_added"));
+    assert!(dry_run.contains("scripts/release_provenance_dry_run.py"));
+    assert!(dry_run.contains("provenance_dry_run_performed"));
+    assert!(dry_run.contains("sbom_checksum_manifest_generated"));
+
+    let provenance_script = read_repo_file("scripts/release_provenance_dry_run.py");
+    for required in [
+        "shardloom.supply_chain_release_evidence.v1",
+        "shardloom-rust-workspace.cdx.json",
+        "shardloom-python-artifacts.cdx.json",
+        "shardloom-cli-binary.cdx.json",
+        "checksums.sha256",
+        "workflow-policy-snapshot.json",
+        "publication_attempted",
+        "tag_created",
+        "secrets_required",
+        "fallback_engine_dependency_added",
+        "waived_until_real_publication",
+    ] {
+        assert!(
+            provenance_script.contains(required),
+            "missing release provenance script field {required}"
+        );
+    }
+
+    let posture_script = read_repo_file("scripts/check_security_posture.py");
+    for required in [
+        "shardloom.open_source_security_posture_report.v1",
+        ".github/workflows/codeql-analysis.yml",
+        ".github/workflows/scorecard.yml",
+        ".github/dependabot.yml",
+        "docs/security/open-source-security-posture.md",
+        "publication_attempted",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ] {
+        assert!(
+            posture_script.contains(required),
+            "missing security posture script field {required}"
+        );
+    }
+
+    let security_gate_script = read_repo_file("scripts/check_release_security_gate.py");
+    for required in [
+        "shardloom.release_security_gate_report.v1",
+        "SecurityThreatModelReport",
+        "DependencyAuditReport",
+        "SupplyChainReleaseEvidence",
+        "RuntimeInputSafetyReport",
+        "OpenSourceSecurityPostureReport",
+        "KnownUnsupportedPathsReport",
+        "public_release_claim_allowed",
+        "fallback_attempted",
+        "external_engine_invoked",
+        "--allow-blocked",
+    ] {
+        assert!(
+            security_gate_script.contains(required),
+            "missing release security gate script field {required}"
+        );
+    }
+
+    let readiness_script = read_repo_file("scripts/check_release_readiness.py");
+    for required in [
+        "shardloom.hard_release_readiness_gate.v1",
+        "release-dry-run-proof/transcript.json",
+        "release-security-gate-report.json",
+        "clean_conda_env_install_status",
+        "public_release_claim_allowed",
+        "feature/build matrix execution evidence",
+        "typed_envelope_compatibility",
+        "cargo fmt --all -- --check",
+        "cargo clippy --workspace --all-targets -- -D warnings",
+        "cargo test --workspace --all-targets",
+        "python -m build python",
+    ] {
+        assert!(
+            readiness_script.contains(required),
+            "missing hard release readiness script field {required}"
+        );
+    }
+
+    let foundry_script = read_repo_file("scripts/foundry_proof_of_use.py");
+    for required in [
+        "shardloom.foundry_proof_of_use_report.v1",
+        "foundry_runtime_invoked",
+        "foundry_compute_invoked",
+        "foundry_spark_invoked",
+        "snowflake_databricks_bigquery_invoked",
+        "fallback_attempted",
+        "external_engine_invoked",
+        "certificate_metrics_dataset_output_written",
+        "supported_local_native_execution_smoke_performed",
+        "public_foundry_claim_allowed",
+        "local_foundry_style_proof_claim_allowed",
+    ] {
+        assert!(
+            foundry_script.contains(required),
+            "missing Foundry proof script field {required}"
+        );
+    }
 
     let policy = read_repo_file("docs/legal/dependency-audit.md");
     assert!(policy.contains("Runtime Versus Benchmark-Only Dependencies"));
@@ -252,7 +358,14 @@ fn release_package_docs_workflow_and_examples_are_present() {
         "docs/benchmarks/local-taxonomy-benchmark.md",
         "docs/release/github-topic-recommendations.md",
         "docs/release/release-dry-run-proof.md",
+        "docs/release/release-provenance-dry-run.md",
+        "docs/release/known-unsupported-paths.md",
+        "docs/release/hard-release-readiness-gate.md",
         "docs/release/first-10-minutes-smoke-snapshot.md",
+        "docs/security/release-security-gate.md",
+        "docs/security/open-source-security-posture.md",
+        "docs/foundry/integration-pack-readiness.md",
+        "docs/foundry/proof-of-use-certification.md",
         "examples/local-python-smoke/README.md",
         "examples/local-python-smoke/run.py",
         "examples/local-vortex-benchmark/README.md",
@@ -280,21 +393,250 @@ fn readme_links_website_and_first_user_docs() {
 fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     let proof = read_repo_file("docs/release/release-dry-run-proof.md");
     assert!(proof.contains("clean virtual environment"));
-    assert!(proof.contains("pip --no-index --find-links python/dist"));
+    assert!(proof.contains("pip --no-index <wheel>"));
+    assert!(proof.contains("exact local wheel artifact"));
+    assert!(proof.contains("clean venv interpreter"));
     assert!(proof.contains("SHARDLOOM_BIN"));
     assert!(proof.contains("examples/local-vortex-benchmark"));
     assert!(proof.contains("publication_attempted"));
     assert!(proof.contains("fallback_engine_dependency_added"));
+    assert!(proof.contains("release_provenance_dry_run"));
+    assert!(proof.contains("provenance_dry_run_performed"));
+    assert!(proof.contains("sbom_checksum_manifest_generated"));
+    assert!(proof.contains("clean_conda_env_install_status"));
+    assert!(proof.contains("--require-clean-conda"));
 
     let snapshot = read_repo_file("docs/release/first-10-minutes-smoke-snapshot.md");
     assert!(snapshot.contains("schema_version: shardloom.release_dry_run_proof.v1"));
     assert!(snapshot.contains("proof_status: passed"));
+    assert!(snapshot.contains("clean_conda_env_install_status"));
     assert!(snapshot.contains("fallback_attempted=False"));
     assert!(snapshot.contains("example_local_vortex_benchmark_smoke -> 0"));
+    assert!(snapshot.contains("release_provenance_dry_run -> 0"));
+    assert!(snapshot.contains("provenance_dry_run_performed: true"));
+    assert!(snapshot.contains("sbom_checksum_manifest_generated: true"));
 
     let first_ten = read_repo_file("docs/getting-started/first-10-minutes.md");
     assert!(first_ten.contains("scripts\\release_dry_run_proof.py"));
     assert!(first_ten.contains("target/release-dry-run-proof/transcript.json"));
+}
+
+#[test]
+fn release_provenance_docs_and_workflow_policy_are_traceable() {
+    let doc = read_repo_file("docs/release/release-provenance-dry-run.md");
+    for required in [
+        "SupplyChainReleaseEvidence",
+        "target/release-provenance-dry-run/manifest.json",
+        "target/release-provenance-dry-run/checksums.sha256",
+        "workflow-policy-snapshot.json",
+        "publication_attempted=false",
+        "tag_created=false",
+        "secrets_required=false",
+        "fallback_engine_dependency_added=false",
+        "waived_until_real_publication",
+        "pinned to commit SHAs",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing provenance doc field {required}"
+        );
+    }
+
+    let sbom = read_repo_file("docs/release/sbom-generation-plan.md");
+    assert!(sbom.contains("python scripts\\release_provenance_dry_run.py"));
+    assert!(sbom.contains("supply-chain-release-evidence.json"));
+    assert!(sbom.contains("workflow-policy-snapshot.json"));
+    assert!(sbom.contains("pinned to commit SHAs"));
+
+    let workflow = read_repo_file(".github/workflows/pypi-publish-draft.yml");
+    assert!(workflow.contains("workflow_dispatch"));
+    assert!(workflow.contains("publish_approved"));
+    assert!(workflow.contains("environment: pypi"));
+    assert!(workflow.contains("id-token: write"));
+    assert!(!workflow.to_ascii_lowercase().contains("password:"));
+    assert!(!workflow.to_ascii_lowercase().contains("api-token:"));
+    assert!(!workflow.to_ascii_lowercase().contains("pypi-token"));
+}
+
+#[test]
+fn open_source_security_posture_config_is_present() {
+    let codeql = read_repo_file(".github/workflows/codeql-analysis.yml");
+    for required in [
+        "workflow_dispatch:",
+        "pull_request:",
+        "security-events: write",
+        "github/codeql-action/init@v4",
+        "github/codeql-action/analyze@v4",
+        "language: rust",
+        "language: python",
+        "build-mode: none",
+    ] {
+        assert!(codeql.contains(required), "missing CodeQL field {required}");
+    }
+
+    let scorecard = read_repo_file(".github/workflows/scorecard.yml");
+    for required in [
+        "workflow_dispatch:",
+        "ossf/scorecard-action@v2.4.0",
+        "publish_results: false",
+        "github/codeql-action/upload-sarif@v4",
+        "security-events: write",
+        "persist-credentials: false",
+    ] {
+        assert!(
+            scorecard.contains(required),
+            "missing Scorecard field {required}"
+        );
+    }
+
+    let dependabot = read_repo_file(".github/dependabot.yml");
+    for required in [
+        "package-ecosystem: \"cargo\"",
+        "package-ecosystem: \"pip\"",
+        "package-ecosystem: \"github-actions\"",
+        "directory: \"/\"",
+        "directory: \"/python\"",
+        "interval: \"weekly\"",
+    ] {
+        assert!(
+            dependabot.contains(required),
+            "missing Dependabot field {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/security/open-source-security-posture.md");
+    for required in [
+        "CodeQL",
+        "OpenSSF Scorecard",
+        "Dependabot",
+        "secret scanning",
+        "push protection",
+        "branch protection",
+        "required checks",
+        "protected `pypi` environment",
+        "protected release tags",
+        "no-fallback",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing open-source security posture doc field {required}"
+        );
+    }
+}
+
+#[test]
+fn release_security_gate_docs_and_known_unsupported_paths_are_present() {
+    let doc = read_repo_file("docs/security/release-security-gate.md");
+    for required in [
+        "SecurityThreatModelReport",
+        "VulnerabilityResponseReport",
+        "DependencyAuditReport",
+        "SupplyChainReleaseEvidence",
+        "RuntimeInputSafetyReport",
+        "OpenSourceSecurityPostureReport",
+        "KnownUnsupportedPathsReport",
+        "python scripts\\check_release_security_gate.py",
+        "public release claims cannot pass",
+        "fallback_attempted=true",
+        "external_engine_invoked=true",
+        "status=blocked",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing release security gate doc field {required}"
+        );
+    }
+
+    let unsupported = read_repo_file("docs/release/known-unsupported-paths.md");
+    for required in [
+        "broad SQL/DataFrame execution",
+        "live/hybrid production behavior",
+        "object-store runtime",
+        "Foundry proof-of-use",
+        "direct transient compatibility execution as a Vortex-native claim",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            unsupported.contains(required),
+            "missing known unsupported path field {required}"
+        );
+    }
+}
+
+#[test]
+fn hard_release_readiness_gate_docs_are_present() {
+    let doc = read_repo_file("docs/release/hard-release-readiness-gate.md");
+    for required in [
+        "python scripts\\check_release_readiness.py",
+        "python scripts\\run_release_validation_evidence.py",
+        "shardloom.release_validation_evidence.v1",
+        "target/hard-release-readiness-gate.json",
+        "target/release-validation-evidence.json",
+        "clean install",
+        "release security gate report",
+        "feature/build matrix execution evidence",
+        "typed-envelope compatibility",
+        "cargo fmt --all -- --check",
+        "cargo clippy --workspace --all-targets -- -D warnings",
+        "cargo test --workspace --all-targets",
+        "python -m build python",
+        "public_release_claim_allowed=false",
+        "status=blocked",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing hard release gate doc field {required}"
+        );
+    }
+}
+
+#[test]
+fn foundry_integration_pack_and_proof_docs_are_present() {
+    let readiness = read_repo_file("docs/foundry/integration-pack-readiness.md");
+    for required in [
+        "F0",
+        "F10",
+        "FoundryExecutionContext",
+        "FoundryDatasetTransactionReport",
+        "FoundryDataHealthBridge",
+        "FoundryVirtualTableSource",
+        "FoundryExternalComputeBoundaryReport",
+        "FoundryMediaSetSource",
+        "FoundryAipLogicBoundaryReport",
+        "FoundryMarketplaceStarterProduct",
+        "python scripts\\foundry_proof_of_use.py",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "foundry_compute_invoked=false",
+    ] {
+        assert!(
+            readiness.contains(required),
+            "missing Foundry readiness field {required}"
+        );
+    }
+
+    let proof = read_repo_file("docs/foundry/proof-of-use-certification.md");
+    for required in [
+        "shardloom.foundry_proof_of_use_report.v1",
+        "package_install_mode",
+        "transform_import_proven",
+        "cli_binary_resolved",
+        "staged_dataset_path_explicit",
+        "supported_local_native_execution_smoke_performed",
+        "certificate_metrics_dataset_output_written",
+        "foundry_runtime_invoked=false",
+        "foundry_compute_invoked=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "public_foundry_claim_allowed=false",
+        "local_foundry_style_proof_claim_allowed",
+    ] {
+        assert!(
+            proof.contains(required),
+            "missing Foundry proof doc field {required}"
+        );
+    }
 }
 
 #[test]
@@ -347,7 +689,7 @@ fn external_examples_include_fixtures_expected_outputs_and_boundaries() {
 }
 
 #[test]
-fn security_rfc_and_p80_plan_are_traceable_without_marking_parent_complete() {
+fn security_rfc_and_p80_completion_are_traceable() {
     let rfc =
         read_repo_file("docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md");
     assert!(rfc.contains("SEC-0 declared only"));
@@ -376,27 +718,29 @@ fn security_rfc_and_p80_plan_are_traceable_without_marking_parent_complete() {
     assert!(rfc.contains("Release Blockers"));
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
-    assert!(plan.contains(
-        "- [ ] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
+    assert!(plan.contains("docs/architecture/phased-execution-completed-ledger.md"));
+    assert!(plan.contains("No unchecked Planned items remain"));
+    assert!(!plan.contains(
+        "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));
-    assert!(plan.contains("- [x] P8.0A security RFC and threat model."));
-    assert!(plan.contains("- [x] P8.0B vulnerability disclosure and incident response."));
-    assert!(plan.contains("- [x] P8.0C dependency, license, and advisory gate hardening."));
-    for child in ["P8.0D", "P8.0E", "P8.0F", "P8.0G"] {
+
+    let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for child in ["P8.0A/P8.0B", "P8.0C", "P8.0D", "P8.0E", "P8.0F", "P8.0G"] {
         assert!(
-            plan.contains(&format!("- [ ] {child}")),
-            "missing open {child}"
+            completed_ledger.contains(&format!("Session label: {child}")),
+            "missing completed {child}"
         );
     }
-    assert!(plan.contains("P8.4 release gate includes security evidence"));
-    assert!(plan.contains("must not publish packages"));
-    assert!(plan.contains("weaken no-fallback policy"));
+    assert!(completed_ledger.contains("P8.4 hard release-readiness gate bundle"));
+    assert!(completed_ledger.contains("weaken no-fallback policy"));
 
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("P8.0 - security, vulnerability, exploit"));
     assert!(traceability.contains("RFC 0043 Security/Vulnerability/Exploit/Supply-Chain"));
-    assert!(traceability.contains("P8.4 gate integration"));
+    assert!(traceability.contains("P8.4 remains open"));
     assert!(traceability.contains("No package publication"));
+    assert!(traceability.contains("docs/security/runtime-exploit-regression-suite.md"));
+    assert!(traceability.contains("docs/security/release-security-gate.md"));
 }
 
 #[test]
@@ -437,7 +781,7 @@ fn security_policy_threat_model_and_supply_chain_response_are_present() {
         "RuntimeInputSafetyReport",
         "WorkspacePathSafetyReport",
         "EvidenceArtifactSafetyReport",
-        "SEC-1 documented policy",
+        "SEC-4 deterministic regression",
     ] {
         assert!(
             threat_model.contains(required),
@@ -463,6 +807,49 @@ fn security_policy_threat_model_and_supply_chain_response_are_present() {
         assert!(
             response.contains(required),
             "missing response field {required}"
+        );
+    }
+}
+
+#[test]
+fn runtime_exploit_regression_suite_documents_report_level_security_tests() {
+    let doc = read_repo_file("docs/security/runtime-exploit-regression-suite.md");
+    for required in [
+        "RuntimeInputSafetyReport",
+        "WorkspacePathSafetyReport",
+        "EvidenceArtifactSafetyReport",
+        "malformed Vortex/local compatibility input blockers",
+        "invalid UTF-8 blockers",
+        "oversized or deeply nested input blockers",
+        "path traversal rejection",
+        "outside the declared workspace",
+        "unsafe symlink/hardlink policy",
+        "credential-like redaction",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "P8.0G/P8.4 runtime wiring",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing runtime exploit doc field {required}"
+        );
+    }
+
+    let security = read_repo_file("shardloom-core/src/security.rs");
+    for required in [
+        "pub struct RuntimeInputSafetyReport",
+        "pub struct WorkspacePathSafetyReport",
+        "pub struct EvidenceArtifactSafetyReport",
+        "redact_credential_like_values",
+        "malformed_without_panic",
+        "invalid_utf8_without_panic",
+        "oversized_or_deeply_nested_blocker",
+        "workspace_path_safety_rejects_parent_traversal_and_external_outputs",
+        "evidence_artifact_safety_redacts_credential_like_values",
+    ] {
+        assert!(
+            security.contains(required),
+            "missing security code contract {required}"
         );
     }
 }

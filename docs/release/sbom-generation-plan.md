@@ -5,6 +5,34 @@
 Status: release-readiness scaffold. No packages, images, tags, or releases are
 published by this plan.
 
+## Local Dry-Run Generator
+
+P8.0E adds an executable local dry run that writes SBOM, checksum, provenance,
+and workflow policy evidence under `target/` without publishing:
+
+```powershell
+python scripts\release_provenance_dry_run.py
+```
+
+For focused inspection of existing local artifacts:
+
+```powershell
+python scripts\release_provenance_dry_run.py --skip-build
+```
+
+Generated files:
+
+```text
+target/release-provenance-dry-run/shardloom-rust-workspace.cdx.json
+target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json
+target/release-provenance-dry-run/shardloom-cli-binary.cdx.json
+target/release-provenance-dry-run/checksums.sha256
+target/release-provenance-dry-run/supply-chain-release-evidence.json
+target/release-provenance-dry-run/workflow-policy-snapshot.json
+```
+
+These files are local release-gate evidence, not published release artifacts.
+
 ## Rust Workspace SBOM
 
 Generate a Rust SBOM from the locked workspace dependency graph before any
@@ -60,3 +88,7 @@ future gate only.
 A release candidate is SBOM-ready only when Rust workspace, Python artifact, and
 release-binary SBOMs exist, are archived with checksums, and are referenced from
 release notes. Optional OCI SBOMs are required only if an OCI image is published.
+
+Before any real public release, third-party publish workflow actions must be
+pinned to commit SHAs or have an explicit maintainer waiver recorded in
+`SupplyChainReleaseEvidence`.

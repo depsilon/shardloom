@@ -59,7 +59,7 @@ fn compute_capability_matrix_exposes_rows_families_and_claim_gates() {
     )));
     assert!(output.contains(&field("matrix_status", "report_only")));
     assert!(output.contains(&field("claim_grade_status", "evidence_incomplete")));
-    assert!(output.contains(&field("compute_row_count", "12")));
+    assert!(output.contains(&field("compute_row_count", "13")));
     assert!(output.contains(&field("operator_family_count", "14")));
     assert!(output.contains(&field(
         "support_status_vocabulary",
@@ -71,13 +71,13 @@ fn compute_capability_matrix_exposes_rows_families_and_claim_gates() {
     )));
     assert!(output.contains(&field(
         "compute_row_order",
-        "local_vortex_count,local_vortex_filtered_count,local_vortex_projection,local_vortex_filter_project,prepared_encoded_filter,reader_backed_dictionary_filter,compatibility_csv_import,vortex_sink_write,grouped_aggregate,join,window_row_number,sql_frontend"
+        "local_vortex_count,local_vortex_filtered_count,local_vortex_projection,local_vortex_filter_project,prepared_encoded_filter,reader_backed_dictionary_filter,compatibility_csv_import,direct_compatibility_transient,vortex_sink_write,grouped_aggregate,join,window_row_number,sql_frontend"
     )));
     assert!(output.contains(&field("fixture_certified_count", "2")));
     assert!(output.contains(&field("executable_uncertified_count", "5")));
     assert!(output.contains(&field("report_only_count", "1")));
     assert!(output.contains(&field("planned_count", "3")));
-    assert!(output.contains(&field("unsupported_count", "1")));
+    assert!(output.contains(&field("unsupported_count", "2")));
     assert!(output.contains(&field("workload_certified_count", "0")));
     assert!(output.contains(&field("production_certified_count", "0")));
     assert!(output.contains(&field("performance_claim_allowed", "false")));
