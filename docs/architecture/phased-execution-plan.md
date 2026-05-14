@@ -48,6 +48,16 @@ Supporting docs:
 - `docs/architecture/rfc-phase-traceability.md`
   - Role: maps phases and CG work to governing RFCs.
   - Status rule: may record traceability history, but this file owns current work state.
+- `docs/architecture/global-architecture-review.md`
+  - Role: checkbox audit of every RFC plus the compute-engine flow against the repo.
+  - Status rule: every unchecked item in that review must be mirrored into this Planned queue before
+    implementation; checking a review item requires checking off the corresponding phase-plan item
+    or moving the completed session to the ledger.
+- `docs/architecture/compute-engine-flow-reference.md`
+  - Role: canonical end-to-end flow for users, CLI/Python/REST access, adapters, I/O, execution
+    modes, sinks, downstream consumers, evidence, and claim gates.
+  - Status rule: planned nodes in the flow do not authorize implementation or claims until the
+    corresponding item exists in this Planned queue and is completed with evidence.
 - `docs/architecture/capability-certification-sequencing.md`
   - Role: CG-20 sequencing ledger and implementation-order reference.
   - Status rule: phase-plan checklist owns planned CG-20 work items.
@@ -66,7 +76,7 @@ Supporting docs:
 - `docs/architecture/repo-cleanup-backlog.md`, `diagnostics-normalization-backlog.md`,
   `terminology-consolidation-backlog.md`, and `feature-footprint-doctor-plan.md`
   - Role: cleanup inventories and completed cleanup ledgers.
-  - Status rule: future cleanup must be promoted into this file as a concrete checklist item.
+  - Status rule: cleanup must be promoted into this file as a concrete checklist item.
 - `docs/architecture/canonical-terminology.md`
   - Role: authoritative glossary and concept index for ShardLoom vocabulary.
   - Status rule: defines terms and links to governing RFCs, but does not mark current phase or CG
@@ -84,7 +94,7 @@ Supporting docs:
     separate planned/release-readiness actions.
 - `docs/architecture/crate-posture-public-exports.md`
   - Role: Priority 2.8 crate posture and public export grouping reference.
-  - Status rule: documents current executable/report-only/blocked/future/prohibited-fallback export
+  - Status rule: documents current executable/report-only/unsupported/planned/prohibited-fallback export
     posture only; it does not authorize runtime or dependency expansion.
 - `docs/architecture/workspace-feature-build-matrix.md`
   - Role: Priority 3.5 workspace feature/build validation matrix reference.
@@ -135,9 +145,138 @@ Supporting docs:
 Use this section for the next implementation sequence. Keep it ordered by dependency and user value,
 not by numeric CG order.
 
-No unchecked Planned items remain on this branch after the P7.4, P7.5, P8, and P9 closeout blocks
-were moved to `docs/architecture/phased-execution-completed-ledger.md`. Add the next actionable
-phase item here before implementation begins; do not reintroduce completed history into this queue.
+### Global Architecture Review Carry-Forward
+
+Source: `docs/architecture/global-architecture-review.md`.
+
+Scope: every unchecked RFC and compute-flow review item is mirrored here so no planned,
+unsupported, or not-claimable architecture work exists only in a supporting document. Complete these
+items in logical implementation order, update the global review checkbox when evidence closes, and
+move the completed session details to `docs/architecture/phased-execution-completed-ledger.md`.
+
+Completion criteria for each item:
+
+- Implement the behavior or add a deterministic unsupported diagnostic where implementation is still
+  intentionally out of scope for the slice.
+- Preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+- Attach workload-scoped correctness, benchmark, execution-certificate, Native I/O,
+  materialization/decode, policy, and no-fallback evidence when a claim is made.
+- Add or update focused tests, snapshots, or release/readiness checks for the touched surface.
+
+#### GAR-P0 - Execution Mode, Provider Admission, And Vortex Spine
+
+- [ ] GAR-FLOW-1: `direct_compatibility_transient` currently has vocabulary and deterministic
+      unsupported/report-only capability rows, but no direct transient runtime path.
+- [ ] GAR-FLOW-2: Prepared/native Vortex rows still rely on temporary materialized or residual
+      ShardLoom-native operator paths for some scenarios until encoded/native operator coverage
+      matures.
+- [ ] GAR-FLOW-3: REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
+      no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
+- [ ] GAR-0002A: Unsupported native coverage still produces unsupported/report-only surfaces for
+      many paths.
+- [ ] GAR-0002B: Native Vortex support is not universal across every source, sink, operator, and
+      workload.
+- [ ] GAR-0031: CG-19 is not universal across object-store/range-read, streaming sinks,
+      table/catalog, external adapters, and all production source/sink paths.
+- [ ] GAR-0042: Real Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write
+      evidence, object-store I/O, GPU/device execution, and managed-platform benchmark lanes remain
+      incomplete.
+
+#### GAR-P1 - Core Runtime, Operators, And Execution Safety
+
+- [ ] GAR-0001A: Full SQL/DataFrame planner, distributed runtime, broad lakehouse-compatible output,
+      and general object-store execution remain incomplete.
+- [ ] GAR-0003: Full production Vortex segment extraction, broad operator coverage, and generalized
+      materialization policy remain incomplete.
+- [ ] GAR-0006: Broad predicate, DType, nested, null, and production metadata-only coverage remains
+      incomplete.
+- [ ] GAR-0008: Object-store I/O providers, probes, coordinator/worker runtime, checkpoint writes,
+      retry execution, distributed execution, and object-store commits remain incomplete.
+- [ ] GAR-0012: Runtime-wide diagnostic propagation for planned distributed and object-store paths
+      remains incomplete.
+- [ ] GAR-0013: Full streaming runtime and object-store streaming reads remain gated/report-only.
+- [ ] GAR-0014: Broad runtime spill/OOM promotion and production enforcement remain limited to
+      synthetic or local constraints.
+- [ ] GAR-0016: Runtime adaptive execution, runtime filters, skew handling, and compaction writes
+      remain incomplete.
+- [ ] GAR-0017: Broad retry, cancellation, and commit execution remain incomplete.
+- [ ] GAR-0018: Live profiling and distributed runtime introspection remain incomplete.
+- [ ] GAR-0021: Broad expression execution, full function/kernel coverage, and UDF/effectful
+      expression runtime remain incomplete.
+- [ ] GAR-0026: Generalized direct encoded count/filter/project execution and production
+      compressed-execution claims remain incomplete.
+- [ ] GAR-0027: Real SIMD/vectorized dispatch, host CPU probing, production vectorized kernel path,
+      adaptive parallelism runtime, and broad streaming runtime remain incomplete.
+- [ ] GAR-0038: SQL/DataFrame runtime, object-store runtime, writes, and legacy facade compatibility
+      remain incomplete; external engines remain baseline/oracle only.
+
+#### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
+
+- [ ] GAR-0004: CDC planning, table/catalog metadata reads, object-store commits, generalized
+      manifest serialization, and broad transaction semantics remain incomplete.
+- [ ] GAR-0005: Broad Vortex reader/writer support, object-store Vortex I/O, general
+      schema/encoding writes, and upstream Vortex write integration remain incomplete.
+- [ ] GAR-0007: Actual Parquet, Arrow, Iceberg, Delta, and related compatibility output writers
+      remain unimplemented or unsupported.
+- [ ] GAR-0020: Catalog/table metadata integration, real table I/O, delete/tombstone execution, and
+      CDC execution remain incomplete.
+- [ ] GAR-0028: Object-store commit, table/catalog/lakehouse commit semantics, generalized sink
+      commit, Foundry dataset transaction commit, upstream Vortex write API execution, and
+      production output-payload fidelity remain incomplete.
+
+#### GAR-P3 - User Surfaces, APIs, Adapters, And Workflow
+
+- [ ] GAR-0010: Mature ergonomic runtime APIs, DataFrame/notebook surfaces, REST runtime, and
+      user-facing package publication remain incomplete.
+- [ ] GAR-0022: Real Substrait import/export and imported-plan execution remain incomplete.
+- [ ] GAR-0030: Imported-plan execution and universal harness execution remain unimplemented
+      without capability, certificate, Native I/O, and no-fallback evidence.
+- [ ] GAR-0032: Broad SQL, DataFrame, UDF, notebook, universal adapter, unstructured/media, and
+      best-default certification remain incomplete.
+- [ ] GAR-0033: Mature DataFrame methods, SQL execution, joins, aggregations, windows, data-quality
+      APIs, object-store/table runtime, publication, production ETL certification, and external
+      baseline/oracle views remain incomplete.
+- [ ] GAR-0034: Production live/hybrid engines, broker/state-store dependencies, object-store
+      execution, freshness/exactly-once claims, and comparison-only baseline/oracle surfaces remain
+      incomplete.
+- [ ] GAR-0035: HTTP listener, remote execution, Flight/ADBC runtime bridge, broker integration,
+      production API, and dependency-expanded server remain incomplete.
+- [ ] GAR-0036: Production `shardloom-foundry`, package publication, Foundry service invocation,
+      Artifact Repository publication, Compute Module, virtual-table native execution, Foundry
+      dataset transaction runtime, and F10 workload-certified deployment remain incomplete.
+- [ ] GAR-0037: Generated clients, DB-API, SQLAlchemy, Ibis, dbt, Airflow, Dagster, Prefect, MCP,
+      Flight, ADBC, and BI connector implementations remain incomplete.
+- [ ] GAR-0039: Legacy flat `fields` mirror, remaining command-family result migration, some golden
+      fixtures, Foundry boundary fixture, and additional physical handler splits remain incomplete.
+
+#### GAR-P4 - Extension, Governance, And Runtime Policy
+
+- [ ] GAR-0011: Extension execution, UDF execution, LLM/API calls, embeddings, and external effects
+      remain unsupported/report-only.
+- [ ] GAR-0019: Credential lifecycle, runtime policy enforcement, sandbox execution, and production
+      governance remain incomplete.
+- [ ] GAR-0023: Real plugin ABI loading, sandbox runtime, and UDF execution remain incomplete.
+
+#### GAR-P5 - Correctness, Benchmarks, Claims, And Release
+
+- [ ] GAR-0001B: Spark-displacement or engine-replacement claims remain not claimable until runtime
+      and output evidence closes.
+- [ ] GAR-0009: Broad claim-grade Spark-displacement evidence and public performance claims remain
+      gated.
+- [ ] GAR-0015: Fuzz/property expansion and claim-grade benchmark superiority coverage remain
+      incomplete.
+- [ ] GAR-0024: First public release/package publication, stable API/schema windows, and signing
+      decisions remain incomplete.
+- [ ] GAR-0025: Full competitive replacement remains incomplete until correctness, benchmark,
+      Native I/O, certificate, capability, and no-fallback evidence is broad enough.
+- [ ] GAR-0029: Broad CG-5/CG-6 coverage, production stateful reuse runtime, and
+      performance/superiority claims remain incomplete.
+- [ ] GAR-0040: Full comparative reruns, source-backed claim-grade promotion, managed-platform
+      lanes, credentials, new managed dependencies, and public performance claims remain incomplete.
+- [ ] GAR-0041: Release claims remain not claimable until required matrix rows have attached passing
+      evidence.
+- [ ] GAR-0043: Full hard release-readiness gate, actual publication, and final attestation remain
+      incomplete.
 
 ## Completed
 
