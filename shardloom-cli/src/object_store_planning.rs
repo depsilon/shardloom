@@ -18,11 +18,11 @@ use shardloom_plan::{
     ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
     ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
     ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport,
-    ObjectStoreRequestPlannerReport, ObjectStoreRuntimePromotionGateReport,
-    plan_object_store_checkpoint_retry, plan_object_store_commit_protocol,
-    plan_object_store_distributed_scheduling, plan_object_store_ranges,
-    plan_object_store_request_coalescing, plan_object_store_request_planner,
-    plan_object_store_runtime_promotion_gate,
+    ObjectStoreRequestPlannerReport, ObjectStoreRuntimeBlockerMatrixRow,
+    ObjectStoreRuntimePromotionGateReport, plan_object_store_checkpoint_retry,
+    plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
+    plan_object_store_ranges, plan_object_store_request_coalescing,
+    plan_object_store_request_planner, plan_object_store_runtime_promotion_gate,
 };
 
 use crate::{
@@ -408,10 +408,123 @@ fn object_store_runtime_promotion_gate_fields(
     );
     append_object_store_runtime_existing_fields(&mut fields, report);
     append_byte_range_provider_gate_fields(&mut fields, &report.byte_range_provider_gate);
+    append_object_store_runtime_blocker_matrix_fields(&mut fields, report);
     append_object_store_runtime_allowed_fields(&mut fields, report);
     append_object_store_runtime_required_fields(&mut fields, report);
     append_object_store_runtime_status_fields(&mut fields, report);
     fields
+}
+
+fn append_object_store_runtime_blocker_matrix_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRuntimePromotionGateReport,
+) {
+    append_object_store_runtime_blocker_matrix_summary_fields(fields, report);
+    for row in &report.runtime_blocker_matrix {
+        append_object_store_runtime_blocker_matrix_row_fields(fields, row);
+    }
+}
+
+fn append_object_store_runtime_blocker_matrix_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRuntimePromotionGateReport,
+) {
+    push_field(
+        fields,
+        "runtime_blocker_matrix_schema_version",
+        "shardloom.object_store_runtime_blocker_matrix.v1",
+    );
+    push_field(
+        fields,
+        "runtime_blocker_matrix_report_id",
+        "gar0008b.object_store_runtime_blocker_matrix",
+    );
+    push_field(
+        fields,
+        "runtime_blocker_matrix_status",
+        "blocked_until_certified",
+    );
+    push_count_field(
+        fields,
+        "runtime_blocker_matrix_row_count",
+        report.runtime_blocker_matrix.len(),
+    );
+    push_field(
+        fields,
+        "runtime_blocker_matrix_row_order",
+        &report.runtime_blocker_matrix_row_order().join(","),
+    );
+    push_bool_field(
+        fields,
+        "runtime_blocker_matrix_all_allowed_false",
+        report.runtime_blocker_matrix_all_allowed_false(),
+    );
+    push_bool_field(
+        fields,
+        "runtime_blocker_matrix_all_no_io",
+        report.runtime_blocker_matrix_all_no_io(),
+    );
+    push_bool_field(
+        fields,
+        "runtime_blocker_matrix_all_no_fallback",
+        report.runtime_blocker_matrix_all_no_fallback(),
+    );
+    push_bool_field(
+        fields,
+        "runtime_blocker_matrix_all_no_external_engine",
+        report.runtime_blocker_matrix_all_no_external_engine(),
+    );
+}
+
+fn append_object_store_runtime_blocker_matrix_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &ObjectStoreRuntimeBlockerMatrixRow,
+) {
+    let prefix = format!("runtime_blocker_matrix_row_{}", row.action);
+    push_field(fields, &format!("{prefix}_status"), row.status);
+    push_field(
+        fields,
+        &format!("{prefix}_diagnostic_code"),
+        row.diagnostic_code.as_str(),
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_required_evidence"),
+        row.required_evidence,
+    );
+    append_object_store_runtime_blocker_matrix_row_effect_fields(fields, &prefix, row);
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
+}
+
+fn append_object_store_runtime_blocker_matrix_row_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &ObjectStoreRuntimeBlockerMatrixRow,
+) {
+    for (key, value) in [
+        ("allowed", row.allowed),
+        ("coordinator_started", row.coordinator_started),
+        ("worker_started", row.worker_started),
+        ("task_executed", row.task_executed),
+        ("checkpoint_written", row.checkpoint_written),
+        ("retry_attempted", row.retry_attempted),
+        ("cleanup_executed", row.cleanup_executed),
+        ("commit_record_written", row.commit_record_written),
+        ("data_read", row.data_read),
+        ("object_store_io", row.object_store_io),
+        ("write_io", row.write_io),
+        ("fallback_attempted", row.fallback_attempted),
+        ("fallback_execution_allowed", row.fallback_execution_allowed),
+        ("external_engine_invoked", row.external_engine_invoked),
+        ("side_effect_free", row.side_effect_free()),
+    ] {
+        push_bool_field(fields, &format!("{prefix}_{key}"), value);
+    }
 }
 
 fn append_byte_range_provider_gate_fields(

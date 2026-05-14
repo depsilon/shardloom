@@ -53,13 +53,13 @@ pub use object_store::{
     ObjectStoreRangeRequest, ObjectStoreRequestCoalescingDecision,
     ObjectStoreRequestCoalescingDecisionKind, ObjectStoreRequestCoalescingReport,
     ObjectStoreRequestCoalescingStatus, ObjectStoreRequestPlannerReport,
-    ObjectStoreRequestPlannerStatus, ObjectStoreRuntimePromotionGateEntry,
-    ObjectStoreRuntimePromotionGateReport, ObjectStoreRuntimePromotionRequirements,
-    ObjectStoreRuntimePromotionStatus, ObjectStoreRuntimePromotionSurface,
-    plan_object_store_checkpoint_retry, plan_object_store_commit_protocol,
-    plan_object_store_distributed_scheduling, plan_object_store_ranges,
-    plan_object_store_request_coalescing, plan_object_store_request_planner,
-    plan_object_store_runtime_promotion_gate,
+    ObjectStoreRequestPlannerStatus, ObjectStoreRuntimeBlockerMatrixRow,
+    ObjectStoreRuntimePromotionGateEntry, ObjectStoreRuntimePromotionGateReport,
+    ObjectStoreRuntimePromotionRequirements, ObjectStoreRuntimePromotionStatus,
+    ObjectStoreRuntimePromotionSurface, plan_object_store_checkpoint_retry,
+    plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
+    plan_object_store_ranges, plan_object_store_request_coalescing,
+    plan_object_store_request_planner, plan_object_store_runtime_promotion_gate,
 };
 
 // Optimizer/adaptive planning contracts; no optimizer runtime mutation occurs here.

@@ -25,6 +25,181 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+fn assert_false_fields(output: &str, keys: &[&str]) {
+    for key in keys {
+        assert!(
+            output.contains(&field(key, "false")),
+            "missing false field {key}"
+        );
+    }
+}
+
+fn assert_true_fields(output: &str, keys: &[&str]) {
+    for key in keys {
+        assert!(
+            output.contains(&field(key, "true")),
+            "missing true field {key}"
+        );
+    }
+}
+
+fn assert_runtime_gate_false_fields(output: &str) {
+    assert_false_fields(
+        output,
+        &[
+            "range_read_execution_allowed",
+            "full_file_read_allowed",
+            "request_coalescing_runtime_allowed",
+            "coordinator_start_allowed",
+            "worker_start_allowed",
+            "task_execution_allowed",
+            "retry_execution_allowed",
+            "checkpoint_write_allowed",
+            "cleanup_execution_allowed",
+            "commit_execution_allowed",
+            "credential_resolution_allowed",
+            "object_store_io_allowed",
+            "data_read_allowed",
+            "write_io_allowed",
+            "object_store_runtime_claim_allowed",
+            "distributed_runtime_claim_allowed",
+            "fallback_attempted",
+            "fallback_execution_allowed",
+        ],
+    );
+}
+
+fn assert_runtime_gate_true_fields(output: &str) {
+    assert_true_fields(
+        output,
+        &[
+            "range_planning_evidence_required",
+            "request_budget_policy_required",
+            "provider_capability_policy_required",
+            "credential_effect_policy_required",
+            "scheduler_policy_required",
+            "worker_identity_required",
+            "checkpoint_plan_required",
+            "retry_policy_required",
+            "idempotency_keys_required",
+            "attempt_records_required",
+            "cleanup_policy_required",
+            "atomic_commit_evidence_required",
+            "execution_certificate_required",
+            "native_io_certificate_required",
+            "benchmark_evidence_required",
+            "runtime_promotions_blocked",
+            "claim_blocked",
+            "side_effect_free",
+            "plan_only",
+        ],
+    );
+}
+
+fn assert_byte_range_provider_gate_fields(output: &str) {
+    assert_false_fields(
+        output,
+        &[
+            "byte_range_provider_gate_range_read_execution_allowed",
+            "byte_range_provider_gate_full_file_read_allowed",
+            "byte_range_provider_gate_credential_resolution_allowed",
+            "byte_range_provider_gate_credentials_resolved",
+            "byte_range_provider_gate_retry_execution_allowed",
+            "byte_range_provider_gate_provider_probe",
+            "byte_range_provider_gate_network_probe",
+            "byte_range_provider_gate_data_read",
+            "byte_range_provider_gate_object_store_io",
+            "byte_range_provider_gate_write_io",
+            "byte_range_provider_gate_fallback_attempted",
+            "byte_range_provider_gate_fallback_execution_allowed",
+            "byte_range_provider_gate_external_engine_invoked",
+        ],
+    );
+    assert_true_fields(
+        output,
+        &[
+            "byte_range_provider_gate_range_planning_evidence_present",
+            "byte_range_provider_gate_request_budget_policy_required",
+            "byte_range_provider_gate_provider_capability_policy_required",
+            "byte_range_provider_gate_credential_policy_required",
+            "byte_range_provider_gate_retry_policy_required",
+            "byte_range_provider_gate_idempotency_key_required",
+            "byte_range_provider_gate_execution_certificate_required",
+            "byte_range_provider_gate_native_io_certificate_required",
+            "byte_range_provider_gate_benchmark_evidence_required",
+            "byte_range_provider_gate_side_effect_free",
+        ],
+    );
+    assert!(output.contains(&field(
+        "byte_range_provider_gate_required_evidence",
+        "provider_capability_policy,credential_effect_policy,request_budget_policy,retry_policy,idempotency_key_contract,execution_certificate,native_io_certificate,benchmark_evidence"
+    )));
+    assert!(output.contains(&field(
+        "byte_range_provider_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+}
+
+fn assert_runtime_blocker_matrix_fields(output: &str) {
+    assert_false_fields(
+        output,
+        &[
+            "runtime_blocker_matrix_row_coordinator_start_allowed",
+            "runtime_blocker_matrix_row_worker_start_allowed",
+            "runtime_blocker_matrix_row_task_execution_allowed",
+            "runtime_blocker_matrix_row_checkpoint_write_allowed",
+            "runtime_blocker_matrix_row_retry_attempt_allowed",
+            "runtime_blocker_matrix_row_cleanup_execution_allowed",
+            "runtime_blocker_matrix_row_commit_record_write_allowed",
+            "runtime_blocker_matrix_row_coordinator_start_coordinator_started",
+            "runtime_blocker_matrix_row_worker_start_worker_started",
+            "runtime_blocker_matrix_row_task_execution_task_executed",
+            "runtime_blocker_matrix_row_checkpoint_write_checkpoint_written",
+            "runtime_blocker_matrix_row_retry_attempt_retry_attempted",
+            "runtime_blocker_matrix_row_cleanup_execution_cleanup_executed",
+            "runtime_blocker_matrix_row_commit_record_write_commit_record_written",
+            "runtime_blocker_matrix_row_retry_attempt_fallback_attempted",
+            "runtime_blocker_matrix_row_commit_record_write_external_engine_invoked",
+        ],
+    );
+    assert_true_fields(
+        output,
+        &[
+            "runtime_blocker_matrix_all_allowed_false",
+            "runtime_blocker_matrix_all_no_io",
+            "runtime_blocker_matrix_all_no_fallback",
+            "runtime_blocker_matrix_all_no_external_engine",
+            "runtime_blocker_matrix_row_coordinator_start_side_effect_free",
+            "runtime_blocker_matrix_row_worker_start_side_effect_free",
+            "runtime_blocker_matrix_row_task_execution_side_effect_free",
+            "runtime_blocker_matrix_row_checkpoint_write_side_effect_free",
+            "runtime_blocker_matrix_row_retry_attempt_side_effect_free",
+            "runtime_blocker_matrix_row_cleanup_execution_side_effect_free",
+            "runtime_blocker_matrix_row_commit_record_write_side_effect_free",
+        ],
+    );
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_retry_attempt_diagnostic_code",
+        "SL_OBJECT_STORE_UNSUPPORTED"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_retry_attempt_blocker_id",
+        "gar0008b.retry_attempt_blocked"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_retry_attempt_required_evidence",
+        "retry_policy,retryable_failure_classes,attempt_records,idempotency_key_contract"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_commit_record_write_required_evidence",
+        "commit_record_schema,atomic_commit_evidence,cleanup_policy,idempotency_key_contract"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_commit_record_write_claim_gate_status",
+        "not_claim_grade"
+    )));
+}
+
 #[test]
 fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() {
     let output = run_cg10_object_store_runtime_gate_json();
@@ -55,6 +230,19 @@ fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() 
         "byte_range_provider_gate_status",
         "blocked_until_certified"
     )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_schema_version",
+        "shardloom.object_store_runtime_blocker_matrix.v1"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_report_id",
+        "gar0008b.object_store_runtime_blocker_matrix"
+    )));
+    assert!(output.contains(&field("runtime_blocker_matrix_row_count", "7")));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_order",
+        "coordinator_start,worker_start,task_execution,checkpoint_write,retry_attempt,cleanup_execution,commit_record_write"
+    )));
     assert!(output.contains(&field("existing_request_planner_evidence_present", "true")));
     assert!(output.contains(&field("existing_range_planning_evidence_present", "true")));
     assert!(output.contains(&field("existing_coalescing_evidence_present", "true")));
@@ -70,88 +258,9 @@ fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() 
 fn cg10_object_store_runtime_gate_blocks_execution_io_credentials_and_claims() {
     let output = run_cg10_object_store_runtime_gate_json();
 
-    for key in [
-        "range_read_execution_allowed",
-        "full_file_read_allowed",
-        "request_coalescing_runtime_allowed",
-        "coordinator_start_allowed",
-        "worker_start_allowed",
-        "task_execution_allowed",
-        "retry_execution_allowed",
-        "checkpoint_write_allowed",
-        "cleanup_execution_allowed",
-        "commit_execution_allowed",
-        "credential_resolution_allowed",
-        "object_store_io_allowed",
-        "data_read_allowed",
-        "write_io_allowed",
-        "object_store_runtime_claim_allowed",
-        "distributed_runtime_claim_allowed",
-        "fallback_attempted",
-        "fallback_execution_allowed",
-        "byte_range_provider_gate_range_read_execution_allowed",
-        "byte_range_provider_gate_full_file_read_allowed",
-        "byte_range_provider_gate_credential_resolution_allowed",
-        "byte_range_provider_gate_credentials_resolved",
-        "byte_range_provider_gate_retry_execution_allowed",
-        "byte_range_provider_gate_provider_probe",
-        "byte_range_provider_gate_network_probe",
-        "byte_range_provider_gate_data_read",
-        "byte_range_provider_gate_object_store_io",
-        "byte_range_provider_gate_write_io",
-        "byte_range_provider_gate_fallback_attempted",
-        "byte_range_provider_gate_fallback_execution_allowed",
-        "byte_range_provider_gate_external_engine_invoked",
-    ] {
-        assert!(
-            output.contains(&field(key, "false")),
-            "missing false field {key}"
-        );
-    }
-
-    for key in [
-        "range_planning_evidence_required",
-        "request_budget_policy_required",
-        "provider_capability_policy_required",
-        "credential_effect_policy_required",
-        "scheduler_policy_required",
-        "worker_identity_required",
-        "checkpoint_plan_required",
-        "retry_policy_required",
-        "idempotency_keys_required",
-        "attempt_records_required",
-        "cleanup_policy_required",
-        "atomic_commit_evidence_required",
-        "execution_certificate_required",
-        "native_io_certificate_required",
-        "benchmark_evidence_required",
-        "runtime_promotions_blocked",
-        "claim_blocked",
-        "side_effect_free",
-        "plan_only",
-        "byte_range_provider_gate_range_planning_evidence_present",
-        "byte_range_provider_gate_request_budget_policy_required",
-        "byte_range_provider_gate_provider_capability_policy_required",
-        "byte_range_provider_gate_credential_policy_required",
-        "byte_range_provider_gate_retry_policy_required",
-        "byte_range_provider_gate_idempotency_key_required",
-        "byte_range_provider_gate_execution_certificate_required",
-        "byte_range_provider_gate_native_io_certificate_required",
-        "byte_range_provider_gate_benchmark_evidence_required",
-        "byte_range_provider_gate_side_effect_free",
-    ] {
-        assert!(
-            output.contains(&field(key, "true")),
-            "missing true field {key}"
-        );
-    }
-    assert!(output.contains(&field(
-        "byte_range_provider_gate_required_evidence",
-        "provider_capability_policy,credential_effect_policy,request_budget_policy,retry_policy,idempotency_key_contract,execution_certificate,native_io_certificate,benchmark_evidence"
-    )));
-    assert!(output.contains(&field(
-        "byte_range_provider_gate_claim_gate_status",
-        "not_claim_grade"
-    )));
+    assert_runtime_gate_false_fields(&output);
+    assert_runtime_gate_true_fields(&output);
+    assert_byte_range_provider_gate_fields(&output);
+    assert_runtime_blocker_matrix_fields(&output);
     assert!(output.contains(&field("execution", "not_performed")));
 }
