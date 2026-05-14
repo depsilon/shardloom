@@ -391,8 +391,8 @@ plan before coding.
 - Source:
   [`docs/rfcs/0026-encoded-native-reads-query-primitives-compressed-execution.md`](../rfcs/0026-encoded-native-reads-query-primitives-compressed-execution.md)
 - Current read: Encoded read boundary, local query primitives, and scoped prepared/native
-  filter-project-limit, grouped aggregate, multi-key group-by, hash-join, and join-aggregate scan
-  execution exist.
+  filter-project-limit, grouped aggregate, multi-key group-by, hash-join, join-aggregate, and
+  top-N-per-group scan execution exist.
 - Evidence: `shardloom-vortex/src/encoded_read_api.rs`,
   `shardloom-vortex/src/encoded_read_boundary.rs`,
   `shardloom-vortex/src/encoded_read_executor.rs`,
@@ -421,6 +421,9 @@ plan before coding.
   `value >= 2500` filter, then ShardLoom-native bounded dimension state and residual grouped
   aggregation without full fact-table materialization while preserving
   `operator_encoded_native_claim_allowed=false`.
+- [x] Scoped prepared/native `top-N per group` uses Vortex scan projection pushdown over
+  `group_key`/`id`/`metric`, then bounded ShardLoom-native per-group ranking state without full
+  fact-table materialization while preserving `operator_encoded_native_claim_allowed=false`.
 - [ ] Generalized direct encoded count/filter/project execution and production compressed-execution
   claims remain incomplete.
 

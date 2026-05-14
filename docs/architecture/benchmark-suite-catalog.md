@@ -214,7 +214,9 @@ ShardLoom-native dimension state plus residual grouped join output without
 full fact-table materialization. The scoped `join + aggregate` prepared/native
 row adds fact-side value filter pushdown and residual grouped `(dim_label,
 category)` aggregation over projected fact/dimension scans without full
-fact-table materialization.
+fact-table materialization. The scoped `top-N per group` prepared/native row
+scans projected `group_key`/`id`/`metric` columns into bounded ShardLoom-native
+per-group ranking state without full fact-table materialization.
 `compute-capability-matrix` exposes the same class vocabulary and per-row
 operator class/blocker fields so CLI capability discovery matches benchmark
 evidence.
