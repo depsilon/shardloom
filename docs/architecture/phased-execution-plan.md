@@ -260,28 +260,11 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-FLOW-1A direct compatibility transient admission contract
-  - Source: `docs/architecture/compute-engine-flow-reference.md`; RFC 0033; RFC 0042.
-  - Current state: `direct_compatibility_transient` exists as vocabulary and deterministic
-    unsupported/report-only posture; no runtime path exists.
-  - Next slice outcome: explicit admission/capability report for allowed, unsupported, or
-    report-only direct transient requests.
-  - User-visible surface: CLI capability output, Python capability view, benchmark coverage rows.
-  - Implementation scope: capability structs, CLI status/capabilities, Python typed accessors, and
-    benchmark metadata fields.
-  - Evidence required: policy/no-fallback refs and unsupported diagnostic snapshots; no correctness
-    or benchmark claim evidence required for this report-only slice.
-  - Acceptance: direct transient requests emit deterministic `support_status=unsupported|blocked|report_only`;
-    no runtime execution is attempted; the mode is never reported as Vortex-native.
-  - Verification: default GAR verification plus focused capability snapshot tests and Python accessor
-    tests if code changes.
-  - Non-goals: no direct transient execution, external engine, or Vortex-native claim.
-  - Fallback/claim boundary: `fallback_attempted=false`, `external_engine_invoked=false`, and
-    `claim_gate_status=not_claim_grade`.
-  - Dependencies/blockers: direct transient runtime slices must follow this admission contract.
 - [ ] GAR-FLOW-1B direct compatibility transient local CSV smoke path
   - Source: GAR-FLOW-1A; RFC 0033; RFC 0042; benchmark harness docs.
-  - Current state: admission/report-only posture exists; no direct compatibility compute path exists.
+  - Current state: the admission contract emits deterministic unsupported diagnostics across CLI,
+    Python typed accessors, capability views, and benchmark coverage rows; no direct compatibility
+    compute path exists.
   - Next slice outcome: one ShardLoom-native transient local CSV scenario that computes without
     persistent Vortex write/reopen.
   - User-visible surface: CLI benchmark path and benchmark coverage row.
@@ -296,7 +279,8 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     claim.
   - Fallback/claim boundary: may claim one scoped transient CSV smoke path only; no speed,
     superiority, or Vortex-native claim.
-  - Dependencies/blockers: GAR-FLOW-1A admission fields.
+  - Dependencies/blockers: completed GAR-FLOW-1A admission fields exist; runtime correctness,
+    materialization, and no-fallback evidence remain missing.
 - [ ] GAR-FLOW-2A execution-mode benchmark attribution contract
   - Source: `docs/architecture/compute-engine-flow-reference.md`,
     `docs/architecture/performance-attribution-and-execution-structure.md`,
@@ -334,6 +318,60 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no new encoded operator implementation in this slice.
   - Fallback/claim boundary: prepared/native can claim only scoped lanes whose evidence is attached.
   - Dependencies/blockers: GAR-0026 and GAR-0021 operator work.
+- [ ] GAR-FLOW-2C persistent benchmark runner admission gate
+  - Source: `docs/architecture/benchmark-persistent-runner-decision.md`;
+    `docs/architecture/performance-attribution-and-execution-structure.md`;
+    `benchmarks/traditional_analytics/README.md`; official references:
+    [Apache Arrow columnar format](https://arrow.apache.org/docs/format/Columnar.html),
+    [DuckDB execution format](https://duckdb.org/docs/current/internals/vector),
+    [Spark SQL performance tuning](https://spark.apache.org/docs/3.5.6/sql-performance-tuning.html),
+    and [Vortex documentation](https://docs.vortex.dev/).
+  - Current state: benchmark rows attribute process-per-scenario overhead with
+    `persistent_runner_status=process_per_scenario_attributed_not_reduced`, but no persistent
+    runner contract is admitted.
+  - Next slice outcome: report-only feasibility gate defining when a persistent runner can be added
+    without hiding execution-mode selection, typed envelopes, policy evidence, build scope, or
+    no-fallback status.
+  - User-visible surface: benchmark Markdown/JSON metadata, README guidance, release claim gate.
+  - Implementation scope: benchmark artifact schema, renderer text, contract tests, docs only.
+  - Evidence required: benchmark refs, execution-mode report refs, no-fallback refs, command-family
+    lifecycle refs, and source-grounded rationale for separating process overhead from operator
+    work.
+  - Acceptance: benchmark output keeps `persistent_runner_status` explicit; a future persistent
+    runner must preserve per-run typed envelopes and per-row `fallback_attempted=false` /
+    `external_engine_invoked=false`; no hidden fast mode or performance claim is introduced.
+  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
+    benchmark smoke named in `benchmarks/traditional_analytics/README.md`, `git diff --check`.
+  - Non-goals: no daemon, background service, IPC protocol, warm worker, or benchmark result change.
+  - Fallback/claim boundary: process-overhead reduction remains planning-only; any performance claim
+    stays `claim_gate_status=not_claim_grade` until claim-grade reruns pass.
+  - Dependencies/blockers: GAR-FLOW-2A attribution contract.
+- [ ] GAR-FLOW-2D work-avoidance metric evidence schema
+  - Source: `benchmarks/traditional_analytics/README.md`;
+    `docs/architecture/benchmark-suite-catalog.md`;
+    `docs/architecture/vortex-runtime-utilization-audit.md`; official references:
+    [Apache Arrow columnar format](https://arrow.apache.org/docs/format/Columnar.html),
+    [Spark Parquet configuration](https://spark.apache.org/docs/latest/sql-data-sources-parquet.html),
+    [DuckDB execution format](https://duckdb.org/docs/current/internals/vector), and
+    [Vortex documentation](https://docs.vortex.dev/).
+  - Current state: local smoke rows expose broad work-avoidance posture, but skipped rows, pruned
+    segments, bytes avoided, encoded-vector reuse, and pushdown proof are often unknown.
+  - Next slice outcome: benchmark/report schema that distinguishes `measured`, `not_available`,
+    `unsupported`, and `not_applicable` for work-avoidance metrics before any optimization claim.
+  - User-visible surface: benchmark JSON/Markdown work-avoidance table, capability rows, claim gate.
+  - Implementation scope: benchmark row fields, renderer text, contract tests, docs.
+  - Evidence required: benchmark refs, source/pushdown refs, materialization/decode refs, Native I/O
+    refs, no-fallback refs.
+  - Acceptance: every ShardLoom row states whether rows/segments/bytes avoided were measured or why
+    not; unknown values cannot be interpreted as zero; no Spark-displacement or superiority claim is
+    allowed from missing metrics.
+  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
+    focused benchmark smoke, `git diff --check`.
+  - Non-goals: no new pruning implementation, no encoded operator promotion, no external engine
+    invocation.
+  - Fallback/claim boundary: work-avoidance evidence is report/schema-only until workload-scoped
+    measurements and release gates pass.
+  - Dependencies/blockers: GAR-FLOW-2A and GAR-FLOW-2B.
 - [ ] GAR-FLOW-3A REST execution-mode parity report
   - Source: `docs/architecture/execution-mode-protocol-parity.md`; RFC 0035; RFC 0039; RFC 0042.
   - Current state: REST parity is documented, but there is no REST runtime/server surface.

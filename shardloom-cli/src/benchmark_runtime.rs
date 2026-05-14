@@ -12,8 +12,9 @@ use std::{
 use shardloom_core::{
     BaselineEngine, BenchmarkComparisonReport, BenchmarkEvidenceState, BenchmarkMetric,
     BenchmarkPlan, BenchmarkResult, BenchmarkScenario, CommandStatus, CorrectnessValidationMode,
-    DatasetUri, Diagnostic, ExpectedOutcome, MetricValue, OutputFormat, ShardLoomError,
-    ShardLoomExecutionMode, WorkloadClass,
+    DatasetUri, Diagnostic, DiagnosticCode, ExpectedOutcome, MetricValue, OutputFormat,
+    ShardLoomError, ShardLoomExecutionMode, ShardLoomExecutionModeSelectionReport,
+    ShardLoomExecutionModeSelectionRequest, WorkloadClass,
 };
 use shardloom_vortex::VortexLocalExecutionReport;
 
@@ -31,19 +32,19 @@ pub(crate) fn handle_traditional_analytics_run(
 ) -> ExitCode {
     let Some(scenario_text) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
+            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--execution-mode auto|compatibility_import_certified|direct_compatibility_transient] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let Some(fact_csv) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
+            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--execution-mode auto|compatibility_import_certified|direct_compatibility_transient] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let Some(dim_csv) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
+            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--execution-mode auto|compatibility_import_certified|direct_compatibility_transient] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
@@ -122,18 +123,16 @@ pub(crate) fn handle_traditional_analytics_run(
             "--execution-mode" => {
                 let Some(value) = args.next() else {
                     eprintln!(
-                        "usage: shardloom traditional-analytics-run ... --execution-mode auto|compatibility_import_certified"
+                        "usage: shardloom traditional-analytics-run ... --execution-mode auto|compatibility_import_certified|direct_compatibility_transient"
                     );
                     return ExitCode::from(2);
                 };
-                match ShardLoomExecutionMode::parse(&value) {
+                let parsed_mode = match ShardLoomExecutionMode::parse(&value) {
                     Ok(
-                        ShardLoomExecutionMode::Auto
-                        | ShardLoomExecutionMode::CompatibilityImportCertified,
-                    ) => {
-                        requested_execution_mode = ShardLoomExecutionMode::parse(&value)
-                            .expect("execution mode was already parsed");
-                    }
+                        mode @ (ShardLoomExecutionMode::Auto
+                        | ShardLoomExecutionMode::CompatibilityImportCertified
+                        | ShardLoomExecutionMode::DirectCompatibilityTransient),
+                    ) => mode,
                     Ok(mode) => {
                         return emit_error(
                             "traditional-analytics-run",
@@ -153,7 +152,8 @@ pub(crate) fn handle_traditional_analytics_run(
                             &error,
                         );
                     }
-                }
+                };
+                requested_execution_mode = parsed_mode;
             }
             "--memory-gb" => {
                 let Some(value) = args.next() else {
@@ -228,6 +228,14 @@ pub(crate) fn handle_traditional_analytics_run(
     let input_format = input_format.unwrap_or_else(|| {
         shardloom_vortex::TraditionalAnalyticsInputFormat::infer_from_paths(&fact_path, &dim_path)
     });
+    if requested_execution_mode == ShardLoomExecutionMode::DirectCompatibilityTransient {
+        return emit_direct_compatibility_transient_unsupported(
+            format,
+            input_format,
+            verify_native_vortex_replay,
+            write_result_vortex,
+        );
+    }
     let request = shardloom_vortex::TraditionalAnalyticsRequest::new(
         scenario,
         fact_path,
@@ -267,6 +275,58 @@ pub(crate) fn handle_traditional_analytics_run(
         report.fields(),
     );
     ExitCode::SUCCESS
+}
+
+fn emit_direct_compatibility_transient_unsupported(
+    format: OutputFormat,
+    input_format: shardloom_vortex::TraditionalAnalyticsInputFormat,
+    certification_requested: bool,
+    result_sink_requested: bool,
+) -> ExitCode {
+    let report = ShardLoomExecutionModeSelectionReport::from_request(
+        ShardLoomExecutionModeSelectionRequest::new(
+            ShardLoomExecutionMode::DirectCompatibilityTransient,
+        )
+        .with_source_format(input_format.as_str())
+        .with_workload_constitution("local_vortex_analytics_v1")
+        .with_compatibility_input(true)
+        .with_certification_requested(certification_requested)
+        .with_result_sink_requested(result_sink_requested),
+    );
+    let mut fields = report.fields();
+    fields.extend([
+        (
+            "admission_surface".to_string(),
+            "traditional_analytics_direct_transient".to_string(),
+        ),
+        ("runtime_execution".to_string(), "false".to_string()),
+        ("query_execution".to_string(), "false".to_string()),
+        ("data_read".to_string(), "false".to_string()),
+        ("data_materialized".to_string(), "false".to_string()),
+        ("write_io".to_string(), "false".to_string()),
+        ("no_runtime".to_string(), "true".to_string()),
+        ("no_fallback".to_string(), "true".to_string()),
+        ("no_effects".to_string(), "true".to_string()),
+    ]);
+    emit(
+        "traditional-analytics-run",
+        format,
+        CommandStatus::Unsupported,
+        "direct compatibility transient admission".to_string(),
+        "direct_compatibility_transient is unsupported; no runtime execution was attempted"
+            .to_string(),
+        vec![Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            "direct_compatibility_transient",
+            "direct_compatibility_transient is unsupported for traditional-analytics-run; no runtime execution was attempted",
+            Some(
+                "Use compatibility_import_certified for certified ingest/stage evidence until a direct transient local smoke path is implemented."
+                    .to_string(),
+            ),
+        )],
+        fields,
+    );
+    ExitCode::from(1)
 }
 
 #[allow(clippy::too_many_lines)]

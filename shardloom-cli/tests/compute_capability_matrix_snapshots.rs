@@ -114,6 +114,26 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
         "compatibility_boundary"
     )));
     assert!(output.contains(&field(
+        "compute_row_direct_compatibility_transient_support_status",
+        "unsupported"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_direct_compatibility_transient_unsupported_diagnostic_code",
+        "SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_direct_compatibility_transient_vortex_native_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_direct_compatibility_transient_fallback_attempted",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_direct_compatibility_transient_external_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains(&field(
         "compute_row_vortex_sink_write_support_status",
         "report_only"
     )));

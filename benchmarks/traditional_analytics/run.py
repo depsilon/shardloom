@@ -3478,6 +3478,63 @@ def materialization_decode_evidence_present(evidence: dict[str, Any]) -> bool:
     )
 
 
+def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str, Any]:
+    constitution = result["benchmark_constitution"]
+    return {
+        "scenario_name": result["scenario_name"],
+        "scenario_id": result["scenario_id"],
+        "scenario_category": result["scenario_category"],
+        "dataset_profile": result["dataset_profile"],
+        "engine": result["engine"],
+        "engine_role": result["engine_role"],
+        "status": "unsupported",
+        "row_classification": "unsupported",
+        "support_status": "unsupported",
+        "supported_status": "unsupported",
+        "timing_row_present": False,
+        "claim_gate_status": "unsupported",
+        "claim_grade_requirements_met": False,
+        "claim_grade_missing_evidence": [
+            "direct compatibility transient runtime is unsupported",
+            "direct mode certificate missing",
+        ],
+        "correctness_digest_stable": False,
+        "reproducibility_min_iterations": MIN_CLAIM_GRADE_ITERATIONS,
+        "reproducibility_iterations_met": False,
+        "reproducible_benchmark_row": False,
+        "timing_row_claim_grade": False,
+        "write_timing_present": False,
+        "computed_result_sink_write_millis": None,
+        "execution_mode": "direct_compatibility_transient",
+        "requested_execution_mode": "direct_compatibility_transient",
+        "selected_execution_mode": "direct_compatibility_transient",
+        "mode_selection_reason": "direct_compatibility_transient_not_implemented",
+        "execution_mode_family": "compatibility",
+        "vortex_native_claim_allowed": False,
+        "compatibility_import_included": False,
+        "vortex_prepare_included": False,
+        "vortex_write_reopen_included": False,
+        "direct_transient_execution": False,
+        "preparation_millis": None,
+        "preparation_included_in_timing": False,
+        "benchmark_constitution_id": constitution["constitution_id"],
+        "benchmark_row_ref": None,
+        "coverage_row_ref": "coverage.direct_compatibility_transient.admission",
+        "certificate_status": "unsupported",
+        "execution_certificate_status": "unsupported",
+        "source_native_io_certificate_status": "unsupported",
+        "result_native_io_certificate_status": "unsupported",
+        "materialization_decode_evidence_present": False,
+        "native_io_status_required": False,
+        "materialization_policy": constitution["materialization_policy"],
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "unsupported_diagnostic_code": "direct_compatibility_transient_not_implemented",
+        "blocker_id": "P7.5.4",
+        "required_future_evidence": "shardloom_native_transient_executor,direct_mode_certificate",
+    }
+
+
 def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = []
     for result in results:
@@ -3563,6 +3620,8 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 ),
             }
         )
+        if result["engine"] == "shardloom":
+            rows.append(direct_transient_admission_coverage_row(result))
     return rows
 
 

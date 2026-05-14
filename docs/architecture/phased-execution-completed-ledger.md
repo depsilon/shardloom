@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-1A direct compatibility transient admission contract
+  - Primary files:
+    - `shardloom-core/src/output.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `python/src/shardloom/client.py`
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/global-architecture-review.md`
+  - Scope: close the report-only admission slice for `direct_compatibility_transient` without
+    implementing runtime execution. Direct transient requests now have deterministic unsupported
+    admission fields in the shared execution-mode report, CLI JSON envelopes, Python typed
+    accessors, capability views, and benchmark coverage rows.
+  - Checklist:
+    - [x] Add `support_status` to the execution-mode selection report and typed envelope artifact.
+    - [x] Emit a structured unsupported `traditional-analytics-run --execution-mode
+          direct_compatibility_transient` envelope before any dataset read or runtime execution.
+    - [x] Preserve `mode_supported=false`, `direct_transient_execution=false`,
+          `vortex_native_claim_allowed=false`, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+    - [x] Surface the admission status through Python typed accessors.
+    - [x] Add a benchmark coverage row for direct transient admission with no timing row and
+          `claim_gate_status=unsupported`.
+    - [x] Move GAR-FLOW-1A out of Planned and update GAR-FLOW-1B as the remaining runtime slice.
+  - Boundary:
+    - This does not implement direct transient execution, does not read user data on the unsupported
+      path, does not add an external engine, and does not create a Vortex-native, performance, or
+      production claim.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core execution_mode_selection --lib`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock representative_cli_json_paths_keep_typed_envelope_contract`
+    - `cargo test -p shardloom-cli --test compute_capability_matrix_snapshots`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m unittest python.tests.test_cli_client -v`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `shardloom traditional-analytics-run "selective filter" missing_fact.csv missing_dim.csv --input-format csv --execution-mode direct_compatibility_transient --format json`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom,pandas --formats csv --scenario "selective filter" --rows 1000 --iterations 1 --shardloom-result-sink --output target/codex-gar-flow-1a-smoke.json --markdown-output target/codex-gar-flow-1a-smoke.md --regenerate`
+
 - [x] Session label: workspace path safety CI portability repair
   - Primary files:
     - `shardloom-core/src/security.rs`

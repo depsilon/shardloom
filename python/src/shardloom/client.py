@@ -1049,6 +1049,7 @@ class ExecutionResultEnvelopeView:
             "prepared_artifact_available",
             "native_vortex_provider_available",
             "mode_supported",
+            "support_status",
             "unsupported_diagnostic_code",
             "blocker_id",
             "required_future_evidence",
@@ -1130,6 +1131,12 @@ class ExecutionResultEnvelopeView:
         """Whether the requested mode was admitted as supported."""
 
         return self._execution_mode_bool("mode_supported")
+
+    @property
+    def support_status(self) -> str | None:
+        """Return the execution-mode admission support status."""
+
+        return self._execution_mode_field("support_status")
 
     @property
     def claim_gate_status(self) -> str | None:
