@@ -423,8 +423,9 @@ plan before coding.
   [`docs/rfcs/0026-encoded-native-reads-query-primitives-compressed-execution.md`](../rfcs/0026-encoded-native-reads-query-primitives-compressed-execution.md)
 - Current read: Encoded read boundary, local query primitives, and scoped prepared/native
   filter-project-limit, grouped aggregate, multi-key group-by, hash-join, join-aggregate, distinct
-  count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, global
-  sort/top-k, top-N-per-group/row-number/string-group/date-range scan execution exist.
+  count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON
+  field scan, global sort/top-k, top-N-per-group/row-number/string-group/date-range scan execution
+  exist.
 - Evidence: `shardloom-vortex/src/encoded_read_api.rs`,
   `shardloom-vortex/src/encoded_read_boundary.rs`,
   `shardloom-vortex/src/encoded_read_executor.rs`,
@@ -476,6 +477,9 @@ plan before coding.
   over `raw_event_time` and `dirty_numeric`, then ShardLoom-native validation/parse/aggregate state
   without full fact-table materialization while preserving
   `operator_encoded_native_claim_allowed=false`.
+- [x] Scoped prepared/native `nested JSON field scan` uses Vortex scan projection pushdown over
+  `nested_payload`, then ShardLoom-native generated-field extraction state without full fact-table
+  materialization while preserving `operator_encoded_native_claim_allowed=false`.
 - [x] Scoped prepared/native `partition pruning` uses Vortex scan projection/filter pushdown over
   `event_date`/`metric` with a local date-range predicate, then ShardLoom-native residual scalar
   aggregation without full fact-table materialization while preserving
