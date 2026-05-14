@@ -16,6 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0006-A predicate, dtype, nested, and null coverage matrix
+  - Primary files:
+    - `README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `python/src/shardloom/__init__.py`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/compute_capability_matrix_snapshots.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add a machine-readable predicate/DType/null/nested/statistics coverage matrix to
+    `compute-capability-matrix` and expose typed Python accessors for the row set.
+  - Checklist:
+    - [x] Add support-status vocabulary and row ordering for predicate, DType, null-semantics,
+          nested-shape, and statistics families.
+    - [x] Record required statistics, fixture status, evidence gaps, unsupported diagnostic codes,
+          blocker IDs, future evidence requirements, and claim boundaries per row.
+    - [x] Preserve `execution_attempted=false`, `fallback_attempted=false`, and
+          `external_engine_invoked=false` for every row.
+    - [x] Keep broad predicate/DType/null/nested/statistics claims at
+          `claim_gate_status=not_claim_grade`.
+    - [x] Surface rows through CLI JSON/text output, typed envelope payload keys, Python typed
+          accessors, contract tests, the GAR, traceability, benchmark catalog, README, and ledger.
+  - Boundary:
+    - This is a coverage/admission matrix only. It does not add predicate runtime behavior, broaden
+      metadata pruning, implement nested-field pruning, add object-store I/O, execute external
+      engines, create fallback execution, or authorize performance/production claims.
+  - Evidence:
+    - Correctness evidence: scoped fixture refs are attached where existing fixture-smoke evidence
+      exists; missing rows name required future fixture evidence.
+    - Benchmark evidence: scoped benchmark refs are attached for existing smoke/catalog rows; rows
+      without benchmark proof remain `fixture_needed`, `executable_uncertified`, or `unsupported`.
+    - Execution certificate refs: existing fixture certificate refs are preserved where available;
+      otherwise rows name the required future certificate.
+    - Native I/O refs: existing Native I/O certificate refs are preserved where available; otherwise
+      rows name the required future certificate.
+    - Materialization/decode refs: every row states whether metadata/encoded handling is expected
+      or whether decode/materialization is unsupported.
+    - No-fallback refs: every row emits `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+  - Vortex-first provider check:
+    - Subject area: RFC 0006 statistics, pruning, metadata-only execution, and predicate/DType
+      coverage posture.
+    - Upstream Vortex concept checked: this slice adds ShardLoom capability/report metadata around
+      current Vortex-backed and ShardLoom-native paths; no new upstream Vortex runtime API is
+      invoked.
+    - Decision: `implement_shardloom_report_contract` for coverage/admission rows only.
+    - Residual handling: unsupported or uncertified families remain explicit rows with deterministic
+      blockers and no execution.
+    - Gates still blocked: broad predicate runtime, claim-grade DType coverage, nested-field
+      pruning, null-heavy production proof, object-store/table statistics, and performance claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli --test compute_capability_matrix_snapshots`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python -m unittest discover -s python/tests`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0027-A CPU/SIMD/vectorization admission slice
   - Primary files:
     - `README.md`

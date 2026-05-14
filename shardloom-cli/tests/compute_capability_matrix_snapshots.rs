@@ -165,6 +165,96 @@ fn assert_native_unsupported_coverage_summary_fields(output: &str) {
     )));
 }
 
+fn assert_predicate_dtype_coverage_summary_fields(output: &str) {
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_schema_version",
+        "shardloom.predicate_dtype_coverage.v1"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_status",
+        "complete_for_current_matrix"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_category_vocabulary",
+        "predicate,dtype,null_semantics,nested_shape,statistics"
+    )));
+    assert!(output.contains(&field("predicate_dtype_coverage_row_count", "12")));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_order",
+        "predicate_i64_range,predicate_i64_equality,predicate_string_dictionary,predicate_boolean_counts,predicate_compound_or_not,dtype_int64,dtype_utf8_dictionary,dtype_decimal_timestamp,null_all_null_segments,null_mixed_segments,nested_field_pruning,statistics_missing_or_inexact"
+    )));
+    assert!(output.contains(&field("predicate_dtype_coverage_predicate_count", "5")));
+    assert!(output.contains(&field("predicate_dtype_coverage_dtype_count", "3")));
+    assert!(output.contains(&field("predicate_dtype_coverage_null_semantics_count", "2")));
+    assert!(output.contains(&field("predicate_dtype_coverage_nested_shape_count", "1")));
+    assert!(output.contains(&field("predicate_dtype_coverage_statistics_count", "1")));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_fixture_certified_count",
+        "2"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_executable_uncertified_count",
+        "2"
+    )));
+    assert!(output.contains(&field("predicate_dtype_coverage_fixture_needed_count", "5")));
+    assert!(output.contains(&field("predicate_dtype_coverage_unsupported_count", "3")));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_all_rows_have_evidence_gap",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_all_rows_fallback_attempted_false",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_all_rows_external_engine_invoked_false",
+        "true"
+    )));
+}
+
+fn assert_predicate_dtype_coverage_row_fields(output: &str) {
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_predicate_i64_range_support_status",
+        "fixture_certified"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_predicate_i64_range_runtime_surface",
+        "metadata_pruning,prepared_vortex,native_vortex"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_predicate_i64_range_claim_gate_status",
+        "fixture_smoke_only"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_predicate_string_dictionary_fixture_status",
+        "fixture_needed"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_dtype_decimal_timestamp_required_future_evidence",
+        "timezone_semantics,decimal_scale_semantics,malformed_value_fixture"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_null_mixed_segments_statistics_required",
+        "row_count,null_count,min_value,max_value"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_nested_field_pruning_unsupported_diagnostic_code",
+        "SL_UNSUPPORTED_NESTED_FIELD_PRUNING"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_statistics_missing_or_inexact_claim_boundary",
+        "missing stats never prove absence or authorize fallback execution"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_statistics_missing_or_inexact_fallback_attempted",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "predicate_dtype_coverage_row_statistics_missing_or_inexact_external_engine_invoked",
+        "false"
+    )));
+}
+
 fn assert_materialization_policy_fields(output: &str) {
     assert!(output.contains(&field(
         "materialization_policy_schema_version",
@@ -346,6 +436,7 @@ fn compute_capability_matrix_exposes_rows_families_and_claim_gates() {
     assert_matrix_claim_counts(&output);
     assert_native_vortex_admission_summary_fields(&output);
     assert_native_unsupported_coverage_summary_fields(&output);
+    assert_predicate_dtype_coverage_summary_fields(&output);
     assert_materialization_policy_fields(&output);
     assert_no_runtime_no_fallback_no_effects(&output);
 }
@@ -366,6 +457,7 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
         "hash_group_state_spill_required"
     )));
     assert_native_unsupported_row_fields(&output);
+    assert_predicate_dtype_coverage_row_fields(&output);
     assert!(output.contains(&field(
         "operator_family_joins_next_evidence",
         "join_null_semantics,build_probe_memory,benchmarks"

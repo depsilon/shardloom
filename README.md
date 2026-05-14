@@ -100,6 +100,9 @@ Currently wired surfaces include:
 - side-effect-free CPU specialization diagnostics through `cpu-specialization-plan`, including host
   CPU feature labels and a blocked filter/encoded vector-kernel admission status with no runtime
   dispatch
+- a predicate/DType coverage table in `compute-capability-matrix` for predicate, DType,
+  null-semantics, nested-shape, and statistics families, with support status, evidence gaps,
+  deterministic unsupported diagnostics, and no-fallback/no-external-engine fields
 - a local benchmark harness with taxonomy metadata, separate timing and coverage tables,
   reproducibility checks, local optional baselines, and explicit unsupported/blocked rows
 - Vortex-first architecture docs and guardrails for treating upstream Vortex APIs as native providers

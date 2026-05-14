@@ -27,6 +27,7 @@ from shardloom import (
     ShardLoomProtocolError,
     OutputEnvelope,
     PreparedVortexArtifacts,
+    PredicateDtypeCoverageRow,
     RestApiContractPlan,
     RestApiDataPlane,
     RestApiDiscoveryContract,
@@ -1645,6 +1646,48 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_execution_attempted", "value": "false"},
                         {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_fallback_attempted", "value": "false"},
                         {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_external_engine_invoked", "value": "false"},
+                        {"key": "predicate_dtype_coverage_current_matrix_complete", "value": "true"},
+                        {"key": "predicate_dtype_coverage_row_order", "value": "predicate_i64_range,nested_field_pruning"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_category", "value": "predicate"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_family", "value": "range_comparison"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_surface", "value": "i64_min_max_pruning_and_native_filter"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_support_status", "value": "fixture_certified"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_runtime_surface", "value": "metadata_pruning,prepared_vortex,native_vortex"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_statistics_required", "value": "row_count,min_value,max_value,null_count"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_fixture_status", "value": "local_fixture_present"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_correctness_refs", "value": "query_primitive_correctness.filtered_count,traditional_analytics.partition_pruning"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_benchmark_refs", "value": "traditional_analytics.partition_pruning"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_execution_certificate_refs", "value": "fixture_execution_certificate_required_for_claim_grade"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_native_io_refs", "value": "native_io_certificate_required_for_source_bound_data"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_materialization_decode_refs", "value": "metadata_pruning_or_encoded_filter_no_full_materialization"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_unsupported_diagnostic_code", "value": "none"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_blocker_id", "value": "gar0006a.range_claim_grade_evidence_missing"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_required_future_evidence", "value": "claim_grade_range_fixture_matrix,benchmark_rows,native_io_certificate"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_claim_boundary", "value": "scoped i64 range/equality fixture coverage, not broad predicate coverage"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_execution_attempted", "value": "false"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_fallback_attempted", "value": "false"},
+                        {"key": "predicate_dtype_coverage_row_predicate_i64_range_external_engine_invoked", "value": "false"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_category", "value": "nested_shape"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_family", "value": "nested_struct_list_map"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_surface", "value": "nested_json_or_struct_field_predicate"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_support_status", "value": "unsupported"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_runtime_surface", "value": "unsupported"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_statistics_required", "value": "nested_field_path_stats,parent_child_presence,definition_repetition_policy"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_fixture_status", "value": "blocked"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_correctness_refs", "value": "nested_json_fixture_required"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_benchmark_refs", "value": "nested_json_field_scan_coverage_only"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_execution_certificate_refs", "value": "none"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_native_io_refs", "value": "none"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_materialization_decode_refs", "value": "unsupported_no_nested_decode_or_materialization"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_NESTED_FIELD_PRUNING"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_blocker_id", "value": "gar0006a.nested_field_pruning_unsupported"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_required_future_evidence", "value": "nested_path_stats,struct_list_map_semantics,deterministic_diagnostic"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_claim_boundary", "value": "nested benchmark fixture coverage is not native nested pruning support"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_execution_attempted", "value": "false"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_fallback_attempted", "value": "false"},
+                        {"key": "predicate_dtype_coverage_row_nested_field_pruning_external_engine_invoked", "value": "false"},
                         {"key": "materialization_policy_schema_version", "value": "shardloom.materialization_policy.v1"},
                         {"key": "materialization_policy_report_ref", "value": "compute-capability-matrix://materialization_policy.v1"},
                         {"key": "materialization_policy_row_order", "value": "encoded_native_operator_path,materialized_temporary_operator_path,unsupported_operator_path"},
@@ -1851,6 +1894,23 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(
             native_unsupported["native_workload_sql_dataframe"].external_engine_invoked
         )
+        self.assertTrue(result.predicate_dtype_coverage_complete)
+        predicate_rows = {
+            row.row_id: row for row in result.predicate_dtype_coverage_rows
+        }
+        range_row = predicate_rows["predicate_i64_range"]
+        self.assertIsInstance(range_row, PredicateDtypeCoverageRow)
+        self.assertEqual(range_row.support_status, "fixture_certified")
+        self.assertIn("metadata_pruning", range_row.runtime_surface)
+        self.assertIn("null_count", range_row.statistics_required)
+        self.assertFalse(range_row.fallback_attempted)
+        nested_row = predicate_rows["nested_field_pruning"]
+        self.assertEqual(
+            nested_row.unsupported_diagnostic_code,
+            "SL_UNSUPPORTED_NESTED_FIELD_PRUNING",
+        )
+        self.assertEqual(nested_row.claim_gate_status, "not_claim_grade")
+        self.assertFalse(nested_row.external_engine_invoked)
         self.assertEqual(
             result.materialization_policy_report_ref,
             "compute-capability-matrix://materialization_policy.v1",

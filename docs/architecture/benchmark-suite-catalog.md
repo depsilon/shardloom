@@ -533,6 +533,13 @@ Vortex layout/write advisor fields derived from workload, benchmark, runtime, an
 evidence. It does not execute comparative benchmarks, apply layout rewrites, or publish performance
 claims.
 
+The `compute-capability-matrix` now carries a GAR-0006-A predicate/DType coverage table for
+predicate, DType, null-semantics, nested-shape, and statistics families. Those rows are benchmark
+interpretation aids, not new runtime paths: each family records support status, required statistics,
+fixture/evidence gaps, unsupported diagnostic codes where applicable, `fallback_attempted=false`,
+`external_engine_invoked=false`, and a claim boundary so local benchmark coverage is not mistaken
+for broad predicate, DType, null, nested, or production metadata-only support.
+
 The next benchmark closeout step is P7.4.4 claim-grade local benchmark readiness, not release work.
 That closeout should run selected local comparative reruns, keep managed platforms out, preserve
 coverage rows separately from timing rows, and promote rows only when the artifact carries

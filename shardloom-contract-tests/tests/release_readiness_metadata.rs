@@ -738,7 +738,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(plan.contains("GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 51);
+    assert!(plan.matches("- [ ] GAR-").count() >= 50);
     assert!(!plan.contains(
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));
@@ -750,6 +750,9 @@ fn security_rfc_and_p80_completion_are_traceable() {
     );
     assert!(completed_ledger.contains("GAR-0003-A Vortex segment extraction admission slice"));
     assert!(completed_ledger.contains("GAR-0003-B materialization policy generalization"));
+    assert!(
+        completed_ledger.contains("GAR-0006-A predicate, dtype, nested, and null coverage matrix")
+    );
     assert!(completed_ledger.contains("GAR-0026-J prepared/native global sort/top-k"));
     assert!(completed_ledger.contains("GAR-0027-A CPU/SIMD/vectorization admission slice"));
     for child in ["P8.0A/P8.0B", "P8.0C", "P8.0D", "P8.0E", "P8.0F", "P8.0G"] {
