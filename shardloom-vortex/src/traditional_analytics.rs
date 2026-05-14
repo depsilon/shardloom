@@ -7575,6 +7575,9 @@ fn run_vortex_derived_scenario_from_files(
         TraditionalAnalyticsScenario::HashJoin => {
             run_streaming_hash_join_scenario(fact_path, dim_path)
         }
+        TraditionalAnalyticsScenario::JoinAggregate => {
+            run_streaming_join_aggregate_scenario(fact_path, dim_path)
+        }
         TraditionalAnalyticsScenario::GroupByAggregation => {
             run_streaming_group_by_aggregation_scenario(fact_path, dim_path)
         }
@@ -7637,28 +7640,7 @@ fn run_streaming_hash_join_scenario(
     fact_path: &std::path::Path,
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut dim_by_key = std::collections::HashMap::<u32, String>::new();
-    let dim_stats = scan_fact_vortex_projected(
-        dim_path,
-        &["dim_key", "dim_label"],
-        None,
-        |fields, chunk_rows| {
-            let dim_keys = primitive_field::<u32>(fields, "dim_key")?;
-            let dim_labels = utf8_field(fields, "dim_label")?;
-            if dim_keys.len() != chunk_rows || dim_labels.len() != chunk_rows {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "hash join dimension Vortex chunk length mismatch: chunk_rows={chunk_rows}, dim_key_len={}, dim_label_len={}",
-                    dim_keys.len(),
-                    dim_labels.len()
-                )));
-            }
-            for (dim_key, dim_label) in dim_keys.into_iter().zip(dim_labels) {
-                dim_by_key.insert(dim_key, dim_label);
-            }
-            Ok(())
-        },
-    )?;
-
+    let (dim_by_key, dim_stats) = scan_dim_label_state(dim_path, "hash join")?;
     let mut groups = std::collections::BTreeMap::<String, TraditionalGroupAccum>::new();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
@@ -7698,6 +7680,72 @@ fn run_streaming_hash_join_scenario(
             &fact_stats.projected_columns,
         ),
         filter_pushdown_applied: false,
+        projection_pushdown_applied: true,
+    };
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: fact_stats.source_row_count,
+        dim_rows: dim_stats.source_row_count,
+        cdc_delta_rows: 0,
+        rows_scanned,
+        rows_materialized,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_join_aggregate_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    let (dim_by_key, dim_stats) = scan_dim_label_state(dim_path, "join aggregate")?;
+    let mut groups = std::collections::BTreeMap::<(String, String), TraditionalGroupAccum>::new();
+    let fact_stats = scan_fact_vortex_projected(
+        fact_path,
+        &["dim_key", "category", "metric"],
+        Some(join_aggregate_fact_filter_expr()),
+        |fields, chunk_rows| {
+            let dim_keys = primitive_field::<u32>(fields, "dim_key")?;
+            let categories = utf8_field(fields, "category")?;
+            let metrics = primitive_field::<f64>(fields, "metric")?;
+            if dim_keys.len() != chunk_rows
+                || categories.len() != chunk_rows
+                || metrics.len() != chunk_rows
+            {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "join aggregate fact Vortex chunk length mismatch: chunk_rows={chunk_rows}, dim_key_len={}, category_len={}, metric_len={}",
+                    dim_keys.len(),
+                    categories.len(),
+                    metrics.len()
+                )));
+            }
+            for ((dim_key, category), metric) in dim_keys.into_iter().zip(categories).zip(metrics) {
+                if let Some(dim_label) = dim_by_key.get(&dim_key) {
+                    groups
+                        .entry((dim_label.clone(), category))
+                        .or_default()
+                        .add(metric);
+                }
+            }
+            Ok(())
+        },
+    )?;
+
+    let result_json = dim_category_rows_json(groups);
+    let rows_materialized = result_rows_materialized(&result_json)?;
+    let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
+    let stats = TraditionalStreamingScanStats {
+        source_row_count: fact_stats.source_row_count,
+        result_row_count: checked_u64_sum(fact_stats.result_row_count, dim_stats.result_row_count)?,
+        arrays_read_count: fact_stats.arrays_read_count + dim_stats.arrays_read_count,
+        max_chunk_rows: fact_stats.max_chunk_rows.max(dim_stats.max_chunk_rows),
+        projected_columns: prefixed_projected_columns(
+            "dim",
+            &dim_stats.projected_columns,
+            "fact",
+            &fact_stats.projected_columns,
+        ),
+        filter_pushdown_applied: true,
         projection_pushdown_applied: true,
     };
     Ok(TraditionalScenarioExecution {
@@ -7882,6 +7930,38 @@ fn run_streaming_filter_projection_limit_scenario(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn scan_dim_label_state(
+    dim_path: &std::path::Path,
+    scenario: &str,
+) -> Result<(
+    std::collections::HashMap<u32, String>,
+    TraditionalStreamingScanStats,
+)> {
+    let mut dim_by_key = std::collections::HashMap::<u32, String>::new();
+    let dim_stats = scan_fact_vortex_projected(
+        dim_path,
+        &["dim_key", "dim_label"],
+        None,
+        |fields, chunk_rows| {
+            let dim_keys = primitive_field::<u32>(fields, "dim_key")?;
+            let dim_labels = utf8_field(fields, "dim_label")?;
+            if dim_keys.len() != chunk_rows || dim_labels.len() != chunk_rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{scenario} dimension Vortex chunk length mismatch: chunk_rows={chunk_rows}, dim_key_len={}, dim_label_len={}",
+                    dim_keys.len(),
+                    dim_labels.len()
+                )));
+            }
+            for (dim_key, dim_label) in dim_keys.into_iter().zip(dim_labels) {
+                dim_by_key.insert(dim_key, dim_label);
+            }
+            Ok(())
+        },
+    )?;
+    Ok((dim_by_key, dim_stats))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn prefixed_projected_columns(
     left_prefix: &str,
     left_columns: &[String],
@@ -8003,6 +8083,13 @@ fn selective_filter_expr() -> vortex::array::expr::Expression {
         eq(col("flag".to_string()), lit(1_u8)),
         gt_eq(col("value".to_string()), lit(5_000_u32)),
     )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn join_aggregate_fact_filter_expr() -> vortex::array::expr::Expression {
+    use vortex::array::expr::{col, gt_eq, lit};
+
+    gt_eq(col("value".to_string()), lit(2_500_u32))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -9877,6 +9964,101 @@ mod tests {
         assert_eq!(native_report.materialization_boundary_rows, 0);
         assert!(!native_report.data_materialized);
         assert_eq!(native_report.rows_materialized, 2);
+        let native_fields = field_map(native_report.fields());
+        assert_eq!(
+            native_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn enabled_join_aggregate_uses_prepared_native_vortex_scan() {
+        let root = traditional_analytics_test_root("join-aggregate");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::JoinAggregate,
+                fact_csv,
+                dim_csv,
+                workspace,
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        assert_eq!(
+            import_report.result_json,
+            "[{\"dim_label\":\"one\",\"category\":\"A\",\"row_count\":2,\"metric_sum\":6.5}]"
+        );
+        assert!(import_report.streaming_vortex_execution_used);
+        assert!(import_report.full_table_materialization_avoided);
+        assert!(import_report.streaming_filter_pushdown_applied);
+        assert!(import_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            import_report.streaming_projected_columns,
+            vec![
+                "dim.dim_key".to_string(),
+                "dim.dim_label".to_string(),
+                "fact.dim_key".to_string(),
+                "fact.category".to_string(),
+                "fact.metric".to_string()
+            ]
+        );
+        assert_eq!(import_report.materialization_boundary_rows, 5);
+        assert!(import_report.data_materialized);
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::JoinAggregate,
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(native_report.result_json, import_report.result_json);
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec![
+                "dim.dim_key".to_string(),
+                "dim.dim_label".to_string(),
+                "fact.dim_key".to_string(),
+                "fact.category".to_string(),
+                "fact.metric".to_string()
+            ]
+        );
+        assert_eq!(native_report.rows_scanned, 5);
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
+        assert_eq!(native_report.rows_materialized, 1);
         let native_fields = field_map(native_report.fields());
         assert_eq!(
             native_fields
