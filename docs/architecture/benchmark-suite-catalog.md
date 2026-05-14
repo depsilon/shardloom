@@ -208,7 +208,10 @@ over `group_key`/`metric` and ShardLoom-native grouped residual state without
 full fact-table materialization; it is likewise not an encoded-native operator
 claim. The scoped `multi-key group by` prepared/native row extends that
 residual-native pattern to composite `group_key`/`category` state after
-projection pushdown over `group_key`/`category`/`metric`.
+projection pushdown over `group_key`/`category`/`metric`. The scoped `hash join`
+prepared/native row scans projected dimension and fact columns into bounded
+ShardLoom-native dimension state plus residual grouped join output without
+full fact-table materialization.
 `compute-capability-matrix` exposes the same class vocabulary and per-row
 operator class/blocker fields so CLI capability discovery matches benchmark
 evidence.
