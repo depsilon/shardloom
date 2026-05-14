@@ -253,6 +253,12 @@ Prepared/native rows also emit an operator blocker matrix:
 residual-native and materialized-temporary classes are never counted as
 encoded-native operator execution.
 
+The native `vortex-count-benchmark` microbenchmark also exposes
+`native_vortex_admission_*` fields. The only admitted lane today is
+`local_vortex_count_scalar`: local Vortex file scan, `CountAll`, and a typed scalar result. Its
+claim boundary is fixture-smoke-only, so it can support the scoped local native Vortex lane report
+but not universal native Vortex, SQL/DataFrame, object-store, sink/write, or performance claims.
+
 When `--shardloom-result-sink` is enabled, prepared/native rows now pass
 `--workspace <caller-owned-dir> --write-result-vortex` to
 `traditional-analytics-vortex-run`. The row writes `result.vortex`, replays it,

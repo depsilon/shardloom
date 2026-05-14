@@ -326,6 +326,9 @@ fn traditional_benchmark_harness_includes_shardloom_native_microbenchmark() {
     assert!(script.contains("def run_shardloom_vortex_run_microbenchmark("));
     assert!(script.contains("def first_meaningful_field("));
     assert!(script.contains("vortex-count-benchmark"));
+    assert!(script.contains("\"native_vortex_admission_lane_ref\""));
+    assert!(script.contains("\"native_vortex_admission_status\""));
+    assert!(script.contains("\"native_vortex_admission_claim_boundary\""));
     assert!(script.contains("vortex-run"));
     assert!(script.contains("metadata_footer_u64_20000.vortex"));
     assert!(script.contains("local primitive projection"));
@@ -573,7 +576,11 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         completed_ledger.contains("GAR-0002A native unsupported coverage diagnostics"),
         "completed ledger should carry completed GAR-0002A provenance"
     );
-    assert!(plan.contains("GAR-0002B native Vortex coverage admission expansion"));
+    assert!(
+        completed_ledger.contains("GAR-0002B native Vortex coverage admission expansion"),
+        "completed ledger should carry completed GAR-0002B provenance"
+    );
+    assert!(plan.contains("GAR-0031A Native I/O envelope source/sink coverage matrix"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
     assert!(plan.matches("- [ ] GAR-").count() >= 60);

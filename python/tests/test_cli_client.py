@@ -1545,6 +1545,36 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [
                         {"key": "matrix_status", "value": "report_only"},
                         {"key": "claim_grade_status", "value": "evidence_incomplete"},
+                        {"key": "native_vortex_admission_status", "value": "scoped_fixture_lane_admitted"},
+                        {"key": "native_vortex_admission_lane_order", "value": "local_vortex_count_scalar"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_source_surface", "value": "local_vortex_file_scan"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_operator_surface", "value": "count_all"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_sink_surface", "value": "typed_scalar_result"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_admission_status", "value": "admitted_fixture_certified"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_support_status", "value": "fixture_certified"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_execution_mode", "value": "native_vortex"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_kind", "value": "vortex_scan"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_api_surface", "value": "VortexFile::scan,ScanBuilder::into_array_iter"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_crate", "value": "vortex"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_version", "value": "0.70"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_feature_gate", "value": "vortex-encoded-read-spike"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_shardloom_admission_policy", "value": "local_fixture_scan_count_only"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_compute_row_ref", "value": "compute_row.local_vortex_count"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_benchmark_ref", "value": "vortex-count-benchmark.local_fixture_smoke"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_correctness_refs", "value": "cg5.local_vortex_count,query_primitive_correctness"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_execution_certificate_refs", "value": "certificates/cg16/local-vortex-count/execution.json"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_native_io_refs", "value": "certificates/cg19/local-vortex-count/native-io.json"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_materialization_decode_refs", "value": "native_vortex_source_to_scalar_count_result"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_policy_refs", "value": "fallback_attempted=false,external_engine_invoked=false"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_required_future_evidence", "value": "claim_grade_benchmark_rows,broad_source_sink_operator_coverage"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_claim_boundary", "value": "local_count_all_fixture_smoke_only_not_universal_native_vortex"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_residual_executor", "value": "none"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_vortex_native_claim_allowed", "value": "true"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_fallback_attempted", "value": "false"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_external_engine_invoked", "value": "false"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_object_store_io", "value": "false"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_write_io", "value": "false"},
                         {"key": "native_unsupported_coverage_status", "value": "complete_for_current_matrix"},
                         {"key": "native_unsupported_coverage_current_matrix_complete", "value": "true"},
                         {"key": "native_unsupported_coverage_row_order", "value": "native_source_object_store_range,native_operator_joins,native_workload_sql_dataframe"},
@@ -1667,6 +1697,24 @@ class ShardLoomClientTests(unittest.TestCase):
             "complete_for_current_matrix",
         )
         self.assertTrue(result.native_unsupported_coverage_complete)
+        self.assertEqual(
+            result.native_vortex_admission_status,
+            "scoped_fixture_lane_admitted",
+        )
+        admission_lanes = {lane.lane_id: lane for lane in result.native_vortex_admission_lanes}
+        count_lane = admission_lanes["local_vortex_count_scalar"]
+        self.assertEqual(count_lane.admission_status, "admitted_fixture_certified")
+        self.assertEqual(count_lane.provider_kind, "vortex_scan")
+        self.assertIn("ScanBuilder::into_array_iter", count_lane.provider_api_surface)
+        self.assertEqual(
+            count_lane.claim_boundary,
+            "local_count_all_fixture_smoke_only_not_universal_native_vortex",
+        )
+        self.assertTrue(count_lane.vortex_native_claim_allowed)
+        self.assertFalse(count_lane.fallback_attempted)
+        self.assertFalse(count_lane.external_engine_invoked)
+        self.assertFalse(count_lane.object_store_io)
+        self.assertFalse(count_lane.write_io)
         rows = {row.row_id: row for row in result.rows}
         self.assertEqual(rows["local_vortex_count"].support_status, "fixture_certified")
         self.assertEqual(rows["local_vortex_count"].execution_mode, "native_vortex")

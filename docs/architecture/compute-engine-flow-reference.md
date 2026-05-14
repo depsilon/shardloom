@@ -641,6 +641,11 @@ Prepared/native rows must also carry an operator blocker matrix with
 `operator_blocker_reason`, and `operator_encoded_native_claim_allowed` so
 temporary or residual-native operators are never read as encoded-native
 operator execution.
+Native Vortex benchmark rows must additionally carry `native_vortex_admission_*`
+fields that identify the exact admitted lane, provider kind/API surface,
+certificate refs, materialization/decode refs, fallback status, and claim
+boundary. Today that admits only `local_vortex_count_scalar`; downstream readers
+must not infer universal native Vortex support from that row.
 
 The artifact must also carry `persistent_runner_admission_gate`. Current rows
 must keep `persistent_runner_status=process_per_scenario_attributed_not_reduced`

@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0002B native Vortex coverage admission expansion
+  - Primary files:
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/compute_capability_matrix_snapshots.rs`
+    - `python/src/shardloom/__init__.py`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: admit one exact native Vortex lane for existing local Vortex file scan `CountAll` to a
+    typed scalar result, expose the lane through capability, Python, benchmark, and documentation
+    surfaces, and keep the claim boundary fixture-scoped.
+  - Checklist:
+    - [x] Add `native_vortex_admission` summary and lane fields to `compute-capability-matrix`.
+    - [x] Attach lane evidence for provider API surface, Vortex crate/version, feature gate,
+          ShardLoom admission policy, correctness refs, benchmark refs, execution certificate refs,
+          Native I/O refs, materialization/decode refs, and no-fallback policy refs.
+    - [x] Add Python typed accessors for the scoped native Vortex admission lanes.
+    - [x] Add `native_vortex_admission_*` fields to `vortex-count-benchmark` and promote those
+          fields into the traditional analytics native microbenchmark artifact and Markdown table.
+    - [x] Update global architecture review and Vortex API inventory evidence while leaving
+          universal native Vortex support unchecked.
+    - [x] Move GAR-0002B out of Planned; GAR-0031A is now the next Planned slice.
+  - Boundary:
+    - This admits only `local_vortex_count_scalar` with `claim_gate_status=fixture_smoke_only`.
+      It does not add universal native Vortex source/sink/operator/workload support, object-store
+      or table/catalog I/O, sink/write runtime, SQL/DataFrame runtime, external engines, fallback
+      execution, package publication, or performance/public superiority claims.
+  - Vortex-first provider check:
+    - Subject area: local Vortex scan `CountAll` provider admission.
+    - Upstream Vortex concept checked: `VortexFile::scan` and `ScanBuilder::into_array_iter` as the
+      provider API surface already inventoried for local primitive scan paths.
+    - Decision: `use_vortex_native_provider` for the existing fixture-certified lane only.
+    - Residual handling: `residual_executor=none`; broader residual and unsupported operators
+      remain blocked by existing diagnostics.
+    - Materialization/decode boundary: `native_vortex_source_to_scalar_count_result`; no row
+      materialization or decoded Arrow execution is claimed by the admitted lane.
+    - Evidence added: capability lane, benchmark lane fields, Python accessors, docs, and snapshot
+      assertions.
+    - Gates still blocked: broad native Vortex source/sink/operator/workload coverage and
+      claim-grade benchmark/public claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli --test compute_capability_matrix_snapshots`
+    - `cargo test -p shardloom-cli vortex_count_benchmark_report_blocks_claims_without_external_results`
+    - `cargo run -q -p shardloom-cli --features vortex-encoded-read-spike -- vortex-count-benchmark shardloom-vortex\tests\fixtures\metadata_footer_u64_20000.vortex 1 1 --iterations 1 --format json`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_compute_capability_matrix_view`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-0002A native unsupported coverage diagnostics and compute-flow diagram
       cleanup
   - Primary files:

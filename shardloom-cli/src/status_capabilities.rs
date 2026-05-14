@@ -89,6 +89,7 @@ const COMPUTE_ENGINE_MODE_VOCABULARY: &str = "batch,live,hybrid,auto";
 const COMPUTE_EXECUTION_MODE_VOCABULARY: &str = "compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient,auto";
 const COMPUTE_OPERATOR_EXECUTION_CLASS_VOCABULARY: &str =
     "encoded_native,residual_native,materialized_temporary,unsupported";
+const NATIVE_VORTEX_ADMISSION_SCHEMA_VERSION: &str = "shardloom.native_vortex_admission.v1";
 const NATIVE_UNSUPPORTED_COVERAGE_SCHEMA_VERSION: &str = "shardloom.native_unsupported_coverage.v1";
 const NATIVE_UNSUPPORTED_COVERAGE_CATEGORY_VOCABULARY: &str = "source,sink,operator,workload";
 
@@ -401,6 +402,33 @@ const OPERATOR_FAMILY_ROWS: &[OperatorFamilyCoverageRow] = &[
         next_evidence: "write_execution,commit_recovery,replay_verification",
     },
 ];
+
+const NATIVE_VORTEX_ADMISSION_LANES: &[NativeVortexAdmissionLane] = &[NativeVortexAdmissionLane {
+    id: "local_vortex_count_scalar",
+    source_surface: "local_vortex_file_scan",
+    operator_surface: "count_all",
+    sink_surface: "typed_scalar_result",
+    admission_status: "admitted_fixture_certified",
+    support_status: "fixture_certified",
+    execution_mode: "native_vortex",
+    provider_kind: "vortex_scan",
+    provider_api_surface: "VortexFile::scan,ScanBuilder::into_array_iter",
+    provider_crate: "vortex",
+    provider_version: "0.70",
+    feature_gate: "vortex-encoded-read-spike",
+    shardloom_admission_policy: "local_fixture_scan_count_only",
+    compute_row_ref: "compute_row.local_vortex_count",
+    benchmark_ref: "vortex-count-benchmark.local_fixture_smoke",
+    correctness_refs: "cg5.local_vortex_count,query_primitive_correctness",
+    execution_certificate_refs: "certificates/cg16/local-vortex-count/execution.json",
+    native_io_refs: "certificates/cg19/local-vortex-count/native-io.json",
+    materialization_decode_refs: "native_vortex_source_to_scalar_count_result",
+    policy_refs: "fallback_attempted=false,external_engine_invoked=false",
+    required_future_evidence: "claim_grade_benchmark_rows,broad_source_sink_operator_coverage",
+    claim_gate_status: "fixture_smoke_only",
+    claim_boundary: "local_count_all_fixture_smoke_only_not_universal_native_vortex",
+    residual_executor: "none",
+}];
 
 const NATIVE_UNSUPPORTED_COVERAGE_ROWS: &[NativeUnsupportedCoverageRow] = &[
     NativeUnsupportedCoverageRow {
@@ -1054,6 +1082,33 @@ struct OperatorFamilyCoverageRow {
     next_evidence: &'static str,
 }
 
+struct NativeVortexAdmissionLane {
+    id: &'static str,
+    source_surface: &'static str,
+    operator_surface: &'static str,
+    sink_surface: &'static str,
+    admission_status: &'static str,
+    support_status: &'static str,
+    execution_mode: &'static str,
+    provider_kind: &'static str,
+    provider_api_surface: &'static str,
+    provider_crate: &'static str,
+    provider_version: &'static str,
+    feature_gate: &'static str,
+    shardloom_admission_policy: &'static str,
+    compute_row_ref: &'static str,
+    benchmark_ref: &'static str,
+    correctness_refs: &'static str,
+    execution_certificate_refs: &'static str,
+    native_io_refs: &'static str,
+    materialization_decode_refs: &'static str,
+    policy_refs: &'static str,
+    required_future_evidence: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+    residual_executor: &'static str,
+}
+
 struct NativeUnsupportedCoverageRow {
     id: &'static str,
     category: &'static str,
@@ -1067,9 +1122,10 @@ struct NativeUnsupportedCoverageRow {
 
 fn compute_capability_matrix_human_text() -> String {
     format!(
-        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nnative unsupported coverage rows: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
+        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nnative Vortex admission lanes: {}\nnative unsupported coverage rows: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
         COMPUTE_ROWS.len(),
         OPERATOR_FAMILY_ROWS.len(),
+        NATIVE_VORTEX_ADMISSION_LANES.len(),
         NATIVE_UNSUPPORTED_COVERAGE_ROWS.len()
     )
 }
@@ -1186,6 +1242,7 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
         "next_required_slice",
         "P7.4.2 semantic conformance and unsupported API parity",
     );
+    append_native_vortex_admission_fields(&mut fields);
     append_native_unsupported_coverage_fields(&mut fields);
     for row in COMPUTE_ROWS {
         append_compute_capability_row_fields(&mut fields, row);
@@ -1210,6 +1267,71 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
     push_bool_field(&mut fields, "no_fallback", true);
     push_bool_field(&mut fields, "no_effects", true);
     fields
+}
+
+fn append_native_vortex_admission_fields(fields: &mut Vec<(String, String)>) {
+    append_native_vortex_admission_summary_fields(fields);
+    for lane in NATIVE_VORTEX_ADMISSION_LANES {
+        append_native_vortex_admission_lane_fields(fields, lane);
+    }
+}
+
+fn append_native_vortex_admission_summary_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "native_vortex_admission_schema_version",
+        NATIVE_VORTEX_ADMISSION_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_status",
+        "scoped_fixture_lane_admitted",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_scope",
+        "current_certified_local_lanes",
+    );
+    push_count_field(
+        fields,
+        "native_vortex_admission_lane_count",
+        NATIVE_VORTEX_ADMISSION_LANES.len(),
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_lane_order",
+        &native_vortex_admission_lane_order(),
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_claim_gate_status",
+        "fixture_smoke_only",
+    );
+    push_bool_field(
+        fields,
+        "native_vortex_admission_universal_coverage_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "native_vortex_admission_all_lanes_fallback_attempted_false",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "native_vortex_admission_all_lanes_external_engine_invoked_false",
+        true,
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_policy_refs",
+        "docs/architecture/vortex-public-api-inventory.md,docs/architecture/operational-evidence-policy-hardening.md",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_claim_boundary",
+        "admitted lanes are exact fixture-scoped evidence, not universal native Vortex support",
+    );
 }
 
 fn append_native_unsupported_coverage_fields(fields: &mut Vec<(String, String)>) {
@@ -1542,6 +1664,148 @@ fn append_native_unsupported_coverage_row_fields(
     push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
 }
 
+fn append_native_vortex_admission_lane_fields(
+    fields: &mut Vec<(String, String)>,
+    lane: &NativeVortexAdmissionLane,
+) {
+    append_native_vortex_admission_lane_identity_fields(fields, lane);
+    append_native_vortex_admission_lane_evidence_fields(fields, lane);
+    append_native_vortex_admission_lane_claim_fields(fields, lane);
+}
+
+fn append_native_vortex_admission_lane_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    lane: &NativeVortexAdmissionLane,
+) {
+    let prefix = format!("native_vortex_admission_lane_{}", lane.id);
+    push_field(
+        fields,
+        &format!("{prefix}_source_surface"),
+        lane.source_surface,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_operator_surface"),
+        lane.operator_surface,
+    );
+    push_field(fields, &format!("{prefix}_sink_surface"), lane.sink_surface);
+    push_field(
+        fields,
+        &format!("{prefix}_admission_status"),
+        lane.admission_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        lane.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_execution_mode"),
+        lane.execution_mode,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_provider_kind"),
+        lane.provider_kind,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_provider_api_surface"),
+        lane.provider_api_surface,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_provider_crate"),
+        lane.provider_crate,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_provider_version"),
+        lane.provider_version,
+    );
+    push_field(fields, &format!("{prefix}_feature_gate"), lane.feature_gate);
+    push_field(
+        fields,
+        &format!("{prefix}_shardloom_admission_policy"),
+        lane.shardloom_admission_policy,
+    );
+}
+
+fn append_native_vortex_admission_lane_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    lane: &NativeVortexAdmissionLane,
+) {
+    let prefix = format!("native_vortex_admission_lane_{}", lane.id);
+    push_field(
+        fields,
+        &format!("{prefix}_compute_row_ref"),
+        lane.compute_row_ref,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_benchmark_ref"),
+        lane.benchmark_ref,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_correctness_refs"),
+        lane.correctness_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_execution_certificate_refs"),
+        lane.execution_certificate_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_native_io_refs"),
+        lane.native_io_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_materialization_decode_refs"),
+        lane.materialization_decode_refs,
+    );
+    push_field(fields, &format!("{prefix}_policy_refs"), lane.policy_refs);
+    push_field(
+        fields,
+        &format!("{prefix}_required_future_evidence"),
+        lane.required_future_evidence,
+    );
+}
+
+fn append_native_vortex_admission_lane_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    lane: &NativeVortexAdmissionLane,
+) {
+    let prefix = format!("native_vortex_admission_lane_{}", lane.id);
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        lane.claim_gate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        lane.claim_boundary,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_residual_executor"),
+        lane.residual_executor,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_vortex_native_claim_allowed"),
+        true,
+    );
+    push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+    push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+    push_bool_field(fields, &format!("{prefix}_object_store_io"), false);
+    push_bool_field(fields, &format!("{prefix}_write_io"), false);
+}
+
 fn compute_support_status_count(status: &str) -> usize {
     COMPUTE_ROWS
         .iter()
@@ -1590,6 +1854,14 @@ fn compute_row_order() -> String {
     COMPUTE_ROWS
         .iter()
         .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn native_vortex_admission_lane_order() -> String {
+    NATIVE_VORTEX_ADMISSION_LANES
+        .iter()
+        .map(|lane| lane.id)
         .collect::<Vec<_>>()
         .join(",")
 }

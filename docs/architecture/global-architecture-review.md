@@ -69,6 +69,10 @@ plan before coding.
   diagnostics for the current matrix via `compute-capability-matrix` native unsupported coverage
   rows, with `support_status=unsupported`, `claim_gate_status=not_claim_grade`,
   `fallback_attempted=false`, and `external_engine_invoked=false`.
+- [x] One scoped native Vortex admission lane is explicit via
+  `compute-capability-matrix` `native_vortex_admission` rows and
+  `vortex-count-benchmark` `native_vortex_admission_*` fields for local Vortex file scan,
+  `CountAll`, and typed scalar result evidence only.
 - [ ] Native Vortex support is not universal across every source, sink, operator, and workload.
 
 ### RFC 0003 - Encoded Segment Model

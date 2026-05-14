@@ -872,6 +872,34 @@ impl VortexCountBenchmarkReport {
                 .any(VortexCountBenchmarkIterationSummary::has_errors)
     }
 
+    fn native_vortex_admission_status(&self) -> &'static str {
+        if self.has_errors() {
+            "blocked_diagnostics_or_effects"
+        } else if matches!(self.correctness_evidence, BenchmarkEvidenceState::Present) {
+            "admitted_fixture_certified"
+        } else {
+            "executed_uncertified_runtime_input"
+        }
+    }
+
+    fn native_vortex_admission_support_status(&self) -> &'static str {
+        if matches!(
+            self.native_vortex_admission_status(),
+            "admitted_fixture_certified"
+        ) {
+            "fixture_certified"
+        } else {
+            "executable_uncertified"
+        }
+    }
+
+    fn native_vortex_admission_lane_claim_allowed(&self) -> bool {
+        matches!(
+            self.native_vortex_admission_status(),
+            "admitted_fixture_certified"
+        )
+    }
+
     pub(crate) fn to_human_text(&self) -> String {
         format!(
             "vortex local encoded count benchmark\nengine: shardloom\nscenario: local encoded count\ndataset: {}\niterations: {}/{}\ncount: {}\ntotal query runtime micros: {}\navg query runtime micros: {}\nexternal baselines: pandas,polars,duckdb,spark,datafusion,dask comparison-only not executed\ncomparison status: {}\nclaim gate: {}\nfallback execution: disabled",
@@ -996,6 +1024,7 @@ pub(crate) fn vortex_count_benchmark_fields(
 ) -> Vec<(String, String)> {
     let mut fields = Vec::new();
     append_vortex_count_benchmark_identity_fields(&mut fields, report);
+    append_vortex_count_benchmark_admission_fields(&mut fields, report);
     append_vortex_count_benchmark_claim_fields(&mut fields, report);
     append_vortex_count_benchmark_timing_fields(&mut fields, report);
     append_vortex_count_benchmark_effect_fields(&mut fields, report);
@@ -1027,6 +1056,141 @@ fn append_vortex_count_benchmark_identity_fields(
     push_bool_field(fields, "external_baseline_execution", false);
     push_bool_field(fields, "external_baselines_comparison_only", true);
     push_bool_field(fields, "external_baseline_results_required", true);
+}
+
+fn append_vortex_count_benchmark_admission_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexCountBenchmarkReport,
+) {
+    append_vortex_count_benchmark_admission_identity_fields(fields, report);
+    append_vortex_count_benchmark_admission_evidence_fields(fields);
+    append_vortex_count_benchmark_admission_claim_fields(fields, report);
+}
+
+fn append_vortex_count_benchmark_admission_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexCountBenchmarkReport,
+) {
+    push_field(
+        fields,
+        "native_vortex_admission_schema_version",
+        "shardloom.native_vortex_admission.v1",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_lane_ref",
+        "local_vortex_count_scalar",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_status",
+        report.native_vortex_admission_status(),
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_support_status",
+        report.native_vortex_admission_support_status(),
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_execution_mode",
+        "native_vortex",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_source_surface",
+        "local_vortex_file_scan",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_operator_surface",
+        "count_all",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_sink_surface",
+        "typed_scalar_result",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_provider_kind",
+        "vortex_scan",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_provider_api_surface",
+        "VortexFile::scan,ScanBuilder::into_array_iter",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_feature_gate",
+        "vortex-encoded-read-spike",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_shardloom_policy",
+        "local_fixture_scan_count_only",
+    );
+}
+
+fn append_vortex_count_benchmark_admission_evidence_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "native_vortex_admission_compute_row_ref",
+        "compute_row.local_vortex_count",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_correctness_refs",
+        "cg5.local_vortex_count,query_primitive_correctness",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_benchmark_refs",
+        "vortex-count-benchmark.local_fixture_smoke",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_execution_certificate_refs",
+        "certificates/cg16/local-vortex-count/execution.json",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_native_io_refs",
+        "certificates/cg19/local-vortex-count/native-io.json",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_materialization_decode_refs",
+        "native_vortex_source_to_scalar_count_result",
+    );
+}
+
+fn append_vortex_count_benchmark_admission_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexCountBenchmarkReport,
+) {
+    push_field(
+        fields,
+        "native_vortex_admission_claim_gate_status",
+        "fixture_smoke_only",
+    );
+    push_field(
+        fields,
+        "native_vortex_admission_claim_boundary",
+        "local_count_all_fixture_smoke_only_not_universal_native_vortex",
+    );
+    push_bool_field(
+        fields,
+        "native_vortex_admission_lane_claim_allowed",
+        report.native_vortex_admission_lane_claim_allowed(),
+    );
+    push_bool_field(fields, "native_vortex_admission_fallback_attempted", false);
+    push_bool_field(
+        fields,
+        "native_vortex_admission_external_engine_invoked",
+        false,
+    );
 }
 
 fn append_vortex_count_benchmark_claim_fields(

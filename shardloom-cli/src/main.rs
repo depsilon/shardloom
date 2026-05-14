@@ -5986,6 +5986,42 @@ mod tests {
             output_field(&fields, "claim_gate_status"),
             "evidence_missing"
         );
+        assert_eq!(
+            output_field(&fields, "native_vortex_admission_schema_version"),
+            "shardloom.native_vortex_admission.v1"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_admission_lane_ref"),
+            "local_vortex_count_scalar"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_admission_status"),
+            "admitted_fixture_certified"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_admission_support_status"),
+            "fixture_certified"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_admission_provider_kind"),
+            "vortex_scan"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_admission_claim_boundary"),
+            "local_count_all_fixture_smoke_only_not_universal_native_vortex"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_admission_lane_claim_allowed"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_admission_fallback_attempted"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_admission_external_engine_invoked"),
+            "false"
+        );
         assert_eq!(output_field(&fields, "performance_claim_allowed"), "false");
         assert_eq!(output_field(&fields, "fallback_execution_allowed"), "false");
     }
