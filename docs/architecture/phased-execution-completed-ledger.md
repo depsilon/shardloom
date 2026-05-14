@@ -16,6 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0001A-B distributed/object-store/lakehouse architecture gate
+  - Primary files:
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/release/hard-release-readiness-gate.md`
+    - `docs/release/known-unsupported-paths.md`
+    - `scripts/check_release_readiness.py`
+    - `scripts/run_release_validation_evidence.py`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/global_architecture_gate.rs`
+    - `shardloom-core/src/architecture_gate.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add a single report-only runtime-claim gate for distributed coordinator/worker/task
+    execution, object-store range/full-file read, object-store write/commit, lakehouse catalog
+    metadata, lakehouse transaction commit, and CDC/delete/tombstone execution.
+  - Checklist:
+    - [x] Add `ArchitectureRuntimeClaimGateReport` with distributed, object-store, and lakehouse
+          claim families, row order, existing gate refs, required gate refs, required evidence,
+          deterministic diagnostic codes, and blocker ids.
+    - [x] Keep every row `claim_gate_status=not_claim_grade`, with no runtime execution, no
+          credential resolution, no data read, no object-store I/O, no table/catalog I/O, no write
+          I/O, no external engine, and no fallback.
+    - [x] Expose the report through `global-architecture-gate --format json`, classify the command,
+          and verify its stable fields with CLI tests.
+    - [x] Integrate the command into hard release-readiness validation so public distributed,
+          object-store, or lakehouse runtime claims require the gate evidence.
+    - [x] Update GAR/RFC/compute-flow/release docs and move GAR-0001A-B out of Planned.
+  - Boundary:
+    - This is a report-only release/readiness and diagnostics slice. It does not add a distributed
+      coordinator, worker runtime, object-store read/write/commit path, table/catalog metadata I/O,
+      lakehouse transaction execution, CDC/delete/tombstone execution, dependency expansion,
+      external-engine execution, fallback execution, or distributed/object-store/lakehouse support
+      claims.
+  - Vortex-first provider check:
+    - Subject area: RFC 0001 architecture claim gate, RFC 0008 object-store/distributed runtime,
+      and RFC 0028 output/commit/lakehouse semantics.
+    - Upstream Vortex concept checked: not applicable to execution provider use in this slice; no
+      Vortex API, provider, data read, decode, materialization, or write path was added.
+    - Decision: `report_only_release_gate_surface`.
+    - Residual handling: unsupported distributed, object-store, and lakehouse requests remain
+      deterministic blocked diagnostics through the new gate and existing CG-9/CG-10/table
+      planning reports.
+    - Materialization/decode boundary: no row reads, byte-range reads, full-file reads, object-store
+      operations, table/catalog operations, Arrow conversion, decoding, materialization, write I/O,
+      external effects, or fallback execution.
+    - Evidence added: core gate report, CLI report command, release-readiness command requirement,
+      CLI/contract tests, and architecture/release traceability updates.
+    - Gates still blocked: real distributed runtime, object-store runtime I/O, table/catalog
+      metadata runtime, lakehouse commit semantics, CDC/delete/tombstone execution, and public
+      distributed/object-store/lakehouse claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core global_architecture_runtime_claim_gate --lib`
+    - `cargo test -p shardloom-cli --test global_architecture_gate`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-0001A-A SQL/DataFrame planner readiness report
   - Primary files:
     - `docs/architecture/compute-engine-flow-reference.md`

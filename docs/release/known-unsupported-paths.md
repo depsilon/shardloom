@@ -17,6 +17,7 @@ object-store, platform, or Foundry workload until those paths have claim-grade e
 - broad live/hybrid production behavior
 - object-store runtime
 - distributed scheduler/runtime
+- lakehouse/table runtime claims beyond report-only catalog/table compatibility planning
 - real Foundry proof-of-use beyond the local Foundry-style smoke
 - Foundry native dataset source/sink execution
 - external platform execution through Spark, Snowflake, Databricks, BigQuery, Trino, Ray, Dask, or
@@ -26,6 +27,9 @@ object-store, platform, or Foundry workload until those paths have claim-grade e
 - layout/write, device/GPU, object-store I/O, and managed-platform comparison claims unless
   `vortex_layout_device_managed_boundary_ref` has claim-grade execution, Native I/O, benchmark, and
   no-fallback evidence for the exact workload
+- distributed, object-store, and lakehouse runtime claims unless
+  `global_architecture_runtime_claim_gate` has workload-scoped execution, Native I/O, credential,
+  benchmark, policy/no-fallback, and release-readiness evidence for the exact claim
 - production security posture beyond the current release-gate evidence
 
 ## Required Reporting Rule

@@ -13,6 +13,7 @@
 
 pub mod agent_contract;
 pub mod approx_sketch;
+pub mod architecture_gate;
 pub mod architecture_spine;
 pub mod benchmark;
 pub mod benchmark_suite;
@@ -57,6 +58,11 @@ pub use agent_contract::{
 pub use approx_sketch::{
     ApproxSketchFunctionGateEntry, ApproxSketchFunctionGateReport, ApproxSketchFunctionStatus,
     ApproxSketchFunctionSurface, plan_approx_sketch_function_gate,
+};
+pub use architecture_gate::{
+    ArchitectureRuntimeClaimGateReport, ArchitectureRuntimeClaimGateRow,
+    ArchitectureRuntimeClaimSupportStatus, ArchitectureRuntimeClaimSurface,
+    plan_global_architecture_runtime_claim_gate,
 };
 pub use architecture_spine::{
     ComputeEngineArchitectureSpineReport, ComputeEngineLayerContract, ComputeEngineLayerKind,

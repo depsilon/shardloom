@@ -7,12 +7,13 @@
 use std::{process::ExitCode, vec::IntoIter};
 
 use shardloom_core::{
-    CapabilityCertificationReport, CapabilityCertificationStatus, CommandStatus,
-    EngineCapabilities, EngineCapabilityMatrixReport, OutputFormat, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
-    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
-    WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
-    output_mode_vocabulary, plan_world_class_sufficiency, update_mode_vocabulary,
+    ArchitectureRuntimeClaimGateReport, CapabilityCertificationReport,
+    CapabilityCertificationStatus, CommandStatus, EngineCapabilities, EngineCapabilityMatrixReport,
+    OutputFormat, PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix,
+    PhysicalOperatorPlan, ShardLoomError, SqlDataFramePlannerReadinessMatrix,
+    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, boundedness_vocabulary,
+    engine_mode_vocabulary, output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
+    plan_world_class_sufficiency, update_mode_vocabulary,
 };
 use shardloom_vortex::{
     vortex_encoded_count_local_guard_discovery_report,
@@ -83,6 +84,8 @@ const REMOTE_API_REQUIRED_EVIDENCE: &str = "openapi_contract,asyncapi_contract,e
 const REMOTE_API_SUGGESTED_NEXT_ACTION: &str = "Use rest-api-contract-plan and rest-api-plan-preview for scenario-specific blockers before enabling remote execution.";
 const COMPUTE_CAPABILITY_COMMAND: &str = "compute-capability-matrix";
 const COMPUTE_CAPABILITY_USAGE: &str = "usage: shardloom compute-capability-matrix";
+const GLOBAL_ARCHITECTURE_GATE_COMMAND: &str = "global-architecture-gate";
+const GLOBAL_ARCHITECTURE_GATE_USAGE: &str = "usage: shardloom global-architecture-gate";
 const COMPUTE_SUPPORT_STATUS_VOCABULARY: &str = "unsupported,planned,report_only,executable_uncertified,fixture_certified,workload_certified,production_certified";
 const COMPUTE_PROVIDER_KIND_VOCABULARY: &str = "shardloom_kernel,vortex_array_kernel,vortex_scan,vortex_source,vortex_sink,compatibility_boundary,external_baseline_only";
 const COMPUTE_ENGINE_MODE_VOCABULARY: &str = "batch,live,hybrid,auto";
@@ -716,6 +719,34 @@ pub(crate) fn handle_compute_capability_matrix(
     ExitCode::SUCCESS
 }
 
+pub(crate) fn handle_global_architecture_gate(
+    mut args: IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            GLOBAL_ARCHITECTURE_GATE_COMMAND,
+            format,
+            "global architecture runtime claim gate failed",
+            &ShardLoomError::InvalidOperation(format!(
+                "unexpected global-architecture-gate argument: {extra}; {GLOBAL_ARCHITECTURE_GATE_USAGE}"
+            )),
+        );
+    }
+
+    let report = plan_global_architecture_runtime_claim_gate();
+    emit(
+        GLOBAL_ARCHITECTURE_GATE_COMMAND,
+        format,
+        CommandStatus::Success,
+        "global architecture runtime claim gate".to_string(),
+        report.to_human_text(),
+        vec![],
+        global_architecture_gate_fields(&report),
+    );
+    ExitCode::SUCCESS
+}
+
 pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputFormat) -> ExitCode {
     let scope = match CapabilityDiscoveryScope::parse(args.next().as_deref()) {
         Ok(scope) => scope,
@@ -1267,6 +1298,159 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
     push_bool_field(&mut fields, "no_fallback", true);
     push_bool_field(&mut fields, "no_effects", true);
     fields
+}
+
+fn global_architecture_gate_fields(
+    report: &ArchitectureRuntimeClaimGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(
+        &mut fields,
+        "mode",
+        "global_architecture_runtime_claim_gate",
+    );
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_field(&mut fields, "docs_ref", report.docs_ref);
+    push_field(&mut fields, "source_refs", report.source_refs);
+    push_field(
+        &mut fields,
+        "support_status_vocabulary",
+        report.support_status_vocabulary,
+    );
+    push_field(&mut fields, "claim_gate_status", report.claim_gate_status);
+    push_count_field(&mut fields, "row_count", report.rows.len());
+    push_field(&mut fields, "row_order", &report.row_order().join(","));
+    push_field(
+        &mut fields,
+        "claim_families",
+        &report.claim_families().join(","),
+    );
+    push_field(
+        &mut fields,
+        "existing_gate_refs",
+        &report.existing_gate_refs.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_gate_refs",
+        &report.required_gate_refs.join(","),
+    );
+    push_field(
+        &mut fields,
+        "unsupported_diagnostic_codes",
+        &report.unsupported_diagnostic_codes().join(","),
+    );
+    push_field(&mut fields, "blocker_ids", &report.blocker_ids().join(","));
+    push_field(
+        &mut fields,
+        "required_evidence",
+        &report.required_evidence().join("|"),
+    );
+    push_bool_field(
+        &mut fields,
+        "release_gate_required",
+        report.release_gate_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "runtime_claim_allowed",
+        report.runtime_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "distributed_runtime_claim_allowed",
+        report.distributed_runtime_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "object_store_runtime_claim_allowed",
+        report.object_store_runtime_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "lakehouse_runtime_claim_allowed",
+        report.lakehouse_runtime_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "public_claim_allowed",
+        report.public_claim_allowed,
+    );
+    append_global_architecture_no_effect_fields(&mut fields, report);
+    push_bool_field(
+        &mut fields,
+        "all_rows_side_effect_free",
+        report.all_rows_side_effect_free(),
+    );
+    push_bool_field(
+        &mut fields,
+        "all_rows_not_claim_grade",
+        report.all_rows_not_claim_grade(),
+    );
+    push_bool_field(
+        &mut fields,
+        "all_runtime_claims_blocked",
+        report.all_runtime_claims_blocked(),
+    );
+    push_bool_field(
+        &mut fields,
+        "deterministic_diagnostics_present",
+        report.deterministic_diagnostics_present(),
+    );
+    push_field(&mut fields, "execution", "not_performed");
+    push_bool_field(&mut fields, "plan_only", true);
+    fields
+}
+
+fn append_global_architecture_no_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ArchitectureRuntimeClaimGateReport,
+) {
+    push_bool_field(
+        fields,
+        "coordinator_worker_start_allowed",
+        report.coordinator_worker_start_allowed,
+    );
+    push_bool_field(
+        fields,
+        "task_execution_allowed",
+        report.task_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "credential_resolution_allowed",
+        report.credential_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "object_store_io_allowed",
+        report.object_store_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        "table_catalog_io_allowed",
+        report.table_catalog_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        "lakehouse_commit_allowed",
+        report.lakehouse_commit_allowed,
+    );
+    push_bool_field(fields, "data_read_allowed", report.data_read_allowed);
+    push_bool_field(fields, "write_io_allowed", report.write_io_allowed);
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
 }
 
 fn append_native_vortex_admission_fields(fields: &mut Vec<(String, String)>) {

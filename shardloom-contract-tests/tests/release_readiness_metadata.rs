@@ -236,6 +236,7 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
         "cargo clippy --workspace --all-targets -- -D warnings",
         "cargo test --workspace --all-targets",
         "python -m build python",
+        "global-architecture-gate",
     ] {
         assert!(
             readiness_script.contains(required),
@@ -559,6 +560,7 @@ fn release_security_gate_docs_and_known_unsupported_paths_are_present() {
         "broad SQL/DataFrame execution",
         "live/hybrid production behavior",
         "object-store runtime",
+        "global_architecture_runtime_claim_gate",
         "Foundry proof-of-use",
         "direct transient compatibility execution as a Vortex-native claim",
         "vortex_layout_device_managed_boundary_ref",
@@ -589,6 +591,8 @@ fn hard_release_readiness_gate_docs_are_present() {
         "cargo clippy --workspace --all-targets -- -D warnings",
         "cargo test --workspace --all-targets",
         "python -m build python",
+        "shardloom.global_architecture_runtime_claim_gate.v1",
+        "global-architecture-gate",
         "public_release_claim_allowed=false",
         "status=blocked",
     ] {
@@ -734,12 +738,16 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(plan.contains("GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 56);
+    assert!(plan.matches("- [ ] GAR-").count() >= 55);
     assert!(!plan.contains(
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));
 
     let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(
+        completed_ledger
+            .contains("GAR-0001A-B distributed/object-store/lakehouse architecture gate")
+    );
     for child in ["P8.0A/P8.0B", "P8.0C", "P8.0D", "P8.0E", "P8.0F", "P8.0G"] {
         assert!(
             completed_ledger.contains(&format!("Session label: {child}")),

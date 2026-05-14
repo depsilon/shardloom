@@ -34,6 +34,8 @@ The gate aggregates:
 - feature/build matrix execution evidence
 - typed-envelope compatibility posture
 - required validation command evidence
+- global architecture runtime-claim gate evidence for distributed, object-store, and lakehouse
+  public-claim boundaries
 
 Required validation commands before public release:
 
@@ -44,6 +46,7 @@ cargo test --workspace --all-targets
 python -m unittest discover python/tests
 python -m build python
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
+cargo run -q -p shardloom-cli -- global-architecture-gate --format json
 python scripts\check_release_security_gate.py
 ```
 
@@ -74,6 +77,12 @@ secrets_required=false
 fallback_attempted=false
 external_engine_invoked=false
 ```
+
+The global architecture gate uses schema
+`shardloom.global_architecture_runtime_claim_gate.v1` and must keep
+`runtime_claim_allowed=false`, `public_claim_allowed=false`, `fallback_attempted=false`, and
+`external_engine_invoked=false` unless distributed, object-store, and lakehouse claims have their
+own workload-scoped evidence.
 
 The broader release process must also attach clean Conda proof, benchmark smoke evidence,
 package metadata/license proof, SBOM/checksum/provenance evidence, runtime no-fallback dependency

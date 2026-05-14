@@ -190,6 +190,7 @@ def main() -> int:
         "python -m unittest discover python/tests",
         "python -m build python",
         "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
+        "cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
         "python scripts/check_release_security_gate.py",
     ]
     validation_blockers = []
