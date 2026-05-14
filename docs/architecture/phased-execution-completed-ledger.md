@@ -16,6 +16,81 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0012-B envelope status and distributed/object-store diagnostic propagation
+  - Primary files:
+    - `docs/architecture/diagnostics-normalization-backlog.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/object-store-request-planner.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-plan/src/object_store.rs`
+    - `shardloom-cli/src/object_store_planning.rs`
+    - `shardloom-cli/tests/cg10_object_store_runtime_gate.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: propagate existing object-store/distributed runtime blocker diagnostics through the
+    CG-10 runtime promotion gate envelope, text report, and Python client view without changing
+    runtime behavior or output status semantics.
+  - Checklist:
+    - [x] Populate `ObjectStoreRuntimePromotionGateReport.diagnostics` from
+          `ObjectStoreRuntimeBlockerMatrixRow::to_diagnostic()` as info-level object-store
+          diagnostics.
+    - [x] Add summary fields for blocker diagnostic propagation, count, code/category/severity
+          order, and envelope status.
+    - [x] Preserve `status=success` for the report-only gate because the propagated diagnostics are
+          informational blockers, not runtime errors.
+    - [x] Add text output lines proving diagnostic propagation, info severity, and no external
+          engine invocation without requiring agents to scrape row prose.
+    - [x] Add a Python `object_store_runtime_gate()` helper and test that blocker diagnostics
+          survive into the typed `OutputEnvelope` model.
+    - [x] Lock the typed-envelope compatibility test to the CG-10 diagnostic boundary.
+  - Boundary:
+    - This is diagnostic propagation only. It does not implement object-store I/O providers,
+      provider probes, credential resolution, coordinator/worker startup, distributed task
+      execution, checkpoint writes, retry execution, cleanup execution, object-store commits,
+      external engines, or fallback execution.
+  - Evidence:
+    - Correctness evidence: `shardloom-plan` unit tests assert the runtime blocker matrix diagnostics
+      are present, ordered by row action, object-store categorized, info severity, and fallback
+      disabled.
+    - CLI evidence: `cg10_object_store_runtime_gate` asserts JSON fields and diagnostics expose
+      `SL_OBJECT_STORE_UNSUPPORTED`, `category=object_store`, `severity=info`,
+      `runtime_blocker_matrix_diagnostics_propagated=true`, and `diagnostic_count=7`.
+    - Python evidence: `python/tests/test_cli_client.py` asserts the Python envelope keeps object-store
+      blocker categories, features, no error diagnostics, and no fallback attempt.
+    - Policy/no-fallback refs: top-level and per-row fields keep `fallback_attempted=false`,
+      `fallback_execution_allowed=false`, `external_engine_invoked=false`, `execution=not_performed`,
+      and `plan_only=true`.
+    - Benchmark evidence: not applicable; no runtime or performance claim was added.
+  - Vortex-first provider check:
+    - Subject area: RFC 0012 diagnostics propagation for RFC 0008 object-store/distributed runtime
+      blockers.
+    - Upstream Vortex concept checked: none required; this only transports existing report-only
+      diagnostics and does not introduce a scan/source/sink/runtime provider.
+    - Decision: `implement_shardloom_report_contract`.
+    - Residual handling: object-store and distributed runtime paths remain deterministic blockers
+      with no fallback and no external engine invocation.
+    - Gates still blocked: object-store I/O providers, remote reads, distributed runtime,
+      checkpoint/retry runtime, credential resolution, and object-store commits.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-plan object_store_runtime_gate --lib`
+    - `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `python -m unittest python.tests.test_cli_client -k object_store_runtime_gate`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+    - `cargo test --workspace --all-targets`
+    - `python -m unittest discover -s python/tests`
+
 - [x] Session label: GAR-0012-A diagnostic category and helper normalization
   - Primary files:
     - `docs/architecture/global-architecture-review.md`

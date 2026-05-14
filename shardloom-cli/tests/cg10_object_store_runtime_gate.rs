@@ -243,6 +243,29 @@ fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() 
         "runtime_blocker_matrix_row_order",
         "coordinator_start,worker_start,task_execution,checkpoint_write,retry_attempt,cleanup_execution,commit_record_write"
     )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_diagnostics_propagated",
+        "true"
+    )));
+    assert!(output.contains(&field("runtime_blocker_matrix_diagnostic_count", "7")));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_diagnostic_code_order",
+        "SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_diagnostic_category_order",
+        "object_store,object_store,object_store,object_store,object_store,object_store,object_store"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_diagnostic_severity_order",
+        "info,info,info,info,info,info,info"
+    )));
+    assert!(output.contains(&field("runtime_blocker_matrix_envelope_status", "success")));
+    assert!(output.contains("\"diagnostics\":[{\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
+    assert!(output.contains("\"severity\":\"info\""));
+    assert!(output.contains("\"category\":\"object_store\""));
+    assert!(output.contains("\"feature\":\"coordinator_start\""));
+    assert!(output.contains("\"feature\":\"commit_record_write\""));
     assert!(output.contains(&field("existing_request_planner_evidence_present", "true")));
     assert!(output.contains(&field("existing_range_planning_evidence_present", "true")));
     assert!(output.contains(&field("existing_coalescing_evidence_present", "true")));
@@ -263,4 +286,5 @@ fn cg10_object_store_runtime_gate_blocks_execution_io_credentials_and_claims() {
     assert_byte_range_provider_gate_fields(&output);
     assert_runtime_blocker_matrix_fields(&output);
     assert!(output.contains(&field("execution", "not_performed")));
+    assert!(output.contains(&field("diagnostic_count", "7")));
 }

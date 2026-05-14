@@ -1342,12 +1342,17 @@ pub struct ObjectStoreRuntimePromotionGateReport {
 impl ObjectStoreRuntimePromotionGateReport {
     #[must_use]
     pub fn planning_default() -> Self {
+        let runtime_blocker_matrix = object_store_runtime_blocker_matrix_rows();
+        let diagnostics = runtime_blocker_matrix
+            .iter()
+            .map(ObjectStoreRuntimeBlockerMatrixRow::to_diagnostic)
+            .collect();
         Self {
             schema_version: "shardloom.object_store_runtime_promotion_gate.v1",
             report_id: "cg10.object_store_runtime_promotion_gate",
             entries: object_store_runtime_promotion_entries(),
             byte_range_provider_gate: ObjectStoreByteRangeProviderGateReport::blocked_default(true),
-            runtime_blocker_matrix: object_store_runtime_blocker_matrix_rows(),
+            runtime_blocker_matrix,
             existing_report_refs: object_store_runtime_existing_report_refs(),
             existing_request_planner_evidence_present: true,
             existing_range_planning_evidence_present: true,
@@ -1388,7 +1393,7 @@ impl ObjectStoreRuntimePromotionGateReport {
             benchmark_evidence_required: true,
             fallback_attempted: false,
             fallback_execution_allowed: false,
-            diagnostics: Vec::new(),
+            diagnostics,
         }
     }
 
@@ -1467,6 +1472,53 @@ impl ObjectStoreRuntimePromotionGateReport {
     }
 
     #[must_use]
+    pub fn runtime_blocker_matrix_diagnostic_count(&self) -> usize {
+        self.runtime_blocker_matrix
+            .iter()
+            .filter(|row| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == row.diagnostic_code
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.category == DiagnosticCategory::ObjectStore
+                        && diagnostic.feature.as_deref() == Some(row.action)
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn runtime_blocker_matrix_diagnostics_propagated(&self) -> bool {
+        !self.runtime_blocker_matrix.is_empty()
+            && self.runtime_blocker_matrix_diagnostic_count() == self.runtime_blocker_matrix.len()
+    }
+
+    #[must_use]
+    pub fn runtime_blocker_matrix_diagnostic_code_order(&self) -> Vec<&'static str> {
+        self.runtime_blocker_matrix
+            .iter()
+            .map(|row| row.diagnostic_code.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn runtime_blocker_matrix_diagnostic_category_order(&self) -> Vec<&'static str> {
+        self.runtime_blocker_matrix
+            .iter()
+            .map(|_| DiagnosticCategory::ObjectStore.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn runtime_blocker_matrix_diagnostic_severity_order(&self) -> Vec<&'static str> {
+        self.runtime_blocker_matrix
+            .iter()
+            .map(|_| DiagnosticSeverity::Info.as_str())
+            .collect()
+    }
+
+    #[must_use]
     pub fn runtime_blocker_matrix_all_allowed_false(&self) -> bool {
         self.runtime_blocker_matrix.iter().all(|row| !row.allowed)
     }
@@ -1536,6 +1588,27 @@ impl ObjectStoreRuntimePromotionGateReport {
             out,
             "runtime blocker matrix rows: {}",
             self.runtime_blocker_matrix.len()
+        );
+        let _ = writeln!(
+            out,
+            "runtime blocker diagnostics propagated: {}",
+            self.runtime_blocker_matrix_diagnostics_propagated()
+        );
+        let _ = writeln!(
+            out,
+            "runtime blocker diagnostic count: {}",
+            self.runtime_blocker_matrix_diagnostic_count()
+        );
+        let _ = writeln!(
+            out,
+            "runtime blocker diagnostic severities: {}",
+            self.runtime_blocker_matrix_diagnostic_severity_order()
+                .join(",")
+        );
+        let _ = writeln!(
+            out,
+            "runtime blocker all no external engine: {}",
+            self.runtime_blocker_matrix_all_no_external_engine()
         );
         let _ = writeln!(out, "side effect free: {}", self.side_effect_free());
         let _ = writeln!(out, "surfaces:");
@@ -3227,6 +3300,29 @@ mod tests {
                 "cleanup_execution",
                 "commit_record_write",
             ]
+        );
+        assert_eq!(
+            report.runtime_blocker_matrix_diagnostic_count(),
+            report.runtime_blocker_matrix.len()
+        );
+        assert!(report.runtime_blocker_matrix_diagnostics_propagated());
+        assert_eq!(
+            report.diagnostics.len(),
+            report.runtime_blocker_matrix.len()
+        );
+        assert!(report.diagnostics.iter().all(|diagnostic| diagnostic.code
+            == DiagnosticCode::ObjectStoreUnsupported
+            && diagnostic.severity == DiagnosticSeverity::Info
+            && diagnostic.category == DiagnosticCategory::ObjectStore
+            && !diagnostic.fallback.attempted
+            && !diagnostic.fallback.allowed));
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter_map(|diagnostic| diagnostic.feature.as_deref())
+                .collect::<Vec<_>>(),
+            report.runtime_blocker_matrix_row_order()
         );
         assert!(report.runtime_blocker_matrix_all_allowed_false());
         assert!(report.runtime_blocker_matrix_all_no_io());

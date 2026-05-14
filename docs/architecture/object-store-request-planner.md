@@ -81,6 +81,11 @@ For the object-store runtime blocker matrix:
 
 - `runtime_blocker_matrix_status=blocked_until_certified`
 - `runtime_blocker_matrix_row_order=coordinator_start,worker_start,task_execution,checkpoint_write,retry_attempt,cleanup_execution,commit_record_write`
+- `runtime_blocker_matrix_diagnostics_propagated=true`
+- `runtime_blocker_matrix_diagnostic_count=7`
+- `runtime_blocker_matrix_diagnostic_category_order=object_store,object_store,object_store,object_store,object_store,object_store,object_store`
+- `runtime_blocker_matrix_diagnostic_severity_order=info,info,info,info,info,info,info`
+- `runtime_blocker_matrix_envelope_status=success`
 - `runtime_blocker_matrix_all_allowed_false=true`
 - `runtime_blocker_matrix_all_no_io=true`
 - `runtime_blocker_matrix_all_no_fallback=true`
@@ -91,6 +96,12 @@ Every row carries `diagnostic_code=SL_OBJECT_STORE_UNSUPPORTED`,
 `object_store_io=false`, `write_io=false`, `fallback_attempted=false`,
 `fallback_execution_allowed=false`, and `external_engine_invoked=false`, plus a row-specific
 blocker ID and required-evidence list.
+
+The runtime promotion gate also copies every blocker row into the typed output envelope diagnostics
+array as `severity=info`, `category=object_store`, `code=SL_OBJECT_STORE_UNSUPPORTED`, and
+`fallback.attempted=false`. The command remains `status=success` because this surface is a
+report-only promotion gate; the info diagnostics document blocked runtime families without
+attempting execution or forcing agents to scrape human text.
 
 For the CG-10 runtime promotion gate:
 

@@ -3787,6 +3787,11 @@ class ShardLoomClient:
 
         return self.run(["cg9-catalog-metadata-gate"], check=check)
 
+    def object_store_runtime_gate(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the CG-10 object-store/distributed runtime promotion gate."""
+
+        return self.run(["cg10-object-store-runtime-gate"], check=check)
+
     def object_store_request_plan(
         self, scenario: str = "ready", *, check: bool = True
     ) -> OutputEnvelope:

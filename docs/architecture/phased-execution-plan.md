@@ -262,20 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0012-B envelope status and distributed/object-store diagnostic propagation
-  - Source: RFC 0012; diagnostics normalization backlog; object-store request planner.
-  - Current state: envelope status derives from diagnostics for current paths; distributed and
-    object-store paths need propagation before runtime work.
-  - Next slice outcome: tests and report fields proving blocked distributed/object-store diagnostics
-    survive JSON/text/Python boundaries.
-  - User-visible surface: CLI typed envelope, Python result view.
-  - Implementation scope: output envelope, CLI renderer, Python typed model tests.
-  - Evidence required: diagnostic refs, policy/no-fallback refs.
-  - Acceptance: status matches highest severity and agents do not need to scrape human text.
-  - Verification: typed envelope snapshot tests, Python tests, default GAR verification.
-  - Non-goals: no object-store or distributed runtime.
-  - Fallback/claim boundary: unsupported paths remain explicit and not claim-grade.
-  - Dependencies/blockers: GAR-0008 blocker matrix.
 - [ ] GAR-0013-A streaming runtime capability and unsupported diagnostics
   - Source: RFC 0013; streaming plan docs; Vortex runtime utilization audit.
   - Current state: streaming plan/backpressure contracts exist; full streaming runtime and
