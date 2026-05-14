@@ -26,7 +26,7 @@ mirrored into `docs/architecture/phased-execution-plan.md` under the Global Arch
 carry-forward block. When implementation needs a smaller slice, split the mirrored item in the phase
 plan before coding.
 
-- Runtime and execution: SQL/DataFrame planning, direct transient runtime, broad expression/kernel
+- Runtime and execution: SQL/DataFrame execution, direct transient runtime, broad expression/kernel
   execution, generalized encoded filter/project execution, live/hybrid engines, distributed
   object-store runtime, adaptive/skew/runtime-filter execution, and real SIMD dispatch.
 - I/O, output, and tables: object-store reads/writes/commits, broad Vortex read/write support,
@@ -50,7 +50,13 @@ plan before coding.
   `shardloom-vortex`, `shardloom-cli`, `Cargo.toml`
 - [x] Core crate boundaries, architecture vocabulary, and ShardLoom/Vortex layering exist.
 - [x] Vortex-first/no-fallback identity is represented in code, docs, diagnostics, and tests.
-- [ ] Full SQL/DataFrame planner, distributed runtime, broad lakehouse-compatible output, and
+- [x] GAR-0001A-A adds a report-only SQL/DataFrame planner-readiness matrix through
+  `capabilities sql`, `capabilities dataframe`, and Python `CapabilityView` accessors. SQL text,
+  SQL parse/bind/plan/execute, DataFrame lazy-plan/expression/join/aggregate/window, diagnostics,
+  and unsupported execution states are visible as `support_status=report_only|unsupported`,
+  `claim_gate_status=not_claim_grade`, with deterministic diagnostic codes, blocker ids, no parser,
+  no binder, no planner, no runtime, no external engine, and no fallback.
+- [ ] Executable SQL/DataFrame runtime, distributed runtime, broad lakehouse-compatible output, and
   general object-store execution remain incomplete.
 - [ ] Spark-displacement or engine-replacement claims remain not claimable until runtime and output
   evidence closes.

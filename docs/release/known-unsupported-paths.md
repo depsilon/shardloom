@@ -12,6 +12,8 @@ object-store, platform, or Foundry workload until those paths have claim-grade e
 ## Unsupported Or Future Before Public Claims
 
 - broad SQL/DataFrame execution
+  - `capabilities sql` and `capabilities dataframe` expose the GAR-0001A-A planner-readiness matrix
+    as report-only/unsupported evidence, not SQL parser/planner or DataFrame runtime support
 - broad live/hybrid production behavior
 - object-store runtime
 - distributed scheduler/runtime

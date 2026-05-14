@@ -192,6 +192,50 @@ class CapabilityView:
             if "materialization" in key and value not in {"", "false", "none"}
         )
 
+    @property
+    def planner_readiness_rows(self) -> tuple[str, ...]:
+        """Return SQL/DataFrame planner-readiness row IDs when exposed."""
+
+        return _split_csv(self.envelope.field("planner_readiness_row_order"))
+
+    @property
+    def sql_planner_readiness_rows(self) -> tuple[str, ...]:
+        """Return SQL planner-readiness row IDs when exposed."""
+
+        return _split_csv(self.envelope.field("planner_readiness_sql_row_order"))
+
+    @property
+    def dataframe_planner_readiness_rows(self) -> tuple[str, ...]:
+        """Return DataFrame planner-readiness row IDs when exposed."""
+
+        return _split_csv(self.envelope.field("planner_readiness_dataframe_row_order"))
+
+    @property
+    def planner_readiness_claim_gate_status(self) -> str | None:
+        """Return the planner-readiness claim gate status when present."""
+
+        return self.envelope.field("planner_readiness_claim_gate_status")
+
+    @property
+    def planner_readiness_non_executing(self) -> bool:
+        """Whether planner readiness reports avoided parser, planner, runtime, and fallback work."""
+
+        keys = (
+            "planner_readiness_parser_executed",
+            "planner_readiness_binder_executed",
+            "planner_readiness_planner_executed",
+            "planner_readiness_runtime_execution",
+            "planner_readiness_dataframe_runtime",
+            "planner_readiness_external_engine_invoked",
+            "planner_readiness_fallback_attempted",
+        )
+        if not any(self.envelope.field(key) is not None for key in keys):
+            return False
+        return all(
+            self.envelope.field_bool(key, False) is False
+            for key in keys
+        )
+
     def field(self, key: str, default: str | None = None) -> str | None:
         """Return a capability field value."""
 

@@ -262,22 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0001A-A SQL/DataFrame planner readiness report
-  - Source: RFC 0001; RFC 0032; RFC 0038; rfc-phase traceability.
-  - Current state: planning and capability surfaces exist, but broad SQL/DataFrame planning is not
-    executable.
-  - Next slice outcome: report-only planner readiness matrix for SQL text, DataFrame methods, plan
-    diagnostics, and unsupported execution states.
-  - User-visible surface: CLI capability view, Python docs/accessors, architecture docs.
-  - Implementation scope: capability report models, CLI status output, Python typed models, tests.
-  - Evidence required: diagnostic refs and policy/no-fallback refs.
-  - Acceptance: unsupported SQL/DataFrame requests produce deterministic diagnostics and never imply
-    execution support.
-  - Verification: capability snapshot tests, Python compile/accessor tests, default GAR verification.
-  - Non-goals: no SQL parser execution, DataFrame runtime, distributed runtime, or lakehouse writes.
-  - Fallback/claim boundary: `support_status=report_only|unsupported` and
-    `claim_gate_status=not_claim_grade`.
-  - Dependencies/blockers: GAR-0032 SQL/DataFrame user-surface slices.
 - [ ] GAR-0001A-B distributed/object-store/lakehouse architecture gate
   - Source: RFC 0001; RFC 0008; RFC 0028; operational evidence policy hardening.
   - Current state: distributed, object-store, and lakehouse paths are represented as planning or

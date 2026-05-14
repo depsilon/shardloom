@@ -311,6 +311,10 @@ End-to-end contract:
   output intent, end-user access path, adapter surface, and downstream usage before execution.
 - CLI access is the current canonical user and automation entrypoint. Wrappers and planned adapters
   must preserve the typed protocol instead of creating independent execution semantics.
+- SQL/DataFrame access currently exposes a report-only planner-readiness matrix through
+  `capabilities sql`, `capabilities dataframe`, and Python `CapabilityView` accessors. It names
+  SQL parse/bind/plan/execute and DataFrame lazy-plan/expression/join/aggregate/window readiness
+  rows, but it does not execute a parser, binder, planner, DataFrame runtime, or fallback engine.
 - End-user and adapter surfaces may improve ergonomics, but they must not hide selected execution
   mode, unsupported diagnostics, materialization/decode boundaries, or claim-gate status.
 - Every source path reports what was read, what decoded, what materialized, what stayed native, and
@@ -478,6 +482,10 @@ This is the traditional-compute-like ShardLoom path. The current repo has one sc
 selective-filter smoke path with execution-certificate evidence; adjacent formats, operators,
 result sinks, SQL/DataFrame access, and broader transient runtime behavior still return
 deterministic unsupported diagnostics.
+
+SQL/DataFrame diagnostics for this mode are interpreted through the GAR-0001A-A planner-readiness
+matrix. The matrix is `not_claim_grade`, preserves `fallback_attempted=false` and
+`external_engine_invoked=false`, and cannot be used as evidence for SQL/DataFrame runtime support.
 
 ```text
 CSV / Parquet / JSONL / etc.
