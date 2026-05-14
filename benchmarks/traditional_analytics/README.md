@@ -346,6 +346,12 @@ and keeps generalized Source/Split runtime, field-mask proof, predicate-ordering
 proof, object-store, table/catalog, and write paths blocked until evidence
 exists.
 
+Coverage rows also carry `vortex_segment_extraction_admission_ref`, pointing to
+the GAR-0003-A sparse segment extraction admission report in
+`vortex-api-inventory`. Sparse patch/fill extraction is explicitly blocked
+until correctness, execution-certificate, Native I/O, materialization/decode,
+and no-fallback evidence exists.
+
 Coverage rows also carry `vortex_layout_device_managed_boundary_ref`, pointing
 to the GAR-0042B boundary matrix. Layout/write, device/GPU, object-store, and
 managed-platform comparison rows stay `not_claim_grade`; managed platforms are

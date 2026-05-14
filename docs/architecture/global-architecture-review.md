@@ -100,6 +100,10 @@ plan before coding.
 - [x] Encoded segment contracts, encoded predicate surfaces, and encoded projection/filter slices
   are present.
 - [x] Local encoded read/query primitive evidence records materialization and decode boundaries.
+- [x] GAR-0003-A adds a sparse patch/fill segment extraction admission report through
+  `vortex-api-inventory` and benchmark coverage refs. Sparse extraction is deterministically blocked
+  with required correctness, execution-certificate, Native I/O, materialization/decode, and
+  no-fallback evidence before support claims.
 - [ ] Full production Vortex segment extraction, broad operator coverage, and generalized
   materialization policy remain incomplete.
 

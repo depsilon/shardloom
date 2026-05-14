@@ -182,6 +182,34 @@ The current admitted evidence is fixture-scoped only. It does not authorize gene
 Source/Split runtime, object-store scan, table/catalog scan, writes, device/GPU execution,
 managed-platform lanes, external engines, or fallback execution.
 
+## VortexSegmentExtractionAdmissionReport
+
+GAR-0003-A adds a report-only admission report for one concrete encoded layout family. The first
+row covers `sparse_patch_fill` and records:
+
+- `schema_version`
+- `report_id`
+- selected layout family and selected layout status
+- upstream Vortex concepts checked
+- ShardLoom admission surface and decision
+- materialization and decode boundary status
+- correctness, benchmark, execution-certificate, Native I/O, materialization/decode, and policy refs
+- unsupported diagnostic code, blocker id, and required future evidence
+- claim gate and claim boundary
+- `runtime_execution=false`
+- `data_read=false`
+- `data_decoded=false`
+- `data_materialized=false`
+- `object_store_io=false`
+- `table_catalog_io=false`
+- `write_io=false`
+- `external_engine_invoked=false`
+- `fallback_attempted=false`
+
+The report does not implement sparse segment extraction. It keeps sparse patch/fill extraction
+blocked until correctness fixtures, execution certificates, Native I/O certificates,
+materialization/decode evidence, and no-fallback evidence exist.
+
 ## VortexLayoutDeviceManagedBoundaryMatrix
 
 GAR-0042B adds a report-only boundary matrix for layout/write, device execution, object-store I/O,

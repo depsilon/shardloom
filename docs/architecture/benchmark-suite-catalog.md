@@ -239,6 +239,12 @@ blockers, certificate refs, Native I/O refs, and no-fallback policy. This is adm
 only; generalized Source/Split runtime, object-store/table/catalog scans, writes, and performance
 claims remain blocked without evidence.
 
+GAR-0003-A adds `vortex_segment_extraction_admission_ref` to ShardLoom coverage rows. The ref points
+to the `vortex-api-inventory` sparse segment extraction admission report for
+`sparse_patch_fill`. This is explicit unsupported attribution only; sparse extraction, broad layout
+coverage, production segment extraction, and performance claims remain blocked until correctness,
+execution-certificate, Native I/O, materialization/decode, and no-fallback evidence exists.
+
 GAR-0042B adds `vortex_layout_device_managed_boundary_ref` to ShardLoom coverage rows and
 benchmark claim-gate metadata. The ref points to the runtime-utilization boundary matrix for
 layout/write, device execution, object-store I/O, and managed-platform comparison rows. All rows are

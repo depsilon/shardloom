@@ -61,6 +61,9 @@ NATIVE_IO_SOURCE_SINK_COVERAGE_REF = (
 VORTEX_SOURCE_SPLIT_ADMISSION_REF = (
     "vortex-api-inventory://source_split_admission.v1"
 )
+VORTEX_SEGMENT_EXTRACTION_ADMISSION_REF = (
+    "vortex-api-inventory://segment_extraction_admission.v1"
+)
 VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF = (
     "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1"
 )
@@ -3951,6 +3954,7 @@ def direct_transient_admission_coverage_row(result: dict[str, Any]) -> dict[str,
         "required_future_evidence": "shardloom_native_transient_executor,direct_mode_certificate",
         "native_io_source_sink_coverage_ref": NATIVE_IO_SOURCE_SINK_COVERAGE_REF,
         "vortex_source_split_admission_ref": VORTEX_SOURCE_SPLIT_ADMISSION_REF,
+        "vortex_segment_extraction_admission_ref": VORTEX_SEGMENT_EXTRACTION_ADMISSION_REF,
         "vortex_layout_device_managed_boundary_ref": VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF,
     }
 
@@ -4067,6 +4071,11 @@ def coverage_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 ),
                 "vortex_source_split_admission_ref": (
                     VORTEX_SOURCE_SPLIT_ADMISSION_REF
+                    if is_shardloom_engine(result["engine"])
+                    else None
+                ),
+                "vortex_segment_extraction_admission_ref": (
+                    VORTEX_SEGMENT_EXTRACTION_ADMISSION_REF
                     if is_shardloom_engine(result["engine"])
                     else None
                 ),
@@ -5895,6 +5904,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "Coverage rows now carry support_status, claim_gate_status, native_unsupported_coverage_ref, and unsupported_diagnostic_code so unsupported capability rows stay distinct from timing rows.",
         "ShardLoom coverage rows also carry native_io_source_sink_coverage_ref, which points to the RFC 0031 source/sink matrix in native-io-envelope-plan.",
         "ShardLoom coverage rows carry vortex_source_split_admission_ref, which points to the GAR-0042A source/split admission proof in vortex-api-inventory and does not upgrade generalized Source/Split runtime claims.",
+        "ShardLoom coverage rows carry vortex_segment_extraction_admission_ref, which points to the GAR-0003-A sparse segment extraction admission report in vortex-api-inventory; sparse patch/fill extraction is deterministically blocked until correctness, execution, Native I/O, materialization/decode, and no-fallback evidence exists.",
         "ShardLoom coverage rows carry vortex_layout_device_managed_boundary_ref, which points to the GAR-0042B layout/write/device/object-store/managed-platform claim boundary matrix; every row there is not-claim-grade until evidence exists.",
         "Claim-grade ShardLoom timing rows require at least three iterations, stable correctness digests, and the full evidence set; one-iteration smoke rows remain not-claim-grade.",
         "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
@@ -5970,6 +5980,7 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
                 str(row["required_future_evidence"] or "n/a"),
                 str(row["native_io_source_sink_coverage_ref"] or "n/a"),
                 str(row["vortex_source_split_admission_ref"] or "n/a"),
+                str(row["vortex_segment_extraction_admission_ref"] or "n/a"),
                 str(row["vortex_layout_device_managed_boundary_ref"] or "n/a"),
                 str(row["fallback_attempted"]),
                 str(row["external_engine_invoked"]),
@@ -6009,6 +6020,7 @@ def render_coverage_table(artifact: dict[str, Any]) -> str:
             "Required future evidence",
             "Native I/O source/sink ref",
             "Vortex source/split ref",
+            "Vortex segment extraction ref",
             "Vortex boundary ref",
             "Fallback",
             "External engine invoked",

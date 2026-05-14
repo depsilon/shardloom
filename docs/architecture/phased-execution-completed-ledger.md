@@ -16,6 +16,76 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0003-A Vortex segment extraction admission slice
+  - Primary files:
+    - `benchmarks/traditional_analytics/README.md`
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/architecture/vortex-runtime-utilization-audit.md`
+    - `docs/architecture/vortex-upstream-alignment-hardening.md`
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `shardloom-cli/tests/vortex_api_inventory_snapshots.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-vortex/src/vortex_scan_compatibility.rs`
+  - Scope: add one report-only Vortex segment extraction admission slice for the
+    `sparse_patch_fill` layout family.
+  - Checklist:
+    - [x] Add `VortexSegmentExtractionAdmissionReport` and row metadata for the selected sparse
+          layout family.
+    - [x] Keep sparse patch/fill extraction `blocked_until_segment_extraction_certificate` with
+          deterministic diagnostic `SL_UNSUPPORTED_VORTEX_SPARSE_SEGMENT_EXTRACTION` and blocker
+          `gar0003a.sparse_patch_fill_segment_extraction`.
+    - [x] Preserve `claim_gate_status=not_claim_grade`, no runtime execution, no data read, no
+          decode, no materialization, no object-store I/O, no table/catalog I/O, no write I/O, no
+          external engine, and no fallback.
+    - [x] Expose stable CLI fields through `vortex-api-inventory --format json`.
+    - [x] Add `vortex_segment_extraction_admission_ref` to ShardLoom benchmark coverage rows and
+          Markdown/report documentation.
+    - [x] Update GAR/RFC/compute-flow/Vortex docs and remove GAR-0003-A from Planned.
+  - Boundary:
+    - This is a report-only unsupported-diagnostic slice. It does not implement sparse segment
+      extraction, read Vortex data, decode values, materialize arrays, add a new dependency, widen
+      production layout coverage, emit execution certificates, or create performance/runtime
+      claims.
+  - Vortex-first provider check:
+    - Subject area: RFC 0003 encoded segment model and Vortex sparse layout segment extraction.
+    - Upstream Vortex concept checked: sparse layout patch/fill semantics, child array traversal,
+      validity handling, canonicalization risk, and existing `vortex-api-inventory` layout API
+      posture.
+    - Decision: `blocked_until_vortex_or_shardloom_evidence`.
+    - Vortex API/provider surface: no Vortex API is invoked; the report records the selected layout
+      family and required future evidence.
+    - ShardLoom provider/report/certificate surface:
+      `shardloom.vortex_segment_extraction_admission.v1`,
+      `vortex_segment_extraction_admission_ref`, and CLI/benchmark coverage fields.
+    - Residual handling: unsupported sparse extraction remains deterministically blocked; no
+      residual execution is attempted.
+    - Materialization/decode boundary: not entered; no data read, decode, materialization, Arrow
+      conversion, object-store I/O, table/catalog I/O, or write I/O occurs.
+    - Evidence added: report contract, CLI fields, benchmark coverage ref, contract tests, and
+      architecture traceability docs.
+    - Gates still blocked: sparse segment extraction runtime, broad Vortex layout extraction,
+      production segment extraction coverage, generalized materialization policy, performance
+      claims, external engine invocation, and fallback execution.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex segment_extraction_admission --lib`
+    - `cargo test -p shardloom-cli --test vortex_api_inventory_snapshots`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo run -q -p shardloom-cli -- vortex-api-inventory --format json`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m unittest discover -s python/tests`
+    - `git diff --check`
 - [x] Session label: GAR-0001A-B distributed/object-store/lakehouse architecture gate
   - Primary files:
     - `docs/architecture/compute-engine-flow-reference.md`

@@ -107,3 +107,71 @@ fn vortex_api_inventory_keeps_source_split_report_effect_free() {
         "false"
     )));
 }
+
+#[test]
+fn vortex_api_inventory_exposes_segment_extraction_admission_report() {
+    let output = run_vortex_api_inventory_json();
+
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_admission_schema_version",
+        "shardloom.vortex_segment_extraction_admission.v1"
+    )));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_admission_report_id",
+        "gar0003a.vortex_segment_extraction.sparse_patch_fill"
+    )));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_selected_layout_family",
+        "sparse_patch_fill"
+    )));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_selected_layout_status",
+        "blocked_until_segment_extraction_certificate"
+    )));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_supported_layout_count",
+        "0"
+    )));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_blocked_layout_count",
+        "1"
+    )));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_unsupported_diagnostic_codes",
+        "SL_UNSUPPORTED_VORTEX_SPARSE_SEGMENT_EXTRACTION"
+    )));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_blocker_ids",
+        "gar0003a.sparse_patch_fill_segment_extraction"
+    )));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_claim_gate_status",
+        "not_claim_grade"
+    )));
+}
+
+#[test]
+fn vortex_api_inventory_keeps_segment_extraction_report_effect_free() {
+    let output = run_vortex_api_inventory_json();
+
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_runtime_execution",
+        "false"
+    )));
+    assert!(output.contains(&field("vortex_segment_extraction_data_read", "false")));
+    assert!(output.contains(&field("vortex_segment_extraction_data_decoded", "false")));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_data_materialized",
+        "false"
+    )));
+    assert!(output.contains(&field("vortex_segment_extraction_object_store_io", "false")));
+    assert!(output.contains(&field("vortex_segment_extraction_write_io", "false")));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_external_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "vortex_segment_extraction_fallback_attempted",
+        "false"
+    )));
+}

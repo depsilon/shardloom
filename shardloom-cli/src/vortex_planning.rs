@@ -967,6 +967,7 @@ fn vortex_api_inventory_fields(
     fields.extend(vortex_source_split_pushdown_fields(scan_report));
     fields.extend(vortex_source_split_evidence_fields(scan_report));
     fields.extend(vortex_source_split_effect_fields(scan_report));
+    fields.extend(vortex_segment_extraction_admission_fields(scan_report));
     fields
 }
 
@@ -1220,6 +1221,106 @@ fn vortex_source_split_effect_fields(
     ]
 }
 
+fn vortex_segment_extraction_admission_fields(
+    scan_report: &VortexScanCompatibilityReport,
+) -> Vec<(String, String)> {
+    let report = &scan_report.segment_extraction_admission_report;
+    vec![
+        (
+            "vortex_segment_extraction_admission_schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_admission_report_id".to_string(),
+            report.report_id.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_selected_layout_family".to_string(),
+            report.selected_layout_family.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_selected_layout_status".to_string(),
+            report.selected_layout_status.as_str().to_string(),
+        ),
+        (
+            "vortex_segment_extraction_row_count".to_string(),
+            report.rows.len().to_string(),
+        ),
+        (
+            "vortex_segment_extraction_row_order".to_string(),
+            report.row_order.join(","),
+        ),
+        (
+            "vortex_segment_extraction_supported_layout_count".to_string(),
+            report.supported_layout_count().to_string(),
+        ),
+        (
+            "vortex_segment_extraction_blocked_layout_count".to_string(),
+            report.blocked_layout_count().to_string(),
+        ),
+        (
+            "vortex_segment_extraction_unsupported_diagnostic_codes".to_string(),
+            report.unsupported_diagnostic_codes().join(","),
+        ),
+        (
+            "vortex_segment_extraction_blocker_ids".to_string(),
+            report.blocker_ids().join(","),
+        ),
+        (
+            "vortex_segment_extraction_required_evidence".to_string(),
+            report.required_evidence.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_required_future_evidence".to_string(),
+            report.required_future_evidence().join(";"),
+        ),
+        (
+            "vortex_segment_extraction_claim_gate_status".to_string(),
+            report.claim_gate_status.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_claim_boundary".to_string(),
+            report.claim_boundary.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_runtime_execution".to_string(),
+            report.runtime_execution.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_data_read".to_string(),
+            report.data_read.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_data_decoded".to_string(),
+            report.data_decoded.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_data_materialized".to_string(),
+            report.data_materialized.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_table_catalog_io".to_string(),
+            report.table_catalog_io.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_write_io".to_string(),
+            report.write_io.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_external_engine_invoked".to_string(),
+            report.external_engine_invoked.to_string(),
+        ),
+        (
+            "vortex_segment_extraction_fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+    ]
+}
+
 pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
     let report = VortexAdapterCapabilityReport::foundation();
     let scan_report = plan_vortex_scan_compatibility();
@@ -1230,10 +1331,13 @@ pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
         CommandStatus::Success,
         "vortex API inventory".to_string(),
         format!(
-            "{}\n{}",
+            "{}\n{}\n{}",
             report.to_human_text(),
             scan_report
                 .source_split_runtime_admission_proof
+                .to_human_text(),
+            scan_report
+                .segment_extraction_admission_report
                 .to_human_text()
         ),
         report.diagnostics.clone(),

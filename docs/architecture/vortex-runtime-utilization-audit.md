@@ -101,11 +101,13 @@ Vortex-first provider check:
   report contracts, tests, and the GAR-0042A `vortex-api-inventory` source/split admission proof
   for the scoped local Vortex scan fixture path. GAR-0042B also adds the
   `shardloom.vortex_layout_device_managed_boundary.v1` matrix for layout/write, device execution,
-  object-store I/O, and managed-platform comparison boundaries.
+  object-store I/O, and managed-platform comparison boundaries. GAR-0003-A adds the
+  `shardloom.vortex_segment_extraction_admission.v1` sparse patch/fill segment extraction blocker
+  with deterministic diagnostics and no-fallback evidence requirements.
 - Gates still blocked:
   generalized upstream Source/Split runtime, field-mask evidence, predicate-ordering evidence,
-  layout/write advisor evidence, object-store I/O metrics, device residency, and trace-backed array
-  execution layers.
+  sparse segment extraction runtime, layout/write advisor evidence, object-store I/O metrics,
+  device residency, and trace-backed array execution layers.
 - fallback_attempted=false:
   preserved.
 ```
