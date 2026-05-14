@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2C persistent benchmark runner admission gate
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-persistent-runner-decision.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add the report-only persistent-runner admission gate required by GAR-FLOW-2C without
+    implementing a daemon, warm worker, IPC protocol, hidden fast mode, or benchmark result change.
+  - Checklist:
+    - [x] Add `persistent_runner_admission_gate` to the traditional analytics JSON artifact and
+          Markdown renderer.
+    - [x] Require persistent-runner attribution fields on every benchmark row:
+          `persistent_runner_status`, `process_startup_attribution`,
+          `python_harness_overhead_status`, CLI wall time, Python overhead, startup/build,
+          preparation timing, and preparation-in-timing status.
+    - [x] Preserve the current row status
+          `persistent_runner_status=process_per_scenario_attributed_not_reduced`.
+    - [x] Document admission requirements for any future persistent runner: per-run typed envelopes,
+          execution-mode evidence, Native I/O refs, operator blocker fields,
+          materialization/decode boundaries, result-sink replay evidence, deterministic unsupported
+          diagnostics, and no-fallback fields.
+    - [x] Add source-grounded rationale using Arrow, DuckDB, Spark SQL tuning, and Vortex Scan API
+          references while keeping those references as rationale only, not runtime dependencies.
+    - [x] Move GAR-FLOW-2C out of Planned; GAR-FLOW-2D is now the next Planned slice.
+  - Boundary:
+    - This is schema, renderer, validation, and documentation work. It does not add a persistent
+      runner, change execution timing, alter result rows, introduce external-engine fallback, or
+      permit process-overhead/performance claims.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `benchmarks/traditional_analytics/.venv/Scripts/python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex,pandas --formats csv --scenario "selective filter" --rows 1000 --iterations 1 --output target/codex-gar-flow-2c-smoke.json --markdown-output target/codex-gar-flow-2c-smoke.md --regenerate --skip-shardloom-native`
+    - `git diff --check`
+
 - [x] Session label: GAR-FLOW-2B prepared/native temporary-operator blocker matrix
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

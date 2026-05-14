@@ -93,6 +93,60 @@ Until those requirements are met, reports must say:
 persistent_runner_status=process_per_scenario_attributed_not_reduced
 ```
 
+## GAR-FLOW-2C Admission Gate
+
+The benchmark report now emits a report-only `persistent_runner_admission_gate`
+artifact with:
+
+```text
+gate_id=gar-flow-2c.persistent_runner_admission.v1
+support_status=report_only
+persistent_runner_admitted=false
+current_status=process_per_scenario_attributed_not_reduced
+hidden_fast_mode_allowed=false
+performance_claim_allowed=false
+claim_gate_status=not_claim_grade
+```
+
+Every benchmark row must preserve these persistent-runner admission fields:
+
+```text
+persistent_runner_status
+process_startup_attribution
+python_harness_overhead_status
+cli_process_wall_millis
+python_harness_overhead_millis
+startup_warmup_millis
+build_time_millis
+build_time_excluded
+preparation_millis
+preparation_cli_process_wall_millis
+preparation_included_in_timing
+```
+
+A future persistent runner remains blocked until it has a lifecycle contract and
+a protocol that preserves the same per-run typed envelopes, execution-mode
+fields, Native I/O refs, operator blocker fields, materialization/decode
+evidence, result-sink replay evidence, deterministic unsupported diagnostics,
+and `fallback_attempted=false` / `external_engine_invoked=false` evidence. It
+must also prove timing equivalence against process-per-scenario mode before any
+process-overhead reduction can be interpreted as a benchmark improvement.
+
+The source-grounded rationale is:
+
+- [Apache Arrow's columnar format](https://arrow.apache.org/docs/format/Columnar.html) is
+  data-adjacent and vectorization-friendly, so benchmark attribution must keep data-plane work
+  distinct from process lifecycle overhead.
+- [DuckDB's execution format](https://duckdb.org/docs/current/internals/vector) documents
+  vectorized execution over vectors/data chunks, which frames operator work as batch/vector
+  processing rather than process startup.
+- [Spark SQL tuning](https://spark.apache.org/docs/3.5.6/sql-performance-tuning.html) exposes
+  caching, batch-size, file partition, and open-cost settings, so local benchmark reports must
+  separate setup/tuning choices from query/operator timing.
+- [Vortex's Scan API](https://docs.vortex.dev/concepts/scanning) describes source/split/sink,
+  pushdown, and compressed-array scan evidence. A persistent worker may not hide those Native I/O
+  and pushdown artifacts.
+
 ## Non-Goals
 
 This decision does not authorize runtime execution-mode changes, external engine fallback,

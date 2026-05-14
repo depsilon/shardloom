@@ -285,6 +285,30 @@ The valid execution classes are `encoded_native`, `residual_native`,
 materialized-temporary rows may be useful smoke evidence, but they must not be
 counted as encoded-native operator execution.
 
+Every benchmark row must also carry the persistent-runner admission fields:
+
+```text
+persistent_runner_status
+process_startup_attribution
+python_harness_overhead_status
+cli_process_wall_millis
+python_harness_overhead_millis
+startup_warmup_millis
+build_time_millis
+build_time_excluded
+preparation_millis
+preparation_cli_process_wall_millis
+preparation_included_in_timing
+```
+
+The companion `persistent_runner_admission_gate` is report-only. Current rows
+must keep
+`persistent_runner_status=process_per_scenario_attributed_not_reduced`; no
+hidden persistent runner, daemon, or fast mode is admitted until typed
+envelopes, mode-selection evidence, Native I/O refs, operator blocker fields,
+materialization/decode boundaries, result-sink replay evidence, deterministic
+unsupported diagnostics, and no-fallback fields are preserved per run.
+
 `compatibility_import_certified` rows are valid ingest/stage/certification
 evidence, but they are not pure query-speed evidence. Public performance,
 superiority, Spark-displacement, best-default, production, or replacement claims

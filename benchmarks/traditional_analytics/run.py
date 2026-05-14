@@ -83,6 +83,20 @@ OPERATOR_BLOCKER_MATRIX_FIELDS = (
     "operator_blocker_reason",
     "operator_encoded_native_claim_allowed",
 )
+PERSISTENT_RUNNER_STATUS = "process_per_scenario_attributed_not_reduced"
+PERSISTENT_RUNNER_ADMISSION_FIELDS = (
+    "persistent_runner_status",
+    "process_startup_attribution",
+    "python_harness_overhead_status",
+    "cli_process_wall_millis",
+    "python_harness_overhead_millis",
+    "startup_warmup_millis",
+    "build_time_millis",
+    "build_time_excluded",
+    "preparation_millis",
+    "preparation_cli_process_wall_millis",
+    "preparation_included_in_timing",
+)
 DEFAULT_DATASET_PROFILE = "narrow_fact_dim"
 GENERATED_DATASET_PROFILES = (
     "tiny_smoke",
@@ -1295,6 +1309,7 @@ def shardloom_runner() -> EngineRunner:
             "outer_harness_wall_minus_cli_process_wall"
         )
         fields["build_time_excluded"] = "true"
+        fields["persistent_runner_status"] = PERSISTENT_RUNNER_STATUS
         if payload.get("status") != "success":
             reason = fields.get("reason") or payload.get("human_text") or "unsupported"
             raise BenchmarkUnsupported(str(reason))
@@ -1483,7 +1498,7 @@ def shardloom_direct_transient_runner() -> EngineRunner:
         fields["build_time_excluded"] = "true"
         fields["preparation_included_in_timing"] = "false"
         fields["preparation_millis"] = "none"
-        fields["persistent_runner_status"] = "process_per_scenario_attributed_not_reduced"
+        fields["persistent_runner_status"] = PERSISTENT_RUNNER_STATUS
         if payload.get("status") != "success":
             reason = fields.get("reason") or payload.get("human_text") or "unsupported"
             raise BenchmarkUnsupported(str(reason))
@@ -1785,7 +1800,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "vortex_prepare_included": "false",
                 "vortex_write_reopen_included": "false",
                 "direct_transient_execution": "false",
-                "persistent_runner_status": "process_per_scenario_attributed_not_reduced",
+                "persistent_runner_status": PERSISTENT_RUNNER_STATUS,
             }
         )
         return {
@@ -3652,6 +3667,15 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "benchmark row omitted operator blocker fields: "
             + ", ".join(missing_operator_fields)
         )
+    missing_persistent_runner_fields = [
+        field for field in PERSISTENT_RUNNER_ADMISSION_FIELDS if field not in metrics
+    ]
+    if missing_persistent_runner_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted persistent-runner admission fields: "
+            + ", ".join(missing_persistent_runner_fields)
+        )
 
     selected_mode = str(result.get("selected_execution_mode") or "")
     requested_mode = str(result.get("requested_execution_mode") or "")
@@ -3683,6 +3707,21 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         and result.get("operator_encoded_native_claim_allowed") is True
     ):
         raise RuntimeError("temporary prepared/native operators cannot be encoded-native claims")
+    if (
+        is_shardloom_engine(str(result.get("engine") or ""))
+        and result.get("status") == "success"
+    ):
+        if metrics.get("persistent_runner_status") != PERSISTENT_RUNNER_STATUS:
+            raise RuntimeError("ShardLoom row hid or altered persistent runner status")
+        if metrics.get("process_startup_attribution") != "per_scenario_cli_process_wall_measured":
+            raise RuntimeError("ShardLoom row must attribute per-scenario CLI process startup")
+        if (
+            metrics.get("python_harness_overhead_status")
+            != "outer_harness_wall_minus_cli_process_wall"
+        ):
+            raise RuntimeError("ShardLoom row must explain Python harness overhead attribution")
+        if metrics.get("cli_process_wall_millis") is None:
+            raise RuntimeError("ShardLoom row must preserve CLI process wall timing")
 
 
 def annotate_result(
@@ -4173,6 +4212,8 @@ def failed_result(
         "vortex_scan_millis": None,
         "evidence_render_millis": None,
         "build_time_excluded": True,
+        "process_startup_attribution": "not_executed",
+        "python_harness_overhead_status": "not_executed",
         "compatibility_to_vortex_included": execution_mode["compatibility_import_included"],
         "vortex_reopen_scan_included": execution_mode["vortex_write_reopen_included"],
         "result_sink_included": False,
@@ -4476,7 +4517,7 @@ def run_one(
             "decode_required": parse_optional_bool(evidence.get("data_decoded")),
             "scan_api_status": scan_api_status,
             "persistent_runner_status": evidence.get(
-                "persistent_runner_status", "process_per_scenario_attributed_not_reduced"
+                "persistent_runner_status", PERSISTENT_RUNNER_STATUS
             ),
         },
         "correctness_digest": digest,
@@ -5110,6 +5151,69 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
     }
 
 
+def persistent_runner_admission_gate() -> dict[str, Any]:
+    return {
+        "gate_id": "gar-flow-2c.persistent_runner_admission.v1",
+        "support_status": "report_only",
+        "persistent_runner_admitted": False,
+        "current_status": PERSISTENT_RUNNER_STATUS,
+        "hidden_fast_mode_allowed": False,
+        "performance_claim_allowed": False,
+        "claim_gate_status": "not_claim_grade",
+        "row_fields": list(PERSISTENT_RUNNER_ADMISSION_FIELDS),
+        "must_preserve": [
+            "shardloom.output.v2 typed envelopes per run",
+            "execution-mode selection fields",
+            "Native I/O certificate refs and inline artifacts",
+            "operator blocker matrix fields",
+            "materialization/decode boundary fields",
+            "result-sink replay evidence when result sinks are enabled",
+            "fallback_attempted=false and external_engine_invoked=false",
+            "build, startup, preparation, scenario, and evidence-render timing split",
+            "deterministic unsupported diagnostics",
+        ],
+        "admission_requirements": [
+            "no row may skip typed envelope rendering or policy evidence",
+            "startup/warmup amortization must be a visible field, not hidden in query timing",
+            "prepared Vortex artifact setup must remain separate from scenario timing",
+            "external engines remain comparison baselines and never fallback execution",
+            "persistent worker lifecycle must expose start, stop, failure, and cleanup status",
+            "claim-grade reruns must pass before any process-overhead or performance claim",
+        ],
+        "blocked_until": [
+            "worker lifecycle contract exists",
+            "IPC or in-process protocol preserves typed artifacts",
+            "per-run no-fallback and external-engine flags are validated",
+            "benchmark rows prove timing equivalence against process-per-scenario mode",
+            "release claim gate consumes persistent-runner status",
+        ],
+        "source_grounded_rationale": [
+            {
+                "reference": "Apache Arrow columnar format",
+                "url": "https://arrow.apache.org/docs/format/Columnar.html",
+                "relevance": "Columnar, vectorization-friendly data representation is a data-plane property; benchmark process startup must stay separate from operator/data-plane work.",
+            },
+            {
+                "reference": "DuckDB execution format",
+                "url": "https://duckdb.org/docs/current/internals/vector",
+                "relevance": "Vectorized execution operates on vectors/data chunks, so benchmark reports should not mix process lifecycle overhead with vector operator work.",
+            },
+            {
+                "reference": "Spark SQL performance tuning",
+                "url": "https://spark.apache.org/docs/3.5.6/sql-performance-tuning.html",
+                "relevance": "Startup, caching, batch size, and file-partition tuning affect reported times; ShardLoom must keep process and preparation timing explicit.",
+            },
+            {
+                "reference": "Vortex Scan API",
+                "url": "https://docs.vortex.dev/concepts/scanning",
+                "relevance": "Source, split, sink, pushdown, and compressed-array evidence must remain visible if benchmark execution moves into a persistent worker.",
+            },
+        ],
+        "no_fallback_rule": "fallback_attempted=false and external_engine_invoked=false for every ShardLoom row",
+        "claim_boundary": "A future persistent runner may reduce measured process overhead only after this gate is implemented; current rows remain not claim-grade.",
+    }
+
+
 def default_output_path() -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return Path(__file__).resolve().parent / "results" / f"traditional_analytics_{timestamp}.json"
@@ -5291,6 +5395,39 @@ def render_execution_mode_attribution_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_persistent_runner_admission_gate(artifact: dict[str, Any]) -> str:
+    gate = artifact["persistent_runner_admission_gate"]
+    rows = [
+        ["Gate", str(gate["gate_id"])],
+        ["Support status", str(gate["support_status"])],
+        ["Persistent runner admitted", str(gate["persistent_runner_admitted"])],
+        ["Current status", str(gate["current_status"])],
+        ["Hidden fast mode allowed", str(gate["hidden_fast_mode_allowed"])],
+        ["Performance claim allowed", str(gate["performance_claim_allowed"])],
+        ["Claim gate", str(gate["claim_gate_status"])],
+        ["Row fields", ", ".join(gate["row_fields"])],
+        ["No-fallback rule", str(gate["no_fallback_rule"])],
+        ["Claim boundary", str(gate["claim_boundary"])],
+    ]
+    requirement_rows = [
+        ["Must preserve", value] for value in gate["must_preserve"]
+    ] + [["Admission requirement", value] for value in gate["admission_requirements"]]
+    blocker_rows = [["Blocked until", value] for value in gate["blocked_until"]]
+    rationale_rows = [
+        [item["reference"], item["url"], item["relevance"]]
+        for item in gate["source_grounded_rationale"]
+    ]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Requirement"], requirement_rows)
+        + "\n\n"
+        + markdown_table(["Status", "Blocker"], blocker_rows)
+        + "\n\n"
+        + markdown_table(["Reference", "URL", "Relevance"], rationale_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -5305,6 +5442,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "Claim-grade ShardLoom timing rows require at least three iterations, stable correctness digests, and the full evidence set; one-iteration smoke rows remain not-claim-grade.",
         "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
         "ShardLoom rows expose cli_process_wall_millis and python_harness_overhead_millis where the Python harness can measure them. Build time is reported separately and excluded from per-scenario timing.",
+        "The persistent_runner_admission_gate is report-only; current ShardLoom rows keep persistent_runner_status=process_per_scenario_attributed_not_reduced and do not hide a fast mode.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
         "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
@@ -6024,6 +6162,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_execution_mode_attribution_contract(artifact),
         "",
+        "## Persistent Runner Admission Gate",
+        "",
+        "This report-only gate records why process-per-scenario execution remains visible and what a future persistent runner must preserve before it can be admitted.",
+        "",
+        render_persistent_runner_admission_gate(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -6307,6 +6451,7 @@ def main() -> int:
         "environment": environment_report(),
         "fairness_parameters": fairness_parameters(args, paths),
         "execution_mode_attribution_contract": execution_mode_attribution_contract(),
+        "persistent_runner_admission_gate": persistent_runner_admission_gate(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
         "format_order": list(report_formats),

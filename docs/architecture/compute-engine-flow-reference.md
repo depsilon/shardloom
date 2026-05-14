@@ -613,6 +613,18 @@ Prepared/native rows must also carry an operator blocker matrix with
 temporary or residual-native operators are never read as encoded-native
 operator execution.
 
+The artifact must also carry `persistent_runner_admission_gate`. Current rows
+must keep `persistent_runner_status=process_per_scenario_attributed_not_reduced`
+and the persistent-runner admission fields (`process_startup_attribution`,
+`python_harness_overhead_status`, `cli_process_wall_millis`,
+`python_harness_overhead_millis`, `startup_warmup_millis`,
+`build_time_millis`, `build_time_excluded`, `preparation_millis`,
+`preparation_cli_process_wall_millis`, and
+`preparation_included_in_timing`). A future persistent runner is not admitted
+unless it preserves typed envelopes, execution-mode evidence, Native I/O refs,
+operator blocker fields, materialization/decode boundaries, result-sink replay
+evidence, deterministic unsupported diagnostics, and no-fallback fields per run.
+
 `auto` is selection vocabulary only. A row with `requested_execution_mode=auto`
 must preserve `selected_execution_mode` and `mode_selection_reason` so downstream
 readers can see the actual runtime path.
