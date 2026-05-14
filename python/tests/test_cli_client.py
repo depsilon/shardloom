@@ -1545,6 +1545,42 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [
                         {"key": "matrix_status", "value": "report_only"},
                         {"key": "claim_grade_status", "value": "evidence_incomplete"},
+                        {"key": "native_unsupported_coverage_status", "value": "complete_for_current_matrix"},
+                        {"key": "native_unsupported_coverage_current_matrix_complete", "value": "true"},
+                        {"key": "native_unsupported_coverage_row_order", "value": "native_source_object_store_range,native_operator_joins,native_workload_sql_dataframe"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_category", "value": "source"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_surface", "value": "object_store_range_read"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_support_status", "value": "unsupported"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_NATIVE_OBJECT_STORE_SOURCE"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_blocker_id", "value": "gar0002.native.source.object_store_range"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_required_future_evidence", "value": "object_store_request_planner,native_io_certificate"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_source_refs", "value": "docs/architecture/object-store-request-planner.md"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_execution_attempted", "value": "false"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_fallback_attempted", "value": "false"},
+                        {"key": "native_unsupported_coverage_row_native_source_object_store_range_external_engine_invoked", "value": "false"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_category", "value": "operator"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_surface", "value": "join"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_support_status", "value": "unsupported"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_NATIVE_JOIN"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_blocker_id", "value": "cg21.workflow.join.operator_unsupported"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_required_future_evidence", "value": "join_null_semantics,build_probe_memory_policy,benchmark_row"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_source_refs", "value": "docs/architecture/compute-engine-flow-reference.md"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_execution_attempted", "value": "false"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_fallback_attempted", "value": "false"},
+                        {"key": "native_unsupported_coverage_row_native_operator_joins_external_engine_invoked", "value": "false"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_category", "value": "workload"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_surface", "value": "sql_dataframe_frontend"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_support_status", "value": "unsupported"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_SQL_DATAFRAME_RUNTIME"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_blocker_id", "value": "cg21.workflow.sql.frontend_unsupported"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_required_future_evidence", "value": "sql_parser,binder,planner,dataframe_api_semantics"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_source_refs", "value": "docs/architecture/global-architecture-review.md"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_execution_attempted", "value": "false"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_fallback_attempted", "value": "false"},
+                        {"key": "native_unsupported_coverage_row_native_workload_sql_dataframe_external_engine_invoked", "value": "false"},
                         {"key": "compute_row_order", "value": "local_vortex_count,direct_compatibility_transient,sql_frontend"},
                         {"key": "compute_row_local_vortex_count_surface", "value": "vortex_file_scan_count"},
                         {"key": "compute_row_local_vortex_count_family", "value": "scan"},
@@ -1582,7 +1618,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "compute_row_direct_compatibility_transient_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT"},
                         {"key": "compute_row_direct_compatibility_transient_blocker_id", "value": "p75.direct_transient.executor_missing"},
                         {"key": "compute_row_direct_compatibility_transient_required_future_evidence", "value": "shardloom_native_transient_executor,direct_mode_certificate"},
-                        {"key": "compute_row_direct_compatibility_transient_claim_gate_status", "value": "unsupported"},
+                        {"key": "compute_row_direct_compatibility_transient_claim_gate_status", "value": "not_claim_grade"},
                         {"key": "compute_row_direct_compatibility_transient_vortex_native_claim_allowed", "value": "false"},
                         {"key": "compute_row_direct_compatibility_transient_fallback_attempted", "value": "false"},
                         {"key": "compute_row_direct_compatibility_transient_external_engine_invoked", "value": "false"},
@@ -1602,7 +1638,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "compute_row_sql_frontend_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_SQL"},
                         {"key": "compute_row_sql_frontend_blocker_id", "value": "cg21.workflow.sql.frontend_unsupported"},
                         {"key": "compute_row_sql_frontend_required_future_evidence", "value": "parser,binder,planner,semantic_fixtures"},
-                        {"key": "compute_row_sql_frontend_claim_gate_status", "value": "unsupported"},
+                        {"key": "compute_row_sql_frontend_claim_gate_status", "value": "not_claim_grade"},
                         {"key": "compute_row_sql_frontend_vortex_native_claim_allowed", "value": "false"},
                         {"key": "compute_row_sql_frontend_fallback_attempted", "value": "false"},
                         {"key": "compute_row_sql_frontend_external_engine_invoked", "value": "false"},
@@ -1626,6 +1662,11 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsInstance(result, ComputeCapabilityMatrix)
         self.assertEqual(result.matrix_status, "report_only")
         self.assertEqual(result.claim_grade_status, "evidence_incomplete")
+        self.assertEqual(
+            result.native_unsupported_coverage_status,
+            "complete_for_current_matrix",
+        )
+        self.assertTrue(result.native_unsupported_coverage_complete)
         rows = {row.row_id: row for row in result.rows}
         self.assertEqual(rows["local_vortex_count"].support_status, "fixture_certified")
         self.assertEqual(rows["local_vortex_count"].execution_mode, "native_vortex")
@@ -1648,6 +1689,25 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(rows["direct_compatibility_transient"].vortex_native_claim_allowed)
         self.assertEqual(rows["sql_frontend"].unsupported_diagnostic_code, "SL_UNSUPPORTED_SQL")
         self.assertIn("parser", rows["sql_frontend"].required_future_evidence)
+        native_unsupported = {
+            row.row_id: row for row in result.native_unsupported_coverage_rows
+        }
+        self.assertEqual(
+            native_unsupported["native_source_object_store_range"].category,
+            "source",
+        )
+        self.assertEqual(
+            native_unsupported["native_operator_joins"].unsupported_diagnostic_code,
+            "SL_UNSUPPORTED_NATIVE_JOIN",
+        )
+        self.assertEqual(
+            native_unsupported["native_workload_sql_dataframe"].claim_gate_status,
+            "not_claim_grade",
+        )
+        self.assertFalse(native_unsupported["native_workload_sql_dataframe"].fallback_attempted)
+        self.assertFalse(
+            native_unsupported["native_workload_sql_dataframe"].external_engine_invoked
+        )
         families = {row.family_id: row for row in result.operator_families}
         self.assertEqual(families["joins"].support_status, "planned")
         self.assertIn("build_probe_memory", families["joins"].next_evidence)

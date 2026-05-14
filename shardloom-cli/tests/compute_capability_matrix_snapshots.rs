@@ -62,6 +62,23 @@ fn compute_capability_matrix_exposes_rows_families_and_claim_gates() {
     assert!(output.contains(&field("compute_row_count", "13")));
     assert!(output.contains(&field("operator_family_count", "14")));
     assert!(output.contains(&field(
+        "native_unsupported_coverage_schema_version",
+        "shardloom.native_unsupported_coverage.v1"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_status",
+        "complete_for_current_matrix"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_category_vocabulary",
+        "source,sink,operator,workload"
+    )));
+    assert!(output.contains(&field("native_unsupported_coverage_row_count", "22")));
+    assert!(output.contains(&field("native_unsupported_coverage_source_count", "4")));
+    assert!(output.contains(&field("native_unsupported_coverage_sink_count", "4")));
+    assert!(output.contains(&field("native_unsupported_coverage_operator_count", "8")));
+    assert!(output.contains(&field("native_unsupported_coverage_workload_count", "6")));
+    assert!(output.contains(&field(
         "support_status_vocabulary",
         "unsupported,planned,report_only,executable_uncertified,fixture_certified,workload_certified,production_certified"
     )));
@@ -85,6 +102,31 @@ fn compute_capability_matrix_exposes_rows_families_and_claim_gates() {
     assert!(output.contains(&field("matrix_consuming_views_status", "planned_alignment")));
     assert!(output.contains(&field("all_rows_fallback_attempted_false", "true")));
     assert!(output.contains(&field("all_rows_external_engine_invoked_false", "true")));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_current_matrix_complete",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_all_rows_claim_gate_not_grade",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_all_rows_fallback_attempted_false",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_all_rows_external_engine_invoked_false",
+        "true"
+    )));
+    assert!(output.contains(&field("unadmitted_compute_row_count", "6")));
+    assert!(output.contains(&field(
+        "unadmitted_compute_rows_with_diagnostics_count",
+        "6"
+    )));
+    assert!(output.contains(&field(
+        "unadmitted_compute_rows_missing_diagnostics_count",
+        "0"
+    )));
     assert!(output.contains("\"artifact_kind\":\"compute_capability_matrix_report\""));
     assert_no_runtime_no_fallback_no_effects(&output);
 }
@@ -122,6 +164,10 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
         "SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT"
     )));
     assert!(output.contains(&field(
+        "compute_row_direct_compatibility_transient_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
         "compute_row_direct_compatibility_transient_vortex_native_claim_allowed",
         "false"
     )));
@@ -148,6 +194,34 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
     assert!(output.contains(&field(
         "compute_row_sql_frontend_blocker_id",
         "cg21.workflow.sql.frontend_unsupported"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_sql_frontend_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_row_native_source_object_store_range_unsupported_diagnostic_code",
+        "SL_UNSUPPORTED_NATIVE_OBJECT_STORE_SOURCE"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_row_native_sink_table_catalog_commit_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_row_native_operator_joins_blocker_id",
+        "cg21.workflow.join.operator_unsupported"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_row_native_workload_sql_dataframe_support_status",
+        "unsupported"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_row_native_workload_sql_dataframe_fallback_attempted",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "native_unsupported_coverage_row_native_workload_best_default_claim_external_engine_invoked",
+        "false"
     )));
     assert!(output.contains(&field(
         "operator_family_joins_next_evidence",

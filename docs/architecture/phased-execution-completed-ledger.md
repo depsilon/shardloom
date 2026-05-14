@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0002A native unsupported coverage diagnostics and compute-flow diagram
+      cleanup
+  - Primary files:
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-core/src/output.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/compute_capability_matrix_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/__init__.py`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add a report-only native unsupported coverage submatrix for the current source, sink,
+    operator, and workload taxonomy; expose it through CLI/Python/benchmark coverage metadata; keep
+    unsupported rows non-claim-grade; and make the compute-flow reference easier to read across
+    end-user, adapter, CLI, benchmark, and downstream-platform audiences.
+  - Checklist:
+    - [x] Add deterministic `native_unsupported_coverage` rows to `compute-capability-matrix` for
+          unadmitted native sources, sinks, operators, and workload families.
+    - [x] Add aggregate coverage fields proving the current matrix is complete, every unadmitted
+          compute row has a diagnostic, and missing diagnostic count is zero.
+    - [x] Change unsupported execution-mode and compute-matrix claim gates to
+          `claim_gate_status=not_claim_grade` while preserving `support_status=unsupported`.
+    - [x] Expose native unsupported coverage through Python typed accessors and focused tests.
+    - [x] Add benchmark coverage-table diagnostic fields:
+          `native_unsupported_coverage_ref`, `unsupported_diagnostic_code`, `blocker_id`, and
+          `required_future_evidence`.
+    - [x] Rework the compute-flow diagrams into layered Markdown/Mermaid views with explicit
+          audiences, notation, mode-lane timing, I/O, sinks, downstream consumers, and claim
+          boundaries.
+    - [x] Check the corresponding RFC 0002 global architecture review item and move GAR-0002A out
+          of Planned; GAR-0002B is now the next Planned slice.
+  - Boundary:
+    - This is diagnostic/reporting, typed-accessor, benchmark-metadata, and documentation work. It
+      does not add runtime provider support, object-store/table/catalog execution, REST runtime,
+      external effects, external engines, fallback execution, package publication, or public
+      performance claims.
+  - Research basis:
+    - GitHub Markdown Mermaid rendering, Mermaid flowchart syntax, C4 model abstraction separation,
+      and Diataxis explanation/reference separation.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core output`
+    - `cargo test -p shardloom-cli --test compute_capability_matrix_snapshots`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_compute_capability_matrix_view`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `benchmarks/traditional_analytics/.venv/Scripts/python.exe benchmarks/traditional_analytics/run.py --engines pandas --formats csv --scenario "selective filter" --rows 32 --iterations 1 --output target/codex-gar0002a-coverage-smoke.json --markdown-output target/codex-gar0002a-coverage-smoke.md --regenerate`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-FLOW-3A REST execution-mode parity report
   - Primary files:
     - `docs/api/shardloom-openapi-v1.yaml`

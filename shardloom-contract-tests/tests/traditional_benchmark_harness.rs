@@ -449,10 +449,10 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "native_vortex",
         "direct_compatibility_transient",
         "auto",
-        "SEL --> DIRECT",
-        "SEL --> IMPORT",
-        "SEL --> PREPARED",
-        "SEL --> NATIVE",
+        "SELECTED --> DIRECT",
+        "SELECTED --> COMPAT",
+        "SELECTED --> PREPARED",
+        "SELECTED --> NATIVE",
         "Transient compatibility boundary",
         "requested_execution_mode",
         "selected_execution_mode",
@@ -464,6 +464,7 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "direct_transient_execution",
         "fallback_attempted=false",
         "external_engine_invoked=false",
+        "claim_gate_status=not_claim_grade",
         "claim_gate_status",
         "use_vortex_native_provider",
         "wrap_vortex_concept",
@@ -568,7 +569,11 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(completed_ledger.contains("GAR-FLOW-2C persistent benchmark runner admission gate"));
     assert!(completed_ledger.contains("GAR-FLOW-2D work-avoidance metric evidence schema"));
     assert!(completed_ledger.contains("GAR-FLOW-3A REST execution-mode parity report"));
-    assert!(plan.contains("GAR-0002A native unsupported coverage diagnostics"));
+    assert!(
+        completed_ledger.contains("GAR-0002A native unsupported coverage diagnostics"),
+        "completed ledger should carry completed GAR-0002A provenance"
+    );
+    assert!(plan.contains("GAR-0002B native Vortex coverage admission expansion"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
     assert!(plan.matches("- [ ] GAR-").count() >= 60);

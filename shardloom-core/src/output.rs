@@ -507,7 +507,7 @@ impl ShardLoomExecutionModeSelectionReport {
             unsupported_diagnostic_code: diagnostic_code.to_string(),
             blocker_id: blocker_id.to_string(),
             required_future_evidence: required_future_evidence.to_string(),
-            claim_gate_status: "unsupported".to_string(),
+            claim_gate_status: "not_claim_grade".to_string(),
             claim_gate_reason: diagnostic_code.to_string(),
             fallback_attempted: false,
             external_engine_invoked: false,
@@ -1504,7 +1504,7 @@ mod tests {
             report.unsupported_diagnostic_code,
             "direct_compatibility_transient_not_implemented"
         );
-        assert_eq!(report.claim_gate_status, "unsupported");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
         assert!(!report.vortex_native_claim_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);

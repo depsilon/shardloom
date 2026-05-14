@@ -89,6 +89,8 @@ const COMPUTE_ENGINE_MODE_VOCABULARY: &str = "batch,live,hybrid,auto";
 const COMPUTE_EXECUTION_MODE_VOCABULARY: &str = "compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient,auto";
 const COMPUTE_OPERATOR_EXECUTION_CLASS_VOCABULARY: &str =
     "encoded_native,residual_native,materialized_temporary,unsupported";
+const NATIVE_UNSUPPORTED_COVERAGE_SCHEMA_VERSION: &str = "shardloom.native_unsupported_coverage.v1";
+const NATIVE_UNSUPPORTED_COVERAGE_CATEGORY_VOCABULARY: &str = "source,sink,operator,workload";
 
 const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
     ComputeCapabilityRow {
@@ -397,6 +399,229 @@ const OPERATOR_FAMILY_ROWS: &[OperatorFamilyCoverageRow] = &[
         id: "sink_write_operators",
         support_status: "report_only",
         next_evidence: "write_execution,commit_recovery,replay_verification",
+    },
+];
+
+const NATIVE_UNSUPPORTED_COVERAGE_ROWS: &[NativeUnsupportedCoverageRow] = &[
+    NativeUnsupportedCoverageRow {
+        id: "native_source_object_store_range",
+        category: "source",
+        surface: "object_store_range_read",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_OBJECT_STORE_SOURCE",
+        blocker_id: "gar0002.native.source.object_store_range",
+        required_future_evidence: "object_store_request_planner,range_read_certificate,native_io_certificate",
+        source_refs: "docs/architecture/object-store-request-planner.md,docs/architecture/vortex-upstream-alignment-hardening.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_source_table_catalog",
+        category: "source",
+        surface: "table_catalog_snapshot_read",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_TABLE_CATALOG_SOURCE",
+        blocker_id: "gar0002.native.source.table_catalog",
+        required_future_evidence: "table_catalog_metadata_read,namespace_policy,native_io_certificate",
+        source_refs: "docs/architecture/table-intelligence-layer.md,docs/architecture/universal-input-contract.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_source_streaming_events",
+        category: "source",
+        surface: "streaming_event_source",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_STREAM_SOURCE",
+        blocker_id: "gar0002.native.source.streaming_events",
+        required_future_evidence: "boundedness_policy,checkpoint_contract,execution_certificate",
+        source_refs: "docs/architecture/dynamic-work-shaping.md,docs/architecture/operational-evidence-policy-hardening.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_source_unstructured_media",
+        category: "source",
+        surface: "unstructured_document_media_source",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_UNSTRUCTURED_MEDIA_SOURCE",
+        blocker_id: "gar0002.native.source.unstructured_media",
+        required_future_evidence: "media_decoder_policy,materialization_boundary,semantic_fixture",
+        source_refs: "docs/architecture/global-architecture-review.md,docs/architecture/operational-evidence-policy-hardening.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_sink_object_store_write",
+        category: "sink",
+        surface: "object_store_native_write",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_OBJECT_STORE_SINK",
+        blocker_id: "gar0002.native.sink.object_store_write",
+        required_future_evidence: "object_store_commit_protocol,retry_checkpoint_evidence,native_io_certificate",
+        source_refs: "docs/architecture/object-store-request-planner.md,docs/architecture/operational-evidence-policy-hardening.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_sink_table_catalog_commit",
+        category: "sink",
+        surface: "table_catalog_commit",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_TABLE_COMMIT",
+        blocker_id: "gar0002.native.sink.table_catalog_commit",
+        required_future_evidence: "commit_protocol,manifest_finalization,delete_tombstone_semantics",
+        source_refs: "docs/architecture/table-intelligence-layer.md,docs/architecture/object-store-request-planner.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_sink_streaming_events",
+        category: "sink",
+        surface: "streaming_event_sink",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_STREAM_SINK",
+        blocker_id: "gar0002.native.sink.streaming_events",
+        required_future_evidence: "delivery_semantics,checkpoint_recovery,effect_budget_policy",
+        source_refs: "docs/architecture/effect-budget-plan.md,docs/architecture/dynamic-work-shaping.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_sink_compatibility_export",
+        category: "sink",
+        surface: "compatibility_export_writer",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_COMPATIBILITY_EXPORT_SINK",
+        blocker_id: "gar0002.native.sink.compatibility_export",
+        required_future_evidence: "adapter_fidelity_report,materialization_boundary,write_certificate",
+        source_refs: "docs/architecture/universal-input-contract.md,docs/architecture/global-architecture-review.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_operator_scalar_expressions",
+        category: "operator",
+        surface: "scalar_expression_registry",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_SCALAR_EXPRESSIONS",
+        blocker_id: "gar0002.native.operator.scalar_expressions",
+        required_future_evidence: "expression_registry,semantic_fixtures,execution_certificate",
+        source_refs: "docs/architecture/capability-certification-sequencing.md,docs/architecture/global-architecture-review.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_operator_grouped_aggregates",
+        category: "operator",
+        surface: "grouped_aggregate",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_GROUPED_AGGREGATE",
+        blocker_id: "cg21.workflow.aggregate.operator_unsupported",
+        required_future_evidence: "group_state_memory_policy,semantic_fixture,benchmark_row",
+        source_refs: "docs/architecture/compute-engine-flow-reference.md,docs/architecture/capability-certification-sequencing.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_operator_sort_topn_limit",
+        category: "operator",
+        surface: "sort_topn_limit",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_SORT_TOPN_LIMIT",
+        blocker_id: "gar0002.native.operator.sort_topn_limit",
+        required_future_evidence: "ordering_semantics,spill_policy,benchmark_row",
+        source_refs: "docs/architecture/compute-engine-flow-reference.md,docs/architecture/dynamic-work-shaping.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_operator_joins",
+        category: "operator",
+        surface: "join",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_JOIN",
+        blocker_id: "cg21.workflow.join.operator_unsupported",
+        required_future_evidence: "join_null_semantics,build_probe_memory_policy,benchmark_row",
+        source_refs: "docs/architecture/compute-engine-flow-reference.md,docs/architecture/correctness-differential-harness.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_operator_window_functions",
+        category: "operator",
+        surface: "window_functions",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_WINDOW",
+        blocker_id: "cg21.workflow.window.operator_unsupported",
+        required_future_evidence: "window_frame_semantics,sort_spill_policy,benchmark_row",
+        source_refs: "docs/architecture/compute-engine-flow-reference.md,docs/architecture/correctness-differential-harness.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_operator_approx_sketch",
+        category: "operator",
+        surface: "approx_sketch_aggregates",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_APPROX_SKETCH",
+        blocker_id: "gar0002.native.operator.approx_sketch",
+        required_future_evidence: "error_bounds,sketch_seed_metadata,semantic_fixture",
+        source_refs: "docs/architecture/capability-certification-sequencing.md,docs/architecture/global-architecture-review.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_operator_set_operations",
+        category: "operator",
+        surface: "set_operations",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_SET_OPERATIONS",
+        blocker_id: "gar0002.native.operator.set_operations",
+        required_future_evidence: "distinct_semantics,memory_spill_policy,semantic_fixture",
+        source_refs: "docs/architecture/capability-certification-sequencing.md,docs/architecture/global-architecture-review.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_operator_nested_extension_types",
+        category: "operator",
+        surface: "nested_extension_type_operations",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_EXTENSION_TYPE_OPERATION",
+        blocker_id: "gar0002.native.operator.nested_extension_types",
+        required_future_evidence: "nested_equality,extension_dtype_semantics,semantic_fixture",
+        source_refs: "docs/architecture/vortex-upstream-alignment-hardening.md,docs/architecture/global-architecture-review.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_workload_sql_dataframe",
+        category: "workload",
+        surface: "sql_dataframe_frontend",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL_DATAFRAME_RUNTIME",
+        blocker_id: "cg21.workflow.sql.frontend_unsupported",
+        required_future_evidence: "sql_parser,binder,planner,dataframe_api_semantics",
+        source_refs: "docs/architecture/global-architecture-review.md,docs/architecture/rfc-coverage-followthrough.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_workload_live_hybrid_runtime",
+        category: "workload",
+        surface: "live_hybrid_engine_mode",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
+        blocker_id: "gar0002.native.workload.live_hybrid_runtime",
+        required_future_evidence: "state_lifecycle,checkpoint_recovery,boundedness_contract",
+        source_refs: "docs/architecture/dynamic-work-shaping.md,docs/architecture/operational-evidence-policy-hardening.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_workload_distributed_object_store",
+        category: "workload",
+        surface: "distributed_object_store_execution",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_DISTRIBUTED_OBJECT_STORE_RUNTIME",
+        blocker_id: "gar0002.native.workload.distributed_object_store",
+        required_future_evidence: "range_scheduler,coalescing_policy,retry_checkpoint_certificate",
+        source_refs: "docs/architecture/object-store-request-planner.md,docs/architecture/global-architecture-review.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_workload_rest_foundry_remote",
+        category: "workload",
+        surface: "rest_foundry_remote_runtime",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_REST_FOUNDRY_RUNTIME",
+        blocker_id: "gar0002.native.workload.rest_foundry_remote",
+        required_future_evidence: "rest_lifecycle,foundry_package_proof,remote_policy_certificate",
+        source_refs: "docs/api/shardloom-openapi-v1.yaml,docs/architecture/global-architecture-review.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_workload_udf_external_effects",
+        category: "workload",
+        surface: "udf_llm_embedding_external_effects",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_EXTERNAL_EFFECT_RUNTIME",
+        blocker_id: "gar0002.native.workload.external_effects",
+        required_future_evidence: "sandbox_runtime,credential_policy,effect_budget_certificate",
+        source_refs: "docs/architecture/effect-budget-plan.md,docs/architecture/operational-evidence-policy-hardening.md",
+    },
+    NativeUnsupportedCoverageRow {
+        id: "native_workload_best_default_claim",
+        category: "workload",
+        surface: "best_default_claim_grade_runtime",
+        support_status: "unsupported",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_BEST_DEFAULT_CLAIM",
+        blocker_id: "gar0002.native.workload.best_default_claim",
+        required_future_evidence: "workload_scoped_benchmark_evidence,release_gate,public_claim_review",
+        source_refs: "docs/architecture/benchmark-competitive-claim-evidence.md,docs/architecture/operational-evidence-policy-hardening.md",
     },
 ];
 
@@ -829,11 +1054,23 @@ struct OperatorFamilyCoverageRow {
     next_evidence: &'static str,
 }
 
+struct NativeUnsupportedCoverageRow {
+    id: &'static str,
+    category: &'static str,
+    surface: &'static str,
+    support_status: &'static str,
+    unsupported_diagnostic_code: &'static str,
+    blocker_id: &'static str,
+    required_future_evidence: &'static str,
+    source_refs: &'static str,
+}
+
 fn compute_capability_matrix_human_text() -> String {
     format!(
-        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
+        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nnative unsupported coverage rows: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
         COMPUTE_ROWS.len(),
-        OPERATOR_FAMILY_ROWS.len()
+        OPERATOR_FAMILY_ROWS.len(),
+        NATIVE_UNSUPPORTED_COVERAGE_ROWS.len()
     )
 }
 
@@ -949,6 +1186,7 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
         "next_required_slice",
         "P7.4.2 semantic conformance and unsupported API parity",
     );
+    append_native_unsupported_coverage_fields(&mut fields);
     for row in COMPUTE_ROWS {
         append_compute_capability_row_fields(&mut fields, row);
     }
@@ -972,6 +1210,120 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
     push_bool_field(&mut fields, "no_fallback", true);
     push_bool_field(&mut fields, "no_effects", true);
     fields
+}
+
+fn append_native_unsupported_coverage_fields(fields: &mut Vec<(String, String)>) {
+    append_native_unsupported_coverage_summary_fields(fields);
+    append_native_unsupported_coverage_invariant_fields(fields);
+    for row in NATIVE_UNSUPPORTED_COVERAGE_ROWS {
+        append_native_unsupported_coverage_row_fields(fields, row);
+    }
+}
+
+fn append_native_unsupported_coverage_summary_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "native_unsupported_coverage_schema_version",
+        NATIVE_UNSUPPORTED_COVERAGE_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "native_unsupported_coverage_status",
+        "complete_for_current_matrix",
+    );
+    push_field(
+        fields,
+        "native_unsupported_coverage_scope",
+        "current_source_sink_operator_workload_matrix",
+    );
+    push_field(
+        fields,
+        "native_unsupported_coverage_category_vocabulary",
+        NATIVE_UNSUPPORTED_COVERAGE_CATEGORY_VOCABULARY,
+    );
+    push_count_field(
+        fields,
+        "native_unsupported_coverage_row_count",
+        NATIVE_UNSUPPORTED_COVERAGE_ROWS.len(),
+    );
+    push_count_field(
+        fields,
+        "native_unsupported_coverage_source_count",
+        native_unsupported_category_count("source"),
+    );
+    push_count_field(
+        fields,
+        "native_unsupported_coverage_sink_count",
+        native_unsupported_category_count("sink"),
+    );
+    push_count_field(
+        fields,
+        "native_unsupported_coverage_operator_count",
+        native_unsupported_category_count("operator"),
+    );
+    push_count_field(
+        fields,
+        "native_unsupported_coverage_workload_count",
+        native_unsupported_category_count("workload"),
+    );
+    push_field(
+        fields,
+        "native_unsupported_coverage_row_order",
+        &native_unsupported_row_order(),
+    );
+}
+
+fn append_native_unsupported_coverage_invariant_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "native_unsupported_coverage_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_bool_field(
+        fields,
+        "native_unsupported_coverage_current_matrix_complete",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "native_unsupported_coverage_all_rows_claim_gate_not_grade",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "native_unsupported_coverage_all_rows_fallback_attempted_false",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "native_unsupported_coverage_all_rows_external_engine_invoked_false",
+        true,
+    );
+    push_count_field(
+        fields,
+        "unadmitted_compute_row_count",
+        unadmitted_compute_row_count(),
+    );
+    push_count_field(
+        fields,
+        "unadmitted_compute_rows_with_diagnostics_count",
+        unadmitted_compute_rows_with_diagnostics_count(),
+    );
+    push_count_field(
+        fields,
+        "unadmitted_compute_rows_missing_diagnostics_count",
+        unadmitted_compute_rows_missing_diagnostics_count(),
+    );
+    push_field(
+        fields,
+        "native_unsupported_coverage_policy_refs",
+        "docs/architecture/vortex-upstream-alignment-hardening.md,docs/architecture/operational-evidence-policy-hardening.md",
+    );
+    push_field(
+        fields,
+        "native_unsupported_coverage_benchmark_refs",
+        "benchmarks/traditional_analytics coverage_table unsupported_diagnostic_code fields",
+    );
 }
 
 fn append_compute_capability_row_fields(
@@ -1090,8 +1442,6 @@ fn compute_row_claim_gate_status(row: &ComputeCapabilityRow) -> &'static str {
     match row.support_status {
         "fixture_certified" => "fixture_smoke_only",
         "workload_certified" | "production_certified" => "claim_grade",
-        "unsupported" => "unsupported",
-        "planned" => "blocked",
         _ => "not_claim_grade",
     }
 }
@@ -1158,11 +1508,82 @@ fn append_operator_family_row_fields(
     );
 }
 
+fn append_native_unsupported_coverage_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &NativeUnsupportedCoverageRow,
+) {
+    let prefix = format!("native_unsupported_coverage_row_{}", row.id);
+    push_field(fields, &format!("{prefix}_category"), row.category);
+    push_field(fields, &format!("{prefix}_surface"), row.surface);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_code"),
+        row.unsupported_diagnostic_code,
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_required_future_evidence"),
+        row.required_future_evidence,
+    );
+    push_field(fields, &format!("{prefix}_source_refs"), row.source_refs);
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        "not_claim_grade",
+    );
+    push_bool_field(fields, &format!("{prefix}_execution_attempted"), false);
+    push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+    push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+}
+
 fn compute_support_status_count(status: &str) -> usize {
     COMPUTE_ROWS
         .iter()
         .filter(|row| row.support_status == status)
         .count()
+}
+
+fn native_unsupported_category_count(category: &str) -> usize {
+    NATIVE_UNSUPPORTED_COVERAGE_ROWS
+        .iter()
+        .filter(|row| row.category == category)
+        .count()
+}
+
+fn unadmitted_compute_row_count() -> usize {
+    COMPUTE_ROWS
+        .iter()
+        .filter(|row| compute_row_requires_unsupported_diagnostic(row))
+        .count()
+}
+
+fn unadmitted_compute_rows_with_diagnostics_count() -> usize {
+    COMPUTE_ROWS
+        .iter()
+        .filter(|row| {
+            compute_row_requires_unsupported_diagnostic(row)
+                && row.unsupported_diagnostic_code != "none"
+                && row.blocker_id != "none"
+                && row.required_future_evidence != "none"
+        })
+        .count()
+}
+
+fn unadmitted_compute_rows_missing_diagnostics_count() -> usize {
+    unadmitted_compute_row_count().saturating_sub(unadmitted_compute_rows_with_diagnostics_count())
+}
+
+fn compute_row_requires_unsupported_diagnostic(row: &ComputeCapabilityRow) -> bool {
+    matches!(
+        row.support_status,
+        "unsupported" | "planned" | "report_only"
+    )
 }
 
 fn compute_row_order() -> String {
@@ -1175,6 +1596,14 @@ fn compute_row_order() -> String {
 
 fn operator_family_order() -> String {
     OPERATOR_FAMILY_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn native_unsupported_row_order() -> String {
+    NATIVE_UNSUPPORTED_COVERAGE_ROWS
         .iter()
         .map(|row| row.id)
         .collect::<Vec<_>>()

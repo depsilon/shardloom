@@ -658,6 +658,12 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 ("compute_row_count", "13"),
                 ("operator_family_count", "14"),
                 (
+                    "native_unsupported_coverage_status",
+                    "complete_for_current_matrix",
+                ),
+                ("native_unsupported_coverage_row_count", "22"),
+                ("unadmitted_compute_rows_missing_diagnostics_count", "0"),
+                (
                     "operator_execution_class_vocabulary",
                     "encoded_native,residual_native,materialized_temporary,unsupported",
                 ),
@@ -714,7 +720,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 ("write_io", "false"),
                 ("direct_transient_execution", "false"),
                 ("vortex_native_claim_allowed", "false"),
-                ("claim_gate_status", "unsupported"),
+                ("claim_gate_status", "not_claim_grade"),
                 ("fallback_attempted", "false"),
                 ("external_engine_invoked", "false"),
                 ("no_runtime", "true"),
