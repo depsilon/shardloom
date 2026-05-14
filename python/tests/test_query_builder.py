@@ -7,6 +7,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 import shardloom as sl
 from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
 
@@ -236,6 +238,60 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.rejection_reasons, ())
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
+
+    def test_engine_selection_report_reads_external_engine_from_typed_policy(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "engine-selection-plan",
+                    "live",
+                    "unbounded",
+                    "append-only",
+                    "changelog",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "engine-selection-plan",
+                    "status": "success",
+                    "summary": "engine selection plan",
+                    "human_text": "selected",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "policy": {
+                        "fields": [
+                            {"key": "external_engine_invoked", "value": "true"}
+                        ]
+                    },
+                    "fields": [
+                        {"key": "requested_engine_mode", "value": "live"},
+                        {"key": "selection_status", "value": "selected"},
+                        {"key": "selected_engine_mode", "value": "live"},
+                        {"key": "rejection_reasons", "value": "none"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        workflow = sl.read_vortex(
+            "orders.vortex",
+            client=ShardLoomClient(binary=binary),
+            engine_mode="live",
+        )
+
+        report = workflow.engine_selection(
+            boundedness="unbounded",
+            update_mode="append-only",
+            output_mode="changelog",
+        )
+
+        self.assertTrue(report.external_engine_invoked)
 
     def test_missing_dataframe_affordances_return_report_only_unsupported(self) -> None:
         binary = self.fake_cli(
@@ -483,6 +539,42 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(matrix.live_hybrid_claim_blocked_count, 2)
         self.assertFalse(matrix.fallback_attempted)
         self.assertFalse(matrix.external_engine_invoked)
+
+    def test_engine_capability_matrix_reads_external_engine_from_typed_policy(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == ["engine-capability-matrix", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "engine-capability-matrix",
+                    "status": "success",
+                    "summary": "engine capability matrix",
+                    "human_text": "matrix",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "policy": {
+                        "fields": [
+                            {"key": "external_engine_invoked", "value": "true"}
+                        ]
+                    },
+                    "fields": [
+                        {"key": "engine_modes", "value": "batch,live,hybrid"},
+                        {"key": "live_hybrid_claim_blocked_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary), engine="auto")
+
+        matrix = ctx.engine_capability_matrix()
+
+        self.assertTrue(matrix.external_engine_invoked)
 
     def test_context_exposes_rest_api_contract_views(self) -> None:
         binary = self.fake_cli(

@@ -61,3 +61,8 @@ python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 The transcript is written to `target/release-dry-run-proof/transcript.json`.
 It is a local dry run only and does not publish packages, create tags, add
 secrets, or install fallback engines.
+
+When `mamba`, `conda`, or `micromamba` is available, the dry run also attempts a clean
+Conda-style install proof from the locally built wheel. If no Conda-compatible tool is available,
+the transcript records `clean_conda_env_install_status=skipped_tool_missing`; that remains blocked
+for public release but does not weaken the local source smoke.

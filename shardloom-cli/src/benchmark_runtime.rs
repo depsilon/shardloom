@@ -13,7 +13,7 @@ use shardloom_core::{
     BaselineEngine, BenchmarkComparisonReport, BenchmarkEvidenceState, BenchmarkMetric,
     BenchmarkPlan, BenchmarkResult, BenchmarkScenario, CommandStatus, CorrectnessValidationMode,
     DatasetUri, Diagnostic, ExpectedOutcome, MetricValue, OutputFormat, ShardLoomError,
-    WorkloadClass,
+    ShardLoomExecutionMode, WorkloadClass,
 };
 use shardloom_vortex::VortexLocalExecutionReport;
 
@@ -56,6 +56,7 @@ pub(crate) fn handle_traditional_analytics_run(
     let mut write_result_vortex = false;
     let mut memory_gb: Option<u32> = None;
     let mut max_parallelism: Option<usize> = None;
+    let mut requested_execution_mode = ShardLoomExecutionMode::CompatibilityImportCertified;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--workspace" => {
@@ -117,6 +118,42 @@ pub(crate) fn handle_traditional_analytics_run(
             }
             "--write-result-vortex" => {
                 write_result_vortex = true;
+            }
+            "--execution-mode" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-run ... --execution-mode auto|compatibility_import_certified"
+                    );
+                    return ExitCode::from(2);
+                };
+                match ShardLoomExecutionMode::parse(&value) {
+                    Ok(
+                        ShardLoomExecutionMode::Auto
+                        | ShardLoomExecutionMode::CompatibilityImportCertified,
+                    ) => {
+                        requested_execution_mode = ShardLoomExecutionMode::parse(&value)
+                            .expect("execution mode was already parsed");
+                    }
+                    Ok(mode) => {
+                        return emit_error(
+                            "traditional-analytics-run",
+                            format,
+                            "traditional analytics run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-run does not support execution mode {}; use traditional-analytics-vortex-run for prepared/native Vortex inputs; fallback execution was not attempted",
+                                mode.as_str()
+                            )),
+                        );
+                    }
+                    Err(error) => {
+                        return emit_error(
+                            "traditional-analytics-run",
+                            format,
+                            "traditional analytics run failed",
+                            &error,
+                        );
+                    }
+                }
             }
             "--memory-gb" => {
                 let Some(value) = args.next() else {
@@ -202,6 +239,7 @@ pub(crate) fn handle_traditional_analytics_run(
     .with_compatibility_output_format(compatibility_output_format)
     .with_native_vortex_replay_verification(verify_native_vortex_replay)
     .with_result_vortex_write(write_result_vortex)
+    .with_requested_execution_mode(requested_execution_mode)
     .with_resource_policy(
         shardloom_vortex::TraditionalAnalyticsResourcePolicy::from_hints(
             memory_gb,
@@ -231,35 +269,92 @@ pub(crate) fn handle_traditional_analytics_run(
     ExitCode::SUCCESS
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn handle_traditional_analytics_vortex_run(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
     let Some(scenario_text) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex>"
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
         );
         return ExitCode::from(2);
     };
     let Some(fact_vortex) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex>"
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
         );
         return ExitCode::from(2);
     };
     let Some(dim_vortex) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex>"
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
         );
         return ExitCode::from(2);
     };
-    if let Some(extra) = args.next() {
-        return emit_error(
-            "traditional-analytics-vortex-run",
-            format,
-            "traditional analytics native Vortex run failed",
-            &cli_unknown_arg_error("traditional-analytics-vortex-run", &extra),
-        );
+    let mut requested_execution_mode = ShardLoomExecutionMode::NativeVortex;
+    let mut workspace_dir: Option<PathBuf> = None;
+    let mut write_result_vortex = false;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--workspace" => {
+                let Some(path) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-run ... --workspace <dir>"
+                    );
+                    return ExitCode::from(2);
+                };
+                workspace_dir = Some(PathBuf::from(path));
+            }
+            "--write-result-vortex" => {
+                write_result_vortex = true;
+            }
+            "--execution-mode" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-run ... [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+                    );
+                    return ExitCode::from(2);
+                };
+                match ShardLoomExecutionMode::parse(&value) {
+                    Ok(
+                        ShardLoomExecutionMode::Auto
+                        | ShardLoomExecutionMode::NativeVortex
+                        | ShardLoomExecutionMode::PreparedVortex,
+                    ) => {
+                        requested_execution_mode = ShardLoomExecutionMode::parse(&value)
+                            .expect("execution mode was already parsed");
+                    }
+                    Ok(mode) => {
+                        return emit_error(
+                            "traditional-analytics-vortex-run",
+                            format,
+                            "traditional analytics native Vortex run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-vortex-run does not support execution mode {}; fallback execution was not attempted",
+                                mode.as_str()
+                            )),
+                        );
+                    }
+                    Err(error) => {
+                        return emit_error(
+                            "traditional-analytics-vortex-run",
+                            format,
+                            "traditional analytics native Vortex run failed",
+                            &error,
+                        );
+                    }
+                }
+            }
+            extra => {
+                return emit_error(
+                    "traditional-analytics-vortex-run",
+                    format,
+                    "traditional analytics native Vortex run failed",
+                    &cli_unknown_arg_error("traditional-analytics-vortex-run", extra),
+                );
+            }
+        }
     }
 
     let scenario = match shardloom_vortex::TraditionalAnalyticsScenario::parse(&scenario_text) {
@@ -277,7 +372,10 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
         scenario,
         PathBuf::from(fact_vortex),
         PathBuf::from(dim_vortex),
-    );
+    )
+    .with_requested_execution_mode(requested_execution_mode)
+    .with_result_workspace_dir(workspace_dir)
+    .with_result_vortex_write(write_result_vortex);
     let report = match shardloom_vortex::run_traditional_analytics_vortex_benchmark(request) {
         Ok(report) => report,
         Err(error) => {

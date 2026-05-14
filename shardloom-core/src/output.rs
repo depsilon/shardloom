@@ -67,6 +67,551 @@ impl CommandStatus {
     }
 }
 
+/// User-visible `ShardLoom` execution mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomExecutionMode {
+    Auto,
+    CompatibilityImportCertified,
+    PreparedVortex,
+    DirectCompatibilityTransient,
+    NativeVortex,
+}
+
+impl ShardLoomExecutionMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::CompatibilityImportCertified => "compatibility_import_certified",
+            Self::PreparedVortex => "prepared_vortex",
+            Self::DirectCompatibilityTransient => "direct_compatibility_transient",
+            Self::NativeVortex => "native_vortex",
+        }
+    }
+
+    #[must_use]
+    pub const fn family(self) -> ShardLoomExecutionModeFamily {
+        match self {
+            Self::Auto => ShardLoomExecutionModeFamily::AutoSelection,
+            Self::CompatibilityImportCertified | Self::DirectCompatibilityTransient => {
+                ShardLoomExecutionModeFamily::Compatibility
+            }
+            Self::PreparedVortex | Self::NativeVortex => ShardLoomExecutionModeFamily::NativeVortex,
+        }
+    }
+
+    /// Parses a user-visible execution mode.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShardLoomError::InvalidOperation`] for unsupported values.
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.to_ascii_lowercase().as_str() {
+            "auto" => Ok(Self::Auto),
+            "compatibility_import_certified" | "compatibility-import-certified" => {
+                Ok(Self::CompatibilityImportCertified)
+            }
+            "prepared_vortex" | "prepared-vortex" => Ok(Self::PreparedVortex),
+            "direct_compatibility_transient" | "direct-compatibility-transient" => {
+                Ok(Self::DirectCompatibilityTransient)
+            }
+            "native_vortex" | "native-vortex" => Ok(Self::NativeVortex),
+            _ => Err(ShardLoomError::InvalidOperation(format!(
+                "unsupported ShardLoom execution mode: {value}; fallback execution was not attempted"
+            ))),
+        }
+    }
+}
+
+/// Coarse execution-mode family used by benchmark and protocol surfaces.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomExecutionModeFamily {
+    AutoSelection,
+    Compatibility,
+    NativeVortex,
+}
+
+impl ShardLoomExecutionModeFamily {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AutoSelection => "auto_selection",
+            Self::Compatibility => "compatibility",
+            Self::NativeVortex => "native_vortex",
+        }
+    }
+}
+
+pub const EXECUTION_MODE_SELECTION_REPORT_SCHEMA_VERSION: &str =
+    "shardloom.execution_mode_selection_report.v1";
+
+/// Provider-neutral request used to select and explain a `ShardLoom` execution mode.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ShardLoomExecutionModeSelectionRequest {
+    pub requested_execution_mode: ShardLoomExecutionMode,
+    pub source_format: String,
+    pub workload_constitution_id: String,
+    pub compatibility_input: bool,
+    pub source_already_vortex: bool,
+    pub certification_requested: bool,
+    pub result_sink_requested: bool,
+    pub prepared_artifact_available: bool,
+    pub prepared_artifact_reuse_requested: bool,
+    pub native_vortex_provider_available: bool,
+    pub direct_transient_supported: bool,
+}
+
+impl ShardLoomExecutionModeSelectionRequest {
+    #[must_use]
+    pub fn new(requested_execution_mode: ShardLoomExecutionMode) -> Self {
+        Self {
+            requested_execution_mode,
+            source_format: "unknown".to_string(),
+            workload_constitution_id: "unknown".to_string(),
+            compatibility_input: false,
+            source_already_vortex: false,
+            certification_requested: false,
+            result_sink_requested: false,
+            prepared_artifact_available: false,
+            prepared_artifact_reuse_requested: false,
+            native_vortex_provider_available: false,
+            direct_transient_supported: false,
+        }
+    }
+
+    #[must_use]
+    pub fn with_source_format(mut self, value: impl Into<String>) -> Self {
+        self.source_format = value.into();
+        self
+    }
+
+    #[must_use]
+    pub fn with_workload_constitution(mut self, value: impl Into<String>) -> Self {
+        self.workload_constitution_id = value.into();
+        self
+    }
+
+    #[must_use]
+    pub const fn with_compatibility_input(mut self, value: bool) -> Self {
+        self.compatibility_input = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_source_already_vortex(mut self, value: bool) -> Self {
+        self.source_already_vortex = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_certification_requested(mut self, value: bool) -> Self {
+        self.certification_requested = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_result_sink_requested(mut self, value: bool) -> Self {
+        self.result_sink_requested = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_prepared_artifact_available(mut self, value: bool) -> Self {
+        self.prepared_artifact_available = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_prepared_artifact_reuse_requested(mut self, value: bool) -> Self {
+        self.prepared_artifact_reuse_requested = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_native_vortex_provider_available(mut self, value: bool) -> Self {
+        self.native_vortex_provider_available = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_direct_transient_supported(mut self, value: bool) -> Self {
+        self.direct_transient_supported = value;
+        self
+    }
+}
+
+/// Deterministic execution-mode selection report shared by CLI, Python, benchmarks,
+/// and future REST surfaces.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ShardLoomExecutionModeSelectionReport {
+    pub schema_version: &'static str,
+    pub requested_execution_mode: ShardLoomExecutionMode,
+    pub selected_execution_mode: ShardLoomExecutionMode,
+    pub mode_selection_reason: String,
+    pub execution_mode_family: ShardLoomExecutionModeFamily,
+    pub source_format: String,
+    pub workload_constitution_id: String,
+    pub compatibility_import_included: bool,
+    pub vortex_prepare_included: bool,
+    pub vortex_write_reopen_included: bool,
+    pub direct_transient_execution: bool,
+    pub vortex_native_claim_allowed: bool,
+    pub certification_requested: bool,
+    pub result_sink_requested: bool,
+    pub prepared_artifact_available: bool,
+    pub native_vortex_provider_available: bool,
+    pub mode_supported: bool,
+    pub unsupported_diagnostic_code: String,
+    pub blocker_id: String,
+    pub required_future_evidence: String,
+    pub claim_gate_status: String,
+    pub claim_gate_reason: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct SupportedExecutionModeFacts<'a> {
+    compatibility_import_included: bool,
+    vortex_prepare_included: bool,
+    vortex_write_reopen_included: bool,
+    direct_transient_execution: bool,
+    vortex_native_claim_allowed: bool,
+    claim_gate_status: &'a str,
+    claim_gate_reason: &'a str,
+}
+
+impl ShardLoomExecutionModeSelectionReport {
+    #[must_use]
+    pub fn from_request(request: ShardLoomExecutionModeSelectionRequest) -> Self {
+        match request.requested_execution_mode {
+            ShardLoomExecutionMode::Auto => Self::select_auto(request),
+            ShardLoomExecutionMode::CompatibilityImportCertified => {
+                Self::compatibility_import_certified(
+                    request,
+                    "compatibility_import_certified_requested",
+                )
+            }
+            ShardLoomExecutionMode::PreparedVortex => {
+                if request.prepared_artifact_available || request.source_already_vortex {
+                    Self::prepared_vortex(
+                        request,
+                        "prepared_vortex_artifacts_available_before_scenario_timing",
+                    )
+                } else {
+                    Self::unsupported(
+                        request,
+                        ShardLoomExecutionMode::PreparedVortex,
+                        "prepared_vortex_artifact_missing",
+                        "P7.5.3",
+                        "prepared Vortex artifact lifecycle evidence",
+                    )
+                }
+            }
+            ShardLoomExecutionMode::DirectCompatibilityTransient => {
+                if request.direct_transient_supported {
+                    Self::direct_compatibility_transient(
+                        request,
+                        "direct_transient_requested_and_supported",
+                    )
+                } else {
+                    Self::unsupported(
+                        request,
+                        ShardLoomExecutionMode::DirectCompatibilityTransient,
+                        "direct_compatibility_transient_not_implemented",
+                        "P7.5.4",
+                        "ShardLoom-native direct transient executor and direct-mode evidence",
+                    )
+                }
+            }
+            ShardLoomExecutionMode::NativeVortex => {
+                if request.source_already_vortex || request.native_vortex_provider_available {
+                    Self::native_vortex(request, "input_already_vortex")
+                } else {
+                    Self::unsupported(
+                        request,
+                        ShardLoomExecutionMode::NativeVortex,
+                        "native_vortex_input_missing",
+                        "P7.5.5",
+                        "native Vortex input or admitted native provider evidence",
+                    )
+                }
+            }
+        }
+    }
+
+    fn select_auto(request: ShardLoomExecutionModeSelectionRequest) -> Self {
+        if request.source_already_vortex && request.native_vortex_provider_available {
+            return Self::native_vortex(request, "auto_selected_input_already_vortex");
+        }
+        if request.prepared_artifact_available || request.prepared_artifact_reuse_requested {
+            return Self::prepared_vortex(request, "auto_selected_prepared_vortex_artifact_reuse");
+        }
+        if request.certification_requested || request.result_sink_requested {
+            return Self::compatibility_import_certified(
+                request,
+                "auto_selected_certified_ingest_stage_requested",
+            );
+        }
+        if request.compatibility_input && request.direct_transient_supported {
+            return Self::direct_compatibility_transient(
+                request,
+                "auto_selected_direct_transient_small_compatibility_input",
+            );
+        }
+        Self::compatibility_import_certified(
+            request,
+            "auto_selected_compatibility_import_certified_until_direct_transient_is_admitted",
+        )
+    }
+
+    fn compatibility_import_certified(
+        request: ShardLoomExecutionModeSelectionRequest,
+        reason: &str,
+    ) -> Self {
+        Self::supported(
+            request,
+            ShardLoomExecutionMode::CompatibilityImportCertified,
+            reason,
+            SupportedExecutionModeFacts {
+                compatibility_import_included: true,
+                vortex_prepare_included: true,
+                vortex_write_reopen_included: true,
+                direct_transient_execution: false,
+                vortex_native_claim_allowed: false,
+                claim_gate_status: "not_claim_grade",
+                claim_gate_reason: "compatibility_import_certified_ingest_stage_not_pure_compute",
+            },
+        )
+    }
+
+    fn prepared_vortex(request: ShardLoomExecutionModeSelectionRequest, reason: &str) -> Self {
+        Self::supported(
+            request,
+            ShardLoomExecutionMode::PreparedVortex,
+            reason,
+            SupportedExecutionModeFacts {
+                compatibility_import_included: false,
+                vortex_prepare_included: false,
+                vortex_write_reopen_included: false,
+                direct_transient_execution: false,
+                vortex_native_claim_allowed: true,
+                claim_gate_status: "fixture_smoke_only",
+                claim_gate_reason: "prepared_vortex_requires_operator_and_certificate_evidence_for_claim_grade",
+            },
+        )
+    }
+
+    fn direct_compatibility_transient(
+        request: ShardLoomExecutionModeSelectionRequest,
+        reason: &str,
+    ) -> Self {
+        Self::supported(
+            request,
+            ShardLoomExecutionMode::DirectCompatibilityTransient,
+            reason,
+            SupportedExecutionModeFacts {
+                compatibility_import_included: false,
+                vortex_prepare_included: false,
+                vortex_write_reopen_included: false,
+                direct_transient_execution: true,
+                vortex_native_claim_allowed: false,
+                claim_gate_status: "not_claim_grade",
+                claim_gate_reason: "not_vortex_native",
+            },
+        )
+    }
+
+    fn native_vortex(request: ShardLoomExecutionModeSelectionRequest, reason: &str) -> Self {
+        Self::supported(
+            request,
+            ShardLoomExecutionMode::NativeVortex,
+            reason,
+            SupportedExecutionModeFacts {
+                compatibility_import_included: false,
+                vortex_prepare_included: false,
+                vortex_write_reopen_included: false,
+                direct_transient_execution: false,
+                vortex_native_claim_allowed: true,
+                claim_gate_status: "fixture_smoke_only",
+                claim_gate_reason: "native_vortex_operator_evidence_required_for_claim_grade",
+            },
+        )
+    }
+
+    fn supported(
+        request: ShardLoomExecutionModeSelectionRequest,
+        selected_execution_mode: ShardLoomExecutionMode,
+        reason: &str,
+        facts: SupportedExecutionModeFacts<'_>,
+    ) -> Self {
+        Self {
+            schema_version: EXECUTION_MODE_SELECTION_REPORT_SCHEMA_VERSION,
+            requested_execution_mode: request.requested_execution_mode,
+            selected_execution_mode,
+            mode_selection_reason: reason.to_string(),
+            execution_mode_family: selected_execution_mode.family(),
+            source_format: request.source_format,
+            workload_constitution_id: request.workload_constitution_id,
+            compatibility_import_included: facts.compatibility_import_included,
+            vortex_prepare_included: facts.vortex_prepare_included,
+            vortex_write_reopen_included: facts.vortex_write_reopen_included,
+            direct_transient_execution: facts.direct_transient_execution,
+            vortex_native_claim_allowed: facts.vortex_native_claim_allowed,
+            certification_requested: request.certification_requested,
+            result_sink_requested: request.result_sink_requested,
+            prepared_artifact_available: request.prepared_artifact_available,
+            native_vortex_provider_available: request.native_vortex_provider_available,
+            mode_supported: true,
+            unsupported_diagnostic_code: "none".to_string(),
+            blocker_id: "none".to_string(),
+            required_future_evidence: "none".to_string(),
+            claim_gate_status: facts.claim_gate_status.to_string(),
+            claim_gate_reason: facts.claim_gate_reason.to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    fn unsupported(
+        request: ShardLoomExecutionModeSelectionRequest,
+        selected_execution_mode: ShardLoomExecutionMode,
+        diagnostic_code: &str,
+        blocker_id: &str,
+        required_future_evidence: &str,
+    ) -> Self {
+        Self {
+            schema_version: EXECUTION_MODE_SELECTION_REPORT_SCHEMA_VERSION,
+            requested_execution_mode: request.requested_execution_mode,
+            selected_execution_mode,
+            mode_selection_reason: diagnostic_code.to_string(),
+            execution_mode_family: selected_execution_mode.family(),
+            source_format: request.source_format,
+            workload_constitution_id: request.workload_constitution_id,
+            compatibility_import_included: false,
+            vortex_prepare_included: false,
+            vortex_write_reopen_included: false,
+            direct_transient_execution: false,
+            vortex_native_claim_allowed: false,
+            certification_requested: request.certification_requested,
+            result_sink_requested: request.result_sink_requested,
+            prepared_artifact_available: request.prepared_artifact_available,
+            native_vortex_provider_available: request.native_vortex_provider_available,
+            mode_supported: false,
+            unsupported_diagnostic_code: diagnostic_code.to_string(),
+            blocker_id: blocker_id.to_string(),
+            required_future_evidence: required_future_evidence.to_string(),
+            claim_gate_status: "unsupported".to_string(),
+            claim_gate_reason: diagnostic_code.to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "execution_mode_selection_schema_version".to_string(),
+                self.schema_version.to_string(),
+            ),
+            (
+                "requested_execution_mode".to_string(),
+                self.requested_execution_mode.as_str().to_string(),
+            ),
+            (
+                "selected_execution_mode".to_string(),
+                self.selected_execution_mode.as_str().to_string(),
+            ),
+            (
+                "execution_mode".to_string(),
+                self.selected_execution_mode.as_str().to_string(),
+            ),
+            (
+                "mode_selection_reason".to_string(),
+                self.mode_selection_reason.clone(),
+            ),
+            (
+                "execution_mode_family".to_string(),
+                self.execution_mode_family.as_str().to_string(),
+            ),
+            ("source_format".to_string(), self.source_format.clone()),
+            (
+                "workload_constitution_id".to_string(),
+                self.workload_constitution_id.clone(),
+            ),
+            (
+                "compatibility_import_included".to_string(),
+                self.compatibility_import_included.to_string(),
+            ),
+            (
+                "vortex_prepare_included".to_string(),
+                self.vortex_prepare_included.to_string(),
+            ),
+            (
+                "vortex_write_reopen_included".to_string(),
+                self.vortex_write_reopen_included.to_string(),
+            ),
+            (
+                "direct_transient_execution".to_string(),
+                self.direct_transient_execution.to_string(),
+            ),
+            (
+                "vortex_native_claim_allowed".to_string(),
+                self.vortex_native_claim_allowed.to_string(),
+            ),
+            (
+                "certification_requested".to_string(),
+                self.certification_requested.to_string(),
+            ),
+            (
+                "result_sink_requested".to_string(),
+                self.result_sink_requested.to_string(),
+            ),
+            (
+                "prepared_artifact_available".to_string(),
+                self.prepared_artifact_available.to_string(),
+            ),
+            (
+                "native_vortex_provider_available".to_string(),
+                self.native_vortex_provider_available.to_string(),
+            ),
+            (
+                "mode_supported".to_string(),
+                self.mode_supported.to_string(),
+            ),
+            (
+                "unsupported_diagnostic_code".to_string(),
+                self.unsupported_diagnostic_code.clone(),
+            ),
+            ("blocker_id".to_string(), self.blocker_id.clone()),
+            (
+                "required_future_evidence".to_string(),
+                self.required_future_evidence.clone(),
+            ),
+            (
+                "claim_gate_status".to_string(),
+                self.claim_gate_status.clone(),
+            ),
+            (
+                "claim_gate_reason".to_string(),
+                self.claim_gate_reason.clone(),
+            ),
+            (
+                "fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+}
+
 /// Typed key/value payload used inside explicit envelope slots.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OutputTypedPayload {
@@ -859,6 +1404,104 @@ mod tests {
     #[test]
     fn format_rejects_unknown() {
         assert!(OutputFormat::parse("yaml").is_err());
+    }
+    #[test]
+    fn execution_mode_parse_and_family_are_stable() {
+        assert_eq!(
+            ShardLoomExecutionMode::parse("compatibility_import_certified").expect("ok"),
+            ShardLoomExecutionMode::CompatibilityImportCertified
+        );
+        assert_eq!(
+            ShardLoomExecutionMode::parse("prepared-vortex").expect("ok"),
+            ShardLoomExecutionMode::PreparedVortex
+        );
+        assert_eq!(
+            ShardLoomExecutionMode::PreparedVortex.family().as_str(),
+            "native_vortex"
+        );
+        assert_eq!(
+            ShardLoomExecutionMode::DirectCompatibilityTransient
+                .family()
+                .as_str(),
+            "compatibility"
+        );
+        assert!(ShardLoomExecutionMode::parse("spark_fallback").is_err());
+    }
+    #[test]
+    fn execution_mode_selection_auto_is_transparent_for_certified_ingest() {
+        let report = ShardLoomExecutionModeSelectionReport::from_request(
+            ShardLoomExecutionModeSelectionRequest::new(ShardLoomExecutionMode::Auto)
+                .with_source_format("csv")
+                .with_workload_constitution("local_vortex_analytics_v1")
+                .with_compatibility_input(true)
+                .with_certification_requested(true)
+                .with_result_sink_requested(true),
+        );
+
+        assert_eq!(
+            report.requested_execution_mode,
+            ShardLoomExecutionMode::Auto
+        );
+        assert_eq!(
+            report.selected_execution_mode,
+            ShardLoomExecutionMode::CompatibilityImportCertified
+        );
+        assert_eq!(
+            report.mode_selection_reason,
+            "auto_selected_certified_ingest_stage_requested"
+        );
+        assert!(report.compatibility_import_included);
+        assert!(report.vortex_prepare_included);
+        assert!(!report.vortex_native_claim_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+    #[test]
+    fn execution_mode_selection_prepared_vortex_reports_query_timing_scope() {
+        let report = ShardLoomExecutionModeSelectionReport::from_request(
+            ShardLoomExecutionModeSelectionRequest::new(ShardLoomExecutionMode::PreparedVortex)
+                .with_source_format("vortex")
+                .with_workload_constitution("local_vortex_analytics_v1")
+                .with_source_already_vortex(true)
+                .with_prepared_artifact_available(true)
+                .with_prepared_artifact_reuse_requested(true)
+                .with_native_vortex_provider_available(true),
+        );
+
+        assert_eq!(
+            report.selected_execution_mode,
+            ShardLoomExecutionMode::PreparedVortex
+        );
+        assert_eq!(report.execution_mode_family.as_str(), "native_vortex");
+        assert!(!report.compatibility_import_included);
+        assert!(!report.vortex_prepare_included);
+        assert!(report.vortex_native_claim_allowed);
+        assert_eq!(report.claim_gate_status, "fixture_smoke_only");
+    }
+    #[test]
+    fn execution_mode_selection_blocks_direct_transient_until_implemented() {
+        let report = ShardLoomExecutionModeSelectionReport::from_request(
+            ShardLoomExecutionModeSelectionRequest::new(
+                ShardLoomExecutionMode::DirectCompatibilityTransient,
+            )
+            .with_source_format("csv")
+            .with_workload_constitution("local_vortex_analytics_v1")
+            .with_compatibility_input(true),
+        );
+
+        assert!(!report.mode_supported);
+        assert_eq!(
+            report.selected_execution_mode,
+            ShardLoomExecutionMode::DirectCompatibilityTransient
+        );
+        assert_eq!(
+            report.unsupported_diagnostic_code,
+            "direct_compatibility_transient_not_implemented"
+        );
+        assert_eq!(report.claim_gate_status, "unsupported");
+        assert!(!report.vortex_native_claim_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
     #[test]
     fn command_status_error_is_error() {

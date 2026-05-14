@@ -13,6 +13,10 @@ tag_created: false
 secrets_required: false
 external_runtime_dependencies_added: false
 fallback_engine_dependency_added: false
+provenance_dry_run_performed: true
+sbom_checksum_manifest_generated: true
+clean_conda_env_install_status: passed | skipped_tool_missing
+clean_conda_env_install_required: false
 steps:
   - build_cli_binary -> 0
   - build_python_artifacts -> 0
@@ -21,11 +25,15 @@ steps:
   - wheel_import_and_client_smoke -> 0
       fallback_attempted=False
       capabilities_command=capabilities
+  - create_clean_conda_env -> 0, when mamba/conda/micromamba is available
+  - install_local_wheel_clean_conda -> 0, when clean Conda proof runs
+  - conda_wheel_import_and_client_smoke -> 0, when clean Conda proof runs
   - cli_status_json -> 0
   - cli_capabilities_json -> 0
   - example_local_python_smoke -> 0
       fallback attempted: False
   - example_local_vortex_benchmark_smoke -> 0
+  - release_provenance_dry_run -> 0
 ```
 
 Generate the live transcript with:

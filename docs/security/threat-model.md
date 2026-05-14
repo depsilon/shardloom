@@ -83,8 +83,13 @@ Release-readiness evidence should reference these report families from RFC 0043:
 ## Current Maturity
 
 Current state is `SEC-1 documented policy` for the threat model itself. Some dependency and release
-scaffolding is `SEC-2 checked configuration`. Runtime malicious-input and workspace-path tests
-remain planned under P8.0D before any public release gate can pass.
+scaffolding is `SEC-2 checked configuration`. P8.0D adds the first `SEC-4 deterministic regression
+tests` for report-level runtime input safety, workspace path safety, and evidence artifact redaction
+in `docs/security/runtime-exploit-regression-suite.md`.
+
+P8.0G now wires these reports into the local release security gate. Public release still requires
+P8.4 to complete the full hard release-readiness gate across runtime, CLI, Python, packaging,
+benchmark, and artifact-producing paths.
 
 ## No-Fallback Security Boundary
 

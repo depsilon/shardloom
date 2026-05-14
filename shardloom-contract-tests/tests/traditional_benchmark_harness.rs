@@ -7,6 +7,7 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
 
     assert!(script.contains("\"spark-default\""));
     assert!(script.contains("\"spark-local-tuned\""));
+    assert!(script.contains("\"shardloom-prepared-vortex\""));
     assert!(
         script.contains("ENGINE_ALIASES = {\"spark\": (\"spark-default\", \"spark-local-tuned\")}")
     );
@@ -41,10 +42,32 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"write_timing_present\""));
     assert!(script.contains("\"computed_result_sink_write_millis\""));
     assert!(script.contains("\"scenario_compute_millis\""));
+    assert!(script.contains("\"total_runtime_millis\""));
+    assert!(script.contains("\"operator_compute_millis\""));
+    assert!(script.contains("\"requested_execution_mode\""));
+    assert!(script.contains("\"selected_execution_mode\""));
+    assert!(script.contains("\"mode_selection_reason\""));
+    assert!(script.contains("\"execution_mode_family\""));
+    assert!(script.contains("\"preparation_millis\""));
+    assert!(script.contains("\"preparation_included_in_timing\""));
+    assert!(script.contains("\"prepared_artifact_ref\""));
+    assert!(script.contains("\"prepared_artifact_digest\""));
+    assert!(script.contains("\"source_read_millis\""));
+    assert!(script.contains("\"compatibility_to_vortex_import_millis\""));
+    assert!(script.contains("\"vortex_write_millis\""));
+    assert!(script.contains("\"vortex_scan_millis\""));
+    assert!(script.contains("\"fusion_status\""));
+    assert!(script.contains("\"filter_project_limit_fused\""));
+    assert!(script.contains("\"fusion_blocker\""));
+    assert!(script.contains("\"materialization_required\""));
+    assert!(script.contains("\"decode_required\""));
+    assert!(script.contains("\"scan_api_status\""));
+    assert!(script.contains("\"persistent_runner_status\""));
     assert!(script.contains("\"reproducible_benchmark_row\""));
     assert!(script.contains("\"correctness_digest_stable\""));
     assert!(script.contains("MIN_CLAIM_GRADE_ITERATIONS = 3"));
     assert!(script.contains("--claim-readiness-rerun"));
+    assert!(script.contains("allow_abbrev=False"));
     assert!(script.contains("def render_shardloom_result_sink_table("));
     assert!(script.contains("\"fixture_smoke_only\""));
     assert!(script.contains("\"not_claim_grade\""));
@@ -93,6 +116,7 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def scenario_dataset_profile_block_reason("));
     assert!(script.contains("requires dataset_profile in"));
     assert!(script.contains("SHARDLOOM_TRADITIONAL_SCENARIOS"));
+    assert!(script.contains("def shardloom_prepared_vortex_runner("));
     assert!(script.contains("does not implement benchmark scenario"));
 }
 
@@ -154,6 +178,13 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"write_timing_present\"",
         "\"computed_result_sink_write_millis\"",
         "\"scenario_compute_millis\"",
+        "\"selected_execution_mode\"",
+        "\"prepared_vortex\"",
+        "\"compatibility_import_certified\"",
+        "\"preparation_millis\"",
+        "\"prepared_artifact_digest\"",
+        "\"vortex_reopen_scan_included\"",
+        "\"build_time_excluded\"",
         "\"reproducible_benchmark_row\"",
         "\"correctness_digest_stable\"",
         "\"claim_readiness_rerun_profile\"",
@@ -310,6 +341,12 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("work-avoidance evidence"));
     assert!(readme.contains("write/commit evidence"));
     assert!(readme.contains("result-sink write timing"));
+    assert!(readme.contains("requested_execution_mode"));
+    assert!(readme.contains("selected_execution_mode"));
+    assert!(readme.contains("compatibility-import-certified timing"));
+    assert!(readme.contains("execution_mode=prepared_vortex"));
+    assert!(readme.contains("standalone `.vortex` report rows"));
+    assert!(readme.contains("docs/architecture/compute-engine-flow-reference.md"));
     assert!(readme.contains("per-path certificate id/status"));
     assert!(readme.contains("row_read=true"));
     assert!(normalized.contains("never execute unsupported ShardLoom plans as fallback engines"));
@@ -339,6 +376,139 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("timing scope"));
     assert!(readme.contains("claim-readiness coverage is separated from timing"));
     assert!(readme.contains("benchmarks\\traditional_analytics\\.venv\\Scripts\\python"));
+}
+
+#[test]
+fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
+    let doc = read_workspace_file("docs/architecture/compute-engine-flow-reference.md");
+
+    for required_text in [
+        "one-shot compatibility query",
+        "ingest/stage workflow",
+        "prepared Vortex query",
+        "native Vortex query",
+        "benchmark baseline comparison",
+        "Vortex-first",
+        "no external fallback",
+        "explicit execution mode",
+        "explicit materialization/decode boundaries",
+        "evidence-certified execution",
+        "claim-gated benchmark/reporting",
+        "compatibility_import_certified",
+        "prepared_vortex",
+        "native_vortex",
+        "direct_compatibility_transient",
+        "auto",
+        "E2 --> M1",
+        "E2 --> M2",
+        "E2 --> M3",
+        "E2 --> M4",
+        "Plan transient local path",
+        "requested_execution_mode",
+        "selected_execution_mode",
+        "mode_selection_reason",
+        "vortex_native_claim_allowed",
+        "compatibility_import_included",
+        "vortex_prepare_included",
+        "vortex_write_reopen_included",
+        "direct_transient_execution",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status",
+        "use_vortex_native_provider",
+        "wrap_vortex_concept",
+        "implement_shardloom_kernel",
+        "baseline_or_oracle_only",
+        "blocked_until_vortex_or_shardloom_evidence",
+        "total_runtime_millis",
+        "compatibility_to_vortex_import_millis",
+        "operator_compute_millis",
+        "result_sink_write_millis",
+        "stable correctness digest",
+        "Native I/O certificate",
+        "Unsupported work must be deterministically blocked, not delegated to external engines.",
+        "a direct transient runtime path",
+        "Actionable implementation work must be represented in",
+        "docs/architecture/phased-execution-plan.md",
+        "docs/architecture/compute-engine-flow-overhaul-review.md",
+    ] {
+        assert!(
+            doc.contains(required_text),
+            "missing required compute flow reference text: {required_text}"
+        );
+    }
+}
+
+#[test]
+fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
+    let review = read_workspace_file("docs/architecture/compute-engine-flow-overhaul-review.md");
+    let plan = read_workspace_file("docs/architecture/phased-execution-plan.md");
+    let traceability = read_workspace_file("docs/architecture/rfc-phase-traceability.md");
+    let persistent_runner =
+        read_workspace_file("docs/architecture/benchmark-persistent-runner-decision.md");
+    let protocol_parity =
+        read_workspace_file("docs/architecture/execution-mode-protocol-parity.md");
+
+    for required_text in [
+        "G1 - Execution-mode selection is not a shared admission layer",
+        "G2 - Prepared Vortex is a benchmark harness workflow, not a reusable artifact lifecycle",
+        "G3 - Typed envelopes still carry most execution-mode evidence as flat fields",
+        "G4 - Capability discovery is not execution-mode aware",
+        "G5 - Native Vortex query rows still rely on temporary materialized operators",
+        "G6 - Direct transient compatibility mode is parse-level only",
+        "G7 - Prepared/native result-sink replay proof is incomplete",
+        "G8 - Stage timing attribution is useful but still partially inferred",
+        "G9 - Python and future REST surfaces do not yet select modes",
+        "G10 - File-format comparisons need a preparation-focused matrix",
+        "P7.5.1 - Shared Execution-Mode Admission And Selection Report",
+        "P7.5.2 - Typed Envelope Evidence Routing For Flow Fields",
+        "P7.5.3 - Prepared Vortex Artifact Lifecycle",
+        "P7.5.4 - Mode-Aware Capability Matrix And Direct-Transient Unsupported Parity",
+        "P7.5.5 - Native Provider Admission For Prepared/Native Operators",
+        "P7.5.6 - Prepared/Native Result-Sink Replay Proof",
+        "P7.5.7 - Benchmark Attribution And Persistent Runner Decision",
+        "P7.5.8 - Python And Future REST Mode Parity",
+        "P7.5.9 - File-Format Preparation Matrix",
+        "P7.5.1 through P7.5.9 are complete",
+        "fallback_attempted=false",
+        "external engines remain baselines/oracles only",
+    ] {
+        assert!(
+            review.contains(required_text),
+            "missing required compute flow overhaul review text: {required_text}"
+        );
+    }
+
+    assert!(plan.contains("Priority 7.5 - compute-engine flow overhaul"));
+    assert!(plan.contains("P7.5.1 shared execution-mode admission and selection report"));
+    assert!(plan.contains("source/input classification"));
+    assert!(plan.contains("unsupported diagnostic"));
+    assert!(plan.contains("prepare, inspect, reuse, and clean up"));
+    assert!(plan.contains("provider kind"));
+    assert!(plan.contains("semantic profile"));
+    assert!(plan.contains("use_vortex_native_provider"));
+    assert!(plan.contains("result_sink_claim_gate_status"));
+    assert!(plan.contains("computed_result_sink_write_micros"));
+    assert!(plan.contains("batched/persistent runner"));
+    assert!(plan.contains("P7.5.9 file-format preparation matrix"));
+    assert!(traceability.contains("P7.5 follow-up sequence"));
+    assert!(traceability.contains("P7.5.6 completion update"));
+    assert!(traceability.contains("traditional-analytics-vortex-run --workspace"));
+    assert!(traceability.contains("P7.5.7 completion update"));
+    assert!(traceability.contains("P7.5.8 completion update"));
+    assert!(traceability.contains("P7.5.9 completion update"));
+    assert!(traceability.contains("format_preparation_matrix"));
+    assert!(traceability.contains("compute-engine-flow-overhaul-review.md"));
+    assert!(persistent_runner.contains("cli_process_wall_millis"));
+    assert!(persistent_runner.contains("python_harness_overhead_millis"));
+    assert!(
+        persistent_runner
+            .contains("persistent_runner_status=process_per_scenario_attributed_not_reduced")
+    );
+    assert!(protocol_parity.contains("requested_execution_mode"));
+    assert!(protocol_parity.contains("selected_execution_mode"));
+    assert!(protocol_parity.contains("unsupported_diagnostic_code"));
+    assert!(protocol_parity.contains("fallback_attempted=false"));
 }
 
 fn read_workspace_file(relative: &str) -> String {

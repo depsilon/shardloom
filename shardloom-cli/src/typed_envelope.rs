@@ -144,6 +144,107 @@ const INLINE_FIELD_SUBSET_PAYLOAD_SPECS: &[InlineFieldSubsetPayloadSpec] = &[
     },
 ];
 
+const EXECUTION_MODE_SELECTION_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "execution_mode_selection_schema_version",
+    "requested_execution_mode",
+    "selected_execution_mode",
+    "execution_mode",
+    "mode_selection_reason",
+    "execution_mode_family",
+    "source_format",
+    "workload_constitution_id",
+    "compatibility_import_included",
+    "vortex_prepare_included",
+    "vortex_write_reopen_included",
+    "direct_transient_execution",
+    "vortex_native_claim_allowed",
+    "certification_requested",
+    "result_sink_requested",
+    "prepared_artifact_available",
+    "native_vortex_provider_available",
+    "mode_supported",
+    "unsupported_diagnostic_code",
+    "blocker_id",
+    "required_future_evidence",
+    "claim_gate_status",
+    "claim_gate_reason",
+    "fallback_attempted",
+    "external_engine_invoked",
+];
+
+const COMPUTE_FLOW_EVIDENCE_PAYLOAD_KEYS: &[&str] = &[
+    "selected_execution_mode",
+    "execution_mode_family",
+    "source_format",
+    "workload_constitution_id",
+    "prepared_artifact_ref",
+    "prepared_artifact_fact_ref",
+    "prepared_artifact_dim_ref",
+    "prepared_artifact_digest",
+    "prepared_artifact_fact_digest",
+    "prepared_artifact_dim_digest",
+    "prepared_artifact_lifecycle_status",
+    "prepared_artifact_cleanup_policy",
+    "prepared_artifact_reuse_eligible",
+    "prepared_artifact_workspace",
+    "fact_vortex_path",
+    "dim_vortex_path",
+    "fact_vortex_digest",
+    "dim_vortex_digest",
+    "computed_result_sink_requested",
+    "computed_result_sink_written",
+    "computed_result_sink_replay_verified",
+    "computed_result_vortex_path",
+    "computed_result_vortex_bytes",
+    "computed_result_vortex_digest",
+    "computed_result_sink_rows",
+    "computed_result_sink_rows_materialized",
+    "computed_result_sink_schema_summary",
+    "computed_result_sink_write_micros",
+    "computed_result_sink_replay_result_json",
+    "native_io_certificate_id",
+    "native_io_certificate_status",
+    "native_io_certificate_path_id",
+    "source_native_io_certificate_status",
+    "output_replay_native_io_certificate_status",
+    "computed_result_sink_native_io_certificate_id",
+    "computed_result_sink_native_io_certificate_status",
+    "result_sink_claim_gate_status",
+    "result_sink_claim_gate_reason",
+    "commit_state",
+    "rollback_cleanup_status",
+    "runtime_execution_certificate_status",
+    "provider_admission_report_id",
+    "vortex_first_provider_check_performed",
+    "provider_admission_classification",
+    "provider_kind",
+    "provider_api_surface",
+    "source_backed_encoded_provider_checked",
+    "source_backed_encoded_provider_status",
+    "residual_executor",
+    "residual_boundary",
+    "representation_transition_summary",
+    "native_io_representation_transition_order",
+    "encoded_native_execution_status",
+    "fusion_status",
+    "fusion_blocker",
+    "materialization_boundary_report_emitted",
+    "materialization_boundary_rows",
+    "native_io_materialization_boundary_order",
+    "data_decoded",
+    "data_materialized",
+    "row_read",
+    "arrow_converted",
+    "compatibility_import_included",
+    "vortex_prepare_included",
+    "vortex_write_reopen_included",
+    "direct_transient_execution",
+    "claim_gate_status",
+    "claim_gate_reason",
+    "fallback_attempted",
+    "external_engine_invoked",
+];
+
 const EXECUTION_CERTIFICATE_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "mode",
     "schema_version",
@@ -732,6 +833,54 @@ fn inline_field_subset_payloads(
         .collect()
 }
 
+fn inline_execution_mode_selection_payload(
+    command: &str,
+    fields: &[(String, String)],
+) -> Option<OutputTypedArtifact> {
+    field_value(fields, "selected_execution_mode")?;
+    let artifact_id = inline_payload_artifact_id(
+        command,
+        "execution_mode_selection_report",
+        field_value(fields, "execution_mode_selection_report_id"),
+    );
+    let status = match field_value(fields, "mode_supported") {
+        Some("false") => "unsupported",
+        Some("true") => "available",
+        _ => "evidence_incomplete",
+    };
+    let mut artifact =
+        OutputTypedArtifact::new(artifact_id, "execution_mode_selection_report", status);
+    for key in EXECUTION_MODE_SELECTION_REPORT_PAYLOAD_KEYS {
+        if let Some(value) = field_value(fields, key) {
+            artifact = artifact.with_field(*key, value);
+        } else {
+            artifact = artifact.with_field(*key, "evidence_incomplete");
+        }
+    }
+    Some(artifact)
+}
+
+fn inline_compute_flow_evidence_payload(
+    command: &str,
+    fields: &[(String, String)],
+) -> Option<OutputTypedArtifact> {
+    field_value(fields, "selected_execution_mode")?;
+    let artifact_id = inline_payload_artifact_id(
+        command,
+        "compute_flow_evidence",
+        field_value(fields, "compute_flow_evidence_report_id"),
+    );
+    let status = field_value(fields, "claim_gate_status").unwrap_or("evidence_incomplete");
+    let mut artifact = OutputTypedArtifact::new(artifact_id, "compute_flow_evidence", status);
+    for key in COMPUTE_FLOW_EVIDENCE_PAYLOAD_KEYS {
+        artifact = artifact.with_field(
+            *key,
+            field_value(fields, key).unwrap_or("evidence_incomplete"),
+        );
+    }
+    Some(artifact)
+}
+
 fn command_capability_snapshot_keys(command: &str) -> Option<&'static [&'static str]> {
     match command {
         "input-adapters" => Some(INPUT_ADAPTER_CAPABILITY_SNAPSHOT_KEYS),
@@ -935,6 +1084,8 @@ pub(crate) fn apply_typed_envelope_fields(
     let inline_report = inline_report_payload(command, &fields);
     let inline_prefixed_payloads = inline_prefixed_payloads(command, &fields);
     let inline_field_subset_payloads = inline_field_subset_payloads(command, &fields);
+    let inline_execution_mode_selection = inline_execution_mode_selection_payload(command, &fields);
+    let inline_compute_flow_evidence = inline_compute_flow_evidence_payload(command, &fields);
     let command_capability_snapshot_fields = command_capability_snapshot_fields(command, &fields);
     let mut envelope = envelope;
     for (key, value) in fields {
@@ -949,6 +1100,12 @@ pub(crate) fn apply_typed_envelope_fields(
         envelope = envelope.with_artifact(artifact);
     }
     for artifact in inline_field_subset_payloads {
+        envelope = envelope.with_artifact(artifact);
+    }
+    if let Some(artifact) = inline_execution_mode_selection {
+        envelope = envelope.with_artifact(artifact);
+    }
+    if let Some(artifact) = inline_compute_flow_evidence {
         envelope = envelope.with_artifact(artifact);
     }
     envelope
@@ -1143,6 +1300,125 @@ mod tests {
             "measured_benchmark_result_rows_present".to_string(),
             "false".to_string()
         )));
+    }
+
+    #[test]
+    fn command_fields_attach_inline_execution_mode_selection_payload() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("traditional-analytics-run", "ok", "ok"),
+            "traditional-analytics-run",
+            execution_mode_selection_test_fields(),
+        );
+
+        let artifact = envelope
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.artifact_kind == "execution_mode_selection_report")
+            .expect("execution mode selection artifact");
+        assert_eq!(
+            artifact.artifact_id,
+            "traditional-analytics-run.execution_mode_selection_report"
+        );
+        assert_eq!(artifact.status, "available");
+        assert!(artifact.payload.fields.contains(&(
+            "selected_execution_mode".to_string(),
+            "compatibility_import_certified".to_string()
+        )));
+        assert!(
+            artifact
+                .payload
+                .fields
+                .contains(&("fallback_attempted".to_string(), "false".to_string()))
+        );
+        let compute_flow = envelope
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.artifact_kind == "compute_flow_evidence")
+            .expect("compute flow evidence artifact");
+        assert_eq!(
+            compute_flow.artifact_id,
+            "traditional-analytics-run.compute_flow_evidence"
+        );
+        assert_eq!(compute_flow.status, "not_claim_grade");
+        assert!(compute_flow.payload.fields.contains(&(
+            "fact_vortex_path".to_string(),
+            "evidence_incomplete".to_string()
+        )));
+    }
+
+    fn execution_mode_selection_test_fields() -> Vec<(String, String)> {
+        vec![
+            (
+                "execution_mode_selection_schema_version".to_string(),
+                "shardloom.execution_mode_selection_report.v1".to_string(),
+            ),
+            ("requested_execution_mode".to_string(), "auto".to_string()),
+            (
+                "selected_execution_mode".to_string(),
+                "compatibility_import_certified".to_string(),
+            ),
+            (
+                "execution_mode".to_string(),
+                "compatibility_import_certified".to_string(),
+            ),
+            (
+                "mode_selection_reason".to_string(),
+                "auto_selected_certified_ingest_stage_requested".to_string(),
+            ),
+            (
+                "execution_mode_family".to_string(),
+                "compatibility".to_string(),
+            ),
+            ("source_format".to_string(), "csv".to_string()),
+            (
+                "workload_constitution_id".to_string(),
+                "local_vortex_analytics_v1".to_string(),
+            ),
+            (
+                "compatibility_import_included".to_string(),
+                "true".to_string(),
+            ),
+            ("vortex_prepare_included".to_string(), "true".to_string()),
+            (
+                "vortex_write_reopen_included".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "direct_transient_execution".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "vortex_native_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("certification_requested".to_string(), "true".to_string()),
+            ("result_sink_requested".to_string(), "true".to_string()),
+            (
+                "prepared_artifact_available".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "native_vortex_provider_available".to_string(),
+                "false".to_string(),
+            ),
+            ("mode_supported".to_string(), "true".to_string()),
+            (
+                "unsupported_diagnostic_code".to_string(),
+                "none".to_string(),
+            ),
+            ("blocker_id".to_string(), "none".to_string()),
+            ("required_future_evidence".to_string(), "none".to_string()),
+            (
+                "claim_gate_status".to_string(),
+                "not_claim_grade".to_string(),
+            ),
+            (
+                "claim_gate_reason".to_string(),
+                "compatibility_import_certified_ingest_stage_not_pure_compute".to_string(),
+            ),
+            ("fallback_attempted".to_string(), "false".to_string()),
+            ("external_engine_invoked".to_string(), "false".to_string()),
+        ]
     }
 
     fn emitted_runtime_certificate_envelope() -> OutputEnvelope {

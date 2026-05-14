@@ -296,10 +296,20 @@ def read_cargo_dependency_names(path: Path) -> set[str]:
         return read_cargo_dependency_names_text(path)
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     names: set[str] = set()
-    for section in ("dependencies", "dev-dependencies", "build-dependencies"):
+    sections = ("dependencies", "dev-dependencies", "build-dependencies")
+    for section in sections:
         table = data.get(section, {})
         if isinstance(table, dict):
             names.update(str(key) for key in table)
+    target_tables = data.get("target", {})
+    if isinstance(target_tables, dict):
+        for target_table in target_tables.values():
+            if not isinstance(target_table, dict):
+                continue
+            for section in sections:
+                table = target_table.get(section, {})
+                if isinstance(table, dict):
+                    names.update(str(key) for key in table)
     return names
 
 
@@ -311,7 +321,18 @@ def read_cargo_dependency_names_text(path: Path) -> set[str]:
         if not line:
             continue
         if line.startswith("["):
-            active = line in {"[dependencies]", "[dev-dependencies]", "[build-dependencies]"}
+            section = line.strip("[]")
+            active = section in {
+                "dependencies",
+                "dev-dependencies",
+                "build-dependencies",
+            } or section.endswith(
+                (
+                    ".dependencies",
+                    ".dev-dependencies",
+                    ".build-dependencies",
+                )
+            )
             continue
         if active and "=" in line:
             names.add(line.split("=", 1)[0].strip().strip('"'))
@@ -375,6 +396,8 @@ def read_requirements(path: Path) -> set[str]:
 
 def dependency_name_from_requirement(requirement: str) -> str:
     token = requirement.split(";", 1)[0].strip()
+    if " @ " in token:
+        token = token.split(" @ ", 1)[0].strip()
     token = token.split("[", 1)[0]
     for separator in ("==", ">=", "<=", "~=", "!=", ">", "<"):
         token = token.split(separator, 1)[0]

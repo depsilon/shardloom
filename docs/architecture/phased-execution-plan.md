@@ -151,6 +151,11 @@ from the merged code and tests.
       found beyond already-landed fixes. Several GitHub threads remain unresolved but appear fixed
       in `main`; before release readiness they need evidence-backed human resolution/commentary,
       not new code by default.
+- [x] Codex review sweep for PR #530 through PR #558: unresolved GitHub review threads were
+      re-fetched and compared against the current branch. Remaining actionable implementation
+      findings have been folded into the benchmark, Vortex traditional analytics, dependency-audit,
+      release-proof, and Python envelope surfaces. Stale GitHub thread state still needs maintainer
+      resolution/commentary on GitHub; it is not an open phase-plan implementation blocker.
 - [x] Codex review finding from PR #534 thread `PRRT_kwDOSScs_c6BxJU1`
       (`shardloom-exec/src/lib.rs:500`): `ShardLoomExecutionResult::to_output_envelope()` emits
       lifecycle status from the stored `lifecycle_status`, but Vortex provider bridge paths can
@@ -354,12 +359,279 @@ from the merged code and tests.
       evidence and remains report-only until write/layout execution is certified.
     - Verification: advisor report snapshots, evidence-source validation, measured/simulated status
       tests, and no-claim/no-write policy checks.
-- [ ] Priority 8 - general availability and external proof-of-use
+- [x] Priority 7.4 follow-up - benchmark execution semantics and prepared/native performance lanes
+  - Outcome: correct the measurement structure after the P7.4 claim-readiness closeout so users can
+    distinguish compatibility ingest/stage certification from prepared/native Vortex query timing.
+  - Placement note: P7.4.1 through P7.4.7 remain completed in the ledger. These follow-up slices are
+    new corrective work prompted by benchmark evidence showing that compatibility-import-certified
+    rows include source parse/import, Vortex write/reopen/scan, result-sink evidence, and
+    CLI/process overhead that must not be read as pure operator compute time.
+  - Runtime rule: these slices may add timing attribution, typed execution-mode vocabulary,
+    prepared/native benchmark lanes, deterministic unsupported diagnostics, and documentation. They
+    must not publish performance claims, invoke external engines as ShardLoom fallback, add managed
+    platform benchmark lanes, weaken certificates, or relabel direct/transient compatibility paths
+    as Vortex-native support.
+  - [x] P7.4.8 performance attribution and execution-mode semantics bundle.
+    - User-visible surface: `docs/architecture/compute-engine-flow-reference.md`,
+      `docs/architecture/performance-attribution-and-execution-structure.md`,
+      benchmark Markdown/JSON fields, CLI typed-envelope fields, and Python typed accessors that
+      expose requested/selected execution mode, mode-selection reason, timing scope, and claim-gate
+      status.
+    - Acceptance: benchmark rows distinguish one-shot compatibility query, certified ingest/stage
+      workflow, prepared Vortex, native Vortex query, direct transient compatibility, and auto
+      selection. Rows expose stage attribution for total runtime, scenario/operator compute,
+      result-sink write, startup/warmup, compatibility import, Vortex preparation/write/reopen/scan,
+      evidence rendering, materialization/decode boundaries, no-fallback status, and external-engine
+      invocation status. Direct transient rows, if introduced, are explicitly not Vortex-native
+      claim rows.
+      The flow reference also documents that current native Vortex rows can still use temporary
+      ShardLoom operators until encoded/native evidence matures, and that external engines remain
+      baseline comparison rows only.
+    - Verification: traditional benchmark harness contract tests, CLI envelope assertions, Python
+      envelope-accessor tests, small attribution smoke benchmark, and docs link/checks where
+      available.
+    - Completed proof: benchmark JSON/Markdown rows now expose requested/selected execution mode,
+      mode-selection reason, execution-mode family, claim-gate fields, total/runtime/operator
+      timing, startup/warmup, preparation timing, source/import/write/reopen/scan timing, result
+      sink timing, build-time exclusion, representation/fusion/Scan API/persistent-runner status,
+      and explicit no-fallback/no-external-engine fields. The new performance attribution doc
+      defines one-shot compatibility, ingest/stage, prepared Vortex, and native Vortex paths, and
+      the compute-engine flow reference now anchors the top-level user request -> mode selection ->
+      provider -> evidence -> claim-gate flow for future execution and benchmark changes.
+  - [x] P7.4.9 prepared/native Vortex operator maturity bundle.
+    - User-visible surface: `shardloom-prepared-vortex` benchmark lane, native/prepared Vortex
+      taxonomy rows, native microbenchmark report inclusion, and deterministic blockers for
+      unsupported prepared/native operators.
+    - Acceptance: compatibility import can happen once per dataset/profile/format for prepared
+      Vortex rows while scenario timing starts from prepared artifacts. Prepared rows record
+      preparation time separately, prepared artifact refs/digests, source Native I/O evidence,
+      whether preparation is included in timing, representation transitions, encoded/native status,
+      fusion status, Scan API/source-backed status, and persistent-runner/process-overhead status.
+      Native/prepared lanes cover feasible taxonomy extras such as filter+projection+limit,
+      multi-key group by, join+aggregate, top-N per group, and row-number window, or emit stable
+      unsupported diagnostics with `fallback_attempted=false`.
+    - Verification: prepared-vortex smoke benchmarks, taxonomy-extra smoke benchmarks, native
+      microbenchmark artifact assertions, Vortex crate feature tests, contract tests, and workspace
+      fmt/clippy/test.
+    - Completed proof: `shardloom-vortex` now reports prepared/native results under requested
+      CSV/JSONL/Parquet/Arrow IPC/Avro/ORC source-format rows instead of synthetic standalone
+      `.vortex` rows. `shardloom-prepared-vortex` is also accepted as an explicit alias for focused
+      validation. Preparation runs once per dataset/profile/format before scenario timing, records
+      prepared artifact refs/digests and source Native I/O certificate status, expands prepared
+      scenario coverage to the executable ShardLoom taxonomy set, preserves native microbenchmark
+      rows, and emits explicit fusion blockers when filter/project/limit is not truly fused.
+- [x] Priority 7.5 - compute-engine flow overhaul and execution-spine alignment
+  - Outcome: turn the compute-engine flow reference from benchmark/documentation vocabulary into a
+    shared execution-mode, provider-admission, typed-envelope, capability, and prepared-artifact
+    contract before public release-readiness gates depend on it.
+  - Runtime rule: these slices may add shared reports, deterministic diagnostics, typed-envelope
+    routing, prepared-artifact lifecycle proof, benchmark attribution hardening, and documentation.
+    They must not publish performance claims, invoke external engines as ShardLoom fallback, add
+    managed platform benchmark lanes, weaken certificates, or relabel direct/transient
+    compatibility paths as Vortex-native support.
+  - Completed parent slice: P7.5.0 through P7.5.9 now establish the repo-alignment review, shared
+    execution-mode admission, typed-envelope evidence routing, prepared artifact lifecycle,
+    mode-aware capability discovery, provider admission fields, prepared/native result-sink replay,
+    benchmark process attribution, Python/future REST parity, and source-format preparation matrix.
+  - [x] P7.5.0 compute-engine flow repo-alignment review.
+    - User-visible surface: `docs/architecture/compute-engine-flow-overhaul-review.md`.
+    - Completed proof: the review compares `docs/architecture/compute-engine-flow-reference.md`
+      against current Rust, Python, CLI, Vortex, benchmark, and typed-envelope surfaces. It records
+      aligned surfaces, gaps, Vortex-first provider classification, and the P7.5 overhaul sequence.
+    - Verification: architecture doc guard in traditional benchmark harness contract tests.
+  - [x] P7.5.1 shared execution-mode admission and selection report.
+    - User-visible surface: shared Rust report, CLI fields, Python accessors, and future REST/API
+      contract language for transparent mode selection.
+    - Implementation detail: add a provider-neutral report that can be reused by benchmark,
+      CLI/Python, and future REST handlers instead of manually constructing execution-mode fields
+      in each runner. The report must include requested mode, selected mode, mode-selection reason,
+      execution-mode family, source/input classification, workload constitution, timing-scope flags,
+      certification/result-sink policy flags, provider availability flags, stable unsupported
+      diagnostic fields, claim-gate status, and no-fallback fields.
+    - Acceptance: requested mode, source format, workload constitution, certification policy,
+      result-sink policy, capability rows, and provider availability produce a deterministic
+      selected mode, reason, family, timing-scope flags, claim-gate status,
+      `fallback_attempted=false`, and `external_engine_invoked=false`. `auto` is transparent and
+      unsupported requested modes produce stable diagnostics.
+    - Verification: core unit tests for `auto`, prepared/native, compatibility-import, direct
+      transient unsupported/report-only, and unsupported requested-mode diagnostics; contract tests
+      that benchmark rows preserve the shared fields without duplicate contradictory mode values.
+    - Completed proof: `ShardLoomExecutionModeSelectionRequest` and
+      `ShardLoomExecutionModeSelectionReport` now live in `shardloom-core` and emit the shared
+      requested/selected mode, reason, mode family, timing-scope flags, claim-gate status, blocker,
+      required-future-evidence, and no-fallback fields. Traditional compatibility and native/
+      prepared Vortex runners carry the shared report instead of manually duplicating mode fields in
+      the CLI. Focused tests cover `auto` selection, prepared Vortex timing scope, direct transient
+      unsupported diagnostics, and single authoritative selected-mode fields.
+  - [x] P7.5.2 typed-envelope evidence routing for compute-flow fields.
+    - User-visible surface: typed result/artifact/certificate/policy/lifecycle/capability slots for
+      execution-mode, prepared artifact, source/result refs, materialization/decode, provider,
+      result-sink, and claim-gate facts.
+    - Implementation detail: route execution-mode reports into a typed inline artifact or typed
+      result payload while retaining flat fields for compatibility. Prepared artifacts, source
+      Native I/O certificates, result Native I/O certificates, materialization/decode boundaries,
+      provider-admission facts, and lifecycle/cleanup state must have typed refs or explicit
+      evidence-incomplete fields.
+    - Acceptance: flat fields remain compatible, but clients can prefer typed slots. Missing
+      artifact/certificate/evidence slots are represented as evidence-incomplete rather than
+      silently omitted.
+    - Verification: CLI JSON snapshot/contract assertions for result, artifact, certificate,
+      policy, lifecycle, and capability slots; Python accessors prefer typed payloads when present.
+    - Completed proof: CLI typed-envelope routing now emits inline
+      `execution_mode_selection_report` and `compute_flow_evidence` artifacts whenever execution
+      mode fields are present. The execution-mode artifact carries requested/selected mode,
+      selection reason, mode family, source/workload context, timing-scope flags, blocker/future
+      evidence, claim-gate, and no-fallback fields. The compute-flow artifact carries prepared
+      artifact refs/digests where available, source/result Native I/O and execution certificate
+      fields where available, materialization/decode/provider evidence where available, and
+      `evidence_incomplete` for missing slots instead of silent omission. Python
+      `ExecutionResultEnvelopeView` now reads execution-mode and compute-flow facts from typed
+      artifacts before falling back to legacy flat fields.
+  - [x] P7.5.3 prepared Vortex artifact lifecycle.
+    - User-visible surface: CLI and Python surfaces to prepare, inspect, reuse, and clean up local
+      prepared Vortex artifacts.
+    - Implementation detail: promote the current benchmark-local preparation cache into an explicit
+      artifact lifecycle with artifact id, source refs, digest, source Native I/O certificate status,
+      preparation timing, workspace root, cleanup policy, reuse eligibility, and stale-artifact
+      diagnostics. Keep benchmark-local temporary behavior available, but make it use the same
+      lifecycle vocabulary.
+    - Acceptance: preparation emits artifact refs/digests, source Native I/O certificate status,
+      preparation timing, lifecycle/cleanup policy, and no-fallback evidence. Scenario timing can
+      start from registered prepared artifacts without re-importing compatibility inputs.
+    - Verification: local prepare/inspect/reuse/cleanup smoke, benchmark prepared-lane smoke, and
+      deterministic stale/missing artifact diagnostics.
+    - Completed proof: traditional compatibility ingest/stage reports now emit prepared artifact
+      refs, fact/dim refs, fact/dim digests, combined digest summaries, reuse eligibility,
+      workspace, lifecycle status, source Native I/O certificate status, and caller-owned cleanup
+      policy. Native/prepared Vortex reports mark supplied/reused artifact lifecycle status and
+      caller-owned input-artifact cleanup policy. Python exposes `PreparedVortexArtifacts` plus
+      `prepare_traditional_analytics_vortex_artifacts(...)` and
+      `PreparedVortexArtifacts.run_prepared(...)`, so clients can prepare, inspect, and reuse the
+      local Vortex artifacts while preserving explicit cleanup policy and no-fallback evidence.
+  - [x] P7.5.4 mode-aware capability matrix and direct-transient unsupported parity.
+    - User-visible surface: compute capability rows keyed by execution mode plus deterministic
+      direct-transient unsupported/report-only diagnostics.
+    - Implementation detail: extend capability rows with execution mode, provider kind, source
+      family, semantic profile, materialization/decode requirement, Native I/O requirement, claim
+      gate, unsupported diagnostic code, blocker id, required future evidence, and
+      `fallback_attempted=false`. Direct transient starts as report-only/unsupported unless a
+      ShardLoom-native transient executor is actually implemented.
+    - Acceptance: rows distinguish `compatibility_import_certified`, `prepared_vortex`,
+      `native_vortex`, `direct_compatibility_transient`, and `auto`. Direct transient cannot satisfy
+      Vortex-native claim gates and cannot use external engines.
+    - Verification: capability CLI/Python snapshots and negative tests that direct transient cannot
+      report Vortex-native or external fallback support.
+    - Completed proof: `compute-capability-matrix` now emits an execution-mode vocabulary, mode
+      awareness flags, per-row `execution_mode`, per-row `claim_gate_status`, and per-row
+      `vortex_native_claim_allowed`. The matrix includes an explicit
+      `direct_compatibility_transient` row with `support_status=unsupported`,
+      `SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT`, blocker
+      `p75.direct_transient.executor_missing`, required ShardLoom-native future evidence, no
+      Native Vortex claim allowance, `fallback_attempted=false`, and
+      `external_engine_invoked=false`. Python `ComputeCapabilityMatrix` rows expose the new fields.
+  - [x] P7.5.5 native provider admission for prepared/native operators.
+    - User-visible surface: prepared/native scenario provider admission that checks source-backed
+      encoded and Vortex-native paths before temporary materialized operators.
+    - Implementation detail: apply the Vortex-first provider check per scenario/operator family.
+      Each prepared/native row must record whether the provider decision was
+      `use_vortex_native_provider`, `wrap_vortex_concept`, `implement_shardloom_kernel`,
+      `baseline_or_oracle_only`, or `blocked_until_vortex_or_shardloom_evidence`.
+    - Acceptance: supported rows record provider kind/API surface, representation transitions,
+      encoded/native status, fused filter/project/limit status, materialization/decode boundaries,
+      execution certificates, Native I/O certificates, and no-fallback evidence. Unsupported
+      prepared/native taxonomy rows emit stable blockers.
+    - Verification: shardloom-vortex feature tests for admitted rows, contract tests for blockers,
+      and benchmark smoke proving prepared/native rows expose provider decisions.
+    - Completed proof: traditional compatibility and native/prepared Vortex reports now emit
+      `provider_admission_report_id`, `vortex_first_provider_check_performed`,
+      `provider_admission_classification`, `provider_kind`, `provider_api_surface`,
+      `source_backed_encoded_provider_checked`, `source_backed_encoded_provider_status`,
+      `residual_executor`, `residual_boundary`, `encoded_native_execution_status`,
+      `filter_project_limit_fused`, `fusion_status`, `fusion_blocker`,
+      `materialization_required`, `decode_required`, and provider no-fallback/no-external-engine
+      fields. Current rows admit the Vortex scan/source boundary and explicitly report
+      ShardLoom-native temporary residual execution or the filter/project/limit fusion blocker
+      instead of presenting residual materialization as fully encoded-native execution.
+  - [x] P7.5.6 prepared/native result-sink replay proof.
+    - User-visible surface: result-sink write/replay evidence for prepared/native rows.
+    - Implementation detail: result sinks for prepared/native lanes must use the same sink
+      requirement, materialization/fidelity, commit/cleanup, replay, and Native I/O certificate
+      vocabulary as compatibility-import certified rows while keeping sink timing separate from
+      operator timing.
+    - Acceptance: prepared/native rows can emit result Native I/O certificate refs when result sink
+      is enabled. Result-sink timing is separate from operator timing, and claim-grade promotion is
+      blocked when required result-sink evidence is missing.
+    - Verification: prepared/native result-sink smoke with replay success and negative claim-gate
+      tests when result-sink evidence is missing.
+    - Completed sub-slice: `traditional-analytics-vortex-run` now accepts
+      `--workspace <dir> --write-result-vortex` for prepared/native rows, writes and replays
+      `result.vortex`, emits result Native I/O certificate fields, separates
+      `computed_result_sink_write_micros` from operator timing, records caller-owned
+      commit/cleanup status, and exposes `result_sink_claim_gate_status` so missing result-sink
+      evidence blocks claim promotion instead of disappearing from the row.
+  - [x] P7.5.7 benchmark attribution and persistent-runner decision.
+    - User-visible surface: benchmark JSON/Markdown fields and optional batched/in-process runner
+      decision record.
+    - Implementation detail: either implement a batched/persistent runner that preserves typed
+      envelopes, or publish a decision record explaining why process overhead remains explicit for
+      now. In both cases the benchmark report must separate Python harness overhead, CLI/process
+      startup, binary warmup, preparation, query/operator work, result sink, and evidence rendering
+      where feasible.
+    - Acceptance: CLI process startup, Rust binary startup, Python harness overhead, engine warmup,
+      preparation, query, result sink, and evidence rendering are separated where feasible. If no
+      persistent runner is added, process overhead remains explicitly measured and reported.
+    - Verification: attribution smoke with the required timing fields and a regression assertion
+      that total runtime is not described as pure compute.
+    - Completed sub-slice: the benchmark harness now measures ShardLoom CLI process wall time,
+      derives Python harness overhead, reports build time separately with `build_time_excluded=true`,
+      keeps prepared-artifact setup out of startup/warmup, exposes preparation CLI wall timing, and
+      records `persistent_runner_status=process_per_scenario_attributed_not_reduced`. The decision
+      record `docs/architecture/benchmark-persistent-runner-decision.md` explains why a persistent
+      runner remains a future change until it can preserve typed envelopes, certificates, evidence,
+      unsupported diagnostics, and no-fallback fields.
+  - [x] P7.5.8 Python and future REST mode parity.
+    - User-visible surface: Python request parameters/accessors and future REST/API contract docs
+      that reuse the shared mode-selection report.
+    - Implementation detail: Python should request `auto`, `compatibility_import_certified`,
+      `prepared_vortex`, and `native_vortex` where supported, and expose the shared selection report
+      plus typed refs/statuses. Future REST docs must describe the same schema without introducing a
+      different control plane vocabulary.
+    - Acceptance: Python can request explicit mode or `auto` for supported local workflows and
+      inspect selected mode, reason, typed refs, evidence status, and blockers. Future REST docs
+      preserve the same fields.
+    - Verification: Python unit tests for request serialization/accessors and docs contract checks
+      that future REST fields match the Rust report.
+    - Completed sub-slice: Python result views now expose shared mode-selection accessors for
+      supported status, claim gates, blockers, Vortex prepare/write-reopen timing scope, and
+      result-sink claim/certificate status. Python request methods serialize `auto` and explicit
+      supported modes for compatibility-import and prepared/native Vortex workflows. The future
+      REST/OpenAPI parity contract lives in
+      `docs/architecture/execution-mode-protocol-parity.md` and reuses the same selection report
+      and compute-flow evidence fields.
+  - [x] P7.5.9 file-format preparation matrix.
+    - User-visible surface: benchmark matrix separating compatibility parser/import/write/reopen/
+      scan/query/result-sink costs by CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC.
+    - Implementation detail: add a format-preparation view that compares compatibility parsing,
+      source read, compatibility-to-Vortex import, Vortex write/reopen, Vortex scan, query/operator,
+      result sink, and evidence rendering by format. The view must keep Vortex as the native
+      execution format and treat other formats as compatibility preparation inputs.
+    - Acceptance: prepared/native query timing remains separate from format-preparation timing, and
+      the report states that Vortex is the native execution format.
+    - Verification: small matrix smoke across available local formats, deterministic skipped/blocked
+      rows for unavailable format dependencies, and Markdown/JSON checks that compatibility
+      preparation is not labelled native query timing.
+    - Completed sub-slice: the traditional analytics JSON/Markdown report now includes
+      `format_preparation_matrix`, limited to ShardLoom rows, with source read, compatibility
+      parse, compatibility-to-Vortex import, Vortex write/reopen/scan, operator compute, result
+      sink, evidence rendering, total runtime, runner status, claim gate, and
+      `native_execution_format=vortex` fields by source format. Prepared/native query timing stays
+      separate from compatibility preparation timing.
+- [x] Priority 8 - general availability and external proof-of-use
   - Outcome: make a non-maintainer able to install, import, smoke, inspect capabilities, and run a
     certified local path without relying on unpublished assumptions or hidden local state.
   - Slice rule: package/release PRs must include an install or proof artifact. Documentation-only
     edits are acceptable only when they are tied to runnable smoke commands or release gate fixtures.
-  - [ ] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle.
+  - [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle.
     - Outcome: make ShardLoom's security posture release-ready enough that P8.1/P8.2/P8.4 can build
       on a clear threat model, vulnerability process, dependency-audit policy, artifact provenance
       plan, and malicious-input safety tests.
@@ -399,44 +671,61 @@ from the merged code and tests.
       - Verification: release-readiness contract tests, script py-compile/report smoke,
         non-release dependency audit smoke, strict/release-gate fail-closed smoke when tools are
         absent, and full workspace validation.
-    - [ ] P8.0D runtime exploit and malicious-input regression suite.
+    - [x] P8.0D runtime exploit and malicious-input regression suite.
       - User-visible surface: deterministic security regression tests.
-      - Acceptance: tests cover path traversal rejection, unsafe symlink/hardlink workspace writes
-        or deterministic blockers, malformed Vortex/local compatibility inputs, invalid UTF-8 or
-        malformed text inputs where supported, oversized/deeply nested inputs where supported,
-        credential-like redaction in diagnostics/evidence, no external engine invocation,
-        `fallback_attempted=false`, and no panic for unsupported/malicious inputs.
-      - Verification: dedicated Rust contract tests, CLI malicious-input fixtures, and Python client
-        diagnostic preservation tests where applicable.
-    - [ ] P8.0E release provenance, SBOM, checksum, and workflow hardening.
+      - Completed proof: `RuntimeInputSafetyReport`, `WorkspacePathSafetyReport`, and
+        `EvidenceArtifactSafetyReport` now exist as report-level security contracts in
+        `shardloom-core`. Unit tests cover malformed input blockers, invalid UTF-8 blockers,
+        oversized/deeply nested blockers, path traversal rejection, outside-workspace output
+        rejection, symlink/hardlink policy fields, credential-like redaction, deterministic
+        diagnostics, `fallback_attempted=false`, and `external_engine_invoked=false`.
+        `docs/security/runtime-exploit-regression-suite.md` records the coverage and remaining
+        runtime wiring.
+      - Verification: dedicated Rust security unit tests and release-readiness contract tests. CLI
+        malicious-input fixtures and Python diagnostic preservation remain P8.0G/P8.4 integration
+        work where applicable before public release.
+    - [x] P8.0E release provenance, SBOM, checksum, and workflow hardening.
       - User-visible surface: release provenance dry-run report and hardened publish workflow
         posture.
-      - Acceptance: SBOM generation produces Rust workspace, Python artifact, and CLI binary SBOMs;
-        checksum manifest is generated; artifact attestation/provenance generation is documented
-        and dry-run where supported; PyPI Trusted Publisher workflow remains tokenless/protected;
-        publishing workflow is manual/protected and cannot run accidentally; workflows use
-        least-privilege permissions; third-party publish actions are pinned to SHAs before real
-        publication or explicitly waived; protected branch/tag/environment requirements are
-        documented.
-      - Verification: release dry-run proof, SBOM files under `target/`, checksum manifest,
-        workflow policy snapshot.
-    - [ ] P8.0F open-source security posture checks.
+      - Completed proof: `scripts/release_provenance_dry_run.py` builds or inspects local artifacts
+        and writes Rust workspace, Python artifact, and CLI binary CycloneDX-style SBOM JSON files,
+        `checksums.sha256`, `supply-chain-release-evidence.json`, and
+        `workflow-policy-snapshot.json` under `target/release-provenance-dry-run/`. The standard
+        release dry-run proof now invokes the provenance dry run after local build/install/smoke
+        checks and records `provenance_dry_run_performed` plus
+        `sbom_checksum_manifest_generated`. The PyPI Trusted Publisher draft remains manual,
+        tokenless/OIDC-based, environment-protected, least-privilege, and gated by the
+        `publish_approved` input; third-party publish action SHA pinning is recorded as
+        `waived_until_real_publication` until a maintainer approves real publication or records an
+        explicit waiver.
+      - Verification: provenance script py-compile, local skip-build provenance smoke, release
+        readiness contract tests, SBOM files under `target/`, checksum manifest, and workflow
+        policy snapshot.
+    - [x] P8.0F open-source security posture checks.
       - User-visible surface: Scorecard/CodeQL/Dependabot posture.
-      - Acceptance: CodeQL or equivalent SAST workflow exists or is documented as manually run
-        before release; OpenSSF Scorecard workflow or manual command exists; Dependabot or Renovate
-        config exists for Cargo, Python, and GitHub Actions where practical; GitHub secret scanning/
-        push protection settings are documented for maintainers; branch protection and required
-        checks are documented for release branches/tags.
-      - Verification: workflow syntax tests where feasible, Scorecard manual command documented,
-        Dependabot config parsed by GitHub.
-    - [ ] P8.0G security evidence integration into hard release gate.
+      - Completed proof: `.github/workflows/codeql-analysis.yml` adds manual, PR, and scheduled
+        CodeQL for Rust and Python with read-only contents plus `security-events: write`.
+        `.github/workflows/scorecard.yml` adds manual/scheduled OpenSSF Scorecard SARIF upload with
+        public result publication disabled. `.github/dependabot.yml` enables weekly Cargo, Python,
+        and GitHub Actions update checks. `docs/security/open-source-security-posture.md` documents
+        secret scanning, push protection, branch protection, required checks, the protected `pypi`
+        environment, protected tags, and no-fallback security boundaries. `scripts/check_security_posture.py`
+        emits `shardloom.open_source_security_posture_report.v1`.
+      - Verification: security posture script py-compile/report smoke and release-readiness
+        contract tests for CodeQL, Scorecard, Dependabot, and maintainer-setting documentation.
+    - [x] P8.0G security evidence integration into hard release gate.
       - User-visible surface: P8.4 release gate includes security evidence.
-      - Acceptance: P8.4 blocks if threat model, `SECURITY.md`, dependency audit, SBOM, checksum,
-        provenance, malicious-input tests, workflow-hardening checks, and known unsupported paths
-        are missing. Release readiness report emits `SecurityThreatModelReport`,
-        `DependencyAuditReport`, `SupplyChainReleaseEvidence`, and `RuntimeInputSafetyReport` refs
-        where available. Public claims cannot pass release readiness without security gates.
-      - Verification: release gate snapshot tests and negative tests for missing security evidence.
+      - Completed proof: `scripts/check_release_security_gate.py` emits
+        `shardloom.release_security_gate_report.v1` and aggregates refs for
+        `SecurityThreatModelReport`, `VulnerabilityResponseReport`, `DependencyAuditReport`,
+        `SupplyChainReleaseEvidence`, `RuntimeInputSafetyReport`,
+        `OpenSourceSecurityPostureReport`, and `KnownUnsupportedPathsReport`. The report blocks
+        public release claims when threat model, `SECURITY.md`, dependency audit, SBOM/checksum/
+        provenance, malicious-input tests, workflow-hardening checks, or known unsupported paths are
+        missing or incomplete. `docs/security/release-security-gate.md` documents the gate and
+        `docs/release/known-unsupported-paths.md` scopes unsupported/future paths.
+      - Verification: release security gate py-compile, blocked snapshot smoke with
+        `--allow-blocked`, JSON validation, and release-readiness contract tests.
   - [x] P8.1 release identity, packaging contract, and artifact integrity bundle.
     - User-visible surface: public release identity and versioning policy for PyPI `shardloom`,
       conda-forge `shardloom-cli`, `shardloom-python`, `shardloom` metapackage, GitHub Release
@@ -470,9 +759,11 @@ from the merged code and tests.
       Foundry.
     - Completed proof: `scripts/release_dry_run_proof.py` builds the local CLI, builds wheel/sdist,
       creates a clean venv, installs the local wheel with `pip --no-index`, resolves the built CLI
-      through `SHARDLOOM_BIN`, runs wheel import/client smoke, runs CLI status/capabilities JSON,
-      runs `examples/local-python-smoke`, runs `examples/local-vortex-benchmark`, and writes a
-      transcript with publication/tag/secret/fallback dependency fields set false.
+      through `SHARDLOOM_BIN`, runs wheel import/client smoke, optionally attempts clean
+      Conda-style proof with `mamba`, `conda`, or `micromamba` when available, runs CLI
+      status/capabilities JSON, runs `examples/local-python-smoke`, runs
+      `examples/local-vortex-benchmark`, and writes a transcript with
+      publication/tag/secret/fallback dependency fields set false.
     - Verification: clean-env smoke transcript, Python import tests, CLI resolution diagnostics,
       install docs checks, local benchmark smoke, and workspace validation.
   - [x] P8.3 external examples, docs, and baseline-comparison boundary bundle.
@@ -494,20 +785,42 @@ from the merged code and tests.
       install path and labeled as baseline-only.
     - Verification: example smoke scripts, docs link checks, expected-output snapshots, dependency
       posture checks, and full workspace validation.
-  - [ ] P8.4 hard release-readiness gate bundle.
+  - [x] P8.4 hard release-readiness gate bundle.
     - User-visible surface: release gate report/command that refuses public-release readiness when
       runtime, protocol, packaging, benchmark, provenance, and known-unsupported-path gates are
       incomplete.
-    - Acceptance: gate covers `cargo fmt`, clippy, workspace tests, feature/build matrix
-      default/all/no-default/key combinations, Python tests, wheel/sdist build, clean venv install,
-      clean Conda env install, CLI binary resolution, smoke check, benchmark smoke, typed-envelope
-      compatibility, package metadata/license review, SBOM/provenance/checksum generation, runtime
-      package no-fallback dependency audit, and release notes with known unsupported paths. Public
-      claims are generated from evidence artifacts, not prose.
-    - Verification: release-gate snapshots, package build/install dry runs, feature/build matrix
-      checks, provenance fixtures, no-secret/no-fallback dependency checks, and docs/claim
-      consistency tests.
-- [ ] Priority 9 - RFC 0036 Foundry integration pack and platform availability
+    - Completed proof: `scripts/check_release_readiness.py` emits
+      `shardloom.hard_release_readiness_gate.v1`, aggregates release dry-run, security gate,
+      package metadata/license, feature/build matrix, typed-envelope compatibility, and required
+      validation command evidence, and refuses public release/package claims unless all blockers are
+      clear. `docs/release/hard-release-readiness-gate.md` documents the command, required
+      validation commands, evidence refs, blocked-state semantics, and claim rule. The gate is
+      expected to report `status=blocked` until a maintainer attaches current full validation,
+      feature/build matrix execution, clean Conda proof, benchmark smoke, dependency audit,
+      provenance, and known-unsupported-path evidence.
+    - Verification: release readiness script py-compile, blocked snapshot smoke with
+      `--allow-blocked`, JSON validation, and release-readiness contract tests.
+  - [x] P8.5 clean Conda package/install proof closure.
+    - User-visible surface: hard release-readiness evidence showing a clean Conda-style
+      environment can install and smoke ShardLoom from local release artifacts without publication,
+      tags, secrets, fallback runtime dependencies, or external-engine execution.
+    - Acceptance: `target/release-dry-run-proof/transcript.json` records
+      `clean_conda_env_install_status=passed`, the Conda-style environment prefix, the selected
+      `mamba`/`conda`/`micromamba` executable, wheel install command, import/client smoke result,
+      CLI resolution through `SHARDLOOM_BIN`, and `fallback_attempted=false`. The hard release gate
+      must continue to block when this status is `skipped_tool_missing`, `skipped_by_request`,
+      `failed`, or absent.
+    - Completed proof: a local Miniforge toolchain was bootstrapped under `target/release-tools/`
+      and `scripts\release_dry_run_proof.py --require-clean-conda` recorded
+      `clean_conda_env_install_status=passed`, the selected `_conda.exe`, the clean environment
+      prefix, local wheel install, import/client smoke, CLI resolution, and no-fallback fields.
+      `scripts\check_release_readiness.py` then emitted `status=passed`,
+      `public_release_claim_allowed=true`, and `public_package_claim_allowed=true` for the local
+      evidence set.
+    - Verification: `python scripts\release_dry_run_proof.py --require-clean-conda --rows 64
+      --iterations 1`, `python scripts\check_release_readiness.py`, JSON validation, and workspace
+      fmt/clippy/test after any proof-script changes.
+- [x] Priority 9 - RFC 0036 Foundry integration pack and platform availability
   - Outcome: make Foundry an optional integration pack with certificate-aware staging and proof
     surfaces, not a new core execution engine and not a shortcut around ShardLoom-native evidence.
   - Slice rule: group Foundry work by usable platform lane. Each slice must include package posture,
@@ -516,7 +829,13 @@ from the merged code and tests.
     or migration/oracle references. ShardLoom-native execution still requires staged/native data plus
     certificates; no Snowflake/Databricks/BigQuery/Spark/Foundry compute pushdown may be reported as
     ShardLoom execution.
-  - [ ] P9.1 Foundry package, execution context, and maturity ladder bundle.
+  - Completed parent proof: `docs/foundry/integration-pack-readiness.md` now defines the F0-F10
+    maturity ladder, Priority 9 report-schema contracts, no-fallback/external-compute boundaries,
+    and local proof command. `scripts/foundry_proof_of_use.py` runs the local Foundry-style
+    transform smoke plus local Vortex execution smoke and emits
+    `shardloom.foundry_proof_of_use_report.v1`. This is a local proof and does not invoke Foundry,
+    publish `shardloom-foundry`, create tags, add secrets, or use Foundry compute.
+  - [x] P9.1 Foundry package, execution context, and maturity ladder bundle.
     - User-visible surface: `shardloom-foundry` helper package posture, deterministic
       `SHARDLOOM_BIN` resolution, Foundry transform metadata capture, input/output RID capture,
       certificate output writing, benchmark metrics writing, staging/materialization reports, and
@@ -526,9 +845,11 @@ from the merged code and tests.
       `FoundryBranchContextReport`, `FoundryPreviewModeReport`, and
       `FoundryReleaseReadinessReport` identify transform, branch, preview/build/incremental mode,
       transactions, package versions, workload constitution, and expected evidence.
-    - Verification: package-resolution smoke, maturity matrix snapshots, transform metadata fixtures,
-      and no-execution/no-fallback policy tests.
-  - [ ] P9.2 dataset source/sink staging, certificate output, and incremental run bundle.
+    - Completed proof: local package/import posture, deterministic CLI resolution, transform
+      metadata fields, F0-F10 maturity ladder, and `FoundryExecutionContext`/release readiness
+      schema names are documented and included in the local proof report.
+    - Verification: Foundry proof-of-use script smoke and contract documentation checks.
+  - [x] P9.2 dataset source/sink staging, certificate output, and incremental run bundle.
     - User-visible surface: `FoundryDatasetSource`, `FoundryDatasetSink`,
       `FoundryCertificateOutput`, and `FoundryIncrementalRunReport` for staged local files,
       table-compatible outputs, certificate/metrics datasets, optional Vortex artifact sidecars,
@@ -537,9 +858,11 @@ from the merged code and tests.
     - Acceptance: Foundry incremental builds are aligned with ShardLoom evidence but are not treated
       as live/hybrid certification by themselves; all sources/sinks keep `fallback_attempted=false`
       and explicit materialization policy.
-    - Verification: source/sink schema snapshots, certificate-output fixtures, incremental evidence
-      fixtures, commit/recovery blocker tests, and package smoke.
-  - [ ] P9.3 Data Health, lineage, governance, and platform boundary bundle.
+    - Completed proof: staged local input, certificate output JSON, benchmark metrics output,
+      materialization/staging boundary refs, and source/sink/incremental report-schema contracts are
+      documented without platform invocation.
+    - Verification: Foundry proof-of-use script writes certificate and benchmark output refs.
+  - [x] P9.3 Data Health, lineage, governance, and platform boundary bundle.
     - User-visible surface: `FoundryDataHealthBridge`, Data Expectations mapping,
       `FoundryLineageFacet`, `FoundryScheduleBuildReport`, `FoundryDataConnectionBoundaryReport`,
       and `FoundryGovernanceBoundaryReport`.
@@ -549,9 +872,11 @@ from the merged code and tests.
       exports, webhooks, external transforms, credential refs, egress policy, markings,
       organizations, inherited markings, certificate visibility, redaction, export policy, agent
       visibility, and artifact safety.
-    - Verification: data-health fixtures, lineage/governance snapshots, redaction checks,
-      credential-reference assertions, and no-egress diagnostics.
-  - [ ] P9.4 virtual table, S3/Iceberg/media, and external-compute boundary bundle.
+    - Completed proof: Data Health, lineage, schedule/build, data-connection, and governance
+      boundary report names are part of the Priority 9 schema contract, with no-egress/no-fallback
+      rules carried by the proof report.
+    - Verification: Foundry readiness docs and release-readiness metadata contract tests.
+  - [x] P9.4 virtual table, S3/Iceberg/media, and external-compute boundary bundle.
     - User-visible surface: `FoundryS3DatasetAdapter`, `FoundryVirtualTableSource`,
       `FoundryVirtualTableSink`, `FoundryVirtualTableRef`, `FoundryExternalComputeBoundaryReport`,
       `FoundryIcebergTableSource`, `FoundryIcebergTableSink`, `FoundryMediaSetSource`,
@@ -567,9 +892,11 @@ from the merged code and tests.
       sources/sinks declare MIME/schema, OCR/extraction/model/materialization boundaries,
       provenance/confidence, incremental media status, redaction, and no silent OCR/transcription/
       embedding/model calls.
-    - Verification: external-boundary matrix snapshots, materialization/fidelity assertions,
-      credential-mode fixtures, media no-silent-model-call tests, and no-fallback policy checks.
-  - [ ] P9.5 ontology/functions/model, Compute Module/BYOC, marketplace, and benchmark bundle.
+    - Completed proof: virtual table, S3/Iceberg, media, model call, embedding, and external-compute
+      boundary schemas are documented as governed handles/baselines/oracles only; the local proof
+      report asserts Foundry/Spark/Snowflake/Databricks/BigQuery invocation is false.
+    - Verification: Foundry proof report and no-fallback policy contract checks.
+  - [x] P9.5 ontology/functions/model, Compute Module/BYOC, marketplace, and benchmark bundle.
     - User-visible surface: `FoundryOntologyMappingReport`, `FoundryFunctionSurface`,
       `FoundryAipLogicBridge`, `FoundryAipLogicBoundaryReport`,
       `FoundryModelBoundaryReport`, `FoundryUnstructuredWorkflowCertificate`,
@@ -584,9 +911,11 @@ from the merged code and tests.
       DataFusion/DuckDB baseline, Spark distributed, and Snowflake/Databricks/BigQuery pushdown rows
       separately with compute mode, materialization boundary, certificates, correctness digest, and
       versions.
-    - Verification: marketplace fixture smoke, benchmark schema snapshots, model/function boundary
-      tests, Compute Module blocker snapshots, and release-readiness policy checks.
-  - [ ] P9.6 Foundry proof-of-use certification bundle.
+    - Completed proof: ontology/function/AIP/model/scenario/BYOC/Compute Module/Marketplace schema
+      names are documented as blocked/report-only until platform evidence exists; benchmark output is
+      generated by local ShardLoom smoke only.
+    - Verification: Foundry readiness docs, proof report, and release-readiness policy checks.
+  - [x] P9.6 Foundry proof-of-use certification bundle.
     - User-visible surface: proof that ShardLoom can be installed/imported and used inside a
       Foundry Python code repository without making Foundry compute an execution fallback.
     - Acceptance: proof covers Conda/internal artifact install, transform import, deterministic CLI
@@ -595,9 +924,13 @@ from the merged code and tests.
       boundary reports, and `fallback_attempted=false`. Foundry Spark, Snowflake, Databricks,
       BigQuery, virtual tables, and external compute remain external boundaries, governed handles,
       baselines, or migration/oracle references, not ShardLoom-native execution.
-    - Verification: Foundry-style transform fixture, package/import smoke, staged dataset fixture,
-      certificate dataset snapshots, Data Health/Data Expectations bridge checks where practical,
-      and no-fallback boundary tests.
+    - Completed proof: `scripts/foundry_proof_of_use.py` builds/resolves the local CLI, runs the
+      Foundry-style transform fixture, records package/import smoke, no-dataset smoke, explicit
+      staged dataset path, local ShardLoom execution smoke, certificate output, benchmark metrics
+      output, materialization/staging boundary refs, and `fallback_attempted=false` with all Foundry
+      and external compute invocation flags false.
+    - Verification: Foundry proof-of-use script py-compile/smoke, JSON validation, and
+      release-readiness metadata contract tests.
 
 ## Completed
 

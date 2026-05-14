@@ -86,6 +86,7 @@ const COMPUTE_CAPABILITY_USAGE: &str = "usage: shardloom compute-capability-matr
 const COMPUTE_SUPPORT_STATUS_VOCABULARY: &str = "unsupported,planned,report_only,executable_uncertified,fixture_certified,workload_certified,production_certified";
 const COMPUTE_PROVIDER_KIND_VOCABULARY: &str = "shardloom_kernel,vortex_array_kernel,vortex_scan,vortex_source,vortex_sink,compatibility_boundary,external_baseline_only";
 const COMPUTE_ENGINE_MODE_VOCABULARY: &str = "batch,live,hybrid,auto";
+const COMPUTE_EXECUTION_MODE_VOCABULARY: &str = "compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient,auto";
 
 const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
     ComputeCapabilityRow {
@@ -213,6 +214,24 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         unsupported_diagnostic_code: "none",
         blocker_id: "p74.compute.compatibility_import.certification_incomplete",
         required_future_evidence: "adapter_fidelity_report,native_io_certificate,benchmark_row",
+    },
+    ComputeCapabilityRow {
+        id: "direct_compatibility_transient",
+        surface: "direct_compatibility_transient_query",
+        family: "compatibility_transient",
+        support_status: "unsupported",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "direct_transient_executor_missing",
+        memory_spill_requirement: "unsupported_until_transient_executor_exists",
+        correctness_refs: "none",
+        benchmark_refs: "none",
+        execution_certificate_refs: "none",
+        native_io_refs: "not_vortex_native",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT",
+        blocker_id: "p75.direct_transient.executor_missing",
+        required_future_evidence: "shardloom_native_transient_executor,direct_mode_certificate,correctness_fixtures,no_fallback_evidence",
     },
     ComputeCapabilityRow {
         id: "vortex_sink_write",
@@ -849,6 +868,17 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
         "engine_mode_vocabulary",
         COMPUTE_ENGINE_MODE_VOCABULARY,
     );
+    push_field(
+        &mut fields,
+        "execution_mode_vocabulary",
+        COMPUTE_EXECUTION_MODE_VOCABULARY,
+    );
+    push_bool_field(&mut fields, "mode_aware_rows_present", true);
+    push_bool_field(
+        &mut fields,
+        "direct_transient_unsupported_parity_present",
+        true,
+    );
     push_field(&mut fields, "compute_row_order", &compute_row_order());
     push_field(
         &mut fields,
@@ -952,6 +982,11 @@ fn append_compute_capability_row_fields(
     push_field(fields, &format!("{prefix}_engine_mode"), row.engine_mode);
     push_field(
         fields,
+        &format!("{prefix}_execution_mode"),
+        compute_row_execution_mode(row),
+    );
+    push_field(
+        fields,
         &format!("{prefix}_provider_kind"),
         row.provider_kind,
     );
@@ -1001,8 +1036,52 @@ fn append_compute_capability_row_fields(
         &format!("{prefix}_required_future_evidence"),
         row.required_future_evidence,
     );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        compute_row_claim_gate_status(row),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_vortex_native_claim_allowed"),
+        compute_row_vortex_native_claim_allowed(row),
+    );
     push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
     push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+}
+
+fn compute_row_execution_mode(row: &ComputeCapabilityRow) -> &'static str {
+    match row.id {
+        "compatibility_csv_import" | "vortex_sink_write" => "compatibility_import_certified",
+        "prepared_encoded_filter"
+        | "reader_backed_dictionary_filter"
+        | "grouped_aggregate"
+        | "join"
+        | "window_row_number" => "prepared_vortex",
+        "direct_compatibility_transient" => "direct_compatibility_transient",
+        "sql_frontend" => "auto",
+        _ => "native_vortex",
+    }
+}
+
+fn compute_row_claim_gate_status(row: &ComputeCapabilityRow) -> &'static str {
+    match row.support_status {
+        "fixture_certified" => "fixture_smoke_only",
+        "workload_certified" | "production_certified" => "claim_grade",
+        "unsupported" => "unsupported",
+        "planned" => "blocked",
+        _ => "not_claim_grade",
+    }
+}
+
+fn compute_row_vortex_native_claim_allowed(row: &ComputeCapabilityRow) -> bool {
+    matches!(
+        compute_row_execution_mode(row),
+        "prepared_vortex" | "native_vortex"
+    ) && !matches!(
+        row.support_status,
+        "unsupported" | "planned" | "report_only"
+    )
 }
 
 fn append_operator_family_row_fields(
