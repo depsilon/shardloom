@@ -262,19 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0008-B coordinator, worker, checkpoint, retry, and commit blocker matrix
-  - Source: RFC 0008; object-store request planner; RFC 0017.
-  - Current state: scheduling/checkpoint/retry/commit are planned/report-only.
-  - Next slice outcome: deterministic blocker matrix for coordinator start, worker start, task
-    execution, checkpoint writes, retry attempts, cleanup, and commit records.
-  - User-visible surface: CLI plan output, diagnostics, contract snapshots.
-  - Implementation scope: report fields, diagnostic constructors, tests.
-  - Evidence required: diagnostic refs and policy/no-fallback refs.
-  - Acceptance: every action reports `allowed=false` by default and gives an evidence requirement.
-  - Verification: object-store and retry gate tests, diagnostic stability tests.
-  - Non-goals: no distributed runtime, writes, or object-store commits.
-  - Fallback/claim boundary: no distributed/object-store claim.
-  - Dependencies/blockers: GAR-0017 retry/cancellation gate.
 - [ ] GAR-0012-A diagnostic category and helper normalization
   - Source: RFC 0012; diagnostics normalization backlog; typed command envelope docs.
   - Current state: core diagnostics exist; not every path uses stable category/helper constructors.

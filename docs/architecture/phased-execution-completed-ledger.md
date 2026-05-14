@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0008-B object-store runtime blocker matrix
+  - Primary files:
+    - `README.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/object-store-request-planner.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0008-object-store-runtime-distributed-tasks.md`
+    - `shardloom-plan/src/lib.rs`
+    - `shardloom-plan/src/object_store.rs`
+    - `shardloom-cli/src/object_store_planning.rs`
+    - `shardloom-cli/tests/cg10_object_store_runtime_gate.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add a deterministic report-only blocker matrix for object-store/distributed runtime
+    actions.
+  - Checklist:
+    - [x] Add `shardloom.object_store_runtime_blocker_matrix.v1` summary fields to
+          `cg10-object-store-runtime-gate`.
+    - [x] Add rows for coordinator start, worker start, task execution, checkpoint writes, retry
+          attempts, cleanup execution, and commit-record writes.
+    - [x] Attach `SL_OBJECT_STORE_UNSUPPORTED`, row-specific blocker IDs, and required-evidence
+          lists to every row.
+    - [x] Preserve `allowed=false`, `data_read=false`, `object_store_io=false`, `write_io=false`,
+          `fallback_attempted=false`, `fallback_execution_allowed=false`,
+          `external_engine_invoked=false`, and `claim_gate_status=not_claim_grade` for every row.
+    - [x] Add diagnostic construction on matrix rows without inserting error-severity diagnostics
+          into the successful report-only promotion gate.
+  - Boundary:
+    - This is a blocker matrix only. It does not start coordinators or workers, execute tasks,
+      write checkpoints, attempt retries, execute cleanup, write commit records, perform
+      object-store I/O, resolve credentials, invoke external engines, or authorize fallback
+      behavior.
+  - Evidence:
+    - Correctness evidence: not claim-grade; future runtime must attach workload-scoped fixtures.
+    - Benchmark evidence: still required before runtime promotion.
+    - Execution certificate refs: still required before runtime promotion.
+    - Native I/O refs: still required before object-store read/write runtime.
+    - Policy/no-fallback refs: CLI snapshots and object-store planner tests assert false side-effect
+      fields, no fallback, and no external engine invocation on every matrix row.
+  - Vortex-first provider check:
+    - Subject area: RFC 0008 distributed/object-store runtime blocker posture and RFC 0017 retry
+      readiness boundary.
+    - Upstream Vortex concept checked: no new Vortex or object-store runtime API is invoked; this is
+      report-only admission metadata for future native providers.
+    - Decision: `implement_shardloom_report_contract` for runtime blocker rows only.
+    - Residual handling: all runtime actions remain blocked with deterministic diagnostics and
+      required evidence.
+    - Gates still blocked: coordinator/worker start, task execution, checkpoint writes, retry
+      attempts, cleanup execution, commit-record writes, object-store I/O, credentials, Native I/O
+      certificates, benchmark evidence, and object-store claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-plan object_store --lib`
+    - `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0008-A object-store byte-range provider gate
   - Primary files:
     - `README.md`

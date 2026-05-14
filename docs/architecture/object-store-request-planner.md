@@ -27,6 +27,9 @@ shardloom cg10-object-store-runtime-gate --format json
 - [x] Gate future byte-range provider reads through
       `ObjectStoreByteRangeProviderGateReport` with credential, retry, idempotency, provider
       capability, execution-certificate, Native I/O, and benchmark evidence requirements.
+- [x] Gate coordinator start, worker start, task execution, checkpoint writes, retry attempts,
+      cleanup execution, and commit-record writes through
+      `ObjectStoreRuntimeBlockerMatrixRow` entries.
 - [x] Gate object-store and distributed runtime execution through
       `ObjectStoreRuntimePromotionGateReport` before enabling runtime object-store IO.
 Out of scope until promoted GAR slices complete:
@@ -34,7 +37,8 @@ Out of scope until promoted GAR slices complete:
 - Byte-range read execution remains blocked after `GAR-0008-A`; that slice adds the provider gate
   only.
 - Coordinator/worker start, distributed tasks, checkpoint/attempt records, retry execution, cleanup,
-  and object-store commits are carried by `GAR-0008-B`, `GAR-0017-A`, and `GAR-0028-A`.
+  and object-store commits remain blocked after `GAR-0008-B`; that slice adds the blocker matrix
+  only. Runtime promotion remains carried by `GAR-0017-A` and `GAR-0028-A`.
 
 ## Default Policy
 
@@ -72,6 +76,21 @@ For the byte-range provider gate:
 The provider gate requires provider capability policy, credential-effect policy, request-budget
 policy, retry policy, idempotency-key contract, execution certificate, Native I/O certificate, and
 benchmark evidence before future byte-range reads may be promoted.
+
+For the object-store runtime blocker matrix:
+
+- `runtime_blocker_matrix_status=blocked_until_certified`
+- `runtime_blocker_matrix_row_order=coordinator_start,worker_start,task_execution,checkpoint_write,retry_attempt,cleanup_execution,commit_record_write`
+- `runtime_blocker_matrix_all_allowed_false=true`
+- `runtime_blocker_matrix_all_no_io=true`
+- `runtime_blocker_matrix_all_no_fallback=true`
+- `runtime_blocker_matrix_all_no_external_engine=true`
+
+Every row carries `diagnostic_code=SL_OBJECT_STORE_UNSUPPORTED`,
+`claim_gate_status=not_claim_grade`, `allowed=false`, `data_read=false`,
+`object_store_io=false`, `write_io=false`, `fallback_attempted=false`,
+`fallback_execution_allowed=false`, and `external_engine_invoked=false`, plus a row-specific
+blocker ID and required-evidence list.
 
 For the CG-10 runtime promotion gate:
 
@@ -115,6 +134,8 @@ evidence before `range_read_execution`; range-read execution itself remains bloc
 - [x] The byte-range provider gate is represented as report-only evidence and keeps credential
       resolution, provider probes, network probes, range reads, retry execution, object-store I/O,
       write I/O, external engines, and fallback disabled by default.
+- [x] The runtime blocker matrix is represented as report-only evidence and keeps coordinator,
+      worker, task, checkpoint, retry, cleanup, and commit-record actions disabled by default.
 - [x] The report keeps blocked component status visible instead of hiding it behind a generic
       unsupported result.
 - [x] The CLI emits machine-readable JSON fields for component statuses, request/task/retry/commit

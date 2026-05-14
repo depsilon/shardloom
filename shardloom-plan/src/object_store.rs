@@ -1198,11 +1198,104 @@ impl ObjectStoreRuntimePromotionGateEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreRuntimeBlockerMatrixRow {
+    pub action: &'static str,
+    pub status: &'static str,
+    pub diagnostic_code: DiagnosticCode,
+    pub blocker_id: &'static str,
+    pub required_evidence: &'static str,
+    pub allowed: bool,
+    pub coordinator_started: bool,
+    pub worker_started: bool,
+    pub task_executed: bool,
+    pub checkpoint_written: bool,
+    pub retry_attempted: bool,
+    pub cleanup_executed: bool,
+    pub commit_record_written: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+}
+
+impl ObjectStoreRuntimeBlockerMatrixRow {
+    #[must_use]
+    pub const fn blocked(
+        action: &'static str,
+        blocker_id: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            action,
+            status: "blocked_until_certified",
+            diagnostic_code: DiagnosticCode::ObjectStoreUnsupported,
+            blocker_id,
+            required_evidence,
+            allowed: false,
+            coordinator_started: false,
+            worker_started: false,
+            task_executed: false,
+            checkpoint_written: false,
+            retry_attempted: false,
+            cleanup_executed: false,
+            commit_record_written: false,
+            data_read: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.allowed
+            && !self.coordinator_started
+            && !self.worker_started
+            && !self.task_executed
+            && !self.checkpoint_written
+            && !self.retry_attempted
+            && !self.cleanup_executed
+            && !self.commit_record_written
+            && !self.data_read
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(&self) -> Diagnostic {
+        Diagnostic::new(
+            self.diagnostic_code,
+            DiagnosticSeverity::Info,
+            DiagnosticCategory::ObjectStore,
+            format!("object-store runtime action {} is blocked", self.action),
+            Some(self.action.to_string()),
+            Some(format!(
+                "{} requires {} before runtime promotion.",
+                self.blocker_id, self.required_evidence
+            )),
+            Some("Keep the path report-only until all required evidence is attached.".to_string()),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct ObjectStoreRuntimePromotionGateReport {
     pub schema_version: &'static str,
     pub report_id: &'static str,
     pub entries: Vec<ObjectStoreRuntimePromotionGateEntry>,
     pub byte_range_provider_gate: ObjectStoreByteRangeProviderGateReport,
+    pub runtime_blocker_matrix: Vec<ObjectStoreRuntimeBlockerMatrixRow>,
     pub existing_report_refs: Vec<&'static str>,
     pub existing_request_planner_evidence_present: bool,
     pub existing_range_planning_evidence_present: bool,
@@ -1254,6 +1347,7 @@ impl ObjectStoreRuntimePromotionGateReport {
             report_id: "cg10.object_store_runtime_promotion_gate",
             entries: object_store_runtime_promotion_entries(),
             byte_range_provider_gate: ObjectStoreByteRangeProviderGateReport::blocked_default(true),
+            runtime_blocker_matrix: object_store_runtime_blocker_matrix_rows(),
             existing_report_refs: object_store_runtime_existing_report_refs(),
             existing_request_planner_evidence_present: true,
             existing_range_planning_evidence_present: true,
@@ -1353,11 +1447,49 @@ impl ObjectStoreRuntimePromotionGateReport {
                 .iter()
                 .all(ObjectStoreRuntimePromotionGateEntry::side_effect_free)
             && self.byte_range_provider_gate.side_effect_free()
+            && self
+                .runtime_blocker_matrix
+                .iter()
+                .all(ObjectStoreRuntimeBlockerMatrixRow::side_effect_free)
     }
 
     #[must_use]
     pub fn claim_blocked(&self) -> bool {
         !self.object_store_runtime_claim_allowed && !self.distributed_runtime_claim_allowed
+    }
+
+    #[must_use]
+    pub fn runtime_blocker_matrix_row_order(&self) -> Vec<&'static str> {
+        self.runtime_blocker_matrix
+            .iter()
+            .map(|row| row.action)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn runtime_blocker_matrix_all_allowed_false(&self) -> bool {
+        self.runtime_blocker_matrix.iter().all(|row| !row.allowed)
+    }
+
+    #[must_use]
+    pub fn runtime_blocker_matrix_all_no_io(&self) -> bool {
+        self.runtime_blocker_matrix
+            .iter()
+            .all(|row| !row.data_read && !row.object_store_io && !row.write_io)
+    }
+
+    #[must_use]
+    pub fn runtime_blocker_matrix_all_no_fallback(&self) -> bool {
+        self.runtime_blocker_matrix
+            .iter()
+            .all(|row| !row.fallback_attempted && !row.fallback_execution_allowed)
+    }
+
+    #[must_use]
+    pub fn runtime_blocker_matrix_all_no_external_engine(&self) -> bool {
+        self.runtime_blocker_matrix
+            .iter()
+            .all(|row| !row.external_engine_invoked)
     }
 
     #[must_use]
@@ -1399,6 +1531,11 @@ impl ObjectStoreRuntimePromotionGateReport {
             out,
             "byte-range provider gate: {}",
             self.byte_range_provider_gate.status.as_str()
+        );
+        let _ = writeln!(
+            out,
+            "runtime blocker matrix rows: {}",
+            self.runtime_blocker_matrix.len()
         );
         let _ = writeln!(out, "side effect free: {}", self.side_effect_free());
         let _ = writeln!(out, "surfaces:");
@@ -1472,6 +1609,46 @@ fn object_store_runtime_promotion_entries() -> Vec<ObjectStoreRuntimePromotionGa
         ObjectStoreRuntimePromotionGateEntry::blocked(
             ObjectStoreRuntimePromotionSurface::BenchmarkCertificateCloseout,
             ObjectStoreRuntimePromotionRequirements::BENCHMARK_CLOSEOUT,
+        ),
+    ]
+}
+
+fn object_store_runtime_blocker_matrix_rows() -> Vec<ObjectStoreRuntimeBlockerMatrixRow> {
+    vec![
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "coordinator_start",
+            "gar0008b.coordinator_start_blocked",
+            "scheduler_policy,coordinator_identity,execution_certificate,no_fallback_policy",
+        ),
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "worker_start",
+            "gar0008b.worker_start_blocked",
+            "worker_identity,scheduler_policy,execution_certificate,no_fallback_policy",
+        ),
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "task_execution",
+            "gar0008b.task_execution_blocked",
+            "task_plan,worker_identity,idempotency_key_contract,execution_certificate,native_io_certificate",
+        ),
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "checkpoint_write",
+            "gar0008b.checkpoint_write_blocked",
+            "checkpoint_plan,checkpoint_storage_policy,idempotency_key_contract,execution_certificate",
+        ),
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "retry_attempt",
+            "gar0008b.retry_attempt_blocked",
+            "retry_policy,retryable_failure_classes,attempt_records,idempotency_key_contract",
+        ),
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "cleanup_execution",
+            "gar0008b.cleanup_execution_blocked",
+            "cleanup_policy,attempt_records,idempotency_key_contract,execution_certificate",
+        ),
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "commit_record_write",
+            "gar0008b.commit_record_write_blocked",
+            "commit_record_schema,atomic_commit_evidence,cleanup_policy,idempotency_key_contract",
         ),
     ]
 }
@@ -3039,6 +3216,28 @@ mod tests {
             "gar0008a.object_store_byte_range_provider_gate"
         );
         assert!(report.byte_range_provider_gate.side_effect_free());
+        assert_eq!(
+            report.runtime_blocker_matrix_row_order(),
+            vec![
+                "coordinator_start",
+                "worker_start",
+                "task_execution",
+                "checkpoint_write",
+                "retry_attempt",
+                "cleanup_execution",
+                "commit_record_write",
+            ]
+        );
+        assert!(report.runtime_blocker_matrix_all_allowed_false());
+        assert!(report.runtime_blocker_matrix_all_no_io());
+        assert!(report.runtime_blocker_matrix_all_no_fallback());
+        assert!(report.runtime_blocker_matrix_all_no_external_engine());
+        assert!(
+            report
+                .runtime_blocker_matrix
+                .iter()
+                .all(ObjectStoreRuntimeBlockerMatrixRow::side_effect_free)
+        );
         assert!(report.runtime_promotions_blocked());
         assert!(report.claim_blocked());
         assert!(report.side_effect_free());
@@ -3106,6 +3305,28 @@ mod tests {
         assert!(!report.write_io_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.fallback_execution_allowed);
+        let retry = report
+            .runtime_blocker_matrix
+            .iter()
+            .find(|row| row.action == "retry_attempt")
+            .expect("retry row");
+        assert_eq!(
+            retry.diagnostic_code,
+            DiagnosticCode::ObjectStoreUnsupported
+        );
+        assert_eq!(
+            retry.to_diagnostic().code,
+            DiagnosticCode::ObjectStoreUnsupported
+        );
+        assert!(retry.required_evidence.contains("retry_policy"));
+        assert!(!retry.retry_attempted);
+        let commit = report
+            .runtime_blocker_matrix
+            .iter()
+            .find(|row| row.action == "commit_record_write")
+            .expect("commit row");
+        assert!(commit.required_evidence.contains("commit_record_schema"));
+        assert!(!commit.commit_record_written);
     }
 
     #[test]

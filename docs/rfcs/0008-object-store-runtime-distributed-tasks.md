@@ -161,6 +161,14 @@ and `claim_gate_status=not_claim_grade`. It names provider capability policy, cr
 policy, request-budget policy, retry policy, idempotency-key contract, execution certificate,
 Native I/O certificate, and benchmark evidence as required before promotion.
 
+GAR-0008-B adds `ObjectStoreRuntimeBlockerMatrixRow` entries as the report-only blocker matrix for
+coordinator start, worker start, task execution, checkpoint writes, retry attempts, cleanup
+execution, and commit-record writes. Every row must default to `allowed=false`,
+`diagnostic_code=SL_OBJECT_STORE_UNSUPPORTED`, `claim_gate_status=not_claim_grade`,
+`data_read=false`, `object_store_io=false`, `write_io=false`, `fallback_attempted=false`,
+`fallback_execution_allowed=false`, and `external_engine_invoked=false`, with row-specific blocker
+IDs and required evidence.
+
 ### Object-store request coalescing report
 
 Request coalescing planning is the report-only comparison between uncoalesced and coalesced
