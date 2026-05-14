@@ -4,7 +4,7 @@
 
 This document defines the high-level compute-engine flow ShardLoom is supposed to follow.
 
-It is a reference for implementation, Codex agents, benchmarks, docs, and future API/client
+It is a reference for implementation, Codex agents, benchmarks, docs, and planned API/client
 surfaces. It keeps ShardLoom from confusing these different things:
 
 ```text
@@ -34,9 +34,9 @@ docs/architecture/compute-engine-flow-overhaul-review.md
 
 ## One-Sentence Vision
 
-ShardLoom should let users run local and future platform data workflows through explicit execution
-modes, while proving what ran, what materialized, what stayed Vortex-native, what was blocked, and
-whether any claim is allowed.
+ShardLoom should let users run local and planned platform data workflows through explicit execution
+modes, while proving what ran, what materialized, what stayed Vortex-native, what returned an
+unsupported diagnostic, and whether any claim is allowed.
 
 ```text
 User request
@@ -44,53 +44,149 @@ User request
 -> explicit execution mode
 -> source/preparation boundary
 -> ShardLoom/Vortex execution provider
--> result/result sink
+-> result/result sink/downstream reference
 -> certificates + evidence
 -> claim gate
+-> typed output for CLI / Python / REST/event surfaces / downstream consumers
 ```
 
 ## Top-Level Compute Engine Flow
 
 ```mermaid
 flowchart TD
-    A["User request<br/>CLI / Python / future REST"] --> B["Execution policy"]
-    B --> C["Capability discovery"]
-    C --> D["Semantic binding"]
-    D --> E["Execution mode selection"]
+    subgraph ACCESS["End users and access layers"]
+        USER["end users<br/>local analyst / engineer / app developer"]
+        OP["operators and agents<br/>CI / automation / release gates"]
+        ADAPTER["planned thin adapters<br/>DB-API / SQLAlchemy / Ibis / dbt / orchestration / BI"]
+        SDK["planned SDK and notebook clients"]
+    end
 
-    E --> M1["direct_compatibility_transient"]
-    E --> M2["compatibility_import_certified"]
-    E --> M3["prepared_vortex"]
-    E --> M4["native_vortex"]
-    E --> M5["auto"]
+    subgraph REQUEST["Request surfaces"]
+        CLI["CLI access<br/>commands / JSON / text"]
+        PY["Python wrapper<br/>typed client over CLI protocol"]
+        REST["planned REST / event API"]
+        BENCH["benchmark / agent harness"]
+    end
 
-    M5 --> E2["Transparent selected mode<br/>with selection reason"]
-    E2 --> M1
-    E2 --> M2
-    E2 --> M3
-    E2 --> M4
+    subgraph INPUTS["Inputs and source descriptors"]
+        COMPAT["compatibility files<br/>CSV / Parquet / JSONL / Arrow IPC / Avro / ORC"]
+        VORTEX["existing .vortex artifacts"]
+        OBJECT["planned object-store refs<br/>URI / range / credentials policy"]
+        TABLE["planned table/catalog refs<br/>Iceberg / Delta / Foundry dataset"]
+        STREAM["planned streams / events"]
+    end
 
-    M1 --> P1["Plan transient local path<br/>or deterministic blocker"]
-    M2 --> P2["Ingest/stage to Vortex<br/>then execute"]
-    M3 --> P3["Prepare Vortex once<br/>reuse across scenarios"]
-    M4 --> P4["Execute from existing Vortex input"]
+    USER --> CLI
+    USER --> PY
+    USER --> SDK
+    USER --> ADAPTER
+    OP --> CLI
+    OP --> BENCH
+    SDK --> PY
+    SDK --> REST
+    ADAPTER --> PY
+    ADAPTER --> REST
 
-    P1 --> X["Execution provider"]
-    P2 --> X
-    P3 --> X
-    P4 --> X
+    CLI --> REQ["Typed request envelope<br/>query / workload / output intent / downstream intent"]
+    PY --> REQ
+    REST --> REQ
+    BENCH --> REQ
 
-    X --> R["Result or result ref"]
-    R --> S["Optional result sink"]
-    S --> V["Replay/verify if required"]
+    COMPAT --> SRC["Source binding<br/>format / schema / pushdown / policy"]
+    VORTEX --> SRC
+    OBJECT --> SRC
+    TABLE --> SRC
+    STREAM --> SRC
+    REQ --> SRC
 
-    X --> EVID["Evidence artifacts"]
-    S --> EVID
-    V --> EVID
+    SRC --> POLICY["Execution policy<br/>governance / secrets / no-fallback"]
+    POLICY --> CAP["Capability discovery<br/>source / operator / sink / feature gates"]
+    CAP --> SEM["Semantic binding<br/>schema / expression / profile"]
+    SEM --> MODE["Execution mode selection"]
 
-    EVID --> G["Claim gate"]
-    G --> OUT["Typed output envelope<br/>CLI / Python / future REST"]
+    MODE --> AUTO["auto"]
+    AUTO --> SEL["Transparent selected mode<br/>selected mode + reason"]
+    SEL --> DIRECT["direct_compatibility_transient"]
+    SEL --> IMPORT["compatibility_import_certified"]
+    SEL --> PREPARED["prepared_vortex"]
+    SEL --> NATIVE["native_vortex"]
+    MODE --> DIRECT
+    MODE --> IMPORT
+    MODE --> PREPARED
+    MODE --> NATIVE
+
+    DIRECT --> B1["Transient compatibility boundary<br/>ShardLoom-native in-memory path or unsupported diagnostic"]
+    IMPORT --> B2["Compatibility ingest boundary<br/>adapter -> NativeWorkStream -> Vortex write/reopen"]
+    PREPARED --> B3["Preparation boundary<br/>prepare once -> reusable Vortex artifact"]
+    NATIVE --> B4["Native Vortex boundary<br/>Vortex Source / Scan / Split"]
+
+    B1 --> PLAN["Plan IR + physical plan"]
+    B2 --> PLAN
+    B3 --> PLAN
+    B4 --> PLAN
+
+    PLAN --> ADMIT["Provider admission<br/>Vortex provider / ShardLoom kernel / unsupported diagnostic"]
+    ADMIT -->|"unsupported"| BLOCK["Deterministic unsupported diagnostic"]
+    ADMIT -->|"supported"| EXEC["Execute supported path<br/>encoded/native/filter/project/aggregate/join/window"]
+    EXEC --> RUNTIME["Runtime controls<br/>memory / spill / streaming / cancellation / observability"]
+    RUNTIME --> RESULT["Result stream / scalar / result ref"]
+
+    RESULT --> SINKREQ["Sink requirements<br/>materialization / decode / fidelity boundary"]
+    SINKREQ --> S0["No sink<br/>typed result/ref only"]
+    SINKREQ --> S1["Vortex result artifact"]
+    SINKREQ --> S2["planned compatibility export"]
+    SINKREQ --> S3["planned table/lakehouse commit"]
+    SINKREQ --> S4["planned object-store write"]
+    SINKREQ --> S5["planned REST/event delivery"]
+
+    S1 --> VERIFY["Replay / verify / reopen when required"]
+    S2 --> VERIFY
+    S3 --> VERIFY
+    S4 --> VERIFY
+
+    BLOCK --> EVID["Evidence bundle<br/>diagnostics / certificates / benchmark rows / traces"]
+    EXEC --> EVID
+    RUNTIME --> EVID
+    SINKREQ --> EVID
+    VERIFY --> EVID
+
+    REQ --> BASE["Optional external baseline/oracle row<br/>comparison only, never fallback"]
+    BASE --> EVID
+
+    EVID --> GATE["Claim gate<br/>claim_grade / not_claim_grade / unsupported"]
+    GATE --> OUT["Typed output envelope<br/>CLI / Python / REST/event surfaces"]
+    OUT --> D1["CLI access result<br/>text / JSON / artifacts"]
+    OUT --> D2["Python / SDK result<br/>typed models / artifact refs"]
+    OUT --> D3["Adapter consumers<br/>DB / orchestration / BI / notebook"]
+    OUT --> D4["Benchmark comparison report"]
+    OUT --> D5["Automation / agent follow-up"]
+    OUT --> D6["planned governed platform consumers"]
 ```
+
+This diagram is intentionally broader than the current implementation. Planned nodes must remain
+unchecked in `docs/architecture/global-architecture-review.md` and represented in
+`docs/architecture/phased-execution-plan.md` until implemented and certified. Current commands must
+return deterministic unsupported diagnostics where execution is absent. Planned nodes do not
+authorize fallback execution, dependency expansion, package publication, external side effects, or
+public performance claims.
+
+End-to-end contract:
+
+- Every request binds source descriptors, policy, capability, semantic profile, execution mode,
+  output intent, end-user access path, adapter surface, and downstream usage before execution.
+- CLI access is the current canonical user and automation entrypoint. Wrappers and planned adapters
+  must preserve the typed protocol instead of creating independent execution semantics.
+- End-user and adapter surfaces may improve ergonomics, but they must not hide selected execution
+  mode, unsupported diagnostics, materialization/decode boundaries, or claim-gate status.
+- Every source path reports what was read, what decoded, what materialized, what stayed native, and
+  which Native I/O certificate applies.
+- Every sink path reports what was written, what replayed or verified, what materialized, what
+  decoded, and whether the sink can support a claim.
+- Downstream consumers, including adapters, notebooks, BI tools, orchestration tools, and governed
+  platforms, read the typed output envelope or referenced artifacts. They do not imply a hidden
+  execution mode, fallback engine, or unverified sink.
+- Public claims are allowed only after the claim gate sees the required correctness, benchmark,
+  execution-certificate, Native I/O, materialization/decode, policy, and no-fallback evidence.
 
 ## The Five Execution Modes
 
@@ -209,7 +305,8 @@ existing .vortex input
 ```
 
 Use this when input already lives in Vortex, the user wants native Vortex execution, the benchmark is
-comparing query/runtime behavior, and operator support exists or can be blocked deterministically.
+comparing query/runtime behavior, and operator support exists or can return a deterministic
+unsupported diagnostic.
 
 Current native Vortex benchmark rows start from existing `.vortex` inputs, but they may still use
 temporary ShardLoom operator paths until encoded/native operator coverage matures. A row is not an
@@ -237,12 +334,12 @@ vortex_write_reopen_included=false unless result sink enabled
 computed_result_sink_write_micros=separate from operator timing when enabled
 result_sink_claim_gate_status=result_sink_replay_certified|not_claim_grade_missing_result_sink_evidence
 vortex_native_claim_allowed=true
-claim_gate_status=fixture_smoke_only | claim_grade | not_claim_grade | unsupported | blocked
+claim_gate_status=fixture_smoke_only | claim_grade | not_claim_grade | unsupported
 ```
 
 ## Mode 4 - `direct_compatibility_transient`
 
-This is the future traditional-compute-like ShardLoom path. The current repo exposes the mode
+This is the planned traditional-compute-like ShardLoom path. The current repo exposes the mode
 vocabulary and deterministic unsupported/report-only capability rows, but it does not yet implement
 a direct transient runtime path.
 
@@ -364,10 +461,10 @@ plan node
   -> Vortex-first provider check
   -> can upstream Vortex provide this natively?
      yes -> use_vortex_native_provider
-     partially -> use provider + ShardLoom residual, or block residual
+     partially -> use provider + ShardLoom residual, or return residual unsupported diagnostic
      no -> implement_shardloom_kernel
      external integration only -> baseline_or_oracle_only
-     insufficient evidence -> blocked_until_vortex_or_shardloom_evidence
+     insufficient evidence -> unsupported_until_vortex_or_shardloom_evidence
 ```
 
 Provider classifications:
@@ -377,11 +474,11 @@ use_vortex_native_provider
 wrap_vortex_concept
 implement_shardloom_kernel
 baseline_or_oracle_only
-blocked_until_vortex_or_shardloom_evidence
+unsupported_until_vortex_or_shardloom_evidence
 ```
 
-Unsupported residuals must be executed by ShardLoom-native code or deterministically blocked. They
-must not be sent to external engines.
+Unsupported residuals must be executed by ShardLoom-native code or returned as deterministic
+unsupported diagnostics. They must not be sent to external engines.
 
 ## Performance Attribution Flow
 
@@ -482,7 +579,7 @@ flowchart TD
     H -->|yes| I["claim_grade"]
     H -->|no| J["not_claim_grade"]
     H -->|unsupported| K["unsupported"]
-    H -->|blocked| L["blocked"]
+    H -->|insufficient evidence| L["not claimable"]
     H -->|fixture only| M["fixture_smoke_only"]
     H -->|external baseline| N["external_baseline_only"]
 ```
@@ -525,7 +622,7 @@ what was written
 what materialized
 what decoded
 what stayed native
-what was blocked
+what returned an unsupported diagnostic
 what certificate proves it
 ```
 
@@ -537,7 +634,7 @@ encoded/native representation
      yes -> encoded/native execution
      no -> can ShardLoom materialize safely?
        yes -> explicit materialization boundary
-       no -> unsupported/blocked
+       no -> unsupported/not claimable
 ```
 
 Required fields:
@@ -676,7 +773,7 @@ compatibility_import_certified for certified ingest/stage workflows. Allow
 direct_compatibility_transient only as a ShardLoom-native one-shot mode and never report it as
 Vortex-native.
 
-Unsupported work must be deterministically blocked, not delegated to external engines.
+Unsupported work must return deterministic unsupported diagnostics, not delegate to external engines.
 ```
 
 ## Footer
