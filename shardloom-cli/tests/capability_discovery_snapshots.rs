@@ -12,7 +12,31 @@ const REPORT_ONLY_BOOL_FIELD_KEYS: [&str; 9] = [
     "runtime_execution",
 ];
 
-const SQL_FIELD_KEYS: [&str; 14] = [
+const PLANNER_READINESS_FIELD_KEYS: [&str; 21] = [
+    "planner_readiness_schema_version",
+    "planner_readiness_matrix_id",
+    "planner_readiness_report_ref",
+    "planner_readiness_docs_ref",
+    "planner_readiness_support_status_vocabulary",
+    "planner_readiness_claim_gate_status",
+    "planner_readiness_row_count",
+    "planner_readiness_row_order",
+    "planner_readiness_sql_row_order",
+    "planner_readiness_dataframe_row_order",
+    "planner_readiness_unsupported_diagnostic_codes",
+    "planner_readiness_blocker_ids",
+    "planner_readiness_required_evidence",
+    "planner_readiness_parser_executed",
+    "planner_readiness_binder_executed",
+    "planner_readiness_planner_executed",
+    "planner_readiness_runtime_execution",
+    "planner_readiness_dataframe_runtime",
+    "planner_readiness_external_engine_invoked",
+    "planner_readiness_fallback_attempted",
+    "planner_readiness_deterministic_diagnostics_present",
+];
+
+const SQL_FIELD_KEYS: [&str; 35] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -27,6 +51,27 @@ const SQL_FIELD_KEYS: [&str; 14] = [
     "sql_feature_count",
     "planned_count",
     "certified_count",
+    "planner_readiness_schema_version",
+    "planner_readiness_matrix_id",
+    "planner_readiness_report_ref",
+    "planner_readiness_docs_ref",
+    "planner_readiness_support_status_vocabulary",
+    "planner_readiness_claim_gate_status",
+    "planner_readiness_row_count",
+    "planner_readiness_row_order",
+    "planner_readiness_sql_row_order",
+    "planner_readiness_dataframe_row_order",
+    "planner_readiness_unsupported_diagnostic_codes",
+    "planner_readiness_blocker_ids",
+    "planner_readiness_required_evidence",
+    "planner_readiness_parser_executed",
+    "planner_readiness_binder_executed",
+    "planner_readiness_planner_executed",
+    "planner_readiness_runtime_execution",
+    "planner_readiness_dataframe_runtime",
+    "planner_readiness_external_engine_invoked",
+    "planner_readiness_fallback_attempted",
+    "planner_readiness_deterministic_diagnostics_present",
 ];
 
 const FUNCTION_FIELD_KEYS: [&str; 13] = [
@@ -515,6 +560,54 @@ const WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 24] = [
     "best_default_publication_allowed",
 ];
 
+const DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 45] = [
+    "scope",
+    "schema_version",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+    "side_effect_free",
+    "filesystem_probe",
+    "network_probe",
+    "catalog_probe",
+    "adapter_probe",
+    "parser_executed",
+    "runtime_execution",
+    "dimension",
+    "dimension_status",
+    "required",
+    "correctness_evidence_required",
+    "semantic_conformance_required",
+    "benchmark_evidence_required",
+    "adapter_certification_required",
+    "native_io_certificate_required",
+    "execution_certificate_required",
+    "capability_snapshot_required",
+    "surface_components",
+    "production_claim_allowed",
+    "best_default_publication_allowed",
+    "planner_readiness_schema_version",
+    "planner_readiness_matrix_id",
+    "planner_readiness_report_ref",
+    "planner_readiness_docs_ref",
+    "planner_readiness_support_status_vocabulary",
+    "planner_readiness_claim_gate_status",
+    "planner_readiness_row_count",
+    "planner_readiness_row_order",
+    "planner_readiness_sql_row_order",
+    "planner_readiness_dataframe_row_order",
+    "planner_readiness_unsupported_diagnostic_codes",
+    "planner_readiness_blocker_ids",
+    "planner_readiness_required_evidence",
+    "planner_readiness_parser_executed",
+    "planner_readiness_binder_executed",
+    "planner_readiness_planner_executed",
+    "planner_readiness_runtime_execution",
+    "planner_readiness_dataframe_runtime",
+    "planner_readiness_external_engine_invoked",
+    "planner_readiness_fallback_attempted",
+    "planner_readiness_deterministic_diagnostics_present",
+];
+
 const WORLD_CLASS_SURFACE_SCOPES: [&str; 13] = [
     "data-etl",
     "python",
@@ -553,11 +646,12 @@ fn capability_discovery_json_field_keys_are_stable() {
     for scope in WORLD_CLASS_SURFACE_SCOPES {
         let output = run_capabilities_scope(scope);
         let keys = field_keys(&output);
-        assert_eq!(
-            keys.as_slice(),
-            WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
-            "scope={scope}"
-        );
+        let expected_keys = if scope == "dataframe" {
+            DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice()
+        } else {
+            WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice()
+        };
+        assert_eq!(keys.as_slice(), expected_keys, "scope={scope}");
     }
 }
 
@@ -639,6 +733,53 @@ fn capability_discovery_scope_values_are_stable() {
             )),
             "scope={scope}"
         );
+    }
+}
+
+#[test]
+fn sql_and_dataframe_capabilities_expose_planner_readiness_matrix() {
+    for scope in ["sql", "dataframe"] {
+        let output = run_capabilities_scope(scope);
+        for key in PLANNER_READINESS_FIELD_KEYS {
+            assert!(
+                output.contains(&format!("{{\"key\":\"{key}\",\"value\":")),
+                "scope={scope} missing key={key}"
+            );
+        }
+        assert!(output.contains(&string_field_pair(
+            "planner_readiness_schema_version",
+            "shardloom.sql_dataframe_planner_readiness.v1"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "planner_readiness_claim_gate_status",
+            "not_claim_grade"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "planner_readiness_sql_row_order",
+            "sql_text_admission,sql_parse,sql_bind,sql_plan,sql_execute"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "planner_readiness_dataframe_row_order",
+            "dataframe_lazy_plan,dataframe_expression_builder,dataframe_join,dataframe_aggregate,dataframe_window"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "planner_readiness_unsupported_diagnostic_codes",
+            "SL_SQL_TEXT_ADMISSION_REPORT_ONLY,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_DATAFRAME_LAZY_PLAN_REPORT_ONLY,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_PLANNER_READINESS_DIAGNOSTICS_REPORT_ONLY,SL_UNSUPPORTED_PLANNER_EXECUTION_STATE"
+        )));
+        assert!(output.contains(&field_pair("planner_readiness_parser_executed", false)));
+        assert!(output.contains(&field_pair("planner_readiness_binder_executed", false)));
+        assert!(output.contains(&field_pair("planner_readiness_planner_executed", false)));
+        assert!(output.contains(&field_pair("planner_readiness_runtime_execution", false)));
+        assert!(output.contains(&field_pair("planner_readiness_dataframe_runtime", false)));
+        assert!(output.contains(&field_pair(
+            "planner_readiness_external_engine_invoked",
+            false
+        )));
+        assert!(output.contains(&field_pair("planner_readiness_fallback_attempted", false)));
+        assert!(output.contains(&field_pair(
+            "planner_readiness_deterministic_diagnostics_present",
+            true
+        )));
     }
 }
 

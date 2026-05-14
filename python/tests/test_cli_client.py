@@ -663,6 +663,20 @@ class ShardLoomClientTests(unittest.TestCase):
                         fields.append({"key": "adapter_certification_required", "value": "true"})
                     if scope == "operators":
                         fields.append({"key": "materialization_boundary_reported", "value": "true"})
+                    if scope in {"sql", "dataframe"}:
+                        fields.extend([
+                            {"key": "planner_readiness_claim_gate_status", "value": "not_claim_grade"},
+                            {"key": "planner_readiness_row_order", "value": "sql_text_admission,sql_parse,sql_bind,sql_plan,sql_execute,dataframe_lazy_plan,dataframe_expression_builder,dataframe_join,dataframe_aggregate,dataframe_window,plan_diagnostics,unsupported_execution_state"},
+                            {"key": "planner_readiness_sql_row_order", "value": "sql_text_admission,sql_parse,sql_bind,sql_plan,sql_execute"},
+                            {"key": "planner_readiness_dataframe_row_order", "value": "dataframe_lazy_plan,dataframe_expression_builder,dataframe_join,dataframe_aggregate,dataframe_window"},
+                            {"key": "planner_readiness_parser_executed", "value": "false"},
+                            {"key": "planner_readiness_binder_executed", "value": "false"},
+                            {"key": "planner_readiness_planner_executed", "value": "false"},
+                            {"key": "planner_readiness_runtime_execution", "value": "false"},
+                            {"key": "planner_readiness_dataframe_runtime", "value": "false"},
+                            {"key": "planner_readiness_external_engine_invoked", "value": "false"},
+                            {"key": "planner_readiness_fallback_attempted", "value": "false"},
+                        ])
                     if scope in {"workflow", "remote-api", "cross-cg"}:
                         fields.extend([
                             {"key": "severity", "value": "error"},
@@ -702,6 +716,26 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.cross_cg.field("scope"), "cross-cg")
         self.assertEqual(capabilities.functions.capability_state, "planned")
         self.assertEqual(capabilities.sql_support.scope, "sql")
+        self.assertEqual(
+            capabilities.sql_support.planner_readiness_claim_gate_status,
+            "not_claim_grade",
+        )
+        self.assertEqual(
+            capabilities.sql_support.sql_planner_readiness_rows,
+            (
+                "sql_text_admission",
+                "sql_parse",
+                "sql_bind",
+                "sql_plan",
+                "sql_execute",
+            ),
+        )
+        self.assertIn(
+            "dataframe_join",
+            capabilities.dataframe.dataframe_planner_readiness_rows,
+        )
+        self.assertTrue(capabilities.sql_support.planner_readiness_non_executing)
+        self.assertTrue(capabilities.dataframe.planner_readiness_non_executing)
         self.assertIn("adapter_certification_required", capabilities.adapters.required_gates)
         self.assertIn(
             "materialization_boundary_reported",

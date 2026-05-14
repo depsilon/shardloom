@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0001A-A SQL/DataFrame planner readiness report
+  - Primary files:
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `python/src/shardloom/context.py`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-core/src/certification.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add a report-only SQL/DataFrame planner-readiness matrix that makes SQL text,
+    SQL parse/bind/plan/execute, DataFrame lazy-plan, expression, join, aggregate, window,
+    diagnostics, and unsupported execution states visible through existing capability surfaces.
+  - Checklist:
+    - [x] Add `SqlDataFramePlannerReadinessMatrix` with SQL, DataFrame, diagnostics, and
+          unsupported-execution rows.
+    - [x] Keep every row `claim_gate_status=not_claim_grade`, with
+          `support_status=report_only|unsupported`, deterministic diagnostic codes, blocker ids,
+          no parser/binder/planner/runtime execution, no external engine, and no fallback.
+    - [x] Expose the matrix through `capabilities sql` and `capabilities dataframe` fields,
+          including row order, diagnostic codes, blocker ids, required evidence, and no-execution
+          booleans.
+    - [x] Add Python `CapabilityView` accessors for planner-readiness row order, SQL/DataFrame row
+          subsets, claim-gate status, and non-execution posture.
+    - [x] Update GAR/RFC/compute-flow docs and move GAR-0001A-A out of Planned.
+  - Boundary:
+    - This is a report-only capability and diagnostics slice. It does not add a SQL parser, SQL
+      binder, SQL planner, SQL execution, DataFrame runtime, distributed runtime, lakehouse output,
+      object-store runtime, external-engine execution, fallback execution, or SQL/DataFrame support
+      claims.
+  - Vortex-first provider check:
+    - Subject area: RFC 0001 SQL/DataFrame planner readiness and RFC 0032/RFC 0038 user/facade
+      readiness.
+    - Upstream Vortex concept checked: not applicable to execution provider use in this slice;
+      no Vortex API, data read, decode, materialization, or write path was added.
+    - Decision: `report_only_capability_surface`.
+    - Residual handling: unsupported SQL/DataFrame requests remain deterministic diagnostics through
+      existing workflow unsupported surfaces.
+    - Materialization/decode boundary: no SQL/DataFrame row reads, Arrow conversion, decoding,
+      materialization, write I/O, object-store I/O, external effects, or fallback execution.
+    - Evidence added: core readiness matrix, CLI capability fields, Python accessors, CLI/Python
+      tests, and architecture traceability updates.
+    - Gates still blocked: executable SQL parser/binder/planner/runtime, DataFrame execution,
+      distributed/object-store/lakehouse runtime, and public SQL/DataFrame claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core sql_dataframe_planner_readiness --lib`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-0042B layout/write/device/managed-lane evidence boundaries
   - Primary files:
     - `benchmarks/traditional_analytics/README.md`

@@ -10,9 +10,9 @@ use shardloom_core::{
     CapabilityCertificationReport, CapabilityCertificationStatus, CommandStatus,
     EngineCapabilities, EngineCapabilityMatrixReport, OutputFormat, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
-    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, boundedness_vocabulary,
-    engine_mode_vocabulary, output_mode_vocabulary, plan_world_class_sufficiency,
-    update_mode_vocabulary,
+    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
+    WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
+    output_mode_vocabulary, plan_world_class_sufficiency, update_mode_vocabulary,
 };
 use shardloom_vortex::{
     vortex_encoded_count_local_guard_discovery_report,
@@ -2252,6 +2252,72 @@ fn append_sql_certification_fields(
             CapabilityCertificationStatus::Certified,
         ),
     );
+    append_sql_dataframe_planner_readiness_fields(fields);
+}
+
+fn append_sql_dataframe_planner_readiness_fields(fields: &mut Vec<(String, String)>) {
+    let matrix = SqlDataFramePlannerReadinessMatrix::report_only();
+    push_field(
+        fields,
+        "planner_readiness_schema_version",
+        matrix.schema_version,
+    );
+    push_field(fields, "planner_readiness_matrix_id", matrix.matrix_id);
+    push_field(fields, "planner_readiness_report_ref", matrix.report_ref);
+    push_field(fields, "planner_readiness_docs_ref", matrix.docs_ref);
+    push_field(
+        fields,
+        "planner_readiness_support_status_vocabulary",
+        matrix.support_status_vocabulary,
+    );
+    push_field(
+        fields,
+        "planner_readiness_claim_gate_status",
+        matrix.claim_gate_status,
+    );
+    push_count_field(fields, "planner_readiness_row_count", matrix.rows.len());
+    push_field(
+        fields,
+        "planner_readiness_row_order",
+        &matrix.row_order().join(","),
+    );
+    push_field(
+        fields,
+        "planner_readiness_sql_row_order",
+        &matrix.sql_row_order().join(","),
+    );
+    push_field(
+        fields,
+        "planner_readiness_dataframe_row_order",
+        &matrix.dataframe_row_order().join(","),
+    );
+    push_field(
+        fields,
+        "planner_readiness_unsupported_diagnostic_codes",
+        &matrix.unsupported_diagnostic_codes().join(","),
+    );
+    push_field(
+        fields,
+        "planner_readiness_blocker_ids",
+        &matrix.blocker_ids().join(","),
+    );
+    push_field(
+        fields,
+        "planner_readiness_required_evidence",
+        &matrix.required_evidence().join("|"),
+    );
+    push_bool_field(fields, "planner_readiness_parser_executed", false);
+    push_bool_field(fields, "planner_readiness_binder_executed", false);
+    push_bool_field(fields, "planner_readiness_planner_executed", false);
+    push_bool_field(fields, "planner_readiness_runtime_execution", false);
+    push_bool_field(fields, "planner_readiness_dataframe_runtime", false);
+    push_bool_field(fields, "planner_readiness_external_engine_invoked", false);
+    push_bool_field(fields, "planner_readiness_fallback_attempted", false);
+    push_bool_field(
+        fields,
+        "planner_readiness_deterministic_diagnostics_present",
+        matrix.deterministic_diagnostics_present(),
+    );
 }
 
 fn append_function_certification_fields(
@@ -3480,6 +3546,7 @@ fn world_class_surface_components(scope: CapabilityDiscoveryScope) -> &'static s
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn world_class_surface_fields(
     scope: CapabilityDiscoveryScope,
     report: &WorldClassSufficiencyReport,
@@ -3492,7 +3559,7 @@ fn world_class_surface_fields(
         .iter()
         .find(|dimension| dimension.kind == kind)
         .expect("world-class sufficiency report includes all dimensions");
-    vec![
+    let mut fields = vec![
         ("scope".to_string(), scope.as_str().to_string()),
         (
             "schema_version".to_string(),
@@ -3580,7 +3647,11 @@ fn world_class_surface_fields(
             "best_default_publication_allowed".to_string(),
             report.can_publish_best_default_claim().to_string(),
         ),
-    ]
+    ];
+    if scope == CapabilityDiscoveryScope::DataFrame {
+        append_sql_dataframe_planner_readiness_fields(&mut fields);
+    }
+    fields
 }
 
 fn world_class_surface_text(

@@ -369,6 +369,517 @@ impl SqlCoverageMatrix {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SqlDataFramePlannerReadinessSurface {
+    SqlTextAdmission,
+    SqlParse,
+    SqlBind,
+    SqlPlan,
+    SqlExecute,
+    DataFrameLazyPlan,
+    DataFrameExpressionBuilder,
+    DataFrameJoin,
+    DataFrameAggregate,
+    DataFrameWindow,
+    PlanDiagnostics,
+    UnsupportedExecutionState,
+}
+
+impl SqlDataFramePlannerReadinessSurface {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::SqlTextAdmission => "sql_text_admission",
+            Self::SqlParse => "sql_parse",
+            Self::SqlBind => "sql_bind",
+            Self::SqlPlan => "sql_plan",
+            Self::SqlExecute => "sql_execute",
+            Self::DataFrameLazyPlan => "dataframe_lazy_plan",
+            Self::DataFrameExpressionBuilder => "dataframe_expression_builder",
+            Self::DataFrameJoin => "dataframe_join",
+            Self::DataFrameAggregate => "dataframe_aggregate",
+            Self::DataFrameWindow => "dataframe_window",
+            Self::PlanDiagnostics => "plan_diagnostics",
+            Self::UnsupportedExecutionState => "unsupported_execution_state",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_sql(self) -> bool {
+        matches!(
+            self,
+            Self::SqlTextAdmission
+                | Self::SqlParse
+                | Self::SqlBind
+                | Self::SqlPlan
+                | Self::SqlExecute
+        )
+    }
+
+    #[must_use]
+    pub const fn is_dataframe(self) -> bool {
+        matches!(
+            self,
+            Self::DataFrameLazyPlan
+                | Self::DataFrameExpressionBuilder
+                | Self::DataFrameJoin
+                | Self::DataFrameAggregate
+                | Self::DataFrameWindow
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlannerReadinessSupportStatus {
+    ReportOnly,
+    Unsupported,
+}
+
+impl PlannerReadinessSupportStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct SqlDataFramePlannerReadinessRow {
+    pub row_id: &'static str,
+    pub surface: SqlDataFramePlannerReadinessSurface,
+    pub support_status: PlannerReadinessSupportStatus,
+    pub claim_gate_status: &'static str,
+    pub unsupported_diagnostic_code: &'static str,
+    pub blocker_id: &'static str,
+    pub required_evidence: &'static str,
+    pub user_visible_surface: &'static str,
+    pub parser_executed: bool,
+    pub binder_executed: bool,
+    pub planner_executed: bool,
+    pub runtime_execution: bool,
+    pub dataframe_runtime: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl SqlDataFramePlannerReadinessRow {
+    #[must_use]
+    pub const fn sql_text_admission() -> Self {
+        Self {
+            row_id: "sql_text_admission",
+            surface: SqlDataFramePlannerReadinessSurface::SqlTextAdmission,
+            support_status: PlannerReadinessSupportStatus::ReportOnly,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_SQL_TEXT_ADMISSION_REPORT_ONLY",
+            blocker_id: "gar0001a.sql_text_admission_report_only",
+            required_evidence: "sql_parser,sql_ast_contract,unsupported_diagnostic_snapshot",
+            user_visible_surface: "capabilities sql,workflow-unsupported-plan sql",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn sql_parse() -> Self {
+        Self {
+            row_id: "sql_parse",
+            surface: SqlDataFramePlannerReadinessSurface::SqlParse,
+            support_status: PlannerReadinessSupportStatus::Unsupported,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
+            blocker_id: "cg21.workflow.sql.parse_unsupported",
+            required_evidence: "sql_parser,sql_ast_contract,unsupported_diagnostic_snapshot",
+            user_visible_surface: "workflow-unsupported-plan sql-parse",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn sql_bind() -> Self {
+        Self {
+            row_id: "sql_bind",
+            surface: SqlDataFramePlannerReadinessSurface::SqlBind,
+            support_status: PlannerReadinessSupportStatus::Unsupported,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
+            blocker_id: "cg21.workflow.sql.bind_unsupported",
+            required_evidence: "sql_binder,catalog_schema_contract,name_resolution_policy,semantic_conformance_suite",
+            user_visible_surface: "workflow-unsupported-plan sql-bind",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn sql_plan() -> Self {
+        Self {
+            row_id: "sql_plan",
+            surface: SqlDataFramePlannerReadinessSurface::SqlPlan,
+            support_status: PlannerReadinessSupportStatus::Unsupported,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
+            blocker_id: "cg21.workflow.sql.plan_unsupported",
+            required_evidence: "sql_logical_plan_lowering,operator_capability_matrix,semantic_conformance_suite",
+            user_visible_surface: "workflow-unsupported-plan sql-plan",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn sql_execute() -> Self {
+        Self {
+            row_id: "sql_execute",
+            surface: SqlDataFramePlannerReadinessSurface::SqlExecute,
+            support_status: PlannerReadinessSupportStatus::Unsupported,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
+            blocker_id: "cg21.workflow.sql.execute_unsupported",
+            required_evidence: "sql_parser,binder,planner,semantic_conformance_suite,execution_certificate,native_io_certificate",
+            user_visible_surface: "workflow-unsupported-plan sql-execute",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn dataframe_lazy_plan() -> Self {
+        Self {
+            row_id: "dataframe_lazy_plan",
+            surface: SqlDataFramePlannerReadinessSurface::DataFrameLazyPlan,
+            support_status: PlannerReadinessSupportStatus::ReportOnly,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_DATAFRAME_LAZY_PLAN_REPORT_ONLY",
+            blocker_id: "gar0001a.dataframe_lazy_plan_report_only",
+            required_evidence: "typed_lazy_plan_contract,capability_snapshot,unsupported_diagnostic_snapshot",
+            user_visible_surface: "python LazyFrame,capabilities dataframe",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn dataframe_expression_builder() -> Self {
+        Self {
+            row_id: "dataframe_expression_builder",
+            surface: SqlDataFramePlannerReadinessSurface::DataFrameExpressionBuilder,
+            support_status: PlannerReadinessSupportStatus::Unsupported,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
+            blocker_id: "cg21.workflow.with_column.expression_unsupported",
+            required_evidence: "expression_ast_contract,type_inference,operator_capability_matrix,semantic_conformance_suite",
+            user_visible_surface: "python LazyFrame.with_column",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn dataframe_join() -> Self {
+        Self {
+            row_id: "dataframe_join",
+            surface: SqlDataFramePlannerReadinessSurface::DataFrameJoin,
+            support_status: PlannerReadinessSupportStatus::Unsupported,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
+            blocker_id: "cg21.workflow.join.operator_unsupported",
+            required_evidence: "join_operator_capability,memory_spill_declaration,correctness_fixture,execution_certificate",
+            user_visible_surface: "python LazyFrame.join",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn dataframe_aggregate() -> Self {
+        Self {
+            row_id: "dataframe_aggregate",
+            surface: SqlDataFramePlannerReadinessSurface::DataFrameAggregate,
+            support_status: PlannerReadinessSupportStatus::Unsupported,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
+            blocker_id: "cg21.workflow.dataframe_aggregation_unsupported",
+            required_evidence: "aggregate_operator_capability,memory_spill_declaration,correctness_fixture,execution_certificate",
+            user_visible_surface: "python LazyFrame.agg,python GroupedLazyFrame.agg",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn dataframe_window() -> Self {
+        Self {
+            row_id: "dataframe_window",
+            surface: SqlDataFramePlannerReadinessSurface::DataFrameWindow,
+            support_status: PlannerReadinessSupportStatus::Unsupported,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_SQL",
+            blocker_id: "cg21.workflow.dataframe_window_unsupported",
+            required_evidence: "window_operator_capability,sort_capability,correctness_fixture,execution_certificate",
+            user_visible_surface: "python LazyFrame.window",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn plan_diagnostics() -> Self {
+        Self {
+            row_id: "plan_diagnostics",
+            surface: SqlDataFramePlannerReadinessSurface::PlanDiagnostics,
+            support_status: PlannerReadinessSupportStatus::ReportOnly,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_PLANNER_READINESS_DIAGNOSTICS_REPORT_ONLY",
+            blocker_id: "gar0001a.plan_diagnostics_report_only",
+            required_evidence: "stable_diagnostic_codes,capability_report_refs,unsupported_snapshot_tests",
+            user_visible_surface: "capabilities sql,capabilities dataframe,workflow-unsupported-plan",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn unsupported_execution_state() -> Self {
+        Self {
+            row_id: "unsupported_execution_state",
+            surface: SqlDataFramePlannerReadinessSurface::UnsupportedExecutionState,
+            support_status: PlannerReadinessSupportStatus::ReportOnly,
+            claim_gate_status: "not_claim_grade",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_PLANNER_EXECUTION_STATE",
+            blocker_id: "gar0001a.unsupported_execution_state",
+            required_evidence: "execution_certificate,native_io_certificate,semantic_conformance_suite,benchmark_row",
+            user_visible_surface: "capability discovery,Python capability view",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn fallback_free(&self) -> bool {
+        !self.external_engine_invoked && !self.fallback_attempted
+    }
+
+    #[must_use]
+    pub fn not_claim_grade(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+    }
+
+    #[must_use]
+    pub const fn non_executing(&self) -> bool {
+        !self.parser_executed
+            && !self.binder_executed
+            && !self.planner_executed
+            && !self.runtime_execution
+            && !self.dataframe_runtime
+    }
+
+    #[must_use]
+    pub fn deterministic_diagnostic_present(&self) -> bool {
+        !self.unsupported_diagnostic_code.is_empty()
+            && self.unsupported_diagnostic_code != "none"
+            && !self.blocker_id.is_empty()
+            && self.blocker_id != "none"
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct SqlDataFramePlannerReadinessMatrix {
+    pub schema_version: &'static str,
+    pub matrix_id: &'static str,
+    pub rows: Vec<SqlDataFramePlannerReadinessRow>,
+    pub claim_gate_status: &'static str,
+    pub support_status_vocabulary: &'static str,
+    pub report_ref: &'static str,
+    pub docs_ref: &'static str,
+    pub parser_executed: bool,
+    pub binder_executed: bool,
+    pub planner_executed: bool,
+    pub runtime_execution: bool,
+    pub dataframe_runtime: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl SqlDataFramePlannerReadinessMatrix {
+    #[must_use]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.sql_dataframe_planner_readiness.v1",
+            matrix_id: "gar0001a.sql_dataframe_planner_readiness",
+            rows: vec![
+                SqlDataFramePlannerReadinessRow::sql_text_admission(),
+                SqlDataFramePlannerReadinessRow::sql_parse(),
+                SqlDataFramePlannerReadinessRow::sql_bind(),
+                SqlDataFramePlannerReadinessRow::sql_plan(),
+                SqlDataFramePlannerReadinessRow::sql_execute(),
+                SqlDataFramePlannerReadinessRow::dataframe_lazy_plan(),
+                SqlDataFramePlannerReadinessRow::dataframe_expression_builder(),
+                SqlDataFramePlannerReadinessRow::dataframe_join(),
+                SqlDataFramePlannerReadinessRow::dataframe_aggregate(),
+                SqlDataFramePlannerReadinessRow::dataframe_window(),
+                SqlDataFramePlannerReadinessRow::plan_diagnostics(),
+                SqlDataFramePlannerReadinessRow::unsupported_execution_state(),
+            ],
+            claim_gate_status: "not_claim_grade",
+            support_status_vocabulary: "report_only,unsupported",
+            report_ref: "capabilities://sql-dataframe-planner-readiness.v1",
+            docs_ref: "docs/architecture/global-architecture-review.md#rfc-0001",
+            parser_executed: false,
+            binder_executed: false,
+            planner_executed: false,
+            runtime_execution: false,
+            dataframe_runtime: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn sql_row_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.surface.is_sql())
+            .map(|row| row.row_id)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn dataframe_row_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.surface.is_dataframe())
+            .map(|row| row.row_id)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_codes(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .map(|row| row.unsupported_diagnostic_code)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.blocker_id).collect()
+    }
+
+    #[must_use]
+    pub fn required_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.required_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn all_rows_fallback_free(&self) -> bool {
+        !self.external_engine_invoked
+            && !self.fallback_attempted
+            && self
+                .rows
+                .iter()
+                .all(SqlDataFramePlannerReadinessRow::fallback_free)
+    }
+
+    #[must_use]
+    pub fn all_rows_not_claim_grade(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+            && self
+                .rows
+                .iter()
+                .all(SqlDataFramePlannerReadinessRow::not_claim_grade)
+    }
+
+    #[must_use]
+    pub fn all_rows_non_executing(&self) -> bool {
+        !self.parser_executed
+            && !self.binder_executed
+            && !self.planner_executed
+            && !self.runtime_execution
+            && !self.dataframe_runtime
+            && self
+                .rows
+                .iter()
+                .all(SqlDataFramePlannerReadinessRow::non_executing)
+    }
+
+    #[must_use]
+    pub fn deterministic_diagnostics_present(&self) -> bool {
+        self.rows
+            .iter()
+            .all(SqlDataFramePlannerReadinessRow::deterministic_diagnostic_present)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperatorFamily {
     Scan,
     Filter,
@@ -2218,6 +2729,45 @@ mod tests {
                 .all(|entry| !entry.can_satisfy_production_claim())
         );
         assert!(!matrix.fallback_attempted);
+    }
+
+    #[test]
+    fn sql_dataframe_planner_readiness_is_report_only_and_non_executing() {
+        let matrix = SqlDataFramePlannerReadinessMatrix::report_only();
+
+        assert_eq!(
+            matrix.schema_version,
+            "shardloom.sql_dataframe_planner_readiness.v1"
+        );
+        assert_eq!(
+            matrix.sql_row_order(),
+            vec![
+                "sql_text_admission",
+                "sql_parse",
+                "sql_bind",
+                "sql_plan",
+                "sql_execute",
+            ]
+        );
+        assert_eq!(
+            matrix.dataframe_row_order(),
+            vec![
+                "dataframe_lazy_plan",
+                "dataframe_expression_builder",
+                "dataframe_join",
+                "dataframe_aggregate",
+                "dataframe_window",
+            ]
+        );
+        assert!(matrix.all_rows_fallback_free());
+        assert!(matrix.all_rows_not_claim_grade());
+        assert!(matrix.all_rows_non_executing());
+        assert!(matrix.deterministic_diagnostics_present());
+        assert!(
+            matrix
+                .unsupported_diagnostic_codes()
+                .contains(&"SL_UNSUPPORTED_SQL")
+        );
     }
 
     #[test]
