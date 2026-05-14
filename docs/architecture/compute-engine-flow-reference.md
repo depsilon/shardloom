@@ -96,7 +96,7 @@ or claim.
 | --- | --- | --- | --- |
 | User access | CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces and thin adapters are report-only or planned. | Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope. | No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
-| Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, top-N, row-number, and high-cardinality string group/distinct avoid full fact-table materialization in prepared/native rows. | Next planned runtime slice is `GAR-0026-I`: local partition-pruning/date-range streaming. | These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, or broad performance claims. |
+| Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, top-N, row-number, high-cardinality string group/distinct, and partition-pruning/date-range scans avoid full fact-table materialization in prepared/native rows. | Next planned runtime slice is `GAR-0026-J`: local global sort/top-k streaming. | These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, object-store pruning, layout/statistics pruning, or broad performance claims. |
 | Batch engine mode | Bounded/snapshot local Vortex analytics are the practical execution foundation. | Broader operator/source/sink coverage plus correctness and benchmark claim gates. | Batch support is scoped to evidence-backed workloads. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. | Fixture evidence only; no production live claim. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. | Fixture evidence only; no production hybrid, object-store, or table-commit claim. |
@@ -315,8 +315,8 @@ hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, obj
 
 Planned updates are carried in the phase plan, especially `GAR-0034-A` for live/hybrid fabric
 blockers and freshness gates. The next runtime-focused updates before broad engine expansion are the
-prepared/native Vortex paths: scoped local partition-pruning/date-range streaming, then other
-stateful paths.
+prepared/native Vortex paths: scoped local global sort/top-k streaming, then other residual-native
+paths.
 
 ### View 5 - I/O, Evidence, And Downstream Use
 
@@ -1057,9 +1057,10 @@ Optimization priorities:
 9. Row number window.
 10. High-cardinality string group/distinct.
 11. Partition-pruning/date-range streaming.
-12. Source-backed Scan API path.
-13. Layout advisor applying real write/layout choices.
-14. Persistent in-process benchmark runner.
+12. Global sort/top-k streaming.
+13. Source-backed Scan API path.
+14. Layout advisor applying real write/layout choices.
+15. Persistent in-process benchmark runner.
 ```
 
 Current scoped progress: `filter + projection + limit` has a prepared/native
@@ -1080,6 +1081,10 @@ ShardLoom-native per-group ranking state without full fact-table materialization
 without full fact-table materialization.
 `high-cardinality string group/distinct` now scans projected `category`/`metric` columns into
 ShardLoom-native string grouping state without full fact-table materialization.
+`partition pruning` now scans projected `event_date`/`metric` columns with a Vortex date-range
+filter and residual scalar aggregation without full fact-table materialization. This is local
+date-range scan evidence, not an object-store partition-pruning, layout-pruning, or
+statistics-pruning claim.
 None of these paths are encoded-native operator claims, and they still carry
 `operator_encoded_native_claim_allowed=false`.
 

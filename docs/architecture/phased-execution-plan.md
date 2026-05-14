@@ -434,15 +434,14 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no UDF/effectful execution.
   - Fallback/claim boundary: claim only the selected kernel family.
   - Dependencies/blockers: GAR-FLOW-2B blocker matrix.
-- [ ] GAR-0026-I prepared/native partition-pruning/date-range streaming runtime path
-  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-H.
-  - Current state: prepared/native local fact-only, group-by, join, ranking, and string
-    group/distinct scenarios now avoid full fact-table materialization; `partition pruning` still
-    materializes Vortex-derived fact tables before ShardLoom-native date filtering.
-  - Next slice outcome: implement one scoped prepared/native local Vortex `partition pruning` path
-    that scans only required fact columns, applies the supported date-range predicate through Vortex
-    scan filter/projection where possible, and avoids full fact-table materialization, or emit
-    deterministic unsupported diagnostics.
+- [ ] GAR-0026-J prepared/native global sort/top-k streaming runtime path
+  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-I.
+  - Current state: prepared/native local fact-only, group-by, join, ranking, string
+    group/distinct, and partition-pruning/date-range scenarios now avoid full fact-table
+    materialization; `sort and top-k` still materializes Vortex-derived fact tables before sorting.
+  - Next slice outcome: implement one scoped prepared/native local Vortex `sort and top-k` path
+    that scans only required fact columns, maintains bounded ShardLoom-native top-k state, and
+    avoids full fact-table materialization, or emit deterministic unsupported diagnostics.
   - User-visible surface: `traditional-analytics-vortex-run`, benchmark prepared/native rows,
     stage timing fields, operator blocker matrix, docs.
   - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, focused Vortex
@@ -454,11 +453,11 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     `fallback_attempted=false`, and `external_engine_invoked=false`.
   - Verification: focused Vortex traditional analytics test, benchmark harness contract tests,
     `cargo test --workspace --all-targets`.
-  - Non-goals: no object-store partition pruning, no layout/statistics pruning claim, no
-    SQL/DataFrame planner, no encoded-native date predicate claim, no broad performance claim.
-  - Fallback/claim boundary: may claim only a scoped local prepared/native date-range scan path
-    when evidence is attached.
-  - Dependencies/blockers: date predicate fixture coverage, Vortex filter support evidence, and
+  - Non-goals: no distributed sort, no encoded-native sort/top-k claim, no SQL/DataFrame planner,
+    no memory/spill production guarantee, no broad performance claim.
+  - Fallback/claim boundary: may claim only a scoped local prepared/native residual top-k path when
+    evidence is attached.
+  - Dependencies/blockers: bounded top-k state coverage, ordering/tie-break fixture evidence, and
     materialization/decode policy follow-through.
 - [ ] GAR-0027-A CPU/SIMD/vectorization admission slice
   - Source: RFC 0027; CPU specialization admission gates; benchmark-suite catalog.

@@ -221,7 +221,10 @@ per-group ranking state without full fact-table materialization. The scoped
 with bounded rank-1 per-group state. The scoped `high-cardinality string
 group/distinct` prepared/native row scans projected `category`/`metric` columns
 into ShardLoom-native string grouping state without full fact-table
-materialization.
+materialization. The scoped `partition pruning` prepared/native row scans
+projected `event_date`/`metric` columns with a Vortex date-range filter and
+residual scalar aggregation; it is local date-range scan evidence, not an
+object-store partition-pruning, layout-pruning, or statistics-pruning claim.
 `compute-capability-matrix` exposes the same class vocabulary and per-row
 operator class/blocker fields so CLI capability discovery matches benchmark
 evidence.
