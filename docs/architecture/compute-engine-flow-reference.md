@@ -100,6 +100,7 @@ or claim.
 | Batch engine mode | Bounded/snapshot local Vortex analytics are the practical execution foundation. | Broader operator/source/sink coverage plus correctness and benchmark claim gates. | Batch support is scoped to evidence-backed workloads. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. | Fixture evidence only; no production live claim. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. | Fixture evidence only; no production hybrid, object-store, or table-commit claim. |
+| Streaming/zero-copy/backpressure | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, and `capabilities engines` now expose a GAR-0013 streaming capability matrix covering local fixture evidence, object-store streaming reads, zero-decode, zero-copy/materialization boundaries, bounded backpressure, and live/hybrid broker runtime. | Object-store streaming reads, durable broker adapters, runtime backpressure enforcement, broad operator/source/sink evidence, and workload certification. | Matrix rows are fixture-smoke or report-only unless explicitly blocked/materializing; broad streaming/runtime/object-store/broker claims remain not claim-grade. |
 
 ### View 1 - Access And Users
 
@@ -270,12 +271,14 @@ flowchart TD
     ENGINE_REQUEST["requested_engine_mode<br/>auto / batch / live / hybrid"]
     ENGINE_SELECTION["engine-selection-plan<br/>selected_engine_mode + allowed/rejected modes"]
     MATRIX["engine-capability-matrix<br/>batch/live/hybrid rows"]
+    STREAM_MATRIX["GAR-0013 streaming capability matrix<br/>local / object-store / zero-copy / zero-decode / backpressure"]
 
     subgraph CURRENT["Current scoped engine surfaces"]
         BATCH["batch<br/>bounded snapshot local Vortex analytics"]
         LIVE_CONTRACT["live-change-contract-plan<br/>change records + watermark/checkpoint vocabulary"]
         LIVE_FIXTURE["live-fixture-run<br/>in-memory fixture operators + certificates"]
         HYBRID_FIXTURE["hybrid-overlay-run<br/>base snapshot + hot delta fixture evidence"]
+        STREAM_REPORTS["streaming-plan / streaming-batch-plan / backpressure-plan<br/>full matrix + blocked diagnostics"]
     end
 
     subgraph CLAIM_BOUNDARY["Claim and effect boundary"]
@@ -285,9 +288,11 @@ flowchart TD
     end
 
     REQUEST --> ENGINE_REQUEST --> ENGINE_SELECTION --> MATRIX
+    MATRIX --> STREAM_MATRIX --> STREAM_REPORTS
     MATRIX --> BATCH
     MATRIX --> LIVE_CONTRACT --> LIVE_FIXTURE
     MATRIX --> HYBRID_FIXTURE
+    STREAM_REPORTS --> FIXTURE_CLAIM
     BATCH --> FIXTURE_CLAIM
     LIVE_FIXTURE --> FIXTURE_CLAIM
     HYBRID_FIXTURE --> FIXTURE_CLAIM
@@ -302,12 +307,14 @@ Current engine-mode surfaces:
 | `live` | `engine-selection-plan live ...`, `live-change-contract-plan`, `live-fixture-run` | Partially supported for in-memory fixture change streams with fixture freshness/state/execution/Native I/O certificates | No broker, durable state store, object-store I/O, or production live claim. |
 | `hybrid` | `engine-selection-plan hybrid ...`, `hybrid-overlay-run` | Partially supported for in-memory base-plus-hot-delta fixture overlays with delta/freshness/execution/Native I/O certificate fields | No durable micro-segment writes, object-store commit, catalog snapshot discovery, or production hybrid claim. |
 | `auto` | `engine-selection-plan` default selection | Transparent selector; defaults to `batch` for bounded snapshot workloads and must report selected/rejected modes | Not a hidden engine and never a fallback route. |
+| `streaming capability` | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, `capabilities engines` | Full GAR-0013 matrix exists; local count fixture and zero-decode rows are scoped fixture-smoke, while object-store streaming and broker-backed live/hybrid rows are blocked | No broad streaming runtime, object-store streaming read, broker-backed production, or zero-copy compatibility claim. |
 
 These commands are side-effect controlled:
 
 ```text
 engine-selection-plan: runtime_execution=false, data_read=false, write_io=false
 engine-capability-matrix: runtime_execution=false, data_read=false, write_io=false
+streaming capability matrix: runtime_execution=false, object_store_io=false, write_io=false
 live-change-contract-plan: runtime_execution=false, data_read=false, write_io=false
 live-fixture-run: scoped fixture runtime, data_read=false, write_io=false, broker_io=false
 hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, object_store_io=false

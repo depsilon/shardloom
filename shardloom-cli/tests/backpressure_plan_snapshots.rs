@@ -34,6 +34,17 @@ fn backpressure_plan_json_exposes_bounded_memory_policy_without_execution() {
     assert!(output.contains(&field("tasks_executed", "false")));
     assert!(output.contains(&field("data_read", "false")));
     assert!(output.contains(&field("spill_io_performed", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(output.contains(&field("streaming_capability_matrix_row_count", "8")));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_row_bounded_backpressure_plan_support_status",
+        "report_only"
+    )));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_all_blocked_rows_have_diagnostics",
+        "true"
+    )));
     assert!(output.contains("\"attempted\":false"));
 }
 

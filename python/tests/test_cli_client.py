@@ -18,6 +18,7 @@ from shardloom import (
     CompatibilitySourceSmokeReport,
     ContextCapabilities,
     CapabilityView,
+    EngineCapabilityMatrix,
     ExecutionResultEnvelopeView,
     LocalVortexPrimitiveSmokeReport,
     ShardLoomBinaryNotFoundError,
@@ -758,6 +759,55 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(ctx.workflow_capabilities().field("scope"), "workflow")
         self.assertEqual(ctx.remote_api_capabilities().field("scope"), "remote-api")
         self.assertEqual(ctx.cross_cg_capability_parity().field("scope"), "cross-cg")
+
+    def test_engine_capability_matrix_streaming_capability_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["engine-capability-matrix", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "engine-capability-matrix",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "engine_modes", "value": "batch,live,hybrid"},
+                        {"key": "live_hybrid_claim_blocked_count", "value": "2"},
+                        {"key": "streaming_capability_matrix_report_id", "value": "gar0013.streaming_runtime_capability_matrix"},
+                        {"key": "streaming_capability_matrix_row_order", "value": "local_vortex_streaming_plan,object_store_byte_range_streaming_read,bounded_backpressure_plan"},
+                        {"key": "streaming_capability_matrix_blocked_row_count", "value": "2"},
+                        {"key": "streaming_capability_matrix_diagnostic_code_order", "value": "SL_OBJECT_STORE_UNSUPPORTED,SL_MATERIALIZATION_REQUIRED,SL_NOT_IMPLEMENTED"},
+                        {"key": "streaming_capability_matrix_all_rows_no_fallback_no_external_engine", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).engine_capability_matrix()
+
+        self.assertIsInstance(result, EngineCapabilityMatrix)
+        self.assertEqual(result.engine_modes, ("batch", "live", "hybrid"))
+        self.assertEqual(result.live_hybrid_claim_blocked_count, 2)
+        self.assertEqual(
+            result.streaming_capability_matrix_report_id,
+            "gar0013.streaming_runtime_capability_matrix",
+        )
+        self.assertIn("object_store_byte_range_streaming_read", result.streaming_capability_rows)
+        self.assertEqual(result.streaming_capability_blocked_row_count, 2)
+        self.assertIn(
+            "SL_OBJECT_STORE_UNSUPPORTED",
+            result.streaming_capability_diagnostic_codes,
+        )
+        self.assertTrue(result.streaming_capability_no_fallback_no_external_engine)
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.external_engine_invoked)
 
     def test_context_capabilities_empty_scope_list_is_explicit(self) -> None:
         binary = self.fake_cli(

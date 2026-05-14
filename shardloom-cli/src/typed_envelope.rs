@@ -497,8 +497,20 @@ const STREAMING_PLAN_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "sink_preserves_metadata",
     "materialization_required",
     "best_data_work_level",
+    "streaming_capability_matrix_schema_version",
+    "streaming_capability_matrix_report_id",
+    "streaming_capability_matrix_status",
+    "streaming_capability_matrix_claim_gate_status",
+    "streaming_capability_matrix_row_count",
+    "streaming_capability_matrix_blocked_row_count",
+    "streaming_capability_matrix_row_order",
+    "streaming_capability_matrix_diagnostic_code_order",
+    "streaming_capability_matrix_all_blocked_rows_have_diagnostics",
+    "streaming_capability_matrix_all_rows_no_fallback_no_external_engine",
     "runtime_execution",
     "fallback_execution_allowed",
+    "fallback_attempted",
+    "external_engine_invoked",
 ];
 
 const STREAMING_BATCH_PLAN_REPORT_PAYLOAD_KEYS: &[&str] = &[
@@ -525,7 +537,19 @@ const STREAMING_BATCH_PLAN_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "data_read",
     "data_decoded",
     "data_materialized",
+    "streaming_capability_matrix_schema_version",
+    "streaming_capability_matrix_report_id",
+    "streaming_capability_matrix_status",
+    "streaming_capability_matrix_claim_gate_status",
+    "streaming_capability_matrix_row_count",
+    "streaming_capability_matrix_blocked_row_count",
+    "streaming_capability_matrix_row_order",
+    "streaming_capability_matrix_diagnostic_code_order",
+    "streaming_capability_matrix_all_blocked_rows_have_diagnostics",
+    "streaming_capability_matrix_all_rows_no_fallback_no_external_engine",
     "fallback_execution_allowed",
+    "fallback_attempted",
+    "external_engine_invoked",
 ];
 
 const LOCAL_COUNT_NATIVE_IO_SOURCE_REPORT_PAYLOAD_KEYS: &[&str] = &[

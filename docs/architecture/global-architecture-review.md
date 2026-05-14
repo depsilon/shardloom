@@ -253,12 +253,17 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0013-streaming-zero-copy-boundary-interoperability.md`](../rfcs/0013-streaming-zero-copy-boundary-interoperability.md)
-- Current read: Streaming contracts exist; full streaming runtime is planned work.
+- Current read: Streaming contracts and a GAR-0013 capability matrix exist; full streaming runtime
+  is planned work.
 - Evidence: `shardloom-exec/src/streaming.rs`, `shardloom-plan/src/plan_ir.rs`,
   `shardloom-vortex/src/lib.rs`, `shardloom-cli/tests/streaming_batch_plan_snapshots.rs`
 - [x] Streaming plan, backpressure, encoded streaming batch, zero-decode, and boundary contracts
   exist.
 - [x] Report surfaces expose representation and materialization boundaries.
+- [x] `GAR-0013-A` exposes a streaming capability matrix across local streaming, object-store
+  streaming reads, zero-copy, zero-decode, bounded backpressure, and live/hybrid broker-backed
+  runtime with deterministic blocked/materialization diagnostics and no-fallback/no-external-engine
+  fields.
 - [ ] Full streaming runtime and object-store streaming reads remain gated/report-only.
 
 ### RFC 0014 - Memory Management, Spill, and OOM Safety

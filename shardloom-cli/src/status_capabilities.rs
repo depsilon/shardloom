@@ -16,6 +16,7 @@ use shardloom_core::{
     output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
     plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
 };
+use shardloom_exec::StreamingCapabilityMatrixReport;
 use shardloom_vortex::{
     vortex_encoded_count_local_guard_discovery_report,
     vortex_encoded_count_physical_kernel_discovery_report,
@@ -26,6 +27,7 @@ use shardloom_vortex::{
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
+    engine_runtime_planning::append_streaming_capability_matrix_summary_fields,
 };
 
 const WORKFLOW_OPERATION_NAMES: &str = concat!(
@@ -1126,6 +1128,8 @@ fn emit_engine_mode_capabilities(scope: CapabilityDiscoveryScope, format: Output
         engine_mode_suggested_next_action(),
     );
     push_field(&mut fields, "future_rest_view", "/v1/capabilities/engines");
+    let streaming_matrix = StreamingCapabilityMatrixReport::gar0013_current();
+    append_streaming_capability_matrix_summary_fields(&mut fields, &streaming_matrix);
     for row in &matrix.rows {
         let prefix = row.engine_mode.as_str();
         push_field(

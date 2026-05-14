@@ -52,6 +52,17 @@ fn streaming_batch_plan_preserves_vortex_encoded_batches_without_execution() {
     assert!(output.contains(&field("arrow_converted", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("write_io", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(output.contains(&field("streaming_capability_matrix_row_count", "8")));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_row_local_vortex_streaming_batch_count_fixture_support_status",
+        "fixture_smoke"
+    )));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_all_rows_no_fallback_no_external_engine",
+        "true"
+    )));
     assert!(output.contains("\"attempted\":false"));
     assert!(output.contains("\"artifact_kind\":\"materialization_boundary_report\""));
     assert!(output.contains("\"artifact_id\":\"streaming-batch-plan.materialization-boundary\""));
@@ -85,6 +96,10 @@ fn streaming_batch_plan_compatibility_sink_reports_materialization_boundary() {
     )));
     assert!(output.contains(&field("execution", "not_performed")));
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_row_zero_copy_compatibility_boundary_support_status",
+        "requires_materialization"
+    )));
     assert!(output.contains("\"artifact_kind\":\"materialization_boundary_report\""));
     assert!(output.contains("\"artifact_id\":\"streaming-batch-plan.materialization-boundary\""));
 }
@@ -109,6 +124,14 @@ fn streaming_batch_plan_object_store_source_blocks_without_io() {
     )));
     assert!(output.contains(&field("source_kind", "object_store_byte_range")));
     assert!(output.contains(&field("object_store_io", "false")));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_row_object_store_byte_range_streaming_read_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&field(
+        "streaming_capability_matrix_diagnostic_code_order",
+        "SL_OBJECT_STORE_UNSUPPORTED,SL_MATERIALIZATION_REQUIRED,SL_NOT_IMPLEMENTED"
+    )));
     assert!(output.contains("\"attempted\":false"));
 }
 

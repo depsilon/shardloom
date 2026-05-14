@@ -61,6 +61,460 @@ impl StreamingCapability {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamingRuntimeSupportStatus {
+    FixtureSmoke,
+    ReportOnly,
+    RequiresMaterialization,
+    Blocked,
+}
+impl StreamingRuntimeSupportStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::FixtureSmoke => "fixture_smoke",
+            Self::ReportOnly => "report_only",
+            Self::RequiresMaterialization => "requires_materialization",
+            Self::Blocked => "blocked",
+        }
+    }
+
+    #[must_use]
+    pub const fn requires_diagnostic(&self) -> bool {
+        matches!(self, Self::RequiresMaterialization | Self::Blocked)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct StreamingCapabilityMatrixRow {
+    pub id: &'static str,
+    pub family: &'static str,
+    pub surface: &'static str,
+    pub support_status: StreamingRuntimeSupportStatus,
+    pub source_kind: &'static str,
+    pub sink_kind: &'static str,
+    pub zero_decode: ZeroDecodeStatus,
+    pub zero_copy: ZeroCopyStatus,
+    pub backpressure_status: &'static str,
+    pub materialization_boundary: &'static str,
+    pub diagnostic_code: Option<DiagnosticCode>,
+    pub diagnostic_category: Option<DiagnosticCategory>,
+    pub diagnostic_feature: &'static str,
+    pub diagnostic_reason: &'static str,
+    pub blocker_id: &'static str,
+    pub evidence_refs: &'static str,
+    pub required_future_evidence: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+impl StreamingCapabilityMatrixRow {
+    #[must_use]
+    pub const fn diagnostic_code_text(&self) -> &'static str {
+        match self.diagnostic_code {
+            Some(code) => code.as_str(),
+            None => "none",
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_category_text(&self) -> &'static str {
+        match self.diagnostic_category {
+            Some(category) => category.as_str(),
+            None => "none",
+        }
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(&self) -> Option<Diagnostic> {
+        let code = self.diagnostic_code?;
+        let category = self.diagnostic_category?;
+        Some(Diagnostic::new(
+            code,
+            DiagnosticSeverity::Info,
+            category,
+            "Streaming capability matrix row is not claim-grade for this surface.",
+            Some(self.diagnostic_feature.to_string()),
+            Some(self.diagnostic_reason.to_string()),
+            Some(self.required_future_evidence.to_string()),
+            FallbackStatus::disabled_by_policy(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct StreamingCapabilityMatrixReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub matrix_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<StreamingCapabilityMatrixRow>,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+impl StreamingCapabilityMatrixReport {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn gar0013_current() -> Self {
+        Self {
+            schema_version: "shardloom.streaming_capability_matrix.v1",
+            report_id: "gar0013.streaming_runtime_capability_matrix",
+            matrix_status: "report_only",
+            claim_gate_status: "not_claim_grade",
+            rows: vec![
+                StreamingCapabilityMatrixRow {
+                    id: "local_vortex_streaming_plan",
+                    family: "local_streaming",
+                    surface: "streaming-plan local Vortex source to Vortex sink",
+                    support_status: StreamingRuntimeSupportStatus::ReportOnly,
+                    source_kind: "vortex_segment",
+                    sink_kind: "vortex_native",
+                    zero_decode: ZeroDecodeStatus::Preserved,
+                    zero_copy: ZeroCopyStatus::Preserved,
+                    backpressure_status: "not_applicable_plan_only",
+                    materialization_boundary: "no_materialization_boundary",
+                    diagnostic_code: None,
+                    diagnostic_category: None,
+                    diagnostic_feature: "none",
+                    diagnostic_reason: "none",
+                    blocker_id: "gar0013.local_streaming.runtime_claim_gate",
+                    evidence_refs: "streaming-plan.materialization-boundary",
+                    required_future_evidence: "execution_certificate,native_io_certificate,benchmark_row",
+                    claim_gate_status: "not_claim_grade",
+                    claim_boundary: "plan-only local Vortex streaming boundary, not runtime support",
+                    runtime_execution: false,
+                    data_read: false,
+                    object_store_io: false,
+                    write_io: false,
+                    fallback_attempted: false,
+                    external_engine_invoked: false,
+                },
+                StreamingCapabilityMatrixRow {
+                    id: "local_vortex_streaming_batch_count_fixture",
+                    family: "local_streaming",
+                    surface: "vortex-count streaming batch runtime report",
+                    support_status: StreamingRuntimeSupportStatus::FixtureSmoke,
+                    source_kind: "local_vortex_file",
+                    sink_kind: "typed_scalar_result",
+                    zero_decode: ZeroDecodeStatus::Preserved,
+                    zero_copy: ZeroCopyStatus::NotApplicable,
+                    backpressure_status: "bounded_fixture",
+                    materialization_boundary: "no_materialization_boundary",
+                    diagnostic_code: None,
+                    diagnostic_category: None,
+                    diagnostic_feature: "none",
+                    diagnostic_reason: "none",
+                    blocker_id: "gar0013.local_streaming.fixture_only",
+                    evidence_refs: "vortex-count.streaming_batch_runtime_report",
+                    required_future_evidence: "operator_coverage,source_sink_coverage,claim_grade_benchmark",
+                    claim_gate_status: "fixture_smoke_only",
+                    claim_boundary: "scoped local count fixture evidence only, not broad streaming runtime",
+                    runtime_execution: true,
+                    data_read: true,
+                    object_store_io: false,
+                    write_io: false,
+                    fallback_attempted: false,
+                    external_engine_invoked: false,
+                },
+                StreamingCapabilityMatrixRow {
+                    id: "object_store_byte_range_streaming_read",
+                    family: "object_store_streaming_read",
+                    surface: "streaming-batch-plan s3/gcs/adls Vortex source",
+                    support_status: StreamingRuntimeSupportStatus::Blocked,
+                    source_kind: "object_store_byte_range",
+                    sink_kind: "vortex_native",
+                    zero_decode: ZeroDecodeStatus::Preserved,
+                    zero_copy: ZeroCopyStatus::Preserved,
+                    backpressure_status: "blocked_before_runtime",
+                    materialization_boundary: "no_materialization_boundary",
+                    diagnostic_code: Some(DiagnosticCode::ObjectStoreUnsupported),
+                    diagnostic_category: Some(DiagnosticCategory::ObjectStore),
+                    diagnostic_feature: "object_store_streaming_read",
+                    diagnostic_reason: "object-store byte-range streaming reads are blocked until provider and Native I/O evidence exist",
+                    blocker_id: "gar0013.object_store_streaming_read",
+                    evidence_refs: "object-store-request-plan,cg10-object-store-runtime-gate",
+                    required_future_evidence: "object_store_byte_range_provider_gate,range_read_certificate,native_io_certificate",
+                    claim_gate_status: "not_claim_grade",
+                    claim_boundary: "no object-store streaming read runtime claim",
+                    runtime_execution: false,
+                    data_read: false,
+                    object_store_io: false,
+                    write_io: false,
+                    fallback_attempted: false,
+                    external_engine_invoked: false,
+                },
+                StreamingCapabilityMatrixRow {
+                    id: "zero_decode_vortex_boundary",
+                    family: "zero_decode",
+                    surface: "local Vortex encoded source boundary",
+                    support_status: StreamingRuntimeSupportStatus::FixtureSmoke,
+                    source_kind: "vortex_segment",
+                    sink_kind: "vortex_native_or_typed_scalar",
+                    zero_decode: ZeroDecodeStatus::Preserved,
+                    zero_copy: ZeroCopyStatus::NotApplicable,
+                    backpressure_status: "not_applicable",
+                    materialization_boundary: "no_materialization_boundary",
+                    diagnostic_code: None,
+                    diagnostic_category: None,
+                    diagnostic_feature: "none",
+                    diagnostic_reason: "none",
+                    blocker_id: "gar0013.zero_decode.claim_gate",
+                    evidence_refs: "streaming-plan,vortex-count.streaming_batch_runtime_report",
+                    required_future_evidence: "broader_operator_matrix,materialization_decode_certificate",
+                    claim_gate_status: "fixture_smoke_only",
+                    claim_boundary: "zero-decode evidence is scoped to local Vortex fixture lanes",
+                    runtime_execution: true,
+                    data_read: true,
+                    object_store_io: false,
+                    write_io: false,
+                    fallback_attempted: false,
+                    external_engine_invoked: false,
+                },
+                StreamingCapabilityMatrixRow {
+                    id: "zero_copy_native_output_boundary",
+                    family: "zero_copy",
+                    surface: "Vortex-native output planning boundary",
+                    support_status: StreamingRuntimeSupportStatus::ReportOnly,
+                    source_kind: "vortex_segment",
+                    sink_kind: "vortex_native",
+                    zero_decode: ZeroDecodeStatus::Preserved,
+                    zero_copy: ZeroCopyStatus::Preserved,
+                    backpressure_status: "not_applicable_plan_only",
+                    materialization_boundary: "no_materialization_boundary",
+                    diagnostic_code: None,
+                    diagnostic_category: None,
+                    diagnostic_feature: "none",
+                    diagnostic_reason: "none",
+                    blocker_id: "gar0013.zero_copy.native_output_claim_gate",
+                    evidence_refs: "streaming-plan.materialization-boundary",
+                    required_future_evidence: "native_sink_certificate,write_certificate,benchmark_row",
+                    claim_gate_status: "not_claim_grade",
+                    claim_boundary: "native output boundary planning only, not write runtime",
+                    runtime_execution: false,
+                    data_read: false,
+                    object_store_io: false,
+                    write_io: false,
+                    fallback_attempted: false,
+                    external_engine_invoked: false,
+                },
+                StreamingCapabilityMatrixRow {
+                    id: "zero_copy_compatibility_boundary",
+                    family: "zero_copy",
+                    surface: "compatibility output boundary",
+                    support_status: StreamingRuntimeSupportStatus::RequiresMaterialization,
+                    source_kind: "vortex_segment",
+                    sink_kind: "parquet_arrow_iceberg_delta_compatibility",
+                    zero_decode: ZeroDecodeStatus::FullDecodeRequired,
+                    zero_copy: ZeroCopyStatus::RequiresCopy,
+                    backpressure_status: "not_applicable_plan_only",
+                    materialization_boundary: "full_materialization_boundary",
+                    diagnostic_code: Some(DiagnosticCode::MaterializationRequired),
+                    diagnostic_category: Some(DiagnosticCategory::Materialization),
+                    diagnostic_feature: "compatibility_zero_copy_boundary",
+                    diagnostic_reason: "compatibility output boundaries require materialization or copy and cannot be described as zero-copy runtime",
+                    blocker_id: "gar0013.zero_copy.compatibility_materialization",
+                    evidence_refs: "streaming-plan.materialization-boundary",
+                    required_future_evidence: "adapter_fidelity_report,materialization_boundary_certificate",
+                    claim_gate_status: "not_claim_grade",
+                    claim_boundary: "compatibility output is an explicit materialization boundary",
+                    runtime_execution: false,
+                    data_read: false,
+                    object_store_io: false,
+                    write_io: false,
+                    fallback_attempted: false,
+                    external_engine_invoked: false,
+                },
+                StreamingCapabilityMatrixRow {
+                    id: "bounded_backpressure_plan",
+                    family: "backpressure",
+                    surface: "backpressure-plan bounded memory policy",
+                    support_status: StreamingRuntimeSupportStatus::ReportOnly,
+                    source_kind: "not_applicable",
+                    sink_kind: "not_applicable",
+                    zero_decode: ZeroDecodeStatus::NotApplicable,
+                    zero_copy: ZeroCopyStatus::NotApplicable,
+                    backpressure_status: "bounded_plan_only",
+                    materialization_boundary: "not_applicable",
+                    diagnostic_code: None,
+                    diagnostic_category: None,
+                    diagnostic_feature: "none",
+                    diagnostic_reason: "none",
+                    blocker_id: "gar0013.backpressure.runtime_claim_gate",
+                    evidence_refs: "backpressure-plan",
+                    required_future_evidence: "runtime_metrics,execution_certificate,benchmark_evidence",
+                    claim_gate_status: "not_claim_grade",
+                    claim_boundary: "bounded backpressure is planned, not runtime-enforced broadly",
+                    runtime_execution: false,
+                    data_read: false,
+                    object_store_io: false,
+                    write_io: false,
+                    fallback_attempted: false,
+                    external_engine_invoked: false,
+                },
+                StreamingCapabilityMatrixRow {
+                    id: "live_hybrid_broker_streaming_runtime",
+                    family: "live_hybrid_streaming",
+                    surface: "live/hybrid broker-backed streaming runtime",
+                    support_status: StreamingRuntimeSupportStatus::Blocked,
+                    source_kind: "external_broker_stream",
+                    sink_kind: "durable_checkpoint_or_continuous_view",
+                    zero_decode: ZeroDecodeStatus::Unknown,
+                    zero_copy: ZeroCopyStatus::Unknown,
+                    backpressure_status: "blocked_before_runtime",
+                    materialization_boundary: "unknown_until_provider_evidence",
+                    diagnostic_code: Some(DiagnosticCode::NotImplemented),
+                    diagnostic_category: Some(DiagnosticCategory::UnsupportedFeature),
+                    diagnostic_feature: "live_hybrid_broker_streaming_runtime",
+                    diagnostic_reason: "broker-backed live/hybrid streaming is blocked until durable state, checkpoint, freshness, and adapter evidence exist",
+                    blocker_id: "gar0013.live_hybrid_broker_runtime",
+                    evidence_refs: "engine-capability-matrix,live-change-contract-plan",
+                    required_future_evidence: "durable_checkpoint_store,broker_adapter_certificate,freshness_certificate,workload_certification",
+                    claim_gate_status: "not_claim_grade",
+                    claim_boundary: "no broker-backed live/hybrid production streaming claim",
+                    runtime_execution: false,
+                    data_read: false,
+                    object_store_io: false,
+                    write_io: false,
+                    fallback_attempted: false,
+                    external_engine_invoked: false,
+                },
+            ],
+            runtime_execution: false,
+            data_read: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.id).collect()
+    }
+
+    #[must_use]
+    pub fn family_order(&self) -> Vec<&'static str> {
+        let mut families = Vec::new();
+        for row in &self.rows {
+            if !families.contains(&row.family) {
+                families.push(row.family);
+            }
+        }
+        families
+    }
+
+    #[must_use]
+    pub fn diagnostic_code_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter_map(|row| row.diagnostic_code.map(|code| code.as_str()))
+            .collect()
+    }
+
+    #[must_use]
+    pub fn blocked_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.support_status == StreamingRuntimeSupportStatus::Blocked)
+            .count()
+    }
+
+    #[must_use]
+    pub fn report_only_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.support_status == StreamingRuntimeSupportStatus::ReportOnly)
+            .count()
+    }
+
+    #[must_use]
+    pub fn fixture_smoke_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.support_status == StreamingRuntimeSupportStatus::FixtureSmoke)
+            .count()
+    }
+
+    #[must_use]
+    pub fn materialization_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| {
+                row.support_status == StreamingRuntimeSupportStatus::RequiresMaterialization
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn all_rows_have_support_status(&self) -> bool {
+        self.rows
+            .iter()
+            .all(|row| !row.support_status.as_str().is_empty())
+    }
+
+    #[must_use]
+    pub fn all_blocked_rows_have_diagnostics(&self) -> bool {
+        self.rows.iter().all(|row| {
+            !row.support_status.requires_diagnostic()
+                || (row.diagnostic_code.is_some()
+                    && row.diagnostic_category.is_some()
+                    && !row.diagnostic_feature.is_empty()
+                    && !row.diagnostic_reason.is_empty())
+        })
+    }
+
+    #[must_use]
+    pub fn all_rows_no_fallback_no_external_engine(&self) -> bool {
+        self.rows
+            .iter()
+            .all(|row| !row.fallback_attempted && !row.external_engine_invoked)
+    }
+
+    #[must_use]
+    pub fn diagnostics(&self) -> Vec<Diagnostic> {
+        self.rows
+            .iter()
+            .filter_map(StreamingCapabilityMatrixRow::to_diagnostic)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let rows = self
+            .rows
+            .iter()
+            .map(|row| {
+                format!(
+                    "{}: family={} status={} zero_decode={} zero_copy={} blocker={}",
+                    row.id,
+                    row.family,
+                    row.support_status.as_str(),
+                    row.zero_decode.as_str(),
+                    row.zero_copy.as_str(),
+                    row.blocker_id,
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!(
+            "streaming capability matrix: {}\nclaim gate: {}\nrows:\n{}\nfallback attempted: false\nexternal engine invoked: false",
+            self.matrix_status, self.claim_gate_status, rows
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataWorkLevel {
     MetadataOnly,
     Pruned,
@@ -1870,6 +2324,58 @@ mod tests {
     #[test]
     fn streaming_capability_requires_materialization_cannot_stream() {
         assert!(!StreamingCapability::RequiresMaterialization.can_stream());
+    }
+    #[test]
+    fn streaming_capability_matrix_covers_gar0013_families_without_external_engine() {
+        let report = StreamingCapabilityMatrixReport::gar0013_current();
+        assert_eq!(
+            report.schema_version,
+            "shardloom.streaming_capability_matrix.v1"
+        );
+        assert_eq!(report.matrix_status, "report_only");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.rows.len(), 8);
+        assert_eq!(report.blocked_row_count(), 2);
+        assert_eq!(report.materialization_row_count(), 1);
+        assert_eq!(report.fixture_smoke_row_count(), 2);
+        assert!(report.family_order().contains(&"local_streaming"));
+        assert!(
+            report
+                .family_order()
+                .contains(&"object_store_streaming_read")
+        );
+        assert!(report.family_order().contains(&"zero_copy"));
+        assert!(report.family_order().contains(&"zero_decode"));
+        assert!(report.family_order().contains(&"backpressure"));
+        assert!(report.all_rows_have_support_status());
+        assert!(report.all_blocked_rows_have_diagnostics());
+        assert!(report.all_rows_no_fallback_no_external_engine());
+        assert!(!report.runtime_execution);
+        assert!(!report.object_store_io);
+        assert!(!report.external_engine_invoked);
+        assert_eq!(
+            report.diagnostic_code_order(),
+            vec![
+                "SL_OBJECT_STORE_UNSUPPORTED",
+                "SL_MATERIALIZATION_REQUIRED",
+                "SL_NOT_IMPLEMENTED",
+            ]
+        );
+    }
+    #[test]
+    fn streaming_capability_matrix_diagnostics_are_info_level_policy_records() {
+        let diagnostics = StreamingCapabilityMatrixReport::gar0013_current().diagnostics();
+        assert_eq!(diagnostics.len(), 3);
+        assert!(diagnostics.iter().all(|diagnostic| {
+            diagnostic.severity == DiagnosticSeverity::Info
+                && !diagnostic.fallback.attempted
+                && !diagnostic.fallback.allowed
+        }));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == DiagnosticCode::ObjectStoreUnsupported)
+        );
     }
     #[test]
     fn data_work_rank_order() {

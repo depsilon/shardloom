@@ -789,9 +789,10 @@ pub use streaming::{
     BackpressurePolicy, BoundaryInteropKind, BoundedMemoryPolicy, DataWorkLevel,
     EncodedBatchRepresentation, EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport,
     EncodedStreamingBatchPlanStatus, MaterializationBoundary, SinkRequirement, StreamingCapability,
-    StreamingMode, StreamingOperator, StreamingOperatorKind, StreamingPlanSkeleton,
-    StreamingPlanStatus, StreamingSink, StreamingSinkKind, StreamingSource, StreamingSourceKind,
-    StreamingStage, ZeroCopyStatus, ZeroDecodeStatus, plan_backpressure,
+    StreamingCapabilityMatrixReport, StreamingCapabilityMatrixRow, StreamingMode,
+    StreamingOperator, StreamingOperatorKind, StreamingPlanSkeleton, StreamingPlanStatus,
+    StreamingRuntimeSupportStatus, StreamingSink, StreamingSinkKind, StreamingSource,
+    StreamingSourceKind, StreamingStage, ZeroCopyStatus, ZeroDecodeStatus, plan_backpressure,
     plan_encoded_streaming_batches,
 };
 
