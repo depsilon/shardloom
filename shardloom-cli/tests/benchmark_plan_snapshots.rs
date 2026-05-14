@@ -106,6 +106,27 @@ fn benchmark_plan_json_preserves_no_claim_no_fallback_boundaries() {
     assert!(output.contains(&field("claim_gate_reproducibility_evidence", "missing")));
     assert!(output.contains(&field("claim_gate_fallback", "not_attempted")));
     assert!(output.contains(&field("baselines_fallback_free", "true")));
+    assert!(output.contains(&field(
+        "vortex_layout_device_managed_boundary_ref",
+        "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1"
+    )));
+    assert!(output.contains(&field(
+        "vortex_layout_device_managed_boundary_row_order",
+        "layout_write_boundary,device_execution_boundary,object_store_io_boundary,managed_platform_comparison_boundary"
+    )));
+    assert!(output.contains(&field(
+        "vortex_layout_device_managed_boundary_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "vortex_managed_platform_rows_comparison_only",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "vortex_device_object_store_claims_blocked_without_evidence",
+        "true"
+    )));
+    assert!(output.contains(&field("vortex_boundary_fallback_attempted", "false")));
 }
 
 #[test]

@@ -346,6 +346,11 @@ and keeps generalized Source/Split runtime, field-mask proof, predicate-ordering
 proof, object-store, table/catalog, and write paths blocked until evidence
 exists.
 
+Coverage rows also carry `vortex_layout_device_managed_boundary_ref`, pointing
+to the GAR-0042B boundary matrix. Layout/write, device/GPU, object-store, and
+managed-platform comparison rows stay `not_claim_grade`; managed platforms are
+comparison-only and cannot satisfy ShardLoom-native claims.
+
 The canonical flow reference for these modes is
 `docs/architecture/compute-engine-flow-reference.md`. The companion timing-attribution reference is
 `docs/architecture/performance-attribution-and-execution-structure.md`.

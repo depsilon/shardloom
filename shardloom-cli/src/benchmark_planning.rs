@@ -13,6 +13,10 @@ use shardloom_core::{
 
 use crate::cli_output::{emit, emit_error};
 
+const VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF: &str =
+    "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1";
+const VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_ROW_ORDER: &str = "layout_write_boundary,device_execution_boundary,object_store_io_boundary,managed_platform_comparison_boundary";
+
 pub(crate) fn handle_benchmark_plan(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
@@ -374,6 +378,7 @@ pub(crate) fn benchmark_claim_evidence_fields(
         "best_default_claim_allowed",
         report.best_default_claim_allowed,
     );
+    append_vortex_boundary_claim_fields(&mut fields);
     push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
@@ -563,6 +568,38 @@ fn append_benchmark_plan_claim_fields(fields: &mut Vec<(String, String)>, plan: 
         "baselines_fallback_free",
         plan.baselines_are_fallback_free(),
     );
+    append_vortex_boundary_claim_fields(fields);
+}
+
+fn append_vortex_boundary_claim_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "vortex_layout_device_managed_boundary_ref",
+        VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF,
+    );
+    push_field(
+        fields,
+        "vortex_layout_device_managed_boundary_row_order",
+        VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_ROW_ORDER,
+    );
+    push_field(
+        fields,
+        "vortex_layout_device_managed_boundary_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_bool_field(fields, "vortex_managed_platform_rows_comparison_only", true);
+    push_bool_field(
+        fields,
+        "vortex_device_object_store_claims_blocked_without_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "vortex_layout_write_claim_blocked_without_evidence",
+        true,
+    );
+    push_bool_field(fields, "vortex_boundary_external_engine_invoked", false);
+    push_bool_field(fields, "vortex_boundary_fallback_attempted", false);
 }
 
 pub(crate) fn benchmark_plan_for_scope(

@@ -129,8 +129,10 @@ pub use generalized_projection_execution::{
     execute_vortex_generalized_projection_from_local_scan_pushdown,
 };
 pub use runtime_utilization::{
-    VortexArrayExecutionCertificate, VortexCapabilityUse, VortexCapabilityUtilizationReport,
-    VortexCapabilityUtilizationRow, VortexFieldMaskEvidence, VortexLayoutAdvisorReport,
+    VortexArrayExecutionCertificate, VortexBoundarySupportStatus, VortexCapabilityUse,
+    VortexCapabilityUtilizationReport, VortexCapabilityUtilizationRow, VortexFieldMaskEvidence,
+    VortexLayoutAdvisorReport, VortexLayoutDeviceManagedBoundaryMatrix,
+    VortexLayoutDeviceManagedBoundaryRow, VortexLayoutDeviceManagedBoundarySurface,
     VortexPredicateOrderingEvidence, VortexRuntimeCapabilityArea,
     VortexRuntimeUtilizationAuditReport, VortexScanExecutionSpineReport,
     plan_vortex_runtime_utilization_audit,

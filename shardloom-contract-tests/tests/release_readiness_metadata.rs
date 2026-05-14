@@ -561,6 +561,7 @@ fn release_security_gate_docs_and_known_unsupported_paths_are_present() {
         "object-store runtime",
         "Foundry proof-of-use",
         "direct transient compatibility execution as a Vortex-native claim",
+        "vortex_layout_device_managed_boundary_ref",
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ] {
@@ -733,7 +734,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(plan.contains("GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 58);
+    assert!(plan.matches("- [ ] GAR-").count() >= 57);
     assert!(!plan.contains(
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));

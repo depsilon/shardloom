@@ -815,6 +815,11 @@ scoped `local_vortex_file_scan_into_array_iter` fixture path. It records provide
 surface, Source/Split refs, field-mask and predicate-ordering blockers, execution and Native I/O
 refs, and no-fallback policy. It is not a generalized Source/Split runtime claim.
 
+GAR-0042B adds `vortex_layout_device_managed_boundary_ref`. That ref points to a
+runtime-utilization boundary matrix for layout/write, device execution, object-store I/O, and
+managed-platform comparison lanes. Those lanes stay `not_claim_grade`; managed platforms remain
+comparison-only and cannot satisfy ShardLoom-native execution claims.
+
 ## Materialization And Decode Flow
 
 ```text

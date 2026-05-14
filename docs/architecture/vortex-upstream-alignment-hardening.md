@@ -182,6 +182,26 @@ The current admitted evidence is fixture-scoped only. It does not authorize gene
 Source/Split runtime, object-store scan, table/catalog scan, writes, device/GPU execution,
 managed-platform lanes, external engines, or fallback execution.
 
+## VortexLayoutDeviceManagedBoundaryMatrix
+
+GAR-0042B adds a report-only boundary matrix for layout/write, device execution, object-store I/O,
+and managed-platform comparison lanes. Every row must preserve:
+
+- `claim_gate_status=not_claim_grade`
+- explicit evidence requirements
+- unsupported diagnostic code
+- blocker id
+- `runtime_execution=false`
+- `write_io=false`
+- `object_store_io=false`
+- `device_execution=false`
+- `managed_platform_execution=false`
+- `external_engine_invoked=false`
+- `fallback_attempted=false`
+
+Managed-platform rows are comparison-only. They do not authorize credentials, dependencies, platform
+execution, external engines, or ShardLoom-native claims.
+
 ## CompositePushdownCapabilityMatrix
 
 Track combinations separately from primitive support.
