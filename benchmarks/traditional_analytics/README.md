@@ -352,6 +352,12 @@ the GAR-0003-A sparse segment extraction admission report in
 until correctness, execution-certificate, Native I/O, materialization/decode,
 and no-fallback evidence exists.
 
+Coverage rows also carry `materialization_policy_ref`, pointing to the
+GAR-0003-B shared materialization/decode policy in `compute-capability-matrix`.
+That policy distinguishes encoded-native, residual-native, materialized
+temporary, and unsupported paths; materialized temporary rows cannot satisfy
+encoded-native claims.
+
 Coverage rows also carry `vortex_layout_device_managed_boundary_ref`, pointing
 to the GAR-0042B boundary matrix. Layout/write, device/GPU, object-store, and
 managed-platform comparison rows stay `not_claim_grade`; managed platforms are

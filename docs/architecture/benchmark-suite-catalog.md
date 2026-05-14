@@ -245,6 +245,12 @@ to the `vortex-api-inventory` sparse segment extraction admission report for
 coverage, production segment extraction, and performance claims remain blocked until correctness,
 execution-certificate, Native I/O, materialization/decode, and no-fallback evidence exists.
 
+GAR-0003-B adds `materialization_policy_ref` to ShardLoom coverage rows. The ref points to the
+shared `compute-capability-matrix` materialization/decode policy for `encoded_native`,
+`residual_native`, `materialized_temporary`, and `unsupported` operator paths. This keeps
+materialized temporary execution visibly separate from encoded-native evidence and blocks
+encoded-native claims unless the row stayed encoded with the required certificates.
+
 GAR-0042B adds `vortex_layout_device_managed_boundary_ref` to ShardLoom coverage rows and
 benchmark claim-gate metadata. The ref points to the runtime-utilization boundary matrix for
 layout/write, device execution, object-store I/O, and managed-platform comparison rows. All rows are
@@ -443,6 +449,7 @@ iterations
 warmup_policy
 correctness_oracle
 materialization_policy
+materialization_policy_ref
 resource_policy
 claim_level
 ```

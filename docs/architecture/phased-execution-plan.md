@@ -262,21 +262,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-0003-B materialization policy generalization
-  - Source: RFC 0003; compute-flow reference; performance attribution docs.
-  - Current state: materialization/decode fields exist, but policy is not generalized across all
-    operator paths.
-  - Next slice outcome: shared materialization policy report for encoded-native, residual-native,
-    temporary materialized, and unsupported paths.
-  - User-visible surface: CLI/Python typed envelope, benchmark rows.
-  - Implementation scope: core policy types, CLI renderer, Python typed accessors.
-  - Evidence required: materialization/decode refs and policy/no-fallback refs.
-  - Acceptance: each supported or blocked operator reports whether data decoded, materialized, or
-    stayed encoded.
-  - Verification: typed envelope snapshot tests and benchmark contract tests.
-  - Non-goals: no new operator implementation.
-  - Fallback/claim boundary: materialized temporary paths cannot satisfy encoded-native claims.
-  - Dependencies/blockers: GAR-FLOW-2B operator blocker matrix.
 - [ ] GAR-0006-A predicate, dtype, nested, and null coverage matrix
   - Source: RFC 0006; benchmark-suite catalog; correctness fixture manifest.
   - Current state: selected metadata-only and pruning paths exist; broad predicate/DType/nested/null

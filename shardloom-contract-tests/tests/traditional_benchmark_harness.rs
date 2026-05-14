@@ -89,6 +89,8 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("VORTEX_SEGMENT_EXTRACTION_ADMISSION_REF"));
     assert!(script.contains("\"vortex_layout_device_managed_boundary_ref\""));
     assert!(script.contains("VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF"));
+    assert!(script.contains("\"materialization_policy_ref\""));
+    assert!(script.contains("MATERIALIZATION_POLICY_REF"));
     assert!(script.contains("\"execution_certificate_status\""));
     assert!(script.contains("\"source_native_io_certificate_status\""));
     assert!(script.contains("\"result_native_io_certificate_status\""));
@@ -257,6 +259,7 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"vortex_source_split_admission_ref\"",
         "\"vortex_segment_extraction_admission_ref\"",
         "\"vortex_layout_device_managed_boundary_ref\"",
+        "\"materialization_policy_ref\"",
         "\"execution_certificate_status\"",
         "\"result_native_io_certificate_status\"",
         "\"materialization_decode_evidence_present\"",
@@ -604,9 +607,10 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
             .contains("GAR-0001A-B distributed/object-store/lakehouse architecture gate")
     );
     assert!(completed_ledger.contains("GAR-0003-A Vortex segment extraction admission slice"));
+    assert!(completed_ledger.contains("GAR-0003-B materialization policy generalization"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 54);
+    assert!(plan.matches("- [ ] GAR-").count() >= 53);
     for required_field in [
         "Current state:",
         "Next slice outcome:",

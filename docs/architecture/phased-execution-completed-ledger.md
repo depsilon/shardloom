@@ -16,6 +16,77 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0003-B materialization policy generalization
+  - Primary files:
+    - `benchmarks/traditional_analytics/README.md`
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/compute_capability_matrix_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-core/src/materialization_policy.rs`
+  - Scope: add a shared report-only materialization/decode policy for `encoded_native`,
+    `residual_native`, `materialized_temporary`, and `unsupported` operator paths.
+  - Checklist:
+    - [x] Add core `MaterializationPolicyReport` and `MaterializationPolicyRow` types with stable
+          schema `shardloom.materialization_policy.v1`.
+    - [x] Classify each policy row with `data_decoded`, `data_materialized`, `stayed_encoded`,
+          materialization-boundary requirements, policy refs, claim gate, and no-fallback flags.
+    - [x] Preserve that materialized temporary paths cannot satisfy encoded-native claims.
+    - [x] Expose the policy through `compute-capability-matrix --format json`.
+    - [x] Add Python typed accessors for the materialization policy rows.
+    - [x] Add `materialization_policy_ref` to ShardLoom benchmark coverage rows and Markdown/report
+          docs.
+    - [x] Update GAR/RFC/compute-flow/performance docs and remove GAR-0003-B from Planned.
+  - Boundary:
+    - This is a policy/reporting slice. It does not add a new operator runtime, SQL/DataFrame
+      execution, encoded-native promotion, object-store I/O, write I/O, external-engine execution,
+      fallback execution, or performance claim.
+  - Vortex-first provider check:
+    - Subject area: RFC 0003 materialization/decode boundaries and compute-flow benchmark
+      interpretation.
+    - Upstream Vortex concept checked: encoded/native Vortex representation, decoded/canonical
+      boundary risk, and existing prepared/native benchmark operator classifications.
+    - Decision: `wrap_vortex_concept`.
+    - Vortex API/provider surface: no new Vortex API is invoked; existing compute capability and
+      benchmark rows are normalized through a shared policy report.
+    - ShardLoom provider/report/certificate surface:
+      `shardloom.materialization_policy.v1`, `materialization_policy_ref`, compute capability
+      fields, Python typed accessors, and benchmark coverage rows.
+    - Residual handling: residual-native rows are ShardLoom-native policy rows only and cannot be
+      reported as encoded-native evidence.
+    - Materialization/decode boundary: each row explicitly records whether data decoded,
+      materialized, or stayed encoded; unsupported paths do not decode/materialize/execute.
+    - Evidence added: core report contract, CLI fields, Python accessors, benchmark coverage ref,
+      tests, and architecture traceability docs.
+    - Gates still blocked: broad production Vortex segment extraction, broader operator coverage,
+      encoded-native promotion for materialized temporary paths, performance claims, external engine
+      invocation, and fallback execution.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core materialization_policy --lib`
+    - `cargo test -p shardloom-cli --test compute_capability_matrix_snapshots`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo run -q -p shardloom-cli -- compute-capability-matrix --format json`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m unittest discover -s python/tests`
+    - `git diff --check`
 - [x] Session label: GAR-0003-A Vortex segment extraction admission slice
   - Primary files:
     - `benchmarks/traditional_analytics/README.md`
