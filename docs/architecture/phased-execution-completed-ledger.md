@@ -16,6 +16,80 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0026-U selective-filter encoding-specific kernel-input lowering
+  - Primary files:
+    - `shardloom-core/src/encoded.rs`
+    - `shardloom-vortex/Cargo.toml`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/generalized_encoded_projection_execution.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add scoped ShardLoom-owned lowering for observed prepared/native `selective filter`
+    filter-column chunks. `flag:fastlanes.bitpacked` and `value:vortex.sequence` reader chunks now
+    produce admitted encoded kernel inputs, and the reader-generated conjunctive bridge can
+    intersect their selection vectors.
+  - Checklist:
+    - [x] Add `EncodedValueBatch` support for bit-packed unsigned values and arithmetic sequences.
+    - [x] Add encoded predicate selection-vector evaluation for those scoped batches.
+    - [x] Use upstream Vortex provider APIs for `fastlanes.bitpacked` and `vortex.sequence` arrays
+          inside the feature-gated local primitive boundary.
+    - [x] Preserve deterministic unsupported behavior for nullable, patched, unsupported, or changed
+          encodings.
+    - [x] Update prepared/native `selective filter` evidence fields from blocked lowering to
+          admitted filter-column kernel inputs.
+    - [x] Replace the completed GAR-0026-U planned item with GAR-0026-V, the next selected metric
+          aggregation slice.
+  - Boundary:
+    - This is scoped encoding-specific kernel-input lowering and selection-vector intersection for
+      the local prepared/native `selective filter` benchmark row. It does not make the row
+      encoded-native, does not add a broad aggregation kernel, does not add SQL/DataFrame or
+      object-store runtime, does not use a Vortex query-engine integration, and does not make
+      performance/superiority claims.
+  - Evidence:
+    - Benchmark/report evidence: focused smoke rows can now report
+      `encoded_predicate_provider_status=reader_generated_filter_column_batches_admitted`,
+      `encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary=flag:fastlanes.bitpacked,value:vortex.sequence`,
+      `encoded_predicate_provider_kernel_input_count=2`,
+      `encoded_predicate_provider_conjunctive_bridge_status=intersected_selection_vectors`,
+      `encoded_predicate_provider_conjunctive_bridge_selected_row_count=31`,
+      `encoded_predicate_provider_selection_vector_intersection_status=selection_vectors_intersected`,
+      and
+      `encoded_predicate_provider_kernel_input_lowering_status=reader_generated_encoded_kernel_inputs_admitted`.
+    - Policy evidence: provider fields preserve
+      `encoded_predicate_provider_operator_execution_class=residual_native`,
+      `encoded_predicate_provider_encoded_native_claim_allowed=false`,
+      `encoded_predicate_provider_fallback_attempted=false`, and
+      `encoded_predicate_provider_external_engine_invoked=false`.
+  - Vortex-first provider check:
+    - Subject area: selective-filter filter-column kernel-input lowering.
+    - Upstream Vortex concepts checked: `fastlanes.bitpacked`, `vortex.sequence`,
+      `VortexFile::scan.with_projection`, and reader chunk encoding IDs.
+    - Decision: use upstream Vortex scan and array APIs as native providers, then lower only scoped
+      admitted encodings into ShardLoom kernel-input evidence.
+    - Residual handling: selected metric aggregation remains residual-native and not claim-grade.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo test --workspace --all-targets`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo test -p shardloom-core encoded_value_ --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo test -p shardloom-vortex --features vortex-local-primitives reader_chunk --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo test -p shardloom-vortex --features vortex-local-primitives reader_generated_conjunctive_filter_intersects_bitpacked_and_sequence_inputs --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026u-test'; python benchmarks\traditional_analytics\run.py --engines shardloom-vortex --formats csv --scenario "selective filter" --rows 512 --iterations 1 --output target\codex-gar0026u-selective-filter-smoke.json`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+
 - [x] Session label: GAR-0026-T selective-filter filter-column batch probe
   - Primary files:
     - `shardloom-vortex/src/local_primitives.rs`

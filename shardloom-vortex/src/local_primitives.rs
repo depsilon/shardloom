@@ -1371,6 +1371,20 @@ fn encoded_kernel_input_from_vortex_array(
     {
         return Ok(Some(input));
     }
+    if let Some(input) =
+        bitpacked_kernel_input_from_vortex_array(source_uri, split_ref, column_name, array)?
+    {
+        return Ok(Some(input));
+    }
+    if let Some(input) = sequence_kernel_input_from_vortex_array(
+        source_uri,
+        split_ref,
+        column_name,
+        row_count,
+        array,
+    )? {
+        return Ok(Some(input));
+    }
     run_end_kernel_input_from_vortex_array(source_uri, split_ref, column_name, row_count, array)
 }
 
@@ -1464,6 +1478,156 @@ fn dictionary_kernel_input_from_vortex_array(
         EncodedValueBatch::Dictionary {
             dictionary: dictionary.into_iter().map(Some).collect(),
             codes: codes.into_iter().map(Some).collect(),
+        },
+    );
+    VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn bitpacked_kernel_input_from_vortex_array(
+    source_uri: &DatasetUri,
+    split_ref: &str,
+    column_name: &str,
+    array: &vortex::array::ArrayRef,
+) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
+    use vortex::array::dtype::PType;
+    use vortex::array::validity::Validity;
+    use vortex::encodings::fastlanes::BitPackedArrayExt as _;
+
+    let Some(bitpacked_array) = array.as_opt::<vortex::encodings::fastlanes::BitPacked>() else {
+        return Ok(None);
+    };
+    if !bitpacked_array.packed().is_on_host() {
+        return Ok(None);
+    }
+    match bitpacked_array.validity().map_err(vortex_error)? {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return Ok(None),
+    }
+    if bitpacked_array.patches().is_some() {
+        return Ok(None);
+    }
+
+    let values = match array.dtype() {
+        vortex::array::dtype::DType::Primitive(PType::U8, _) => {
+            collect_bitpacked_unsigned_values::<u8>(&bitpacked_array)?
+        }
+        vortex::array::dtype::DType::Primitive(PType::U16, _) => {
+            collect_bitpacked_unsigned_values::<u16>(&bitpacked_array)?
+        }
+        vortex::array::dtype::DType::Primitive(PType::U32, _) => {
+            collect_bitpacked_unsigned_values::<u32>(&bitpacked_array)?
+        }
+        vortex::array::dtype::DType::Primitive(PType::U64, _) => {
+            collect_bitpacked_unsigned_values::<u64>(&bitpacked_array)?
+        }
+        _ => return Ok(None),
+    };
+    let row_count = u64::try_from(values.len()).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex bit-packed value count overflowed u64: {error}"
+        ))
+    })?;
+    if values.len() != array.len() {
+        return Ok(None);
+    }
+
+    let mut stats = SegmentStats::with_row_count(row_count);
+    stats.null_count = Some(0);
+    stats.min_value = values.iter().min().copied().map(StatValue::UInt64);
+    stats.max_value = values.iter().max().copied().map(StatValue::UInt64);
+    stats.is_constant = Some(stats.min_value == stats.max_value);
+    let segment = EncodedSegment::new(
+        SegmentId::new(format!("{split_ref}.{column_name}.bit_packed"))?,
+        ColumnRef::new(column_name)?,
+        LogicalDType::UInt64,
+        ShardLoomNullability::NonNullable,
+        SegmentLayout::new(EncodingKind::BitPacked, LayoutKind::Flat),
+        stats,
+    );
+    let batch = VortexEncodedValuePredicateBatch::new(
+        segment,
+        EncodedValueBatch::BitPackedUnsigned {
+            bit_width: bitpacked_array.bit_width(),
+            values,
+        },
+    );
+    VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn collect_bitpacked_unsigned_values<T>(
+    bitpacked_array: &vortex::array::ArrayView<'_, vortex::encodings::fastlanes::BitPacked>,
+) -> Result<Vec<u64>>
+where
+    T: vortex::encodings::fastlanes::unpack_iter::BitPacked + Copy + Into<u64>,
+{
+    use lending_iterator::prelude::LendingIterator as _;
+    use vortex::encodings::fastlanes::BitPackedArrayExt as _;
+
+    let mut chunks = bitpacked_array
+        .unpacked_chunks::<T>()
+        .map_err(vortex_error)?;
+    let mut values = Vec::with_capacity(bitpacked_array.as_ref().len());
+    if let Some(initial) = chunks.initial() {
+        values.extend(initial.iter().copied().map(Into::into));
+    }
+    {
+        let mut full_chunks = chunks.full_chunks();
+        while let Some(chunk) = full_chunks.next() {
+            values.extend(chunk.iter().copied().map(Into::into));
+        }
+    }
+    if let Some(trailer) = chunks.trailer() {
+        values.extend(trailer.iter().copied().map(Into::into));
+    }
+    Ok(values)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn sequence_kernel_input_from_vortex_array(
+    source_uri: &DatasetUri,
+    split_ref: &str,
+    column_name: &str,
+    row_count: u64,
+    array: &vortex::array::ArrayRef,
+) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
+    let Some(sequence_array) = array.as_opt::<vortex::encodings::sequence::Sequence>() else {
+        return Ok(None);
+    };
+    let Some(dtype) = shardloom_logical_dtype_from_vortex_dtype(array.dtype()) else {
+        return Ok(None);
+    };
+    let Some(base) = vortex_pvalue_to_stat_value(sequence_array.base()) else {
+        return Ok(None);
+    };
+    let Some(multiplier) = vortex_pvalue_to_stat_value(sequence_array.multiplier()) else {
+        return Ok(None);
+    };
+    if base.dtype() != multiplier.dtype() {
+        return Ok(None);
+    }
+
+    let mut stats = SegmentStats::with_row_count(row_count);
+    stats.null_count = Some(0);
+    stats.is_constant = Some(matches!(
+        &multiplier,
+        StatValue::UInt64(0) | StatValue::Int64(0)
+    ));
+    let segment = EncodedSegment::new(
+        SegmentId::new(format!("{split_ref}.{column_name}.sequence"))?,
+        ColumnRef::new(column_name)?,
+        dtype,
+        ShardLoomNullability::NonNullable,
+        SegmentLayout::new(EncodingKind::Sequence, LayoutKind::Flat),
+        stats,
+    );
+    let batch = VortexEncodedValuePredicateBatch::new(
+        segment,
+        EncodedValueBatch::ArithmeticSequence {
+            base,
+            multiplier,
+            row_count,
         },
     );
     VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)
@@ -1729,28 +1893,35 @@ fn shardloom_logical_dtype_from_vortex_dtype(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn vortex_scalar_to_stat_value(scalar: &vortex::array::scalar::Scalar) -> Option<StatValue> {
-    use vortex::array::scalar::{PValue, ScalarValue};
+    use vortex::array::scalar::ScalarValue;
 
     match scalar.value()? {
         ScalarValue::Bool(value) => Some(StatValue::Boolean(*value)),
-        ScalarValue::Primitive(value) => match value {
-            PValue::U8(value) => Some(StatValue::UInt64(u64::from(*value))),
-            PValue::U16(value) => Some(StatValue::UInt64(u64::from(*value))),
-            PValue::U32(value) => Some(StatValue::UInt64(u64::from(*value))),
-            PValue::U64(value) => Some(StatValue::UInt64(*value)),
-            PValue::I8(value) => Some(StatValue::Int64(i64::from(*value))),
-            PValue::I16(value) => Some(StatValue::Int64(i64::from(*value))),
-            PValue::I32(value) => Some(StatValue::Int64(i64::from(*value))),
-            PValue::I64(value) => Some(StatValue::Int64(*value)),
-            PValue::F16(_) => None,
-            PValue::F32(value) => Some(StatValue::Float64(f64::from(*value))),
-            PValue::F64(value) => Some(StatValue::Float64(*value)),
-        },
+        ScalarValue::Primitive(value) => vortex_pvalue_to_stat_value(*value),
         ScalarValue::Utf8(value) => Some(StatValue::Utf8(value.as_str().to_string())),
         ScalarValue::Decimal(_)
         | ScalarValue::Binary(_)
         | ScalarValue::Tuple(_)
         | ScalarValue::Variant(_) => None,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn vortex_pvalue_to_stat_value(value: vortex::array::scalar::PValue) -> Option<StatValue> {
+    use vortex::array::scalar::PValue;
+
+    match value {
+        PValue::U8(value) => Some(StatValue::UInt64(u64::from(value))),
+        PValue::U16(value) => Some(StatValue::UInt64(u64::from(value))),
+        PValue::U32(value) => Some(StatValue::UInt64(u64::from(value))),
+        PValue::U64(value) => Some(StatValue::UInt64(value)),
+        PValue::I8(value) => Some(StatValue::Int64(i64::from(value))),
+        PValue::I16(value) => Some(StatValue::Int64(i64::from(value))),
+        PValue::I32(value) => Some(StatValue::Int64(i64::from(value))),
+        PValue::I64(value) => Some(StatValue::Int64(value)),
+        PValue::F16(_) => None,
+        PValue::F32(value) => Some(StatValue::Float64(f64::from(value))),
+        PValue::F64(value) => Some(StatValue::Float64(value)),
     }
 }
 
@@ -2549,6 +2720,186 @@ mod tests {
             }
             other => panic!("expected run-length batch, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn reader_chunk_bitpacked_values_lower_into_encoded_kernel_inputs() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::VortexSessionExecute as _;
+        use vortex::array::arrays::PrimitiveArray;
+        use vortex::encodings::fastlanes::BitPackedData;
+
+        let values = [0_u8, 1, 0, 1, 1]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let chunk = BitPackedData::encode(&values, 1, &mut ctx)
+            .expect("bit-packed array")
+            .as_array()
+            .clone();
+        let source_uri = DatasetUri::new("file:///tmp/bitpacked-values.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-bitpacked",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert_eq!(inputs.len(), 1);
+        let input = inputs.first().expect("input");
+        assert!(input.provider_boundary.is_policy_admitted());
+        assert!(input.mapping_evidence_complete());
+        assert!(!input.has_forbidden_effects());
+        assert_eq!(input.batch.segment.layout.encoding, EncodingKind::BitPacked);
+        assert_eq!(input.batch.segment.dtype, LogicalDType::UInt64);
+        assert_eq!(input.batch.segment.stats.row_count, Some(5));
+        assert_eq!(input.batch.segment.stats.null_count, Some(0));
+        match &input.batch.values {
+            EncodedValueBatch::BitPackedUnsigned { bit_width, values } => {
+                assert_eq!(*bit_width, 1);
+                assert_eq!(values, &vec![0, 1, 0, 1, 1]);
+            }
+            other => panic!("expected bit-packed batch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reader_chunk_sequence_values_lower_into_encoded_kernel_inputs() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::dtype::{Nullability as VortexNullability, PType};
+        use vortex::array::scalar::PValue;
+        use vortex::encodings::sequence::Sequence;
+
+        let chunk = Sequence::try_new(
+            PValue::U32(10),
+            PValue::U32(3),
+            PType::U32,
+            VortexNullability::NonNullable,
+            4,
+        )
+        .expect("sequence array")
+        .into_array();
+        let source_uri = DatasetUri::new("file:///tmp/sequence-values.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-sequence",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert_eq!(inputs.len(), 1);
+        let input = inputs.first().expect("input");
+        assert!(input.provider_boundary.is_policy_admitted());
+        assert!(input.mapping_evidence_complete());
+        assert!(!input.has_forbidden_effects());
+        assert_eq!(input.batch.segment.layout.encoding, EncodingKind::Sequence);
+        assert_eq!(input.batch.segment.dtype, LogicalDType::UInt64);
+        assert_eq!(input.batch.segment.stats.row_count, Some(4));
+        assert_eq!(input.batch.segment.stats.null_count, Some(0));
+        match &input.batch.values {
+            EncodedValueBatch::ArithmeticSequence {
+                base,
+                multiplier,
+                row_count,
+            } => {
+                assert_eq!(base, &StatValue::UInt64(10));
+                assert_eq!(multiplier, &StatValue::UInt64(3));
+                assert_eq!(*row_count, 4);
+            }
+            other => panic!("expected sequence batch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reader_generated_conjunctive_filter_intersects_bitpacked_and_sequence_inputs() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::VortexSessionExecute as _;
+        use vortex::array::arrays::{PrimitiveArray, StructArray};
+        use vortex::array::dtype::{FieldNames, Nullability as VortexNullability, PType};
+        use vortex::array::scalar::PValue;
+        use vortex::array::validity::Validity;
+        use vortex::encodings::fastlanes::BitPackedData;
+        use vortex::encodings::sequence::Sequence;
+
+        let flag_values = [0_u8, 1, 0, 1, 1]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let flag = BitPackedData::encode(&flag_values, 1, &mut ctx)
+            .expect("bit-packed flag")
+            .as_array()
+            .clone();
+        let value = Sequence::try_new(
+            PValue::U32(4_990),
+            PValue::U32(5),
+            PType::U32,
+            VortexNullability::NonNullable,
+            5,
+        )
+        .expect("sequence value")
+        .into_array();
+        let chunk = StructArray::try_new(
+            FieldNames::from(["flag", "value"]),
+            vec![flag, value],
+            5,
+            Validity::NonNullable,
+        )
+        .expect("struct chunk")
+        .into_array();
+        let source_uri = DatasetUri::new("file:///tmp/filter-columns.vortex").expect("uri");
+        let source = UniversalInputSource::from_dataset_uri(source_uri.clone()).expect("source");
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            0,
+            chunk.len(),
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )
+        .expect("split");
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            &split.split_ref,
+            &chunk,
+        )
+        .expect("kernel inputs");
+        let predicates = vec![
+            PredicateExpr::Compare {
+                column: ColumnRef::new("flag").expect("flag column"),
+                op: ComparisonOp::Eq,
+                value: StatValue::UInt64(1),
+            },
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("value column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::UInt64(5_000),
+            },
+        ];
+
+        let bridge =
+            crate::execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(
+                &predicates,
+                &source,
+                &[split],
+                &inputs,
+            )
+            .expect("bridge");
+
+        assert_eq!(inputs.len(), 2);
+        assert_eq!(bridge.status.as_str(), "intersected_selection_vectors");
+        assert_eq!(bridge.intersection_count, 1);
+        assert_eq!(bridge.selected_row_count, Some(2));
+        assert!(bridge.filter_column_batches_consumed);
+        assert!(bridge.selection_vector_intersection_certified);
+        assert!(!bridge.data_decoded);
+        assert!(!bridge.data_materialized);
+        assert!(!bridge.fallback_attempted);
+        assert!(!bridge.external_engine_invoked);
     }
 
     #[test]

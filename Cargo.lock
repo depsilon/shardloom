@@ -2340,6 +2340,7 @@ dependencies = [
  "arrow-avro",
  "arrow-ipc",
  "arrow-schema",
+ "lending-iterator",
  "orc-rust",
  "parquet",
  "shardloom-core",

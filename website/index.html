@@ -7,6 +7,13 @@
   <meta name="description" content="ShardLoom is a pre-release Vortex-native, no-fallback compute engine foundation with evidence-certified local execution slices.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://shardloom.io/">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <meta property="og:title" content="ShardLoom">
+  <meta property="og:description" content="Pre-release Vortex-native, no-fallback compute engine foundation.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/">
   <style>
     :root {
       color-scheme: dark;
@@ -71,31 +78,13 @@
       letter-spacing: 0;
     }
 
-    .mark {
+    .brand-icon {
       width: 34px;
       height: 34px;
-      border: 1px solid rgba(116, 224, 180, 0.55);
       border-radius: 8px;
-      background:
-        linear-gradient(135deg, rgba(116, 224, 180, 0.28), rgba(143, 183, 255, 0.1)),
-        #0d1b17;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 3px;
-      padding: 6px;
+      object-fit: cover;
+      background: #ffffff;
       box-shadow: 0 0 0 4px rgba(116, 224, 180, 0.06);
-    }
-
-    .mark span {
-      background: var(--accent);
-      border-radius: 2px;
-      opacity: 0.35;
-    }
-
-    .mark span:nth-child(2),
-    .mark span:nth-child(4),
-    .mark span:nth-child(8) {
-      opacity: 0.9;
     }
 
     .nav-links {
@@ -329,7 +318,7 @@
   <header>
     <div class="shell nav">
       <a class="brand" href="/" aria-label="ShardLoom home">
-        <span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span>
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="34" height="34" aria-hidden="true">
         <span>ShardLoom</span>
       </a>
       <nav class="nav-links" aria-label="Primary">

@@ -201,19 +201,20 @@ classes are `encoded_native`, `residual_native`, `materialized_temporary`, and
 claim.
 The `selective filter` prepared/native row also carries
 `encoded_predicate_provider_*` fields. The current status is
-`blocked_until_reader_generated_kernel_input_certificate`: the row records that
-Vortex scan filter pushdown was requested and that a separate scoped local scan
-can project real `flag,value` reader chunks without decode/materialization, but
-it does not claim an admitted encoded predicate provider until those chunks have
-encoding-specific kernel-input lowering, correctness/certificate refs, Native
-I/O evidence, materialization/decode boundaries, and no-fallback policy.
-GAR-0026-S extends those fields with the reader-generated conjunctive
-selection-vector bridge contract. GAR-0026-T adds filter-column probe evidence:
-non-empty filtered scans observe projected chunks such as `metric:vortex.filter`,
-zero-result scans report no filtered metric reader chunks, the filter-column
-probe observes `flag:fastlanes.bitpacked` and `value:vortex.sequence`, and the
-bridge remains blocked before selection-vector intersection until those
-encodings are lowered into admitted kernel inputs.
+`reader_generated_filter_column_batches_admitted` when the scoped local
+filter-column probe observes the admitted encodings: Vortex scan filter pushdown
+is requested, a separate scoped local scan projects real `flag,value` reader
+chunks without decode/materialization, the observed `flag:fastlanes.bitpacked`
+and `value:vortex.sequence` chunks lower into ShardLoom-owned encoded kernel
+inputs, and the reader-generated conjunctive bridge intersects their selection
+vectors. GAR-0026-S adds the bridge contract, GAR-0026-T adds filter-column
+probe evidence, and GAR-0026-U adds the scoped encoding-specific kernel-input
+lowering. The row still sets
+`encoded_predicate_provider_operator_execution_class=residual_native` and
+`encoded_predicate_provider_encoded_native_claim_allowed=false` because selected
+metric aggregation does not yet consume the admitted selection vector end to
+end. Unsupported or changed encodings must remain deterministic no-fallback
+diagnostics, not hidden decode or external-engine execution.
 The current scoped `filter + projection + limit` prepared/native row is a
 residual-native fused scan path: Vortex scan filter/projection pushdown and
 bounded top-N state avoid full fact-table materialization, but the row still

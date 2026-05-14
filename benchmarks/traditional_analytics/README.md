@@ -260,12 +260,12 @@ projected columns, pushdown flags, Native I/O certificate status, materializatio
 residual executor, claim gate, and `fallback_attempted=false` /
 `external_engine_invoked=false`. This makes benchmark rows easier to interpret without relabeling
 residual-native work as encoded-native or claim-grade performance evidence.
-For `selective filter`, prepared/native rows also emit `encoded_predicate_provider_*` fields. Those
-fields currently report
-`encoded_predicate_provider_status=blocked_until_reader_generated_kernel_input_certificate`,
+For `selective filter`, prepared/native rows also emit `encoded_predicate_provider_*` fields. When
+the scoped filter-column probe observes the admitted local encodings, those fields now report
+`encoded_predicate_provider_status=reader_generated_filter_column_batches_admitted`,
 `encoded_predicate_provider_filter_only_columns=flag,value`,
 `encoded_predicate_provider_projected_output_columns=metric`, and
-`encoded_predicate_provider_encoded_native_claim_allowed=false`. The GAR-0026-T provider fields now
+`encoded_predicate_provider_encoded_native_claim_allowed=false`. The GAR-0026-U provider fields now
 separate the filtered metric output scan from a filter-column probe scan. Non-empty filtered scans
 still report projected output chunks, for example
 `encoded_predicate_provider_reader_chunk_columns_observed=metric`,
@@ -278,13 +278,14 @@ Both paths also run a scoped filter-column probe that reports
 `encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed=flag,value`,
 `encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary=flag:fastlanes.bitpacked,value:vortex.sequence`,
 and `encoded_predicate_provider_filter_column_probe_data_decoded=false`.
-The exported reader-generated conjunctive bridge remains blocked with
-`encoded_predicate_provider_conjunctive_bridge_status=blocked_prepared_batch_validation`,
-`encoded_predicate_provider_reader_backed_bridge_status=bridge_available_blocked_filter_column_kernel_inputs_not_lowered`,
-and `encoded_predicate_provider_kernel_input_lowering_status=blocked_missing_encoding_specific_kernel_input_lowering`.
-This records that Vortex scan filter pushdown and real filter-column reader chunks exist, but no
-benchmark row has an encoding-specific kernel-input lowering certificate or encoded predicate
-provider claim yet.
+The exported reader-generated conjunctive bridge now consumes those admitted kernel inputs with
+`encoded_predicate_provider_conjunctive_bridge_status=intersected_selection_vectors`,
+`encoded_predicate_provider_reader_backed_bridge_status=bridge_consumed_reader_generated_filter_column_kernel_inputs`,
+`encoded_predicate_provider_kernel_input_lowering_status=reader_generated_encoded_kernel_inputs_admitted`,
+and `encoded_predicate_provider_kernel_input_count=2`. This records real filter-column
+selection-vector evidence, but it still does not permit an encoded-native or performance claim
+because selected metric aggregation remains residual-native until it consumes the admitted selection
+vector end to end.
 `filter + projection + limit` now reports a scoped residual-native fused scan path for prepared/native
 rows when filter/projection pushdown runs without full-table materialization. `group by aggregation`
 now reports a scoped residual-native grouped scan path when projection pushdown over

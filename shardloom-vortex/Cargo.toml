@@ -30,7 +30,7 @@ universal-format-io = [
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
 vortex-write = ["vortex-file-io"]
-vortex-local-primitives = ["vortex-file-io"]
+vortex-local-primitives = ["vortex-file-io", "dep:lending-iterator"]
 vortex-traditional-analytics-benchmark = [
     "universal-format-io",
     "vortex-write",
@@ -52,4 +52,5 @@ parquet = { version = "58.2.0", optional = true }
 shardloom-core = { version = "0.1.0", path = "../shardloom-core" }
 shardloom-exec = { version = "0.1.0", path = "../shardloom-exec" }
 shardloom-plan = { version = "0.1.0", path = "../shardloom-plan" }
+lending-iterator = { version = "0.1.7", optional = true }
 vortex = { version = "0.70", optional = true }
