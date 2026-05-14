@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0021-E malformed timestamp/dirty CSV prepared/native Vortex residual runtime slice
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: promote the local prepared/native `malformed timestamp / dirty CSV` benchmark scenario
+    from the materialized-table path to a projected Vortex scan over `raw_event_time` and
+    `dirty_numeric`, feeding ShardLoom-native validation/parse/aggregate state without full
+    fact-table materialization.
+  - Checklist:
+    - [x] Add a `MalformedTimestampDirtyCsv` prepared/native path through
+          `run_vortex_derived_scenario_from_files` that scans only projected dirty-fixture columns.
+    - [x] Preserve deterministic behavior by requiring `raw_event_time` and `dirty_numeric`,
+          validating generated timestamp shape, parsing numeric values, and aggregating valid rows.
+    - [x] Keep the operator blocker matrix honest:
+          `operator_execution_class=residual_native`,
+          `operator_temporary_materialization_used=false`, and
+          `operator_encoded_native_claim_allowed=false`.
+    - [x] Update README, benchmark, compute-flow, GAR, traceability, and phase-plan docs so
+          malformed timestamp / dirty CSV appears in prepared/native residual runtime coverage.
+    - [x] Keep nested JSON, CDC, broad encoded-native, and SQL/DataFrame work in Planned rather
+          than implying broad operator completion.
+  - Boundary:
+    - This is a scoped local prepared/native Vortex residual runtime path for
+      `malformed timestamp / dirty CSV` only. It does not add encoded-native validation kernels,
+      SQL/DataFrame execution, object-store/table runtime, external engines, fallback execution, or
+      performance/superiority claims.
+  - Evidence:
+    - Correctness evidence: the feature-gated
+      `enabled_malformed_timestamp_dirty_csv_uses_prepared_native_vortex_scan` test compares native
+      Vortex output against the compatibility-import result.
+    - Native I/O/materialization evidence: native prepared rows assert projected-column scan evidence,
+      `materialization_boundary_rows=0`, and `data_materialized=false`.
+    - Policy evidence: operator fields remain residual-native, not encoded-native, with no fallback
+      or external engine claim.
+    - Benchmark evidence: focused benchmark smoke confirms `prepared_vortex`, projected dirty
+      columns, residual-native operator evidence, and `fallback_attempted=false`; no performance
+      claim is added.
+  - Vortex-first provider check:
+    - Subject area: prepared/native Vortex `malformed timestamp / dirty CSV` over local Vortex
+      artifacts.
+    - Upstream Vortex concept checked: reuse existing Vortex file scan projection provider through
+      `scan_fact_vortex_projected`; do not invent a separate ShardLoom source abstraction.
+    - Decision: `wrap_vortex_concept` for projected scan; execute only residual
+      validation/parse/aggregate state in ShardLoom-native code.
+    - Residual handling: projected dirty fixture columns feed local validation/parse/aggregate state;
+      residual state is not encoded-native and cannot satisfy encoded-native operator claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_malformed_timestamp_dirty_csv_uses_prepared_native_vortex_scan --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata --test traditional_benchmark_harness`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "malformed timestamp / dirty CSV" --dataset-profile dirty_csv --rows 64 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --shardloom-result-sink --no-markdown --output target\codex-gar0021e-malformed-dirty-prepared-smoke.json --regenerate`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "malformed timestamp / dirty CSV" --dataset-profile dirty_csv --rows 64 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --shardloom-result-sink --no-markdown --output target\codex-gar0021e-malformed-dirty-smoke.json --regenerate`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0021e-workspace-test'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+
 - [x] Session label: GAR-0021-D clean/cast/filter/write prepared/native Vortex residual runtime slice
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
