@@ -30,7 +30,7 @@ const LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID: &str = "local_vortex_analytics_v1"
 const SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_backed_scan_evidence.v1";
 const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
-    "shardloom.traditional_analytics.encoded_predicate_provider.v2";
+    "shardloom.traditional_analytics.encoded_predicate_provider.v3";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
@@ -2818,7 +2818,7 @@ fn encoded_predicate_provider_fields(
     let selective_filter = report.scenario == TraditionalAnalyticsScenario::SelectiveFilter;
     let scenario_slug = report.scenario.as_str().replace(['/', ' ', '+'], "-");
     let report_id = format!(
-        "gar-0026r.encoded_predicate_provider.{}.{}",
+        "gar-0026s.encoded_predicate_provider.{}.{}",
         report
             .execution_mode_selection
             .selected_execution_mode
@@ -2838,14 +2838,14 @@ fn encoded_predicate_provider_fields(
     ) = if selective_filter {
         (
             "true",
-            "blocked_until_reader_backed_encoded_predicate_evidence",
-            "blocked_until_vortex_or_shardloom_evidence",
+            "blocked_until_reader_generated_filter_column_batches",
+            "blocked_until_vortex_or_shardloom_filter_column_evidence",
             "selective_filter.flag_eq_1_and_value_gte_5000",
             "flag,value",
-            "gar-0026r.reader_backed_bridge_blocked",
-            "Vortex scan filter/projection pushdown returned projected output chunks, but the filter-only columns were not exposed as reader-generated encoded value batches and the current encoded predicate surface cannot certify the conjunctive two-column selection vector",
-            "reader_generated_encoded_value_batches_for_filter_columns;conjunctive_selection_vector_intersection;encoding_specific_kernel_input_lowering;predicate_correctness_fixture;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy",
-            "reader chunk observation and deterministic bridge blockers only; no encoded predicate runtime/provider/performance claim",
+            "gar-0026s.reader_generated_filter_column_batches_missing",
+            "The reader-generated conjunctive selection-vector bridge is available for supplied encoded kernel inputs, but the benchmark Vortex scan still exposes only filtered projected output chunks; filter-only flag,value batches are not available without decode/materialization.",
+            "reader_generated_encoded_value_batches_for_filter_columns;encoding_specific_kernel_input_lowering_from_vortex_reader_chunks;selective_filter_correctness_fixture;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy",
+            "conjunctive selection-vector bridge contract only when callers supply admitted filter-column batches; no encoded predicate provider/runtime/performance claim for traditional benchmark rows",
         )
     } else {
         (
@@ -2890,21 +2890,21 @@ fn encoded_predicate_provider_fields(
         .iter()
         .any(|summary| summary == "metric:vortex.filter");
     let bridge_status = if selective_filter && filter_columns_observed {
-        "blocked_conjunctive_selection_vector_bridge_missing_certificate"
+        "bridge_available_awaiting_reader_generated_kernel_input_certificate"
     } else if selective_filter {
-        "blocked_filter_columns_not_returned_by_reader_projection"
+        "bridge_available_blocked_filter_columns_not_returned_by_reader_projection"
     } else {
         "not_applicable_no_selective_filter_predicate"
     };
     let bridge_blocker_ids = if selective_filter && filter_columns_observed {
-        "gar-0026r.conjunctive_selection_vector_intersection_missing;gar-0026r.reader_generated_kernel_input_certificate_missing"
+        "gar-0026s.reader_generated_kernel_input_certificate_missing"
     } else if selective_filter {
-        "gar-0026r.filter_columns_not_returned_by_scan_projection;gar-0026r.conjunctive_selection_vector_intersection_missing;gar-0026r.encoding_specific_filter_column_lowering_missing;gar-0026r.projected_output_filter_array_not_filter_column_input"
+        "gar-0026s.filter_columns_not_returned_by_scan_projection;gar-0026s.reader_generated_filter_column_inputs_missing;gar-0026s.encoding_specific_filter_column_lowering_missing;gar-0026s.projected_output_filter_array_not_filter_column_input"
     } else {
         "none"
     };
     let filter_column_batch_status = if selective_filter && filter_columns_observed {
-        "observed_filter_columns_not_admitted"
+        "observed_filter_columns_not_admitted_to_reader_generated_kernel_inputs"
     } else if selective_filter {
         "blocked_filter_only_columns_not_observed"
     } else {
@@ -2922,12 +2922,21 @@ fn encoded_predicate_provider_fields(
         "not_applicable"
     };
     let predicate_shape_status = if selective_filter {
-        "blocked_multi_column_conjunction_not_represented_by_single_column_predicate_expr"
+        "conjunctive_predicate_shape_supported_by_reader_generated_bridge"
     } else {
         "not_applicable"
     };
-    let selection_vector_intersection_status = if selective_filter {
-        "blocked_no_conjunctive_selection_vector_intersection_certificate"
+    let selection_vector_intersection_status = if selective_filter && filter_columns_observed {
+        "bridge_available_blocked_missing_kernel_input_certificate"
+    } else if selective_filter {
+        "bridge_available_blocked_missing_filter_column_inputs"
+    } else {
+        "not_applicable"
+    };
+    let conjunctive_bridge_status = if selective_filter && filter_columns_observed {
+        "available_blocked_missing_kernel_input_certificate"
+    } else if selective_filter {
+        "available_blocked_missing_filter_column_inputs"
     } else {
         "not_applicable"
     };
@@ -2970,6 +2979,19 @@ fn encoded_predicate_provider_fields(
         (
             "encoded_predicate_provider_current_surface".to_string(),
             "traditional_analytics_vortex_scan_filter_pushdown".to_string(),
+        ),
+        (
+            "encoded_predicate_provider_conjunctive_bridge_schema_version".to_string(),
+            "shardloom.vortex_reader_generated_conjunctive_selection_vector_bridge.v1"
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_conjunctive_bridge_report_id".to_string(),
+            "vortex.cg2.reader-generated-conjunctive-selection-vector-bridge".to_string(),
+        ),
+        (
+            "encoded_predicate_provider_conjunctive_bridge_status".to_string(),
+            conjunctive_bridge_status.to_string(),
         ),
         (
             "encoded_predicate_provider_filter_pushdown_status".to_string(),
@@ -11011,13 +11033,13 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_status")
                 .map(String::as_str),
-            Some("blocked_until_reader_backed_encoded_predicate_evidence")
+            Some("blocked_until_reader_generated_filter_column_batches")
         );
         assert_eq!(
             fields
                 .get("encoded_predicate_provider_classification")
                 .map(String::as_str),
-            Some("blocked_until_vortex_or_shardloom_evidence")
+            Some("blocked_until_vortex_or_shardloom_filter_column_evidence")
         );
         assert_eq!(
             fields
@@ -11035,7 +11057,7 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_blocker_id")
                 .map(String::as_str),
-            Some("gar-0026r.reader_backed_bridge_blocked")
+            Some("gar-0026s.reader_generated_filter_column_batches_missing")
         );
         assert_eq!(
             fields
@@ -11058,7 +11080,19 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_reader_backed_bridge_status")
                 .map(String::as_str),
-            Some("blocked_filter_columns_not_returned_by_reader_projection")
+            Some("bridge_available_blocked_filter_columns_not_returned_by_reader_projection")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_conjunctive_bridge_schema_version")
+                .map(String::as_str),
+            Some("shardloom.vortex_reader_generated_conjunctive_selection_vector_bridge.v1")
+        );
+        assert_eq!(
+            fields
+                .get("encoded_predicate_provider_conjunctive_bridge_status")
+                .map(String::as_str),
+            Some("available_blocked_missing_filter_column_inputs")
         );
         assert_eq!(
             fields
@@ -11076,15 +11110,13 @@ mod tests {
             fields
                 .get("encoded_predicate_provider_predicate_shape_status")
                 .map(String::as_str),
-            Some(
-                "blocked_multi_column_conjunction_not_represented_by_single_column_predicate_expr"
-            )
+            Some("conjunctive_predicate_shape_supported_by_reader_generated_bridge")
         );
         assert_eq!(
             fields
                 .get("encoded_predicate_provider_selection_vector_intersection_status")
                 .map(String::as_str),
-            Some("blocked_no_conjunctive_selection_vector_intersection_certificate")
+            Some("bridge_available_blocked_missing_filter_column_inputs")
         );
         assert_eq!(
             fields

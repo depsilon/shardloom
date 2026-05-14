@@ -1325,6 +1325,86 @@ impl SelectionVector {
     pub fn is_all(&self) -> bool {
         matches!(self, Self::All { .. })
     }
+
+    /// Intersects two segment-local selection vectors without decoding rows.
+    ///
+    /// `All` vectors carry the segment row count, so mismatched `All` row
+    /// counts or sparse indices outside an `All` boundary are rejected instead
+    /// of silently producing misleading evidence.
+    ///
+    /// # Errors
+    /// Returns an error when row-count boundaries are inconsistent or sparse
+    /// indices exceed a known `All` vector row count.
+    pub fn try_intersect(&self, other: &Self) -> std::result::Result<Self, String> {
+        match (self, other) {
+            (Self::None, _) | (_, Self::None) => Ok(Self::none()),
+            (Self::All { row_count: left }, Self::All { row_count: right }) => {
+                if left == right {
+                    Ok(Self::all(*left))
+                } else {
+                    Err(format!(
+                        "cannot intersect all-row selection vectors with different row counts: left={left} right={right}"
+                    ))
+                }
+            }
+            (Self::All { row_count }, Self::Indices(indices))
+            | (Self::Indices(indices), Self::All { row_count }) => {
+                bounded_sparse_selection(indices, *row_count)
+            }
+            (Self::Indices(left), Self::Indices(right)) => {
+                let right = right
+                    .iter()
+                    .copied()
+                    .collect::<std::collections::BTreeSet<_>>();
+                let mut seen = std::collections::BTreeSet::new();
+                let mut indices = left
+                    .iter()
+                    .copied()
+                    .filter(|index| right.contains(index) && seen.insert(*index))
+                    .collect::<Vec<_>>();
+                indices.sort_unstable();
+                Ok(selection_vector_from_indices(indices, u64::MAX))
+            }
+        }
+    }
+}
+
+/// Intersects one or more segment-local selection vectors.
+///
+/// An empty input is rejected because there is no neutral row-count-safe value
+/// unless the caller already knows the segment cardinality.
+///
+/// # Errors
+/// Returns an error when the input is empty, row-count boundaries are
+/// inconsistent, or sparse indices exceed a known row-count boundary.
+pub fn intersect_selection_vectors<'a>(
+    vectors: impl IntoIterator<Item = &'a SelectionVector>,
+) -> std::result::Result<SelectionVector, String> {
+    let mut vectors = vectors.into_iter();
+    let Some(first) = vectors.next() else {
+        return Err("cannot intersect an empty selection-vector set".to_string());
+    };
+    vectors.try_fold(first.clone(), |acc, vector| acc.try_intersect(vector))
+}
+
+fn bounded_sparse_selection(
+    indices: &[u64],
+    row_count: u64,
+) -> std::result::Result<SelectionVector, String> {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut bounded = Vec::new();
+    for index in indices {
+        if *index >= row_count {
+            return Err(format!(
+                "selection vector index {index} is outside row count {row_count}"
+            ));
+        }
+        if seen.insert(*index) {
+            bounded.push(*index);
+        }
+    }
+    bounded.sort_unstable();
+    Ok(selection_vector_from_indices(bounded, row_count))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1473,6 +1553,47 @@ mod tests {
             SelectionVector::from_indices(vec![1, 3, 7]).selected_count(),
             3
         );
+    }
+
+    #[test]
+    fn selection_vector_intersection_handles_sparse_all_and_none() {
+        let left = SelectionVector::from_indices(vec![1, 3, 5, 7]);
+        let right = SelectionVector::from_indices(vec![0, 3, 5, 8]);
+
+        assert_eq!(
+            left.try_intersect(&right).unwrap(),
+            SelectionVector::from_indices(vec![3, 5])
+        );
+        assert_eq!(
+            intersect_selection_vectors([
+                &SelectionVector::all(8),
+                &SelectionVector::from_indices(vec![1, 3, 7]),
+                &SelectionVector::from_indices(vec![3, 4, 7]),
+            ])
+            .unwrap(),
+            SelectionVector::from_indices(vec![3, 7])
+        );
+        assert_eq!(
+            left.try_intersect(&SelectionVector::none()).unwrap(),
+            SelectionVector::none()
+        );
+    }
+
+    #[test]
+    fn selection_vector_intersection_rejects_unsafe_boundaries() {
+        let row_count_error = SelectionVector::all(3)
+            .try_intersect(&SelectionVector::all(4))
+            .unwrap_err();
+        assert!(row_count_error.contains("different row counts"));
+
+        let sparse_error = SelectionVector::all(3)
+            .try_intersect(&SelectionVector::from_indices(vec![1, 3]))
+            .unwrap_err();
+        assert!(sparse_error.contains("outside row count"));
+
+        let empty_error =
+            intersect_selection_vectors(std::iter::empty::<&SelectionVector>()).unwrap_err();
+        assert!(empty_error.contains("empty selection-vector set"));
     }
 
     fn segment_with_stats(column: &str, stats: SegmentStats) -> EncodedSegment {

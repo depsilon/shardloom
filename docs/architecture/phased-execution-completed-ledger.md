@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0026-S reader-generated conjunctive selection-vector bridge
+  - Primary files:
+    - `shardloom-core/src/encoded.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add a ShardLoom-native bridge that intersects reader-generated encoded predicate
+    selection vectors for conjunctive filters when callers supply admitted encoded kernel inputs.
+    Prepared/native `selective filter` rows now emit `encoded_predicate_provider` v3 fields that
+    distinguish the available bridge contract from the still-missing real `flag,value`
+    filter-column batches in the current benchmark Vortex scan path.
+  - Checklist:
+    - [x] Add row-count-safe `SelectionVector::try_intersect` and
+          `intersect_selection_vectors` helpers with sparse/all/none coverage.
+    - [x] Add `VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport` and status vocabulary.
+    - [x] Admit supplied reader-generated encoded kernel inputs only when split/source/row-count
+          and no-decode mapping evidence passes.
+    - [x] Evaluate per-column encoded predicates, intersect per-split selection vectors, and return
+          deterministic blockers for missing predicate inputs, predicate-evaluation gaps, and unsafe
+          intersections.
+    - [x] Preserve `fallback_attempted=false`, `external_engine_invoked=false`,
+          `correctness_certified=false`, and `production_claim_allowed=false`.
+    - [x] Replace the completed GAR-0026-S planned item with GAR-0026-T, the next real
+          filter-column batch capture/admission slice.
+  - Boundary:
+    - This is a runtime bridge for supplied admitted filter-column batches plus benchmark blocker
+      follow-through. It does not prove that the current Vortex scan path exposes real `flag,value`
+      filter-column encoded batches, does not claim encoded-native selective-filter benchmark
+      execution, does not add SQL/DataFrame runtime, does not add external engines or fallback, and
+      does not make a performance/superiority claim.
+  - Evidence:
+    - Correctness evidence: focused tests cover sparse/all/none selection-vector intersection,
+      unsafe row-count boundaries, successful two-column conjunctive selection across two reader
+      splits, and missing filter-column input blockers.
+    - Benchmark/report evidence: prepared/native selective-filter rows now report
+      `encoded_predicate_provider_schema_version=shardloom.traditional_analytics.encoded_predicate_provider.v3`,
+      `encoded_predicate_provider_status=blocked_until_reader_generated_filter_column_batches`,
+      `encoded_predicate_provider_conjunctive_bridge_status=available_blocked_missing_filter_column_inputs`,
+      and
+      `encoded_predicate_provider_selection_vector_intersection_status=bridge_available_blocked_missing_filter_column_inputs`.
+    - Policy evidence: provider and bridge fields preserve
+      `encoded_predicate_provider_fallback_attempted=false` and
+      `encoded_predicate_provider_external_engine_invoked=false`.
+  - Vortex-first provider check:
+    - Subject area: selective-filter reader-generated encoded predicate bridge admission.
+    - Upstream Vortex concept checked: `VortexFile::scan.with_filter`,
+      `VortexFile::scan.with_projection`, reader-visible chunk encoding IDs, and existing
+      ShardLoom reader-generated prepared batch admission surfaces.
+    - Decision: `implement_shardloom_kernel` for selection-vector intersection over supplied
+      encoded predicate reports; `blocked_until_vortex_or_shardloom_evidence` for real
+      filter-column batch capture from the current benchmark scan path.
+    - Residual handling: benchmark rows remain residual-native until real filter-column batches and
+      selected metric aggregation evidence land.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core selection_vector_intersection --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex reader_generated_conjunctive_filter --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark selective_filter_zero_result_reports_no_reader_chunks_emitted --lib`
+
 - [x] Session label: GAR-0026-R reader-backed selective-filter bridge blocker slice
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom</title>
+  <meta name="description" content="ShardLoom is a pre-release Vortex-native, no-fallback compute engine foundation with evidence-certified local execution slices.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://shardloom.io/">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07110f;
+      --panel: #101b18;
+      --panel-2: #13251f;
+      --line: #2b4039;
+      --text: #eef7f2;
+      --muted: #a9bbb3;
+      --accent: #74e0b4;
+      --accent-2: #8fb7ff;
+      --warn: #f0c978;
+      --danger: #f28c8c;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(116, 224, 180, 0.12), transparent 36rem),
+        linear-gradient(160deg, #07110f 0%, #0c1714 46%, #101823 100%);
+      color: var(--text);
+      font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(7, 17, 15, 0.86);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 72px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .mark {
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgba(116, 224, 180, 0.55);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(116, 224, 180, 0.28), rgba(143, 183, 255, 0.1)),
+        #0d1b17;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+      padding: 6px;
+      box-shadow: 0 0 0 4px rgba(116, 224, 180, 0.06);
+    }
+
+    .mark span {
+      background: var(--accent);
+      border-radius: 2px;
+      opacity: 0.35;
+    }
+
+    .mark span:nth-child(2),
+    .mark span:nth-child(4),
+    .mark span:nth-child(8) {
+      opacity: 0.9;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    main {
+      padding: 72px 0 80px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 44px;
+      align-items: center;
+      min-height: calc(100vh - 160px);
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      margin: 0 0 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(3.3rem, 8vw, 6.9rem);
+      line-height: 0.92;
+      letter-spacing: 0;
+    }
+
+    .lede {
+      color: var(--muted);
+      font-size: 1.16rem;
+      max-width: 650px;
+      margin: 24px 0 0;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px;
+    }
+
+    .button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 16px;
+      text-decoration: none;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .button.primary {
+      background: var(--accent);
+      color: #062018;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    .runtime-map {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(19, 37, 31, 0.9), rgba(10, 21, 18, 0.94));
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+    }
+
+    .node {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .node strong {
+      display: block;
+      font-size: 0.96rem;
+    }
+
+    .node span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 3px;
+    }
+
+    .connector {
+      color: var(--accent);
+      font-size: 0.85rem;
+      padding-left: 14px;
+    }
+
+    section {
+      padding: 64px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    h2 {
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      margin: 0 0 14px;
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+
+    .section-lede {
+      margin: 0 0 28px;
+      color: var(--muted);
+      max-width: 760px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .claim-list {
+      display: grid;
+      gap: 10px;
+      margin: 24px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .claim-list li {
+      border-left: 3px solid var(--warn);
+      background: rgba(240, 201, 120, 0.08);
+      padding: 12px 14px;
+      color: #f6ead0;
+    }
+
+    .status-table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .status-table th,
+    .status-table td {
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .status-table th {
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 650;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .status-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      padding: 28px 0;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 840px) {
+      .hero,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        min-height: auto;
+      }
+
+      .nav {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 16px 0;
+      }
+
+      .nav-links {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shell nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span>
+        <span>ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#status">Status</a>
+        <a href="#foundation">Foundation</a>
+        <a href="#boundaries">Boundaries</a>
+        <a href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="shell hero">
+      <div>
+        <p class="eyebrow">Pre-release compute engine</p>
+        <h1>ShardLoom</h1>
+        <p class="lede">A Vortex-native, no-fallback compute engine foundation focused on evidence-certified local execution before broader platform claims.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/depsilon/shardloom">View repository</a>
+          <a class="button" href="#boundaries">Review claim boundaries</a>
+        </div>
+      </div>
+      <aside class="runtime-map" aria-label="ShardLoom execution posture">
+        <div class="flow">
+          <div class="node"><strong>Local data path</strong><span>Compatibility inputs can be certified into Vortex artifacts for scoped benchmark evidence.</span></div>
+          <div class="connector">Vortex-native file and scan boundary</div>
+          <div class="node"><strong>Prepared/native rows</strong><span>Current local slices expose execution-mode, Native I/O, materialization, and no-fallback evidence.</span></div>
+          <div class="connector">Evidence gates before claims</div>
+          <div class="node"><strong>Claim-safe output</strong><span>No Spark replacement, production SQL/DataFrame, object-store/lakehouse/Foundry, or performance claim is made.</span></div>
+        </div>
+      </aside>
+    </div>
+
+    <section id="status">
+      <div class="shell">
+        <h2>Current Status</h2>
+        <p class="section-lede">ShardLoom is pre-release. The current repository is strongest as a Vortex-native engine prototype with evidence surfaces for scoped local compute paths.</p>
+        <table class="status-table">
+          <thead>
+            <tr><th>Area</th><th>Current posture</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Engine foundation</td><td>Evidence-certified local compute slices over Vortex artifacts, with explicit execution modes and no-fallback evidence.</td></tr>
+            <tr><td>Runtime scope</td><td>Prepared/native Vortex paths are scoped to local benchmark scenarios and remain claim-gated.</td></tr>
+            <tr><td>Project maturity</td><td>Pre-release. APIs, packaging, runtime breadth, and platform integrations are still evolving.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="foundation">
+      <div class="shell">
+        <h2>Foundation</h2>
+        <p class="section-lede">The implementation direction is deliberately conservative: preserve Vortex as the native data substrate, fail explicitly for unsupported paths, and require evidence before public claims.</p>
+        <div class="grid">
+          <article class="card">
+            <h3>Vortex-native</h3>
+            <p>Vortex input/output, scan boundaries, and Native I/O evidence are first-class parts of the architecture.</p>
+          </article>
+          <article class="card">
+            <h3>No fallback</h3>
+            <p>Unsupported execution is blocked with diagnostics instead of silently delegating work to Spark, DataFusion, DuckDB, Polars, or another engine.</p>
+          </article>
+          <article class="card">
+            <h3>Evidence-certified</h3>
+            <p>Local benchmark rows carry explicit certificates, materialization/decode fields, fallback status, and claim gates.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="boundaries">
+      <div class="shell">
+        <h2>Claim Boundaries</h2>
+        <p class="section-lede">ShardLoom avoids broad claims until the implementation and evidence are actually present.</p>
+        <ul class="claim-list">
+          <li>No Spark replacement claim.</li>
+          <li>No production SQL or DataFrame runtime claim.</li>
+          <li>No production object-store, lakehouse, or Foundry integration claim.</li>
+          <li>No performance, superiority, or best-default claim.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">Apache-2.0 licensed project code. ShardLoom name, logo, and icon are brand assets; see BRAND.md.</div>
+  </footer>
+</body>
+</html>
