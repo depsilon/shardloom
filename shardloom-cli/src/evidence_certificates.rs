@@ -9,13 +9,13 @@ use std::process::ExitCode;
 use shardloom_core::{
     ApproxSketchFunctionGateReport, CommandStatus, CorrectnessDifferentialHarnessReport,
     CorrectnessValidationPlan, ExecutionCertificateEvidenceSurfaceReport,
-    ExecutionEvidenceArtifactKind, NativeIoEnvelopeReport, OutputFormat,
-    RfcCoverageFollowThroughReport, UniversalHarnessReport, UserCapabilityPromotionGateReport,
-    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport,
-    plan_approx_sketch_function_gate, plan_correctness_differential_harness,
-    plan_execution_certificate_evidence_surface, plan_native_io_envelope,
-    plan_rfc_coverage_followthrough, plan_universal_harness, plan_user_capability_promotion_gate,
-    plan_world_class_sufficiency,
+    ExecutionEvidenceArtifactKind, NativeIoEnvelopeReport, NativeIoSourceSinkCoverageRow,
+    OutputFormat, RfcCoverageFollowThroughReport, UniversalHarnessReport,
+    UserCapabilityPromotionGateReport, WorldClassSufficiencyDimensionKind,
+    WorldClassSufficiencyReport, plan_approx_sketch_function_gate,
+    plan_correctness_differential_harness, plan_execution_certificate_evidence_surface,
+    plan_native_io_envelope, plan_rfc_coverage_followthrough, plan_universal_harness,
+    plan_user_capability_promotion_gate, plan_world_class_sufficiency,
 };
 
 use crate::{
@@ -1179,6 +1179,7 @@ pub(crate) fn native_io_envelope_fields(report: &NativeIoEnvelopeReport) -> Vec<
     let mut fields = vec![];
     append_native_io_envelope_identity_fields(&mut fields, report);
     append_native_io_envelope_requirement_fields(&mut fields, report);
+    append_native_io_source_sink_coverage_fields(&mut fields, report);
     append_native_io_envelope_side_effect_fields(&mut fields, report);
     fields
 }
@@ -1928,6 +1929,21 @@ fn append_native_io_envelope_identity_fields(
         "certificate_path_requirement_count",
         report.certificate_path_requirement_count(),
     );
+    push_count_field(
+        fields,
+        "native_io_source_sink_coverage_row_count",
+        report.source_sink_coverage_row_count(),
+    );
+    push_count_field(
+        fields,
+        "native_io_source_sink_coverage_source_count",
+        report.source_sink_coverage_source_count(),
+    );
+    push_count_field(
+        fields,
+        "native_io_source_sink_coverage_sink_count",
+        report.source_sink_coverage_sink_count(),
+    );
     push_field(fields, "contract_kind_order", &report.contract_kind_order());
     push_field(
         fields,
@@ -1943,6 +1959,11 @@ fn append_native_io_envelope_identity_fields(
         fields,
         "certificate_path_order",
         &report.certificate_path_order(),
+    );
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_row_order",
+        &report.source_sink_coverage_row_order(),
     );
 }
 
@@ -1994,6 +2015,207 @@ fn append_native_io_envelope_requirement_fields(
         fields,
         "adapter_fidelity_report_required",
         report.adapter_fidelity_report_required,
+    );
+}
+
+fn append_native_io_source_sink_coverage_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &NativeIoEnvelopeReport,
+) {
+    append_native_io_source_sink_coverage_summary_fields(fields, report);
+    append_native_io_source_sink_coverage_invariant_fields(fields, report);
+    for row in &report.source_sink_coverage_rows {
+        append_native_io_source_sink_coverage_row_fields(fields, row);
+    }
+}
+
+fn append_native_io_source_sink_coverage_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &NativeIoEnvelopeReport,
+) {
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_schema_version",
+        "shardloom.native_io_source_sink_coverage.v1",
+    );
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_status",
+        "complete_for_current_matrix",
+    );
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_scope",
+        "current_rfc0031_source_sink_matrix",
+    );
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_direction_vocabulary",
+        "source,sink",
+    );
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_support_status_vocabulary",
+        "unsupported,report_only,executable_uncertified,fixture_certified",
+    );
+    push_count_field(
+        fields,
+        "native_io_source_sink_coverage_unadmitted_row_count",
+        report.source_sink_coverage_unadmitted_row_count(),
+    );
+    push_count_field(
+        fields,
+        "native_io_source_sink_coverage_unadmitted_rows_with_diagnostics_count",
+        report.source_sink_coverage_unadmitted_rows_with_diagnostics_count(),
+    );
+    push_count_field(
+        fields,
+        "native_io_source_sink_coverage_unadmitted_rows_missing_diagnostics_count",
+        report.source_sink_coverage_unadmitted_rows_missing_diagnostics_count(),
+    );
+}
+
+fn append_native_io_source_sink_coverage_invariant_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &NativeIoEnvelopeReport,
+) {
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_claim_gate_status",
+        "not_claim_grade_for_universal_coverage",
+    );
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_claim_boundary",
+        "fixture-certified rows are scoped; unsupported/report-only rows do not permit source/sink claims",
+    );
+    push_bool_field(
+        fields,
+        "native_io_source_sink_coverage_current_matrix_complete",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "native_io_source_sink_coverage_all_rows_fallback_attempted_false",
+        report.source_sink_coverage_all_rows_fallback_attempted_false(),
+    );
+    push_bool_field(
+        fields,
+        "native_io_source_sink_coverage_all_rows_external_engine_invoked_false",
+        report.source_sink_coverage_all_rows_external_engine_invoked_false(),
+    );
+    push_bool_field(
+        fields,
+        "native_io_source_sink_coverage_all_unadmitted_rows_have_diagnostics",
+        report.source_sink_coverage_all_unadmitted_rows_have_diagnostics(),
+    );
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_policy_refs",
+        "docs/rfcs/0031-universal-native-io-envelope.md,docs/architecture/operational-evidence-policy-hardening.md",
+    );
+    push_field(
+        fields,
+        "native_io_source_sink_coverage_benchmark_refs",
+        "benchmarks/traditional_analytics coverage_table native_io_source_sink_coverage_ref field",
+    );
+}
+
+fn append_native_io_source_sink_coverage_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &NativeIoSourceSinkCoverageRow,
+) {
+    let prefix = format!("native_io_source_sink_row_{}", row.id);
+    push_field(
+        fields,
+        &format!("{prefix}_direction"),
+        row.direction.as_str(),
+    );
+    push_field(fields, &format!("{prefix}_family"), row.family);
+    push_field(fields, &format!("{prefix}_surface"), row.surface);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_support_basis"),
+        row.support_basis,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_execution_modes"),
+        row.execution_modes,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_native_io_certificate_refs"),
+        row.native_io_certificate_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_certificate_status"),
+        row.certificate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_code"),
+        row.unsupported_diagnostic_code,
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_required_future_evidence"),
+        row.required_future_evidence,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
+    push_field(fields, &format!("{prefix}_source_refs"), row.source_refs);
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_execution"),
+        row.runtime_execution,
+    );
+    push_bool_field(fields, &format!("{prefix}_data_read"), row.data_read);
+    push_bool_field(fields, &format!("{prefix}_write_io"), row.write_io);
+    push_bool_field(
+        fields,
+        &format!("{prefix}_object_store_io"),
+        row.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_catalog_probe"),
+        row.catalog_probe,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_network_probe"),
+        row.network_probe,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_effects_executed"),
+        row.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        row.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        row.external_engine_invoked,
     );
 }
 

@@ -453,6 +453,10 @@ plan before coding.
 - [x] Vortex-native provider terminology, Scan API alignment reports, and Native I/O certificate
   references exist.
 - [x] Per-source/sink evidence is required; run-level summaries do not satisfy the envelope.
+- [x] The `native-io-envelope-plan` source/sink coverage matrix now enumerates local Vortex,
+  compatibility import, object-store/range-read, table/catalog, streaming, unstructured/media, and
+  external-adapter source/sink families with support status, certificate refs, deterministic
+  unsupported diagnostics, blockers, future evidence, no-fallback fields, and claim boundaries.
 - [ ] CG-19 is not universal across object-store/range-read, streaming sinks, table/catalog,
   external adapters, and all production source/sink paths.
 

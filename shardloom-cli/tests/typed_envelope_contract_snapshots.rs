@@ -155,6 +155,15 @@ fn native_io_fixture_routes_inline_report_payload() {
     assert!(output.contains("\"artifact_kind\":\"native_io_report\""));
     assert!(output.contains("\"artifact_id\":\"cg19.native-io-envelope\""));
     assert!(output.contains(&field("certificate_path_requirement_count", "3")));
+    assert!(output.contains(&field("native_io_source_sink_coverage_row_count", "14")));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_status",
+        "complete_for_current_matrix"
+    )));
+    assert!(output.contains(&field(
+        "native_io_source_sink_coverage_all_unadmitted_rows_have_diagnostics",
+        "true"
+    )));
 }
 
 #[test]

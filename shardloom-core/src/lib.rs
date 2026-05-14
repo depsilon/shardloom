@@ -192,11 +192,12 @@ pub use manifest::{
 };
 pub use native_io::{
     NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoCertificatePathRequirement,
-    NativeIoContractKind, NativeIoContractSurface, NativeIoEnvelopeReport, NativeIoEnvelopeStatus,
-    NativeIoMaterializationBoundaryReport, NativeIoRepresentationTransition,
-    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
-    NativeIoSourcePushdownReport, NativeIoTransitionExample, RepresentationState,
-    RepresentationStateContract, plan_native_io_envelope,
+    NativeIoContractKind, NativeIoContractSurface, NativeIoCoverageDirection,
+    NativeIoEnvelopeReport, NativeIoEnvelopeStatus, NativeIoMaterializationBoundaryReport,
+    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
+    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, NativeIoSourceSinkCoverageRow,
+    NativeIoTransitionExample, RepresentationState, RepresentationStateContract,
+    plan_native_io_envelope,
 };
 pub use observability::{
     KernelProfile, MetricCategory, MetricKind, MetricSample, MetricUnit, ObservabilityMetricValue,

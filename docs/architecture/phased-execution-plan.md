@@ -260,22 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-0031A Native I/O envelope source/sink coverage matrix
-  - Source: RFC 0031; universal input contract; Vortex runtime utilization audit.
-  - Current state: Native I/O envelope evidence exists for current local lanes, but not for
-    object-store/range-read, streaming sinks, table/catalog, external adapters, or every source/sink.
-  - Next slice outcome: source/sink matrix with support, unsupported, report-only, and evidence
-    columns.
-  - User-visible surface: CLI native I/O envelope plan, docs, benchmark coverage table.
-  - Implementation scope: Native I/O report models, CLI plan output, contract tests.
-  - Evidence required: Native I/O refs and policy/no-fallback refs; no runtime evidence for
-    unsupported rows.
-  - Acceptance: each source/sink family has an explicit support status and required evidence.
-  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
-    Native I/O snapshot tests.
-  - Non-goals: no object-store or streaming sink runtime.
-  - Fallback/claim boundary: only rows with attached Native I/O certificates can support claims.
-  - Dependencies/blockers: GAR-0002A unsupported diagnostic taxonomy.
 - [ ] GAR-0042A Vortex Source/Split runtime admission proof
   - Source: RFC 0042; Vortex upstream alignment hardening; Vortex public API inventory.
   - Current state: real Source/Split runtime paths and field-mask/predicate-ordering proof are not

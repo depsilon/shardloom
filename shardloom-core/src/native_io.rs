@@ -258,6 +258,86 @@ impl NativeIoCertificatePathRequirement {
     }
 }
 
+/// Source or sink side covered by the Native I/O source/sink matrix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NativeIoCoverageDirection {
+    Source,
+    Sink,
+}
+
+impl NativeIoCoverageDirection {
+    /// Stable machine-readable direction label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Source => "source",
+            Self::Sink => "sink",
+        }
+    }
+}
+
+/// Report-only support/evidence row for one source or sink family.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct NativeIoSourceSinkCoverageRow {
+    pub id: &'static str,
+    pub direction: NativeIoCoverageDirection,
+    pub family: &'static str,
+    pub surface: &'static str,
+    pub support_status: &'static str,
+    pub support_basis: &'static str,
+    pub execution_modes: &'static str,
+    pub native_io_certificate_refs: &'static str,
+    pub certificate_status: &'static str,
+    pub unsupported_diagnostic_code: &'static str,
+    pub blocker_id: &'static str,
+    pub required_future_evidence: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub source_refs: &'static str,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub object_store_io: bool,
+    pub catalog_probe: bool,
+    pub network_probe: bool,
+    pub external_effects_executed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl NativeIoSourceSinkCoverageRow {
+    /// Returns whether this row needs a deterministic unsupported diagnostic.
+    #[must_use]
+    pub fn requires_unsupported_diagnostic(&self) -> bool {
+        matches!(
+            self.support_status,
+            "unsupported" | "planned" | "report_only"
+        )
+    }
+
+    /// Returns whether the row has a non-placeholder unsupported diagnostic.
+    #[must_use]
+    pub fn has_unsupported_diagnostic(&self) -> bool {
+        self.unsupported_diagnostic_code != "none"
+    }
+
+    /// Returns whether this coverage row violates report-only/no-fallback policy.
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.runtime_execution
+            || self.data_read
+            || self.write_io
+            || self.object_store_io
+            || self.catalog_probe
+            || self.network_probe
+            || self.external_effects_executed
+            || self.fallback_attempted
+            || self.external_engine_invoked
+            || (self.requires_unsupported_diagnostic() && !self.has_unsupported_diagnostic())
+    }
+}
+
 /// Runtime source capability evidence for one native I/O path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -614,6 +694,7 @@ pub struct NativeIoEnvelopeReport {
     pub representation_states: Vec<RepresentationStateContract>,
     pub transition_examples: Vec<NativeIoTransitionExample>,
     pub certificate_path_requirements: Vec<NativeIoCertificatePathRequirement>,
+    pub source_sink_coverage_rows: Vec<NativeIoSourceSinkCoverageRow>,
     pub per_path_certificate_required: bool,
     pub aggregate_certificate_not_sufficient: bool,
     pub preserve_encoded_or_foreign_encoded_when_possible: bool,
@@ -651,6 +732,7 @@ impl NativeIoEnvelopeReport {
             representation_states: cg19_representation_states(),
             transition_examples: cg19_transition_examples(),
             certificate_path_requirements: cg19_certificate_path_requirements(),
+            source_sink_coverage_rows: cg19_source_sink_coverage_rows(),
             per_path_certificate_required: true,
             aggregate_certificate_not_sufficient: true,
             preserve_encoded_or_foreign_encoded_when_possible: true,
@@ -701,6 +783,56 @@ impl NativeIoEnvelopeReport {
         self.certificate_path_requirements.len()
     }
 
+    /// Number of source/sink coverage rows.
+    #[must_use]
+    pub fn source_sink_coverage_row_count(&self) -> usize {
+        self.source_sink_coverage_rows.len()
+    }
+
+    /// Number of source coverage rows.
+    #[must_use]
+    pub fn source_sink_coverage_source_count(&self) -> usize {
+        self.source_sink_coverage_direction_count(NativeIoCoverageDirection::Source)
+    }
+
+    /// Number of sink coverage rows.
+    #[must_use]
+    pub fn source_sink_coverage_sink_count(&self) -> usize {
+        self.source_sink_coverage_direction_count(NativeIoCoverageDirection::Sink)
+    }
+
+    fn source_sink_coverage_direction_count(&self, direction: NativeIoCoverageDirection) -> usize {
+        self.source_sink_coverage_rows
+            .iter()
+            .filter(|row| row.direction == direction)
+            .count()
+    }
+
+    /// Number of source/sink rows that still need diagnostics and future evidence.
+    #[must_use]
+    pub fn source_sink_coverage_unadmitted_row_count(&self) -> usize {
+        self.source_sink_coverage_rows
+            .iter()
+            .filter(|row| row.requires_unsupported_diagnostic())
+            .count()
+    }
+
+    /// Number of unadmitted rows that already carry deterministic diagnostics.
+    #[must_use]
+    pub fn source_sink_coverage_unadmitted_rows_with_diagnostics_count(&self) -> usize {
+        self.source_sink_coverage_rows
+            .iter()
+            .filter(|row| row.requires_unsupported_diagnostic() && row.has_unsupported_diagnostic())
+            .count()
+    }
+
+    /// Number of unadmitted rows missing deterministic diagnostics.
+    #[must_use]
+    pub fn source_sink_coverage_unadmitted_rows_missing_diagnostics_count(&self) -> usize {
+        self.source_sink_coverage_unadmitted_row_count()
+            .saturating_sub(self.source_sink_coverage_unadmitted_rows_with_diagnostics_count())
+    }
+
     /// Stable comma-separated contract-kind order for CLI reporting.
     #[must_use]
     pub fn contract_kind_order(&self) -> String {
@@ -739,6 +871,38 @@ impl NativeIoEnvelopeReport {
             .map(|requirement| requirement.path_id.as_str())
             .collect::<Vec<_>>()
             .join(",")
+    }
+
+    /// Stable comma-separated source/sink coverage row order.
+    #[must_use]
+    pub fn source_sink_coverage_row_order(&self) -> String {
+        self.source_sink_coverage_rows
+            .iter()
+            .map(|row| row.id)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    /// Returns whether every coverage row preserves no-fallback status.
+    #[must_use]
+    pub fn source_sink_coverage_all_rows_fallback_attempted_false(&self) -> bool {
+        self.source_sink_coverage_rows
+            .iter()
+            .all(|row| !row.fallback_attempted)
+    }
+
+    /// Returns whether every coverage row avoids external engines.
+    #[must_use]
+    pub fn source_sink_coverage_all_rows_external_engine_invoked_false(&self) -> bool {
+        self.source_sink_coverage_rows
+            .iter()
+            .all(|row| !row.external_engine_invoked)
+    }
+
+    /// Returns whether all unadmitted rows carry deterministic diagnostics.
+    #[must_use]
+    pub fn source_sink_coverage_all_unadmitted_rows_have_diagnostics(&self) -> bool {
+        self.source_sink_coverage_unadmitted_rows_missing_diagnostics_count() == 0
     }
 
     /// Returns whether the report avoids all execution and I/O side effects.
@@ -781,6 +945,10 @@ impl NativeIoEnvelopeReport {
                 .certificate_path_requirements
                 .iter()
                 .any(NativeIoCertificatePathRequirement::has_errors)
+            || self
+                .source_sink_coverage_rows
+                .iter()
+                .any(NativeIoSourceSinkCoverageRow::has_errors)
             || self.diagnostics.iter().any(|diagnostic| {
                 matches!(
                     diagnostic.severity,
@@ -793,7 +961,7 @@ impl NativeIoEnvelopeReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "native I/O envelope plan\nschema_version: {}\nreport: {}\nstatus: {}\ncontract surfaces: {}\nrepresentation states: {}\ntransition examples: {}\ncertificate paths: {}\nper-path certificates: required\naggregate certificate only: insufficient\ndecoded Arrow normalization: disabled\nfallback execution: disabled",
+            "native I/O envelope plan\nschema_version: {}\nreport: {}\nstatus: {}\ncontract surfaces: {}\nrepresentation states: {}\ntransition examples: {}\ncertificate paths: {}\nsource/sink coverage rows: {}\nper-path certificates: required\naggregate certificate only: insufficient\ndecoded Arrow normalization: disabled\nfallback execution: disabled",
             self.schema_version,
             self.report_id,
             self.status.as_str(),
@@ -801,6 +969,7 @@ impl NativeIoEnvelopeReport {
             self.representation_state_count(),
             self.transition_example_count(),
             self.certificate_path_requirement_count(),
+            self.source_sink_coverage_row_count(),
         )
     }
 }
@@ -1153,6 +1322,376 @@ fn cg19_certificate_path_requirements() -> Vec<NativeIoCertificatePathRequiremen
     ]
 }
 
+#[allow(clippy::too_many_lines)]
+fn cg19_source_sink_coverage_rows() -> Vec<NativeIoSourceSinkCoverageRow> {
+    vec![
+        NativeIoSourceSinkCoverageRow {
+            id: "local_vortex_file_scan",
+            direction: NativeIoCoverageDirection::Source,
+            family: "vortex_native_source",
+            surface: "local_vortex_file_scan",
+            support_status: "fixture_certified",
+            support_basis: "local fixture count lane admitted through compute-capability-matrix",
+            execution_modes: "native_vortex",
+            native_io_certificate_refs: "certificates/cg19/local-vortex-count/native-io.json",
+            certificate_status: "certified_for_fixture_path",
+            unsupported_diagnostic_code: "none",
+            blocker_id: "none",
+            required_future_evidence: "claim_grade_benchmark_rows,broad_source_sink_operator_coverage",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "local_fixture_scan_count_only_not_universal_source_support",
+            source_refs: "docs/architecture/vortex-public-api-inventory.md,docs/architecture/global-architecture-review.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "compatibility_local_file_import_source",
+            direction: NativeIoCoverageDirection::Source,
+            family: "compatibility_source_adapter",
+            surface: "csv_jsonl_parquet_arrow_avro_orc_local_import",
+            support_status: "executable_uncertified",
+            support_basis: "traditional analytics rows stage compatibility files into local Vortex artifacts",
+            execution_modes: "compatibility_import_certified",
+            native_io_certificate_refs: "native_io_certificate_required_after_native_vortex_stage",
+            certificate_status: "required_per_path",
+            unsupported_diagnostic_code: "none",
+            blocker_id: "p74.compute.compatibility_import.certification_incomplete",
+            required_future_evidence: "adapter_fidelity_report,native_io_certificate,benchmark_row",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "compatibility_import_smoke_not_general_adapter_claim",
+            source_refs: "docs/architecture/universal-input-contract.md,benchmarks/traditional_analytics/README.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "object_store_range_read_source",
+            direction: NativeIoCoverageDirection::Source,
+            family: "object_store_source",
+            surface: "object_store_range_read",
+            support_status: "unsupported",
+            support_basis: "range-read/object-store runtime remains blocked",
+            execution_modes: "auto,native_vortex,prepared_vortex",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_OBJECT_STORE_SOURCE",
+            blocker_id: "gar0002.native.source.object_store_range",
+            required_future_evidence: "object_store_request_planner,range_read_certificate,native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_object_store_source_claim",
+            source_refs: "docs/architecture/object-store-request-planner.md,docs/architecture/vortex-upstream-alignment-hardening.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "table_catalog_snapshot_source",
+            direction: NativeIoCoverageDirection::Source,
+            family: "table_catalog_source",
+            surface: "table_catalog_snapshot_read",
+            support_status: "unsupported",
+            support_basis: "table/catalog metadata reads remain blocked",
+            execution_modes: "auto,native_vortex,prepared_vortex",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_TABLE_CATALOG_SOURCE",
+            blocker_id: "gar0002.native.source.table_catalog",
+            required_future_evidence: "table_catalog_metadata_read,namespace_policy,native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_table_catalog_source_claim",
+            source_refs: "docs/architecture/table-intelligence-layer.md,docs/architecture/universal-input-contract.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "streaming_event_source",
+            direction: NativeIoCoverageDirection::Source,
+            family: "streaming_source",
+            surface: "streaming_event_source",
+            support_status: "unsupported",
+            support_basis: "live/hybrid streaming source runtime remains blocked",
+            execution_modes: "live,hybrid",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_STREAM_SOURCE",
+            blocker_id: "gar0002.native.source.streaming_events",
+            required_future_evidence: "boundedness_policy,checkpoint_contract,execution_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_streaming_source_claim",
+            source_refs: "docs/architecture/dynamic-work-shaping.md,docs/architecture/operational-evidence-policy-hardening.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "unstructured_media_source",
+            direction: NativeIoCoverageDirection::Source,
+            family: "unstructured_media_source",
+            surface: "unstructured_document_media_source",
+            support_status: "unsupported",
+            support_basis: "media/document/vector ingestion is report-only",
+            execution_modes: "auto",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_UNSTRUCTURED_MEDIA_SOURCE",
+            blocker_id: "gar0002.native.source.unstructured_media",
+            required_future_evidence: "media_decoder_policy,materialization_boundary,semantic_fixture",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_unstructured_media_source_claim",
+            source_refs: "docs/architecture/global-architecture-review.md,docs/architecture/operational-evidence-policy-hardening.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "external_adapter_source",
+            direction: NativeIoCoverageDirection::Source,
+            family: "external_adapter_source",
+            surface: "external_database_saas_api_source",
+            support_status: "unsupported",
+            support_basis: "external source adapters are governed handles only until effect and credential evidence exists",
+            execution_modes: "auto,live,hybrid",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_EXTERNAL_ADAPTER_SOURCE",
+            blocker_id: "gar0031.native.source.external_adapter",
+            required_future_evidence: "credential_policy,effect_budget,adapter_fidelity_report,native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_external_adapter_source_claim",
+            source_refs: "docs/rfcs/0031-universal-native-io-envelope.md,docs/rfcs/0033-user-data-workflow-etl-surface.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "typed_scalar_result_sink",
+            direction: NativeIoCoverageDirection::Sink,
+            family: "result_sink",
+            surface: "typed_scalar_result",
+            support_status: "fixture_certified",
+            support_basis: "local fixture count lane emits typed scalar result evidence",
+            execution_modes: "native_vortex",
+            native_io_certificate_refs: "certificates/cg19/local-vortex-count/native-io.json",
+            certificate_status: "certified_for_fixture_path",
+            unsupported_diagnostic_code: "none",
+            blocker_id: "none",
+            required_future_evidence: "broad_result_sink_replay,claim_grade_benchmark_rows",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "local_scalar_count_result_only_not_general_sink_support",
+            source_refs: "docs/architecture/compute-engine-flow-reference.md,docs/architecture/global-architecture-review.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "local_vortex_artifact_sink",
+            direction: NativeIoCoverageDirection::Sink,
+            family: "vortex_native_sink",
+            surface: "local_vortex_artifact_write",
+            support_status: "report_only",
+            support_basis: "write intent and payload reports exist, but broad sink execution is not admitted here",
+            execution_modes: "compatibility_import_certified,prepared_vortex,native_vortex",
+            native_io_certificate_refs: "native_io_certificate_required",
+            certificate_status: "required_missing_for_broad_sink",
+            unsupported_diagnostic_code: "SL_NOT_IMPLEMENTED",
+            blocker_id: "p74.compute.vortex_sink.write_execution_missing",
+            required_future_evidence: "sink_execution,commit_recovery,artifact_replay,native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_broad_vortex_sink_claim",
+            source_refs: "docs/rfcs/0028-output-payloads-finalization-commit-lakehouse.md,docs/architecture/vortex-public-api-inventory.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "compatibility_export_sink",
+            direction: NativeIoCoverageDirection::Sink,
+            family: "compatibility_export_sink",
+            surface: "compatibility_export_writer",
+            support_status: "unsupported",
+            support_basis: "compatibility exports need fidelity/materialization/write certificates",
+            execution_modes: "compatibility_import_certified,auto",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_COMPATIBILITY_EXPORT_SINK",
+            blocker_id: "gar0002.native.sink.compatibility_export",
+            required_future_evidence: "adapter_fidelity_report,materialization_boundary,write_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_compatibility_export_sink_claim",
+            source_refs: "docs/architecture/universal-input-contract.md,docs/architecture/global-architecture-review.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "object_store_write_sink",
+            direction: NativeIoCoverageDirection::Sink,
+            family: "object_store_sink",
+            surface: "object_store_native_write",
+            support_status: "unsupported",
+            support_basis: "object-store write and commit runtime remains blocked",
+            execution_modes: "auto,native_vortex,prepared_vortex",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_OBJECT_STORE_SINK",
+            blocker_id: "gar0002.native.sink.object_store_write",
+            required_future_evidence: "object_store_commit_protocol,retry_checkpoint_evidence,native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_object_store_sink_claim",
+            source_refs: "docs/architecture/object-store-request-planner.md,docs/architecture/operational-evidence-policy-hardening.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "table_catalog_commit_sink",
+            direction: NativeIoCoverageDirection::Sink,
+            family: "table_catalog_sink",
+            surface: "table_catalog_commit",
+            support_status: "unsupported",
+            support_basis: "table/catalog commits remain blocked",
+            execution_modes: "auto,native_vortex,prepared_vortex",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_TABLE_COMMIT",
+            blocker_id: "gar0002.native.sink.table_catalog_commit",
+            required_future_evidence: "commit_protocol,manifest_finalization,delete_tombstone_semantics",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_table_catalog_commit_claim",
+            source_refs: "docs/architecture/table-intelligence-layer.md,docs/architecture/object-store-request-planner.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "streaming_event_sink",
+            direction: NativeIoCoverageDirection::Sink,
+            family: "streaming_sink",
+            surface: "streaming_event_sink",
+            support_status: "unsupported",
+            support_basis: "live/hybrid streaming sinks remain blocked",
+            execution_modes: "live,hybrid",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_STREAM_SINK",
+            blocker_id: "gar0002.native.sink.streaming_events",
+            required_future_evidence: "delivery_semantics,checkpoint_recovery,effect_budget_policy",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_streaming_sink_claim",
+            source_refs: "docs/architecture/effect-budget-plan.md,docs/architecture/dynamic-work-shaping.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+        NativeIoSourceSinkCoverageRow {
+            id: "external_adapter_sink",
+            direction: NativeIoCoverageDirection::Sink,
+            family: "external_adapter_sink",
+            surface: "external_database_saas_api_sink",
+            support_status: "unsupported",
+            support_basis: "external writes require explicit effect, credential, and idempotency evidence",
+            execution_modes: "auto,live,hybrid",
+            native_io_certificate_refs: "none",
+            certificate_status: "missing_required",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_EXTERNAL_ADAPTER_SINK",
+            blocker_id: "gar0031.native.sink.external_adapter",
+            required_future_evidence: "credential_policy,effect_budget,idempotency_contract,native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "no_external_adapter_sink_claim",
+            source_refs: "docs/rfcs/0031-universal-native-io-envelope.md,docs/rfcs/0033-user-data-workflow-etl-surface.md",
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            network_probe: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+    ]
+}
+
 /// Produces the CG-19 universal native I/O envelope report.
 #[must_use]
 pub fn plan_native_io_envelope() -> NativeIoEnvelopeReport {
@@ -1172,6 +1711,9 @@ mod tests {
         assert_eq!(report.representation_state_count(), 10);
         assert_eq!(report.transition_example_count(), 6);
         assert_eq!(report.certificate_path_requirement_count(), 3);
+        assert_eq!(report.source_sink_coverage_row_count(), 14);
+        assert_eq!(report.source_sink_coverage_source_count(), 7);
+        assert_eq!(report.source_sink_coverage_sink_count(), 7);
         assert_eq!(
             report.contract_kind_order(),
             "native_work_envelope,native_work_stream,native_result_stream,source_capability_report,source_pushdown_report,sink_requirement_report,adapter_fidelity_report,materialization_boundary_report,native_io_certificate"
@@ -1188,6 +1730,22 @@ mod tests {
             report.certificate_path_order(),
             "native_vortex_source_to_native_vortex_sink,compatibility_source_to_native_vortex_sink,multi_source_to_compatibility_sink"
         );
+        assert_eq!(
+            report.source_sink_coverage_row_order(),
+            "local_vortex_file_scan,compatibility_local_file_import_source,object_store_range_read_source,table_catalog_snapshot_source,streaming_event_source,unstructured_media_source,external_adapter_source,typed_scalar_result_sink,local_vortex_artifact_sink,compatibility_export_sink,object_store_write_sink,table_catalog_commit_sink,streaming_event_sink,external_adapter_sink"
+        );
+        assert_eq!(report.source_sink_coverage_unadmitted_row_count(), 11);
+        assert_eq!(
+            report.source_sink_coverage_unadmitted_rows_with_diagnostics_count(),
+            11
+        );
+        assert_eq!(
+            report.source_sink_coverage_unadmitted_rows_missing_diagnostics_count(),
+            0
+        );
+        assert!(report.source_sink_coverage_all_rows_fallback_attempted_false());
+        assert!(report.source_sink_coverage_all_rows_external_engine_invoked_false());
+        assert!(report.source_sink_coverage_all_unadmitted_rows_have_diagnostics());
         assert!(report.per_path_certificate_required);
         assert!(report.aggregate_certificate_not_sufficient);
         assert!(report.preserve_encoded_or_foreign_encoded_when_possible);
