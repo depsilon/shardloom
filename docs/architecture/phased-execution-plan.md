@@ -434,31 +434,30 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Non-goals: no UDF/effectful execution.
   - Fallback/claim boundary: claim only the selected kernel family.
   - Dependencies/blockers: GAR-FLOW-2B blocker matrix.
-- [ ] GAR-0026-E prepared/native join-aggregate streaming runtime path
-  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-D.
-  - Current state: prepared/native local fact-only and hash-join scenarios now avoid full
-    fact-table materialization; `join + aggregate` still materializes Vortex-derived fact and
-    dimension tables before ShardLoom-native filtered join aggregation.
-  - Next slice outcome: implement one scoped prepared/native local Vortex `join + aggregate` path
-    that scans only required fact/dimension columns, builds bounded ShardLoom-native dimension state,
-    streams fact rows through the value filter and join, and aggregates residual state without full
-    fact-table materialization, or emit deterministic unsupported diagnostics.
+- [ ] GAR-0026-F prepared/native top-N-per-group streaming runtime path
+  - Source: RFC 0021; RFC 0026; compute-flow reference; benchmark-suite catalog; GAR-0026-E.
+  - Current state: prepared/native local fact-only, group-by, hash-join, and join-aggregate
+    scenarios now avoid full fact-table materialization; `top-N per group` still materializes
+    Vortex-derived fact tables before ShardLoom-native ranking.
+  - Next slice outcome: implement one scoped prepared/native local Vortex `top-N per group` path
+    that scans only required fact columns, maintains bounded ShardLoom-native per-group top-N state,
+    and avoids full fact-table materialization, or emit deterministic unsupported diagnostics.
   - User-visible surface: `traditional-analytics-vortex-run`, benchmark prepared/native rows,
     stage timing fields, operator blocker matrix, docs.
   - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, focused Vortex
     traditional analytics tests, benchmark docs/contracts if emitted fields change.
   - Evidence required: correctness refs, benchmark refs, execution certificate refs, Native I/O
     refs, materialization/decode refs, policy/no-fallback refs.
-  - Acceptance: selected path reports projected fact/dim columns, no prepared/native full fact-table
+  - Acceptance: selected path reports projected fact columns, no prepared/native full fact-table
     materialization, residual-native operator class, no encoded-native claim,
     `fallback_attempted=false`, and `external_engine_invoked=false`.
   - Verification: focused Vortex traditional analytics test, benchmark harness contract tests,
     `cargo test --workspace --all-targets`.
-  - Non-goals: no distributed join, no object-store join, no SQL/DataFrame planner, no encoded-native
-    join or aggregate claim, no broad performance claim.
-  - Fallback/claim boundary: may claim only a scoped local prepared/native residual join-aggregate
+  - Non-goals: no distributed ranking, no object-store ranking, no SQL/DataFrame planner, no
+    encoded-native window/rank claim, no broad performance claim.
+  - Fallback/claim boundary: may claim only a scoped local prepared/native residual top-N-per-group
     path when evidence is attached.
-  - Dependencies/blockers: join-aggregate fixture coverage, dimension-state sizing evidence, and
+  - Dependencies/blockers: top-N fixture coverage, per-group bounded-state sizing evidence, and
     memory/spill policy follow-through.
 - [ ] GAR-0027-A CPU/SIMD/vectorization admission slice
   - Source: RFC 0027; CPU specialization admission gates; benchmark-suite catalog.
