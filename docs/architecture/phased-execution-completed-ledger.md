@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2A execution-mode benchmark attribution contract
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: lock the benchmark attribution contract for `compatibility_import_certified`,
+    `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, `auto`, and external
+    baseline rows. The JSON artifact and Markdown report now publish a machine-readable
+    `execution_mode_attribution_contract`, and the harness validates that every row carries the
+    required execution-mode and stage timing fields before report output.
+  - Checklist:
+    - [x] Add canonical mode vocabulary, execution-mode field, and stage timing field constants to
+          the traditional analytics harness.
+    - [x] Add row validation so missing stage timing fields or missing execution-mode fields fail
+          report generation instead of silently producing ambiguous artifacts.
+    - [x] Publish `execution_mode_attribution_contract` in JSON and Markdown reports with
+          per-mode interpretation, unknown-value policy, no-fallback rule, and claim boundary.
+    - [x] Document that `compatibility_import_certified` rows time ingest/stage/certification work,
+          not pure query speed, and that `auto` must preserve selected mode plus reason.
+    - [x] Preserve `fallback_attempted=false`/`external_engine_invoked=false` expectations for
+          ShardLoom rows and keep external engines baseline/oracle-only.
+    - [x] Move GAR-FLOW-2A out of Planned; GAR-FLOW-2B is now the next Planned slice.
+  - Boundary:
+    - This is a benchmark contract and documentation hardening slice. It does not change benchmark
+      measurements, add a hidden fast mode, implement a persistent runner, broaden native Vortex
+      operator coverage, or allow performance/superiority/Spark-displacement claims.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+    - `benchmarks/traditional_analytics/.venv/Scripts/python benchmarks/traditional_analytics/run.py --engines shardloom,shardloom-direct-transient,pandas --formats csv --scenario "selective filter" --rows 1000 --iterations 1 --output target/codex-gar-flow-2a-smoke.json --markdown-output target/codex-gar-flow-2a-smoke.md --regenerate --skip-shardloom-native`
+
 - [x] Session label: GAR-FLOW-1B direct compatibility transient local CSV smoke path
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

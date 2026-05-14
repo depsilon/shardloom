@@ -260,27 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-FLOW-2A execution-mode benchmark attribution contract
-  - Source: `docs/architecture/compute-engine-flow-reference.md`,
-    `docs/architecture/performance-attribution-and-execution-structure.md`,
-    `benchmarks/traditional_analytics/README.md`; RFC 0040.
-  - Current state: rows expose mode and timing data, but interpretation still depends on readers
-    understanding compatibility ingest/stage costs.
-  - Next slice outcome: lock the full stage timing contract and benchmark interpretation language
-    for `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`,
-    and `auto`.
-  - User-visible surface: benchmark Markdown/JSON output, CLI benchmark metadata, docs.
-  - Implementation scope: benchmark renderer/report structs, benchmark docs, contract tests.
-  - Evidence required: benchmark refs, materialization/decode refs, policy/no-fallback refs; no
-    performance claim unless a workload gate attaches claim-grade evidence.
-  - Acceptance: every benchmark row carries stage timing fields; compatibility rows state they time
-    ingest/stage/certification; `auto` reports selected mode plus reason.
-  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
-    benchmark smoke command named in `benchmarks/traditional_analytics/README.md`, `git diff --check`.
-  - Non-goals: no benchmark result changes, hidden fast mode, or public performance claim.
-  - Fallback/claim boundary: `claim_gate_status=not_claim_grade` unless workload-scoped evidence is
-    attached; external engines remain baselines/oracles only.
-  - Dependencies/blockers: compute-flow reference and current benchmark schema.
 - [ ] GAR-FLOW-2B prepared/native temporary-operator blocker matrix
   - Source: compute-flow reference; RFC 0026; RFC 0042; Vortex runtime utilization audit.
   - Current state: prepared/native Vortex rows still use temporary materialized or residual

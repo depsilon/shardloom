@@ -185,6 +185,14 @@ persistent-runner/process-overhead status, no-fallback status, and external-engi
 status. Unknown or not-yet-isolated fields must be represented explicitly instead of silently
 omitted.
 
+The traditional analytics JSON artifact and Markdown report now include
+`execution_mode_attribution_contract`. That contract lists the canonical mode
+vocabulary, the required execution-mode fields, and the required stage timing
+fields beside the measurements. The harness validates the contract before
+writing a report, so downstream readers can rely on field presence rather than
+inferring timing scope from prose. If `requested_execution_mode=auto`, the row
+must still preserve the selected mode and reason.
+
 P7.5.7 keeps the Python-driven per-scenario CLI runner and publishes
 `docs/architecture/benchmark-persistent-runner-decision.md` as the decision record. ShardLoom rows
 must report `cli_process_wall_millis`, derived `python_harness_overhead_millis`,

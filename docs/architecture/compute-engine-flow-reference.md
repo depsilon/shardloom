@@ -602,6 +602,16 @@ native_vortex = query over existing Vortex
 direct_compatibility_transient = one-shot direct ShardLoom compute, not Vortex-native
 ```
 
+The benchmark artifact must also carry
+`execution_mode_attribution_contract`, including the canonical mode vocabulary,
+the required execution-mode fields, and the required stage timing fields. The
+harness rejects rows that omit the contract fields. Unknown stage values stay
+explicit as `null`, `n/a`, or `not_measured`; missing fields are not allowed.
+
+`auto` is selection vocabulary only. A row with `requested_execution_mode=auto`
+must preserve `selected_execution_mode` and `mode_selection_reason` so downstream
+readers can see the actual runtime path.
+
 ## Benchmark Lanes
 
 ### Lane A - Compatibility Import Certified
