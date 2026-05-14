@@ -907,6 +907,12 @@ Optimization priorities:
 10. Persistent in-process benchmark runner.
 ```
 
+Current scoped progress: `filter + projection + limit` has a prepared/native
+residual-native fused scan path. It uses Vortex scan filter/projection pushdown
+and bounded top-N state to avoid full fact-table materialization, but it is not
+an encoded-native operator claim and still carries
+`operator_encoded_native_claim_allowed=false`.
+
 ## What Codex Should Optimize Toward
 
 Current state to improve:

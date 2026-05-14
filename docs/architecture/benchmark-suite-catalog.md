@@ -199,6 +199,10 @@ Prepared/native rows also carry the operator blocker matrix:
 classes are `encoded_native`, `residual_native`, `materialized_temporary`, and
 `unsupported`; only `encoded_native` can support an encoded-native operator
 claim.
+The current scoped `filter + projection + limit` prepared/native row is a
+residual-native fused scan path: Vortex scan filter/projection pushdown and
+bounded top-N state avoid full fact-table materialization, but the row still
+sets `operator_encoded_native_claim_allowed=false`.
 `compute-capability-matrix` exposes the same class vocabulary and per-row
 operator class/blocker fields so CLI capability discovery matches benchmark
 evidence.
