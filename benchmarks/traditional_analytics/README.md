@@ -264,6 +264,16 @@ record is `docs/architecture/benchmark-persistent-runner-decision.md`; until a
 typed-envelope-preserving persistent runner exists, rows keep
 `persistent_runner_status=process_per_scenario_attributed_not_reduced`.
 
+The JSON artifact and Markdown report also include
+`persistent_runner_admission_gate`. This is a report-only gate, not a runtime
+feature flag. It requires any future persistent runner to preserve per-run
+`shardloom.output.v2` typed envelopes, execution-mode selection,
+Native I/O and operator-blocker evidence, materialization/decode boundaries,
+result-sink replay evidence when enabled, deterministic unsupported diagnostics,
+and row-level `fallback_attempted=false` / `external_engine_invoked=false`.
+No hidden benchmark fast mode, process-overhead claim, or performance claim is
+allowed until the gate is implemented and claim-grade reruns pass.
+
 The report also emits `format_preparation_matrix`. That matrix compares
 ShardLoom compatibility preparation costs by source format: source read,
 compatibility parse, compatibility-to-Vortex import, Vortex write/reopen/scan,
@@ -298,6 +308,15 @@ not-yet-isolated values stay present as `null`, `n/a`, or
 `not_measured` rather than being omitted. In particular,
 `compatibility_import_certified` rows time the ingest/stage/certification
 workflow; do not read those rows as pure ShardLoom query-speed rows.
+
+Every row also carries the persistent-runner admission fields
+`persistent_runner_status`, `process_startup_attribution`,
+`python_harness_overhead_status`, `cli_process_wall_millis`,
+`python_harness_overhead_millis`, `startup_warmup_millis`,
+`build_time_millis`, `build_time_excluded`, `preparation_millis`,
+`preparation_cli_process_wall_millis`, and
+`preparation_included_in_timing`. These fields keep process lifecycle,
+preparation, typed-envelope rendering/parsing, and scenario compute visible.
 
 The canonical flow reference for these modes is
 `docs/architecture/compute-engine-flow-reference.md`. The companion timing-attribution reference is

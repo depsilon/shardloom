@@ -102,8 +102,14 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def execution_mode_attribution_contract("));
     assert!(script.contains("def validate_result_attribution_contract("));
     assert!(script.contains("def render_execution_mode_attribution_contract("));
+    assert!(script.contains("def render_persistent_runner_admission_gate("));
     assert!(script.contains("\"execution_mode_attribution_contract\""));
     assert!(script.contains("\"shardloom.execution_mode_benchmark_attribution.v1\""));
+    assert!(script.contains("\"persistent_runner_admission_gate\""));
+    assert!(script.contains("\"gar-flow-2c.persistent_runner_admission.v1\""));
+    assert!(script.contains("PERSISTENT_RUNNER_ADMISSION_FIELDS"));
+    assert!(script.contains("\"hidden_fast_mode_allowed\": False"));
+    assert!(script.contains("\"persistent_runner_admitted\": False"));
     assert!(script.contains("\"operator_execution_class\""));
     assert!(script.contains("\"operator_blocker_id\""));
     assert!(script.contains("\"operator_encoded_native_claim_allowed\""));
@@ -371,6 +377,10 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("evidence_render_millis"));
     assert!(readme.contains("operator_execution_class"));
     assert!(readme.contains("operator_blocker_id"));
+    assert!(readme.contains("persistent_runner_admission_gate"));
+    assert!(readme.contains("process_startup_attribution"));
+    assert!(readme.contains("python_harness_overhead_status"));
+    assert!(readme.contains("hidden benchmark fast mode"));
     assert!(readme.contains("compatibility-import-certified timing"));
     assert!(readme.contains("execution_mode=prepared_vortex"));
     assert!(readme.contains("standalone `.vortex` report rows"));
@@ -462,6 +472,9 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "operator_execution_class",
         "operator_blocker_id",
         "operator_encoded_native_claim_allowed",
+        "persistent_runner_admission_gate",
+        "process_startup_attribution",
+        "python_harness_overhead_status",
         "stable correctness digest",
         "Native I/O certificate",
         "Unsupported work must return deterministic unsupported diagnostics",
@@ -536,7 +549,7 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(
         completed_ledger.contains("GAR-FLOW-2B prepared/native temporary-operator blocker matrix")
     );
-    assert!(plan.contains("GAR-FLOW-2C persistent benchmark runner admission gate"));
+    assert!(completed_ledger.contains("GAR-FLOW-2C persistent benchmark runner admission gate"));
     assert!(plan.contains("GAR-FLOW-2D work-avoidance metric evidence schema"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
@@ -585,6 +598,9 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(traceability.contains("compute-engine-flow-overhaul-review.md"));
     assert!(persistent_runner.contains("cli_process_wall_millis"));
     assert!(persistent_runner.contains("python_harness_overhead_millis"));
+    assert!(persistent_runner.contains("gar-flow-2c.persistent_runner_admission.v1"));
+    assert!(persistent_runner.contains("persistent_runner_admitted=false"));
+    assert!(persistent_runner.contains("hidden_fast_mode_allowed=false"));
     assert!(
         persistent_runner
             .contains("persistent_runner_status=process_per_scenario_attributed_not_reduced")

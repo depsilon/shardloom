@@ -210,6 +210,15 @@ must report `cli_process_wall_millis`, derived `python_harness_overhead_millis`,
 `persistent_runner_status` where feasible. Build time and prepared-artifact setup are not pure
 query/operator timing.
 
+GAR-FLOW-2C adds a report-only `persistent_runner_admission_gate` to the JSON artifact and
+Markdown report. The gate keeps
+`persistent_runner_status=process_per_scenario_attributed_not_reduced` explicit and requires any
+future persistent runner to preserve per-run typed envelopes, execution-mode fields, Native I/O
+refs, operator blocker fields, materialization/decode boundaries, result-sink replay evidence,
+deterministic unsupported diagnostics, and `fallback_attempted=false` /
+`external_engine_invoked=false`. No hidden runner, daemon, or process-overhead claim is admitted
+from the benchmark artifact alone.
+
 P7.5.9 adds `format_preparation_matrix` to the JSON/Markdown report. The matrix is limited to
 ShardLoom rows and separates source read, compatibility parse, compatibility-to-Vortex import,
 Vortex write/reopen/scan, operator compute, result sink, evidence rendering, and total runtime by
