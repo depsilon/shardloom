@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0026-I prepared/native partition-pruning/date-range streaming runtime path
+  - Primary files:
+    - `README.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+  - Scope: add a scoped prepared/native Vortex runtime path for local `partition pruning`
+    date-range scan evidence.
+  - Checklist:
+    - [x] Route prepared/native `partition pruning` through a projected Vortex scan over
+          `event_date` and `metric`.
+    - [x] Apply the supported local date-range predicate through Vortex scan filter pushdown.
+    - [x] Preserve ShardLoom-native residual scalar aggregation without full fact-table
+          materialization.
+    - [x] Preserve correctness for the traditional analytics result JSON.
+    - [x] Report prepared/native rows as residual-native with
+          `operator_encoded_native_claim_allowed=false`.
+    - [x] Keep object-store partition-pruning, layout-pruning, and statistics-pruning claims
+          explicitly out of scope.
+    - [x] Add a follow-up planned slice for global `sort and top-k` runtime evidence.
+  - Boundary:
+    - This is a scoped local Vortex date-range scan slice for the traditional analytics benchmark
+      path. It does not add object-store partition pruning, table/catalog partition metadata
+      pruning, layout/statistics pruning, encoded-native date predicates, SQL/DataFrame planning,
+      generalized compressed execution, or performance/superiority claims.
+  - Vortex-first provider check:
+    - Subject area: RFC 0026 prepared/native Vortex scan execution and local partition-pruning
+      benchmark path.
+    - Upstream Vortex concept checked: `VortexFile::scan`, UTF-8 date-range filter expressions,
+      projection pushdown, and `ScanBuilder::into_array_iter`.
+    - Decision: `use_vortex_native_provider` for the scan/filter/projection boundaries and
+      `implement_shardloom_kernel` for residual scalar aggregation.
+    - Vortex API/provider surface: local Vortex file scan with
+      `select(["event_date","metric"], root())` and `event_date >= "2024-03-01" &&
+      event_date < "2024-06-01"`.
+    - ShardLoom provider/report/certificate surface: traditional analytics prepared/native report,
+      operator blocker matrix, Native I/O certificate, benchmark coverage row, and stage timing
+      fields.
+    - Residual handling: scalar aggregation is ShardLoom-native residual state, not encoded-native
+      execution.
+    - Materialization/decode boundary: full fact-table materialization is avoided for
+      prepared/native rows; only projected date/metric chunks enter residual scalar aggregation;
+      compatibility-import rows still record ingest materialization separately.
+    - Evidence added: focused runtime test, benchmark docs, GAR/RFC traceability, phase-plan
+      follow-up, no-fallback and no-external-engine invariants.
+    - Gates still blocked: object-store/table/catalog partition pruning, layout/statistics pruning,
+      encoded-native date predicate claims, memory/spill production guarantees, broad
+      compressed-execution claims, SQL/DataFrame, and public performance claims.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics::tests::enabled_partition_pruning_uses_prepared_native_date_range_scan --lib`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "partition pruning" --dataset-profile partitioned_by_date --rows 100 --iterations 1 --shardloom-build-profile debug --no-markdown --output target\codex-gar0026i-partition-pruning-smoke.json --data-dir target\codex-gar0026i-partition-pruning-data --regenerate`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python -m unittest discover -s python/tests`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0026-H prepared/native high-cardinality string group/distinct streaming
       runtime path
   - Primary files:
