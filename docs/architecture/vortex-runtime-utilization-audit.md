@@ -98,11 +98,12 @@ Vortex-first provider check:
 - Materialization/decode boundary:
   required per provider path before support claims.
 - Evidence added:
-  report contracts and tests only.
+  report contracts, tests, and the GAR-0042A `vortex-api-inventory` source/split admission proof
+  for the scoped local Vortex scan fixture path.
 - Gates still blocked:
-  real upstream Source/Split runtime path, field-mask evidence, predicate-ordering evidence,
-  layout/write advisor evidence, object-store I/O metrics, device residency, and trace-backed
-  array execution layers.
+  generalized upstream Source/Split runtime, field-mask evidence, predicate-ordering evidence,
+  layout/write advisor evidence, object-store I/O metrics, device residency, and trace-backed array
+  execution layers.
 - fallback_attempted=false:
   preserved.
 ```

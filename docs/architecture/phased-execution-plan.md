@@ -260,22 +260,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-0042A Vortex Source/Split runtime admission proof
-  - Source: RFC 0042; Vortex upstream alignment hardening; Vortex public API inventory.
-  - Current state: real Source/Split runtime paths and field-mask/predicate-ordering proof are not
-    fully represented.
-  - Next slice outcome: admission proof artifact for one Vortex Source/Split path or a deterministic
-    upstream blocker if the API is not usable.
-  - User-visible surface: CLI Vortex API inventory, provider admission report, benchmark metadata.
-  - Implementation scope: Vortex adapter admission, inventory report, tests.
-  - Evidence required: provider evidence, Native I/O refs, predicate-ordering refs, policy/no-fallback
-    refs.
-  - Acceptance: the selected Source/Split path is explicitly admitted or blocked with evidence.
-  - Verification: Vortex inventory contract test, focused adapter test, default GAR verification.
-  - Non-goals: no object-store, GPU/device, or managed-platform benchmark lane.
-  - Fallback/claim boundary: no Vortex-native claim without execution certificate and Native I/O
-    evidence.
-  - Dependencies/blockers: upstream Vortex public API availability.
 - [ ] GAR-0042B layout/write/device/managed-lane evidence boundaries
   - Source: RFC 0042; benchmark-suite catalog; Vortex runtime utilization audit.
   - Current state: layout/write evidence, GPU/device execution, and managed-platform benchmark lanes

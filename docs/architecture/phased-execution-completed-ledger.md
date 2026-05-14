@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0042A Vortex Source/Split runtime admission proof
+  - Primary files:
+    - `benchmarks/traditional_analytics/README.md`
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/architecture/vortex-runtime-utilization-audit.md`
+    - `docs/architecture/vortex-upstream-alignment-hardening.md`
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `shardloom-cli/tests/vortex_api_inventory_snapshots.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-vortex/src/vortex_scan_compatibility.rs`
+  - Scope: add a report-only GAR-0042A source/split admission proof that classifies the scoped
+    local Vortex scan fixture path, exposes the proof through `vortex-api-inventory`, and links
+    ShardLoom benchmark coverage rows to that proof without making generalized Source/Split runtime
+    claims.
+  - Checklist:
+    - [x] Add `VortexSourceSplitRuntimeAdmissionProof` with selected path, provider surface,
+          Source/Split surfaces, split-ref status, field-mask status, predicate-ordering status,
+          pushdown status, residual handling, certificate refs, Native I/O refs, blockers, future
+          evidence, claim boundary, and no-fallback/no-external-engine fields.
+    - [x] Keep the selected path scoped to `local_vortex_file_scan_into_array_iter` and
+          `fixture_smoke_only`; generalized Source/Split runtime remains
+          `blocked_until_source_split_certificate`.
+    - [x] Extend `vortex-api-inventory` JSON/text output with source/split admission proof fields,
+          provider report refs, scan compatibility refs, and effect-free policy fields.
+    - [x] Add `vortex_source_split_admission_ref` to ShardLoom benchmark coverage rows and Markdown
+          output so timing rows are not interpreted as broad Source/Split runtime support.
+    - [x] Update GAR/RFC/Vortex audit/benchmark docs and move GAR-0042A out of Planned; GAR-0042B
+          is now the next Planned slice.
+  - Boundary:
+    - This is report, diagnostics, coverage metadata, and documentation work only. It does not add
+      generalized Source/Split runtime, field-mask runtime proof, dynamic predicate-ordering proof,
+      object-store I/O, table/catalog I/O, write I/O, device/GPU execution, managed-platform lanes,
+      external engines, fallback execution, or public performance/runtime claims.
+  - Vortex-first provider check:
+    - Subject area: RFC 0042 Vortex Source/Split runtime admission proof.
+    - Upstream Vortex concept checked: `VortexFile::scan`, `ScanBuilder::with_filter`,
+      `ScanBuilder::with_projection`, `ScanBuilder::into_array_iter`, Source/Split scan concepts,
+      and existing local primitive provider evidence.
+    - Decision: `wrap_vortex_concept` for the admission proof. The selected local scan fixture path
+      is classified as fixture-smoke evidence; generalized Source/Split runtime remains blocked
+      until source/split, field-mask, predicate-ordering, split-serialization, execution
+      certificate, and Native I/O evidence exist.
+    - Residual handling: selected fixture path records `residual_executor=none`; generalized
+      runtime records `unsupported_blocked`.
+    - Materialization/decode boundary: no data is read, decoded, materialized, or written by the
+      report command.
+    - Evidence added: Vortex scan compatibility proof fields, CLI inventory fields, benchmark
+      coverage ref, docs, and snapshot/contract tests.
+    - Gates still blocked: generalized Source/Split runtime, object-store/table/catalog scan,
+      layout/write/device/managed lanes, and any claim-grade Vortex-native Source/Split support.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex vortex_scan_compatibility --lib`
+    - `cargo test -p shardloom-cli --test vortex_api_inventory_snapshots`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-0031A Native I/O envelope source/sink coverage matrix
   - Primary files:
     - `docs/architecture/benchmark-suite-catalog.md`

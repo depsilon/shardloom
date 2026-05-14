@@ -339,6 +339,13 @@ Every ShardLoom row carries work-avoidance evidence fields with the
 avoidance explicit instead of silently treating unknown rows, segments, or
 bytes avoided as zero.
 
+Every ShardLoom coverage row also carries `vortex_source_split_admission_ref`,
+pointing to the GAR-0042A source/split admission proof in
+`vortex-api-inventory`. That reference classifies the scoped local fixture path
+and keeps generalized Source/Split runtime, field-mask proof, predicate-ordering
+proof, object-store, table/catalog, and write paths blocked until evidence
+exists.
+
 The canonical flow reference for these modes is
 `docs/architecture/compute-engine-flow-reference.md`. The companion timing-attribution reference is
 `docs/architecture/performance-attribution-and-execution-structure.md`.

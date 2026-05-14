@@ -232,6 +232,13 @@ local lanes from report-only or unsupported object-store, table/catalog, streami
 export, unstructured/media, and external-adapter paths. This is coverage attribution only; it does
 not upgrade benchmark rows to source/sink, object-store, or production-runtime claims.
 
+GAR-0042A adds `vortex_source_split_admission_ref` to ShardLoom coverage rows. The ref points to the
+`vortex-api-inventory` source/split admission proof for the scoped local Vortex scan fixture path.
+It records provider/version/API-surface, Source/Split refs, field-mask and predicate-ordering
+blockers, certificate refs, Native I/O refs, and no-fallback policy. This is admission attribution
+only; generalized Source/Split runtime, object-store/table/catalog scans, writes, and performance
+claims remain blocked without evidence.
+
 P7.5.9 adds `format_preparation_matrix` to the JSON/Markdown report. The matrix is limited to
 ShardLoom rows and separates source read, compatibility parse, compatibility-to-Vortex import,
 Vortex write/reopen/scan, operator compute, result sink, evidence rendering, and total runtime by
