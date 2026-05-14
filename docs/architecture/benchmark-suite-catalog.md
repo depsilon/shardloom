@@ -217,14 +217,17 @@ category)` aggregation over projected fact/dimension scans without full
 fact-table materialization. The scoped `top-N per group` prepared/native row
 scans projected `group_key`/`id`/`metric` columns into bounded ShardLoom-native
 per-group ranking state without full fact-table materialization. The scoped
-`row number window` prepared/native row uses the same projected scan boundary
-with bounded rank-1 per-group state. The scoped `high-cardinality string
-group/distinct` prepared/native row scans projected `category`/`metric` columns
-into ShardLoom-native string grouping state without full fact-table
-materialization. The scoped `partition pruning` prepared/native row scans
-projected `event_date`/`metric` columns with a Vortex date-range filter and
-residual scalar aggregation; it is local date-range scan evidence, not an
-object-store partition-pruning, layout-pruning, or statistics-pruning claim.
+`sort and top-k` prepared/native row scans projected `id`/`metric` columns into
+bounded ShardLoom-native global top-k state without full fact-table
+materialization. The scoped `row number window` prepared/native row uses the
+same projected scan boundary with bounded rank-1 per-group state. The scoped
+`high-cardinality string group/distinct` prepared/native row scans projected
+`category`/`metric` columns into ShardLoom-native string grouping state without
+full fact-table materialization. The scoped `partition pruning`
+prepared/native row scans projected `event_date`/`metric` columns with a Vortex
+date-range filter and residual scalar aggregation; it is local date-range scan
+evidence, not an object-store partition-pruning, layout-pruning, or
+statistics-pruning claim.
 `compute-capability-matrix` exposes the same class vocabulary and per-row
 operator class/blocker fields so CLI capability discovery matches benchmark
 evidence.
