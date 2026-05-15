@@ -45,6 +45,8 @@ from .context import (
     CapabilityPosture,
     CapabilityView,
     ContextCapabilities,
+    DataFrameMethodCapability,
+    DataFrameMethodCapabilityMatrix,
     ShardLoomContext,
     context,
 )
@@ -94,6 +96,8 @@ __all__ = [
     "LiveFixtureRunReport",
     "CapabilityPosture",
     "CapabilityView",
+    "DataFrameMethodCapability",
+    "DataFrameMethodCapabilityMatrix",
     "CompatibilitySourcePlan",
     "CompatibilitySourceSmokeReport",
     "ContextCapabilities",

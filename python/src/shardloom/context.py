@@ -94,6 +94,524 @@ class CapabilityPosture:
 
 
 @dataclass(frozen=True, slots=True)
+class DataFrameMethodCapability:
+    """Support, evidence, and claim boundary for one Python DataFrame-style method."""
+
+    method: str
+    family: str
+    support_status: str
+    claim_gate_status: str
+    diagnostic_operation: str | None
+    blocker_id: str | None
+    required_evidence: tuple[str, ...]
+    runtime_execution: bool
+    data_read: bool
+    write_io: bool
+    materialization_required: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    claim_boundary: str
+
+    @property
+    def supported_plan_only(self) -> bool:
+        """Whether the method is supported only as a lazy/report declaration."""
+
+        return self.support_status in {
+            "lazy_plan_supported",
+            "lazy_group_handle_supported",
+            "source_declaration_supported",
+        }
+
+    @property
+    def unsupported(self) -> bool:
+        """Whether the method is currently an unsupported diagnostic surface."""
+
+        return "unsupported" in self.support_status
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the row preserves the no-fallback/no-external-engine boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+
+@dataclass(frozen=True, slots=True)
+class DataFrameMethodCapabilityMatrix:
+    """Report-only Python DataFrame/query-builder method capability matrix."""
+
+    capability: "CapabilityView"
+    rows: tuple[DataFrameMethodCapability, ...]
+
+    @classmethod
+    def from_capability(
+        cls,
+        capability: "CapabilityView",
+    ) -> "DataFrameMethodCapabilityMatrix":
+        """Build the static method matrix from a DataFrame capability view."""
+
+        return cls(capability=capability, rows=DATAFRAME_METHOD_CAPABILITY_ROWS)
+
+    @property
+    def scope(self) -> str:
+        """Return the underlying capability scope."""
+
+        return self.capability.scope
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return method names in stable matrix order."""
+
+        return tuple(row.method for row in self.rows)
+
+    @property
+    def family_order(self) -> tuple[str, ...]:
+        """Return families in first-seen stable order."""
+
+        return tuple(dict.fromkeys(row.family for row in self.rows))
+
+    @property
+    def plan_only_methods(self) -> tuple[str, ...]:
+        """Return methods that are supported only as no-read lazy declarations."""
+
+        return tuple(row.method for row in self.rows if row.supported_plan_only)
+
+    @property
+    def unsupported_methods(self) -> tuple[str, ...]:
+        """Return methods that expose deterministic unsupported diagnostics."""
+
+        return tuple(row.method for row in self.rows if row.unsupported)
+
+    @property
+    def claim_gate_statuses(self) -> tuple[str, ...]:
+        """Return claim-gate statuses across DataFrame method rows."""
+
+        return tuple(dict.fromkeys(row.claim_gate_status for row in self.rows))
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every method row preserves no fallback and no external engine."""
+
+        return all(row.no_fallback_no_external_engine for row in self.rows)
+
+    @property
+    def any_runtime_execution(self) -> bool:
+        """Whether any method row reports runtime execution."""
+
+        return any(row.runtime_execution for row in self.rows)
+
+    @property
+    def any_data_read(self) -> bool:
+        """Whether any method row reports data reads."""
+
+        return any(row.data_read for row in self.rows)
+
+    @property
+    def any_write_io(self) -> bool:
+        """Whether any method row reports write I/O."""
+
+        return any(row.write_io for row in self.rows)
+
+    def family(self, name: str) -> tuple[DataFrameMethodCapability, ...]:
+        """Return rows for a method family."""
+
+        normalized = name.strip().lower().replace("-", "_")
+        return tuple(row for row in self.rows if row.family == normalized)
+
+    def row(self, method: str) -> DataFrameMethodCapability:
+        """Return one matrix row by Python method name."""
+
+        normalized = method.strip()
+        for row in self.rows:
+            if row.method == normalized:
+                return row
+        raise KeyError(f"DataFrame method {method!r} is not in the capability matrix")
+
+
+def _df_method(
+    method: str,
+    family: str,
+    support_status: str,
+    *,
+    diagnostic_operation: str | None = None,
+    blocker_id: str | None = None,
+    required_evidence: Sequence[str] = (),
+    materialization_required: bool = False,
+    write_io: bool = False,
+    claim_boundary: str,
+) -> DataFrameMethodCapability:
+    return DataFrameMethodCapability(
+        method=method,
+        family=family,
+        support_status=support_status,
+        claim_gate_status="not_claim_grade",
+        diagnostic_operation=diagnostic_operation,
+        blocker_id=blocker_id,
+        required_evidence=tuple(required_evidence),
+        runtime_execution=False,
+        data_read=False,
+        write_io=write_io,
+        materialization_required=materialization_required,
+        fallback_attempted=False,
+        external_engine_invoked=False,
+        claim_boundary=claim_boundary,
+    )
+
+
+_LAZY_DECLARATION_BOUNDARY = (
+    "Side-effect-free lazy declaration only; no data read, runtime execution, "
+    "write I/O, DataFrame runtime, or performance claim."
+)
+_UNSUPPORTED_BOUNDARY = (
+    "Deterministic unsupported diagnostic only; no DataFrame runtime, data read, "
+    "write I/O, external engine, fallback, or production claim."
+)
+_MATERIALIZATION_BOUNDARY = (
+    "Materialization boundary diagnostic only; no row materialization, decode, "
+    "external engine, fallback, or production notebook/DataFrame claim."
+)
+_WRITE_BOUNDARY = (
+    "Write/export diagnostic only; no file write, sink commit, external engine, "
+    "fallback, or production output claim."
+)
+
+DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
+    _df_method(
+        "read_vortex",
+        "source",
+        "source_declaration_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "read_csv",
+        "source",
+        "source_declaration_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "read_json",
+        "source",
+        "source_declaration_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "read_parquet",
+        "source",
+        "source_declaration_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "filter",
+        "lazy_plan",
+        "lazy_plan_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "select",
+        "lazy_plan",
+        "lazy_plan_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "limit",
+        "lazy_plan",
+        "lazy_plan_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "with_column",
+        "expression",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="with-column",
+        blocker_id="cg21.workflow.with_column.expression_unsupported",
+        required_evidence=("expression_engine", "execution_certificate", "native_io_certificate"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "join",
+        "join",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="join",
+        blocker_id="cg21.workflow.join.operator_unsupported",
+        required_evidence=("join_operator", "execution_certificate", "native_io_certificate"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "group_by",
+        "aggregation",
+        "lazy_group_handle_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "agg",
+        "aggregation",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="agg",
+        blocker_id="cg21.workflow.agg.operator_unsupported",
+        required_evidence=("aggregate_operator", "execution_certificate", "native_io_certificate"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "aggregate",
+        "aggregation",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="aggregate",
+        blocker_id="cg21.workflow.aggregate.operator_unsupported",
+        required_evidence=("aggregate_operator", "execution_certificate", "native_io_certificate"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "sort",
+        "ordering",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="sort",
+        blocker_id="cg21.workflow.sort.operator_unsupported",
+        required_evidence=("sort_operator", "execution_certificate", "native_io_certificate"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "window",
+        "window",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="window",
+        blocker_id="cg21.workflow.window.operator_unsupported",
+        required_evidence=("window_operator", "execution_certificate", "native_io_certificate"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "schema_contract",
+        "schema_quality",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="schema-contract",
+        blocker_id="cg21.workflow.schema_contract.enforcement_unsupported",
+        required_evidence=("schema_contract_runtime", "diagnostic_evidence"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "schema",
+        "schema_quality",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="schema",
+        blocker_id="cg21.workflow.schema.discovery_unsupported",
+        required_evidence=("schema_discovery", "diagnostic_evidence"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "describe_schema",
+        "schema_quality",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="describe-schema",
+        blocker_id="cg21.workflow.describe_schema.report_unsupported",
+        required_evidence=("schema_discovery", "diagnostic_evidence"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "validate_schema",
+        "schema_quality",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="validate-schema",
+        blocker_id="cg21.workflow.validate_schema.validation_unsupported",
+        required_evidence=("schema_validation", "diagnostic_evidence"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "data_quality_check",
+        "schema_quality",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="data-quality",
+        blocker_id="cg21.workflow.data_quality.checks_unsupported",
+        required_evidence=("data_quality_runtime", "diagnostic_evidence"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "data_quality",
+        "schema_quality",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="data-quality",
+        blocker_id="cg21.workflow.data_quality.checks_unsupported",
+        required_evidence=("data_quality_runtime", "diagnostic_evidence"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "data_quality_summary",
+        "schema_quality",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="data-quality-summary",
+        blocker_id="cg21.workflow.data_quality_summary.report_unsupported",
+        required_evidence=("data_quality_runtime", "diagnostic_evidence"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "collect",
+        "materialization",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="collect",
+        blocker_id="cg21.workflow.collect.materialization_unsupported",
+        required_evidence=("materialization_boundary", "execution_certificate"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "to_pandas",
+        "materialization",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="to-pandas",
+        blocker_id="cg21.workflow.to_pandas.decoded_dataframe_unsupported",
+        required_evidence=("materialization_boundary", "decode_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "to_arrow",
+        "materialization",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="to-arrow",
+        blocker_id="cg21.workflow.to_arrow.decoded_columnar_unsupported",
+        required_evidence=("materialization_boundary", "decode_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "to_arrow_table",
+        "materialization",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="to-arrow-table",
+        blocker_id="cg21.workflow.to_arrow_table.decoded_table_unsupported",
+        required_evidence=("materialization_boundary", "decode_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "to_arrow_ipc",
+        "materialization",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="to-arrow-ipc",
+        blocker_id="cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported",
+        required_evidence=("materialization_boundary", "decode_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "to_numpy",
+        "materialization",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="to-numpy",
+        blocker_id="cg21.workflow.to_numpy.python_array_unsupported",
+        required_evidence=("materialization_boundary", "decode_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "to_python_objects",
+        "materialization",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="to-python-objects",
+        blocker_id="cg21.workflow.to_python_objects.object_materialization_unsupported",
+        required_evidence=("materialization_boundary", "decode_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "preview",
+        "materialization",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="preview",
+        blocker_id="cg21.workflow.preview.materialization_unsupported",
+        required_evidence=("materialization_boundary", "notebook_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "display",
+        "materialization",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="display",
+        blocker_id="cg21.workflow.display.rich_display_unsupported",
+        required_evidence=("materialization_boundary", "notebook_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "write_vortex",
+        "write",
+        "unsupported_write_diagnostic",
+        diagnostic_operation="write-vortex",
+        blocker_id="cg21.workflow.write_vortex.write_policy_unsupported",
+        required_evidence=("sink_write_evidence", "native_io_certificate", "commit_evidence"),
+        write_io=False,
+        claim_boundary=_WRITE_BOUNDARY,
+    ),
+    _df_method(
+        "write_parquet",
+        "write",
+        "unsupported_write_diagnostic",
+        diagnostic_operation="write-parquet",
+        blocker_id="cg21.workflow.write_parquet.compatibility_export_unsupported",
+        required_evidence=("sink_write_evidence", "fidelity_loss_report", "commit_evidence"),
+        write_io=False,
+        claim_boundary=_WRITE_BOUNDARY,
+    ),
+    _df_method(
+        "quarantine",
+        "write",
+        "unsupported_write_diagnostic",
+        diagnostic_operation="quarantine",
+        blocker_id="cg21.workflow.quarantine.output_unsupported",
+        required_evidence=("quarantine_policy", "sink_write_evidence", "commit_evidence"),
+        write_io=False,
+        claim_boundary=_WRITE_BOUNDARY,
+    ),
+    _df_method(
+        "from_pandas",
+        "input_boundary",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="from-pandas",
+        blocker_id="cg21.workflow.from_pandas.materialized_input_unsupported",
+        required_evidence=("materialization_boundary", "input_fidelity_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "from_arrow_table",
+        "input_boundary",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="from-arrow-table",
+        blocker_id="cg21.workflow.from_arrow_table.decoded_columnar_input_unsupported",
+        required_evidence=("materialization_boundary", "input_fidelity_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "from_arrow_ipc",
+        "input_boundary",
+        "unsupported_materialization_diagnostic",
+        diagnostic_operation="from-arrow-ipc",
+        blocker_id="cg21.workflow.from_arrow_ipc.decoded_ipc_input_unsupported",
+        required_evidence=("materialization_boundary", "input_fidelity_evidence"),
+        materialization_required=True,
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _df_method(
+        "sql",
+        "sql_frontend",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="sql",
+        blocker_id="cg21.workflow.sql.frontend_unsupported",
+        required_evidence=("sql_parser", "sql_binder", "sql_planner", "execution_certificate"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "profile",
+        "observability",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="profile",
+        blocker_id="cg21.workflow.profile.runtime_profile_unsupported",
+        required_evidence=("profile_runtime", "observability_evidence"),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+)
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityView:
     """Typed convenience view over one capability-discovery envelope."""
 
@@ -380,6 +898,12 @@ class CapabilityView:
         return _split_csv(self.envelope.field("planner_readiness_dataframe_row_order"))
 
     @property
+    def dataframe_method_matrix(self) -> DataFrameMethodCapabilityMatrix:
+        """Return the report-only Python DataFrame method capability matrix."""
+
+        return DataFrameMethodCapabilityMatrix.from_capability(self)
+
+    @property
     def planner_readiness_claim_gate_status(self) -> str | None:
         """Return the planner-readiness claim gate status when present."""
 
@@ -569,6 +1093,12 @@ class ContextCapabilities:
         return self.scope("dataframe")
 
     @property
+    def dataframe_method_matrix(self) -> DataFrameMethodCapabilityMatrix:
+        """Return DataFrame/query-builder method support and claim boundaries."""
+
+        return self.dataframe.dataframe_method_matrix
+
+    @property
     def api_surfaces(self) -> CapabilityView:
         """Return API-surface capability state."""
 
@@ -707,6 +1237,15 @@ class ShardLoomContext:
         """Return SQL capability discovery."""
 
         return self._capability_view("sql", check=check)
+
+    def dataframe_method_matrix(
+        self,
+        *,
+        check: bool = True,
+    ) -> DataFrameMethodCapabilityMatrix:
+        """Return the report-only DataFrame/query-builder method capability matrix."""
+
+        return self._capability_view("dataframe", check=check).dataframe_method_matrix
 
     def deployment(self, *, check: bool = True) -> CapabilityView:
         """Return deployment/package capability discovery."""

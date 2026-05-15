@@ -735,11 +735,16 @@ plan before coding.
   `shardloom-cli/src/workload_certification.rs`,
   `shardloom-cli/tests/cg20_user_capability_gate.rs`,
   `shardloom-cli/tests/world_class_sufficiency_plan_snapshots.rs`,
-  `python/src/shardloom/context.py`
+  `python/src/shardloom/context.py`, `python/tests/test_cli_client.py`, `python/README.md`
 - [x] CG-20 sufficiency reports, capability discovery, and selected local evidence surfaces exist.
 - [x] Capability scopes are report-only unless workload-specific certification says otherwise.
-- [ ] Broad SQL, DataFrame, UDF, notebook, universal adapter, unstructured/media, and best-default
-  certification remain incomplete.
+- [x] `GAR-0032-B` adds a Python DataFrame/query-builder method capability matrix for advertised
+  source declarations, lazy filter/select/limit/group-by declarations, unsupported joins,
+  aggregations, windows, writes, schema/data-quality helpers, materialization/notebook display,
+  input boundaries, SQL frontend posture, claim boundaries, required evidence, and
+  no-fallback/no-external-engine posture.
+- [ ] Broad SQL parser/binder/runtime, DataFrame execution, UDF, notebook runtime, universal
+  adapter, unstructured/media, and best-default certification remain incomplete.
 
 ### RFC 0033 - User Data Workflow and ETL Surface
 
@@ -752,9 +757,12 @@ plan before coding.
 - [x] Python workflow/query builder, quickstart, capability views, and unsupported diagnostics
   exist.
 - [x] Python and CLI workflow views preserve Vortex-native/no-fallback diagnostics.
-- [ ] Mature DataFrame methods, SQL execution, joins, aggregations, windows, data-quality APIs,
-  object-store/table runtime, publication, production ETL certification, and comparison-only
-  baseline/oracle views remain incomplete.
+- [x] `GAR-0032-B` exposes method-level support status and claim boundaries for Python
+  DataFrame/query-builder affordances without reading data, materializing rows, writing outputs,
+  invoking external engines, or upgrading support to claim-grade runtime.
+- [ ] Mature DataFrame execution, SQL execution, joins, aggregations, windows, data-quality
+  runtime, object-store/table runtime, publication, production ETL certification, and
+  comparison-only baseline/oracle views remain incomplete.
 
 ### RFC 0034 - Three-Engine Certified Data Execution Fabric
 
