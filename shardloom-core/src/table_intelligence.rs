@@ -11,12 +11,14 @@
 )]
 
 use crate::{
-    ByteRange, CatalogKind, CatalogRef, ColumnRef, DatasetFormat, DatasetManifest, DatasetRef,
+    ByteRange, CatalogKind, CatalogRef, CdcEventKind, CdcEventSummary,
+    CdcIncrementalPlanningReport, ChangeSet, ColumnRef, DatasetFormat, DatasetManifest, DatasetRef,
     DatasetUri, DeleteModel, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
     EncodedSegment, EncodingKind, FallbackStatus, FieldId, FieldName, FieldPath, FileDescriptor,
     FileRole, LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, PartitionField,
     PartitionSpec, PartitionTransform, Result, SchemaDefinition, SchemaField, SchemaId,
-    SchemaVersion, SegmentId, SegmentLayout, SegmentStats, SnapshotId, SnapshotRef,
+    SchemaVersion, SegmentChange, SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats,
+    SnapshotId, SnapshotRef, evaluate_cdc_incremental_planning,
 };
 use std::fmt::Write as _;
 
@@ -623,6 +625,7 @@ pub struct TableMaintenanceExecutionMatrixReport {
     pub layout_compaction_planning_present: bool,
     pub local_metadata_smoke_present: bool,
     pub local_delete_tombstone_smoke_present: bool,
+    pub local_append_only_cdc_overlay_smoke_present: bool,
     pub fixture_metadata_required: bool,
     pub row_identity_required: bool,
     pub delete_tombstone_policy_required: bool,
@@ -670,6 +673,7 @@ impl TableMaintenanceExecutionMatrixReport {
             layout_compaction_planning_present: true,
             local_metadata_smoke_present: true,
             local_delete_tombstone_smoke_present: true,
+            local_append_only_cdc_overlay_smoke_present: true,
             fixture_metadata_required: true,
             row_identity_required: true,
             delete_tombstone_policy_required: true,
@@ -961,6 +965,7 @@ fn table_maintenance_execution_existing_report_refs() -> Vec<&'static str> {
         "shardloom.compaction_planning.v1",
         "gar0020c.local_manifest_table_metadata_read_smoke",
         "gar0020d.local_delete_tombstone_read_smoke",
+        "gar0020e.local_append_only_cdc_overlay_smoke",
         "gar0004a.cdc_manifest_transaction_gate",
         "shardloom.object_store_commit_protocol.v1",
     ]
@@ -2730,6 +2735,673 @@ pub fn run_local_delete_tombstone_read_smoke() -> Result<LocalDeleteTombstoneRea
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalAppendOnlyCdcOverlayBlockedPath {
+    CdcUpdate,
+    CdcDelete,
+    CdcTombstone,
+    ManifestSerialization,
+    ManifestWrite,
+    TransactionExecution,
+    ObjectStoreCommit,
+    TableCatalogCommit,
+    TableFormatCdcRuntime,
+}
+
+impl LocalAppendOnlyCdcOverlayBlockedPath {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::CdcUpdate => "cdc_update",
+            Self::CdcDelete => "cdc_delete",
+            Self::CdcTombstone => "cdc_tombstone",
+            Self::ManifestSerialization => "manifest_serialization",
+            Self::ManifestWrite => "manifest_write",
+            Self::TransactionExecution => "transaction_execution",
+            Self::ObjectStoreCommit => "object_store_commit",
+            Self::TableCatalogCommit => "table_catalog_commit",
+            Self::TableFormatCdcRuntime => "table_format_cdc_runtime",
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            Self::ObjectStoreCommit => DiagnosticCode::ObjectStoreUnsupported,
+            Self::TableCatalogCommit | Self::TransactionExecution => {
+                DiagnosticCode::CommitNotAtomic
+            }
+            Self::TableFormatCdcRuntime => DiagnosticCode::ExternalEffectDisabled,
+            Self::CdcUpdate
+            | Self::CdcDelete
+            | Self::CdcTombstone
+            | Self::ManifestSerialization
+            | Self::ManifestWrite => DiagnosticCode::NotImplemented,
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_category(&self) -> DiagnosticCategory {
+        match self {
+            Self::ObjectStoreCommit => DiagnosticCategory::ObjectStore,
+            Self::TableFormatCdcRuntime => DiagnosticCategory::ExternalEffect,
+            Self::CdcUpdate
+            | Self::CdcDelete
+            | Self::CdcTombstone
+            | Self::ManifestSerialization
+            | Self::ManifestWrite
+            | Self::TransactionExecution
+            | Self::TableCatalogCommit => DiagnosticCategory::Execution,
+        }
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(self) -> Diagnostic {
+        Diagnostic::new(
+            self.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.diagnostic_category(),
+            format!(
+                "{} remains blocked outside GAR-0020-E's append-only local CDC overlay fixture",
+                self.as_str()
+            ),
+            Some(self.as_str().to_string()),
+            Some(
+                "GAR-0020-E only overlays declared in-memory append rows on a base local snapshot; it performs no manifest serialization, transaction execution, object-store commit, or update/delete/tombstone CDC runtime."
+                    .to_string(),
+            ),
+            Some(
+                "Promote these paths only with dedicated row identity, delete/tombstone, manifest write, commit, object-store, and table-format evidence."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct LocalAppendOnlyCdcOverlaySmokeReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub fixture_id: &'static str,
+    pub catalog_kind: &'static str,
+    pub catalog_ref_summary: String,
+    pub dataset_uri: String,
+    pub dataset_format: String,
+    pub base_manifest_id: String,
+    pub delta_manifest_id: String,
+    pub base_snapshot_id: String,
+    pub delta_snapshot_id: String,
+    pub schema_id: String,
+    pub incremental_plan_report_ref: &'static str,
+    pub incremental_status: &'static str,
+    pub change_set_from_snapshot: String,
+    pub change_set_to_snapshot: String,
+    pub overlay_rule: &'static str,
+    pub cdc_event_order: Vec<&'static str>,
+    pub blocked_path_order: Vec<&'static str>,
+    pub base_row_count: usize,
+    pub append_row_count: usize,
+    pub effective_row_count: usize,
+    pub base_manifest_file_count: usize,
+    pub delta_manifest_file_count: usize,
+    pub base_manifest_segment_count: usize,
+    pub delta_manifest_segment_count: usize,
+    pub changed_segment_count: usize,
+    pub insert_count: usize,
+    pub update_count: usize,
+    pub delete_count: usize,
+    pub tombstone_count: usize,
+    pub unsupported_change_count: usize,
+    pub base_row_ids: Vec<u64>,
+    pub appended_row_ids: Vec<u64>,
+    pub effective_row_ids: Vec<u64>,
+    pub correctness_summary: String,
+    pub correctness_digest: String,
+    pub correctness_refs: &'static str,
+    pub benchmark_refs: &'static str,
+    pub execution_certificate_refs: &'static str,
+    pub native_io_certificate_refs: &'static str,
+    pub materialization_decode_refs: &'static str,
+    pub policy_refs: &'static str,
+    pub local_catalog_ref_resolved: bool,
+    pub local_base_snapshot_declared: bool,
+    pub local_append_delta_declared: bool,
+    pub cdc_incremental_plan_evaluated: bool,
+    pub append_overlay_rule_applied: bool,
+    pub result_row_order_preserved: bool,
+    pub table_metadata_write_performed: bool,
+    pub manifest_write_performed: bool,
+    pub transaction_execution_performed: bool,
+    pub commit_execution_performed: bool,
+    pub data_file_read_performed: bool,
+    pub object_store_io_performed: bool,
+    pub write_io_performed: bool,
+    pub credential_resolution_performed: bool,
+    pub external_table_format_dependency_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub performance_claim_allowed: bool,
+    pub production_incremental_claim_allowed: bool,
+    pub lakehouse_claim_allowed: bool,
+    pub blocked_paths: Vec<LocalAppendOnlyCdcOverlayBlockedPath>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl LocalAppendOnlyCdcOverlaySmokeReport {
+    #[must_use]
+    pub fn fixture_smoke_supported(&self) -> bool {
+        self.support_status == "fixture_smoke_only"
+            && self.incremental_status == "execute_changed_segments_only"
+            && self.local_catalog_ref_resolved
+            && self.local_base_snapshot_declared
+            && self.local_append_delta_declared
+            && self.cdc_incremental_plan_evaluated
+            && self.append_overlay_rule_applied
+            && self.base_row_count + self.append_row_count == self.effective_row_count
+            && self.insert_count == self.append_row_count
+            && self.unsupported_change_count == 0
+    }
+
+    #[must_use]
+    pub fn claim_scoped(&self) -> bool {
+        self.claim_gate_status == "scoped_append_only_cdc_overlay_smoke_only"
+            && !self.performance_claim_allowed
+            && !self.production_incremental_claim_allowed
+            && !self.lakehouse_claim_allowed
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.table_metadata_write_performed
+            && !self.manifest_write_performed
+            && !self.transaction_execution_performed
+            && !self.commit_execution_performed
+            && !self.data_file_read_performed
+            && !self.object_store_io_performed
+            && !self.write_io_performed
+            && !self.credential_resolution_performed
+            && !self.external_table_format_dependency_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_count(&self) -> usize {
+        self.blocked_paths
+            .iter()
+            .filter(|path| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == path.diagnostic_code()
+                        && diagnostic.category == path.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(path.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        !self.blocked_paths.is_empty()
+            && self.unsupported_diagnostic_count() == self.blocked_paths.len()
+    }
+
+    #[must_use]
+    pub fn blocked_path_order(&self) -> Vec<&'static str> {
+        self.blocked_paths
+            .iter()
+            .map(LocalAppendOnlyCdcOverlayBlockedPath::as_str)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_code_order(&self) -> Vec<&'static str> {
+        self.blocked_paths
+            .iter()
+            .map(|path| path.diagnostic_code().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.fixture_smoke_supported()
+            || !self.claim_scoped()
+            || !self.side_effect_free()
+            || !self.deterministic_unsupported_diagnostics_ready()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(out, "gar_id: {}", self.gar_id);
+        let _ = writeln!(out, "support_status: {}", self.support_status);
+        let _ = writeln!(out, "claim_gate_status: {}", self.claim_gate_status);
+        let _ = writeln!(out, "fixture_id: {}", self.fixture_id);
+        let _ = writeln!(out, "incremental_status: {}", self.incremental_status);
+        let _ = writeln!(
+            out,
+            "rows: base={} appended={} effective={}",
+            self.base_row_count, self.append_row_count, self.effective_row_count
+        );
+        let _ = writeln!(out, "overlay_rule: {}", self.overlay_rule);
+        let _ = writeln!(out, "correctness_digest: {}", self.correctness_digest);
+        let _ = writeln!(out, "side_effect_free: {}", self.side_effect_free());
+        let _ = writeln!(out, "fallback_attempted: {}", self.fallback_attempted);
+        let _ = writeln!(
+            out,
+            "external_engine_invoked: {}",
+            self.external_engine_invoked
+        );
+        let _ = writeln!(
+            out,
+            "blocked_paths: {}",
+            self.blocked_path_order().join(",")
+        );
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocalAppendOnlyCdcOverlayFixtureRow {
+    row_id: u64,
+    segment_id: &'static str,
+    snapshot_role: &'static str,
+}
+
+#[derive(Debug, Clone)]
+struct LocalAppendOnlyCdcOverlayFixture {
+    catalog: CatalogRef,
+    base_manifest: DatasetManifest,
+    delta_manifest: DatasetManifest,
+    schema: SchemaDefinition,
+    base_rows: Vec<LocalAppendOnlyCdcOverlayFixtureRow>,
+    appended_rows: Vec<LocalAppendOnlyCdcOverlayFixtureRow>,
+}
+
+#[must_use]
+fn local_append_only_cdc_blocked_paths() -> Vec<LocalAppendOnlyCdcOverlayBlockedPath> {
+    vec![
+        LocalAppendOnlyCdcOverlayBlockedPath::CdcUpdate,
+        LocalAppendOnlyCdcOverlayBlockedPath::CdcDelete,
+        LocalAppendOnlyCdcOverlayBlockedPath::CdcTombstone,
+        LocalAppendOnlyCdcOverlayBlockedPath::ManifestSerialization,
+        LocalAppendOnlyCdcOverlayBlockedPath::ManifestWrite,
+        LocalAppendOnlyCdcOverlayBlockedPath::TransactionExecution,
+        LocalAppendOnlyCdcOverlayBlockedPath::ObjectStoreCommit,
+        LocalAppendOnlyCdcOverlayBlockedPath::TableCatalogCommit,
+        LocalAppendOnlyCdcOverlayBlockedPath::TableFormatCdcRuntime,
+    ]
+}
+
+fn local_append_only_cdc_overlay_fixture() -> Result<LocalAppendOnlyCdcOverlayFixture> {
+    let catalog = CatalogRef::new(CatalogKind::LocalManifest, "gar0020e-local-cdc-overlay")?
+        .with_namespace("fixtures.gar0020e")?;
+    let base_snapshot = SnapshotId::new("gar0020e-base-snapshot-0001")?;
+    let delta_snapshot = SnapshotId::new("gar0020e-delta-snapshot-0002")?;
+    Ok(LocalAppendOnlyCdcOverlayFixture {
+        catalog,
+        base_manifest: local_append_only_cdc_manifest(
+            "gar0020e-base-manifest-v1",
+            base_snapshot,
+            local_append_only_cdc_base_file_uri(),
+            "gar0020e-segment-base",
+            3,
+        )?,
+        delta_manifest: local_append_only_cdc_manifest(
+            "gar0020e-delta-manifest-v1",
+            delta_snapshot,
+            local_append_only_cdc_delta_file_uri(),
+            "gar0020e-segment-append",
+            2,
+        )?,
+        schema: local_append_only_cdc_schema()?,
+        base_rows: local_append_only_cdc_base_rows(),
+        appended_rows: local_append_only_cdc_appended_rows(),
+    })
+}
+
+fn local_append_only_cdc_dataset_uri() -> &'static str {
+    "file://fixtures/gar0020e/orders.vortex"
+}
+
+fn local_append_only_cdc_base_file_uri() -> &'static str {
+    "file://fixtures/gar0020e/orders.vortex/base-part.vortex"
+}
+
+fn local_append_only_cdc_delta_file_uri() -> &'static str {
+    "file://fixtures/gar0020e/orders.vortex/append-delta.vortex"
+}
+
+fn local_append_only_cdc_manifest(
+    manifest_id: &'static str,
+    snapshot_id: SnapshotId,
+    file_uri: &'static str,
+    segment_id: &'static str,
+    row_count: u64,
+) -> Result<DatasetManifest> {
+    let manifest_id = ManifestId::new(manifest_id)?;
+    let dataset = DatasetRef::from_uri(DatasetUri::new(local_append_only_cdc_dataset_uri())?)?
+        .with_snapshot(snapshot_id.clone())
+        .with_manifest(manifest_id.clone());
+    let snapshot = SnapshotRef::new(snapshot_id.clone());
+    let mut manifest = DatasetManifest::new(manifest_id, dataset, snapshot);
+    let file = FileDescriptor::new(
+        DatasetUri::new(file_uri)?,
+        DatasetFormat::Vortex,
+        FileRole::NativeVortexData,
+    )
+    .with_size_bytes(row_count * 512);
+    manifest.add_file(file.clone());
+    manifest.add_segment(
+        local_append_only_cdc_segment(segment_id, row_count, file)?.with_snapshot(snapshot_id),
+    );
+    Ok(manifest)
+}
+
+fn local_append_only_cdc_segment(
+    segment_id: &'static str,
+    row_count: u64,
+    file: FileDescriptor,
+) -> Result<ManifestSegment> {
+    let layout = SegmentLayout::new(
+        EncodingKind::VortexNative("fixture_append_only_cdc_overlay".to_string()),
+        LayoutKind::VortexNative("local_append_only_cdc_overlay".to_string()),
+    )
+    .with_byte_ranges(vec![ByteRange::new(0, file.size_bytes.unwrap_or(0))]);
+    let segment = EncodedSegment::new(
+        SegmentId::new(segment_id)?,
+        ColumnRef::new("order_id")?,
+        LogicalDType::UInt64,
+        Nullability::NonNullable,
+        layout,
+        SegmentStats::with_row_count(row_count),
+    );
+    Ok(ManifestSegment::new(segment, file))
+}
+
+fn local_append_only_cdc_schema() -> Result<SchemaDefinition> {
+    let mut schema = SchemaDefinition::new(
+        SchemaId::new("gar0020e-orders-schema")?,
+        SchemaVersion::new(1)?,
+    );
+    schema.add_field(
+        SchemaField::new(
+            FieldName::new("order_id")?,
+            LogicalDType::UInt64,
+            Nullability::NonNullable,
+        )
+        .with_id(FieldId::new("field.order_id")?),
+    );
+    schema.add_field(
+        SchemaField::new(
+            FieldName::new("snapshot_role")?,
+            LogicalDType::Utf8,
+            Nullability::NonNullable,
+        )
+        .with_id(FieldId::new("field.snapshot_role")?),
+    );
+    Ok(schema)
+}
+
+fn local_append_only_cdc_base_rows() -> Vec<LocalAppendOnlyCdcOverlayFixtureRow> {
+    vec![
+        LocalAppendOnlyCdcOverlayFixtureRow {
+            row_id: 1001,
+            segment_id: "gar0020e-segment-base",
+            snapshot_role: "base",
+        },
+        LocalAppendOnlyCdcOverlayFixtureRow {
+            row_id: 1002,
+            segment_id: "gar0020e-segment-base",
+            snapshot_role: "base",
+        },
+        LocalAppendOnlyCdcOverlayFixtureRow {
+            row_id: 1003,
+            segment_id: "gar0020e-segment-base",
+            snapshot_role: "base",
+        },
+    ]
+}
+
+fn local_append_only_cdc_appended_rows() -> Vec<LocalAppendOnlyCdcOverlayFixtureRow> {
+    vec![
+        LocalAppendOnlyCdcOverlayFixtureRow {
+            row_id: 4001,
+            segment_id: "gar0020e-segment-append",
+            snapshot_role: "append_delta",
+        },
+        LocalAppendOnlyCdcOverlayFixtureRow {
+            row_id: 4002,
+            segment_id: "gar0020e-segment-append",
+            snapshot_role: "append_delta",
+        },
+    ]
+}
+
+fn local_append_only_cdc_change_set(
+    fixture: &LocalAppendOnlyCdcOverlayFixture,
+) -> Result<ChangeSet> {
+    let mut change_set = ChangeSet::between(
+        fixture.base_manifest.snapshot.id.clone(),
+        fixture.delta_manifest.snapshot.id.clone(),
+    );
+    change_set.add_change(
+        SegmentChange::new(
+            SegmentChangeKind::Added,
+            SegmentId::new("gar0020e-segment-append")?,
+        )
+        .with_reason("append-only CDC delta declared by local fixture"),
+    );
+    Ok(change_set)
+}
+
+fn local_append_only_cdc_effective_row_ids(fixture: &LocalAppendOnlyCdcOverlayFixture) -> Vec<u64> {
+    fixture
+        .base_rows
+        .iter()
+        .chain(fixture.appended_rows.iter())
+        .map(|row| row.row_id)
+        .collect()
+}
+
+fn local_append_only_cdc_summary(
+    fixture: &LocalAppendOnlyCdcOverlayFixture,
+    cdc_plan: &CdcIncrementalPlanningReport,
+    effective_row_ids: &[u64],
+) -> String {
+    let base_row_ids = fixture
+        .base_rows
+        .iter()
+        .map(|row| row.row_id.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    let appended_row_ids = fixture
+        .appended_rows
+        .iter()
+        .map(|row| row.row_id.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    let base_row_segments = fixture
+        .base_rows
+        .iter()
+        .map(|row| format!("{}:{}", row.row_id, row.segment_id))
+        .collect::<Vec<_>>()
+        .join(",");
+    let appended_row_segments = fixture
+        .appended_rows
+        .iter()
+        .map(|row| format!("{}:{}", row.row_id, row.segment_id))
+        .collect::<Vec<_>>()
+        .join(",");
+    let row_roles = fixture
+        .base_rows
+        .iter()
+        .chain(fixture.appended_rows.iter())
+        .map(|row| format!("{}:{}", row.row_id, row.snapshot_role))
+        .collect::<Vec<_>>()
+        .join(",");
+    let effective_row_ids = effective_row_ids
+        .iter()
+        .map(u64::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "fixture_id=gar0020e-local-append-only-cdc-overlay catalog_kind={} catalog_name={} dataset={} base_manifest={} delta_manifest={} from_snapshot={} to_snapshot={} schema={} incremental_status={} changed_segments={} inserts={} updates={} deletes={} tombstones={} overlay_rule=base_snapshot_then_append_delta base_row_ids={} appended_row_ids={} base_row_segments={} appended_row_segments={} row_roles={} effective_row_ids={} fallback_attempted=false external_engine_invoked=false manifest_write=false transaction_execution=false",
+        fixture.catalog.kind.as_str(),
+        fixture.catalog.name,
+        fixture.base_manifest.dataset.uri.as_str(),
+        fixture.base_manifest.id.as_str(),
+        fixture.delta_manifest.id.as_str(),
+        fixture.base_manifest.snapshot.id.as_str(),
+        fixture.delta_manifest.snapshot.id.as_str(),
+        fixture.schema.id.as_str(),
+        cdc_plan.status.as_str(),
+        cdc_plan.changed_segment_count,
+        cdc_plan.insert_count,
+        cdc_plan.update_count,
+        cdc_plan.delete_count,
+        cdc_plan.tombstone_count,
+        base_row_ids,
+        appended_row_ids,
+        base_row_segments,
+        appended_row_segments,
+        row_roles,
+        effective_row_ids
+    )
+}
+
+fn local_append_only_cdc_row_ids(
+    fixture: &LocalAppendOnlyCdcOverlayFixture,
+) -> (Vec<u64>, Vec<u64>, Vec<u64>) {
+    let effective_row_ids = local_append_only_cdc_effective_row_ids(fixture);
+    let base_row_ids = fixture
+        .base_rows
+        .iter()
+        .map(|row| row.row_id)
+        .collect::<Vec<_>>();
+    let appended_row_ids = fixture
+        .appended_rows
+        .iter()
+        .map(|row| row.row_id)
+        .collect::<Vec<_>>();
+    (base_row_ids, appended_row_ids, effective_row_ids)
+}
+
+pub fn run_local_append_only_cdc_overlay_smoke() -> Result<LocalAppendOnlyCdcOverlaySmokeReport> {
+    let fixture = local_append_only_cdc_overlay_fixture()?;
+    let change_set = local_append_only_cdc_change_set(&fixture)?;
+    let cdc_plan = evaluate_cdc_incremental_planning(
+        change_set,
+        vec![CdcEventSummary::new(
+            CdcEventKind::Insert,
+            fixture.appended_rows.len(),
+        )],
+    );
+    let (base_row_ids, appended_row_ids, effective_row_ids) =
+        local_append_only_cdc_row_ids(&fixture);
+    let correctness_summary =
+        local_append_only_cdc_summary(&fixture, &cdc_plan, &effective_row_ids);
+    let blocked_paths = local_append_only_cdc_blocked_paths();
+    let diagnostics = blocked_paths
+        .iter()
+        .map(|path| path.to_diagnostic())
+        .collect();
+
+    Ok(LocalAppendOnlyCdcOverlaySmokeReport {
+        schema_version: "shardloom.local_append_only_cdc_overlay_smoke.v1",
+        report_id: "gar0020e.local_append_only_cdc_overlay_smoke",
+        gar_id: "GAR-0020-E",
+        support_status: "fixture_smoke_only",
+        claim_gate_status: "scoped_append_only_cdc_overlay_smoke_only",
+        claim_boundary: "one in-memory local append-only CDC overlay fixture combining a base snapshot and append delta; no update/delete/tombstone CDC runtime, manifest write, transaction, object-store, lakehouse/catalog, production incremental, or performance claim",
+        fixture_id: "gar0020e-local-append-only-cdc-overlay",
+        catalog_kind: fixture.catalog.kind.as_str(),
+        catalog_ref_summary: fixture.catalog.summary(),
+        dataset_uri: fixture.base_manifest.dataset.uri.as_str().to_string(),
+        dataset_format: fixture.base_manifest.dataset.format.as_str().to_string(),
+        base_manifest_id: fixture.base_manifest.id.as_str().to_string(),
+        delta_manifest_id: fixture.delta_manifest.id.as_str().to_string(),
+        base_snapshot_id: fixture.base_manifest.snapshot.id.as_str().to_string(),
+        delta_snapshot_id: fixture.delta_manifest.snapshot.id.as_str().to_string(),
+        schema_id: fixture.schema.id.as_str().to_string(),
+        incremental_plan_report_ref: "shardloom.cdc_incremental_planning.v1",
+        incremental_status: cdc_plan.status.as_str(),
+        change_set_from_snapshot: fixture.base_manifest.snapshot.id.as_str().to_string(),
+        change_set_to_snapshot: fixture.delta_manifest.snapshot.id.as_str().to_string(),
+        overlay_rule: "base_snapshot_then_append_delta",
+        cdc_event_order: vec![CdcEventKind::Insert.as_str()],
+        blocked_path_order: blocked_paths
+            .iter()
+            .map(LocalAppendOnlyCdcOverlayBlockedPath::as_str)
+            .collect(),
+        base_row_count: fixture.base_rows.len(),
+        append_row_count: fixture.appended_rows.len(),
+        effective_row_count: effective_row_ids.len(),
+        base_manifest_file_count: fixture.base_manifest.file_count(),
+        delta_manifest_file_count: fixture.delta_manifest.file_count(),
+        base_manifest_segment_count: fixture.base_manifest.segment_count(),
+        delta_manifest_segment_count: fixture.delta_manifest.segment_count(),
+        changed_segment_count: cdc_plan.changed_segment_count,
+        insert_count: cdc_plan.insert_count,
+        update_count: cdc_plan.update_count,
+        delete_count: cdc_plan.delete_count,
+        tombstone_count: cdc_plan.tombstone_count,
+        unsupported_change_count: cdc_plan.unsupported_change_count,
+        base_row_ids,
+        appended_row_ids,
+        effective_row_ids,
+        correctness_digest: stable_metadata_digest(&correctness_summary),
+        correctness_summary,
+        correctness_refs: "shardloom-core::table_intelligence::local_append_only_cdc_overlay_smoke",
+        benchmark_refs: "not_required_fixture_smoke_no_performance_claim",
+        execution_certificate_refs: "shardloom-cli/tests/local_append_only_cdc_overlay_smoke.rs",
+        native_io_certificate_refs: "not_required_no_vortex_file_read_or_source_sink_io",
+        materialization_decode_refs: "in_memory_base_and_append_rows_only_no_file_decode_no_table_materialization",
+        policy_refs: "fallback_attempted=false,external_engine_invoked=false,manifest_write=false,transaction_execution=false,object_store_io=false",
+        local_catalog_ref_resolved: true,
+        local_base_snapshot_declared: true,
+        local_append_delta_declared: true,
+        cdc_incremental_plan_evaluated: true,
+        append_overlay_rule_applied: true,
+        result_row_order_preserved: true,
+        table_metadata_write_performed: false,
+        manifest_write_performed: false,
+        transaction_execution_performed: false,
+        commit_execution_performed: false,
+        data_file_read_performed: false,
+        object_store_io_performed: false,
+        write_io_performed: false,
+        credential_resolution_performed: false,
+        external_table_format_dependency_invoked: false,
+        fallback_attempted: false,
+        fallback_execution_allowed: false,
+        external_engine_invoked: false,
+        performance_claim_allowed: false,
+        production_incremental_claim_allowed: false,
+        lakehouse_claim_allowed: false,
+        blocked_paths,
+        diagnostics,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CdcManifestTransactionSurface {
     CdcReadIntent,
     CdcWriteIntent,
@@ -3459,6 +4131,7 @@ mod tests {
         assert!(report.layout_compaction_planning_present);
         assert!(report.local_metadata_smoke_present);
         assert!(report.local_delete_tombstone_smoke_present);
+        assert!(report.local_append_only_cdc_overlay_smoke_present);
         assert!(report.fixture_metadata_required);
         assert!(report.row_identity_required);
         assert!(report.delete_tombstone_policy_required);
@@ -3716,6 +4389,115 @@ mod tests {
                 "SL_EXTERNAL_EFFECT_DISABLED",
                 "SL_NOT_IMPLEMENTED",
                 "SL_OBJECT_STORE_UNSUPPORTED",
+                "SL_EXTERNAL_EFFECT_DISABLED",
+            ]
+        );
+    }
+
+    #[test]
+    fn local_append_only_cdc_overlay_smoke_combines_base_and_append_rows() {
+        let report =
+            run_local_append_only_cdc_overlay_smoke().expect("local append-only CDC overlay smoke");
+        assert_eq!(
+            report.schema_version,
+            "shardloom.local_append_only_cdc_overlay_smoke.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "gar0020e.local_append_only_cdc_overlay_smoke"
+        );
+        assert_eq!(report.gar_id, "GAR-0020-E");
+        assert_eq!(report.support_status, "fixture_smoke_only");
+        assert_eq!(
+            report.claim_gate_status,
+            "scoped_append_only_cdc_overlay_smoke_only"
+        );
+        assert_eq!(report.fixture_id, "gar0020e-local-append-only-cdc-overlay");
+        assert_eq!(report.catalog_kind, "local_manifest");
+        assert_eq!(report.dataset_format, "vortex");
+        assert_eq!(report.incremental_status, "execute_changed_segments_only");
+        assert_eq!(report.overlay_rule, "base_snapshot_then_append_delta");
+        assert_eq!(report.cdc_event_order, vec!["insert"]);
+        assert_eq!(report.base_row_count, 3);
+        assert_eq!(report.append_row_count, 2);
+        assert_eq!(report.effective_row_count, 5);
+        assert_eq!(report.base_manifest_file_count, 1);
+        assert_eq!(report.delta_manifest_file_count, 1);
+        assert_eq!(report.base_manifest_segment_count, 1);
+        assert_eq!(report.delta_manifest_segment_count, 1);
+        assert_eq!(report.changed_segment_count, 1);
+        assert_eq!(report.insert_count, 2);
+        assert_eq!(report.update_count, 0);
+        assert_eq!(report.delete_count, 0);
+        assert_eq!(report.tombstone_count, 0);
+        assert_eq!(report.unsupported_change_count, 0);
+        assert_eq!(report.base_row_ids, vec![1001, 1002, 1003]);
+        assert_eq!(report.appended_row_ids, vec![4001, 4002]);
+        assert_eq!(report.effective_row_ids, vec![1001, 1002, 1003, 4001, 4002]);
+        assert!(
+            report
+                .correctness_summary
+                .contains("effective_row_ids=1001,1002,1003,4001,4002")
+        );
+        assert!(report.correctness_digest.starts_with("fnv1a64:"));
+        assert!(report.fixture_smoke_supported());
+        assert!(report.claim_scoped());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn local_append_only_cdc_overlay_smoke_blocks_runtime_claims_and_writes() {
+        let report =
+            run_local_append_only_cdc_overlay_smoke().expect("local append-only CDC overlay smoke");
+        assert!(report.local_catalog_ref_resolved);
+        assert!(report.local_base_snapshot_declared);
+        assert!(report.local_append_delta_declared);
+        assert!(report.cdc_incremental_plan_evaluated);
+        assert!(report.append_overlay_rule_applied);
+        assert!(report.result_row_order_preserved);
+        assert!(!report.table_metadata_write_performed);
+        assert!(!report.manifest_write_performed);
+        assert!(!report.transaction_execution_performed);
+        assert!(!report.commit_execution_performed);
+        assert!(!report.data_file_read_performed);
+        assert!(!report.object_store_io_performed);
+        assert!(!report.write_io_performed);
+        assert!(!report.credential_resolution_performed);
+        assert!(!report.external_table_format_dependency_invoked);
+        assert!(!report.fallback_attempted);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.production_incremental_claim_allowed);
+        assert!(!report.lakehouse_claim_allowed);
+        assert_eq!(
+            report.blocked_path_order(),
+            vec![
+                "cdc_update",
+                "cdc_delete",
+                "cdc_tombstone",
+                "manifest_serialization",
+                "manifest_write",
+                "transaction_execution",
+                "object_store_commit",
+                "table_catalog_commit",
+                "table_format_cdc_runtime",
+            ]
+        );
+        assert_eq!(report.unsupported_diagnostic_count(), 9);
+        assert!(report.deterministic_unsupported_diagnostics_ready());
+        assert_eq!(
+            report.unsupported_diagnostic_code_order(),
+            vec![
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_COMMIT_NOT_ATOMIC",
+                "SL_OBJECT_STORE_UNSUPPORTED",
+                "SL_COMMIT_NOT_ATOMIC",
                 "SL_EXTERNAL_EFFECT_DISABLED",
             ]
         );

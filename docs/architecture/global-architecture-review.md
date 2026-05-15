@@ -404,7 +404,8 @@ plan before coding.
   `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`,
   `shardloom-cli/tests/cg9_catalog_metadata_gate.rs`,
   `shardloom-cli/tests/local_table_metadata_read_smoke.rs`,
-  `shardloom-cli/tests/local_delete_tombstone_read_smoke.rs`
+  `shardloom-cli/tests/local_delete_tombstone_read_smoke.rs`,
+  `shardloom-cli/tests/local_append_only_cdc_overlay_smoke.rs`
 - [x] Schema, partition, delete/tombstone, and aggregate table evidence reports exist.
 - [x] Current table-intelligence surfaces are no-IO and typed.
 - [x] GAR-0020-A: `CatalogMetadataIntegrationGateReport` exposes deterministic, report-only
@@ -428,10 +429,15 @@ plan before coding.
   that applies file-level delete and segment tombstone admission, emits a correctness digest, keeps
   row/position/equality/CDC/object-store/table-format delete models deterministically blocked, and
   reports `fallback_attempted=false` and `external_engine_invoked=false`.
+- [x] GAR-0020-E: `LocalAppendOnlyCdcOverlaySmokeReport` and
+  `local-append-only-cdc-overlay-smoke` expose one fixture-smoke-only, in-memory local append-only
+  CDC overlay path that combines base rows plus append-delta rows, emits a correctness digest, keeps
+  update/delete/tombstone CDC plus manifest/transaction/commit paths deterministically blocked, and
+  reports `fallback_attempted=false` and `external_engine_invoked=false`.
 - [ ] Broad catalog/table metadata integration, real table data I/O, delete/tombstone execution,
   CDC execution, maintenance writes, and table/lakehouse commits remain incomplete; the current
-  matrix keeps those lanes unsupported until evidence-bearing promotion slices such as
-  `GAR-0020-E` and `GAR-0028-A` are completed.
+  matrix keeps those lanes unsupported until evidence-bearing promotion slices such as `GAR-0028-A`
+  are completed.
 
 ### RFC 0021 - Expression Engine and Kernel Registry
 

@@ -319,10 +319,14 @@ fn table_intelligence_json_embeds_gar0020d_local_delete_tombstone_smoke_ref() {
 
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_existing_report_refs",
-        "cg9.table_intelligence.foundation,shardloom.delete_tombstone_compatibility.v1,shardloom.cdc_incremental_planning.v1,shardloom.layout_health.v1,shardloom.compaction_planning.v1,gar0020c.local_manifest_table_metadata_read_smoke,gar0020d.local_delete_tombstone_read_smoke,gar0004a.cdc_manifest_transaction_gate,shardloom.object_store_commit_protocol.v1"
+        "cg9.table_intelligence.foundation,shardloom.delete_tombstone_compatibility.v1,shardloom.cdc_incremental_planning.v1,shardloom.layout_health.v1,shardloom.compaction_planning.v1,gar0020c.local_manifest_table_metadata_read_smoke,gar0020d.local_delete_tombstone_read_smoke,gar0020e.local_append_only_cdc_overlay_smoke,gar0004a.cdc_manifest_transaction_gate,shardloom.object_store_commit_protocol.v1"
     )));
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_local_delete_tombstone_smoke_present",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_local_append_only_cdc_overlay_smoke_present",
         "true"
     )));
 }

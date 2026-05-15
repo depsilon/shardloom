@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0020-E scoped append-only CDC read/overlay smoke
+  - Primary files:
+    - `shardloom-core/src/table_intelligence.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/local_append_only_cdc_overlay_smoke.rs`
+    - `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`
+    - `docs/architecture/table-intelligence-layer.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: close GAR-0020-E by adding one in-memory local append-only CDC overlay fixture smoke that
+    combines declared base-snapshot rows plus append-delta rows, emits effective row ids plus a
+    correctness digest, and keeps unsupported CDC/manifest/transaction/commit paths explicit.
+  - Checklist:
+    - [x] Add `LocalAppendOnlyCdcOverlaySmokeReport` with
+          `schema_version=shardloom.local_append_only_cdc_overlay_smoke.v1`,
+          `report_id=gar0020e.local_append_only_cdc_overlay_smoke`,
+          `gar_id=GAR-0020-E`, `support_status=fixture_smoke_only`, and
+          `claim_gate_status=scoped_append_only_cdc_overlay_smoke_only`.
+    - [x] Add a local fixture with three base rows, two append-delta rows, and effective row ids
+          `1001,1002,1003,4001,4002`.
+    - [x] Reuse the CDC incremental planning surface and report
+          `incremental_status=execute_changed_segments_only`, `changed_segment_count=1`,
+          and `insert_count=2`.
+    - [x] Attach a stable `fnv1a64:*` correctness digest and evidence refs.
+    - [x] Emit deterministic unsupported diagnostics for update/delete/tombstone CDC,
+          manifest serialization/write, transaction execution, object-store commit, table-catalog
+          commit, and broad table-format CDC runtime paths.
+    - [x] Add the `local-append-only-cdc-overlay-smoke` CLI command and command-family routing.
+    - [x] Embed `local_append_only_cdc_overlay_smoke_present=true` and
+          `gar0020e.local_append_only_cdc_overlay_smoke` in the table-maintenance matrix evidence.
+    - [x] Move the planned GAR-0020-E item out of the phase plan and update GAR/table docs.
+  - Boundary:
+    - This is a local fixture-smoke-only overlay path. It does not read Vortex data files, read
+      object stores, write manifests or table metadata, execute transactions or commits, execute
+      update/delete/tombstone CDC behavior, invoke external table-format dependencies, certify
+      table-format CDC runtime, or make production incremental/lakehouse/performance claims.
+    - `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+      `external_engine_invoked=false` remain part of the report and CLI output.
+  - Evidence:
+    - Core tests assert the base-plus-append overlay contract, effective rows, correctness digest,
+      no-fallback fields, no-write/no-commit fields, and unsupported path diagnostic order.
+    - CLI tests assert command output fields, claim boundaries, and deterministic diagnostics.
+    - `table-intelligence-plan` now exposes the GAR-0020-E evidence ref without promoting broad
+      CDC/table-format runtime claims.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core local_append_only_cdc --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test local_append_only_cdc_overlay_smoke`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test table_intelligence_plan_snapshots`
 - [x] Session label: GAR-0020-D scoped local delete/tombstone read-execution smoke
   - Primary files:
     - `shardloom-core/src/table_intelligence.rs`

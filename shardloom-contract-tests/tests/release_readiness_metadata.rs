@@ -34,6 +34,13 @@ fn planned_gar_slices(plan: &str) -> Vec<String> {
     slices
 }
 
+fn completed_gar_session_count(completed_ledger: &str) -> usize {
+    completed_ledger
+        .lines()
+        .filter(|line| line.starts_with("- [x] Session label: GAR-"))
+        .count()
+}
+
 #[test]
 fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
     let pyproject = read_repo_file("python/pyproject.toml");
@@ -756,8 +763,9 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(plan.contains("GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
+    let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     let planned_gar_slices = planned_gar_slices(&plan);
-    assert!(planned_gar_slices.len() >= 32);
+    assert!(planned_gar_slices.len() + completed_gar_session_count(&completed_ledger) >= 32);
     assert!(
         planned_gar_slices
             .iter()
@@ -767,7 +775,6 @@ fn security_rfc_and_p80_completion_are_traceable() {
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));
 
-    let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(
         completed_ledger
             .contains("GAR-0001A-B distributed/object-store/lakehouse architecture gate")
