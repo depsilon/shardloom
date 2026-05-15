@@ -10,7 +10,8 @@
 )]
 
 use shardloom_core::{
-    Diagnostic, DiagnosticCode, DiagnosticSeverity, OutputTarget, Result, ShardLoomError,
+    Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus,
+    OutputTarget, Result, ShardLoomError,
 };
 use std::fmt::Write as _;
 
@@ -1431,12 +1432,16 @@ pub fn plan_fault_tolerance_promotion_gate() -> FaultTolerancePromotionGateRepor
 pub enum CommitExecutionPromotionSurface {
     LocalCommittedManifestCopy,
     LocalCommittedManifestRollbackCleanup,
+    GeneralizedManifestSerialization,
     GeneralizedLocalSinkCommit,
     ObjectStoreCommit,
     TableCatalogCommit,
+    LakehouseTransactionCommit,
     NativeSourceSinkCommit,
     FoundryDatasetTransactionCommit,
+    UpstreamVortexWriteApiExecution,
     LiveHybridCheckpointCommit,
+    OutputPayloadFidelityClaim,
 }
 impl CommitExecutionPromotionSurface {
     pub const fn as_str(&self) -> &'static str {
@@ -1445,12 +1450,36 @@ impl CommitExecutionPromotionSurface {
             Self::LocalCommittedManifestRollbackCleanup => {
                 "local_committed_manifest_rollback_cleanup"
             }
+            Self::GeneralizedManifestSerialization => "generalized_manifest_serialization",
             Self::GeneralizedLocalSinkCommit => "generalized_local_sink_commit",
             Self::ObjectStoreCommit => "object_store_commit",
             Self::TableCatalogCommit => "table_catalog_commit",
+            Self::LakehouseTransactionCommit => "lakehouse_transaction_commit",
             Self::NativeSourceSinkCommit => "native_source_sink_commit",
             Self::FoundryDatasetTransactionCommit => "foundry_dataset_transaction_commit",
+            Self::UpstreamVortexWriteApiExecution => "upstream_vortex_write_api_execution",
             Self::LiveHybridCheckpointCommit => "live_hybrid_checkpoint_commit",
+            Self::OutputPayloadFidelityClaim => "output_payload_fidelity_claim",
+        }
+    }
+
+    const fn diagnostic_code(self) -> DiagnosticCode {
+        match self {
+            Self::ObjectStoreCommit => DiagnosticCode::ObjectStoreUnsupported,
+            Self::TableCatalogCommit | Self::LakehouseTransactionCommit => {
+                DiagnosticCode::CommitNotAtomic
+            }
+            Self::OutputPayloadFidelityClaim => DiagnosticCode::MetadataLoss,
+            _ => DiagnosticCode::NotImplemented,
+        }
+    }
+
+    const fn diagnostic_category(self) -> DiagnosticCategory {
+        match self {
+            Self::ObjectStoreCommit => DiagnosticCategory::ObjectStore,
+            Self::UpstreamVortexWriteApiExecution => DiagnosticCategory::VortexIo,
+            Self::OutputPayloadFidelityClaim => DiagnosticCategory::MetadataLoss,
+            _ => DiagnosticCategory::UnsupportedFeature,
         }
     }
 }
@@ -1539,22 +1568,151 @@ impl CommitExecutionPromotionGateEntry {
             broader_execution_allowed: false,
         }
     }
+
+    fn blocked_diagnostic(&self) -> Option<Diagnostic> {
+        if self.status != CommitExecutionPromotionStatus::BlockedUntilCertified {
+            return None;
+        }
+        Some(Diagnostic::new(
+            self.surface.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.surface.diagnostic_category(),
+            format!(
+                "commit promotion surface {} is blocked until certified",
+                self.surface.as_str()
+            ),
+            Some(self.surface.as_str().to_string()),
+            Some(format!(
+                "{} requires {} before runtime promotion.",
+                self.surface.as_str(),
+                self.required_evidence
+            )),
+            Some(
+                "Keep the path report-only and attach the required evidence before enabling writes or claims."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ))
+    }
+}
+
+fn commit_execution_promotion_entries() -> Vec<CommitExecutionPromotionGateEntry> {
+    vec![
+        CommitExecutionPromotionGateEntry::existing_limited(
+            CommitExecutionPromotionSurface::LocalCommittedManifestCopy,
+            "existing feature-gated local finalized-manifest to committed-manifest copy evidence plus output manifest, payload, idempotency, rollback, certificate, and no-fallback linkage before any broader promotion",
+        ),
+        CommitExecutionPromotionGateEntry::existing_limited(
+            CommitExecutionPromotionSurface::LocalCommittedManifestRollbackCleanup,
+            "existing feature-gated local committed-manifest rollback cleanup evidence plus ownership, cleanup audit, idempotency, certificate, and no-fallback linkage before any broader promotion",
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::GeneralizedManifestSerialization,
+            "generalized manifest schema, serialization roundtrip, compatibility/fidelity proof, idempotency identity, execution certificate, Native I/O certificate, and no-fallback evidence",
+            false,
+            false,
+            false,
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::GeneralizedLocalSinkCommit,
+            "generalized sink requirement report, output manifest, materialization/fidelity report, idempotency key, rollback proof, execution certificate, and Native I/O certificate",
+            false,
+            false,
+            false,
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::ObjectStoreCommit,
+            "object-store staging prefix, manifest pointer update, commit record, idempotency key, cleanup/recovery plan, backend atomicity policy, request evidence, and Native I/O certificate",
+            true,
+            false,
+            false,
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::TableCatalogCommit,
+            "catalog/table transaction policy, snapshot identity, schema/delete/tombstone compatibility, commit/recovery evidence, and fidelity/materialization reports",
+            true,
+            true,
+            false,
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::LakehouseTransactionCommit,
+            "lakehouse table-format transaction policy, manifest compatibility, catalog atomicity, delete/CDC semantics, recovery evidence, execution certificate, and Native I/O certificate",
+            true,
+            true,
+            false,
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::NativeSourceSinkCommit,
+            "source/sink capability report, Native I/O certificate pair, residual/materialization boundary evidence, output manifest, commit identity, and recovery proof",
+            true,
+            false,
+            false,
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::FoundryDatasetTransactionCommit,
+            "Foundry dataset transaction, branch/build context, staging/materialization evidence, certificate output policy, governance markings, and no external-compute fallback proof",
+            true,
+            true,
+            true,
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::UpstreamVortexWriteApiExecution,
+            "approved upstream Vortex writer API contract, version pin, write-path certificate, output-payload fidelity report, rollback proof, and no-fallback evidence",
+            false,
+            false,
+            false,
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::LiveHybridCheckpointCommit,
+            "engine-mode evidence, checkpoint identity, hot/warm/cold state manifest, freshness certificate, rollback/replay proof, and side-effect policy",
+            true,
+            true,
+            false,
+        ),
+        CommitExecutionPromotionGateEntry::blocked(
+            CommitExecutionPromotionSurface::OutputPayloadFidelityClaim,
+            "payload schema/fidelity matrix, materialization/decode boundary proof, replay proof, compatibility loss diagnostics, execution certificate, Native I/O certificate, and workload-scoped evidence",
+            false,
+            false,
+            false,
+        ),
+    ]
+}
+
+fn commit_execution_existing_report_refs() -> Vec<&'static str> {
+    vec![
+        "shardloom.vortex_staged_output.v1",
+        "shardloom.vortex_manifest_finalization.v1",
+        "shardloom.vortex_commit_marker.v1",
+        "cg4.commit_execution_promotion_gate",
+        "cg10.object_store_request_planner.aggregate",
+        "shardloom.object_store_commit_protocol.v1",
+        "shardloom.table_maintenance_execution_matrix.v1",
+    ]
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommitExecutionPromotionGateReport {
     pub schema_version: &'static str,
     pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
     pub entries: Vec<CommitExecutionPromotionGateEntry>,
+    pub existing_report_refs: Vec<&'static str>,
     pub existing_local_commit_execution_present: bool,
     pub existing_local_rollback_execution_present: bool,
     pub broader_commit_execution_allowed: bool,
+    pub generalized_manifest_serialization_allowed: bool,
     pub generalized_local_sink_commit_allowed: bool,
     pub object_store_commit_execution_allowed: bool,
     pub table_catalog_commit_execution_allowed: bool,
+    pub lakehouse_transaction_commit_execution_allowed: bool,
     pub native_source_sink_commit_execution_allowed: bool,
     pub foundry_dataset_commit_execution_allowed: bool,
+    pub upstream_vortex_write_api_execution_allowed: bool,
     pub live_hybrid_checkpoint_commit_execution_allowed: bool,
+    pub output_payload_fidelity_claim_allowed: bool,
     pub output_manifest_required: bool,
     pub sink_requirement_report_required: bool,
     pub materialization_fidelity_report_required: bool,
@@ -1566,84 +1724,53 @@ pub struct CommitExecutionPromotionGateReport {
     pub object_store_atomicity_policy_required: bool,
     pub table_catalog_transaction_policy_required: bool,
     pub credential_effect_policy_required: bool,
+    pub upstream_vortex_write_api_policy_required: bool,
+    pub deterministic_unsupported_diagnostics_ready: bool,
     pub runtime_execution_performed: bool,
     pub write_io: bool,
     pub object_store_io: bool,
     pub catalog_io: bool,
+    pub manifest_write_io: bool,
+    pub upstream_vortex_write_api_invoked: bool,
     pub external_effects_executed: bool,
     pub exactly_once_claim_allowed: bool,
     pub atomic_commit_claim_allowed: bool,
     pub recovery_claim_allowed: bool,
+    pub lakehouse_claim_allowed: bool,
+    pub production_output_claim_allowed: bool,
+    pub external_engine_invoked: bool,
     pub fallback_attempted: bool,
     pub fallback_execution_allowed: bool,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl CommitExecutionPromotionGateReport {
     pub fn planning_default() -> Self {
+        let entries = commit_execution_promotion_entries();
+        let diagnostics = entries
+            .iter()
+            .filter_map(CommitExecutionPromotionGateEntry::blocked_diagnostic)
+            .collect();
         Self {
             schema_version: "shardloom.commit_execution_promotion_gate.v1",
             report_id: "cg4.commit_execution_promotion_gate",
-            entries: vec![
-                CommitExecutionPromotionGateEntry::existing_limited(
-                    CommitExecutionPromotionSurface::LocalCommittedManifestCopy,
-                    "existing feature-gated local finalized-manifest to committed-manifest copy evidence plus output manifest, payload, idempotency, rollback, certificate, and no-fallback linkage before any broader promotion",
-                ),
-                CommitExecutionPromotionGateEntry::existing_limited(
-                    CommitExecutionPromotionSurface::LocalCommittedManifestRollbackCleanup,
-                    "existing feature-gated local committed-manifest rollback cleanup evidence plus ownership, cleanup audit, idempotency, certificate, and no-fallback linkage before any broader promotion",
-                ),
-                CommitExecutionPromotionGateEntry::blocked(
-                    CommitExecutionPromotionSurface::GeneralizedLocalSinkCommit,
-                    "generalized sink requirement report, output manifest, materialization/fidelity report, idempotency key, rollback proof, execution certificate, and Native I/O certificate",
-                    false,
-                    false,
-                    false,
-                ),
-                CommitExecutionPromotionGateEntry::blocked(
-                    CommitExecutionPromotionSurface::ObjectStoreCommit,
-                    "object-store staging prefix, manifest pointer update, commit record, idempotency key, cleanup/recovery plan, backend atomicity policy, request evidence, and Native I/O certificate",
-                    true,
-                    false,
-                    false,
-                ),
-                CommitExecutionPromotionGateEntry::blocked(
-                    CommitExecutionPromotionSurface::TableCatalogCommit,
-                    "catalog/table transaction policy, snapshot identity, schema/delete/tombstone compatibility, commit/recovery evidence, and fidelity/materialization reports",
-                    true,
-                    true,
-                    false,
-                ),
-                CommitExecutionPromotionGateEntry::blocked(
-                    CommitExecutionPromotionSurface::NativeSourceSinkCommit,
-                    "source/sink capability report, Native I/O certificate pair, residual/materialization boundary evidence, output manifest, commit identity, and recovery proof",
-                    true,
-                    false,
-                    false,
-                ),
-                CommitExecutionPromotionGateEntry::blocked(
-                    CommitExecutionPromotionSurface::FoundryDatasetTransactionCommit,
-                    "Foundry dataset transaction, branch/build context, staging/materialization evidence, certificate output policy, governance markings, and no external-compute fallback proof",
-                    true,
-                    true,
-                    true,
-                ),
-                CommitExecutionPromotionGateEntry::blocked(
-                    CommitExecutionPromotionSurface::LiveHybridCheckpointCommit,
-                    "engine-mode evidence, checkpoint identity, hot/warm/cold state manifest, freshness certificate, rollback/replay proof, and side-effect policy",
-                    true,
-                    true,
-                    false,
-                ),
-            ],
+            gar_id: "GAR-0028-A",
+            support_status: "report_only_with_blocked_runtime_paths",
+            claim_gate_status: "not_claim_grade",
+            entries,
+            existing_report_refs: commit_execution_existing_report_refs(),
             existing_local_commit_execution_present: true,
             existing_local_rollback_execution_present: true,
             broader_commit_execution_allowed: false,
+            generalized_manifest_serialization_allowed: false,
             generalized_local_sink_commit_allowed: false,
             object_store_commit_execution_allowed: false,
             table_catalog_commit_execution_allowed: false,
+            lakehouse_transaction_commit_execution_allowed: false,
             native_source_sink_commit_execution_allowed: false,
             foundry_dataset_commit_execution_allowed: false,
+            upstream_vortex_write_api_execution_allowed: false,
             live_hybrid_checkpoint_commit_execution_allowed: false,
+            output_payload_fidelity_claim_allowed: false,
             output_manifest_required: true,
             sink_requirement_report_required: true,
             materialization_fidelity_report_required: true,
@@ -1655,17 +1782,24 @@ impl CommitExecutionPromotionGateReport {
             object_store_atomicity_policy_required: true,
             table_catalog_transaction_policy_required: true,
             credential_effect_policy_required: true,
+            upstream_vortex_write_api_policy_required: true,
+            deterministic_unsupported_diagnostics_ready: true,
             runtime_execution_performed: false,
             write_io: false,
             object_store_io: false,
             catalog_io: false,
+            manifest_write_io: false,
+            upstream_vortex_write_api_invoked: false,
             external_effects_executed: false,
             exactly_once_claim_allowed: false,
             atomic_commit_claim_allowed: false,
             recovery_claim_allowed: false,
+            lakehouse_claim_allowed: false,
+            production_output_claim_allowed: false,
+            external_engine_invoked: false,
             fallback_attempted: false,
             fallback_execution_allowed: false,
-            diagnostics: Vec::new(),
+            diagnostics,
         }
     }
 
@@ -1703,12 +1837,16 @@ impl CommitExecutionPromotionGateReport {
 
     pub fn broader_execution_promotions_blocked(&self) -> bool {
         !self.broader_commit_execution_allowed
+            && !self.generalized_manifest_serialization_allowed
             && !self.generalized_local_sink_commit_allowed
             && !self.object_store_commit_execution_allowed
             && !self.table_catalog_commit_execution_allowed
+            && !self.lakehouse_transaction_commit_execution_allowed
             && !self.native_source_sink_commit_execution_allowed
             && !self.foundry_dataset_commit_execution_allowed
+            && !self.upstream_vortex_write_api_execution_allowed
             && !self.live_hybrid_checkpoint_commit_execution_allowed
+            && !self.output_payload_fidelity_claim_allowed
             && self.broader_execution_ready_surface_count() == 0
     }
 
@@ -1716,6 +1854,47 @@ impl CommitExecutionPromotionGateReport {
         !self.exactly_once_claim_allowed
             && !self.atomic_commit_claim_allowed
             && !self.recovery_claim_allowed
+            && !self.lakehouse_claim_allowed
+            && !self.production_output_claim_allowed
+            && !self.output_payload_fidelity_claim_allowed
+    }
+
+    pub fn unsupported_diagnostic_count(&self) -> usize {
+        self.diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                matches!(
+                    diagnostic.code,
+                    DiagnosticCode::NotImplemented
+                        | DiagnosticCode::ObjectStoreUnsupported
+                        | DiagnosticCode::CommitNotAtomic
+                        | DiagnosticCode::MetadataLoss
+                ) && diagnostic.severity == DiagnosticSeverity::Info
+                    && !diagnostic.fallback.attempted
+                    && !diagnostic.fallback.allowed
+            })
+            .count()
+    }
+
+    pub fn diagnostic_feature_order(&self) -> Vec<&str> {
+        self.diagnostics
+            .iter()
+            .filter_map(|diagnostic| diagnostic.feature.as_deref())
+            .collect()
+    }
+
+    pub fn unsupported_diagnostics_propagated(&self) -> bool {
+        self.deterministic_unsupported_diagnostics_ready
+            && self.unsupported_diagnostic_count() == self.blocked_surface_count()
+            && self.diagnostic_feature_order()
+                == self
+                    .entries
+                    .iter()
+                    .filter(|entry| {
+                        entry.status == CommitExecutionPromotionStatus::BlockedUntilCertified
+                    })
+                    .map(|entry| entry.surface.as_str())
+                    .collect::<Vec<_>>()
     }
 
     pub fn side_effect_free(&self) -> bool {
@@ -1725,7 +1904,10 @@ impl CommitExecutionPromotionGateReport {
             && !self.write_io
             && !self.object_store_io
             && !self.catalog_io
+            && !self.manifest_write_io
+            && !self.upstream_vortex_write_api_invoked
             && !self.external_effects_executed
+            && !self.external_engine_invoked
             && !self.fallback_attempted
             && !self.fallback_execution_allowed
     }
@@ -1739,6 +1921,14 @@ impl CommitExecutionPromotionGateReport {
         let _ = writeln!(out, "commit execution promotion gate");
         let _ = writeln!(out, "schema_version: {}", self.schema_version);
         let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(out, "gar_id: {}", self.gar_id);
+        let _ = writeln!(out, "support_status: {}", self.support_status);
+        let _ = writeln!(out, "claim_gate_status: {}", self.claim_gate_status);
+        let _ = writeln!(
+            out,
+            "unsupported diagnostics propagated: {}",
+            self.unsupported_diagnostics_propagated()
+        );
         let _ = writeln!(
             out,
             "broader commit execution allowed: {}",
@@ -4381,14 +4571,25 @@ mod tests {
     #[test]
     fn commit_execution_promotion_gate_tracks_broader_surfaces() {
         let report = plan_commit_execution_promotion_gate();
-        assert_eq!(report.surface_count(), 8);
+        assert_eq!(report.surface_count(), 12);
         assert_eq!(report.existing_limited_surface_count(), 2);
-        assert_eq!(report.blocked_surface_count(), 6);
+        assert_eq!(report.blocked_surface_count(), 10);
         assert_eq!(report.broader_execution_ready_surface_count(), 0);
+        assert_eq!(report.gar_id, "GAR-0028-A");
+        assert_eq!(
+            report.support_status,
+            "report_only_with_blocked_runtime_paths"
+        );
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
         assert!(
             report
                 .surface_order()
                 .contains(&CommitExecutionPromotionSurface::LocalCommittedManifestCopy.as_str())
+        );
+        assert!(
+            report.surface_order().contains(
+                &CommitExecutionPromotionSurface::GeneralizedManifestSerialization.as_str()
+            )
         );
         assert!(
             report
@@ -4396,9 +4597,24 @@ mod tests {
                 .contains(&CommitExecutionPromotionSurface::ObjectStoreCommit.as_str())
         );
         assert!(
+            report
+                .surface_order()
+                .contains(&CommitExecutionPromotionSurface::LakehouseTransactionCommit.as_str())
+        );
+        assert!(
             report.surface_order().contains(
                 &CommitExecutionPromotionSurface::FoundryDatasetTransactionCommit.as_str()
             )
+        );
+        assert!(
+            report.surface_order().contains(
+                &CommitExecutionPromotionSurface::UpstreamVortexWriteApiExecution.as_str()
+            )
+        );
+        assert!(
+            report
+                .surface_order()
+                .contains(&CommitExecutionPromotionSurface::OutputPayloadFidelityClaim.as_str())
         );
     }
     #[test]
@@ -4408,15 +4624,30 @@ mod tests {
         assert!(report.existing_local_rollback_execution_present);
         assert!(report.broader_execution_promotions_blocked());
         assert!(report.commit_claims_blocked());
+        assert_eq!(report.diagnostics.len(), 10);
+        assert_eq!(report.unsupported_diagnostic_count(), 10);
+        assert!(report.unsupported_diagnostics_propagated());
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.severity == DiagnosticSeverity::Info
+                    && !diagnostic.fallback.attempted
+                    && !diagnostic.fallback.allowed)
+        );
         assert!(report.side_effect_free());
         assert!(!report.has_errors());
         assert!(!report.broader_commit_execution_allowed);
+        assert!(!report.generalized_manifest_serialization_allowed);
         assert!(!report.generalized_local_sink_commit_allowed);
         assert!(!report.object_store_commit_execution_allowed);
         assert!(!report.table_catalog_commit_execution_allowed);
+        assert!(!report.lakehouse_transaction_commit_execution_allowed);
         assert!(!report.native_source_sink_commit_execution_allowed);
         assert!(!report.foundry_dataset_commit_execution_allowed);
+        assert!(!report.upstream_vortex_write_api_execution_allowed);
         assert!(!report.live_hybrid_checkpoint_commit_execution_allowed);
+        assert!(!report.output_payload_fidelity_claim_allowed);
         assert!(report.output_manifest_required);
         assert!(report.sink_requirement_report_required);
         assert!(report.materialization_fidelity_report_required);
@@ -4428,14 +4659,20 @@ mod tests {
         assert!(report.object_store_atomicity_policy_required);
         assert!(report.table_catalog_transaction_policy_required);
         assert!(report.credential_effect_policy_required);
+        assert!(report.upstream_vortex_write_api_policy_required);
         assert!(!report.runtime_execution_performed);
         assert!(!report.write_io);
         assert!(!report.object_store_io);
         assert!(!report.catalog_io);
+        assert!(!report.manifest_write_io);
+        assert!(!report.upstream_vortex_write_api_invoked);
         assert!(!report.external_effects_executed);
+        assert!(!report.external_engine_invoked);
         assert!(!report.exactly_once_claim_allowed);
         assert!(!report.atomic_commit_claim_allowed);
         assert!(!report.recovery_claim_allowed);
+        assert!(!report.lakehouse_claim_allowed);
+        assert!(!report.production_output_claim_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.fallback_execution_allowed);
     }
