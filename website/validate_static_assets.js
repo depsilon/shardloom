@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = __dirname;
+const repoRoot = path.resolve(root, "..");
 const requiredFiles = [
   "assets/compute-flow.js",
   "assets/data/compute-engine-flow-reference.md",
@@ -39,6 +40,10 @@ function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
+function readFromRepoRoot(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+}
+
 function collectFiles(directory, prefix = "") {
   const entries = fs.readdirSync(directory, { withFileTypes: true });
   const files = [];
@@ -60,6 +65,20 @@ function collectFiles(directory, prefix = "") {
 for (const relativePath of requiredFiles) {
   assert(exists(relativePath), `Missing required website file: ${relativePath}`);
 }
+
+const wranglerToml = readFromRepoRoot("wrangler.toml");
+assert(
+  /\[assets\][\s\S]*directory\s*=\s*["']\.\/website["']/.test(wranglerToml),
+  'wrangler.toml must serve static assets from [assets] directory = "./website"',
+);
+assert(
+  /\[assets\][\s\S]*html_handling\s*=\s*["']none["']/.test(wranglerToml),
+  'wrangler.toml must set [assets] html_handling = "none" to avoid extensionless/.html redirect loops',
+);
+assert(
+  /\[assets\][\s\S]*not_found_handling\s*=\s*["']404-page["']/.test(wranglerToml),
+  'wrangler.toml must set [assets] not_found_handling = "404-page"',
+);
 
 const htmlRuntimeFiles = collectFiles(root).filter((relativePath) =>
   relativePath.endsWith(".html"),
@@ -85,6 +104,32 @@ assert(
 );
 
 const indexHtml = read("index.html");
+assert(
+  /<img class="brand-icon" src="\/assets\/logo\/shardloom-favicon\.png"/.test(indexHtml),
+  "The global nav corner must use the favicon/icon asset",
+);
+assert(
+  /<img class="hero-logo" src="\/assets\/logo\/shardloom-logo-trim\.png"/.test(indexHtml),
+  "The home hero must use the trimmed ShardLoom logo asset",
+);
+
+for (const headerLogoFile of [
+  "benchmarks.html",
+  "compute-engine-flow.html",
+  "status.html",
+  "readme.html",
+]) {
+  const source = read(headerLogoFile);
+  assert(
+    /<img class="brand-icon" src="\/assets\/logo\/shardloom-favicon\.png"/.test(source),
+    `${headerLogoFile} global nav corner must use the favicon/icon asset`,
+  );
+  assert(
+    /<img class="page-header-logo" src="\/assets\/logo\/shardloom-logo-trim\.png"/.test(source),
+    `${headerLogoFile} page header must use the trimmed ShardLoom logo asset`,
+  );
+}
+
 const assetPattern = /\b(?:src|href|content)=["']([^"']*\/assets\/[^"']+)["']/g;
 const missingAssets = [];
 let match;

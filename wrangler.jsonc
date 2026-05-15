@@ -6,7 +6,9 @@
     "enabled": true
   },
   "assets": {
-    "directory": "website"
+    "directory": "website",
+    "html_handling": "none",
+    "not_found_handling": "404-page"
   },
   "compatibility_flags": [
     "nodejs_compat"

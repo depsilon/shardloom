@@ -28,6 +28,11 @@ Cloudflare setup:
 The root `wrangler.toml` uses Workers Static Assets only. It does not define a Worker script,
 Worker runtime JavaScript, or secrets.
 
+Workers Static Assets is configured with `html_handling = "none"` so committed `*.html` files are
+served directly. The short aliases in `_redirects`, such as `/benchmarks`, `/status`, and `/docs`,
+redirect to those committed HTML files instead of fighting Cloudflare's default extensionless HTML
+redirect behavior.
+
 The landing page includes a small first-party browser script at `assets/compute-flow.js`. It fetches
 the committed local snapshot at `assets/data/compute-engine-flow-reference.md`, parses the flow
 tables and Mermaid node labels, and renders the current access, runtime, execution-lane,
