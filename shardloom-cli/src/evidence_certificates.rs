@@ -1675,6 +1675,19 @@ fn approx_sketch_function_gate_fields(
     push_field(&mut fields, "plan_only", "true");
     push_field(&mut fields, "schema_version", report.schema_version);
     push_field(&mut fields, "report_id", report.report_id);
+    push_field(&mut fields, "gar_id", report.gar_id);
+    push_field(&mut fields, "support_status", report.support_status);
+    push_field(&mut fields, "claim_gate_status", report.claim_gate_status);
+    push_field(
+        &mut fields,
+        "admission_contract_status",
+        report.admission_contract_status,
+    );
+    push_field(
+        &mut fields,
+        "deterministic_unsupported_status",
+        report.deterministic_unsupported_status,
+    );
     push_field(
         &mut fields,
         "canonical_function_name",
@@ -1893,6 +1906,16 @@ fn append_approx_sketch_status_fields(
         report.runtime_promotions_blocked(),
     );
     push_bool_field(fields, "claim_blocked", report.claim_blocked());
+    push_bool_field(
+        fields,
+        "admission_contract_complete",
+        report.admission_contract_complete(),
+    );
+    push_bool_field(
+        fields,
+        "deterministic_unsupported_diagnostics_ready",
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
     push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
     push_bool_field(
         fields,
