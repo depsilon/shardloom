@@ -263,58 +263,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
-- [ ] GAR-FLOW-2G prepared/native batch runner harness integration
-  - Source: compute-engine flow review; `benchmarks/traditional_analytics/README.md`;
-    GAR-FLOW-2F completed single-process batch runner.
-  - Current state:
-    - `traditional-analytics-vortex-batch-run` supports scoped single-process prepared/native
-      Vortex execution for multiple requested scenarios while preserving per-scenario evidence.
-    - The default comparative Python harness still invokes `traditional-analytics-vortex-run`
-      per scenario and reports `persistent_runner_status=process_per_scenario_attributed_not_reduced`.
-  - Next slice outcome: wire the benchmark harness to use the batch command for eligible
-    prepared/native Vortex scenario groups without changing result semantics or hiding timing
-    boundaries.
-  - User-visible surface: benchmark JSON/Markdown reports, prepared/native ShardLoom rows,
-    execution-mode attribution fields, persistent-runner fields.
-  - Implementation scope:
-    - `benchmarks/traditional_analytics/run.py`
-    - `benchmarks/traditional_analytics/README.md`
-    - benchmark contract tests or focused harness smoke where available.
-  - Evidence required:
-    - correctness refs: stable result digests for the same scenario rows before/after batching.
-    - benchmark refs: explicit batch command/process attribution fields, not performance claims.
-    - execution certificate refs: per-scenario runtime certificate fields preserved from child rows.
-    - Native I/O certificate refs: per-scenario source/result Native I/O statuses preserved.
-    - materialization/decode refs: per-scenario materialization/decode fields preserved.
-    - policy/no-fallback refs: batch and child rows keep `fallback_attempted=false` and
-      `external_engine_invoked=false`.
-  - Acceptance:
-    - eligible prepared/native rows can be produced from one batch command per format/iteration or a
-      clearly documented narrower grouping.
-    - per-scenario rows retain result JSON, operator blocker fields, source-backed scan fields,
-      result-sink evidence when requested, and execution-mode fields.
-    - row-level timings distinguish batch process wall time from per-scenario
-      `scenario_compute_micros`/`vortex_scan_micros`.
-    - unsupported or CDC-only groupings fall back to deterministic unsupported diagnostics or
-      explicit single-scenario execution without reporting hidden fallback.
-  - Verification:
-    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex prepared_native_vortex_batch_run_preserves_evidence_envelope --lib --features vortex-traditional-analytics-benchmark`
-    - focused `benchmarks/traditional_analytics/run.py` smoke for `shardloom-prepared-vortex`
-      after harness integration.
-    - `python -m compileall -q benchmarks/traditional_analytics`
-    - `git diff --check`
-  - Non-goals:
-    - no persistent daemon or service runtime.
-    - no performance/superiority/Spark-displacement claim.
-    - no SQL/DataFrame, object-store, lakehouse, Foundry, or production claim.
-    - no hidden global fast-mode toggle.
-  - Claim boundary:
-    - after this slice, ShardLoom may claim the benchmark harness can consume the scoped local
-      prepared/native batch runner for eligible rows only.
-    - encoded-native operators, broad persistent runtime, production workloads, and performance
-      claims remain blocked.
-  - Dependencies/blockers: GAR-FLOW-2F batch command support must exist first.
-
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
 
 - [ ] GAR-0020-B delete/tombstone, CDC, and maintenance-write execution matrix

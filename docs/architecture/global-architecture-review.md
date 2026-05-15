@@ -924,6 +924,17 @@ plan before coding.
         daemon/service runtime, default benchmark harness integration, encoded-native operator
         claims, performance claims, SQL/DataFrame, object-store/lakehouse, Spark-displacement, and
         production claims remain blocked.
+  - [x] GAR-FLOW-2G wires the comparative Python benchmark harness to consume
+        `traditional-analytics-vortex-batch-run` for eligible prepared/native Vortex scenario
+        groups, one batch process per format/iteration. Rows now report
+        `persistent_runner_status=single_process_batch_runner_supported`,
+        shared batch process wall timing, per-scenario `scenario_compute_micros` and
+        `vortex_scan_micros`, child evidence fields, Native I/O certificate status,
+        operator/source-backed-scan fields, result-sink evidence when requested, and
+        `fallback_attempted=false` / `external_engine_invoked=false`. This closes benchmark harness
+        integration for scoped local prepared/native batch process reuse only; encoded-native
+        operator claims, persistent daemon/service runtime, performance claims, SQL/DataFrame,
+        object-store/lakehouse, Spark-displacement, and production claims remain blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

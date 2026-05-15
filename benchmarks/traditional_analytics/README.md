@@ -298,11 +298,14 @@ one ShardLoom process and emits `shardloom.traditional_analytics.vortex_batch.v1
 `runner_kind=single_process_prepared_native_batch`,
 `typed_envelope_preserved=true`, `process_startup_amortization_supported=true`, per-scenario
 operator/source/Native I/O fields, and `fallback_attempted=false` /
-`external_engine_invoked=false`. This is a runtime support slice for scoped local prepared/native
-process reuse. The default comparative harness rows still use per-scenario CLI attribution until
-the harness is explicitly migrated to consume the batch command; the batch command itself is not a
-persistent daemon, hidden fast mode, performance claim, SQL/DataFrame claim, object-store claim, or
-Spark-displacement claim.
+`external_engine_invoked=false`. The Python comparative harness uses this command for eligible
+prepared/native Vortex scenario groups, one batch process per format/iteration, and reports
+`persistent_runner_status=single_process_batch_runner_supported` on those rows. That status means
+the CLI process wall time is shared across the grouped rows; per-scenario
+`scenario_compute_micros`, `vortex_scan_micros`, and optional
+`computed_result_sink_write_micros` remain row-level evidence fields. This is a runtime support
+slice for scoped local prepared/native process reuse. It is not a persistent daemon, hidden fast
+mode, performance claim, SQL/DataFrame claim, object-store claim, or Spark-displacement claim.
 
 ### Website Evidence Snapshot
 
@@ -371,17 +374,16 @@ claim promotion remains blocked through `result_sink_claim_gate_status`; the
 operator timing is not relabeled as a broader claim-grade benchmark.
 
 Process attribution is explicit. ShardLoom rows report `cli_process_wall_millis`
-when the Python harness invokes the CLI, derive `python_harness_overhead_millis`
-from the outer harness timing, report `build_time_millis` separately, and keep
-`build_time_excluded=true` for per-scenario rows. Prepared artifact setup is
+when the Python harness invokes the CLI. Per-scenario CLI rows derive
+`python_harness_overhead_millis` from the outer harness timing. Eligible
+prepared/native batch rows instead report `batch_cli_process_wall_millis`,
+`batch_process_wall_shared=true`, and
+`process_startup_attribution=single_process_batch_cli_wall_shared_across_scenarios`
+so the shared process wall is not mistaken for per-scenario operator time. All rows report
+`build_time_millis` separately and keep `build_time_excluded=true`. Prepared artifact setup is
 reported as `preparation_millis` and `preparation_cli_process_wall_millis`; it
 is not folded into startup/warmup or pure operator timing. The current decision
-record is `docs/architecture/benchmark-persistent-runner-decision.md`. Default
-comparative prepared/native rows still keep
-`persistent_runner_status=process_per_scenario_attributed_not_reduced`; the
-explicit `traditional-analytics-vortex-batch-run` command emits
-`persistent_runner_status=single_process_batch_runner_supported` for scoped
-single-process batch runs only.
+record is `docs/architecture/benchmark-persistent-runner-decision.md`.
 
 The JSON artifact and Markdown report also include
 `persistent_runner_admission_gate`. This is a report-only gate, not a runtime
