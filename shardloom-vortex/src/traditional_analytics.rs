@@ -900,6 +900,97 @@ impl TraditionalRankedMetricState {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
+struct TraditionalDirtyInputState {
+    clean_cast_accum: TraditionalGroupAccum,
+    malformed_timestamp_accum: TraditionalGroupAccum,
+    stats: TraditionalStreamingScanStats,
+    saw_raw_event_time: bool,
+    saw_dirty_numeric: bool,
+    saw_dirty_flag: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDirtyInputState {
+    fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
+        let mut clean_cast_accum = TraditionalGroupAccum::default();
+        let mut malformed_timestamp_accum = TraditionalGroupAccum::default();
+        let mut saw_raw_event_time = false;
+        let mut saw_dirty_numeric = false;
+        let mut saw_dirty_flag = false;
+        let stats = scan_fact_vortex_projected(
+            fact_vortex,
+            &["raw_event_time", "dirty_numeric", "dirty_flag"],
+            None,
+            |fields, chunk_rows| {
+                let raw_event_times = utf8_field(fields, "raw_event_time")?;
+                let dirty_numeric = utf8_field(fields, "dirty_numeric")?;
+                let dirty_flags = utf8_field(fields, "dirty_flag")?;
+                if raw_event_times.len() != chunk_rows
+                    || dirty_numeric.len() != chunk_rows
+                    || dirty_flags.len() != chunk_rows
+                {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "batch dirty input state Vortex chunk length mismatch: chunk_rows={chunk_rows}, raw_event_time_len={}, dirty_numeric_len={}, dirty_flag_len={}",
+                        raw_event_times.len(),
+                        dirty_numeric.len(),
+                        dirty_flags.len()
+                    )));
+                }
+                for ((raw_event_time, dirty_numeric), dirty_flag) in raw_event_times
+                    .into_iter()
+                    .zip(dirty_numeric)
+                    .zip(dirty_flags)
+                {
+                    saw_raw_event_time |= !raw_event_time.is_empty();
+                    saw_dirty_numeric |= !dirty_numeric.is_empty();
+                    saw_dirty_flag |= !dirty_flag.is_empty();
+                    if !generated_timestamp_shape_is_valid(&raw_event_time) {
+                        continue;
+                    }
+                    let Ok(value) = dirty_numeric.parse::<f64>() else {
+                        continue;
+                    };
+                    malformed_timestamp_accum.add(value);
+                    if dirty_flag == "Y" && value >= 500.0 {
+                        clean_cast_accum.add(value);
+                    }
+                }
+                Ok(())
+            },
+        )?;
+        Ok(Self {
+            clean_cast_accum,
+            malformed_timestamp_accum,
+            stats,
+            saw_raw_event_time,
+            saw_dirty_numeric,
+            saw_dirty_flag,
+        })
+    }
+
+    fn ensure_clean_cast_supported(&self) -> Result<()> {
+        if !self.saw_raw_event_time || !self.saw_dirty_numeric || !self.saw_dirty_flag {
+            return Err(ShardLoomError::InvalidOperation(
+                "clean/cast/filter/write requires raw_event_time, dirty_numeric, and dirty_flag fixture columns"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn ensure_malformed_timestamp_supported(&self) -> Result<()> {
+        if !self.saw_raw_event_time || !self.saw_dirty_numeric {
+            return Err(ShardLoomError::InvalidOperation(
+                "malformed timestamp / dirty CSV requires raw_event_time and dirty_numeric fixture columns"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
 struct TraditionalVortexBatchSourceState {
     source_snapshot: TraditionalVortexSourceSnapshot,
     dimension_label_state: Option<TraditionalDimensionLabelState>,
@@ -910,6 +1001,8 @@ struct TraditionalVortexBatchSourceState {
     group_category_metric_state_consumer_count: usize,
     ranked_metric_state: Option<TraditionalRankedMetricState>,
     ranked_metric_state_consumer_count: usize,
+    dirty_input_state: Option<TraditionalDirtyInputState>,
+    dirty_input_state_consumer_count: usize,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -958,6 +1051,15 @@ impl TraditionalVortexBatchSourceState {
         } else {
             None
         };
+        let dirty_input_state_consumer_count = scenarios
+            .iter()
+            .filter(|scenario| dirty_input_state_reuse_candidate(**scenario))
+            .count();
+        let dirty_input_state = if dirty_input_state_consumer_count > 1 {
+            Some(TraditionalDirtyInputState::from_path(fact_vortex)?)
+        } else {
+            None
+        };
         Ok(Self {
             source_snapshot,
             dimension_label_state,
@@ -968,6 +1070,8 @@ impl TraditionalVortexBatchSourceState {
             group_category_metric_state_consumer_count,
             ranked_metric_state,
             ranked_metric_state_consumer_count,
+            dirty_input_state,
+            dirty_input_state_consumer_count,
         })
     }
 
@@ -986,6 +1090,10 @@ impl TraditionalVortexBatchSourceState {
 
     fn ranked_metric_state_recompute_avoided_count(&self) -> usize {
         self.ranked_metric_state_consumer_count.saturating_sub(1)
+    }
+
+    fn dirty_input_state_recompute_avoided_count(&self) -> usize {
+        self.dirty_input_state_consumer_count.saturating_sub(1)
     }
 }
 
@@ -1022,6 +1130,15 @@ fn ranked_metric_state_reuse_candidate(scenario: TraditionalAnalyticsScenario) -
         TraditionalAnalyticsScenario::SortAndTopK
             | TraditionalAnalyticsScenario::TopNPerGroup
             | TraditionalAnalyticsScenario::RowNumberWindow
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn dirty_input_state_reuse_candidate(scenario: TraditionalAnalyticsScenario) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::CleanCastFilterWrite
+            | TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv
     )
 }
 
@@ -2661,6 +2778,8 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub group_category_metric_state_recompute_avoided_count: usize,
     pub ranked_metric_state_consumer_count: usize,
     pub ranked_metric_state_recompute_avoided_count: usize,
+    pub dirty_input_state_consumer_count: usize,
+    pub dirty_input_state_recompute_avoided_count: usize,
     pub total_scenario_compute_micros: u64,
     pub total_vortex_scan_micros: u64,
     pub total_result_sink_write_micros: Option<u64>,
@@ -2892,6 +3011,27 @@ impl TraditionalAnalyticsVortexBatchReport {
                 self.ranked_metric_state_recompute_avoided_count.to_string(),
             ),
             (
+                "source_state_dirty_input_reuse_status".to_string(),
+                self.dirty_input_state_reuse_status().to_string(),
+            ),
+            (
+                "source_state_dirty_input_reused".to_string(),
+                (self.dirty_input_state_recompute_avoided_count > 0).to_string(),
+            ),
+            (
+                "source_state_dirty_input_reuse_scope".to_string(),
+                "dirty_input_state_for_clean_cast_filter_write_and_malformed_timestamp_dirty_csv"
+                    .to_string(),
+            ),
+            (
+                "source_state_dirty_input_reuse_consumer_count".to_string(),
+                self.dirty_input_state_consumer_count.to_string(),
+            ),
+            (
+                "source_state_dirty_input_recompute_avoided_count".to_string(),
+                self.dirty_input_state_recompute_avoided_count.to_string(),
+            ),
+            (
                 "source_state_prepare_micros".to_string(),
                 self.source_state_prepare_micros.to_string(),
             ),
@@ -3002,6 +3142,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             + self.category_metric_state_consumer_count
             + self.group_category_metric_state_consumer_count
             + self.ranked_metric_state_consumer_count
+            + self.dirty_input_state_consumer_count
     }
 
     fn source_state_recompute_avoided_count(&self) -> usize {
@@ -3009,6 +3150,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             + self.category_metric_state_recompute_avoided_count
             + self.group_category_metric_state_recompute_avoided_count
             + self.ranked_metric_state_recompute_avoided_count
+            + self.dirty_input_state_recompute_avoided_count
     }
 
     fn source_state_family_count(&self) -> usize {
@@ -3016,6 +3158,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             + usize::from(self.category_metric_state_consumer_count > 0)
             + usize::from(self.group_category_metric_state_consumer_count > 0)
             + usize::from(self.ranked_metric_state_consumer_count > 0)
+            + usize::from(self.dirty_input_state_consumer_count > 0)
     }
 
     fn source_state_reuse_scope(&self) -> String {
@@ -3035,6 +3178,11 @@ impl TraditionalAnalyticsVortexBatchReport {
         }
         if self.ranked_metric_state_consumer_count > 0 {
             scopes.push("ranked_metric_rows_for_sort_top_k_top_n_per_group_and_row_number_window");
+        }
+        if self.dirty_input_state_consumer_count > 0 {
+            scopes.push(
+                "dirty_input_state_for_clean_cast_filter_write_and_malformed_timestamp_dirty_csv",
+            );
         }
         if scopes.is_empty() {
             "not_applicable_no_source_state_consumers".to_string()
@@ -3057,6 +3205,9 @@ impl TraditionalAnalyticsVortexBatchReport {
         if self.ranked_metric_state_recompute_avoided_count > 0 {
             reused_statuses.push(self.ranked_metric_state_reuse_status());
         }
+        if self.dirty_input_state_recompute_avoided_count > 0 {
+            reused_statuses.push(self.dirty_input_state_reuse_status());
+        }
         match reused_statuses.as_slice() {
             [] if self.source_state_family_count() > 1 => {
                 "per_batch_multi_family_source_state_available_single_consumers"
@@ -3072,6 +3223,9 @@ impl TraditionalAnalyticsVortexBatchReport {
             }
             [] if self.ranked_metric_state_consumer_count > 0 => {
                 self.ranked_metric_state_reuse_status()
+            }
+            [] if self.dirty_input_state_consumer_count > 0 => {
+                self.dirty_input_state_reuse_status()
             }
             [] => "not_applicable_no_source_state_consumers",
             [status] => status,
@@ -3108,6 +3262,14 @@ impl TraditionalAnalyticsVortexBatchReport {
             0 => "not_applicable_no_ranked_metric_state_consumers",
             1 => "not_prepared_single_consumer_uses_scenario_scan",
             _ => "per_batch_ranked_metric_state_reused",
+        }
+    }
+
+    fn dirty_input_state_reuse_status(&self) -> &'static str {
+        match self.dirty_input_state_consumer_count {
+            0 => "not_applicable_no_dirty_input_state_consumers",
+            1 => "not_prepared_single_consumer_uses_scenario_scan",
+            _ => "per_batch_dirty_input_state_reused",
         }
     }
 }
@@ -6865,6 +7027,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     let ranked_metric_state_consumer_count = source_state.ranked_metric_state_consumer_count;
     let ranked_metric_state_recompute_avoided_count =
         source_state.ranked_metric_state_recompute_avoided_count();
+    let dirty_input_state_consumer_count = source_state.dirty_input_state_consumer_count;
+    let dirty_input_state_recompute_avoided_count =
+        source_state.dirty_input_state_recompute_avoided_count();
 
     let mut reports = Vec::with_capacity(scenarios.len());
     for (index, scenario) in scenarios.into_iter().enumerate() {
@@ -6943,6 +7108,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         group_category_metric_state_recompute_avoided_count,
         ranked_metric_state_consumer_count,
         ranked_metric_state_recompute_avoided_count,
+        dirty_input_state_consumer_count,
+        dirty_input_state_recompute_avoided_count,
         total_scenario_compute_micros,
         total_vortex_scan_micros,
         total_result_sink_write_micros,
@@ -9987,6 +10154,26 @@ fn run_vortex_derived_scenario_from_files_with_batch_source_state(
                 run_streaming_row_number_window_scenario(fact_path, dim_path)
             }
         }
+        TraditionalAnalyticsScenario::CleanCastFilterWrite => {
+            if let Some(dirty_state) = source_state.dirty_input_state.as_ref() {
+                run_streaming_clean_cast_filter_write_scenario_with_dirty_input_state(
+                    dim_path,
+                    dirty_state,
+                )
+            } else {
+                run_streaming_clean_cast_filter_write_scenario(fact_path, dim_path)
+            }
+        }
+        TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
+            if let Some(dirty_state) = source_state.dirty_input_state.as_ref() {
+                run_streaming_malformed_timestamp_dirty_csv_scenario_with_dirty_input_state(
+                    dim_path,
+                    dirty_state,
+                )
+            } else {
+                run_streaming_malformed_timestamp_dirty_csv_scenario(fact_path, dim_path)
+            }
+        }
         _ => run_vortex_derived_scenario_from_files(scenario, fact_path, dim_path, cdc_delta_path),
     }
 }
@@ -10877,6 +11064,48 @@ fn run_streaming_malformed_timestamp_dirty_csv_scenario(
         rows_scanned: stats.source_row_count,
         rows_materialized: 1,
         evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_clean_cast_filter_write_scenario_with_dirty_input_state(
+    dim_path: &std::path::Path,
+    dirty_state: &TraditionalDirtyInputState,
+) -> Result<TraditionalScenarioExecution> {
+    dirty_state.ensure_clean_cast_supported()?;
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    Ok(TraditionalScenarioExecution {
+        result_json: scalar_result_json(
+            dirty_state.clean_cast_accum.row_count,
+            dirty_state.clean_cast_accum.metric_sum,
+        ),
+        fact_rows: dirty_state.stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: dirty_state.stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(dirty_state.stats.clone()),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_malformed_timestamp_dirty_csv_scenario_with_dirty_input_state(
+    dim_path: &std::path::Path,
+    dirty_state: &TraditionalDirtyInputState,
+) -> Result<TraditionalScenarioExecution> {
+    dirty_state.ensure_malformed_timestamp_supported()?;
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    Ok(TraditionalScenarioExecution {
+        result_json: scalar_result_json(
+            dirty_state.malformed_timestamp_accum.row_count,
+            dirty_state.malformed_timestamp_accum.metric_sum,
+        ),
+        fact_rows: dirty_state.stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: dirty_state.stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(dirty_state.stats.clone()),
     })
 }
 
@@ -14150,6 +14379,137 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_row-number-window_external_engine_invoked",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_native_vortex_batch_run_reuses_dirty_input_source_state() {
+        let root = traditional_analytics_test_root("prepared-native-dirty-input-state");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_native_vortex_replay_verification(true),
+        )
+        .unwrap();
+
+        let batch_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::CleanCastFilterWrite,
+                    TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv,
+                ],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+
+        assert_eq!(batch_report.reports.len(), 2);
+        assert!(batch_report.all_native_io_certificates_certified);
+        assert!(
+            batch_report
+                .reports
+                .iter()
+                .all(|report| !report.fallback_execution_allowed)
+        );
+        let clean_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::CleanCastFilterWrite)
+            .unwrap();
+        assert_eq!(
+            clean_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":14000.0}"
+        );
+        let malformed_report = batch_report
+            .reports
+            .iter()
+            .find(|report| {
+                report.scenario == TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv
+            })
+            .unwrap();
+        assert_eq!(
+            malformed_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":14000.0}"
+        );
+
+        let fields = field_map(batch_report.fields());
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_status",
+            "per_batch_dirty_input_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_reused", "true");
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_scope",
+            "dirty_input_state_for_clean_cast_filter_write_and_malformed_timestamp_dirty_csv",
+        );
+        assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
+        assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
+        assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_field_eq(
+            &fields,
+            "source_state_dirty_input_reuse_status",
+            "per_batch_dirty_input_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_dirty_input_reused", "true");
+        assert_field_eq(
+            &fields,
+            "source_state_dirty_input_reuse_consumer_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_dirty_input_recompute_avoided_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ranked_metric_reuse_status",
+            "not_applicable_no_ranked_metric_state_consumers",
+        );
+        assert_field_eq(&fields, "source_state_fallback_attempted", "false");
+        assert_field_eq(&fields, "source_state_external_engine_invoked", "false");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert_field_eq(&fields, "performance_claim_allowed", "false");
+        assert_field_eq(&fields, "spark_displacement_claim_allowed", "false");
+        assert_field_eq(&fields, "encoded_native_claim_allowed", "false");
+        assert_field_eq(
+            &fields,
+            "scenario_order",
+            "clean-cast-filter-write,malformed-timestamp---dirty-CSV",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_clean-cast-filter-write_source_backed_scan_projected_columns",
+            "raw_event_time,dirty_numeric,dirty_flag",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_malformed-timestamp---dirty-CSV_source_backed_scan_projected_columns",
+            "raw_event_time,dirty_numeric,dirty_flag",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_clean-cast-filter-write_operator_execution_class",
+            "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_malformed-timestamp---dirty-CSV_external_engine_invoked",
             "false",
         );
 

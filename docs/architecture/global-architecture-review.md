@@ -1016,6 +1016,14 @@ plan before coding.
         scoped grouped residual-state reuse only; generalized encoded/native operators, performance
         claims, SQL/DataFrame, object-store/lakehouse, Spark-displacement, and production claims
         remain blocked.
+  - [x] GAR-FLOW-2M reuses one per-batch dirty-input cleanup state for clean/cast/filter/write and
+        malformed timestamp / dirty CSV child scenarios inside
+        `traditional-analytics-vortex-batch-run`. The batch envelope emits aggregate
+        `source_state_reuse_*` fields plus family-specific `source_state_dirty_input_*` fields so
+        shared dirty-column parsing and timestamp validation setup remains visible. This closes
+        scoped dirty-input residual-state reuse only; generalized encoded/native operators,
+        performance claims, SQL/DataFrame, object-store/lakehouse, Spark-displacement, and
+        production claims remain blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 
