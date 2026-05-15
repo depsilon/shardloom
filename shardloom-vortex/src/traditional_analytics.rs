@@ -795,12 +795,66 @@ impl TraditionalCategoryMetricState {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
+struct TraditionalRankedMetricRow {
+    group_key: u32,
+    id: u64,
+    metric: f64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+struct TraditionalRankedMetricState {
+    rows: Vec<TraditionalRankedMetricRow>,
+    stats: TraditionalStreamingScanStats,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalRankedMetricState {
+    fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
+        let mut rows = Vec::new();
+        let stats = scan_fact_vortex_projected(
+            fact_vortex,
+            &["group_key", "id", "metric"],
+            None,
+            |fields, chunk_rows| {
+                let group_keys = primitive_field::<u32>(fields, "group_key")?;
+                let ids = primitive_field::<u64>(fields, "id")?;
+                let metrics = primitive_field::<f64>(fields, "metric")?;
+                if group_keys.len() != chunk_rows
+                    || ids.len() != chunk_rows
+                    || metrics.len() != chunk_rows
+                {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "batch ranked metric state Vortex chunk length mismatch: chunk_rows={chunk_rows}, group_key_len={}, id_len={}, metric_len={}",
+                        group_keys.len(),
+                        ids.len(),
+                        metrics.len()
+                    )));
+                }
+                rows.extend(group_keys.into_iter().zip(ids).zip(metrics).map(
+                    |((group_key, id), metric)| TraditionalRankedMetricRow {
+                        group_key,
+                        id,
+                        metric,
+                    },
+                ));
+                Ok(())
+            },
+        )?;
+        Ok(Self { rows, stats })
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
 struct TraditionalVortexBatchSourceState {
     source_snapshot: TraditionalVortexSourceSnapshot,
     dimension_label_state: Option<TraditionalDimensionLabelState>,
     dimension_label_state_consumer_count: usize,
     category_metric_state: Option<TraditionalCategoryMetricState>,
     category_metric_state_consumer_count: usize,
+    ranked_metric_state: Option<TraditionalRankedMetricState>,
+    ranked_metric_state_consumer_count: usize,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -831,12 +885,23 @@ impl TraditionalVortexBatchSourceState {
         } else {
             None
         };
+        let ranked_metric_state_consumer_count = scenarios
+            .iter()
+            .filter(|scenario| ranked_metric_state_reuse_candidate(**scenario))
+            .count();
+        let ranked_metric_state = if ranked_metric_state_consumer_count > 1 {
+            Some(TraditionalRankedMetricState::from_path(fact_vortex)?)
+        } else {
+            None
+        };
         Ok(Self {
             source_snapshot,
             dimension_label_state,
             dimension_label_state_consumer_count,
             category_metric_state,
             category_metric_state_consumer_count,
+            ranked_metric_state,
+            ranked_metric_state_consumer_count,
         })
     }
 
@@ -846,6 +911,10 @@ impl TraditionalVortexBatchSourceState {
 
     fn category_metric_state_recompute_avoided_count(&self) -> usize {
         self.category_metric_state_consumer_count.saturating_sub(1)
+    }
+
+    fn ranked_metric_state_recompute_avoided_count(&self) -> usize {
+        self.ranked_metric_state_consumer_count.saturating_sub(1)
     }
 }
 
@@ -863,6 +932,16 @@ fn category_metric_state_reuse_candidate(scenario: TraditionalAnalyticsScenario)
         scenario,
         TraditionalAnalyticsScenario::DistinctCount
             | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn ranked_metric_state_reuse_candidate(scenario: TraditionalAnalyticsScenario) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::SortAndTopK
+            | TraditionalAnalyticsScenario::TopNPerGroup
+            | TraditionalAnalyticsScenario::RowNumberWindow
     )
 }
 
@@ -2498,6 +2577,8 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub dimension_label_state_recompute_avoided_count: usize,
     pub category_metric_state_consumer_count: usize,
     pub category_metric_state_recompute_avoided_count: usize,
+    pub ranked_metric_state_consumer_count: usize,
+    pub ranked_metric_state_recompute_avoided_count: usize,
     pub total_scenario_compute_micros: u64,
     pub total_vortex_scan_micros: u64,
     pub total_result_sink_write_micros: Option<u64>,
@@ -2631,7 +2712,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             ),
             (
                 "source_state_reuse_scope".to_string(),
-                self.source_state_reuse_scope().to_string(),
+                self.source_state_reuse_scope().clone(),
             ),
             (
                 "source_state_reuse_consumer_count".to_string(),
@@ -2684,6 +2765,27 @@ impl TraditionalAnalyticsVortexBatchReport {
             (
                 "source_state_category_metric_recompute_avoided_count".to_string(),
                 self.category_metric_state_recompute_avoided_count.to_string(),
+            ),
+            (
+                "source_state_ranked_metric_reuse_status".to_string(),
+                self.ranked_metric_state_reuse_status().to_string(),
+            ),
+            (
+                "source_state_ranked_metric_reused".to_string(),
+                (self.ranked_metric_state_recompute_avoided_count > 0).to_string(),
+            ),
+            (
+                "source_state_ranked_metric_reuse_scope".to_string(),
+                "ranked_metric_rows_for_sort_top_k_top_n_per_group_and_row_number_window"
+                    .to_string(),
+            ),
+            (
+                "source_state_ranked_metric_reuse_consumer_count".to_string(),
+                self.ranked_metric_state_consumer_count.to_string(),
+            ),
+            (
+                "source_state_ranked_metric_recompute_avoided_count".to_string(),
+                self.ranked_metric_state_recompute_avoided_count.to_string(),
             ),
             (
                 "source_state_prepare_micros".to_string(),
@@ -2792,52 +2894,70 @@ impl TraditionalAnalyticsVortexBatchReport {
     }
 
     fn source_state_reuse_consumer_count(&self) -> usize {
-        self.dimension_label_state_consumer_count + self.category_metric_state_consumer_count
+        self.dimension_label_state_consumer_count
+            + self.category_metric_state_consumer_count
+            + self.ranked_metric_state_consumer_count
     }
 
     fn source_state_recompute_avoided_count(&self) -> usize {
         self.dimension_label_state_recompute_avoided_count
             + self.category_metric_state_recompute_avoided_count
+            + self.ranked_metric_state_recompute_avoided_count
     }
 
     fn source_state_family_count(&self) -> usize {
         usize::from(self.dimension_label_state_consumer_count > 0)
             + usize::from(self.category_metric_state_consumer_count > 0)
+            + usize::from(self.ranked_metric_state_consumer_count > 0)
     }
 
-    fn source_state_reuse_scope(&self) -> &'static str {
-        match (
-            self.dimension_label_state_consumer_count > 0,
-            self.category_metric_state_consumer_count > 0,
-        ) {
-            (true, true) => {
-                "dimension_label_lookup_for_hash_join_and_join_aggregate;category_metric_group_state_for_distinct_count_and_high_cardinality_string_group_distinct"
-            }
-            (true, false) => "dimension_label_lookup_for_hash_join_and_join_aggregate",
-            (false, true) => {
-                "category_metric_group_state_for_distinct_count_and_high_cardinality_string_group_distinct"
-            }
-            (false, false) => "not_applicable_no_source_state_consumers",
+    fn source_state_reuse_scope(&self) -> String {
+        let mut scopes = Vec::new();
+        if self.dimension_label_state_consumer_count > 0 {
+            scopes.push("dimension_label_lookup_for_hash_join_and_join_aggregate");
+        }
+        if self.category_metric_state_consumer_count > 0 {
+            scopes.push(
+                "category_metric_group_state_for_distinct_count_and_high_cardinality_string_group_distinct",
+            );
+        }
+        if self.ranked_metric_state_consumer_count > 0 {
+            scopes.push("ranked_metric_rows_for_sort_top_k_top_n_per_group_and_row_number_window");
+        }
+        if scopes.is_empty() {
+            "not_applicable_no_source_state_consumers".to_string()
+        } else {
+            scopes.join(";")
         }
     }
 
     fn source_state_reuse_status(&self) -> &'static str {
-        let dimension_reused = self.dimension_label_state_recompute_avoided_count > 0;
-        let category_reused = self.category_metric_state_recompute_avoided_count > 0;
-        match (dimension_reused, category_reused) {
-            (true, true) => "per_batch_multi_family_source_state_reused",
-            (true, false) => self.dimension_label_state_reuse_status(),
-            (false, true) => self.category_metric_state_reuse_status(),
-            (false, false) if self.source_state_family_count() > 1 => {
+        let mut reused_statuses = Vec::new();
+        if self.dimension_label_state_recompute_avoided_count > 0 {
+            reused_statuses.push(self.dimension_label_state_reuse_status());
+        }
+        if self.category_metric_state_recompute_avoided_count > 0 {
+            reused_statuses.push(self.category_metric_state_reuse_status());
+        }
+        if self.ranked_metric_state_recompute_avoided_count > 0 {
+            reused_statuses.push(self.ranked_metric_state_reuse_status());
+        }
+        match reused_statuses.as_slice() {
+            [] if self.source_state_family_count() > 1 => {
                 "per_batch_multi_family_source_state_available_single_consumers"
             }
-            (false, false) if self.dimension_label_state_consumer_count > 0 => {
+            [] if self.dimension_label_state_consumer_count > 0 => {
                 self.dimension_label_state_reuse_status()
             }
-            (false, false) if self.category_metric_state_consumer_count > 0 => {
+            [] if self.category_metric_state_consumer_count > 0 => {
                 self.category_metric_state_reuse_status()
             }
-            (false, false) => "not_applicable_no_source_state_consumers",
+            [] if self.ranked_metric_state_consumer_count > 0 => {
+                self.ranked_metric_state_reuse_status()
+            }
+            [] => "not_applicable_no_source_state_consumers",
+            [status] => status,
+            _ => "per_batch_multi_family_source_state_reused",
         }
     }
 
@@ -2854,6 +2974,14 @@ impl TraditionalAnalyticsVortexBatchReport {
             0 => "not_applicable_no_category_metric_state_consumers",
             1 => "not_prepared_single_consumer_uses_scenario_scan",
             _ => "per_batch_category_metric_state_reused",
+        }
+    }
+
+    fn ranked_metric_state_reuse_status(&self) -> &'static str {
+        match self.ranked_metric_state_consumer_count {
+            0 => "not_applicable_no_ranked_metric_state_consumers",
+            1 => "not_prepared_single_consumer_uses_scenario_scan",
+            _ => "per_batch_ranked_metric_state_reused",
         }
     }
 }
@@ -6604,6 +6732,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     let category_metric_state_consumer_count = source_state.category_metric_state_consumer_count;
     let category_metric_state_recompute_avoided_count =
         source_state.category_metric_state_recompute_avoided_count();
+    let ranked_metric_state_consumer_count = source_state.ranked_metric_state_consumer_count;
+    let ranked_metric_state_recompute_avoided_count =
+        source_state.ranked_metric_state_recompute_avoided_count();
 
     let mut reports = Vec::with_capacity(scenarios.len());
     for (index, scenario) in scenarios.into_iter().enumerate() {
@@ -6678,6 +6809,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         dimension_label_state_recompute_avoided_count,
         category_metric_state_consumer_count,
         category_metric_state_recompute_avoided_count,
+        ranked_metric_state_consumer_count,
+        ranked_metric_state_recompute_avoided_count,
         total_scenario_compute_micros,
         total_vortex_scan_micros,
         total_result_sink_write_micros,
@@ -9673,6 +9806,35 @@ fn run_vortex_derived_scenario_from_files_with_batch_source_state(
                 run_streaming_distinct_count_scenario(fact_path, dim_path)
             }
         }
+        TraditionalAnalyticsScenario::SortAndTopK => {
+            if let Some(ranked_state) = source_state.ranked_metric_state.as_ref() {
+                run_streaming_sort_top_k_scenario_with_ranked_metric_state(dim_path, ranked_state)
+            } else {
+                run_streaming_sort_top_k_scenario(fact_path, dim_path)
+            }
+        }
+        TraditionalAnalyticsScenario::TopNPerGroup => {
+            if let Some(ranked_state) = source_state.ranked_metric_state.as_ref() {
+                run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
+                    dim_path,
+                    ranked_state,
+                    3,
+                )
+            } else {
+                run_streaming_top_n_per_group_scenario(fact_path, dim_path)
+            }
+        }
+        TraditionalAnalyticsScenario::RowNumberWindow => {
+            if let Some(ranked_state) = source_state.ranked_metric_state.as_ref() {
+                run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
+                    dim_path,
+                    ranked_state,
+                    1,
+                )
+            } else {
+                run_streaming_row_number_window_scenario(fact_path, dim_path)
+            }
+        }
         _ => run_vortex_derived_scenario_from_files(scenario, fact_path, dim_path, cdc_delta_path),
     }
 }
@@ -9972,6 +10134,38 @@ fn run_streaming_sort_top_k_scenario(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_sort_top_k_scenario_with_ranked_metric_state(
+    dim_path: &std::path::Path,
+    ranked_state: &TraditionalRankedMetricState,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let stats = ranked_state.stats.clone();
+    let mut rows = ranked_state.rows.clone();
+    rows.sort_by(|left, right| {
+        right
+            .metric
+            .total_cmp(&left.metric)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    let result_rows = rows
+        .into_iter()
+        .take(10)
+        .map(|row| (row.id, row.metric))
+        .collect::<Vec<_>>();
+    let result_json = top_rows_json(&result_rows);
+    let rows_materialized = result_rows_materialized(&result_json)?;
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: stats.source_row_count,
+        rows_materialized,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_ranked_per_group_scenario(
     fact_path: &std::path::Path,
     dim_path: &std::path::Path,
@@ -10018,6 +10212,49 @@ fn run_streaming_ranked_per_group_scenario(
     for (group_key, rows) in top_by_group {
         for (index, (id, metric)) in rows.into_iter().enumerate() {
             ranked.push((group_key, id, metric, usize_to_u64(index + 1)?));
+        }
+    }
+    let result_json = rank_rows_json(ranked);
+    let rows_materialized = result_rows_materialized(&result_json)?;
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: stats.source_row_count,
+        rows_materialized,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
+    dim_path: &std::path::Path,
+    ranked_state: &TraditionalRankedMetricState,
+    max_rank: usize,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let stats = ranked_state.stats.clone();
+    let mut rows = ranked_state.rows.clone();
+    rows.sort_by(|left, right| {
+        left.group_key
+            .cmp(&right.group_key)
+            .then_with(|| right.metric.total_cmp(&left.metric))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    let mut ranked = Vec::new();
+    let mut current_group = None;
+    let mut rank = 0_u64;
+    let max_rank = usize_to_u64(max_rank)?;
+    for row in rows {
+        if current_group == Some(row.group_key) {
+            rank += 1;
+        } else {
+            current_group = Some(row.group_key);
+            rank = 1;
+        }
+        if rank <= max_rank {
+            ranked.push((row.group_key, row.id, row.metric, rank));
         }
     }
     let result_json = rank_rows_json(ranked);
@@ -13222,6 +13459,12 @@ mod tests {
         assert_field_eq(&fields, "source_state_category_metric_reused", "false");
         assert_field_eq(
             &fields,
+            "source_state_ranked_metric_reuse_status",
+            "not_applicable_no_ranked_metric_state_consumers",
+        );
+        assert_field_eq(&fields, "source_state_ranked_metric_reused", "false");
+        assert_field_eq(
+            &fields,
             "source_state_prepare_timing_scope",
             "batch_shared_pre_scenario",
         );
@@ -13381,6 +13624,12 @@ mod tests {
             "source_state_category_metric_recompute_avoided_count",
             "1",
         );
+        assert_field_eq(
+            &fields,
+            "source_state_ranked_metric_reuse_status",
+            "not_applicable_no_ranked_metric_state_consumers",
+        );
+        assert_field_eq(&fields, "source_state_ranked_metric_reused", "false");
         assert_field_eq(&fields, "source_state_fallback_attempted", "false");
         assert_field_eq(&fields, "source_state_external_engine_invoked", "false");
         assert_field_eq(&fields, "fallback_attempted", "false");
@@ -13421,6 +13670,135 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_high-cardinality-string-group-distinct_external_engine_invoked",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_native_vortex_batch_run_reuses_ranked_metric_source_state() {
+        let root = traditional_analytics_test_root("prepared-native-ranked-state");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_native_vortex_replay_verification(true),
+        )
+        .unwrap();
+
+        let batch_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::SortAndTopK,
+                    TraditionalAnalyticsScenario::TopNPerGroup,
+                    TraditionalAnalyticsScenario::RowNumberWindow,
+                ],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+
+        assert_eq!(batch_report.reports.len(), 3);
+        assert!(batch_report.all_native_io_certificates_certified);
+        assert!(
+            batch_report
+                .reports
+                .iter()
+                .all(|report| !report.fallback_execution_allowed)
+        );
+        let sort_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::SortAndTopK)
+            .unwrap();
+        assert_eq!(
+            sort_report.result_json,
+            "[{\"id\":3,\"metric\":4.0},{\"id\":2,\"metric\":3.5},{\"id\":1,\"metric\":2.5}]"
+        );
+        let top_n_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::TopNPerGroup)
+            .unwrap();
+        assert_eq!(
+            top_n_report.result_json,
+            "[{\"group_key\":10,\"id\":3,\"metric\":4.0,\"rank\":1},{\"group_key\":10,\"id\":1,\"metric\":2.5,\"rank\":2},{\"group_key\":11,\"id\":2,\"metric\":3.5,\"rank\":1}]"
+        );
+        let row_number_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::RowNumberWindow)
+            .unwrap();
+        assert_eq!(
+            row_number_report.result_json,
+            "[{\"group_key\":10,\"id\":3,\"metric\":4.0,\"rank\":1},{\"group_key\":11,\"id\":2,\"metric\":3.5,\"rank\":1}]"
+        );
+
+        let fields = field_map(batch_report.fields());
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_status",
+            "per_batch_ranked_metric_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_reused", "true");
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_scope",
+            "ranked_metric_rows_for_sort_top_k_top_n_per_group_and_row_number_window",
+        );
+        assert_field_eq(&fields, "source_state_reuse_consumer_count", "3");
+        assert_field_eq(&fields, "source_state_recompute_avoided_count", "2");
+        assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_field_eq(
+            &fields,
+            "source_state_ranked_metric_reuse_status",
+            "per_batch_ranked_metric_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_ranked_metric_reused", "true");
+        assert_field_eq(
+            &fields,
+            "source_state_ranked_metric_reuse_consumer_count",
+            "3",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ranked_metric_recompute_avoided_count",
+            "2",
+        );
+        assert_field_eq(&fields, "source_state_fallback_attempted", "false");
+        assert_field_eq(&fields, "source_state_external_engine_invoked", "false");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert_field_eq(&fields, "performance_claim_allowed", "false");
+        assert_field_eq(&fields, "spark_displacement_claim_allowed", "false");
+        assert_field_eq(&fields, "encoded_native_claim_allowed", "false");
+        assert_field_eq(
+            &fields,
+            "scenario_order",
+            "sort-and-top-k,top-N-per-group,row-number-window",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_source_backed_scan_projected_columns",
+            "group_key,id,metric",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_top-N-per-group_operator_execution_class",
+            "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_row-number-window_external_engine_invoked",
             "false",
         );
 

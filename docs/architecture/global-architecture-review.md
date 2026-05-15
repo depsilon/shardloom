@@ -1001,6 +1001,13 @@ plan before coding.
         generalized row-state reuse, encoded-native operator claims, persistent daemon/service
         runtime, performance claims, SQL/DataFrame, object-store/lakehouse, Spark-displacement, and
         production claims remain blocked.
+  - [x] GAR-FLOW-2K reuses one per-batch ranked-metric state for sort/top-k, top-N per group, and
+        row-number/window child scenarios inside `traditional-analytics-vortex-batch-run`. The
+        batch envelope emits aggregate `source_state_reuse_*` fields plus family-specific
+        `source_state_ranked_metric_*` fields so shared setup remains visible. This closes scoped
+        ranked residual-state reuse only; generalized encoded/native operators, distributed sort,
+        persistent daemon/service runtime, performance claims, SQL/DataFrame, object-store/lakehouse,
+        Spark-displacement, and production claims remain blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

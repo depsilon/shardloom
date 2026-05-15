@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2K prepared/native batch ranked-metric source-state reuse
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close a third scoped prepared/native Vortex runtime-plumbing source-state slice by
+    reusing one per-batch `group_key,id,metric` ranked state across sort/top-k, top-N per group,
+    and row-number/window child scenarios in `traditional-analytics-vortex-batch-run`.
+  - Checklist:
+    - [x] Add `TraditionalRankedMetricState` to the prepared/native batch source-state envelope.
+    - [x] Route eligible sort/top-k, top-N per group, and row-number/window batch children through
+          the shared ranked state when multiple ranked consumers are present.
+    - [x] Emit aggregate and family-specific `source_state_*` evidence fields for dimension-label,
+          category/metric, and ranked-metric reuse while preserving child typed envelopes.
+    - [x] Propagate ranked-metric source-state reuse fields into comparative benchmark rows.
+    - [x] Update compute-flow, benchmark, GAR, RFC traceability, and phase docs without adding
+          performance, encoded-native, distributed-sort, SQL/DataFrame, object-store/lakehouse,
+          production, or Spark-displacement claims.
+  - Boundary:
+    - This is scoped residual-native runtime plumbing for local prepared/native batch evidence only.
+      It does not add generalized row-state reuse, distributed sort, encoded-native ranking,
+      persistent daemon/service runtime, SQL/DataFrame execution, object-store/lakehouse runtime,
+      Spark displacement, production readiness, or performance/superiority claims.
+  - Evidence:
+    - Rust unit tests assert the batch envelope emits
+      `source_state_reuse_status=per_batch_ranked_metric_state_reused`, keeps per-scenario
+      source-backed scan/operator evidence, verifies sort/top-N/window result JSONs, and preserves
+      `fallback_attempted=false` / `external_engine_invoked=false`.
+    - Architecture docs record GAR-FLOW-2K as complete while keeping generalized encoded/native
+      operator coverage and broader source-state reuse planned.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_reuses_ranked_metric_source_state --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_preserves_evidence_envelope --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
 - [x] Session label: GAR-FLOW-2J prepared/native batch category/metric source-state reuse
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
