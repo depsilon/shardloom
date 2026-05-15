@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0032-B Python DataFrame method capability matrix
+  - Primary files:
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close GAR-0032-B by exposing a typed, report-only Python method matrix over advertised
+    DataFrame/query-builder affordances.
+  - Checklist:
+    - [x] Add exported `DataFrameMethodCapability` and `DataFrameMethodCapabilityMatrix`
+          dataclasses over the existing no-scraping Python capability view.
+    - [x] Cover source declarations, lazy `filter`/`select`/`limit`/`group_by` declarations, and
+          unsupported diagnostics for joins, aggregations, windows, ordering, writes,
+          schema/data-quality helpers, materialization, notebook display, input boundaries, SQL
+          frontend posture, and workflow profiling.
+    - [x] Preserve `claim_gate_status=not_claim_grade`, `runtime_execution=false`,
+          `data_read=false`, `write_io=false`, `fallback_attempted=false`, and
+          `external_engine_invoked=false` across every row.
+    - [x] Add Python fake-CLI tests for plan-only versus unsupported rows, blocker IDs, evidence
+          requirements, materialization boundaries, claim gates, no runtime, no reads, no writes,
+          no fallback, and no external engine invocation.
+    - [x] Document the report-only matrix in the Python README and move GAR-0032-B out of the
+          active phase plan.
+  - Boundary:
+    - This is a typed capability/report slice only. It does not add DataFrame runtime execution,
+      dataset reads, row materialization, output writes, SQL parser/binder/runtime execution,
+      notebook rendering, external engine invocation, fallback execution, package publication, or
+      performance/production claims.
+  - Evidence:
+    - Python tests assert method support status, unsupported diagnostics, blocker IDs, required
+      evidence, materialization-required flags, no-fallback/no-external-engine posture, and
+      no-runtime/no-read/no-write invariants over fake CLI capability envelopes.
+    - Architecture docs record GAR-0032-B as complete while keeping SQL runtime, DataFrame runtime,
+      UDF, notebook runtime, universal adapter, unstructured/media, and best-default certification
+      slices planned.
+  - Validation:
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `git diff --check`
 - [x] Session label: GAR-0010-A Python API ergonomics and typed capability view
   - Primary files:
     - `python/src/shardloom/context.py`

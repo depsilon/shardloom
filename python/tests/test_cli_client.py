@@ -19,6 +19,7 @@ from shardloom import (
     CapabilityPosture,
     ContextCapabilities,
     CapabilityView,
+    DataFrameMethodCapabilityMatrix,
     EngineCapabilityMatrix,
     ExecutionResultEnvelopeView,
     LocalVortexPrimitiveSmokeReport,
@@ -953,6 +954,43 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(capabilities.sql_support.posture.report_only)
         self.assertFalse(capabilities.sql_support.posture.claim_grade)
         self.assertTrue(capabilities.dataframe.planner_readiness_non_executing)
+        dataframe_methods = capabilities.dataframe_method_matrix
+        self.assertIsInstance(dataframe_methods, DataFrameMethodCapabilityMatrix)
+        self.assertEqual(dataframe_methods.scope, "dataframe")
+        self.assertIn("filter", dataframe_methods.plan_only_methods)
+        self.assertIn("select", dataframe_methods.plan_only_methods)
+        self.assertIn("join", dataframe_methods.unsupported_methods)
+        self.assertIn("agg", dataframe_methods.unsupported_methods)
+        self.assertIn("window", dataframe_methods.unsupported_methods)
+        self.assertIn("data_quality", dataframe_methods.unsupported_methods)
+        self.assertIn("write_vortex", dataframe_methods.unsupported_methods)
+        self.assertIn("from_pandas", dataframe_methods.unsupported_methods)
+        self.assertEqual(
+            dataframe_methods.row("read_vortex").support_status,
+            "source_declaration_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("join").blocker_id,
+            "cg21.workflow.join.operator_unsupported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("write_vortex").required_evidence,
+            ("sink_write_evidence", "native_io_certificate", "commit_evidence"),
+        )
+        self.assertTrue(dataframe_methods.row("to_pandas").materialization_required)
+        self.assertEqual(
+            dataframe_methods.row("display").blocker_id,
+            "cg21.workflow.display.rich_display_unsupported",
+        )
+        self.assertEqual(dataframe_methods.claim_gate_statuses, ("not_claim_grade",))
+        self.assertTrue(dataframe_methods.all_no_fallback_no_external_engine)
+        self.assertFalse(dataframe_methods.any_runtime_execution)
+        self.assertFalse(dataframe_methods.any_data_read)
+        self.assertFalse(dataframe_methods.any_write_io)
+        self.assertEqual(
+            ctx.dataframe_method_matrix().row("agg").diagnostic_operation,
+            "agg",
+        )
         self.assertIn("adapter_certification_required", capabilities.adapters.required_gates)
         self.assertIn(
             "materialization_boundary_reported",

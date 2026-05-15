@@ -347,6 +347,37 @@ write quarantine outputs, parse SQL, execute DataFrame expressions, render
 notebook display output, invoke Foundry/model services, or use another engine
 as fallback.
 
+The DataFrame-style surface also has a typed method capability matrix. Use it
+when a wrapper, notebook, or agent needs to know which familiar method names are
+lazy declarations, which are unsupported diagnostics, and which evidence gates
+must pass before a method can become runtime-supported:
+
+```python
+import shardloom as sl
+
+ctx = sl.context()
+matrix = ctx.capabilities().dataframe_method_matrix
+
+print(matrix.row_order)
+print(matrix.plan_only_methods)
+print(matrix.unsupported_methods)
+print(matrix.all_no_fallback_no_external_engine)
+
+join = matrix.row("join")
+print(join.support_status)
+print(join.blocker_id)
+print(join.required_evidence)
+print(join.claim_boundary)
+```
+
+This matrix is report-only. It does not execute a plan, inspect datasets, import
+DataFrame libraries, materialize rows, write output, invoke external engines, or
+upgrade DataFrame/notebook support to claim-grade status. Current lazy source,
+`filter`, `select`, `limit`, and `group_by` helpers are side-effect-free
+declarations; joins, aggregations, windows, writes, schema/data-quality helpers,
+materialization, and notebook display remain deterministic unsupported
+diagnostic surfaces unless later evidence-backed slices promote them.
+
 The client also exposes the P7 claim gate closeout report:
 
 ```python
