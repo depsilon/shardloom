@@ -322,9 +322,10 @@ pub use table_intelligence::{
 };
 
 pub use translation::{
-    CommitMode, FidelityLevel, MaterializationRequirement, MetadataKind, MetadataPreservation,
-    MetadataPreservationStatus, OutputTarget, OutputTargetKind, TranslationPlan,
-    TranslationPlanningStatus, TranslationReport,
+    CommitMode, CompatibilityOutputWriterMatrixReport, CompatibilityOutputWriterMatrixRow,
+    CompatibilityOutputWriterSupportStatus, FidelityLevel, MaterializationRequirement,
+    MetadataKind, MetadataPreservation, MetadataPreservationStatus, OutputTarget, OutputTargetKind,
+    TranslationPlan, TranslationPlanningStatus, TranslationReport,
 };
 
 pub use universal_harness::{

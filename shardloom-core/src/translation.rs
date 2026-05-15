@@ -144,6 +144,284 @@ impl OutputTargetKind {
     }
 }
 
+/// Current support posture for an output-writer row in the compatibility matrix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompatibilityOutputWriterSupportStatus {
+    NativeVortexReference,
+    LocalFixtureSmoke,
+    ReportOnlyBlocked,
+    Unsupported,
+}
+impl CompatibilityOutputWriterSupportStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NativeVortexReference => "native_vortex_reference",
+            Self::LocalFixtureSmoke => "local_fixture_smoke",
+            Self::ReportOnlyBlocked => "report_only_blocked",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn claim_gate_status(&self) -> &'static str {
+        match self {
+            Self::NativeVortexReference => "scoped_native_vortex_evidence",
+            Self::LocalFixtureSmoke => "fixture_smoke_only",
+            Self::ReportOnlyBlocked | Self::Unsupported => "not_claim_grade",
+        }
+    }
+}
+
+/// One row in the local compatibility-output writer matrix.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CompatibilityOutputWriterMatrixRow {
+    pub target_kind: OutputTargetKind,
+    pub writer_id: String,
+    pub support_status: CompatibilityOutputWriterSupportStatus,
+    pub feature_gate: Option<String>,
+    pub implementation_ref: String,
+    pub evidence_ref: String,
+    pub metadata_loss_reported: bool,
+    pub local_file_output: bool,
+    pub object_store_output: bool,
+    pub table_commit_semantics: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: String,
+}
+impl CompatibilityOutputWriterMatrixRow {
+    fn native_vortex_reference() -> Self {
+        Self {
+            target_kind: OutputTargetKind::Vortex,
+            writer_id: "native_vortex_count_payload_writer".to_string(),
+            support_status: CompatibilityOutputWriterSupportStatus::NativeVortexReference,
+            feature_gate: Some("vortex-write".to_string()),
+            implementation_ref: "shardloom-vortex native count-payload writer".to_string(),
+            evidence_ref: "shardloom-cli/tests/native_count_payload_write_feature.rs".to_string(),
+            metadata_loss_reported: false,
+            local_file_output: true,
+            object_store_output: false,
+            table_commit_semantics: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary:
+                "scoped local Vortex CountAll payload writer only; no broad schema writer claim"
+                    .to_string(),
+        }
+    }
+
+    fn local_fixture_smoke(target_kind: OutputTargetKind) -> Self {
+        let target = target_kind.as_str().to_string();
+        let implementation_ref = match &target_kind {
+            OutputTargetKind::Csv => "shardloom-vortex traditional analytics CSV writer",
+            OutputTargetKind::JsonLines => "shardloom-vortex traditional analytics JSONL writer",
+            OutputTargetKind::Parquet => "parquet::arrow::ArrowWriter",
+            OutputTargetKind::ArrowIpc => "arrow_ipc::writer::FileWriter",
+            OutputTargetKind::Avro => "arrow_avro::writer::AvroWriter",
+            OutputTargetKind::Orc => "orc_rust Arrow writer",
+            _ => "unsupported compatibility writer",
+        };
+        Self {
+            target_kind,
+            writer_id: format!("{target}_local_benchmark_writer"),
+            support_status: CompatibilityOutputWriterSupportStatus::LocalFixtureSmoke,
+            feature_gate: Some("vortex-traditional-analytics-benchmark".to_string()),
+            implementation_ref: implementation_ref.to_string(),
+            evidence_ref:
+                "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs"
+                    .to_string(),
+            metadata_loss_reported: true,
+            local_file_output: true,
+            object_store_output: false,
+            table_commit_semantics: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary: format!(
+                "local traditional-analytics fixture smoke for {target} only; no production sink, object-store, or lakehouse claim"
+            ),
+        }
+    }
+
+    fn blocked_table_target(target_kind: OutputTargetKind) -> Self {
+        let target = target_kind.as_str().to_string();
+        Self {
+            target_kind,
+            writer_id: format!("{target}_table_commit_blocked"),
+            support_status: CompatibilityOutputWriterSupportStatus::ReportOnlyBlocked,
+            feature_gate: None,
+            implementation_ref:
+                "translation planning only; table/catalog commit runtime is not implemented"
+                    .to_string(),
+            evidence_ref: "GAR-0020/GAR-0028 planned table and commit evidence".to_string(),
+            metadata_loss_reported: true,
+            local_file_output: false,
+            object_store_output: false,
+            table_commit_semantics: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary: format!(
+                "{target} remains report-only until table metadata, commit semantics, Native I/O, and no-fallback evidence exist"
+            ),
+        }
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let feature_gate = self.feature_gate.as_deref().unwrap_or("none");
+        format!(
+            "{}: status={} claim_gate_status={} feature_gate={} local_file_output={} object_store_output={} table_commit_semantics={} fallback_attempted={} external_engine_invoked={} claim_boundary={}",
+            self.target_kind.as_str(),
+            self.support_status.as_str(),
+            self.support_status.claim_gate_status(),
+            feature_gate,
+            self.local_file_output,
+            self.object_store_output,
+            self.table_commit_semantics,
+            self.fallback_attempted,
+            self.external_engine_invoked,
+            self.claim_boundary
+        )
+    }
+}
+
+/// Claim-safe matrix describing current output-writer support.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CompatibilityOutputWriterMatrixReport {
+    pub schema_version: String,
+    pub report_id: String,
+    pub rows: Vec<CompatibilityOutputWriterMatrixRow>,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub performance_claim_allowed: bool,
+    pub production_output_claim_allowed: bool,
+    pub lakehouse_table_commit_claim_allowed: bool,
+}
+impl CompatibilityOutputWriterMatrixReport {
+    #[must_use]
+    pub fn current() -> Self {
+        let rows = vec![
+            CompatibilityOutputWriterMatrixRow::native_vortex_reference(),
+            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::Csv),
+            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::JsonLines),
+            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::Parquet),
+            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::ArrowIpc),
+            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::Avro),
+            CompatibilityOutputWriterMatrixRow::local_fixture_smoke(OutputTargetKind::Orc),
+            CompatibilityOutputWriterMatrixRow::blocked_table_target(
+                OutputTargetKind::IcebergCompatible,
+            ),
+            CompatibilityOutputWriterMatrixRow::blocked_table_target(
+                OutputTargetKind::DeltaCompatible,
+            ),
+        ];
+        Self {
+            schema_version: "shardloom.compatibility_output_writer_matrix.v1".to_string(),
+            report_id: "gar-0007-output-writer-matrix".to_string(),
+            rows,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            performance_claim_allowed: false,
+            production_output_claim_allowed: false,
+            lakehouse_table_commit_claim_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_for_kind(
+        &self,
+        target_kind: &OutputTargetKind,
+    ) -> Option<&CompatibilityOutputWriterMatrixRow> {
+        self.rows.iter().find(|row| &row.target_kind == target_kind)
+    }
+
+    #[must_use]
+    pub fn local_fixture_smoke_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| {
+                row.support_status == CompatibilityOutputWriterSupportStatus::LocalFixtureSmoke
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| {
+                matches!(
+                    row.support_status,
+                    CompatibilityOutputWriterSupportStatus::ReportOnlyBlocked
+                        | CompatibilityOutputWriterSupportStatus::Unsupported
+                )
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn target_kind_order(&self) -> Vec<String> {
+        self.rows
+            .iter()
+            .map(|row| row.target_kind.as_str().to_string())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn local_fixture_smoke_kind_order(&self) -> Vec<String> {
+        self.rows
+            .iter()
+            .filter(|row| {
+                row.support_status == CompatibilityOutputWriterSupportStatus::LocalFixtureSmoke
+            })
+            .map(|row| row.target_kind.as_str().to_string())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn blocked_kind_order(&self) -> Vec<String> {
+        self.rows
+            .iter()
+            .filter(|row| {
+                row.support_status == CompatibilityOutputWriterSupportStatus::ReportOnlyBlocked
+            })
+            .map(|row| row.target_kind.as_str().to_string())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn to_human_text_for_target(&self, target_kind: &OutputTargetKind) -> String {
+        let target_row = self.row_for_kind(target_kind).map_or_else(
+            || {
+                format!(
+                    "{}: status=unsupported claim_gate_status=not_claim_grade feature_gate=none local_file_output=false object_store_output=false table_commit_semantics=false fallback_attempted=false external_engine_invoked=false claim_boundary=unsupported output target",
+                    target_kind.as_str()
+                )
+            },
+            CompatibilityOutputWriterMatrixRow::to_human_text,
+        );
+        format!(
+            "compatibility_output_writer_matrix\nschema_version={}\nreport_id={}\nrow_count={}\nlocal_fixture_smoke_count={}\nblocked_count={}\ntarget_row={}\nfallback_execution_allowed={}\nfallback_attempted={}\nexternal_engine_invoked={}\nperformance_claim_allowed={}\nproduction_output_claim_allowed={}\nlakehouse_table_commit_claim_allowed={}",
+            self.schema_version,
+            self.report_id,
+            self.rows.len(),
+            self.local_fixture_smoke_count(),
+            self.blocked_count(),
+            target_row,
+            self.fallback_execution_allowed,
+            self.fallback_attempted,
+            self.external_engine_invoked,
+            self.performance_claim_allowed,
+            self.production_output_claim_allowed,
+            self.lakehouse_table_commit_claim_allowed
+        )
+    }
+}
+
 /// Output target address and kind for translation planning.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutputTarget {
@@ -853,6 +1131,66 @@ mod tests {
             MetadataPreservationStatus::Dropped,
         ));
         assert!(r.has_metadata_loss());
+    }
+    #[test]
+    fn compatibility_output_writer_matrix_marks_arrow_ipc_local_smoke() {
+        let report = CompatibilityOutputWriterMatrixReport::current();
+        let row = report
+            .row_for_kind(&OutputTargetKind::ArrowIpc)
+            .expect("arrow ipc row");
+
+        assert_eq!(
+            row.support_status,
+            CompatibilityOutputWriterSupportStatus::LocalFixtureSmoke
+        );
+        assert_eq!(
+            row.feature_gate.as_deref(),
+            Some("vortex-traditional-analytics-benchmark")
+        );
+        assert!(row.local_file_output);
+        assert!(!row.object_store_output);
+        assert!(!row.table_commit_semantics);
+        assert!(row.metadata_loss_reported);
+        assert!(!row.fallback_attempted);
+        assert!(!row.external_engine_invoked);
+        assert_eq!(row.support_status.claim_gate_status(), "fixture_smoke_only");
+    }
+    #[test]
+    fn compatibility_output_writer_matrix_blocks_lakehouse_commit_targets() {
+        let report = CompatibilityOutputWriterMatrixReport::current();
+
+        for target_kind in [
+            OutputTargetKind::IcebergCompatible,
+            OutputTargetKind::DeltaCompatible,
+        ] {
+            let row = report
+                .row_for_kind(&target_kind)
+                .expect("lakehouse-compatible row");
+            assert_eq!(
+                row.support_status,
+                CompatibilityOutputWriterSupportStatus::ReportOnlyBlocked
+            );
+            assert!(!row.local_file_output);
+            assert!(!row.object_store_output);
+            assert!(!row.table_commit_semantics);
+            assert!(!row.fallback_attempted);
+            assert!(!row.external_engine_invoked);
+            assert_eq!(row.support_status.claim_gate_status(), "not_claim_grade");
+        }
+    }
+    #[test]
+    fn compatibility_output_writer_matrix_preserves_global_claim_boundaries() {
+        let report = CompatibilityOutputWriterMatrixReport::current();
+
+        assert_eq!(report.local_fixture_smoke_count(), 6);
+        assert_eq!(report.blocked_count(), 2);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.production_output_claim_allowed);
+        assert!(!report.lakehouse_table_commit_claim_allowed);
+        assert!(report.target_kind_order().contains(&"vortex".to_string()));
     }
     #[test]
     fn human_text_includes_fallback_execution_disabled() {

@@ -8,9 +8,10 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    BenchmarkEvidenceState, BenchmarkFallbackState, CommandStatus, DatasetUri,
-    OperatorMemoryCertification, OutputFormat, OutputTarget, PhysicalOperatorKind, PredicateExpr,
-    ShardLoomError, TranslationPlan, UniversalInputSource,
+    BenchmarkEvidenceState, BenchmarkFallbackState, CommandStatus,
+    CompatibilityOutputWriterMatrixReport, DatasetUri, OperatorMemoryCertification, OutputFormat,
+    OutputTarget, PhysicalOperatorKind, PredicateExpr, ShardLoomError, TranslationPlan,
+    UniversalInputSource,
 };
 use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
 use shardloom_vortex::{
@@ -1692,6 +1693,12 @@ pub(crate) fn handle_translation_plan(
     };
     let target = OutputTarget::from_uri(uri);
     let plan = TranslationPlan::for_target(target);
+    let writer_matrix = CompatibilityOutputWriterMatrixReport::current();
+    let text = format!(
+        "{}\n{}",
+        plan.to_human_text(),
+        writer_matrix.to_human_text_for_target(&plan.target.kind)
+    );
     emit(
         "translation-plan",
         format,
@@ -1701,15 +1708,226 @@ pub(crate) fn handle_translation_plan(
             CommandStatus::Success
         },
         "translation plan".to_string(),
-        plan.to_human_text(),
+        text,
         plan.diagnostics.clone(),
-        vec![],
+        translation_plan_fields(&plan, &writer_matrix),
     );
     if plan.has_errors() {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
     }
+}
+
+#[allow(clippy::too_many_lines)]
+fn translation_plan_fields(
+    plan: &TranslationPlan,
+    writer_matrix: &CompatibilityOutputWriterMatrixReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![
+        (
+            "target_kind".to_string(),
+            plan.target.kind.as_str().to_string(),
+        ),
+        (
+            "target_output_mode".to_string(),
+            plan.target.kind.canonical_label().to_string(),
+        ),
+        (
+            "translation_status".to_string(),
+            plan.status.as_str().to_string(),
+        ),
+        (
+            "translation_fidelity".to_string(),
+            plan.fidelity.as_str().to_string(),
+        ),
+        (
+            "materialization_requirement".to_string(),
+            plan.materialization.canonical_label().to_string(),
+        ),
+        (
+            "compatibility_output_writer_matrix_schema".to_string(),
+            writer_matrix.schema_version.clone(),
+        ),
+        (
+            "compatibility_output_writer_matrix_report_id".to_string(),
+            writer_matrix.report_id.clone(),
+        ),
+        (
+            "compatibility_output_writer_row_count".to_string(),
+            writer_matrix.rows.len().to_string(),
+        ),
+        (
+            "compatibility_output_writer_target_order".to_string(),
+            writer_matrix.target_kind_order().join(","),
+        ),
+        (
+            "compatibility_output_writer_local_smoke_count".to_string(),
+            writer_matrix.local_fixture_smoke_count().to_string(),
+        ),
+        (
+            "compatibility_output_writer_local_smoke_targets".to_string(),
+            writer_matrix.local_fixture_smoke_kind_order().join(","),
+        ),
+        (
+            "compatibility_output_writer_blocked_count".to_string(),
+            writer_matrix.blocked_count().to_string(),
+        ),
+        (
+            "compatibility_output_writer_blocked_targets".to_string(),
+            writer_matrix.blocked_kind_order().join(","),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            writer_matrix.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            writer_matrix.fallback_attempted.to_string(),
+        ),
+        (
+            "external_engine_invoked".to_string(),
+            writer_matrix.external_engine_invoked.to_string(),
+        ),
+        (
+            "performance_claim_allowed".to_string(),
+            writer_matrix.performance_claim_allowed.to_string(),
+        ),
+        (
+            "production_output_claim_allowed".to_string(),
+            writer_matrix.production_output_claim_allowed.to_string(),
+        ),
+        (
+            "lakehouse_table_commit_claim_allowed".to_string(),
+            writer_matrix
+                .lakehouse_table_commit_claim_allowed
+                .to_string(),
+        ),
+    ];
+    if let Some(row) = writer_matrix.row_for_kind(&plan.target.kind) {
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_status",
+            row.support_status.as_str(),
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_claim_gate_status",
+            row.support_status.claim_gate_status(),
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_writer_id",
+            &row.writer_id,
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_feature_gate",
+            row.feature_gate.as_deref().unwrap_or("none"),
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_implementation_ref",
+            &row.implementation_ref,
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_evidence_ref",
+            &row.evidence_ref,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_metadata_loss_reported",
+            row.metadata_loss_reported,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_local_file_output",
+            row.local_file_output,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_object_store_output",
+            row.object_store_output,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_table_commit_semantics",
+            row.table_commit_semantics,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_fallback_attempted",
+            row.fallback_attempted,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_external_engine_invoked",
+            row.external_engine_invoked,
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_claim_boundary",
+            &row.claim_boundary,
+        );
+    } else {
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_status",
+            "unsupported",
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_claim_gate_status",
+            "not_claim_grade",
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_writer_id",
+            "none",
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_feature_gate",
+            "none",
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_metadata_loss_reported",
+            false,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_local_file_output",
+            false,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_object_store_output",
+            false,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_table_commit_semantics",
+            false,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_fallback_attempted",
+            false,
+        );
+        push_bool_field(
+            &mut fields,
+            "compatibility_output_writer_target_external_engine_invoked",
+            false,
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_claim_boundary",
+            "unsupported output target",
+        );
+    }
+    fields
 }
 
 pub(crate) fn handle_vortex_output_plan(
@@ -3718,4 +3936,102 @@ fn vortex_generalized_encoded_primitive_gate_side_effect_fields(
             report.diagnostics.len().to_string(),
         ),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn output_field<'a>(fields: &'a [(String, String)], key: &str) -> &'a str {
+        fields
+            .iter()
+            .find(|(name, _)| name == key)
+            .map_or_else(|| panic!("missing field {key}"), |(_, value)| value)
+    }
+
+    #[test]
+    fn translation_plan_fields_expose_arrow_ipc_writer_smoke_boundaries() {
+        let plan = TranslationPlan::for_target(OutputTarget::from_uri(
+            DatasetUri::new("file://tmp/out.arrow").expect("valid uri"),
+        ));
+        let matrix = CompatibilityOutputWriterMatrixReport::current();
+        let fields = translation_plan_fields(&plan, &matrix);
+
+        assert_eq!(output_field(&fields, "target_kind"), "arrow_ipc");
+        assert_eq!(
+            output_field(&fields, "compatibility_output_writer_target_status"),
+            "local_fixture_smoke"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "compatibility_output_writer_target_claim_gate_status"
+            ),
+            "fixture_smoke_only"
+        );
+        assert_eq!(
+            output_field(&fields, "compatibility_output_writer_target_feature_gate"),
+            "vortex-traditional-analytics-benchmark"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "compatibility_output_writer_target_local_file_output"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "compatibility_output_writer_target_object_store_output"
+            ),
+            "false"
+        );
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(output_field(&fields, "external_engine_invoked"), "false");
+        assert_eq!(
+            output_field(&fields, "production_output_claim_allowed"),
+            "false"
+        );
+    }
+
+    #[test]
+    fn translation_plan_fields_block_iceberg_table_commit_claims() {
+        let plan = TranslationPlan::for_target(OutputTarget::from_uri(
+            DatasetUri::new("file://tmp/table/metadata/v1.metadata.json").expect("valid uri"),
+        ));
+        let matrix = CompatibilityOutputWriterMatrixReport::current();
+        let fields = translation_plan_fields(&plan, &matrix);
+
+        assert_eq!(output_field(&fields, "target_kind"), "iceberg_compatible");
+        assert_eq!(
+            output_field(&fields, "compatibility_output_writer_target_status"),
+            "report_only_blocked"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "compatibility_output_writer_target_table_commit_semantics"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "lakehouse_table_commit_claim_allowed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "compatibility_output_writer_target_fallback_attempted"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "compatibility_output_writer_target_external_engine_invoked"
+            ),
+            "false"
+        );
+    }
 }
