@@ -22,10 +22,12 @@ pub use adapter::{
     VortexEncodingLayoutMappingReport, VortexEncodingMappingStatus, VortexLayoutMappingStatus,
     VortexLocalIoCoverageReport, VortexLocalIoCoverageRow, VortexLocalIoLaneStatus,
     VortexMetadataIoMode, VortexMetadataIoStatus, VortexMetadataProbeReport,
-    VortexStatisticsMappingReport, VortexStatisticsMappingStatus, VortexTypedMappingStatus,
-    can_map_statistics_without_io, empty_vortex_segment_stats_placeholder,
-    map_known_vortex_dtype_name, map_known_vortex_encoding_name, map_known_vortex_layout_name,
-    probe_vortex_metadata_only, row_count_stats_placeholder, typed_vortex_dtype_mapping_available,
+    VortexObjectStoreIoGateReport, VortexObjectStoreIoGateRow, VortexObjectStoreIoGateStatus,
+    VortexObjectStoreIoGateSurface, VortexStatisticsMappingReport, VortexStatisticsMappingStatus,
+    VortexTypedMappingStatus, can_map_statistics_without_io,
+    empty_vortex_segment_stats_placeholder, map_known_vortex_dtype_name,
+    map_known_vortex_encoding_name, map_known_vortex_layout_name, probe_vortex_metadata_only,
+    row_count_stats_placeholder, typed_vortex_dtype_mapping_available,
     typed_vortex_statistics_mapping_available,
 };
 

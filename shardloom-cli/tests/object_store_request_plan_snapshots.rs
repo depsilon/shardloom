@@ -123,6 +123,38 @@ fn object_store_request_json_preserves_report_only_runtime_boundaries() {
         "byte_range_provider_gate_claim_gate_status",
         "not_claim_grade"
     )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_ref",
+        "gar0005b.vortex_object_store_io.gate"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_support_status",
+        "unsupported"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    for key in [
+        "vortex_object_store_io_gate_object_store_read_execution_allowed",
+        "vortex_object_store_io_gate_object_store_write_execution_allowed",
+        "vortex_object_store_io_gate_upstream_vortex_write_allowed",
+        "vortex_object_store_io_gate_credential_resolution_allowed",
+        "vortex_object_store_io_gate_object_store_io",
+        "vortex_object_store_io_gate_write_io",
+        "vortex_object_store_io_gate_external_engine_invoked",
+        "vortex_object_store_io_gate_fallback_attempted",
+    ] {
+        assert!(
+            output.contains(&field(key, "false")),
+            "missing false field {key}"
+        );
+    }
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_side_effect_free",
+        "true"
+    )));
+    assert!(output.contains(&field("diagnostic_count", "7")));
     assert!(output.contains(&field("data_read", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("write_io", "false")));

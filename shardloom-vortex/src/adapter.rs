@@ -6,7 +6,8 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    DatasetUri, Diagnostic, DiagnosticCode, LogicalDType, Result, ShardLoomError,
+    DatasetUri, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus,
+    LogicalDType, Result, ShardLoomError,
 };
 
 /// Shared report hygiene helpers for `ShardLoom` Vortex adapter reporting.
@@ -583,6 +584,515 @@ impl VortexLocalIoCoverageReport {
             self.claim_gate_status,
         )
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexObjectStoreIoGateSurface {
+    ObjectStoreVortexReadProvider,
+    ObjectStoreVortexWriteProvider,
+    CredentialPolicy,
+    RangeRequestBudget,
+    WriteIdempotency,
+    UpstreamSinkApi,
+    NativeIoCertificate,
+    UnsupportedDiagnostic,
+}
+
+impl VortexObjectStoreIoGateSurface {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ObjectStoreVortexReadProvider => "object_store_vortex_read_provider",
+            Self::ObjectStoreVortexWriteProvider => "object_store_vortex_write_provider",
+            Self::CredentialPolicy => "credential_policy",
+            Self::RangeRequestBudget => "range_request_budget",
+            Self::WriteIdempotency => "write_idempotency",
+            Self::UpstreamSinkApi => "upstream_sink_api",
+            Self::NativeIoCertificate => "native_io_certificate",
+            Self::UnsupportedDiagnostic => "unsupported_diagnostic",
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_code(self) -> DiagnosticCode {
+        match self {
+            Self::ObjectStoreVortexReadProvider | Self::ObjectStoreVortexWriteProvider => {
+                DiagnosticCode::ObjectStoreUnsupported
+            }
+            Self::CredentialPolicy => DiagnosticCode::ExternalEffectDisabled,
+            Self::RangeRequestBudget => DiagnosticCode::ResourceBudgetExceeded,
+            Self::WriteIdempotency => DiagnosticCode::CommitNotAtomic,
+            Self::UpstreamSinkApi | Self::NativeIoCertificate => DiagnosticCode::NotImplemented,
+            Self::UnsupportedDiagnostic => DiagnosticCode::NoFallbackExecution,
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_category(self) -> DiagnosticCategory {
+        match self {
+            Self::ObjectStoreVortexReadProvider | Self::ObjectStoreVortexWriteProvider => {
+                DiagnosticCategory::ObjectStore
+            }
+            Self::CredentialPolicy => DiagnosticCategory::ExternalEffect,
+            Self::RangeRequestBudget => DiagnosticCategory::ResourceBudget,
+            Self::WriteIdempotency => DiagnosticCategory::Execution,
+            Self::UpstreamSinkApi | Self::NativeIoCertificate => DiagnosticCategory::VortexIo,
+            Self::UnsupportedDiagnostic => DiagnosticCategory::NoFallbackPolicy,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexObjectStoreIoGateStatus {
+    ReportOnlyAvailable,
+    UnsupportedUntilCertified,
+}
+
+impl VortexObjectStoreIoGateStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnlyAvailable => "report_only_available",
+            Self::UnsupportedUntilCertified => "unsupported_until_certified",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_report_only(self) -> bool {
+        matches!(self, Self::ReportOnlyAvailable)
+    }
+
+    #[must_use]
+    pub const fn is_unsupported(self) -> bool {
+        matches!(self, Self::UnsupportedUntilCertified)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexObjectStoreIoGateRow {
+    pub surface: VortexObjectStoreIoGateSurface,
+    pub status: VortexObjectStoreIoGateStatus,
+    pub user_surface: &'static str,
+    pub upstream_api_surface: &'static str,
+    pub required_evidence: &'static str,
+    pub provider_requirement: bool,
+    pub credential_requirement: bool,
+    pub idempotency_requirement: bool,
+    pub upstream_api_requirement: bool,
+    pub runtime_execution_allowed: bool,
+    pub object_store_io_allowed: bool,
+    pub write_io_allowed: bool,
+    pub data_read_allowed: bool,
+    pub data_written_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub claim_gate_status: &'static str,
+}
+
+impl VortexObjectStoreIoGateRow {
+    #[must_use]
+    pub const fn unsupported(
+        surface: VortexObjectStoreIoGateSurface,
+        user_surface: &'static str,
+        upstream_api_surface: &'static str,
+        required_evidence: &'static str,
+        requirements: VortexObjectStoreIoRequirements,
+    ) -> Self {
+        Self {
+            surface,
+            status: VortexObjectStoreIoGateStatus::UnsupportedUntilCertified,
+            user_surface,
+            upstream_api_surface,
+            required_evidence,
+            provider_requirement: requirements.provider,
+            credential_requirement: requirements.credential,
+            idempotency_requirement: requirements.idempotency,
+            upstream_api_requirement: requirements.upstream_api,
+            runtime_execution_allowed: false,
+            object_store_io_allowed: false,
+            write_io_allowed: false,
+            data_read_allowed: false,
+            data_written_allowed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn report_only(
+        surface: VortexObjectStoreIoGateSurface,
+        user_surface: &'static str,
+        upstream_api_surface: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: VortexObjectStoreIoGateStatus::ReportOnlyAvailable,
+            user_surface,
+            upstream_api_surface,
+            required_evidence,
+            provider_requirement: false,
+            credential_requirement: false,
+            idempotency_requirement: false,
+            upstream_api_requirement: false,
+            runtime_execution_allowed: false,
+            object_store_io_allowed: false,
+            write_io_allowed: false,
+            data_read_allowed: false,
+            data_written_allowed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(self) -> bool {
+        !self.runtime_execution_allowed
+            && !self.object_store_io_allowed
+            && !self.write_io_allowed
+            && !self.data_read_allowed
+            && !self.data_written_allowed
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(self) -> Option<Diagnostic> {
+        if !self.status.is_unsupported() {
+            return None;
+        }
+        Some(Diagnostic::new(
+            self.surface.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.surface.diagnostic_category(),
+            format!("{} is unsupported until certified", self.surface.as_str()),
+            Some(self.surface.as_str().to_string()),
+            Some(format!(
+                "{} requires {} before object-store Vortex I/O admission.",
+                self.surface.as_str(),
+                self.required_evidence
+            )),
+            Some(
+                "Keep the object-store Vortex lane report-only until provider, credential, idempotency, upstream API, and Native I/O evidence are attached."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexObjectStoreIoRequirements {
+    pub provider: bool,
+    pub credential: bool,
+    pub idempotency: bool,
+    pub upstream_api: bool,
+}
+
+impl VortexObjectStoreIoRequirements {
+    pub const PROVIDER_CREDENTIAL_UPSTREAM: Self = Self {
+        provider: true,
+        credential: true,
+        idempotency: false,
+        upstream_api: true,
+    };
+    pub const WRITE_PROVIDER_CREDENTIAL_IDEMPOTENCY_UPSTREAM: Self = Self {
+        provider: true,
+        credential: true,
+        idempotency: true,
+        upstream_api: true,
+    };
+    pub const CREDENTIAL_ONLY: Self = Self {
+        provider: false,
+        credential: true,
+        idempotency: false,
+        upstream_api: false,
+    };
+    pub const PROVIDER_ONLY: Self = Self {
+        provider: true,
+        credential: false,
+        idempotency: false,
+        upstream_api: false,
+    };
+    pub const IDEMPOTENCY_ONLY: Self = Self {
+        provider: false,
+        credential: false,
+        idempotency: true,
+        upstream_api: false,
+    };
+    pub const UPSTREAM_ONLY: Self = Self {
+        provider: false,
+        credential: false,
+        idempotency: false,
+        upstream_api: true,
+    };
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexObjectStoreIoGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub gate_status: &'static str,
+    pub support_status: &'static str,
+    pub rows: Vec<VortexObjectStoreIoGateRow>,
+    pub required_policy_refs: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub object_store_read_execution_allowed: bool,
+    pub object_store_write_execution_allowed: bool,
+    pub upstream_vortex_read_allowed: bool,
+    pub upstream_vortex_write_allowed: bool,
+    pub credential_resolution_allowed: bool,
+    pub credentials_resolved: bool,
+    pub provider_probe: bool,
+    pub network_probe: bool,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub data_written: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub provider_capability_policy_required: bool,
+    pub credential_policy_required: bool,
+    pub range_request_budget_required: bool,
+    pub idempotency_key_required: bool,
+    pub upstream_api_reference_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexObjectStoreIoGateReport {
+    #[must_use]
+    pub fn current() -> Self {
+        let rows = vortex_object_store_io_gate_rows();
+        let diagnostics = rows
+            .iter()
+            .copied()
+            .filter_map(VortexObjectStoreIoGateRow::to_diagnostic)
+            .collect();
+        Self {
+            schema_version: "shardloom.vortex_object_store_io_gate.v1",
+            report_id: "gar0005b.vortex_object_store_io.gate",
+            gar_id: "GAR-0005-B",
+            gate_status: "report_only",
+            support_status: "unsupported",
+            rows,
+            required_policy_refs: "provider_capability_policy,credential_effect_policy,range_request_budget,idempotency_key_contract,upstream_api_reference,execution_certificate,native_io_certificate,benchmark_evidence,no_fallback_policy",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "object-store Vortex read/write providers and upstream write integration are report-only/unsupported; no object-store I/O, credential resolution, network probe, upstream write, table/catalog, lakehouse, SQL/DataFrame, or performance claim",
+            object_store_read_execution_allowed: false,
+            object_store_write_execution_allowed: false,
+            upstream_vortex_read_allowed: false,
+            upstream_vortex_write_allowed: false,
+            credential_resolution_allowed: false,
+            credentials_resolved: false,
+            provider_probe: false,
+            network_probe: false,
+            runtime_execution: false,
+            data_read: false,
+            data_written: false,
+            object_store_io: false,
+            write_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            provider_capability_policy_required: true,
+            credential_policy_required: true,
+            range_request_budget_required: true,
+            idempotency_key_required: true,
+            upstream_api_reference_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: true,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.surface.as_str()).collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_surface_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_unsupported())
+            .count()
+    }
+
+    #[must_use]
+    pub fn report_only_surface_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_report_only())
+            .count()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_unsupported())
+            .filter(|row| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == row.surface.diagnostic_code()
+                        && diagnostic.category == row.surface.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(row.surface.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        self.unsupported_surface_count() > 0
+            && self.unsupported_diagnostic_count() == self.unsupported_surface_count()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_code_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_unsupported())
+            .map(|row| row.surface.diagnostic_code().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.object_store_read_execution_allowed
+            && !self.object_store_write_execution_allowed
+            && !self.upstream_vortex_read_allowed
+            && !self.upstream_vortex_write_allowed
+            && !self.credential_resolution_allowed
+            && !self.credentials_resolved
+            && !self.provider_probe
+            && !self.network_probe
+            && !self.runtime_execution
+            && !self.data_read
+            && !self.data_written
+            && !self.object_store_io
+            && !self.write_io
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && self
+                .rows
+                .iter()
+                .copied()
+                .all(VortexObjectStoreIoGateRow::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn claim_blocked(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || !self.claim_blocked()
+            || !self.deterministic_unsupported_diagnostics_ready()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "object-store Vortex I/O gate\nschema_version: {}\nreport: {}\ngate: {}\nsupport: {}\nunsupported surfaces: {}\nclaim gate: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.gate_status,
+            self.support_status,
+            self.unsupported_surface_count(),
+            self.claim_gate_status,
+        )
+    }
+}
+
+fn vortex_object_store_io_gate_rows() -> Vec<VortexObjectStoreIoGateRow> {
+    use VortexObjectStoreIoGateSurface as S;
+    use VortexObjectStoreIoRequirements as R;
+    vec![
+        VortexObjectStoreIoGateRow::unsupported(
+            S::ObjectStoreVortexReadProvider,
+            "vortex-api-inventory,object-store-request-plan,cg10-object-store-runtime-gate",
+            "Vortex object-store source/provider read path",
+            "provider_capability_policy,credential_effect_policy,range_request_budget,native_io_certificate",
+            R::PROVIDER_CREDENTIAL_UPSTREAM,
+        ),
+        VortexObjectStoreIoGateRow::unsupported(
+            S::ObjectStoreVortexWriteProvider,
+            "vortex-api-inventory,object-store-commit-plan",
+            "Vortex object-store sink/provider write path",
+            "provider_capability_policy,credential_effect_policy,idempotency_key_contract,upstream_write_api_ref,native_io_certificate,commit_certificate",
+            R::WRITE_PROVIDER_CREDENTIAL_IDEMPOTENCY_UPSTREAM,
+        ),
+        VortexObjectStoreIoGateRow::unsupported(
+            S::CredentialPolicy,
+            "security-plan,effect-budget-plan,object-store-request-plan",
+            "credential provider and secret materialization boundary",
+            "explicit_secret_source,redaction_policy,least_privilege_scope,effect_budget",
+            R::CREDENTIAL_ONLY,
+        ),
+        VortexObjectStoreIoGateRow::unsupported(
+            S::RangeRequestBudget,
+            "object-store-range-plan,object-store-coalesce-plan,object-store-schedule-plan",
+            "bounded object-store byte-range request planner",
+            "byte_range_provider_gate,request_budget_policy,retry_policy,benchmark_object_store_request_metric",
+            R::PROVIDER_ONLY,
+        ),
+        VortexObjectStoreIoGateRow::unsupported(
+            S::WriteIdempotency,
+            "object-store-commit-plan,vortex-local-commit-execute",
+            "object-store write idempotency and commit recovery contract",
+            "idempotency_key_contract,commit_protocol,recovery_certificate",
+            R::IDEMPOTENCY_ONLY,
+        ),
+        VortexObjectStoreIoGateRow::unsupported(
+            S::UpstreamSinkApi,
+            "vortex-api-inventory,vortex-output-payload-plan",
+            "upstream Vortex sink/write API for object-store targets",
+            "upstream_vortex_sink_api_ref,write_options_policy,schema_encoding_matrix",
+            R::UPSTREAM_ONLY,
+        ),
+        VortexObjectStoreIoGateRow::unsupported(
+            S::NativeIoCertificate,
+            "native-io-envelope-plan,execution-certificate-plan",
+            "object-store Vortex Native I/O certificate",
+            "execution_certificate,native_io_certificate,no_decode_materialization_policy,no_fallback_policy",
+            R::PROVIDER_CREDENTIAL_UPSTREAM,
+        ),
+        VortexObjectStoreIoGateRow::report_only(
+            S::UnsupportedDiagnostic,
+            "vortex-api-inventory,object-store-request-plan",
+            "stable unsupported diagnostics and claim boundary",
+            "stable_diagnostic_code,support_status,claim_gate_status,no_fallback_policy",
+        ),
+    ]
 }
 
 /// Typed `DType` mapping status for the Vortex adapter boundary.
@@ -1384,6 +1894,85 @@ mod tests {
             report
                 .claim_boundary
                 .contains("no object-store, broad schema/encoding writer")
+        );
+    }
+
+    #[test]
+    fn object_store_io_gate_blocks_provider_credentials_and_writes() {
+        let report = VortexObjectStoreIoGateReport::current();
+
+        assert_eq!(report.gar_id, "GAR-0005-B");
+        assert_eq!(
+            report.schema_version,
+            "shardloom.vortex_object_store_io_gate.v1"
+        );
+        assert_eq!(report.report_id, "gar0005b.vortex_object_store_io.gate");
+        assert_eq!(report.gate_status, "report_only");
+        assert_eq!(report.support_status, "unsupported");
+        assert_eq!(report.rows.len(), 8);
+        assert_eq!(report.unsupported_surface_count(), 7);
+        assert_eq!(report.report_only_surface_count(), 1);
+        assert!(report.deterministic_unsupported_diagnostics_ready());
+        assert!(report.side_effect_free());
+        assert!(report.claim_blocked());
+        assert!(!report.has_errors());
+        assert!(!report.object_store_read_execution_allowed);
+        assert!(!report.object_store_write_execution_allowed);
+        assert!(!report.upstream_vortex_read_allowed);
+        assert!(!report.upstream_vortex_write_allowed);
+        assert!(!report.credential_resolution_allowed);
+        assert!(!report.provider_probe);
+        assert!(!report.network_probe);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.fallback_attempted);
+        assert!(!report.fallback_execution_allowed);
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+    }
+
+    #[test]
+    fn object_store_io_gate_lists_stable_rows_and_diagnostics() {
+        let report = VortexObjectStoreIoGateReport::current();
+
+        assert_eq!(
+            report.row_order(),
+            vec![
+                "object_store_vortex_read_provider",
+                "object_store_vortex_write_provider",
+                "credential_policy",
+                "range_request_budget",
+                "write_idempotency",
+                "upstream_sink_api",
+                "native_io_certificate",
+                "unsupported_diagnostic",
+            ]
+        );
+        assert_eq!(
+            report.unsupported_diagnostic_count(),
+            report.unsupported_surface_count()
+        );
+        assert_eq!(
+            report.unsupported_diagnostic_code_order(),
+            vec![
+                "SL_OBJECT_STORE_UNSUPPORTED",
+                "SL_OBJECT_STORE_UNSUPPORTED",
+                "SL_EXTERNAL_EFFECT_DISABLED",
+                "SL_RESOURCE_BUDGET_EXCEEDED",
+                "SL_COMMIT_NOT_ATOMIC",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+            ]
+        );
+        assert!(
+            report
+                .required_policy_refs
+                .contains("idempotency_key_contract")
+        );
+        assert!(
+            report
+                .to_human_text()
+                .contains("fallback execution: disabled")
         );
     }
 

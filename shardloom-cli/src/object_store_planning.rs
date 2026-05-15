@@ -24,6 +24,7 @@ use shardloom_plan::{
     plan_object_store_ranges, plan_object_store_request_coalescing,
     plan_object_store_request_planner, plan_object_store_runtime_promotion_gate,
 };
+use shardloom_vortex::VortexObjectStoreIoGateReport;
 
 use crate::{
     cli_output::{emit, emit_error},
@@ -171,7 +172,11 @@ fn emit_object_store_request_plan(format: OutputFormat, scenario: &str) -> ExitC
             );
         }
     };
-    let status = if report.has_errors() {
+    let object_store_vortex_gate = VortexObjectStoreIoGateReport::current();
+    let has_errors = report.has_errors() || object_store_vortex_gate.has_errors();
+    let mut diagnostics = report.diagnostics.clone();
+    diagnostics.extend(object_store_vortex_gate.diagnostics.clone());
+    let status = if has_errors {
         CommandStatus::Unsupported
     } else {
         CommandStatus::Success
@@ -182,10 +187,10 @@ fn emit_object_store_request_plan(format: OutputFormat, scenario: &str) -> ExitC
         status,
         "object-store request planner report".to_string(),
         report.to_human_text(),
-        report.diagnostics.clone(),
-        object_store_request_output_fields(&report, scenario),
+        diagnostics,
+        object_store_request_output_fields(&report, scenario, &object_store_vortex_gate),
     );
-    if report.has_errors() {
+    if has_errors {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
@@ -195,6 +200,7 @@ fn emit_object_store_request_plan(format: OutputFormat, scenario: &str) -> ExitC
 fn object_store_request_output_fields(
     report: &ObjectStoreRequestPlannerReport,
     scenario: &str,
+    object_store_vortex_gate: &VortexObjectStoreIoGateReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "mode", "object_store_request_plan");
@@ -249,11 +255,89 @@ fn object_store_request_output_fields(
     append_object_store_request_count_fields(&mut fields, report);
     append_object_store_request_requirement_fields(&mut fields, report);
     append_byte_range_provider_gate_fields(&mut fields, &report.byte_range_provider_gate);
+    append_object_store_vortex_io_gate_ref_fields(&mut fields, object_store_vortex_gate);
     append_object_store_request_side_effect_fields(&mut fields, report);
-    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    push_count_field(
+        &mut fields,
+        "diagnostic_count",
+        report.diagnostics.len() + object_store_vortex_gate.diagnostics.len(),
+    );
     push_field(&mut fields, "execution", "not_performed");
     push_field(&mut fields, "plan_only", "true");
     fields
+}
+
+fn append_object_store_vortex_io_gate_ref_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexObjectStoreIoGateReport,
+) {
+    push_field(fields, "vortex_object_store_io_gate_ref", report.report_id);
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_schema_version",
+        report.schema_version,
+    );
+    push_field(fields, "vortex_object_store_io_gate_gar_id", report.gar_id);
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_status",
+        report.gate_status,
+    );
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_support_status",
+        report.support_status,
+    );
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_object_store_read_execution_allowed",
+        report.object_store_read_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_object_store_write_execution_allowed",
+        report.object_store_write_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_upstream_vortex_write_allowed",
+        report.upstream_vortex_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_credential_resolution_allowed",
+        report.credential_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_object_store_io",
+        report.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_write_io",
+        report.write_io,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_side_effect_free",
+        report.side_effect_free(),
+    );
 }
 
 fn append_object_store_request_count_fields(
@@ -1801,7 +1885,9 @@ mod tests {
     #[test]
     fn object_store_request_fields_include_no_io_no_fallback() {
         let report = object_store_request_planner_fixture("ready").expect("request planner");
-        let fields = object_store_request_output_fields(&report, "ready");
+        let object_store_vortex_gate = VortexObjectStoreIoGateReport::current();
+        let fields =
+            object_store_request_output_fields(&report, "ready", &object_store_vortex_gate);
 
         assert_eq!(
             output_field(&fields, "schema_version"),
@@ -1828,6 +1914,18 @@ mod tests {
         assert_eq!(output_field(&fields, "write_io"), "false");
         assert_eq!(output_field(&fields, "fallback_execution_allowed"), "false");
         assert_eq!(output_field(&fields, "side_effect_free"), "true");
+        assert_eq!(
+            output_field(&fields, "vortex_object_store_io_gate_ref"),
+            "gar0005b.vortex_object_store_io.gate"
+        );
+        assert_eq!(
+            output_field(&fields, "vortex_object_store_io_gate_support_status"),
+            "unsupported"
+        );
+        assert_eq!(
+            output_field(&fields, "vortex_object_store_io_gate_side_effect_free"),
+            "true"
+        );
     }
 
     fn output_field<'a>(fields: &'a [(String, String)], key: &str) -> &'a str {
