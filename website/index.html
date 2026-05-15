@@ -601,6 +601,9 @@
       </a>
       <nav class="nav-links" aria-label="Primary">
         <a href="#flow">Flow</a>
+        <a href="/benchmarks.html">Benchmarks</a>
+        <a href="/compute-engine-flow.html">Compute Flow Doc</a>
+        <a href="/readme.html">README</a>
         <a href="#status">Status</a>
         <a href="#boundaries">Boundaries</a>
         <a href="https://github.com/depsilon/shardloom">GitHub</a>
@@ -617,6 +620,7 @@
           <p class="lede">A Vortex-native, no-fallback, evidence-certified local compute engine foundation built around explicit unsupported diagnostics and claim gates before broader platform promises.</p>
           <div class="actions">
             <a class="button primary" href="https://github.com/depsilon/shardloom">View repository</a>
+            <a class="button" href="/benchmarks.html">Benchmark evidence</a>
             <a class="button" href="#boundaries">Read claim boundaries</a>
           </div>
           <div class="quick-facts" aria-label="ShardLoom status summary">
@@ -631,13 +635,48 @@
       </div>
     </section>
 
+    <section id="evidence">
+      <div class="shell split">
+        <div>
+          <h2>Evidence Snapshot</h2>
+          <p class="section-lede">The website includes committed static snapshots for the current benchmark evidence, the compute-engine flow reference, and the repository README. The benchmark page separates compatibility-import, prepared Vortex, and native Vortex rows and keeps every performance or platform claim blocked unless the evidence says otherwise.</p>
+          <div class="actions">
+            <a class="button primary" href="/benchmarks.html">Open benchmark evidence</a>
+            <a class="button" href="/compute-engine-flow.html">Open compute flow</a>
+            <a class="button" href="/readme.html">Open README</a>
+          </div>
+        </div>
+        <table class="status-table">
+          <tbody>
+            <tr>
+              <th scope="row">Benchmark scope</th>
+              <td>Local smoke evidence for prepared/native Vortex scenarios, source-backed scans, result sinks, table metadata, and no-fallback fields.</td>
+            </tr>
+            <tr>
+              <th scope="row">Claim gate</th>
+              <td><code>fixture_smoke_only</code>, <code>not_claim_grade</code>, or scoped metadata status as recorded by the artifacts.</td>
+            </tr>
+            <tr>
+              <th scope="row">Mode split</th>
+              <td><code>compatibility_import_certified</code>, <code>prepared_vortex</code>, and <code>native_vortex</code> are presented as separate timing surfaces.</td>
+            </tr>
+            <tr>
+              <th scope="row">Fallback policy</th>
+              <td><code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code> remain visible on the evidence rows.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section id="flow">
       <div class="shell" data-flow-root>
         <h2>Current Compute Flow</h2>
-        <p class="section-lede">This section is populated from the canonical compute-engine flow reference on `main`, with static fallback content when the source cannot be loaded.</p>
+        <p class="section-lede">This section is populated from the canonical compute-engine flow reference on <code>main</code>, with static fallback content when the source cannot be loaded. The full rendered reference is also available as a static page.</p>
         <p class="flow-source">
           <span class="source-badge" data-flow-source-status>Loading architecture reference</span>
-          <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md">docs/architecture/compute-engine-flow-reference.md</a>
+          <a href="/compute-engine-flow.html">Rendered compute-engine flow</a>
+          <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md">Source Markdown</a>
         </p>
         <div class="flow-grid" data-flow-views>
           <article class="step">

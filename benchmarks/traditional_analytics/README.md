@@ -303,6 +303,25 @@ process reuse. The default comparative harness rows still use per-scenario CLI a
 the harness is explicitly migrated to consume the batch command; the batch command itself is not a
 persistent daemon, hidden fast mode, performance claim, SQL/DataFrame claim, object-store claim, or
 Spark-displacement claim.
+
+### Website Evidence Snapshot
+
+The static website benchmark page is generated from local smoke artifacts under
+`target/shardloom-benchmark-evidence/`:
+
+```powershell
+python website\build_static_pages.py --benchmark-dir target\shardloom-benchmark-evidence
+```
+
+The generated `website/benchmarks.html` and
+`website/assets/data/benchmark-evidence.json` preserve execution-mode separation for
+`compatibility_import_certified`, `prepared_vortex`, and `native_vortex`; stage timing fields such
+as source read, compatibility parse/import, Vortex write/reopen/scan, operator compute, result sink,
+evidence render, and total runtime; `encoded_predicate_provider_*` rows where applicable;
+`source_backed_scan_*` rows; materialization/decode evidence; and no-fallback fields. The page is a
+claim-safe evidence surface only. It must not be read as performance proof, Spark replacement proof,
+or production SQL/DataFrame/object-store/lakehouse/Foundry support.
+
 `filter + projection + limit` now reports a scoped residual-native fused scan path for prepared/native
 rows when filter/projection pushdown runs without full-table materialization. `group by aggregation`
 now reports a scoped residual-native grouped scan path when projection pushdown over

@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compute Engine Flow</title>
+  <meta name="description" content="Rendered canonical compute-engine flow reference, including execution modes, engine modes, access surfaces, and claim gates.">
+  <link rel="canonical" href="https://shardloom.io/compute-engine-flow.html">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span>ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="" href="/benchmarks.html">Benchmarks</a>
+<a class="active" href="/compute-engine-flow.html">Compute Flow</a>
+<a class="" href="/readme.html">README</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <section class="doc-hero">
+      <div class="shell">
+        <p class="eyebrow">Rendered repository document</p>
+        <h1>Compute Engine Flow</h1>
+        <p class="lede">Rendered canonical compute-engine flow reference, including execution modes, engine modes, access surfaces, and claim gates.</p>
+        <p class="source-note">Source: <code>docs/architecture/compute-engine-flow-reference.md</code></p>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell doc-layout">
+        <article class="doc-body">
+          <h2 id="shardloom-compute-engine-flow-reference">ShardLoom Compute Engine Flow Reference</h2>
+<h3 id="purpose">Purpose</h3>
+<p>This document defines the high-level compute-engine flow ShardLoom is supposed to follow.</p>
+<p>It is a reference for implementation, Codex agents, benchmarks, docs, and planned API/client surfaces. It keeps ShardLoom from confusing these different things:</p>
+<pre><code data-language="text">one-shot compatibility query
+ingest/stage workflow
+prepared Vortex query
+native Vortex query
+batch/live/hybrid workload semantics
+benchmark baseline comparison</code></pre>
+<p>ShardLoom&#x27;s core identity remains:</p>
+<pre><code data-language="text">Vortex-first
+no external fallback
+explicit execution mode
+explicit materialization/decode boundaries
+evidence-certified execution
+claim-gated benchmark/reporting</code></pre>
+<p>The repo-alignment review and completed overhaul mapping live in:</p>
+<pre><code data-language="text">docs/architecture/compute-engine-flow-overhaul-review.md</code></pre>
+<p>The website renders this file as <code>website/compute-engine-flow.html</code> through <code>website/build_static_pages.py</code>. Keep this Markdown document as the canonical source; the generated page is a static publication surface for readers who need the same flow outside GitHub.</p>
+<h3 id="one-sentence-vision">One-Sentence Vision</h3>
+<p>ShardLoom should let users run local and planned platform data workflows through explicit execution modes, while proving what ran, what materialized, what stayed Vortex-native, what returned an unsupported diagnostic, and whether any claim is allowed.</p>
+<pre><code data-language="text">User request
+-&gt; policy + capability admission
+-&gt; explicit execution mode
+-&gt; explicit engine mode where the workload needs batch/live/hybrid semantics
+-&gt; source/preparation boundary
+-&gt; ShardLoom/Vortex execution provider
+-&gt; result/result sink/downstream reference
+-&gt; certificates + evidence
+-&gt; claim gate
+-&gt; typed output for CLI / Python / REST/event surfaces / downstream consumers</code></pre>
+<h3 id="how-to-read-the-flow">How To Read The Flow</h3>
+<p>This reference uses layered Markdown diagrams rather than one all-purpose architecture picture. The structure follows three documentation rules:</p>
+<ul>
+<li>Use GitHub-rendered Mermaid fenced code blocks so the diagram stays versioned beside the text (<a href="https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams">GitHub Mermaid docs</a>, <a href="https://mermaid.js.org/syntax/flowchart.html">Mermaid flowchart syntax</a>).</li>
+<li>Keep abstraction levels separate, following the C4 idea that different diagrams answer different questions for different audiences (<a href="https://c4model.com/introduction">C4 model</a>).</li>
+<li>Treat this file as explanation plus reference, not a tutorial or runbook (<a href="https://diataxis.fr/">Diataxis</a>).</li>
+</ul>
+<p>Read only as far as needed:</p>
+<div class="table-scroll"><table>
+<thead><tr><th>View</th><th>Question answered</th><th>Primary audience</th><th>Stop here when</th></tr></thead>
+<tbody>
+<tr><td>1. Access and users</td><td>Who can enter ShardLoom, and what do they receive back?</td><td>End users, adapter authors, operators</td><td>You need product/API orientation.</td></tr>
+<tr><td>2. Runtime contract</td><td>What must happen before any supported work executes?</td><td>Implementers, reviewers, agents</td><td>You need invariant request-to-output behavior.</td></tr>
+<tr><td>3. Mode lanes</td><td>Which execution mode owns each source/preparation boundary?</td><td>Benchmark authors, runtime implementers</td><td>You need timing and mode interpretation.</td></tr>
+<tr><td>4. Engine fabric</td><td>Where do batch, live, and hybrid semantics fit?</td><td>Workflow/API implementers, platform integrators</td><td>You need workload semantics and live/hybrid boundaries.</td></tr>
+<tr><td>5. Evidence and downstream use</td><td>How do sinks, adapters, reports, and claims consume outputs?</td><td>Release reviewers, benchmark readers, platform integrators</td><td>You need claim and downstream boundaries.</td></tr>
+</tbody></table></div>
+<p>Diagram notation:</p>
+<div class="table-scroll"><table>
+<thead><tr><th>Notation</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>Solid arrow</td><td>Request, result, or evidence flow inside ShardLoom.</td></tr>
+<tr><td>Dotted arrow</td><td>Comparison-only baseline/oracle path, never fallback execution.</td></tr>
+<tr><td><code>current</code></td><td>Implemented surface or certified/scoped evidence exists.</td></tr>
+<tr><td><code>report-only</code></td><td>Deterministic report/diagnostic exists, but no runtime behavior is claimed.</td></tr>
+<tr><td><code>planned</code></td><td>Future surface that must remain unchecked in the phase plan until implemented.</td></tr>
+<tr><td><code>unsupported</code></td><td>Deterministic unsupported diagnostic; <code>fallback_attempted=false</code>.</td></tr>
+</tbody></table></div>
+<h3 id="current-runtime-snapshot">Current Runtime Snapshot</h3>
+<p>This table is the shortest current-state read of the diagrams below. It separates source/preparation execution lanes from batch/live/hybrid workload semantics so readers do not infer a hidden runtime or claim.</p>
+<div class="table-scroll"><table>
+<thead><tr><th>Layer</th><th>Current repo state</th><th>Planned updates</th><th>Claim boundary</th></tr></thead>
+<tbody>
+<tr><td>User access</td><td>CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces and thin adapters are report-only or planned.</td><td>Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope.</td><td>No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates.</td></tr>
+<tr><td>Execution modes</td><td><code>compatibility_import_certified</code>, <code>prepared_vortex</code>, <code>native_vortex</code>, <code>direct_compatibility_transient</code>, and <code>auto</code> are visible in reports.</td><td>Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification.</td><td><code>auto</code> is selection only; it must emit the selected mode and reason.</td></tr>
+<tr><td>Prepared/native batch runtime</td><td>Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, top-N, row-number, high-cardinality string group/distinct, and partition-pruning/date-range scans avoid full fact-table materialization in prepared/native rows. Prepared/native rows now emit explicit <code>source_backed_scan_*</code> evidence for local source roles, projected columns, residual executor, Native I/O certificate status, materialization boundary, and no-fallback status. <code>compute-capability-matrix</code> aligns grouped aggregate, join, and row-number/window with that scoped residual-native fixture evidence while keeping <code>operator_encoded_native_claim_allowed=false</code>. Selective-filter rows also emit <code>encoded_predicate_provider_*</code> v4 fields, record projected reader chunks, separately capture real <code>flag,value</code> reader chunks without decode/materialization, lower observed <code>flag:fastlanes.bitpacked</code> and <code>value:vortex.sequence</code> chunks into admitted reader-generated encoded kernel inputs, intersect their selection vectors, and consume the admitted selection vector for scoped metric <code>row_count</code>/<code>metric_sum</code> evidence through <code>encoded_predicate_provider_selected_metric_*</code> fields. CPU specialization reports record side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic.</td><td>Next planned work is generalized encoded/native operator coverage, broader metric aggregation certificates, and claim-grade correctness/benchmark gates.</td><td>These paths are residual-native unless evidence says otherwise; they are not encoded-native, SQL/DataFrame, production, distributed sort, SIMD-dispatch, object-store pruning, layout/statistics pruning, broad CDC/table transactions, or broad performance claims.</td></tr>
+<tr><td>Batch engine mode</td><td>Bounded/snapshot local Vortex analytics are the practical execution foundation.</td><td>Broader operator/source/sink coverage plus correctness and benchmark claim gates.</td><td>Batch support is scoped to evidence-backed workloads.</td></tr>
+<tr><td>Live engine mode</td><td><code>engine-selection-plan</code>, <code>engine-capability-matrix</code>, <code>live-change-contract-plan</code>, Python helpers, and in-memory <code>live-fixture-run</code> reports exist.</td><td>Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification.</td><td>Fixture evidence only; no production live claim.</td></tr>
+<tr><td>Hybrid engine mode</td><td><code>engine-selection-plan</code>, <code>engine-capability-matrix</code>, Python helpers, and in-memory <code>hybrid-overlay-run</code> reports exist.</td><td>Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence.</td><td>Fixture evidence only; no production hybrid, object-store, or table-commit claim.</td></tr>
+<tr><td>Streaming/zero-copy/backpressure</td><td><code>streaming-plan</code>, <code>streaming-batch-plan</code>, <code>backpressure-plan</code>, <code>engine-capability-matrix</code>, and <code>capabilities engines</code> now expose a GAR-0013 streaming capability matrix covering local fixture evidence, object-store streaming reads, zero-decode, zero-copy/materialization boundaries, bounded backpressure, and live/hybrid broker runtime.</td><td>Object-store streaming reads, durable broker adapters, runtime backpressure enforcement, broad operator/source/sink evidence, and workload certification.</td><td>Matrix rows are fixture-smoke or report-only unless explicitly blocked/materializing; broad streaming/runtime/object-store/broker claims remain not claim-grade.</td></tr>
+</tbody></table></div>
+<p><code>traditional-analytics-vortex-batch-run</code> is the scoped prepared/native batch command. It runs a comma-separated list of prepared/native Vortex scenarios in one ShardLoom process, reuses the caller-supplied prepared Vortex artifacts, preserves per-scenario evidence fields, and emits <code>persistent_runner_status=single_process_batch_runner_supported</code>. That status means scoped process reuse only; it is not a daemon, service, hidden benchmark fast mode, or performance claim.</p>
+<h4 id="view-1-access-and-users">View 1 - Access And Users</h4>
+<p>This view is the product/API map. Every entrypoint must preserve the same typed protocol; adapters are allowed to improve ergonomics, not to create a hidden execution path.</p>
+<pre><code data-language="mermaid">flowchart LR
+    subgraph PEOPLE[&quot;People and automation&quot;]
+        USER[&quot;End users&lt;br/&gt;analyst / engineer / app developer&quot;]
+        ADAPTER_AUTHOR[&quot;Adapter authors&lt;br/&gt;DB / orchestration / BI / notebook&quot;]
+        OPERATOR[&quot;Operators and agents&lt;br/&gt;CI / release gates / automation&quot;]
+    end
+
+    subgraph ACCESS[&quot;Access surfaces&quot;]
+        CLI[&quot;CLI&lt;br/&gt;current canonical entrypoint&quot;]
+        PYTHON[&quot;Python client&lt;br/&gt;typed wrapper over CLI protocol&quot;]
+        BENCH[&quot;Benchmark harness&lt;br/&gt;comparison reports and evidence&quot;]
+        REST[&quot;REST / event API&lt;br/&gt;report-only contract&quot;]
+        SDK[&quot;SDK / notebook clients&lt;br/&gt;planned&quot;]
+        ADAPTER[&quot;Thin adapters&lt;br/&gt;planned DB-API / SQLAlchemy / Ibis / dbt / BI&quot;]
+    end
+
+    subgraph CONTRACT[&quot;Shared protocol&quot;]
+        REQUEST[&quot;Typed request envelope&lt;br/&gt;workload + source + policy + output intent&quot;]
+        OUTPUT[&quot;Typed output envelope&lt;br/&gt;result refs + diagnostics + evidence + claim gate&quot;]
+    end
+
+    USER --&gt; CLI
+    USER --&gt; PYTHON
+    USER --&gt; SDK
+    USER --&gt; ADAPTER
+    ADAPTER_AUTHOR --&gt; ADAPTER
+    OPERATOR --&gt; CLI
+    OPERATOR --&gt; BENCH
+    SDK --&gt; PYTHON
+    SDK --&gt; REST
+    ADAPTER --&gt; PYTHON
+    ADAPTER --&gt; REST
+
+    CLI --&gt; REQUEST
+    PYTHON --&gt; REQUEST
+    BENCH --&gt; REQUEST
+    REST --&gt; REQUEST
+    REQUEST --&gt; OUTPUT
+    OUTPUT --&gt; CLI_RESULT[&quot;CLI text / JSON / artifacts&quot;]
+    OUTPUT --&gt; PY_RESULT[&quot;Python typed models / artifact refs&quot;]
+    OUTPUT --&gt; ADAPTER_RESULT[&quot;Adapter-facing result refs&quot;]
+    OUTPUT --&gt; BENCH_RESULT[&quot;Benchmark coverage + timing report&quot;]</code></pre>
+<h4 id="view-2-runtime-contract">View 2 - Runtime Contract</h4>
+<p>This view is the invariant. A request reaches execution only after policy, capability, semantics, and explicit mode selection. Unsupported work exits through diagnostics and evidence, not fallback.</p>
+<pre><code data-language="mermaid">flowchart TD
+    subgraph REQUEST_PHASE[&quot;1. Request binding&quot;]
+        REQUEST[&quot;Typed request&lt;br/&gt;query / workload / downstream intent&quot;]
+        SOURCE[&quot;Source descriptors&lt;br/&gt;format / schema / URI / pushdown&quot;]
+        OUTPUT_INTENT[&quot;Output intent&lt;br/&gt;result / Vortex artifact / export / platform ref&quot;]
+    end
+
+    subgraph ADMISSION_PHASE[&quot;2. Admission before execution&quot;]
+        POLICY[&quot;Policy&lt;br/&gt;governance / credentials / no fallback&quot;]
+        CAPABILITY[&quot;Capability matrix&lt;br/&gt;source + operator + sink + feature gates&quot;]
+        SEMANTICS[&quot;Semantic profile&lt;br/&gt;schema / expression / workload constitution&quot;]
+        MODE[&quot;Explicit execution mode&lt;br/&gt;requested + selected + reason&quot;]
+        ENGINE[&quot;Engine mode&lt;br/&gt;batch / live / hybrid / auto&quot;]
+    end
+
+    subgraph EXECUTION_PHASE[&quot;3. Provider decision&quot;]
+        BOUNDARY[&quot;Source or preparation boundary&quot;]
+        PLAN[&quot;Plan IR and physical plan&quot;]
+        ADMISSION[&quot;Provider admission&lt;br/&gt;Vortex provider / ShardLoom kernel / diagnostic&quot;]
+        DIAGNOSTIC[&quot;Deterministic unsupported diagnostic&lt;br/&gt;support_status=unsupported&quot;]
+        EXECUTE[&quot;Supported execution&lt;br/&gt;encoded / native / residual ShardLoom kernel&quot;]
+    end
+
+    subgraph OUTPUT_PHASE[&quot;4. Output and evidence&quot;]
+        RESULT[&quot;Result stream / scalar / result ref&quot;]
+        SINK[&quot;Sink and materialization boundary&quot;]
+        EVIDENCE[&quot;Evidence bundle&lt;br/&gt;certificates / diagnostics / benchmark rows / traces&quot;]
+        CLAIM[&quot;Claim gate&lt;br/&gt;claim_grade / fixture_smoke_only / not_claim_grade&quot;]
+        ENVELOPE[&quot;Typed output envelope&quot;]
+    end
+
+    REQUEST --&gt; SOURCE
+    REQUEST --&gt; OUTPUT_INTENT
+    SOURCE --&gt; POLICY --&gt; CAPABILITY --&gt; SEMANTICS --&gt; MODE --&gt; ENGINE
+    OUTPUT_INTENT --&gt; MODE
+    ENGINE --&gt; BOUNDARY --&gt; PLAN --&gt; ADMISSION
+    ADMISSION --&gt;|&quot;unsupported&quot;| DIAGNOSTIC --&gt; EVIDENCE
+    ADMISSION --&gt;|&quot;supported&quot;| EXECUTE --&gt; RESULT --&gt; SINK --&gt; EVIDENCE
+    EVIDENCE --&gt; CLAIM --&gt; ENVELOPE</code></pre>
+<h4 id="view-3-execution-mode-lanes">View 3 - Execution Mode Lanes</h4>
+<p>This view explains timing interpretation. <code>auto</code> is not a runtime engine; it selects and reports one explicit mode. Compatibility lanes include ingest/stage/certification costs. Prepared/native lanes are the intended query-runtime lanes when evidence supports them.</p>
+<pre><code data-language="mermaid">flowchart TD
+    REQUESTED[&quot;requested_execution_mode&quot;]
+    AUTO[&quot;auto&lt;br/&gt;transparent selector&quot;]
+    SELECTED[&quot;selected_execution_mode&lt;br/&gt;mode_selection_reason required&quot;]
+
+    COMPAT[&quot;compatibility_import_certified&lt;br/&gt;current ingest/stage certification lane&quot;]
+    PREPARED[&quot;prepared_vortex&lt;br/&gt;current/preferred performance lane&quot;]
+    NATIVE[&quot;native_vortex&lt;br/&gt;current scoped native-artifact lane&quot;]
+    DIRECT[&quot;direct_compatibility_transient&lt;br/&gt;scoped CSV smoke + unsupported diagnostics&quot;]
+
+    COMPAT_BOUNDARY[&quot;Compatibility ingest boundary&lt;br/&gt;adapter -&gt; NativeWorkStream -&gt; Vortex write/reopen&quot;]
+    PREPARED_BOUNDARY[&quot;Prepared Vortex boundary&lt;br/&gt;prepare once -&gt; reuse artifact&quot;]
+    NATIVE_BOUNDARY[&quot;Native Vortex boundary&lt;br/&gt;existing .vortex -&gt; Source / Scan / Split&quot;]
+    DIRECT_BOUNDARY[&quot;Transient compatibility boundary&lt;br/&gt;no persistent Vortex artifact&quot;]
+
+    PROVIDER[&quot;Provider admission&lt;br/&gt;Vortex provider / ShardLoom kernel / diagnostic&quot;]
+    SELECTIVE_BLOCKER[&quot;Selective-filter encoded predicate provider&lt;br/&gt;admitted filter inputs; metric aggregation pending&quot;]
+
+    REQUESTED --&gt; AUTO --&gt; SELECTED
+    REQUESTED --&gt; COMPAT
+    REQUESTED --&gt; PREPARED
+    REQUESTED --&gt; NATIVE
+    REQUESTED --&gt; DIRECT
+    SELECTED --&gt; COMPAT
+    SELECTED --&gt; PREPARED
+    SELECTED --&gt; NATIVE
+    SELECTED --&gt; DIRECT
+
+    COMPAT --&gt; COMPAT_BOUNDARY --&gt; PROVIDER
+    PREPARED --&gt; PREPARED_BOUNDARY --&gt; PROVIDER
+    NATIVE --&gt; NATIVE_BOUNDARY --&gt; PROVIDER
+    DIRECT --&gt; DIRECT_BOUNDARY --&gt; PROVIDER
+    PROVIDER --&gt;|&quot;selective filter today&quot;| SELECTIVE_BLOCKER</code></pre>
+<p>Mode timing fields must stay visible:</p>
+<pre><code data-language="text">source_read_millis
+compatibility_parse_millis
+compatibility_to_vortex_import_millis
+vortex_write_millis
+vortex_reopen_millis
+vortex_scan_millis
+operator_compute_millis
+result_sink_write_millis
+evidence_render_millis
+total_runtime_millis</code></pre>
+<h4 id="view-4-engine-fabric-layer">View 4 - Engine Fabric Layer</h4>
+<p>Execution modes and engine modes answer different questions:</p>
+<ul>
+<li>Execution mode answers &quot;what source/preparation lane did this run through?&quot;</li>
+<li>Engine mode answers &quot;what workload semantics did ShardLoom admit?&quot;</li>
+</ul>
+<p>The current repo has concrete engine-mode contracts and fixture evidence. It does not yet have production broker-backed live execution, durable live state, object-store-backed hybrid execution, or live/hybrid public claims.</p>
+<pre><code data-language="mermaid">flowchart TD
+    REQUEST[&quot;Typed request&lt;br/&gt;workload + source + output intent&quot;]
+    ENGINE_REQUEST[&quot;requested_engine_mode&lt;br/&gt;auto / batch / live / hybrid&quot;]
+    ENGINE_SELECTION[&quot;engine-selection-plan&lt;br/&gt;selected_engine_mode + allowed/rejected modes&quot;]
+    MATRIX[&quot;engine-capability-matrix&lt;br/&gt;batch/live/hybrid rows&quot;]
+    STREAM_MATRIX[&quot;GAR-0013 streaming capability matrix&lt;br/&gt;local / object-store / zero-copy / zero-decode / backpressure&quot;]
+
+    subgraph CURRENT[&quot;Current scoped engine surfaces&quot;]
+        BATCH[&quot;batch&lt;br/&gt;bounded snapshot local Vortex analytics&quot;]
+        LIVE_CONTRACT[&quot;live-change-contract-plan&lt;br/&gt;change records + watermark/checkpoint vocabulary&quot;]
+        LIVE_FIXTURE[&quot;live-fixture-run&lt;br/&gt;in-memory fixture operators + certificates&quot;]
+        HYBRID_FIXTURE[&quot;hybrid-overlay-run&lt;br/&gt;base snapshot + hot delta fixture evidence&quot;]
+        STREAM_REPORTS[&quot;streaming-plan / streaming-batch-plan / backpressure-plan&lt;br/&gt;full matrix + blocked diagnostics&quot;]
+    end
+
+    subgraph CLAIM_BOUNDARY[&quot;Claim and effect boundary&quot;]
+        FIXTURE_CLAIM[&quot;fixture evidence only&lt;br/&gt;production_claim_allowed=false&quot;]
+        NO_EFFECTS[&quot;no broker / object-store / external engine&lt;br/&gt;fallback_attempted=false&quot;]
+        PLANNED_GATES[&quot;planned gates&lt;br/&gt;durable state / freshness / object-store / workload evidence&quot;]
+    end
+
+    REQUEST --&gt; ENGINE_REQUEST --&gt; ENGINE_SELECTION --&gt; MATRIX
+    MATRIX --&gt; STREAM_MATRIX --&gt; STREAM_REPORTS
+    MATRIX --&gt; BATCH
+    MATRIX --&gt; LIVE_CONTRACT --&gt; LIVE_FIXTURE
+    MATRIX --&gt; HYBRID_FIXTURE
+    STREAM_REPORTS --&gt; FIXTURE_CLAIM
+    BATCH --&gt; FIXTURE_CLAIM
+    LIVE_FIXTURE --&gt; FIXTURE_CLAIM
+    HYBRID_FIXTURE --&gt; FIXTURE_CLAIM
+    FIXTURE_CLAIM --&gt; NO_EFFECTS --&gt; PLANNED_GATES</code></pre>
+<p>Current engine-mode surfaces:</p>
+<div class="table-scroll"><table>
+<thead><tr><th>Engine mode</th><th>Current surface</th><th>Current support</th><th>Claim boundary</th></tr></thead>
+<tbody>
+<tr><td><code>batch</code></td><td><code>engine-selection-plan</code>, <code>engine-capability-matrix</code>, local Vortex analytics paths</td><td>Partially supported for bounded snapshot workflows and scoped local Vortex benchmark/runtime evidence</td><td>Not a broad production or SQL/DataFrame claim.</td></tr>
+<tr><td><code>live</code></td><td><code>engine-selection-plan live ...</code>, <code>live-change-contract-plan</code>, <code>live-fixture-run</code></td><td>Partially supported for in-memory fixture change streams with fixture freshness/state/execution/Native I/O certificates</td><td>No broker, durable state store, object-store I/O, or production live claim.</td></tr>
+<tr><td><code>hybrid</code></td><td><code>engine-selection-plan hybrid ...</code>, <code>hybrid-overlay-run</code></td><td>Partially supported for in-memory base-plus-hot-delta fixture overlays with delta/freshness/execution/Native I/O certificate fields</td><td>No durable micro-segment writes, object-store commit, catalog snapshot discovery, or production hybrid claim.</td></tr>
+<tr><td><code>auto</code></td><td><code>engine-selection-plan</code> default selection</td><td>Transparent selector; defaults to <code>batch</code> for bounded snapshot workloads and must report selected/rejected modes</td><td>Not a hidden engine and never a fallback route.</td></tr>
+<tr><td><code>streaming capability</code></td><td><code>streaming-plan</code>, <code>streaming-batch-plan</code>, <code>backpressure-plan</code>, <code>engine-capability-matrix</code>, <code>capabilities engines</code></td><td>Full GAR-0013 matrix exists; local count fixture and zero-decode rows are scoped fixture-smoke, while object-store streaming and broker-backed live/hybrid rows are blocked</td><td>No broad streaming runtime, object-store streaming read, broker-backed production, or zero-copy compatibility claim.</td></tr>
+</tbody></table></div>
+<p>These commands are side-effect controlled:</p>
+<pre><code data-language="text">engine-selection-plan: runtime_execution=false, data_read=false, write_io=false
+engine-capability-matrix: runtime_execution=false, data_read=false, write_io=false
+streaming capability matrix: runtime_execution=false, object_store_io=false, write_io=false
+live-change-contract-plan: runtime_execution=false, data_read=false, write_io=false
+live-fixture-run: scoped fixture runtime, data_read=false, write_io=false, broker_io=false
+hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, object_store_io=false</code></pre>
+<p>Planned updates are carried in the phase plan, especially <code>GAR-0034-A</code> for live/hybrid fabric blockers and freshness gates. Runtime-focused follow-through now shifts from the completed scoped prepared/native benchmark paths and CPU admission diagnostics toward kernel/provider expansion, source-backed API coverage, facade coverage, and other evidence-gated residual-native paths.</p>
+<h4 id="view-5-i-o-evidence-and-downstream-use">View 5 - I/O, Evidence, And Downstream Use</h4>
+<p>This view connects runtime output to every consumer. Downstream users read typed outputs or referenced artifacts; they do not imply a hidden execution mode, fallback engine, or unverified sink.</p>
+<pre><code data-language="mermaid">flowchart LR
+    subgraph INPUTS[&quot;Input families&quot;]
+        COMPAT_INPUT[&quot;Compatibility files&lt;br/&gt;CSV / Parquet / JSONL / Arrow IPC / Avro / ORC&quot;]
+        VORTEX_INPUT[&quot;Existing Vortex artifacts&quot;]
+        OBJECT_INPUT[&quot;Object-store refs&lt;br/&gt;planned / unsupported&quot;]
+        TABLE_INPUT[&quot;Table/catalog refs&lt;br/&gt;planned / unsupported&quot;]
+        STREAM_INPUT[&quot;Streams and events&lt;br/&gt;planned / unsupported&quot;]
+    end
+
+    subgraph RUNTIME[&quot;Runtime outcome&quot;]
+        EXECUTE[&quot;Supported execution&quot;]
+        UNSUPPORTED[&quot;Unsupported diagnostic&quot;]
+        RESULT[&quot;Result / ref&quot;]
+    end
+
+    subgraph SINKS[&quot;Sink and delivery options&quot;]
+        NO_SINK[&quot;No sink&lt;br/&gt;typed result/ref only&quot;]
+        VORTEX_SINK[&quot;Vortex result artifact&lt;br/&gt;current scoped replay evidence&quot;]
+        COMPAT_EXPORT[&quot;Compatibility export&lt;br/&gt;planned / unsupported&quot;]
+        TABLE_COMMIT[&quot;Table/lakehouse commit&lt;br/&gt;planned / unsupported&quot;]
+        OBJECT_WRITE[&quot;Object-store write&lt;br/&gt;planned / unsupported&quot;]
+        REST_EVENT[&quot;REST/event delivery&lt;br/&gt;report-only contract&quot;]
+    end
+
+    subgraph CLAIMS[&quot;Evidence and claims&quot;]
+        TIMING[&quot;Benchmark timing ledger&quot;]
+        BASELINE[&quot;External baseline/oracle&lt;br/&gt;comparison only&quot;]
+        EVIDENCE[&quot;Evidence bundle&lt;br/&gt;correctness / Native I/O / materialization / policy&quot;]
+        CLAIM[&quot;Claim gate&quot;]
+        ENVELOPE[&quot;Typed output envelope&quot;]
+    end
+
+    COMPAT_INPUT --&gt; EXECUTE
+    VORTEX_INPUT --&gt; EXECUTE
+    OBJECT_INPUT --&gt; UNSUPPORTED
+    TABLE_INPUT --&gt; UNSUPPORTED
+    STREAM_INPUT --&gt; UNSUPPORTED
+    EXECUTE --&gt; RESULT
+    UNSUPPORTED --&gt; EVIDENCE
+    RESULT --&gt; NO_SINK --&gt; EVIDENCE
+    RESULT --&gt; VORTEX_SINK --&gt; EVIDENCE
+    RESULT --&gt; COMPAT_EXPORT --&gt; EVIDENCE
+    RESULT --&gt; TABLE_COMMIT --&gt; EVIDENCE
+    RESULT --&gt; OBJECT_WRITE --&gt; EVIDENCE
+    RESULT --&gt; REST_EVENT --&gt; EVIDENCE
+    EXECUTE --&gt; TIMING --&gt; EVIDENCE
+    BASELINE -.-&gt; EVIDENCE
+    EVIDENCE --&gt; CLAIM --&gt; ENVELOPE
+
+    ENVELOPE --&gt; CLI_RESULT[&quot;CLI access result&quot;]
+    ENVELOPE --&gt; PY_RESULT[&quot;Python / SDK result&quot;]
+    ENVELOPE --&gt; ADAPTER_RESULT[&quot;Adapter consumers&quot;]
+    ENVELOPE --&gt; BENCH_RESULT[&quot;Benchmark comparison report&quot;]
+    ENVELOPE --&gt; AUTO_RESULT[&quot;Automation / agent follow-up&quot;]
+    ENVELOPE --&gt; PLATFORM_RESULT[&quot;Governed platform consumers&lt;br/&gt;planned&quot;]</code></pre>
+<p>These diagrams are intentionally broader than the current implementation. Planned nodes must remain unchecked in <code>docs/architecture/global-architecture-review.md</code> and represented in <code>docs/architecture/phased-execution-plan.md</code> until implemented and certified. Current commands must return deterministic unsupported diagnostics where execution is absent. Planned nodes do not authorize fallback execution, dependency expansion, package publication, external side effects, or public performance claims.</p>
+<p>End-to-end contract:</p>
+<ul>
+<li>Every request binds source descriptors, policy, capability, semantic profile, execution mode, engine mode where applicable, output intent, end-user access path, adapter surface, and downstream usage before execution.</li>
+<li>CLI access is the current canonical user and automation entrypoint. Wrappers and planned adapters must preserve the typed protocol instead of creating independent execution semantics.</li>
+<li>SQL/DataFrame access currently exposes a report-only planner-readiness matrix through <code>capabilities sql</code>, <code>capabilities dataframe</code>, and Python <code>CapabilityView</code> accessors. It names SQL parse/bind/plan/execute and DataFrame lazy-plan/expression/join/aggregate/window readiness rows, but it does not execute a parser, binder, planner, DataFrame runtime, or fallback engine.</li>
+<li>End-user and adapter surfaces may improve ergonomics, but they must not hide selected execution mode, unsupported diagnostics, materialization/decode boundaries, or claim-gate status.</li>
+<li>Every source path reports what was read, what decoded, what materialized, what stayed native, and which Native I/O certificate applies.</li>
+<li>Every sink path reports what was written, what replayed or verified, what materialized, what decoded, and whether the sink can support a claim.</li>
+<li>Downstream consumers, including adapters, notebooks, BI tools, orchestration tools, and governed platforms, read the typed output envelope or referenced artifacts. They do not imply a hidden execution mode, fallback engine, or unverified sink.</li>
+<li>Public claims are allowed only after the claim gate sees the required correctness, benchmark, execution-certificate, Native I/O, materialization/decode, policy, and no-fallback evidence.</li>
+</ul>
+<h3 id="execution-modes-and-engine-modes">Execution Modes And Engine Modes</h3>
+<p>Execution modes are source/preparation/timing lanes. Engine modes are workload semantics. A single request can therefore have both:</p>
+<pre><code data-language="text">selected_execution_mode=prepared_vortex
+selected_engine_mode=batch</code></pre>
+<p>For scoped engine-fabric fixture commands, source/preparation execution mode may be absent because the command is proving engine semantics rather than a compatibility/Vortex source lane:</p>
+<pre><code data-language="text">selected_engine_mode=live
+execution_mode_fields=not_applicable_to_engine_fabric_fixture</code></pre>
+<p>The fields must not be collapsed. <code>auto</code> exists in both vocabularies, but in both cases it is only a transparent selector and must report what it selected.</p>
+<h3 id="the-five-execution-modes">The Five Execution Modes</h3>
+<div class="table-scroll"><table>
+<thead><tr><th>Mode</th><th>What it means</th><th>Primary use</th><th>Vortex-native claim?</th><th>Claim posture</th></tr></thead>
+<tbody>
+<tr><td><code>compatibility_import_certified</code></td><td>Read compatibility input, import to Vortex, write/reopen/scan, compute, certify</td><td>Certified ingest/stage workflow</td><td>Partial/scoped</td><td>Can be claim-grade for ingest/stage workload</td></tr>
+<tr><td><code>prepared_vortex</code></td><td>Prepare Vortex once, then run many queries/scenarios from prepared artifacts</td><td>Main performance comparison path</td><td>Yes, if evidence supports it</td><td>Preferred benchmark path</td></tr>
+<tr><td><code>native_vortex</code></td><td>Existing <code>.vortex</code> input, Vortex-native scan/operator path</td><td>Cleanest native query path</td><td>Yes</td><td>Cleanest native-engine lane</td></tr>
+<tr><td><code>direct_compatibility_transient</code></td><td>Read compatibility input and compute directly without persistent Vortex write/reopen</td><td>Small one-shot jobs, quick ETL</td><td>No</td><td>Not Vortex-native</td></tr>
+<tr><td><code>auto</code></td><td>Transparent mode choice based on input/request/policy</td><td>User convenience</td><td>Depends on selected mode</td><td>Must report selected mode and reason</td></tr>
+</tbody></table></div>
+<h3 id="mode-1-compatibility-import-certified">Mode 1 - <code>compatibility_import_certified</code></h3>
+<p>This is the current ShardLoom certified ingest/stage shape.</p>
+<pre><code data-language="text">CSV / Parquet / JSONL / Arrow IPC / Avro / ORC
+  -&gt; compatibility source adapter
+  -&gt; NativeWorkStream
+  -&gt; Vortex import
+  -&gt; Vortex file write
+  -&gt; Vortex reopen
+  -&gt; Vortex scan
+  -&gt; ShardLoom temporary/current operator path
+  -&gt; optional result.vortex sink
+  -&gt; replay / verify
+  -&gt; execution certificate + Native I/O certificate + no-fallback evidence</code></pre>
+<p>Use this when the user wants certified ingest/stage workflow, Vortex artifact creation, Native I/O evidence, result-sink replay proof, <code>fallback_attempted=false</code>, and <code>external_engine_invoked=false</code>.</p>
+<p>This mode is not the default pure query-speed benchmark path. It includes source read, compatibility parsing, compatibility-to-Vortex import, Vortex write, Vortex reopen, Vortex scan, operator compute, result-sink write if enabled, and evidence rendering.</p>
+<p>Evidence posture:</p>
+<pre><code data-language="text">execution_mode=compatibility_import_certified
+vortex_artifact_created=true
+compatibility_import_included=true
+vortex_write_reopen_included=true
+native_io_certificate_required=true
+vortex_native_claim_allowed=scoped
+claim_gate_status=claim_grade | not_claim_grade
+fallback_attempted=false
+external_engine_invoked=false</code></pre>
+<h3 id="mode-2-prepared-vortex">Mode 2 - <code>prepared_vortex</code></h3>
+<p>This should become the primary ShardLoom performance comparison path.</p>
+<pre><code data-language="text">compatibility input
+  -&gt; prepare once
+  -&gt; Vortex artifact
+  -&gt; reuse prepared Vortex artifact across many scenarios
+  -&gt; Vortex scan / source-backed execution
+  -&gt; ShardLoom/Vortex-native operators
+  -&gt; optional result sink
+  -&gt; evidence + claim gate</code></pre>
+<p>This mode matches the ShardLoom thesis:</p>
+<pre><code data-language="text">data lives in Vortex
+queries execute from Vortex
+evidence proves what happened</code></pre>
+<p>Prepared Vortex mode must separate:</p>
+<pre><code data-language="text">preparation_millis
+scenario_runtime_millis
+operator_compute_millis
+result_sink_write_millis
+total_runtime_millis</code></pre>
+<p>Preparation timing is allowed, but it must not be mixed into pure query timing unless explicitly requested.</p>
+<p>Evidence posture:</p>
+<pre><code data-language="text">execution_mode=prepared_vortex
+prepared_artifact_ref=...
+prepared_artifact_digest=...
+preparation_included_in_timing=false by default
+computed_result_sink_requested=true|false
+computed_result_sink_replay_verified=true|false
+computed_result_sink_native_io_certificate_status=certified|none
+result_sink_claim_gate_status=result_sink_replay_certified|not_claim_grade_missing_result_sink_evidence
+vortex_native_claim_allowed=true if evidence supports it
+native_io_certificate_required=true
+fallback_attempted=false
+external_engine_invoked=false</code></pre>
+<p>Current selective-filter provider posture:</p>
+<pre><code data-language="text">source_backed_scan_provider_kind=vortex_file_projected_scan
+source_backed_scan_projected_columns=metric
+encoded_predicate_provider_status=reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted
+encoded_predicate_provider_filter_only_columns=flag,value
+encoded_predicate_provider_projected_output_columns=metric
+encoded_predicate_provider_filter_column_probe_requested=true
+encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed=flag,value
+encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary=flag:fastlanes.bitpacked,value:vortex.sequence
+encoded_predicate_provider_filter_column_probe_data_decoded=false
+encoded_predicate_provider_conjunctive_bridge_schema_version=shardloom.vortex_reader_generated_conjunctive_selection_vector_bridge.v1
+encoded_predicate_provider_conjunctive_bridge_status=intersected_selection_vectors
+encoded_predicate_provider_conjunctive_bridge_selected_row_count=31
+encoded_predicate_provider_reader_chunk_columns_observed=metric
+encoded_predicate_provider_reader_chunk_encoding_summary=metric:vortex.alp
+encoded_predicate_provider_reader_backed_bridge_status=bridge_consumed_reader_generated_filter_column_kernel_inputs_and_metric_selection_vector
+encoded_predicate_provider_predicate_shape_status=conjunctive_predicate_shape_supported_by_reader_generated_bridge
+encoded_predicate_provider_filter_column_batch_status=admitted_filter_column_kernel_inputs
+encoded_predicate_provider_kernel_input_count=2
+encoded_predicate_provider_selection_vector_intersection_status=selection_vectors_intersected
+encoded_predicate_provider_selected_metric_aggregation_status=selection_vector_consumed
+encoded_predicate_provider_selected_metric_selection_vector_consumed=true
+encoded_predicate_provider_selected_metric_source=reader_generated_conjunctive_bridge_selection_vectors
+encoded_predicate_provider_selected_metric_row_count=31
+encoded_predicate_provider_selected_metric_sum=12601.5
+encoded_predicate_provider_selected_metric_scan_split_count=1
+encoded_predicate_provider_selected_metric_data_decoded=true
+encoded_predicate_provider_selected_metric_data_materialized=false
+encoded_predicate_provider_kernel_input_lowering_status=reader_generated_encoded_kernel_inputs_admitted
+encoded_predicate_provider_operator_execution_class=residual_native
+encoded_predicate_provider_encoded_native_claim_allowed=false
+encoded_predicate_provider_fallback_attempted=false
+encoded_predicate_provider_external_engine_invoked=false</code></pre>
+<p>This records that the local Vortex scan path can separately project real <code>flag,value</code> reader chunks without decode/materialization, lower the observed <code>fastlanes.bitpacked</code> and <code>vortex.sequence</code> chunks into ShardLoom-owned encoded kernel inputs, intersect their reader-generated selection vectors, and consume the admitted selection vector for scoped metric <code>row_count</code> and <code>metric_sum</code> evidence. Non-empty admitted rows expose selection-vector-backed projected metric evidence; admitted empty selections report a consumed selection vector with row count <code>0</code>. Blocked or changed encodings continue to use deterministic no-fallback diagnostics. Encoded-native and performance claims remain blocked because the scoped metric aggregation is residual-native and not a generalized encoded aggregation kernel.</p>
+<h3 id="mode-3-native-vortex">Mode 3 - <code>native_vortex</code></h3>
+<p>This is the cleanest native ShardLoom path.</p>
+<pre><code data-language="text">existing .vortex input
+  -&gt; Vortex source / scan / split
+  -&gt; Vortex-native or ShardLoom-native provider
+  -&gt; encoded/native operator path where supported
+  -&gt; result or result sink
+  -&gt; certificates + evidence</code></pre>
+<p>Use this when input already lives in Vortex, the user wants native Vortex execution, the benchmark is comparing query/runtime behavior, and operator support exists or can return a deterministic unsupported diagnostic.</p>
+<p>Current native Vortex benchmark rows start from existing <code>.vortex</code> inputs, but they may still use temporary ShardLoom operator paths until encoded/native operator coverage matures. A row is not an encoded-native or fused-operator claim unless its representation-transition, materialization/decode, provider-admission, and certificate evidence say so.</p>
+<p>Native Vortex rows must not claim more than they prove:</p>
+<pre><code data-language="text">native Vortex scan evidence exists
+operator support exists or deterministic unsupported diagnostic exists
+representation transitions are visible
+materialization/decode boundaries are visible
+fallback_attempted=false
+external_engine_invoked=false</code></pre>
+<p>Evidence posture:</p>
+<pre><code data-language="text">execution_mode=native_vortex
+input_format=vortex
+compatibility_import_included=false
+vortex_write_reopen_included=false unless result sink enabled
+computed_result_sink_write_micros=separate from operator timing when enabled
+result_sink_claim_gate_status=result_sink_replay_certified|not_claim_grade_missing_result_sink_evidence
+vortex_native_claim_allowed=true
+claim_gate_status=fixture_smoke_only | claim_grade | not_claim_grade</code></pre>
+<h3 id="mode-4-direct-compatibility-transient">Mode 4 - <code>direct_compatibility_transient</code></h3>
+<p>This is the traditional-compute-like ShardLoom path. The current repo has one scoped local CSV selective-filter smoke path with execution-certificate evidence; adjacent formats, operators, result sinks, SQL/DataFrame access, and broader transient runtime behavior still return deterministic unsupported diagnostics.</p>
+<p>SQL/DataFrame diagnostics for this mode are interpreted through the GAR-0001A-A planner-readiness matrix. The matrix is <code>not_claim_grade</code>, preserves <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>, and cannot be used as evidence for SQL/DataFrame runtime support.</p>
+<pre><code data-language="text">CSV / Parquet / JSONL / etc.
+  -&gt; compatibility source adapter
+  -&gt; transient in-memory ShardLoom-native representation
+  -&gt; ShardLoom-native operator path
+  -&gt; result
+  -&gt; optional evidence</code></pre>
+<p>As it matures, this mode is for small one-shot local jobs, developer quick checks, direct ETL, and cases where Vortex persistence is not desired.</p>
+<p>It must not pretend to be Vortex-native:</p>
+<pre><code data-language="text">vortex_native=false
+vortex_artifact_created=false
+native_vortex_claim_allowed=false
+claim_gate_status=not_vortex_native</code></pre>
+<p>Evidence posture:</p>
+<pre><code data-language="text">execution_mode=direct_compatibility_transient
+direct_transient_execution=true
+compatibility_import_included=false
+persistent_vortex_write=false
+vortex_native_claim_allowed=false
+fallback_attempted=false
+external_engine_invoked=false</code></pre>
+<p>This mode may eventually be faster for small one-shot workloads, but it must not become a hidden bypass around ShardLoom&#x27;s evidence model. It is ShardLoom-native only if it is implemented by ShardLoom code.</p>
+<p>It is not allowed to call Spark, DataFusion, DuckDB, Polars, Dask, Ray, Trino, Velox, or external SQL engines as runtime fallback.</p>
+<h3 id="mode-5-auto">Mode 5 - <code>auto</code></h3>
+<p>Auto mode is allowed only if it is transparent.</p>
+<pre><code data-language="text">user requests auto
+  -&gt; ShardLoom evaluates input + policy + workload
+  -&gt; ShardLoom selects explicit mode
+  -&gt; ShardLoom reports selected mode + reason</code></pre>
+<p>Examples:</p>
+<pre><code data-language="text">input already .vortex
+-&gt; selected_execution_mode=native_vortex
+-&gt; mode_selection_reason=input_already_vortex
+
+compatibility input + user requested certification
+-&gt; selected_execution_mode=compatibility_import_certified
+-&gt; mode_selection_reason=certified_ingest_stage_requested
+
+small compatibility input + no Vortex persistence requested
+-&gt; selected_execution_mode=direct_compatibility_transient
+-&gt; mode_selection_reason=small_one_shot_without_persistence
+
+compatibility input + benchmark performance comparison requested
+-&gt; selected_execution_mode=prepared_vortex
+-&gt; mode_selection_reason=benchmark_reuses_prepared_vortex_artifact</code></pre>
+<p>Auto must never silently select an external fallback engine:</p>
+<pre><code data-language="text">fallback_attempted=false
+external_engine_invoked=false
+selected_execution_mode must be explicit
+mode_selection_reason must be explicit</code></pre>
+<h3 id="engine-modes-batch-live-hybrid-auto">Engine Modes - Batch, Live, Hybrid, Auto</h3>
+<div class="table-scroll"><table>
+<thead><tr><th>Mode</th><th>What it means</th><th>Current repo state</th><th>Planned updates</th></tr></thead>
+<tbody>
+<tr><td><code>batch</code></td><td>Finite workload over bounded or snapshot inputs.</td><td>Current local Vortex analytics foundation; prepared/native paths are being optimized scenario by scenario.</td><td>Broader operator coverage, source/sink certification, correctness/benchmark gates.</td></tr>
+<tr><td><code>live</code></td><td>Continuous workload over change streams.</td><td>Engine selection, capability rows, live-change contract, and in-memory fixture execution/certificate reports exist.</td><td>Durable state/checkpoints, broker/source adapters, freshness evidence, workload certification.</td></tr>
+<tr><td><code>hybrid</code></td><td>Cold/base snapshot plus hot delta overlay.</td><td>Engine selection, capability rows, and in-memory hybrid overlay fixture/certificate reports exist.</td><td>Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, hot/cold benchmark evidence.</td></tr>
+<tr><td><code>auto</code></td><td>Transparent engine selection from workload contract.</td><td>Selects or rejects with explicit allowed/rejected modes; no runtime, reads, writes, or fallback.</td><td>More precise selection once live/hybrid production gates exist.</td></tr>
+</tbody></table></div>
+<p>Engine-mode report fields must stay visible:</p>
+<pre><code data-language="text">requested_engine_mode
+selected_engine_mode
+allowed_engine_modes
+rejected_engine_modes
+boundedness
+update_mode
+output_mode
+selection_status
+runtime_execution
+data_read
+write_io
+fallback_attempted=false
+external_engine_invoked=false</code></pre>
+<p>Live and hybrid fixture reports may have <code>runtime_execution=true</code>, but only for scoped in-memory fixtures. They must still report no external broker/object-store I/O and no fallback. Production claims stay blocked until workload-scoped evidence exists.</p>
+<p>Current CLI/Python-facing engine-mode surfaces:</p>
+<pre><code data-language="text">shardloom engine-selection-plan [auto|batch|live|hybrid] ...
+shardloom engine-capability-matrix
+shardloom live-change-contract-plan
+shardloom live-fixture-run [filter|project|count|count-where|group-count] ...
+shardloom hybrid-overlay-run [filter|project|count|count-where|group-count] ...
+Python: Context(engine=&quot;batch|live|hybrid|auto&quot;) plus matching typed helper methods</code></pre>
+<h3 id="canonical-stage-checklist">Canonical Stage Checklist</h3>
+<p>Use this checklist when reviewing a concrete command, benchmark row, adapter call, or future API surface against the diagrams above.</p>
+<div class="table-scroll"><table>
+<thead><tr><th>Stage</th><th>Required fact</th><th>Failure mode</th></tr></thead>
+<tbody>
+<tr><td>Request</td><td><code>requested_execution_mode</code>, source descriptor, output intent, downstream intent</td><td>Reject or report unsupported before execution.</td></tr>
+<tr><td>Policy</td><td>governance, credential, side-effect, and no-fallback policy</td><td><code>fallback_attempted=false</code>; no external engine invocation.</td></tr>
+<tr><td>Capability</td><td>source, operator, sink, and feature-gate support status</td><td>Deterministic diagnostic with missing evidence.</td></tr>
+<tr><td>Semantics</td><td>schema, expression, workload constitution, profile</td><td>Deterministic diagnostic or not-claim-grade evidence.</td></tr>
+<tr><td>Mode selection</td><td><code>selected_execution_mode</code> and <code>mode_selection_reason</code></td><td><code>auto</code> cannot hide the selected mode.</td></tr>
+<tr><td>Boundary</td><td>source/preparation/materialization/decode boundary</td><td>No native, performance, or sink claim without boundary evidence.</td></tr>
+<tr><td>Provider admission</td><td>Vortex provider, ShardLoom kernel, or unsupported diagnostic</td><td>External systems remain baseline/oracle only.</td></tr>
+<tr><td>Execution</td><td>encoded/native/residual/materialized class</td><td>Temporary/residual paths cannot claim encoded-native execution.</td></tr>
+<tr><td>Sink</td><td>result/ref, Vortex artifact, export, commit, object-store write, REST/event delivery</td><td>Sink claim blocked until replay/fidelity evidence exists.</td></tr>
+<tr><td>Evidence</td><td>correctness, benchmark, execution certificate, Native I/O, materialization/decode, policy</td><td><code>claim_gate_status=not_claim_grade</code>.</td></tr>
+<tr><td>Output</td><td>typed envelope for CLI, Python, adapters, benchmarks, REST/event contracts</td><td>Adapters must preserve mode, diagnostics, and claim fields.</td></tr>
+</tbody></table></div>
+<h3 id="provider-admission-flow">Provider Admission Flow</h3>
+<pre><code data-language="text">plan node
+  -&gt; Vortex-first provider check
+  -&gt; can upstream Vortex provide this natively?
+     yes -&gt; use_vortex_native_provider
+     partially -&gt; use provider + ShardLoom residual, or return residual unsupported diagnostic
+     no -&gt; implement_shardloom_kernel
+     external integration only -&gt; baseline_or_oracle_only
+     insufficient evidence -&gt; unsupported_until_vortex_or_shardloom_evidence</code></pre>
+<p>Provider classifications:</p>
+<pre><code data-language="text">use_vortex_native_provider
+wrap_vortex_concept
+implement_shardloom_kernel
+baseline_or_oracle_only
+unsupported_until_vortex_or_shardloom_evidence</code></pre>
+<p>Unsupported residuals must be executed by ShardLoom-native code or returned as deterministic unsupported diagnostics. They must not be sent to external engines.</p>
+<h3 id="performance-attribution-flow">Performance Attribution Flow</h3>
+<p>Every benchmark row should say exactly where time went.</p>
+<pre><code data-language="text">total_runtime_millis
+  process_start_millis
+  source_read_millis
+  compatibility_parse_millis
+  compatibility_to_vortex_import_millis
+  vortex_write_millis
+  vortex_reopen_millis
+  vortex_scan_millis
+  operator_compute_millis
+  result_sink_write_millis
+  evidence_render_millis</code></pre>
+<p>Interpretation:</p>
+<pre><code data-language="text">compatibility_import_certified = staging + query + evidence
+prepared_vortex = preparation once + query many times
+native_vortex = query over existing Vortex
+direct_compatibility_transient = one-shot direct ShardLoom compute, not Vortex-native
+batch = bounded/snapshot workload semantics
+live = continuous/change-stream workload semantics
+hybrid = base snapshot plus hot delta workload semantics</code></pre>
+<p>The benchmark artifact must also carry <code>execution_mode_attribution_contract</code>, including the canonical mode vocabulary, the required execution-mode fields, and the required stage timing fields. The harness rejects rows that omit the contract fields. Unknown stage values stay explicit as <code>null</code>, <code>n/a</code>, or <code>not_measured</code>; missing fields are not allowed. Prepared/native rows must also carry an operator blocker matrix with <code>operator_execution_class</code>, <code>operator_admission_status</code>, <code>operator_blocker_id</code>, <code>operator_blocker_reason</code>, and <code>operator_encoded_native_claim_allowed</code> so temporary or residual-native operators are never read as encoded-native operator execution. Native Vortex benchmark rows must additionally carry <code>native_vortex_admission_*</code> fields that identify the exact admitted lane, provider kind/API surface, certificate refs, materialization/decode refs, fallback status, and claim boundary. Today that admits only <code>local_vortex_count_scalar</code>; downstream readers must not infer universal native Vortex support from that row.</p>
+<p>The artifact must also carry <code>persistent_runner_admission_gate</code>. Default comparative prepared/native rows still keep <code>persistent_runner_status=process_per_scenario_attributed_not_reduced</code> and the persistent-runner admission fields (<code>process_startup_attribution</code>, <code>python_harness_overhead_status</code>, <code>cli_process_wall_millis</code>, <code>python_harness_overhead_millis</code>, <code>startup_warmup_millis</code>, <code>build_time_millis</code>, <code>build_time_excluded</code>, <code>preparation_millis</code>, <code>preparation_cli_process_wall_millis</code>, and <code>preparation_included_in_timing</code>). The explicit <code>traditional-analytics-vortex-batch-run</code> command is the first scoped admitted process-reuse path and emits <code>persistent_runner_status=single_process_batch_runner_supported</code> while preserving per-scenario typed evidence and no-fallback fields. That batch status does not admit a persistent daemon, service runtime, hidden fast mode, or performance claim. Any broader persistent runner or default harness integration must preserve typed envelopes, execution-mode evidence, Native I/O refs, operator blocker fields, materialization/decode boundaries, result-sink replay evidence, deterministic unsupported diagnostics, and no-fallback fields per run.</p>
+<p>The artifact also carries <code>work_avoidance_evidence_schema</code>. ShardLoom rows must report <code>measured</code>, <code>not_available</code>, <code>unsupported</code>, or <code>not_applicable</code> status for rows avoided, segments pruned, bytes avoided, encoded-vector reuse, and pushdown proof. <code>not_available</code> means unknown/not measured, not zero, and it does not permit performance or optimization claims.</p>
+<p><code>auto</code> is selection vocabulary only. A row with <code>requested_execution_mode=auto</code> must preserve <code>selected_execution_mode</code> and <code>mode_selection_reason</code> so downstream readers can see the actual runtime path.</p>
+<h3 id="benchmark-lanes">Benchmark Lanes</h3>
+<h4 id="lane-a-compatibility-import-certified">Lane A - Compatibility Import Certified</h4>
+<pre><code data-language="text">compatibility file -&gt; Vortex import every measured scenario -&gt; compute -&gt; result sink/evidence</code></pre>
+<p>Use for ingest/stage certification, universal I/O proof, and result-sink proof. Do not use it as the primary pure query-speed comparison.</p>
+<h4 id="lane-b-prepared-vortex">Lane B - Prepared Vortex</h4>
+<pre><code data-language="text">compatibility file -&gt; prepare Vortex once -&gt; run many measured scenarios from prepared Vortex</code></pre>
+<p>Use for primary ShardLoom performance comparison, query-speed evaluation, and Vortex-native workflow proof.</p>
+<h4 id="lane-c-native-vortex">Lane C - Native Vortex</h4>
+<pre><code data-language="text">existing .vortex -&gt; native scan/operator</code></pre>
+<p>Use for clean native runtime comparison, operator maturity tracking, and encoded/native execution proof.</p>
+<h4 id="lane-d-direct-transient">Lane D - Direct Transient</h4>
+<pre><code data-language="text">compatibility file -&gt; direct ShardLoom-native transient compute</code></pre>
+<p>Use for small one-shot local workloads, traditional-compute-like UX, and quick developer paths. Never claim Vortex-native, Native Vortex, or encoded-native unless a separate certificate explicitly proves the relevant property.</p>
+<h4 id="lane-e-benchmark-baseline-comparison">Lane E - Benchmark Baseline Comparison</h4>
+<pre><code data-language="text">local comparison engine -&gt; baseline timing/correctness row -&gt; external_baseline_only coverage row</code></pre>
+<p>External engines remain baselines only. pandas, Polars, DuckDB, DataFusion, Spark, Dask, Velox, Trino, Snowflake, Databricks, BigQuery, and similar systems may appear in comparison reports as local or platform baselines, migration references, or oracle references. They must never execute unsupported ShardLoom work as fallback, and their rows cannot satisfy ShardLoom-native, Vortex-native, Native I/O, execution-certificate, or no-fallback claim gates.</p>
+<h3 id="claim-gate-flow">Claim Gate Flow</h3>
+<pre><code data-language="mermaid">flowchart TD
+    A[&quot;Execution result&quot;] --&gt; B[&quot;Correctness evidence&quot;]
+    A --&gt; C[&quot;Benchmark evidence&quot;]
+    A --&gt; D[&quot;Execution certificate&quot;]
+    A --&gt; E[&quot;Native I/O certificate&quot;]
+    A --&gt; F[&quot;Materialization/decode evidence&quot;]
+    A --&gt; G[&quot;No-fallback evidence&quot;]
+
+    B --&gt; H{&quot;All required evidence present?&quot;}
+    C --&gt; H
+    D --&gt; H
+    E --&gt; H
+    F --&gt; H
+    G --&gt; H
+
+    H --&gt;|yes| I[&quot;claim_grade&quot;]
+    H --&gt;|no| J[&quot;not_claim_grade&quot;]
+    H --&gt;|unsupported path| K[&quot;support_status=unsupported&lt;br/&gt;claim_gate_status=not_claim_grade&quot;]
+    H --&gt;|insufficient evidence| L[&quot;not claimable&quot;]
+    H --&gt;|fixture only| M[&quot;fixture_smoke_only&quot;]
+    H --&gt;|external baseline| N[&quot;external_baseline_only&quot;]</code></pre>
+<p>A ShardLoom timing row can be <code>claim_grade</code> only when it has:</p>
+<pre><code data-language="text">stable correctness digest
+minimum iteration count
+benchmark row ref
+coverage row ref
+execution certificate
+Native I/O certificate when data is read or written
+materialization/decode boundary evidence
+fallback_attempted=false
+external_engine_invoked=false
+mode-specific evidence</code></pre>
+<h3 id="source-and-sink-flow">Source And Sink Flow</h3>
+<pre><code data-language="text">Source
+  -&gt; SourceCapabilityReport
+  -&gt; SourcePushdownReport
+  -&gt; NativeWorkStream or Vortex Source/Split
+  -&gt; Execution provider
+  -&gt; NativeResultStream or result ref
+  -&gt; SinkRequirementReport
+  -&gt; AdapterFidelityReport
+  -&gt; MaterializationBoundaryReport
+  -&gt; NativeIoCertificate</code></pre>
+<p>Every source/sink path must say:</p>
+<pre><code data-language="text">what was read
+what was written
+what materialized
+what decoded
+what stayed native
+what returned an unsupported diagnostic
+what certificate proves it</code></pre>
+<p>The report-only <code>native-io-envelope-plan</code> source/sink coverage matrix is the current RFC 0031 coverage reference. It enumerates local Vortex, compatibility import, object-store/range-read, table/catalog, streaming, unstructured/media, and external-adapter source/sink families with:</p>
+<pre><code data-language="text">direction
+support_status
+native_io_certificate_refs
+unsupported_diagnostic_code
+blocker_id
+required_future_evidence
+claim_gate_status
+fallback_attempted=false
+external_engine_invoked=false</code></pre>
+<p>Benchmark coverage rows can point to this matrix through <code>native_io_source_sink_coverage_ref</code>. That ref explains source/sink support posture; it does not turn benchmark timing into object-store, table/catalog, streaming, external-adapter, or production runtime evidence.</p>
+<p>GAR-0042A adds a second Source/Split-specific admission reference: <code>vortex_source_split_admission_ref</code>. That ref points to the <code>vortex-api-inventory</code> proof for the scoped <code>local_vortex_file_scan_into_array_iter</code> fixture path. It records provider/version/API surface, Source/Split refs, field-mask and predicate-ordering blockers, execution and Native I/O refs, and no-fallback policy. It is not a generalized Source/Split runtime claim.</p>
+<p>GAR-0003-A adds <code>vortex_segment_extraction_admission_ref</code>. That ref points to the <code>vortex-api-inventory</code> sparse segment extraction admission report for <code>sparse_patch_fill</code>. It records deterministic unsupported diagnostics, required correctness/execution/Native I/O/materialization evidence, <code>claim_gate_status=not_claim_grade</code>, and no-fallback policy. It is not a sparse extraction runtime claim, broad layout support claim, or production segment extraction claim.</p>
+<p>GAR-0003-B adds <code>materialization_policy_ref</code>. That ref points to the <code>compute-capability-matrix</code> shared materialization/decode policy for encoded-native, residual-native, materialized-temporary, and unsupported operator paths. It records <code>data_decoded</code>, <code>data_materialized</code>, <code>stayed_encoded</code>, materialization-boundary requirements, claim boundaries, and no-fallback policy. Materialized-temporary paths cannot satisfy encoded-native claims.</p>
+<p>GAR-0042B adds <code>vortex_layout_device_managed_boundary_ref</code>. That ref points to a runtime-utilization boundary matrix for layout/write, device execution, object-store I/O, and managed-platform comparison lanes. Those lanes stay <code>not_claim_grade</code>; managed platforms remain comparison-only and cannot satisfy ShardLoom-native execution claims.</p>
+<p>GAR-0001A-B adds <code>global_architecture_runtime_claim_gate_ref</code> through <code>global-architecture-gate</code>. That gate aggregates distributed coordinator/worker/task execution, object-store reads/writes/commits, and lakehouse/catalog/CDC/delete/tombstone runtime-claim boundaries. It is <code>not_claim_grade</code>, side-effect-free, and required release/readiness evidence before any distributed, object-store, or lakehouse runtime claim can be made.</p>
+<h3 id="materialization-and-decode-flow">Materialization And Decode Flow</h3>
+<pre><code data-language="text">encoded/native representation
+  -&gt; can operation run encoded?
+     yes -&gt; encoded/native execution
+     no -&gt; can ShardLoom materialize safely?
+       yes -&gt; explicit materialization boundary
+       no -&gt; unsupported/not claimable</code></pre>
+<p>Required fields:</p>
+<pre><code data-language="text">decoded=true|false
+materialized=true|false
+stayed_encoded=true|false
+operator_execution_class=encoded_native|residual_native|materialized_temporary|unsupported
+row_read=true|false
+arrow_converted=true|false
+materialization_boundary_ref
+decode_boundary_ref
+representation_transition_summary
+materialization_policy_ref</code></pre>
+<h3 id="native-vortex-optimization-target">Native Vortex Optimization Target</h3>
+<p>The target flow is:</p>
+<pre><code data-language="text">Vortex artifact
+  -&gt; Vortex Source / Scan / Split
+  -&gt; field mask:
+       filter columns
+       output columns
+  -&gt; predicate pushdown
+  -&gt; projection pushdown
+  -&gt; encoded/native operator where supported
+  -&gt; fused filter/project/limit where supported
+  -&gt; result or result sink
+  -&gt; evidence</code></pre>
+<p>Optimization priorities:</p>
+<pre><code data-language="text">1. Prepared Vortex reuse.
+2. Native Vortex taxonomy coverage.
+3. Fused filter + projection + limit.
+4. Single-key grouped aggregate.
+5. Multi-key group by.
+6. Hash join.
+7. Join + aggregate.
+8. Top-N per group.
+9. Row number window.
+10. High-cardinality string group/distinct.
+11. Distinct-count projected scan.
+12. Null-heavy aggregate projected scan.
+13. Clean/cast/filter/write projected scan.
+14. Malformed timestamp / dirty CSV projected scan.
+15. Nested JSON field projected scan.
+16. CDC overlay projected base/delta scan.
+17. Partition-pruning/date-range streaming.
+18. Global sort/top-k streaming.
+19. Source-backed scan evidence for prepared/native rows.
+20. Layout advisor applying real write/layout choices.
+21. Persistent in-process benchmark runner.</code></pre>
+<p>Current scoped progress: <code>filter + projection + limit</code> has a prepared/native residual-native fused scan path. It uses Vortex scan filter/projection pushdown and bounded top-N state to avoid full fact-table materialization. <code>group by aggregation</code> now also has a prepared/native residual-native scan path using projection pushdown over <code>group_key</code>/<code>metric</code> and ShardLoom-native grouped state. <code>multi-key group by</code> extends that path to composite <code>group_key</code>/<code>category</code> residual state after projection pushdown over <code>group_key</code>/<code>category</code>/<code>metric</code>. <code>hash join</code> now scans projected dimension and fact columns into bounded ShardLoom-native dimension state plus residual grouped join output without full fact-table materialization. <code>join + aggregate</code> now adds fact-side value filter pushdown and residual grouped <code>(dim_label, category)</code> aggregation over projected fact/dimension scans without full fact-table materialization. <code>top-N per group</code> now scans projected <code>group_key</code>/<code>id</code>/<code>metric</code> columns into bounded ShardLoom-native per-group ranking state without full fact-table materialization. <code>sort and top-k</code> now scans projected <code>id</code>/<code>metric</code> columns into bounded ShardLoom-native global top-k state without full fact-table materialization. <code>row number window</code> uses the same projected scan boundary with bounded rank-1 per-group state without full fact-table materialization. <code>high-cardinality string group/distinct</code> now scans projected <code>category</code>/<code>metric</code> columns into ShardLoom-native string grouping state without full fact-table materialization. <code>distinct count</code> now scans only the projected <code>category</code> column into ShardLoom-native distinct state without full fact-table materialization. <code>null-heavy aggregate</code> now scans only projected <code>nullable_metric_00</code> values into ShardLoom-native null-skipping aggregate state without full fact-table materialization. <code>clean/cast/filter/write</code> now scans only projected <code>raw_event_time</code>, <code>dirty_numeric</code>, and <code>dirty_flag</code> values into ShardLoom-native cleanup/filter/aggregate state without full fact-table materialization. <code>malformed timestamp / dirty CSV</code> now scans only projected <code>raw_event_time</code> and <code>dirty_numeric</code> values into ShardLoom-native validation/parse/aggregate state without full fact-table materialization. <code>nested JSON field scan</code> now scans only projected <code>nested_payload</code> values into ShardLoom-native generated-field extraction state without full fact-table materialization. <code>small change over large base</code> now scans projected base <code>id</code>/<code>metric</code> values and CDC delta <code>id</code>/<code>op</code>/<code>value</code>/<code>metric</code>/<code>effective_ts</code> values into ShardLoom-native overlay state without full fact-table materialization. This is local benchmark CDC overlay evidence, not a broad table-transaction, catalog, object-store, or delete/tombstone runtime claim. <code>partition pruning</code> now scans projected <code>event_date</code>/<code>metric</code> columns with a Vortex date-range filter and residual scalar aggregation without full fact-table materialization. This is local date-range scan evidence, not an object-store partition-pruning, layout-pruning, or statistics-pruning claim. Prepared/native rows now expose a scoped <code>source_backed_scan_*</code> evidence block that records source roles, source refs/digests, projected columns, provider scope, Native I/O certificate status, materialization boundary rows, residual executor, and no-fallback/no-external-engine flags. This is source-backed local scan evidence only; it is not a generalized Source API runtime, object-store runtime, encoded-native operator claim, or performance claim. None of these paths are encoded-native operator claims, and they still carry <code>operator_encoded_native_claim_allowed=false</code>. <code>cpu-specialization-plan</code> now records host CPU architecture/features through a side-effect-free probe and emits a filter/encoded vector-kernel admission status. That admission remains blocked by missing correctness and benchmark evidence; no SIMD dispatch, unsafe code, or performance claim is enabled.</p>
+<h3 id="what-codex-should-optimize-toward">What Codex Should Optimize Toward</h3>
+<p>Current state to improve:</p>
+<pre><code data-language="text">compatibility input
+  -&gt; import to Vortex every scenario
+  -&gt; write/reopen
+  -&gt; scan
+  -&gt; temporary materialized operator
+  -&gt; result sink/evidence</code></pre>
+<p>This is valid certification evidence, but not the desired primary performance path.</p>
+<p>Target performance path:</p>
+<pre><code data-language="text">prepare Vortex once
+  -&gt; run many scenarios from prepared Vortex
+  -&gt; use native/encoded/fused operators where supported
+  -&gt; preserve evidence
+  -&gt; benchmark query/runtime separately from preparation</code></pre>
+<p>Target UX path:</p>
+<pre><code data-language="text">user picks mode explicitly
+or
+auto selects transparently</code></pre>
+<p>The output always says:</p>
+<pre><code data-language="text">requested_execution_mode
+selected_execution_mode
+mode_selection_reason
+requested_engine_mode where applicable
+selected_engine_mode where applicable
+vortex_native_claim_allowed
+compatibility_import_included
+vortex_prepare_included
+vortex_write_reopen_included
+direct_transient_execution
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status</code></pre>
+<h3 id="what-should-never-happen">What Should Never Happen</h3>
+<pre><code data-language="text">Unsupported work silently runs through Spark.
+Unsupported work silently runs through DataFusion.
+Unsupported work silently runs through DuckDB.
+Unsupported work silently runs through Polars.
+Direct transient mode is reported as Vortex-native.
+Compatibility import timing is reported as pure query timing.
+Auto mode hides what it selected.
+A fixture-smoke row becomes a public performance claim.
+A benchmark row hides materialization/decode.
+A result artifact is written without sink/replay evidence when certification requires it.</code></pre>
+<h3 id="codex-anchor-prompt">Codex Anchor Prompt</h3>
+<p>Use this prompt when aligning to this flow:</p>
+<pre><code data-language="text">Use docs/architecture/compute-engine-flow-reference.md as the canonical ShardLoom compute-engine
+flow.
+
+Before changing execution, benchmark, source/sink, Vortex, or result behavior, classify the change
+by execution mode:
+
+- compatibility_import_certified
+- prepared_vortex
+- native_vortex
+- direct_compatibility_transient
+- auto
+
+Also classify the workload by engine mode when batch/live/hybrid semantics are involved:
+
+- batch
+- live
+- hybrid
+- auto
+
+Do not create a hidden global fast-mode toggle. Every row/output must report
+requested_execution_mode, selected_execution_mode, mode_selection_reason, Vortex-native claim
+status, compatibility import status, materialization/decode status, certificates,
+fallback_attempted=false, and external_engine_invoked=false. Engine-fabric rows must additionally
+report requested_engine_mode, selected_engine_mode, allowed/rejected modes, boundedness,
+update_mode, output_mode, runtime_execution, data_read, and write_io.
+
+Optimize toward prepared_vortex and native_vortex for performance comparisons. Preserve
+compatibility_import_certified for certified ingest/stage workflows. Allow
+direct_compatibility_transient only as a ShardLoom-native one-shot mode and never report it as
+Vortex-native.
+
+Unsupported work must return deterministic unsupported diagnostics, not delegate to external engines.</code></pre>
+<h3 id="footer">Footer</h3>
+<p>This document is a flow reference only. It does not authorize new runtime behavior, package publication, external engine invocation, fallback execution, or public performance claims.</p>
+<p>Actionable implementation work must be represented in <code>docs/architecture/phased-execution-plan.md</code> before implementation begins.</p>
+        </article>
+      </div>
+    </section>
+    </main>
+  <footer>
+    <div class="shell">Apache-2.0 project code. ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</div>
+  </footer>
+</body>
+</html>
