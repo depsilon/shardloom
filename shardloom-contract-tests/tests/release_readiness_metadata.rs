@@ -738,7 +738,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(plan.contains("GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 33);
+    assert!(plan.matches("- [ ] GAR-").count() >= 32);
     assert!(!plan.contains(
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));
@@ -770,6 +770,9 @@ fn security_rfc_and_p80_completion_are_traceable() {
             .contains("GAR-0005-B object-store Vortex I/O and upstream write integration gate")
     );
     assert!(completed_ledger.contains("GAR-0020-A table/catalog metadata admission gate"));
+    assert!(
+        completed_ledger.contains("GAR-0020-C local manifest-backed table metadata read smoke")
+    );
     assert!(completed_ledger.contains(
         "GAR-0007-A/B compatibility output writer matrix and local fixture-smoke evidence"
     ));

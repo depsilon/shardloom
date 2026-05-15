@@ -62,6 +62,22 @@ fn cg9_catalog_metadata_gate_exposes_surface_order_and_existing_evidence() {
         "true"
     )));
     assert!(output.contains(&field("existing_catalog_ref_skeleton_present", "true")));
+    assert!(output.contains(&field(
+        "local_manifest_table_metadata_smoke_supported",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "local_manifest_table_metadata_smoke_command",
+        "local-table-metadata-read-smoke"
+    )));
+    assert!(output.contains(&field(
+        "local_manifest_table_metadata_smoke_report_ref",
+        "gar0020c.local_manifest_table_metadata_read_smoke"
+    )));
+    assert!(output.contains(&field(
+        "local_manifest_table_metadata_smoke_claim_gate_status",
+        "scoped_local_metadata_smoke_only"
+    )));
 }
 
 #[test]

@@ -197,6 +197,22 @@ fn table_intelligence_json_embeds_gar0020a_catalog_metadata_gate() {
         "catalog_metadata_integration_gate_row_table_metadata_read_fallback_attempted",
         "false"
     )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_local_manifest_table_metadata_smoke_supported",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_local_manifest_table_metadata_smoke_command",
+        "local-table-metadata-read-smoke"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_local_manifest_table_metadata_smoke_report_ref",
+        "gar0020c.local_manifest_table_metadata_read_smoke"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_local_manifest_table_metadata_smoke_claim_gate_status",
+        "scoped_local_metadata_smoke_only"
+    )));
 }
 
 #[test]

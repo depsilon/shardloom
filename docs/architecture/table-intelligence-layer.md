@@ -17,6 +17,12 @@ through:
 shardloom cg9-catalog-metadata-gate --format json
 ```
 
+The scoped local metadata smoke is `LocalTableMetadataReadSmokeReport`, exposed through:
+
+```powershell
+shardloom local-table-metadata-read-smoke --format json
+```
+
 ## Scope
 
 - [x] Aggregate existing schema evolution compatibility evidence.
@@ -29,10 +35,12 @@ shardloom cg9-catalog-metadata-gate --format json
 - [x] Track snapshot/manifest, catalog compatibility, and commit/recovery surfaces as planned.
 - [x] Gate catalog/table metadata integration surfaces through
       `CatalogMetadataIntegrationGateReport` before enabling runtime metadata access.
+- [x] Support one in-memory local manifest-backed table metadata read smoke through
+      `LocalTableMetadataReadSmokeReport`.
 Out of scope until promoted GAR slices complete:
 
-- Local manifest-backed table metadata read smoke and broader catalog/table metadata reads are
-  carried by `GAR-0020-C` after the completed `GAR-0020-A` admission gate.
+- Broader catalog/table metadata reads are carried by later GAR slices after the completed
+  `GAR-0020-A` admission gate and `GAR-0020-C` local metadata smoke.
 - Delete/tombstone, CDC, compaction, table-maintenance writes, and table-format runtime surfaces are
   carried by `GAR-0020-B` and `GAR-0028-A`.
 
@@ -101,6 +109,33 @@ The gate is side-effect-free:
 It does not authorize catalog resolution runtime, metadata reads, data reads, external table-format
 dependencies, credentials, object-store I/O, table/catalog writes, lakehouse runtime, external
 engines, fallback execution, or production table/catalog claims.
+
+## Local Table Metadata Read Smoke
+
+`GAR-0020-C` adds `shardloom.local_table_metadata_read_smoke.v1` as the first scoped runtime-backed
+table metadata surface. It constructs an in-memory local fixture from `CatalogRef`,
+`DatasetManifest`, `SnapshotRef`, `SchemaDefinition`, `PartitionSpec`, and native Vortex
+file/segment metadata, then emits a typed metadata summary and stable digest.
+
+The smoke reports:
+
+- `support_status=runtime_supported`
+- `claim_gate_status=scoped_local_metadata_smoke_only`
+- `local_manifest_metadata_read_performed=true`
+- `table_metadata_summary_emitted=true`
+- `table_metadata_read_performed=true`
+- `metadata_summary_digest=fnv1a64:*`
+- `fallback_attempted=false`
+- `fallback_execution_allowed=false`
+- `external_engine_invoked=false`
+- `deterministic_unsupported_diagnostics_ready=true`
+
+The smoke remains deliberately narrow. It does not read filesystem manifest files, read data files,
+open object stores, resolve credentials, invoke external table-format dependencies, write table
+metadata, execute CDC/delete/tombstone behavior, certify lakehouse/object-store/Foundry runtime, or
+support production SQL/DataFrame/table/catalog claims. The CG-9 metadata gate therefore continues to
+report `table_metadata_read_allowed=false` for broad runtime promotion while exposing the scoped
+smoke command and report refs.
 
 ## CDC, Manifest, And Transaction Gate
 

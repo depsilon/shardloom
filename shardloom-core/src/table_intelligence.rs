@@ -10,7 +10,14 @@
     clippy::struct_excessive_bools
 )]
 
-use crate::{Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus};
+use crate::{
+    ByteRange, CatalogKind, CatalogRef, ColumnRef, DatasetFormat, DatasetManifest, DatasetRef,
+    DatasetUri, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, EncodedSegment,
+    EncodingKind, FallbackStatus, FieldId, FieldName, FieldPath, FileDescriptor, FileRole,
+    LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, PartitionField,
+    PartitionSpec, PartitionTransform, Result, SchemaDefinition, SchemaField, SchemaId,
+    SchemaVersion, SegmentId, SegmentLayout, SegmentStats, SnapshotId, SnapshotRef,
+};
 use std::fmt::Write as _;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -634,6 +641,11 @@ pub struct CatalogMetadataIntegrationGateReport {
     pub existing_schema_partition_delete_compatibility_present: bool,
     pub existing_cdc_layout_compaction_planning_present: bool,
     pub existing_catalog_ref_skeleton_present: bool,
+    pub local_manifest_table_metadata_smoke_supported: bool,
+    pub local_manifest_table_metadata_smoke_command: &'static str,
+    pub local_manifest_table_metadata_smoke_report_ref: &'static str,
+    pub local_manifest_table_metadata_smoke_claim_gate_status: &'static str,
+    pub local_manifest_table_metadata_smoke_claim_boundary: &'static str,
     pub snapshot_manifest_metadata_read_allowed: bool,
     pub catalog_resolution_allowed: bool,
     pub table_metadata_read_allowed: bool,
@@ -687,6 +699,11 @@ impl CatalogMetadataIntegrationGateReport {
             existing_schema_partition_delete_compatibility_present: true,
             existing_cdc_layout_compaction_planning_present: true,
             existing_catalog_ref_skeleton_present: true,
+            local_manifest_table_metadata_smoke_supported: true,
+            local_manifest_table_metadata_smoke_command: "local-table-metadata-read-smoke",
+            local_manifest_table_metadata_smoke_report_ref: "gar0020c.local_manifest_table_metadata_read_smoke",
+            local_manifest_table_metadata_smoke_claim_gate_status: "scoped_local_metadata_smoke_only",
+            local_manifest_table_metadata_smoke_claim_boundary: "one in-memory local manifest metadata smoke path only; broad catalog/table, object-store, credential, data-read, write, lakehouse, and production claims remain blocked",
             snapshot_manifest_metadata_read_allowed: false,
             catalog_resolution_allowed: false,
             table_metadata_read_allowed: false,
@@ -1009,6 +1026,491 @@ fn catalog_metadata_compatibility_profiles() -> Vec<&'static str> {
 #[must_use]
 pub fn plan_catalog_metadata_integration_gate() -> CatalogMetadataIntegrationGateReport {
     CatalogMetadataIntegrationGateReport::planning_default()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalTableMetadataBlockedPath {
+    ExternalCatalogResolution,
+    ObjectStoreManifestRead,
+    CredentialResolution,
+    DataFileRead,
+    TableMetadataWrite,
+    CdcDeleteTombstoneExecution,
+    ExternalTableFormatRuntime,
+    LakehouseProductionClaim,
+}
+
+impl LocalTableMetadataBlockedPath {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ExternalCatalogResolution => "external_catalog_resolution",
+            Self::ObjectStoreManifestRead => "object_store_manifest_read",
+            Self::CredentialResolution => "credential_resolution",
+            Self::DataFileRead => "data_file_read",
+            Self::TableMetadataWrite => "table_metadata_write",
+            Self::CdcDeleteTombstoneExecution => "cdc_delete_tombstone_execution",
+            Self::ExternalTableFormatRuntime => "external_table_format_runtime",
+            Self::LakehouseProductionClaim => "lakehouse_production_claim",
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            Self::ObjectStoreManifestRead => DiagnosticCode::ObjectStoreUnsupported,
+            Self::CredentialResolution | Self::ExternalTableFormatRuntime => {
+                DiagnosticCode::ExternalEffectDisabled
+            }
+            Self::ExternalCatalogResolution
+            | Self::DataFileRead
+            | Self::TableMetadataWrite
+            | Self::CdcDeleteTombstoneExecution
+            | Self::LakehouseProductionClaim => DiagnosticCode::NotImplemented,
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_category(&self) -> DiagnosticCategory {
+        match self {
+            Self::ObjectStoreManifestRead => DiagnosticCategory::ObjectStore,
+            Self::CredentialResolution | Self::ExternalTableFormatRuntime => {
+                DiagnosticCategory::ExternalEffect
+            }
+            Self::DataFileRead | Self::TableMetadataWrite | Self::CdcDeleteTombstoneExecution => {
+                DiagnosticCategory::Execution
+            }
+            Self::ExternalCatalogResolution | Self::LakehouseProductionClaim => {
+                DiagnosticCategory::Planning
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(self) -> Diagnostic {
+        Diagnostic::new(
+            self.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.diagnostic_category(),
+            format!(
+                "{} remains blocked outside GAR-0020-C's local metadata smoke scope",
+                self.as_str()
+            ),
+            Some(self.as_str().to_string()),
+            Some(
+                "GAR-0020-C only reads typed metadata from the local manifest fixture; no broad table/catalog runtime is certified."
+                    .to_string(),
+            ),
+            Some(
+                "Use local-table-metadata-read-smoke for the fixture path, or keep the broader lane report-only until dedicated evidence lands."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalTableMetadataReadSmokeReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub catalog_kind: &'static str,
+    pub catalog_ref_summary: String,
+    pub dataset_uri: String,
+    pub dataset_format: String,
+    pub manifest_id: String,
+    pub manifest_version: String,
+    pub snapshot_id: String,
+    pub schema_id: String,
+    pub schema_version_number: u64,
+    pub schema_field_count: usize,
+    pub schema_has_field_ids: bool,
+    pub partition_field_count: usize,
+    pub is_partitioned: bool,
+    pub manifest_file_count: usize,
+    pub manifest_segment_count: usize,
+    pub native_vortex_file_count: usize,
+    pub metadata_capable_segment_count: usize,
+    pub declared_row_count: u64,
+    pub metadata_summary: String,
+    pub metadata_summary_digest: String,
+    pub correctness_refs: &'static str,
+    pub benchmark_refs: &'static str,
+    pub execution_certificate_refs: &'static str,
+    pub native_io_certificate_refs: &'static str,
+    pub materialization_decode_refs: &'static str,
+    pub policy_refs: &'static str,
+    pub dependency_boundary_refs: &'static str,
+    pub local_catalog_ref_resolved: bool,
+    pub local_manifest_metadata_read_performed: bool,
+    pub table_metadata_summary_emitted: bool,
+    pub table_metadata_read_performed: bool,
+    pub catalog_io_performed: bool,
+    pub table_metadata_file_io_performed: bool,
+    pub object_store_io_performed: bool,
+    pub data_file_read_performed: bool,
+    pub write_io_performed: bool,
+    pub credential_resolution_performed: bool,
+    pub external_table_format_dependency_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub performance_claim_allowed: bool,
+    pub production_table_catalog_claim_allowed: bool,
+    pub lakehouse_claim_allowed: bool,
+    pub blocked_paths: Vec<LocalTableMetadataBlockedPath>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl LocalTableMetadataReadSmokeReport {
+    #[must_use]
+    pub fn runtime_supported(&self) -> bool {
+        self.support_status == "runtime_supported"
+            && self.local_catalog_ref_resolved
+            && self.local_manifest_metadata_read_performed
+            && self.table_metadata_summary_emitted
+            && self.table_metadata_read_performed
+    }
+
+    #[must_use]
+    pub fn claim_scoped(&self) -> bool {
+        self.claim_gate_status == "scoped_local_metadata_smoke_only"
+            && !self.performance_claim_allowed
+            && !self.production_table_catalog_claim_allowed
+            && !self.lakehouse_claim_allowed
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.catalog_io_performed
+            && !self.table_metadata_file_io_performed
+            && !self.object_store_io_performed
+            && !self.data_file_read_performed
+            && !self.write_io_performed
+            && !self.credential_resolution_performed
+            && !self.external_table_format_dependency_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_count(&self) -> usize {
+        self.blocked_paths
+            .iter()
+            .filter(|path| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == path.diagnostic_code()
+                        && diagnostic.category == path.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(path.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        !self.blocked_paths.is_empty()
+            && self.unsupported_diagnostic_count() == self.blocked_paths.len()
+    }
+
+    #[must_use]
+    pub fn blocked_path_order(&self) -> Vec<&'static str> {
+        self.blocked_paths
+            .iter()
+            .map(LocalTableMetadataBlockedPath::as_str)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_code_order(&self) -> Vec<&'static str> {
+        self.blocked_paths
+            .iter()
+            .map(|path| path.diagnostic_code().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.runtime_supported()
+            || !self.claim_scoped()
+            || !self.side_effect_free()
+            || !self.deterministic_unsupported_diagnostics_ready()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(out, "gar_id: {}", self.gar_id);
+        let _ = writeln!(out, "support_status: {}", self.support_status);
+        let _ = writeln!(out, "claim_gate_status: {}", self.claim_gate_status);
+        let _ = writeln!(out, "claim_boundary: {}", self.claim_boundary);
+        let _ = writeln!(out, "catalog: {}", self.catalog_ref_summary);
+        let _ = writeln!(out, "dataset_uri: {}", self.dataset_uri);
+        let _ = writeln!(
+            out,
+            "manifest: {} version={} snapshot={}",
+            self.manifest_id, self.manifest_version, self.snapshot_id
+        );
+        let _ = writeln!(
+            out,
+            "schema: {} version={} fields={} has_field_ids={}",
+            self.schema_id,
+            self.schema_version_number,
+            self.schema_field_count,
+            self.schema_has_field_ids
+        );
+        let _ = writeln!(
+            out,
+            "partition_fields: {} manifest_files: {} manifest_segments: {} metadata_capable_segments: {} declared_rows: {}",
+            self.partition_field_count,
+            self.manifest_file_count,
+            self.manifest_segment_count,
+            self.metadata_capable_segment_count,
+            self.declared_row_count
+        );
+        let _ = writeln!(
+            out,
+            "metadata_summary_digest: {}",
+            self.metadata_summary_digest
+        );
+        let _ = writeln!(out, "side_effect_free: {}", self.side_effect_free());
+        let _ = writeln!(out, "fallback_attempted: {}", self.fallback_attempted);
+        let _ = writeln!(
+            out,
+            "external_engine_invoked: {}",
+            self.external_engine_invoked
+        );
+        let _ = writeln!(
+            out,
+            "blocked_paths: {}",
+            self.blocked_path_order().join(",")
+        );
+        out
+    }
+}
+
+#[derive(Debug, Clone)]
+struct LocalTableMetadataFixture {
+    catalog: CatalogRef,
+    manifest: DatasetManifest,
+    schema: SchemaDefinition,
+    partition_spec: PartitionSpec,
+}
+
+#[must_use]
+fn local_table_metadata_blocked_paths() -> Vec<LocalTableMetadataBlockedPath> {
+    vec![
+        LocalTableMetadataBlockedPath::ExternalCatalogResolution,
+        LocalTableMetadataBlockedPath::ObjectStoreManifestRead,
+        LocalTableMetadataBlockedPath::CredentialResolution,
+        LocalTableMetadataBlockedPath::DataFileRead,
+        LocalTableMetadataBlockedPath::TableMetadataWrite,
+        LocalTableMetadataBlockedPath::CdcDeleteTombstoneExecution,
+        LocalTableMetadataBlockedPath::ExternalTableFormatRuntime,
+        LocalTableMetadataBlockedPath::LakehouseProductionClaim,
+    ]
+}
+
+fn local_table_metadata_fixture() -> Result<LocalTableMetadataFixture> {
+    let catalog = CatalogRef::new(CatalogKind::LocalManifest, "gar0020c-local-manifest")?
+        .with_namespace("fixtures.gar0020c")?;
+    let manifest_id = ManifestId::new("gar0020c-local-manifest-v1")?;
+    let snapshot_id = SnapshotId::new("gar0020c-snapshot-0001")?;
+    let dataset_uri = DatasetUri::new("file://fixtures/gar0020c/orders.vortex")?;
+    let dataset = DatasetRef::from_uri(dataset_uri)?
+        .with_snapshot(snapshot_id.clone())
+        .with_manifest(manifest_id.clone());
+    let snapshot = SnapshotRef::new(snapshot_id.clone());
+    let mut manifest = DatasetManifest::new(manifest_id, dataset, snapshot);
+    let data_file = FileDescriptor::new(
+        DatasetUri::new("file://fixtures/gar0020c/orders.vortex/part-000.vortex")?,
+        DatasetFormat::Vortex,
+        FileRole::NativeVortexData,
+    )
+    .with_size_bytes(4096);
+    manifest.add_file(data_file.clone());
+    let layout = SegmentLayout::new(
+        EncodingKind::VortexNative("fixture_metadata_only".to_string()),
+        LayoutKind::VortexNative("local_manifest_smoke".to_string()),
+    )
+    .with_byte_ranges(vec![ByteRange::new(0, 4096)]);
+    let segment = EncodedSegment::new(
+        SegmentId::new("gar0020c-segment-0001")?,
+        ColumnRef::new("amount")?,
+        LogicalDType::Int64,
+        Nullability::Nullable,
+        layout,
+        SegmentStats::with_row_count(8),
+    );
+    manifest.add_segment(ManifestSegment::new(segment, data_file).with_snapshot(snapshot_id));
+
+    let mut schema = SchemaDefinition::new(
+        SchemaId::new("gar0020c-orders-schema")?,
+        SchemaVersion::new(1)?,
+    );
+    schema.add_field(
+        SchemaField::new(
+            FieldName::new("order_id")?,
+            LogicalDType::UInt64,
+            Nullability::NonNullable,
+        )
+        .with_id(FieldId::new("field.order_id")?),
+    );
+    schema.add_field(
+        SchemaField::new(
+            FieldName::new("event_date")?,
+            LogicalDType::Date32,
+            Nullability::NonNullable,
+        )
+        .with_id(FieldId::new("field.event_date")?),
+    );
+    schema.add_field(
+        SchemaField::new(
+            FieldName::new("region")?,
+            LogicalDType::Utf8,
+            Nullability::Nullable,
+        )
+        .with_id(FieldId::new("field.region")?),
+    );
+    schema.add_field(
+        SchemaField::new(
+            FieldName::new("amount")?,
+            LogicalDType::Int64,
+            Nullability::Nullable,
+        )
+        .with_id(FieldId::new("field.amount")?),
+    );
+
+    let mut partition_spec = PartitionSpec::empty();
+    partition_spec.add_field(PartitionField::new(
+        FieldPath::from_dot_separated("event_date")?,
+        PartitionTransform::Identity,
+    ));
+
+    Ok(LocalTableMetadataFixture {
+        catalog,
+        manifest,
+        schema,
+        partition_spec,
+    })
+}
+
+fn declared_row_count(manifest: &DatasetManifest) -> u64 {
+    manifest
+        .segments
+        .iter()
+        .filter_map(|segment| segment.segment.stats.row_count)
+        .sum()
+}
+
+fn local_table_metadata_summary(fixture: &LocalTableMetadataFixture, declared_rows: u64) -> String {
+    format!(
+        "catalog_kind={} catalog_name={} dataset={} manifest={} snapshot={} schema={} schema_version={} fields={} partition_fields={} files={} segments={} native_vortex_files={} metadata_capable_segments={} declared_rows={} fallback_attempted=false external_engine_invoked=false",
+        fixture.catalog.kind.as_str(),
+        fixture.catalog.name,
+        fixture.manifest.dataset.uri.as_str(),
+        fixture.manifest.id.as_str(),
+        fixture.manifest.snapshot.id.as_str(),
+        fixture.schema.id.as_str(),
+        fixture.schema.version.as_u64(),
+        fixture.schema.field_count(),
+        fixture.partition_spec.field_count(),
+        fixture.manifest.file_count(),
+        fixture.manifest.segment_count(),
+        fixture.manifest.native_vortex_file_count(),
+        fixture.manifest.segments_with_metadata_count(),
+        declared_rows
+    )
+}
+
+fn stable_metadata_digest(input: &str) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in input.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("fnv1a64:{hash:016x}")
+}
+
+pub fn run_local_table_metadata_read_smoke() -> Result<LocalTableMetadataReadSmokeReport> {
+    let fixture = local_table_metadata_fixture()?;
+    let declared_rows = declared_row_count(&fixture.manifest);
+    let metadata_summary = local_table_metadata_summary(&fixture, declared_rows);
+    let blocked_paths = local_table_metadata_blocked_paths();
+    let diagnostics = blocked_paths
+        .iter()
+        .map(|path| path.to_diagnostic())
+        .collect();
+    Ok(LocalTableMetadataReadSmokeReport {
+        schema_version: "shardloom.local_table_metadata_read_smoke.v1",
+        report_id: "gar0020c.local_manifest_table_metadata_read_smoke",
+        gar_id: "GAR-0020-C",
+        support_status: "runtime_supported",
+        claim_gate_status: "scoped_local_metadata_smoke_only",
+        claim_boundary: "one in-memory local manifest-backed metadata summary; no data file read, object-store read, credential resolution, write, CDC/delete execution, lakehouse, SQL/DataFrame, Foundry, production, or performance claim",
+        catalog_kind: fixture.catalog.kind.as_str(),
+        catalog_ref_summary: fixture.catalog.summary(),
+        dataset_uri: fixture.manifest.dataset.uri.as_str().to_string(),
+        dataset_format: fixture.manifest.dataset.format.as_str().to_string(),
+        manifest_id: fixture.manifest.id.as_str().to_string(),
+        manifest_version: fixture.manifest.version.as_str().to_string(),
+        snapshot_id: fixture.manifest.snapshot.id.as_str().to_string(),
+        schema_id: fixture.schema.id.as_str().to_string(),
+        schema_version_number: fixture.schema.version.as_u64(),
+        schema_field_count: fixture.schema.field_count(),
+        schema_has_field_ids: fixture.schema.has_field_ids(),
+        partition_field_count: fixture.partition_spec.field_count(),
+        is_partitioned: fixture.partition_spec.is_partitioned(),
+        manifest_file_count: fixture.manifest.file_count(),
+        manifest_segment_count: fixture.manifest.segment_count(),
+        native_vortex_file_count: fixture.manifest.native_vortex_file_count(),
+        metadata_capable_segment_count: fixture.manifest.segments_with_metadata_count(),
+        declared_row_count: declared_rows,
+        metadata_summary_digest: stable_metadata_digest(&metadata_summary),
+        metadata_summary,
+        correctness_refs: "shardloom-core::table_intelligence::local_table_metadata_read_smoke",
+        benchmark_refs: "not_required_fixture_smoke_no_performance_claim",
+        execution_certificate_refs: "shardloom-cli/tests/local_table_metadata_read_smoke.rs",
+        native_io_certificate_refs: "not_required_no_source_sink_or_file_io",
+        materialization_decode_refs: "metadata_summary_only_no_data_decode_no_row_materialization",
+        policy_refs: "fallback_attempted=false,external_engine_invoked=false,object_store_io=false,credential_resolution=false",
+        dependency_boundary_refs: "no_external_table_format_dependency,no_catalog_adapter_dependency,no_runtime_js_or_external_engine",
+        local_catalog_ref_resolved: true,
+        local_manifest_metadata_read_performed: true,
+        table_metadata_summary_emitted: true,
+        table_metadata_read_performed: true,
+        catalog_io_performed: false,
+        table_metadata_file_io_performed: false,
+        object_store_io_performed: false,
+        data_file_read_performed: false,
+        write_io_performed: false,
+        credential_resolution_performed: false,
+        external_table_format_dependency_invoked: false,
+        fallback_attempted: false,
+        fallback_execution_allowed: false,
+        external_engine_invoked: false,
+        performance_claim_allowed: false,
+        production_table_catalog_claim_allowed: false,
+        lakehouse_claim_allowed: false,
+        blocked_paths,
+        diagnostics,
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1626,6 +2128,19 @@ mod tests {
         assert!(!report.fallback_execution_allowed);
         assert!(!report.external_engine_invoked);
         assert!(report.claim_boundary.contains("table metadata reads"));
+        assert!(report.local_manifest_table_metadata_smoke_supported);
+        assert_eq!(
+            report.local_manifest_table_metadata_smoke_command,
+            "local-table-metadata-read-smoke"
+        );
+        assert_eq!(
+            report.local_manifest_table_metadata_smoke_report_ref,
+            "gar0020c.local_manifest_table_metadata_read_smoke"
+        );
+        assert_eq!(
+            report.local_manifest_table_metadata_smoke_claim_gate_status,
+            "scoped_local_metadata_smoke_only"
+        );
     }
 
     #[test]
@@ -1684,6 +2199,89 @@ mod tests {
         assert!(!table_metadata.fallback_attempted);
         assert!(!table_metadata.external_engine_invoked);
         assert_eq!(table_metadata.claim_gate_status, "not_claim_grade");
+    }
+
+    #[test]
+    fn local_table_metadata_smoke_reads_typed_fixture_metadata_only() {
+        let report = run_local_table_metadata_read_smoke().expect("local metadata smoke");
+        assert_eq!(
+            report.schema_version,
+            "shardloom.local_table_metadata_read_smoke.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "gar0020c.local_manifest_table_metadata_read_smoke"
+        );
+        assert_eq!(report.gar_id, "GAR-0020-C");
+        assert_eq!(report.support_status, "runtime_supported");
+        assert_eq!(report.claim_gate_status, "scoped_local_metadata_smoke_only");
+        assert_eq!(report.catalog_kind, "local_manifest");
+        assert_eq!(report.dataset_format, "vortex");
+        assert_eq!(report.schema_field_count, 4);
+        assert!(report.schema_has_field_ids);
+        assert_eq!(report.partition_field_count, 1);
+        assert!(report.is_partitioned);
+        assert_eq!(report.manifest_file_count, 1);
+        assert_eq!(report.manifest_segment_count, 1);
+        assert_eq!(report.native_vortex_file_count, 1);
+        assert_eq!(report.metadata_capable_segment_count, 1);
+        assert_eq!(report.declared_row_count, 8);
+        assert!(report.metadata_summary.contains("declared_rows=8"));
+        assert!(report.metadata_summary_digest.starts_with("fnv1a64:"));
+        assert!(report.runtime_supported());
+        assert!(report.claim_scoped());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn local_table_metadata_smoke_blocks_broad_runtime_and_claims() {
+        let report = run_local_table_metadata_read_smoke().expect("local metadata smoke");
+        assert!(report.local_catalog_ref_resolved);
+        assert!(report.local_manifest_metadata_read_performed);
+        assert!(report.table_metadata_summary_emitted);
+        assert!(report.table_metadata_read_performed);
+        assert!(!report.catalog_io_performed);
+        assert!(!report.table_metadata_file_io_performed);
+        assert!(!report.object_store_io_performed);
+        assert!(!report.data_file_read_performed);
+        assert!(!report.write_io_performed);
+        assert!(!report.credential_resolution_performed);
+        assert!(!report.external_table_format_dependency_invoked);
+        assert!(!report.fallback_attempted);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.production_table_catalog_claim_allowed);
+        assert!(!report.lakehouse_claim_allowed);
+        assert_eq!(
+            report.blocked_path_order(),
+            vec![
+                "external_catalog_resolution",
+                "object_store_manifest_read",
+                "credential_resolution",
+                "data_file_read",
+                "table_metadata_write",
+                "cdc_delete_tombstone_execution",
+                "external_table_format_runtime",
+                "lakehouse_production_claim",
+            ]
+        );
+        assert_eq!(report.unsupported_diagnostic_count(), 8);
+        assert!(report.deterministic_unsupported_diagnostics_ready());
+        assert_eq!(
+            report.unsupported_diagnostic_code_order(),
+            vec![
+                "SL_NOT_IMPLEMENTED",
+                "SL_OBJECT_STORE_UNSUPPORTED",
+                "SL_EXTERNAL_EFFECT_DISABLED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_EXTERNAL_EFFECT_DISABLED",
+                "SL_NOT_IMPLEMENTED",
+            ]
+        );
     }
 
     #[test]

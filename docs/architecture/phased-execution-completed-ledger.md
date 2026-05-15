@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0020-C local manifest-backed table metadata read smoke
+  - Primary files:
+    - `shardloom-core/src/table_intelligence.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/tests/local_table_metadata_read_smoke.rs`
+    - `shardloom-cli/tests/cg9_catalog_metadata_gate.rs`
+    - `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/table-intelligence-layer.md`
+  - Scope: close GAR-0020-C by adding one local, in-memory manifest-backed table metadata smoke
+    path that returns a typed metadata summary and evidence refs without reading data files,
+    touching object stores, resolving credentials, invoking external table-format dependencies, or
+    using fallback engines.
+  - Checklist:
+    - [x] Add `LocalTableMetadataReadSmokeReport` with
+          `schema_version=shardloom.local_table_metadata_read_smoke.v1`,
+          `report_id=gar0020c.local_manifest_table_metadata_read_smoke`,
+          `gar_id=GAR-0020-C`, `support_status=runtime_supported`, and
+          `claim_gate_status=scoped_local_metadata_smoke_only`.
+    - [x] Build a typed local fixture from `CatalogRef`, `DatasetManifest`, `SnapshotRef`,
+          `SchemaDefinition`, `PartitionSpec`, and native Vortex file/segment metadata.
+    - [x] Expose `local-table-metadata-read-smoke --format json` with metadata summary, digest,
+          evidence refs, no-fallback/no-external-engine fields, and deterministic blocked-path
+          diagnostics.
+    - [x] Link the scoped smoke from `cg9-catalog-metadata-gate` and `table-intelligence-plan`
+          while keeping broad catalog/table metadata runtime fields blocked.
+    - [x] Keep external catalog resolution, object-store manifests, credential resolution, data
+          file reads, table metadata writes, CDC/delete execution, external table-format runtime,
+          lakehouse/production claims, external engines, fallback execution, and performance claims
+          disabled.
+  - Boundary:
+    - This completes one scoped local metadata smoke only. It does not add filesystem manifest
+      parsing, object-store I/O, credential loading, Iceberg/Delta/Hudi parser dependencies, data
+      scans, table writes, commits, CDC/delete execution, cache runtime, external catalogs,
+      production SQL/DataFrame, production lakehouse/object-store/Foundry support, performance
+      claims, external engines, or fallback execution.
+  - Evidence:
+    - `local-table-metadata-read-smoke` exposes `support_status=runtime_supported`,
+      `claim_gate_status=scoped_local_metadata_smoke_only`,
+      `local_manifest_metadata_read_performed=true`, `table_metadata_summary_emitted=true`,
+      `table_metadata_read_performed=true`, `metadata_summary_digest=fnv1a64:*`,
+      `deterministic_unsupported_diagnostics_ready=true`, `blocked_path_count=8`,
+      `unsupported_diagnostic_count=8`, `side_effect_free=true`,
+      `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+      `external_engine_invoked=false`.
+    - `cg9-catalog-metadata-gate` and `table-intelligence-plan` expose
+      `local_manifest_table_metadata_smoke_supported=true` plus the smoke command/report refs,
+      while retaining `table_metadata_read_allowed=false` and
+      `metadata_integration_claim_allowed=false` for the broad runtime lane.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core local_table_metadata --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test local_table_metadata_read_smoke --test cg9_catalog_metadata_gate --test table_intelligence_plan_snapshots`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `git diff --check`
 - [x] Session label: GAR-0020-A table/catalog metadata admission gate
   - Primary files:
     - `shardloom-core/src/table_intelligence.rs`

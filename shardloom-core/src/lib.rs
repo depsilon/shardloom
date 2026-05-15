@@ -318,9 +318,11 @@ pub use table_intelligence::{
     CatalogMetadataIntegrationGateEntry, CatalogMetadataIntegrationGateReport,
     CatalogMetadataIntegrationStatus, CatalogMetadataIntegrationSurface,
     CdcManifestTransactionGateEntry, CdcManifestTransactionGateReport,
-    CdcManifestTransactionStatus, CdcManifestTransactionSurface, TableIntelligenceReport,
-    TableIntelligenceSurface, TableIntelligenceSurfaceKind, TableIntelligenceSurfaceStatus,
+    CdcManifestTransactionStatus, CdcManifestTransactionSurface, LocalTableMetadataBlockedPath,
+    LocalTableMetadataReadSmokeReport, TableIntelligenceReport, TableIntelligenceSurface,
+    TableIntelligenceSurfaceKind, TableIntelligenceSurfaceStatus,
     plan_catalog_metadata_integration_gate, plan_cdc_manifest_transaction_gate,
+    run_local_table_metadata_read_smoke,
 };
 
 pub use translation::{
