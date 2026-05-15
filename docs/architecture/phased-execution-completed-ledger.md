@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0010-A Python API ergonomics and typed capability view
+  - Primary files:
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close GAR-0010-A by adding a no-scraping Python capability posture over existing CLI
+    JSON `OutputEnvelope` capability fields.
+  - Checklist:
+    - [x] Add exported `CapabilityPosture` with support, claim-gate, runtime, I/O/effect,
+          fallback, external-engine, blocker, evidence, gate, and materialization-boundary fields.
+    - [x] Add direct `CapabilityView` accessors for `support_status`, `claim_gate_status`,
+          `claim_gate_statuses`, `runtime_execution`, `data_read`, `write_io`,
+          `object_store_io`, `catalog_io`, `fallback_allowed`, and `external_engine_invoked`.
+    - [x] Preserve side-effect-free capability discovery by deriving posture only from existing
+          envelope fields and diagnostics.
+    - [x] Add Python fake-CLI tests that assert report-only, unsupported, no-fallback, and
+          no-external-engine posture fields without dataset commands.
+    - [x] Document the typed posture surface in the Python README and move GAR-0010-A out of the
+          active phase plan.
+  - Boundary:
+    - This is a Python API ergonomics slice only. It does not add runtime execution, SQL/DataFrame
+      execution, notebook runtime, package publication, object-store/table/lakehouse behavior,
+      external engine invocation, or fallback execution.
+    - Unsupported and report-only capability scopes remain unsupported/report-only; claim-grade
+      status is exposed only when an existing envelope reports it.
+  - Evidence:
+    - Python tests lock typed posture access over fake CLI capability envelopes, including
+      `fallback_attempted=false`, `external_engine_invoked=false`, `claim_gate_status`, runtime
+      booleans, blockers, and required evidence.
+    - Architecture docs record GAR-0010-A as a completed Python/wrapper ergonomics surface while
+      keeping mature runtime APIs and ecosystem clients planned.
+  - Validation:
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0028-A object-store and lakehouse commit semantics gate
   - Primary files:
     - `shardloom-exec/src/recovery.rs`

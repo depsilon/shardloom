@@ -320,21 +320,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
 #### GAR-P3 - User Surfaces, APIs, Adapters, And Workflow
 
-- [ ] GAR-0010-A Python API ergonomics and typed capability view
-  - Source: RFC 0010; RFC 0037; typed envelope docs.
-  - Current state: Python wrapper and typed views exist; ergonomic runtime APIs and notebook surfaces
-    are not mature across planned features.
-  - Next slice outcome: Python capability/diagnostic view that exposes supported, report-only, and
-    unsupported states without executing unsupported work.
-  - User-visible surface: Python package, docs, examples.
-  - Implementation scope: Python client/models, docs, tests.
-  - Evidence required: diagnostic/no-fallback refs; execution evidence only for already supported
-    commands.
-  - Acceptance: Python users can inspect mode/support/claim status without scraping CLI text.
-  - Verification: Python tests or compileall, focused Rust contract tests, default GAR verification.
-  - Non-goals: no broad DataFrame runtime or package publication.
-  - Fallback/claim boundary: Python API does not expand runtime claims.
-  - Dependencies/blockers: typed envelope migration from GAR-0039.
 - [ ] GAR-0010-B DataFrame/notebook and package surface readiness report
   - Source: RFC 0010; RFC 0024; RFC 0032.
   - Current state: package dry-run docs exist; mature DataFrame/notebook surfaces and publication are
