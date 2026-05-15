@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0005-A local Vortex reader/writer coverage lane
+  - Primary files:
+    - `shardloom-vortex/src/adapter.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/Cargo.toml`
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `shardloom-cli/tests/vortex_api_inventory_snapshots.rs`
+    - `shardloom-cli/tests/native_count_payload_write_feature.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Scope: close GAR-0005-A by exposing an explicit local Vortex I/O coverage report through
+    `vortex-api-inventory` and making the existing real native count-payload writer directly
+    feature-selectable from `shardloom-cli` with `--features vortex-write`.
+  - Checklist:
+    - [x] Add `shardloom.vortex_local_io_coverage.v1` with selected reader and writer lanes,
+          row order, runtime-lane count, blocked-lane count, evidence refs, blocker IDs, and claim
+          boundaries.
+    - [x] Classify the current local reader lane as scoped local primitive scan/filter/project
+          evidence under `vortex-local-primitives`.
+    - [x] Classify the current local writer lane as the feature-gated native Vortex one-row
+          `CountAll` output payload writer under `vortex-write`.
+    - [x] Keep the broad local schema/encoding writer blocked with deterministic evidence
+          requirements before any generalized Vortex writer claim.
+    - [x] Add `shardloom-cli/vortex-write` so CLI users can opt into the existing upstream Vortex
+          writer path without enabling the full traditional analytics benchmark feature bundle.
+  - Boundary:
+    - This completes one local coverage slice only. It does not add object-store Vortex I/O, table
+      or catalog writes, broad schema/encoding payload writing, manifest commit integration,
+      SQL/DataFrame runtime, lakehouse output, performance claims, external engine invocation, or
+      fallback execution.
+  - Evidence:
+    - Reader lane evidence: `vortex-api-inventory` reports
+      `vortex_local_io_reader_status=fixture_smoke_only`,
+      `vortex_local_io_reader_feature_gate=vortex-local-primitives`, and the existing local scan
+      source/split and Native I/O refs.
+    - Writer lane evidence: `vortex-api-inventory` reports
+      `vortex_local_io_writer_status=feature_gated_runtime`,
+      `vortex_local_io_writer_feature_gate=vortex-write`,
+      `vortex_local_io_writer_native_io_refs=native_vortex_payload_written=true,vortex_file_written=true,upstream_vortex_write_called=true`.
+    - Policy evidence: inventory fields preserve
+      `vortex_local_io_inventory_runtime_execution=false`,
+      `vortex_local_io_object_store_io=false`,
+      `vortex_local_io_external_engine_invoked=false`, and
+      `vortex_local_io_fallback_attempted=false`; feature-enabled writer CLI output preserves
+      `fallback_execution_allowed=false` and `object_store_io=false`.
+  - Vortex-first provider check:
+    - Subject area: local Vortex reader/writer coverage.
+    - Upstream Vortex concepts checked: local `VortexFile::scan` reader APIs for the read lane and
+      `VortexSessionDefault`, `SingleThreadRuntime`, `WriteOptionsSessionExt`, `PrimitiveArray`,
+      `Validity`, and `buffer` for the count-payload write lane.
+    - Decision: use upstream Vortex scan/write APIs only inside feature-gated ShardLoom-native
+      boundaries and keep broad Vortex writer support blocked until schema/encoding/certificate
+      evidence exists.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex local_io_coverage --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test vortex_api_inventory_snapshots vortex_api_inventory_exposes_gar0005a_local_io_coverage`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --features vortex-write --test native_count_payload_write_feature`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0014-A spill/OOM enforcement promotion gate closeout
   - Primary files:
     - `shardloom-exec/src/memory.rs`

@@ -744,6 +744,21 @@ fallback execution.
 - CG-3.1 approves a feature-gated local native Vortex count-result payload path only.
 - Broader payload shapes, manifest commits, and object-store writes remain deferred.
 
+## GAR-0005-A local Vortex I/O coverage
+
+- `vortex-api-inventory` now emits `shardloom.vortex_local_io_coverage.v1`.
+- The selected reader lane is `local_vortex_primitive_scan_filter_project` under
+  `vortex-local-primitives`.
+- The selected writer lane is `native_count_output_payload_write` under `vortex-write`.
+- `shardloom-cli` exposes a direct `vortex-write` feature so users can enable the existing native
+  count-payload writer without enabling the full traditional analytics benchmark feature bundle.
+- The broad local schema/encoding writer remains blocked behind schema payload matrix, encoding
+  payload matrix, correctness fixture, materialization/decode certificate, Native I/O certificate,
+  and no-fallback evidence.
+- Object-store Vortex I/O, table/catalog integration, manifest commit integration, broad payload
+  shapes, SQL/DataFrame runtime, lakehouse output, performance claims, and fallback execution remain
+  unsupported.
+
 
 - CG-1.2b adds metadata/footer probe contracts only; default report construction does not inspect
   local file existence and scan/data traversal remains deferred.

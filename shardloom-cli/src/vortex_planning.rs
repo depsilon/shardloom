@@ -20,12 +20,13 @@ use shardloom_vortex::{
     VortexExecutionReadinessReport, VortexFileRef, VortexFilteredCountCandidateSource,
     VortexFilteredCountReadinessSignal, VortexGeneralizedEncodedPrimitiveGateReport,
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
-    VortexMetadataCountKernelAdmissionReport, VortexMetadataFilterKernelAdmissionReport,
-    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexProjectionCandidateSource,
-    VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
-    VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue, VortexReadPlan,
-    VortexScanCompatibilityReport, VortexStatisticsMappingReport, VortexWriteOptions,
-    VortexWritePlan, admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
+    VortexLocalIoCoverageReport, VortexMetadataCountKernelAdmissionReport,
+    VortexMetadataFilterKernelAdmissionReport, VortexMetadataOpenRequest,
+    VortexMetadataProbeReport, VortexProjectionCandidateSource, VortexProjectionReadinessSignal,
+    VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveSignal,
+    VortexQueryPrimitiveValue, VortexReadPlan, VortexScanCompatibilityReport,
+    VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
+    admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
     build_vortex_runtime_task_graph, evaluate_vortex_execution_readiness,
     evaluate_vortex_metadata_physical_kernels,
     execute_vortex_count_all_from_encoded_count_data_path_approval, execute_vortex_metadata_only,
@@ -954,6 +955,7 @@ pub(crate) fn handle_vortex_metadata_probe(
 fn vortex_api_inventory_fields(
     scan_report: &VortexScanCompatibilityReport,
     provider_report: &VortexComputeProviderReport,
+    local_io_report: &VortexLocalIoCoverageReport,
 ) -> Vec<(String, String)> {
     let mut fields = vortex_api_inventory_base_fields();
     fields.extend(vortex_api_inventory_report_fields(
@@ -968,6 +970,7 @@ fn vortex_api_inventory_fields(
     fields.extend(vortex_source_split_evidence_fields(scan_report));
     fields.extend(vortex_source_split_effect_fields(scan_report));
     fields.extend(vortex_segment_extraction_admission_fields(scan_report));
+    fields.extend(vortex_local_io_coverage_fields(local_io_report));
     fields
 }
 
@@ -1321,27 +1324,192 @@ fn vortex_segment_extraction_admission_fields(
     ]
 }
 
+#[allow(clippy::too_many_lines)]
+fn vortex_local_io_coverage_fields(report: &VortexLocalIoCoverageReport) -> Vec<(String, String)> {
+    let reader = report
+        .rows
+        .iter()
+        .find(|row| row.lane_id == report.selected_reader_lane);
+    let writer = report
+        .rows
+        .iter()
+        .find(|row| row.lane_id == report.selected_writer_lane);
+    let broad_writer = report
+        .rows
+        .iter()
+        .find(|row| row.lane_id == "general_local_schema_encoding_writer");
+    let mut fields = vec![
+        (
+            "vortex_local_io_schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        (
+            "vortex_local_io_report_id".to_string(),
+            report.report_id.to_string(),
+        ),
+        (
+            "vortex_local_io_gar_id".to_string(),
+            report.gar_id.to_string(),
+        ),
+        (
+            "vortex_local_io_selected_reader_lane".to_string(),
+            report.selected_reader_lane.to_string(),
+        ),
+        (
+            "vortex_local_io_selected_writer_lane".to_string(),
+            report.selected_writer_lane.to_string(),
+        ),
+        (
+            "vortex_local_io_row_order".to_string(),
+            report.row_order().join(","),
+        ),
+        (
+            "vortex_local_io_runtime_lane_count".to_string(),
+            report.runtime_lane_count().to_string(),
+        ),
+        (
+            "vortex_local_io_blocked_lane_count".to_string(),
+            report.blocked_lane_count().to_string(),
+        ),
+        (
+            "vortex_local_io_runtime_lane_ids".to_string(),
+            report.runtime_lane_ids().join(","),
+        ),
+        (
+            "vortex_local_io_blocked_lane_ids".to_string(),
+            report.blocked_lane_ids().join(","),
+        ),
+        (
+            "vortex_local_io_claim_gate_status".to_string(),
+            report.claim_gate_status.to_string(),
+        ),
+        (
+            "vortex_local_io_claim_boundary".to_string(),
+            report.claim_boundary.to_string(),
+        ),
+        (
+            "vortex_local_io_inventory_runtime_execution".to_string(),
+            report.runtime_execution.to_string(),
+        ),
+        (
+            "vortex_local_io_inventory_data_read".to_string(),
+            report.data_read.to_string(),
+        ),
+        (
+            "vortex_local_io_inventory_data_written".to_string(),
+            report.data_written.to_string(),
+        ),
+        (
+            "vortex_local_io_object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        (
+            "vortex_local_io_table_catalog_io".to_string(),
+            report.table_catalog_io.to_string(),
+        ),
+        (
+            "vortex_local_io_external_engine_invoked".to_string(),
+            report.external_engine_invoked.to_string(),
+        ),
+        (
+            "vortex_local_io_fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+    ];
+    if let Some(row) = reader {
+        fields.extend([
+            (
+                "vortex_local_io_reader_status".to_string(),
+                row.support_status.as_str().to_string(),
+            ),
+            (
+                "vortex_local_io_reader_feature_gate".to_string(),
+                row.feature_gate.to_string(),
+            ),
+            (
+                "vortex_local_io_reader_surface".to_string(),
+                row.user_surface.to_string(),
+            ),
+            (
+                "vortex_local_io_reader_claim_boundary".to_string(),
+                row.claim_boundary.to_string(),
+            ),
+        ]);
+    }
+    if let Some(row) = writer {
+        fields.extend([
+            (
+                "vortex_local_io_writer_status".to_string(),
+                row.support_status.as_str().to_string(),
+            ),
+            (
+                "vortex_local_io_writer_feature_gate".to_string(),
+                row.feature_gate.to_string(),
+            ),
+            (
+                "vortex_local_io_writer_surface".to_string(),
+                row.user_surface.to_string(),
+            ),
+            (
+                "vortex_local_io_writer_claim_boundary".to_string(),
+                row.claim_boundary.to_string(),
+            ),
+            (
+                "vortex_local_io_writer_native_io_refs".to_string(),
+                row.native_io_certificate_refs.to_string(),
+            ),
+            (
+                "vortex_local_io_writer_upstream_api_surface".to_string(),
+                row.upstream_api_surface.to_string(),
+            ),
+        ]);
+    }
+    if let Some(row) = broad_writer {
+        fields.extend([
+            (
+                "vortex_local_io_broad_writer_status".to_string(),
+                row.support_status.as_str().to_string(),
+            ),
+            (
+                "vortex_local_io_broad_writer_blocker_id".to_string(),
+                row.blocker_id.to_string(),
+            ),
+            (
+                "vortex_local_io_broad_writer_required_future_evidence".to_string(),
+                row.required_future_evidence.to_string(),
+            ),
+            (
+                "vortex_local_io_broad_writer_claim_boundary".to_string(),
+                row.claim_boundary.to_string(),
+            ),
+        ]);
+    }
+    fields
+}
+
 pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
     let report = VortexAdapterCapabilityReport::foundation();
     let scan_report = plan_vortex_scan_compatibility();
     let provider_report = VortexComputeProviderReport::local_scan_provider();
+    let local_io_report = VortexLocalIoCoverageReport::current();
     emit(
         "vortex-api-inventory",
         format,
         CommandStatus::Success,
         "vortex API inventory".to_string(),
         format!(
-            "{}\n{}\n{}",
+            "{}\n{}\n{}\n{}",
             report.to_human_text(),
             scan_report
                 .source_split_runtime_admission_proof
                 .to_human_text(),
             scan_report
                 .segment_extraction_admission_report
-                .to_human_text()
+                .to_human_text(),
+            local_io_report.to_human_text()
         ),
         report.diagnostics.clone(),
-        vortex_api_inventory_fields(&scan_report, &provider_report),
+        vortex_api_inventory_fields(&scan_report, &provider_report, &local_io_report),
     );
     ExitCode::SUCCESS
 }
