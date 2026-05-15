@@ -9,7 +9,7 @@ use shardloom_core::{
 use crate::local_primitives::reader_generated_encoded_kernel_inputs_from_vortex_chunk;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use crate::source_backed_encoded_execution::{
-    VortexReaderBackedSplitEvidence,
+    VortexReaderBackedSplitEvidence, VortexReaderGeneratedEncodedKernelInput,
     execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs,
 };
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -18,7 +18,8 @@ use shardloom_core::{
     ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
     NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
     NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
-    RepresentationState, ShardLoomExecutionModeSelectionRequest, StatValue, UniversalInputSource,
+    RepresentationState, SelectionVector, ShardLoomExecutionModeSelectionRequest, StatValue,
+    UniversalInputSource,
 };
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_exec::{
@@ -2228,6 +2229,14 @@ pub struct TraditionalAnalyticsVortexReport {
     pub encoded_predicate_provider_conjunctive_bridge_selected_row_count: Option<u64>,
     pub encoded_predicate_provider_filter_column_batches_consumed: bool,
     pub encoded_predicate_provider_selection_vector_intersection_certified: bool,
+    pub encoded_predicate_provider_selected_metric_aggregation_status: String,
+    pub encoded_predicate_provider_selected_metric_selection_vector_consumed: bool,
+    pub encoded_predicate_provider_selected_metric_source: String,
+    pub encoded_predicate_provider_selected_metric_row_count: Option<u64>,
+    pub encoded_predicate_provider_selected_metric_sum: Option<f64>,
+    pub encoded_predicate_provider_selected_metric_scan_split_count: usize,
+    pub encoded_predicate_provider_selected_metric_data_decoded: bool,
+    pub encoded_predicate_provider_selected_metric_data_materialized: bool,
     pub encoded_predicate_provider_filter_column_probe_data_decoded: bool,
     pub encoded_predicate_provider_filter_column_probe_data_materialized: bool,
     pub encoded_predicate_provider_filter_column_probe_row_read: bool,
@@ -2864,6 +2873,10 @@ fn encoded_predicate_provider_fields(
         == "intersected_selection_vectors"
         && report.encoded_predicate_provider_filter_column_batches_consumed
         && report.encoded_predicate_provider_selection_vector_intersection_certified;
+    let selected_metric_consumed = bridge_intersected
+        && report.encoded_predicate_provider_selected_metric_selection_vector_consumed
+        && report.encoded_predicate_provider_selected_metric_row_count
+            == report.encoded_predicate_provider_conjunctive_bridge_selected_row_count;
     let (
         checked,
         status,
@@ -2874,14 +2887,26 @@ fn encoded_predicate_provider_fields(
         blocker_reason,
         required_future_evidence,
         claim_boundary,
-    ) = if selective_filter && bridge_intersected {
+    ) = if selective_filter && selected_metric_consumed {
+        (
+            "true",
+            "reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted",
+            "selection_vector_backed_metric_aggregation_consumed",
+            "selective_filter.flag_eq_1_and_value_gte_5000",
+            "flag,value",
+            "none",
+            "The scoped local Vortex scan projected flag,value filter-column batches, lowered them into admitted reader-generated encoded kernel inputs, intersected their selection vectors, and used the admitted selection vector to drive the metric aggregation without external fallback.",
+            "execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy;claim_grade_iterations",
+            "scoped reader-generated filter-column and selection-vector-backed metric aggregation evidence only; operator remains residual-native and not encoded-native until metric aggregation itself has encoded-native certificate evidence",
+        )
+    } else if selective_filter && bridge_intersected {
         (
             "true",
             "reader_generated_filter_column_batches_admitted",
             "reader_generated_filter_column_kernel_inputs_admitted",
             "selective_filter.flag_eq_1_and_value_gte_5000",
             "flag,value",
-            "none",
+            "gar-0026v.selected_metric_aggregation_not_selection_vector_backed",
             "The scoped local Vortex scan projected flag,value filter-column batches, lowered them into admitted reader-generated encoded kernel inputs, and the conjunctive bridge intersected selection vectors without fallback.",
             "selected_metric_aggregation_consumes_selection_vector;execution_certificate;native_io_certificate;materialization_decode_boundary;no_fallback_policy;claim_grade_iterations",
             "scoped reader-generated filter-column selection-vector evidence only; selected metric aggregation remains residual-native until it consumes the admitted selection vector end to end",
@@ -2954,7 +2979,9 @@ fn encoded_predicate_provider_fields(
         .streaming_reader_chunk_encoding_summary
         .iter()
         .any(|summary| summary == "metric:vortex.filter");
-    let bridge_status = if selective_filter && bridge_intersected {
+    let bridge_status = if selective_filter && selected_metric_consumed {
+        "bridge_consumed_reader_generated_filter_column_kernel_inputs_and_metric_selection_vector"
+    } else if selective_filter && bridge_intersected {
         "bridge_consumed_reader_generated_filter_column_kernel_inputs"
     } else if selective_filter && filter_columns_observed {
         "bridge_available_blocked_filter_column_kernel_inputs_not_lowered"
@@ -2963,8 +2990,10 @@ fn encoded_predicate_provider_fields(
     } else {
         "not_applicable_no_selective_filter_predicate"
     };
-    let bridge_blocker_ids = if selective_filter && bridge_intersected {
+    let bridge_blocker_ids = if selective_filter && selected_metric_consumed {
         "none"
+    } else if selective_filter && bridge_intersected {
+        "gar-0026v.selected_metric_aggregation_not_selection_vector_backed"
     } else if selective_filter && filter_columns_observed {
         "gar-0026u.filter_column_kernel_inputs_not_admitted;gar-0026u.selected_metric_aggregation_not_selection_vector_backed"
     } else if selective_filter {
@@ -2981,7 +3010,9 @@ fn encoded_predicate_provider_fields(
     } else {
         "not_applicable"
     };
-    let projected_output_batch_status = if selective_filter && projected_metric_filter_wrapped {
+    let projected_output_batch_status = if selective_filter && selected_metric_consumed {
+        "observed_projected_metric_reader_chunk_selection_vector_backed"
+    } else if selective_filter && projected_metric_filter_wrapped {
         "observed_projected_metric_vortex_filter_chunk"
     } else if selective_filter && projected_metric_observed {
         "observed_projected_metric_reader_chunk"
@@ -3217,6 +3248,54 @@ fn encoded_predicate_provider_fields(
             selection_vector_intersection_status.to_string(),
         ),
         (
+            "encoded_predicate_provider_selected_metric_aggregation_status".to_string(),
+            report
+                .encoded_predicate_provider_selected_metric_aggregation_status
+                .clone(),
+        ),
+        (
+            "encoded_predicate_provider_selected_metric_selection_vector_consumed".to_string(),
+            report
+                .encoded_predicate_provider_selected_metric_selection_vector_consumed
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_selected_metric_source".to_string(),
+            report
+                .encoded_predicate_provider_selected_metric_source
+                .clone(),
+        ),
+        (
+            "encoded_predicate_provider_selected_metric_row_count".to_string(),
+            report
+                .encoded_predicate_provider_selected_metric_row_count
+                .map_or_else(|| "none".to_string(), |row_count| row_count.to_string()),
+        ),
+        (
+            "encoded_predicate_provider_selected_metric_sum".to_string(),
+            report
+                .encoded_predicate_provider_selected_metric_sum
+                .map_or_else(|| "none".to_string(), evidence_float),
+        ),
+        (
+            "encoded_predicate_provider_selected_metric_scan_split_count".to_string(),
+            report
+                .encoded_predicate_provider_selected_metric_scan_split_count
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_selected_metric_data_decoded".to_string(),
+            report
+                .encoded_predicate_provider_selected_metric_data_decoded
+                .to_string(),
+        ),
+        (
+            "encoded_predicate_provider_selected_metric_data_materialized".to_string(),
+            report
+                .encoded_predicate_provider_selected_metric_data_materialized
+                .to_string(),
+        ),
+        (
             "encoded_predicate_provider_kernel_input_lowering_status".to_string(),
             kernel_input_lowering_status.to_string(),
         ),
@@ -3264,6 +3343,15 @@ fn comma_join_or_none(values: &[String]) -> String {
         "none".to_string()
     } else {
         values.join(",")
+    }
+}
+
+fn evidence_float(value: f64) -> String {
+    let text = value.to_string();
+    if text.contains('.') {
+        text
+    } else {
+        format!("{text}.0")
     }
 }
 
@@ -4109,7 +4197,7 @@ impl Ord for GlobalTopKCandidate {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 struct TraditionalEncodedPredicateProviderRuntimeEvidence {
     requested: bool,
@@ -4125,8 +4213,17 @@ struct TraditionalEncodedPredicateProviderRuntimeEvidence {
     bridge_report_id: String,
     bridge_intersection_count: usize,
     bridge_selected_row_count: Option<u64>,
+    bridge_selection_vectors: Vec<SelectionVector>,
     filter_column_batches_consumed: bool,
     selection_vector_intersection_certified: bool,
+    selected_metric_aggregation_status: String,
+    selected_metric_selection_vector_consumed: bool,
+    selected_metric_source: String,
+    selected_metric_row_count: Option<u64>,
+    selected_metric_sum: Option<f64>,
+    selected_metric_scan_split_count: usize,
+    selected_metric_data_decoded: bool,
+    selected_metric_data_materialized: bool,
     data_decoded: bool,
     data_materialized: bool,
     row_read: bool,
@@ -4151,8 +4248,17 @@ impl TraditionalEncodedPredicateProviderRuntimeEvidence {
             bridge_report_id: "none".to_string(),
             bridge_intersection_count: 0,
             bridge_selected_row_count: None,
+            bridge_selection_vectors: Vec::new(),
             filter_column_batches_consumed: false,
             selection_vector_intersection_certified: false,
+            selected_metric_aggregation_status: "not_applicable".to_string(),
+            selected_metric_selection_vector_consumed: false,
+            selected_metric_source: "none".to_string(),
+            selected_metric_row_count: None,
+            selected_metric_sum: None,
+            selected_metric_scan_split_count: 0,
+            selected_metric_data_decoded: false,
+            selected_metric_data_materialized: false,
             data_decoded: false,
             data_materialized: false,
             row_read: false,
@@ -4163,7 +4269,7 @@ impl TraditionalEncodedPredicateProviderRuntimeEvidence {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 struct TraditionalScenarioExecutionEvidence {
     streaming_vortex_execution_used: bool,
@@ -4255,6 +4361,14 @@ struct TraditionalScenarioExecution {
     rows_scanned: u64,
     rows_materialized: u64,
     evidence: TraditionalScenarioExecutionEvidence,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+struct SelectionVectorMetricAggregation {
+    stats: TraditionalStreamingScanStats,
+    row_count: u64,
+    metric_sum: f64,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -4359,7 +4473,7 @@ struct TraditionalRuntimeEvidence {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct TraditionalStreamingScanStats {
     source_row_count: u64,
     result_row_count: u64,
@@ -5998,6 +6112,38 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
             .evidence
             .encoded_predicate_provider
             .selection_vector_intersection_certified,
+        encoded_predicate_provider_selected_metric_aggregation_status: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .selected_metric_aggregation_status,
+        encoded_predicate_provider_selected_metric_selection_vector_consumed: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .selected_metric_selection_vector_consumed,
+        encoded_predicate_provider_selected_metric_source: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .selected_metric_source,
+        encoded_predicate_provider_selected_metric_row_count: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .selected_metric_row_count,
+        encoded_predicate_provider_selected_metric_sum: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .selected_metric_sum,
+        encoded_predicate_provider_selected_metric_scan_split_count: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .selected_metric_scan_split_count,
+        encoded_predicate_provider_selected_metric_data_decoded: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .selected_metric_data_decoded,
+        encoded_predicate_provider_selected_metric_data_materialized: scenario_execution
+            .evidence
+            .encoded_predicate_provider
+            .selected_metric_data_materialized,
         encoded_predicate_provider_filter_column_probe_data_decoded: scenario_execution
             .evidence
             .encoded_predicate_provider
@@ -9542,19 +9688,43 @@ fn run_streaming_selective_filter_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
-    let mut metric_sum = 0.0;
-    let stats = scan_fact_vortex_projected(
-        fact_path,
-        &["metric"],
-        Some(selective_filter_expr()),
-        |fields, _chunk_rows| {
-            metric_sum += primitive_field::<f64>(fields, "metric")?
-                .iter()
-                .sum::<f64>();
-            Ok(())
-        },
-    )?;
-    let encoded_predicate_provider = scan_selective_filter_column_batches(fact_path)?;
+    let mut encoded_predicate_provider = scan_selective_filter_column_batches(fact_path)?;
+    let (stats, metric_sum) = if encoded_predicate_provider.selection_vector_intersection_certified
+        && !encoded_predicate_provider
+            .bridge_selection_vectors
+            .is_empty()
+    {
+        let aggregation = scan_selective_filter_metric_by_selection_vectors(
+            fact_path,
+            &encoded_predicate_provider.bridge_selection_vectors,
+        )?;
+        encoded_predicate_provider.selected_metric_aggregation_status =
+            "selection_vector_consumed".to_string();
+        encoded_predicate_provider.selected_metric_selection_vector_consumed = true;
+        encoded_predicate_provider.selected_metric_source =
+            "reader_generated_conjunctive_bridge_selection_vectors".to_string();
+        encoded_predicate_provider.selected_metric_row_count = Some(aggregation.row_count);
+        encoded_predicate_provider.selected_metric_sum = Some(aggregation.metric_sum);
+        encoded_predicate_provider.selected_metric_scan_split_count =
+            aggregation.stats.arrays_read_count;
+        encoded_predicate_provider.selected_metric_data_decoded = true;
+        encoded_predicate_provider.selected_metric_data_materialized = false;
+        (aggregation.stats, aggregation.metric_sum)
+    } else {
+        let mut metric_sum = 0.0;
+        let stats = scan_fact_vortex_projected(
+            fact_path,
+            &["metric"],
+            Some(selective_filter_expr()),
+            |fields, _chunk_rows| {
+                metric_sum += primitive_field::<f64>(fields, "metric")?
+                    .iter()
+                    .sum::<f64>();
+                Ok(())
+            },
+        )?;
+        (stats, metric_sum)
+    };
     let result_json = scalar_result_json(stats.result_row_count, metric_sum);
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -9571,9 +9741,172 @@ fn run_streaming_selective_filter_scenario(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn scan_selective_filter_metric_by_selection_vectors(
+    fact_path: &std::path::Path,
+    selection_vectors: &[SelectionVector],
+) -> Result<SelectionVectorMetricAggregation> {
+    let mut split_index = 0_usize;
+    let mut row_count = 0_u64;
+    let mut metric_sum = 0.0;
+    let mut stats = scan_fact_vortex_projected(
+        fact_path,
+        &["metric"],
+        None,
+        |fields, chunk_rows| {
+            let selection_vector = selection_vectors.get(split_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "selected metric aggregation missing bridge selection vector for metric split {split_index}; fallback execution was not attempted"
+            ))
+        })?;
+            let metrics = primitive_field::<f64>(fields, "metric")?;
+            if metrics.len() != chunk_rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "selected metric aggregation Vortex chunk length mismatch: chunk_rows={chunk_rows}, metric_len={}; fallback execution was not attempted",
+                    metrics.len()
+                )));
+            }
+            let (selected_rows, selected_sum) =
+                selected_metric_sum_for_selection_vector(selection_vector, &metrics, split_index)?;
+            row_count = checked_u64_sum(row_count, selected_rows)?;
+            metric_sum += selected_sum;
+            split_index += 1;
+            Ok(())
+        },
+    )?;
+    if split_index != selection_vectors.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "selected metric aggregation consumed {split_index} metric splits but bridge supplied {} selection vectors; fallback execution was not attempted",
+            selection_vectors.len()
+        )));
+    }
+    stats.result_row_count = row_count;
+    Ok(SelectionVectorMetricAggregation {
+        stats,
+        row_count,
+        metric_sum,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selected_metric_sum_for_selection_vector(
+    selection_vector: &SelectionVector,
+    metrics: &[f64],
+    split_index: usize,
+) -> Result<(u64, f64)> {
+    match selection_vector {
+        SelectionVector::All { row_count } => {
+            let metric_row_count = usize_to_u64(metrics.len())?;
+            if *row_count != metric_row_count {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "selected metric aggregation split {split_index} all-row boundary mismatch: selection_rows={row_count}, metric_rows={metric_row_count}; fallback execution was not attempted"
+                )));
+            }
+            Ok((*row_count, metrics.iter().sum::<f64>()))
+        }
+        SelectionVector::None => Ok((0, 0.0)),
+        SelectionVector::Indices(indices) => {
+            let mut metric_sum = 0.0;
+            for index in indices {
+                let metric_index = usize::try_from(*index).map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "selected metric aggregation split {split_index} selection index {index} cannot fit usize: {error}; fallback execution was not attempted"
+                    ))
+                })?;
+                let Some(metric) = metrics.get(metric_index) else {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "selected metric aggregation split {split_index} selection index {index} is outside metric row count {}; fallback execution was not attempted",
+                        metrics.len()
+                    )));
+                };
+                metric_sum += *metric;
+            }
+            Ok((usize_to_u64(indices.len())?, metric_sum))
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+struct TraditionalSelectiveFilterColumnProbe {
+    source: UniversalInputSource,
+    projected_columns: Vec<String>,
+    reader_splits: Vec<VortexReaderBackedSplitEvidence>,
+    encoded_kernel_inputs: Vec<VortexReaderGeneratedEncodedKernelInput>,
+    reader_chunk_columns_observed: std::collections::BTreeSet<String>,
+    reader_chunk_dtype_summary: std::collections::BTreeSet<String>,
+    reader_chunk_encoding_summary: std::collections::BTreeSet<String>,
+    probe_row_count: u64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn scan_selective_filter_column_batches(
     fact_path: &std::path::Path,
 ) -> Result<TraditionalEncodedPredicateProviderRuntimeEvidence> {
+    let TraditionalSelectiveFilterColumnProbe {
+        source,
+        projected_columns,
+        reader_splits,
+        encoded_kernel_inputs,
+        reader_chunk_columns_observed,
+        reader_chunk_dtype_summary,
+        reader_chunk_encoding_summary,
+        probe_row_count,
+    } = collect_selective_filter_column_probe(fact_path)?;
+    let bridge = execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(
+        &selective_filter_encoded_predicates()?,
+        &source,
+        &reader_splits,
+        &encoded_kernel_inputs,
+    )?;
+    let filter_columns_observed = reader_chunk_columns_observed.contains("flag")
+        && reader_chunk_columns_observed.contains("value");
+    let probe_status = if bridge.runtime_execution_allowed {
+        "admitted_filter_column_kernel_inputs"
+    } else if reader_splits.is_empty() {
+        "requested_no_filter_column_reader_chunks_emitted"
+    } else if filter_columns_observed {
+        "observed_filter_column_reader_chunks_blocked_kernel_input_lowering"
+    } else {
+        "blocked_filter_only_columns_not_observed"
+    };
+    Ok(TraditionalEncodedPredicateProviderRuntimeEvidence {
+        requested: true,
+        requested_columns: projected_columns,
+        probe_status: probe_status.to_string(),
+        reader_split_count: reader_splits.len(),
+        probe_row_count,
+        reader_chunk_columns_observed: reader_chunk_columns_observed.into_iter().collect(),
+        reader_chunk_dtype_summary: reader_chunk_dtype_summary.into_iter().collect(),
+        reader_chunk_encoding_summary: reader_chunk_encoding_summary.into_iter().collect(),
+        encoded_kernel_input_count: encoded_kernel_inputs.len(),
+        bridge_status: bridge.status.as_str().to_string(),
+        bridge_report_id: bridge.report_id,
+        bridge_intersection_count: bridge.intersection_count,
+        bridge_selected_row_count: bridge.selected_row_count,
+        bridge_selection_vectors: bridge.selected_selection_vectors,
+        filter_column_batches_consumed: bridge.filter_column_batches_consumed,
+        selection_vector_intersection_certified: bridge.selection_vector_intersection_certified,
+        selected_metric_aggregation_status: selected_metric_initial_status(
+            bridge.runtime_execution_allowed,
+        ),
+        selected_metric_selection_vector_consumed: false,
+        selected_metric_source: "none".to_string(),
+        selected_metric_row_count: None,
+        selected_metric_sum: None,
+        selected_metric_scan_split_count: 0,
+        selected_metric_data_decoded: false,
+        selected_metric_data_materialized: false,
+        data_decoded: bridge.data_decoded,
+        data_materialized: bridge.data_materialized,
+        row_read: bridge.row_read,
+        fallback_attempted: bridge.fallback_attempted,
+        external_engine_invoked: bridge.external_engine_invoked,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn collect_selective_filter_column_probe(
+    fact_path: &std::path::Path,
+) -> Result<TraditionalSelectiveFilterColumnProbe> {
     use vortex::VortexSessionDefault as _;
     use vortex::array::expr::{root, select};
     use vortex::file::OpenOptionsSessionExt as _;
@@ -9632,45 +9965,25 @@ fn scan_selective_filter_column_batches(
         probe_row_count = checked_u64_sum(probe_row_count, usize_to_u64(row_count)?)?;
     }
 
-    let bridge = execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(
-        &selective_filter_encoded_predicates()?,
-        &source,
-        &reader_splits,
-        &encoded_kernel_inputs,
-    )?;
-    let filter_columns_observed = reader_chunk_columns_observed.contains("flag")
-        && reader_chunk_columns_observed.contains("value");
-    let probe_status = if bridge.runtime_execution_allowed {
-        "admitted_filter_column_kernel_inputs"
-    } else if reader_splits.is_empty() {
-        "requested_no_filter_column_reader_chunks_emitted"
-    } else if filter_columns_observed {
-        "observed_filter_column_reader_chunks_blocked_kernel_input_lowering"
-    } else {
-        "blocked_filter_only_columns_not_observed"
-    };
-    Ok(TraditionalEncodedPredicateProviderRuntimeEvidence {
-        requested: true,
-        requested_columns: projected_columns,
-        probe_status: probe_status.to_string(),
-        reader_split_count: reader_splits.len(),
+    Ok(TraditionalSelectiveFilterColumnProbe {
+        source,
+        projected_columns,
+        reader_splits,
+        encoded_kernel_inputs,
+        reader_chunk_columns_observed,
+        reader_chunk_dtype_summary,
+        reader_chunk_encoding_summary,
         probe_row_count,
-        reader_chunk_columns_observed: reader_chunk_columns_observed.into_iter().collect(),
-        reader_chunk_dtype_summary: reader_chunk_dtype_summary.into_iter().collect(),
-        reader_chunk_encoding_summary: reader_chunk_encoding_summary.into_iter().collect(),
-        encoded_kernel_input_count: encoded_kernel_inputs.len(),
-        bridge_status: bridge.status.as_str().to_string(),
-        bridge_report_id: bridge.report_id,
-        bridge_intersection_count: bridge.intersection_count,
-        bridge_selected_row_count: bridge.selected_row_count,
-        filter_column_batches_consumed: bridge.filter_column_batches_consumed,
-        selection_vector_intersection_certified: bridge.selection_vector_intersection_certified,
-        data_decoded: bridge.data_decoded,
-        data_materialized: bridge.data_materialized,
-        row_read: bridge.row_read,
-        fallback_attempted: bridge.fallback_attempted,
-        external_engine_invoked: bridge.external_engine_invoked,
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selected_metric_initial_status(runtime_execution_allowed: bool) -> String {
+    if runtime_execution_allowed {
+        "pending_selection_vector_metric_aggregation".to_string()
+    } else {
+        "not_attempted_bridge_not_admitted".to_string()
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -10978,6 +11291,42 @@ mod tests {
         (fact_csv, dim_csv)
     }
 
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn write_empty_sequence_encoded_selective_filter_csv_inputs(
+        root: &std::path::Path,
+        rows: usize,
+    ) -> (PathBuf, PathBuf) {
+        use std::fmt::Write as _;
+
+        std::fs::create_dir_all(root).unwrap();
+        let fact_csv = root.join("fact.csv");
+        let dim_csv = root.join("dim.csv");
+        let mut fact = String::from(
+            "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric,dirty_flag\n",
+        );
+        for index in 0..rows {
+            let id = index + 1;
+            let group_key = index % 4;
+            let dim_key = index % 16;
+            let value = index;
+            let metric_whole = index;
+            let category = char::from(b'A' + u8::try_from(index % 4).unwrap());
+            let event_date = format!("2024-{:02}-{:02}", 1 + (index % 12), 1 + (index % 28));
+            writeln!(
+                &mut fact,
+                "{id},{group_key},{dim_key},{value},{metric_whole}.5,1,{category},{event_date},,{event_date}T00:00:00Z,{value},Y"
+            )
+            .unwrap();
+        }
+        let mut dim = String::from("dim_key,dim_label,weight\n");
+        for dim_key in 0..16 {
+            writeln!(&mut dim, "{dim_key},dim-{dim_key},1.0").unwrap();
+        }
+        std::fs::write(&fact_csv, fact).unwrap();
+        std::fs::write(&dim_csv, dim).unwrap();
+        (fact_csv, dim_csv)
+    }
+
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn fact_csv_reader_accepts_generated_profile_trailing_columns() {
@@ -12166,12 +12515,12 @@ mod tests {
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_status",
-            "reader_generated_filter_column_batches_admitted",
+            "reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_classification",
-            "reader_generated_filter_column_kernel_inputs_admitted",
+            "selection_vector_backed_metric_aggregation_consumed",
         );
         assert_field_eq(
             &fields,
@@ -12200,6 +12549,46 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "encoded_predicate_provider_selected_metric_aggregation_status",
+            "selection_vector_consumed",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_selection_vector_consumed",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_source",
+            "reader_generated_conjunctive_bridge_selection_vectors",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_row_count",
+            "31",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_sum",
+            "12601.5",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_scan_split_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_data_decoded",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_data_materialized",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
             "encoded_predicate_provider_kernel_input_lowering_status",
             "reader_generated_encoded_kernel_inputs_admitted",
         );
@@ -12212,6 +12601,80 @@ mod tests {
             &fields,
             "encoded_predicate_provider_encoded_native_claim_allowed",
             "false",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_external_engine_invoked",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn selective_filter_selection_vector_metric_aggregation_handles_empty_selection() {
+        let root = traditional_analytics_test_root("csv-selective-empty-selection-vector");
+        let (fact_csv, dim_csv) =
+            write_empty_sequence_encoded_selective_filter_csv_inputs(&root, 512);
+        let report = run_traditional_analytics_benchmark(TraditionalAnalyticsRequest::new(
+            TraditionalAnalyticsScenario::SelectiveFilter,
+            fact_csv,
+            dim_csv,
+            root.join("workspace"),
+        ))
+        .unwrap();
+        assert_eq!(report.result_json, "{\"row_count\":0,\"metric_sum\":0.0}");
+
+        let prepared_report = run_traditional_analytics_vortex_benchmark(
+            TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                report.fact_vortex_path.clone(),
+                report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+        assert_eq!(
+            prepared_report.result_json,
+            "{\"row_count\":0,\"metric_sum\":0.0}"
+        );
+        let fields = field_map(prepared_report.fields());
+
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_conjunctive_bridge_status",
+            "intersected_selection_vectors",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_conjunctive_bridge_selected_row_count",
+            "0",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_aggregation_status",
+            "selection_vector_consumed",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_selection_vector_consumed",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_row_count",
+            "0",
+        );
+        assert_field_eq(
+            &fields,
+            "encoded_predicate_provider_selected_metric_sum",
+            "0.0",
         );
         assert_field_eq(
             &fields,

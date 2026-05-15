@@ -16,6 +16,70 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0026-V selective-filter selection-vector-backed metric aggregation
+  - Primary files:
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `benchmarks/traditional_analytics/README.md`
+  - Scope: close GAR-0026-V by retaining reader-generated bridge selection vectors and consuming
+    them for the scoped prepared/native `selective filter` metric `row_count` and `metric_sum`.
+  - Checklist:
+    - [x] Expose split-local selected selection vectors from the reader-generated conjunctive
+          bridge report only when bridge execution is admitted.
+    - [x] Consume those bridge selection vectors in the prepared/native `selective filter` metric
+          aggregation path.
+    - [x] Emit `encoded_predicate_provider_selected_metric_*` evidence fields for selection-vector
+          consumption, selected row count, selected metric sum, split count, decode, and
+          materialization boundaries.
+    - [x] Cover the empty admitted selection-vector path in focused tests.
+    - [x] Preserve `operator_execution_class=residual_native`,
+          `encoded_predicate_provider_encoded_native_claim_allowed=false`,
+          `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Boundary:
+    - This completes only scoped selection-vector-backed metric aggregation for the local
+      prepared/native benchmark `selective filter` row. It does not add a broad aggregation kernel,
+      SQL/DataFrame runtime, object-store source runtime, nullable/nested/sparse encoded predicate
+      generalization, SIMD dispatch, Vortex query-engine integration, performance superiority
+      claims, or production compressed-execution claims.
+  - Evidence:
+    - Prepared/native `selective filter` rows can report
+      `encoded_predicate_provider_status=reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted`.
+    - Selected metric fields include
+      `encoded_predicate_provider_selected_metric_aggregation_status=selection_vector_consumed`,
+      `encoded_predicate_provider_selected_metric_selection_vector_consumed=true`,
+      `encoded_predicate_provider_selected_metric_source=reader_generated_conjunctive_bridge_selection_vectors`,
+      selected row count, selected metric sum, split count, and materialization/decode status.
+    - Focused fixtures prove non-empty and empty admitted selections while retaining
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+  - Vortex-first provider check:
+    - Subject area: reader-generated filter-column predicate provider and selection-vector-backed
+      metric aggregation for local Vortex benchmark scans.
+    - Upstream/provider concepts checked: Vortex scan/projection/filter chunks and ShardLoom
+      selection vectors from the existing reader-generated bridge.
+    - Decision: use and wrap the scoped Vortex scan/chunk provider evidence, then execute the metric
+      selection with ShardLoom-owned selection-vector aggregation. Do not invoke Vortex
+      query-engine integrations or external engines.
+    - Materialization/decode boundary: filter-column bridge remains no-decode/no-materialization;
+      selected metric aggregation scans the metric column and decodes metric values for the scoped
+      residual-native aggregation, without row materialization.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026v-clippy'; cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026v-selective'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark selective_filter --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026v-source'; cargo test -p shardloom-vortex reader_generated_conjunctive_filter --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-gar0026v-traditional'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata hard_release_readiness_gate_docs_are_present`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 512 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --no-markdown --output target\codex-gar0026v-selection-vector-metric-smoke.json --regenerate`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `git diff --check`
 - [x] Session label: GAR-0038-A facade compatibility and legacy boundary matrix
   - Primary files:
     - `shardloom-exec/src/lib.rs`

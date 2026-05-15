@@ -268,30 +268,29 @@ residual executor, claim gate, and `fallback_attempted=false` /
 residual-native work as encoded-native or claim-grade performance evidence.
 For `selective filter`, prepared/native rows also emit `encoded_predicate_provider_*` fields. When
 the scoped filter-column probe observes the admitted local encodings, those fields now report
-`encoded_predicate_provider_status=reader_generated_filter_column_batches_admitted`,
+`encoded_predicate_provider_status=reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted`,
 `encoded_predicate_provider_filter_only_columns=flag,value`,
 `encoded_predicate_provider_projected_output_columns=metric`, and
-`encoded_predicate_provider_encoded_native_claim_allowed=false`. The GAR-0026-U provider fields now
-separate the filtered metric output scan from a filter-column probe scan. Non-empty filtered scans
-still report projected output chunks, for example
-`encoded_predicate_provider_reader_chunk_columns_observed=metric`,
-`encoded_predicate_provider_reader_chunk_encoding_summary=metric:vortex.filter`, and
-`encoded_predicate_provider_projected_output_batch_status=observed_projected_metric_vortex_filter_chunk`.
-Zero-result rows instead report `encoded_predicate_provider_reader_chunk_columns_observed=none` and
-`encoded_predicate_provider_projected_output_batch_status=blocked_no_reader_chunks_emitted_for_zero_result`.
-Both paths also run a scoped filter-column probe that reports
+`encoded_predicate_provider_encoded_native_claim_allowed=false`. The GAR-0026-U/GAR-0026-V provider
+fields separate the admitted filter-column probe from the selected metric aggregation. The scoped
+filter-column probe reports
 `encoded_predicate_provider_filter_column_probe_requested=true`,
 `encoded_predicate_provider_filter_column_probe_reader_chunk_columns_observed=flag,value`,
 `encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary=flag:fastlanes.bitpacked,value:vortex.sequence`,
 and `encoded_predicate_provider_filter_column_probe_data_decoded=false`.
 The exported reader-generated conjunctive bridge now consumes those admitted kernel inputs with
 `encoded_predicate_provider_conjunctive_bridge_status=intersected_selection_vectors`,
-`encoded_predicate_provider_reader_backed_bridge_status=bridge_consumed_reader_generated_filter_column_kernel_inputs`,
+`encoded_predicate_provider_reader_backed_bridge_status=bridge_consumed_reader_generated_filter_column_kernel_inputs_and_metric_selection_vector`,
 `encoded_predicate_provider_kernel_input_lowering_status=reader_generated_encoded_kernel_inputs_admitted`,
-and `encoded_predicate_provider_kernel_input_count=2`. This records real filter-column
-selection-vector evidence, but it still does not permit an encoded-native or performance claim
-because selected metric aggregation remains residual-native until it consumes the admitted selection
-vector end to end.
+and `encoded_predicate_provider_kernel_input_count=2`. The selected metric aggregation then reports
+`encoded_predicate_provider_selected_metric_aggregation_status=selection_vector_consumed`,
+`encoded_predicate_provider_selected_metric_selection_vector_consumed=true`, selected row count,
+selected metric sum, scan split count, and decode/materialization boundary fields. Admitted empty
+selections report a consumed selection vector with selected row count `0`. Blocked encodings still
+use deterministic residual/no-fallback paths. This records real filter-column selection-vector and
+scoped selected-metric evidence, but it still does not permit an encoded-native or performance claim
+because the metric aggregation remains residual-native and not a generalized encoded aggregation
+kernel.
 `filter + projection + limit` now reports a scoped residual-native fused scan path for prepared/native
 rows when filter/projection pushdown runs without full-table materialization. `group by aggregation`
 now reports a scoped residual-native grouped scan path when projection pushdown over

@@ -262,59 +262,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
-
-- [ ] GAR-0026-V selective-filter selection-vector-backed metric aggregation
-  - Source: RFC 0021; RFC 0026; RFC 0031; GAR-0026-S; GAR-0026-T; GAR-0026-U; Vortex-first
-    provider check; source-backed scan evidence; compute-engine flow reference; benchmark suite
-    catalog.
-  - Current state:
-    - GAR-0026-U lowers observed `flag:fastlanes.bitpacked` and `value:vortex.sequence`
-      filter-column chunks into admitted ShardLoom encoded kernel inputs.
-    - Prepared/native `selective filter` rows emit
-      `encoded_predicate_provider_kernel_input_count=2`,
-      `encoded_predicate_provider_conjunctive_bridge_status=intersected_selection_vectors`, and
-      `encoded_predicate_provider_selection_vector_intersection_status=selection_vectors_intersected`.
-    - The row still reports `encoded_predicate_provider_operator_execution_class=residual_native`
-      and `encoded_predicate_provider_encoded_native_claim_allowed=false` because selected metric
-      aggregation does not yet consume the admitted selection vector end to end.
-  - Next slice outcome: consume the admitted conjunctive selection vector to drive scoped metric
-    aggregation for the `selective filter` scenario, so row-count and `metric_sum` evidence are
-    produced from an explicit selection-vector-backed metric path rather than a separate filtered
-    metric-output scan.
-  - User-visible surface: `traditional-analytics-vortex-run`, prepared/native benchmark rows,
-    `encoded_predicate_provider_*` evidence fields, focused Rust tests, benchmark smoke output,
-    benchmark docs, and compute-flow docs.
-  - Implementation scope:
-    - `shardloom-vortex/src/traditional_analytics.rs` prepared/native `selective filter` path.
-    - `shardloom-vortex/src/local_primitives.rs` or a narrow helper only if selection-vector-backed
-      metric column access needs shared evidence plumbing.
-    - Focused tests and benchmark smoke for `selective filter`.
-  - Evidence required: selected metric column scan refs; selection-vector consumption refs;
-    row-count boundary refs; correctness digest refs; execution certificate refs; Native I/O refs;
-    materialization/decode refs; no-fallback and no-external-engine refs; benchmark row refs only as
-    smoke evidence, not performance claims.
-  - Acceptance:
-    - Prepared/native `selective filter` emits a field showing selected metric aggregation consumed
-      the admitted conjunctive bridge selection vector.
-    - Result `row_count` and `metric_sum` match existing decoded/reference behavior for focused
-      fixtures.
-    - `fallback_attempted=false` and `external_engine_invoked=false` remain explicit.
-    - Unsupported or changed filter-column encodings remain deterministic blocked diagnostics.
-    - Keep `operator_execution_class=residual_native` and encoded-native claims false unless metric
-      aggregation itself has encoded-native/certificate-backed evidence.
-  - Verification:
-    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark selective_filter --lib`
-    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics --lib`
-    - Focused prepared/native benchmark smoke for `selective filter`.
-    - Default GAR verification before merge.
-  - Non-goals: no broad aggregation kernel, no SQL/DataFrame runtime, no object-store source
-    runtime, no SIMD dispatch, no Vortex query-engine integration, no nullable/nested/sparse encoded
-    predicate generalization, and no performance/superiority claim.
-  - Fallback/claim boundary: claim only scoped selection-vector-backed metric aggregation for the
-    prepared/native local benchmark `selective filter` row. Keep `claim_gate_status=not_claim_grade`
-    until workload-scoped correctness and benchmark claim gates pass.
-  - Dependencies/blockers: stable admitted filter-column kernel inputs, bridge selection-vector
-    evidence, selected metric scan evidence, and certificate/no-fallback fields.
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
 
 - [ ] GAR-0004-A CDC and manifest transaction planning gate

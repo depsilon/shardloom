@@ -557,8 +557,16 @@ plan before coding.
   `encoded_predicate_provider_selection_vector_intersection_status=selection_vectors_intersected`
   while preserving `encoded_predicate_provider_operator_execution_class=residual_native`,
   `encoded_predicate_provider_encoded_native_claim_allowed=false`, `fallback_attempted=false`, and
-  `external_engine_invoked=false` until selected metric aggregation consumes the admitted selection
-  vector end to end.
+  `external_engine_invoked=false`. This was the prerequisite for scoped selected-metric
+  aggregation, not a broad encoded-native predicate claim.
+- [x] GAR-0026-V consumes the admitted conjunctive bridge selection vector for the scoped
+  prepared/native `selective filter` metric aggregation. Rows can now report
+  `encoded_predicate_provider_status=reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted`,
+  `encoded_predicate_provider_selected_metric_aggregation_status=selection_vector_consumed`,
+  selected row count, selected metric sum, scan split count, and decode/materialization boundary
+  fields while preserving `encoded_predicate_provider_operator_execution_class=residual_native`,
+  `encoded_predicate_provider_encoded_native_claim_allowed=false`, `fallback_attempted=false`, and
+  `external_engine_invoked=false`.
 - [x] Scoped prepared/native `partition pruning` uses Vortex scan projection/filter pushdown over
   `event_date`/`metric` with a local date-range predicate, then ShardLoom-native residual scalar
   aggregation without full fact-table materialization while preserving

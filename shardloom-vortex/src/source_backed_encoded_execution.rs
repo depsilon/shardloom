@@ -1129,6 +1129,7 @@ pub struct VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport {
     pub encoded_kernel_input_count: usize,
     pub intersection_count: usize,
     pub selected_row_count: Option<u64>,
+    pub selected_selection_vectors: Vec<SelectionVector>,
     pub reader_generated_prepared_batches: bool,
     pub filter_column_batches_consumed: bool,
     pub selection_vector_intersection_certified: bool,
@@ -1150,14 +1151,29 @@ pub struct VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+struct VortexReaderGeneratedConjunctiveSelectionOutcome {
+    intersection_count: usize,
+    selected_row_count: Option<u64>,
+    selected_selection_vectors: Vec<SelectionVector>,
+}
+
+impl VortexReaderGeneratedConjunctiveSelectionOutcome {
+    const fn empty() -> Self {
+        Self {
+            intersection_count: 0,
+            selected_row_count: None,
+            selected_selection_vectors: Vec::new(),
+        }
+    }
+}
+
 impl VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport {
     fn from_parts(
         source: &UniversalInputSource,
         lowering: &VortexReaderGeneratedPreparedBatchReport,
         status: VortexReaderGeneratedConjunctiveSelectionVectorStatus,
         predicate_count: usize,
-        intersection_count: usize,
-        selected_row_count: Option<u64>,
+        selection: VortexReaderGeneratedConjunctiveSelectionOutcome,
         diagnostics: Vec<Diagnostic>,
     ) -> Self {
         let has_error_diagnostics = diagnostics.iter().any(|diagnostic| {
@@ -1191,8 +1207,13 @@ impl VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport {
             predicate_count,
             reader_split_count: lowering.reader_split_count,
             encoded_kernel_input_count: lowering.encoded_kernel_input_count,
-            intersection_count,
-            selected_row_count,
+            intersection_count: selection.intersection_count,
+            selected_row_count: selection.selected_row_count,
+            selected_selection_vectors: if runtime_execution_allowed {
+                selection.selected_selection_vectors
+            } else {
+                Vec::new()
+            },
             reader_generated_prepared_batches: lowering.reader_generated_prepared_batches,
             filter_column_batches_consumed: runtime_execution_allowed,
             selection_vector_intersection_certified: runtime_execution_allowed,
@@ -1276,8 +1297,7 @@ pub fn execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_in
                 &lowering,
                 VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicate,
                 0,
-                0,
-                None,
+                VortexReaderGeneratedConjunctiveSelectionOutcome::empty(),
                 diagnostics,
             ),
         );
@@ -1289,8 +1309,7 @@ pub fn execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_in
                 &lowering,
                 VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedPreparedBatchValidation,
                 predicates.len(),
-                0,
-                None,
+                VortexReaderGeneratedConjunctiveSelectionOutcome::empty(),
                 diagnostics,
             ),
         );
@@ -1300,6 +1319,7 @@ pub fn execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_in
         VortexReaderGeneratedConjunctiveSelectionVectorStatus::IntersectedSelectionVectors;
     let mut intersection_count = 0_usize;
     let mut selected_row_count = 0_u64;
+    let mut selected_selection_vectors = Vec::new();
     for split in reader_splits {
         let mut split_vectors = Vec::<SelectionVector>::new();
         for predicate in predicates {
@@ -1392,6 +1412,7 @@ pub fn execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_in
                             "reader-generated conjunctive selected row count overflow".to_string(),
                         )
                     })?;
+                selected_selection_vectors.push(selection_vector);
             }
             Err(reason) => {
                 diagnostics.push(Diagnostic::unsupported(
@@ -1412,6 +1433,11 @@ pub fn execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_in
         == VortexReaderGeneratedConjunctiveSelectionVectorStatus::IntersectedSelectionVectors
         && intersection_count == reader_splits.len();
     let selected_row_count = bridge_complete.then_some(selected_row_count);
+    let selected_selection_vectors = if bridge_complete {
+        selected_selection_vectors
+    } else {
+        Vec::new()
+    };
     let final_status = if bridge_complete {
         status
     } else if status
@@ -1427,8 +1453,11 @@ pub fn execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_in
             &lowering,
             final_status,
             predicates.len(),
-            intersection_count,
-            selected_row_count,
+            VortexReaderGeneratedConjunctiveSelectionOutcome {
+                intersection_count,
+                selected_row_count,
+                selected_selection_vectors,
+            },
             diagnostics,
         ),
     )
@@ -3897,6 +3926,15 @@ mod tests {
         assert_eq!(report.encoded_kernel_input_count, 4);
         assert_eq!(report.intersection_count, 2);
         assert_eq!(report.selected_row_count, Some(5));
+        assert_eq!(report.selected_selection_vectors.len(), 2);
+        assert_eq!(
+            report.selected_selection_vectors[0],
+            SelectionVector::from_indices(vec![2, 3])
+        );
+        assert_eq!(
+            report.selected_selection_vectors[1],
+            SelectionVector::all(3)
+        );
         assert!(report.runtime_execution_allowed);
         assert!(report.reader_generated_prepared_batches);
         assert!(report.filter_column_batches_consumed);
