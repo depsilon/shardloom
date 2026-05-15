@@ -647,10 +647,31 @@ fn append_adaptive_optimizer_memory_identity_fields(
     push_field(fields, "mode", "optimizer_adaptive_memory_plan");
     push_field(fields, "execution", "not_performed");
     push_field(fields, "plan_only", "true");
+    push_field(fields, "gar_id", "GAR-0016-A");
+    push_field(fields, "support_status", report.support_status());
+    push_field(fields, "claim_gate_status", report.claim_gate_status());
     push_field(fields, "schema_version", report.schema_version);
     push_field(fields, "report_id", &report.report_id);
     push_field(fields, "adaptive_optimizer_status", report.status.as_str());
     push_field(fields, "optimizer_phase", report.optimizer_phase.as_str());
+    push_field(
+        fields,
+        "adaptive_runtime_gate_surface_order",
+        report
+            .adaptive_runtime_gate_surface_order()
+            .join(",")
+            .as_str(),
+    );
+    push_field(
+        fields,
+        "runtime_gate_prerequisite_order",
+        report.runtime_gate_prerequisite_order().join(",").as_str(),
+    );
+    push_count_field(
+        fields,
+        "runtime_gate_prerequisite_count",
+        report.runtime_gate_prerequisite_count(),
+    );
     push_count_field(fields, "rule_decision_count", report.rule_decision_count());
     push_count_field(fields, "deferred_rule_count", report.deferred_rule_count());
     push_count_field(
@@ -720,6 +741,36 @@ fn append_adaptive_optimizer_memory_gate_fields(
         "runtime_fact_required_before_adaptation",
         report.runtime_fact_required_before_adaptation,
     );
+    push_bool_field(
+        fields,
+        "adaptive_parallelism_required",
+        report.adaptive_parallelism_required,
+    );
+    push_bool_field(
+        fields,
+        "compaction_write_boundary_required",
+        report.compaction_write_boundary_required,
+    );
+    push_field(
+        fields,
+        "runtime_filter_execution_status",
+        "report_only_blocked",
+    );
+    push_field(
+        fields,
+        "skew_handling_execution_status",
+        "report_only_blocked",
+    );
+    push_field(
+        fields,
+        "adaptive_parallelism_execution_status",
+        "report_only_blocked",
+    );
+    push_field(
+        fields,
+        "compaction_write_execution_status",
+        "report_only_blocked",
+    );
 }
 
 fn append_adaptive_optimizer_memory_side_effect_fields(
@@ -737,6 +788,21 @@ fn append_adaptive_optimizer_memory_side_effect_fields(
         fields,
         "runtime_filter_applied",
         report.runtime_filter_applied,
+    );
+    push_bool_field(
+        fields,
+        "adaptive_parallelism_applied",
+        report.adaptive_parallelism_applied,
+    );
+    push_bool_field(
+        fields,
+        "compaction_write_allowed",
+        report.compaction_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        "compaction_execution_allowed",
+        report.compaction_execution_allowed,
     );
     push_bool_field(fields, "plan_rewritten", report.plan_rewritten);
     push_bool_field(fields, "data_read", report.data_read);

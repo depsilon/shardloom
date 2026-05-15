@@ -284,7 +284,7 @@ Status categories:
 | RFC 0013 | Partially implemented / planned | CG-8, GAR-0013-A, 13B+, Ongoing | Streaming, zero-copy/zero-decode, bounded backpressure, and capability diagnostics exist for scoped/report-only surfaces; broad streaming runtime, object-store streaming reads, and broker-backed live/hybrid runtime remain gated. |
 | RFC 0014 | Partially implemented | 10B, 11A, 11B, 13B, 14A, CG-14, GAR-0014-A | Memory/spill/OOM policies are partially scaffolded; CG-14.1 adaptive memory boundary evidence, runtime memory reservation admission evidence, operator memory/spill declaration gate evidence, and the CG-14/GAR-0014-A memory runtime hardening gate exist with explicit evidence refs and path-safety refs. Allocator runtime, resource-derived runtime chunk sizing, adaptive parallelism runtime, reservation release runtime, pressure reaction runtime, native spill read/write, spill cleanup execution, and large-workload claim publication remain planned and evidence-gated. |
 | RFC 0015 | Partially implemented | Ongoing | Correctness-first posture present; deeper differential/fuzz coverage continues over time. |
-| RFC 0016 | Partially implemented | 13B, 14B, CG-14, Ongoing | CG-9.6 layout-health planning, CG-9.7 compaction planning, and CG-14.1 adaptive optimizer/memory decision evidence exist; runtime adaptation, runtime filter application, and advanced optimizer behavior remain later-phase work. |
+| RFC 0016 | Partially implemented | 13B, 14B, CG-14, GAR-0016-A, Ongoing | CG-9.6 layout-health planning, CG-9.7 compaction planning, CG-14.1 adaptive optimizer/memory decision evidence, and GAR-0016-A adaptive runtime gate fields exist. Runtime filters, dynamic pruning, skew handling, adaptive parallelism, and compaction writes now have deterministic report-only blockers and prerequisite evidence order; runtime adaptation, runtime filter application, compaction-write execution, and advanced optimizer behavior remain later-phase work. |
 | RFC 0017 | Planned | 11A, 11B, 12B, 14A, 14B | Recovery/cancellation/commit robustness is a remaining implementation focus. |
 | RFC 0018 | Partially implemented | 10D, 14A, 14B, Ongoing | Observability foundations exist; richer tracing/profiling is still phased. |
 | RFC 0019 | Partially implemented | 11B, 13A, Ongoing | Security/governance guardrails exist; advanced phase-specific controls remain planned. |
@@ -2926,6 +2926,11 @@ No fallback execution.
 - `optimizer-adaptive-memory-plan` exposes deterministic JSON/text fields for rule counts,
   conservative runtime-filter counts, adaptive decision counts, skew signal representation,
   memory/spill proof requirements, side-effect boundaries, and no-fallback status.
+- GAR-0016-A extends that CLI/report surface with stable adaptive-runtime gate fields:
+  `adaptive_runtime_gate_surface_order`, `runtime_gate_prerequisite_order`,
+  `support_status=report_only`, `claim_gate_status=not_claim_grade`, and explicit
+  report-only blockers for runtime filters, skew handling, adaptive parallelism, and
+  compaction writes.
 - Primary RFC linkage: RFC 0016 and RFC 0014.
 - Related RFCs: RFC 0012, RFC 0013, RFC 0015, RFC 0021, RFC 0025, RFC 0027, RFC 0029, RFC 0031, and
   RFC 0032.

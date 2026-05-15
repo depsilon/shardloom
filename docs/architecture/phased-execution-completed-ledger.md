@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0016-A adaptive runtime gate consolidation
+  - Primary files:
+    - `shardloom-plan/src/optimizer.rs`
+    - `shardloom-cli/src/optimizer_planning.rs`
+    - `shardloom-cli/tests/adaptive_optimizer_memory_snapshots.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close GAR-0016-A by consolidating the existing adaptive optimizer/memory report into an
+    explicit report-only gate for runtime filters, dynamic pruning, skew signals, adaptive
+    parallelism, and compaction-write blockers.
+  - Checklist:
+    - [x] Add stable `GAR-0016-A`, `support_status=report_only`, and
+          `claim_gate_status=not_claim_grade` fields to `optimizer-adaptive-memory-plan`.
+    - [x] Expose the adaptive runtime gate surface order and prerequisite order covering
+          conservative runtime-filter proof, runtime facts, bounded memory, spill policy, skew
+          measurement, adaptive parallelism policy, compaction plan evidence, write intent,
+          execution certificates, Native I/O certificates, and no-fallback evidence.
+    - [x] Add explicit blocked execution statuses for runtime filters, skew handling, adaptive
+          parallelism, and compaction writes.
+    - [x] Preserve side-effect-free behavior: no optimizer execution, no runtime adaptation, no
+          runtime-filter build/apply, no plan rewrite, no data read/decode/materialization, no
+          object-store/write/spill I/O, no external engine execution, and no fallback.
+  - Boundary:
+    - This completes the report-only GAR-0016-A gate. It does not implement adaptive runtime,
+      runtime filters, dynamic pruning execution, skew-handling execution, adaptive parallelism,
+      compaction writes, optimizer plan rewrites, object-store I/O, performance claims, production
+      claims, external engine invocation, or fallback execution.
+  - Evidence:
+    - CLI evidence: `optimizer-adaptive-memory-plan --format json` exposes
+      `adaptive_runtime_gate_surface_order`, `runtime_gate_prerequisite_order`,
+      `runtime_filter_execution_status=report_only_blocked`,
+      `skew_handling_execution_status=report_only_blocked`,
+      `adaptive_parallelism_execution_status=report_only_blocked`,
+      `compaction_write_execution_status=report_only_blocked`,
+      `fallback_execution_allowed=false`, and `fallback_attempted=false`.
+    - Rust evidence: `AdaptiveOptimizerMemoryReport` keeps all execution and side-effect booleans
+      false while naming the required evidence before any future runtime promotion.
+    - Snapshot evidence: `shardloom-cli/tests/adaptive_optimizer_memory_snapshots.rs` locks the
+      GAR id, support/claim status, surface/prerequisite order, blockers, and no-fallback fields.
+  - Vortex-first provider check:
+    - Subject area: optimizer/adaptive runtime admission.
+    - Upstream/provider concepts checked: runtime filters, dynamic pruning, adaptive parallelism,
+      skew handling, and compaction writes remain ShardLoom admission/evidence surfaces until
+      supported provider/runtime proof exists.
+    - Decision: keep the gate report-only and deterministic instead of executing or claiming
+      adaptive runtime behavior.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-plan adaptive_optimizer_memory --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test adaptive_optimizer_memory_snapshots`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata hard_release_readiness_gate_docs_are_present`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-plan --lib -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - `git diff --check`
 - [x] Session label: GAR-0007-A/B compatibility output writer matrix and local fixture-smoke evidence
   - Primary files:
     - `shardloom-core/src/translation.rs`
