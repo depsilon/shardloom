@@ -249,6 +249,11 @@ impl MaterializationPolicyReport {
     }
 
     #[must_use]
+    pub fn all_rows_external_engine_free(&self) -> bool {
+        !self.external_engine_invoked && self.rows.iter().all(|row| !row.external_engine_invoked)
+    }
+
+    #[must_use]
     pub fn all_rows_classified(&self) -> bool {
         self.rows.iter().all(MaterializationPolicyRow::classified)
     }
@@ -304,6 +309,7 @@ mod tests {
         );
         assert!(report.all_rows_classified());
         assert!(report.all_rows_fallback_free());
+        assert!(report.all_rows_external_engine_free());
         assert!(!report.materialized_temporary_encoded_native_claim_allowed());
         assert!(
             report

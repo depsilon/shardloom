@@ -664,7 +664,8 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(completed_ledger.contains("GAR-0014-A spill/OOM enforcement promotion gate closeout"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 32);
+    let planned_gar_slices = planned_gar_slices(&plan);
+    assert!(planned_gar_slices.len() >= 32);
     for required_field in [
         "Current state:",
         "Next slice outcome:",
@@ -674,12 +675,21 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         "Acceptance:",
         "Verification:",
         "Non-goals:",
-        "Fallback/claim boundary:",
         "Dependencies/blockers:",
     ] {
+        for slice in &planned_gar_slices {
+            let title = slice.lines().next().unwrap_or("unknown GAR slice");
+            assert!(
+                slice.contains(required_field),
+                "{title} missing detailed GAR field {required_field}"
+            );
+        }
+    }
+    for slice in &planned_gar_slices {
+        let title = slice.lines().next().unwrap_or("unknown GAR slice");
         assert!(
-            plan.contains(required_field),
-            "missing detailed GAR field {required_field}"
+            slice.contains("Claim boundary:") || slice.contains("Fallback/claim boundary:"),
+            "{title} missing claim boundary detail"
         );
     }
     assert!(!plan.contains("Priority 7.5 - compute-engine flow overhaul"));
@@ -725,6 +735,24 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
 fn read_workspace_file(relative: &str) -> String {
     fs::read_to_string(workspace_root().join(relative))
         .unwrap_or_else(|error| panic!("failed to read {relative}: {error}"))
+}
+
+fn planned_gar_slices(plan: &str) -> Vec<String> {
+    let lines = plan.lines().collect::<Vec<_>>();
+    let mut slices = Vec::new();
+    let mut start = None;
+    for (index, line) in lines.iter().enumerate() {
+        if line.starts_with("- [ ] GAR-") {
+            if let Some(previous_start) = start {
+                slices.push(lines[previous_start..index].join("\n"));
+            }
+            start = Some(index);
+        }
+    }
+    if let Some(previous_start) = start {
+        slices.push(lines[previous_start..].join("\n"));
+    }
+    slices
 }
 
 fn workspace_root() -> PathBuf {

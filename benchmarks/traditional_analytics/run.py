@@ -3862,10 +3862,13 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
     if (
         selected_mode in ("prepared_vortex", "native_vortex")
         and result.get("status") == "success"
-        and result.get("operator_execution_class") == "materialized_temporary"
+        and result.get("operator_execution_class")
+        in ("materialized_temporary", "residual_native")
         and result.get("operator_encoded_native_claim_allowed") is True
     ):
-        raise RuntimeError("temporary prepared/native operators cannot be encoded-native claims")
+        raise RuntimeError(
+            "temporary or residual prepared/native operators cannot be encoded-native claims"
+        )
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
         and result.get("status") == "success"

@@ -1743,7 +1743,7 @@ components:
         - $ref: "#/components/schemas/OutputEnvelope"
     ProblemDetails:
       type: object
-      required: [type, title, status, detail, fallback]
+      required: [type, title, status, detail, execution_mode_selection, fallback]
       properties:
         type:
           type: string

@@ -2206,7 +2206,7 @@ fn append_materialization_policy_fields(
     push_bool_field(
         fields,
         "materialization_policy_all_rows_external_engine_invoked_false",
-        report.all_rows_fallback_free(),
+        report.all_rows_external_engine_free(),
     );
     push_bool_field(
         fields,
@@ -3231,7 +3231,7 @@ fn append_sql_dataframe_planner_readiness_fields(fields: &mut Vec<(String, Strin
     push_field(
         fields,
         "planner_readiness_required_evidence",
-        &matrix.required_evidence().join("|"),
+        &matrix.required_evidence().join(","),
     );
     push_bool_field(fields, "planner_readiness_parser_executed", false);
     push_bool_field(fields, "planner_readiness_binder_executed", false);

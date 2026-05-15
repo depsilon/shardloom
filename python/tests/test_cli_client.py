@@ -446,6 +446,100 @@ class ShardLoomClientTests(unittest.TestCase):
             "native_io_certificate_refs",
         )
 
+    def test_execution_mode_incomplete_bool_does_not_fall_back_to_flat_field(
+        self,
+    ) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "top-level-exec",
+                "status": "success",
+                "summary": "executed",
+                "human_text": "executed",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "not requested",
+                },
+                "diagnostics": [],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [
+                    {
+                        "artifact_id": "mode.selection",
+                        "artifact_kind": "execution_mode_selection_report",
+                        "status": "evidence_incomplete",
+                        "payload": {
+                            "fields": [
+                                {
+                                    "key": "vortex_native_claim_allowed",
+                                    "value": "evidence_incomplete",
+                                }
+                            ]
+                        },
+                    }
+                ],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {"key": "vortex_native_claim_allowed", "value": "true"},
+                ],
+            }
+        )
+
+        result = ExecutionResultEnvelopeView(envelope)
+
+        self.assertFalse(result.vortex_native_claim_allowed)
+
+    def test_facade_matrix_prefers_prefixed_fields_over_generic_envelope_keys(
+        self,
+    ) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "top-level-exec",
+                "status": "success",
+                "summary": "executed",
+                "human_text": "executed",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "not requested",
+                },
+                "diagnostics": [],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {"key": "support_status", "value": "generic_status"},
+                    {
+                        "key": "facade_compatibility_matrix_support_status",
+                        "value": "facade_matrix_status",
+                    },
+                    {"key": "unsupported_surface_count", "value": "99"},
+                    {"key": "facade_unsupported_surface_count", "value": "3"},
+                ],
+            }
+        )
+
+        result = ExecutionResultEnvelopeView(envelope)
+
+        self.assertEqual(
+            result.facade_compatibility_matrix_support_status,
+            "facade_matrix_status",
+        )
+        self.assertEqual(result.facade_unsupported_surface_count, 3)
+
     def test_execution_result_view_reads_external_engine_from_typed_policy(self) -> None:
         envelope = OutputEnvelope.from_json(
             {

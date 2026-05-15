@@ -770,27 +770,46 @@ impl VortexLayoutDeviceManagedBoundaryMatrix {
 
     #[must_use]
     pub fn managed_platform_rows_are_comparison_only(&self) -> bool {
-        self.rows.iter().any(|row| {
+        let managed_rows = self.rows.iter().filter(|row| {
             row.surface == VortexLayoutDeviceManagedBoundarySurface::ManagedPlatformComparison
-                && row.support_status == VortexBoundarySupportStatus::ComparisonOnly
-                && !row.managed_platform_execution
-                && !row.managed_platform_dependency_added
-                && !row.credential_required
-        })
+        });
+        let mut managed_row_count = 0;
+        for row in managed_rows {
+            managed_row_count += 1;
+            if row.support_status != VortexBoundarySupportStatus::ComparisonOnly
+                || row.managed_platform_execution
+                || row.managed_platform_dependency_added
+                || row.credential_required
+            {
+                return false;
+            }
+        }
+        managed_row_count > 0
     }
 
     #[must_use]
     pub fn device_and_object_store_claims_blocked_without_evidence(&self) -> bool {
-        self.rows
-            .iter()
-            .filter(|row| {
-                matches!(
-                    row.surface,
-                    VortexLayoutDeviceManagedBoundarySurface::DeviceExecution
-                        | VortexLayoutDeviceManagedBoundarySurface::ObjectStoreIo
-                )
-            })
-            .all(VortexLayoutDeviceManagedBoundaryRow::cannot_satisfy_native_claim_without_evidence)
+        let mut device_boundary_present = false;
+        let mut object_store_boundary_present = false;
+        for row in &self.rows {
+            match row.surface {
+                VortexLayoutDeviceManagedBoundarySurface::DeviceExecution => {
+                    device_boundary_present = true;
+                    if !row.cannot_satisfy_native_claim_without_evidence() {
+                        return false;
+                    }
+                }
+                VortexLayoutDeviceManagedBoundarySurface::ObjectStoreIo => {
+                    object_store_boundary_present = true;
+                    if !row.cannot_satisfy_native_claim_without_evidence() {
+                        return false;
+                    }
+                }
+                VortexLayoutDeviceManagedBoundarySurface::LayoutWrite
+                | VortexLayoutDeviceManagedBoundarySurface::ManagedPlatformComparison => {}
+            }
+        }
+        device_boundary_present && object_store_boundary_present
     }
 }
 
@@ -1017,6 +1036,23 @@ mod tests {
         assert!(matrix.all_rows_not_claim_grade());
         assert!(matrix.managed_platform_rows_are_comparison_only());
         assert!(matrix.device_and_object_store_claims_blocked_without_evidence());
+
+        let mut missing_device = matrix.clone();
+        missing_device
+            .rows
+            .retain(|row| row.surface != VortexLayoutDeviceManagedBoundarySurface::DeviceExecution);
+        assert!(!missing_device.device_and_object_store_claims_blocked_without_evidence());
+
+        let mut bad_managed = matrix;
+        let managed = bad_managed
+            .rows
+            .iter_mut()
+            .find(|row| {
+                row.surface == VortexLayoutDeviceManagedBoundarySurface::ManagedPlatformComparison
+            })
+            .expect("managed platform comparison row exists");
+        managed.managed_platform_dependency_added = true;
+        assert!(!bad_managed.managed_platform_rows_are_comparison_only());
     }
 
     #[test]

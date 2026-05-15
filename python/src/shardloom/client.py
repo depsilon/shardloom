@@ -1587,6 +1587,8 @@ class ExecutionResultEnvelopeView:
     def _execution_mode_bool(self, key: str, default: bool = False) -> bool:
         value = self.execution_mode_selection_fields.get(key)
         if value is not None:
+            if value.strip().lower() == "evidence_incomplete":
+                return default
             return _string_bool_value(value, key)
         return self.envelope.field_bool(key, default) is True
 
@@ -1600,11 +1602,14 @@ class ExecutionResultEnvelopeView:
         return self.envelope.field_bool(key, default) is True
 
     def _facade_matrix_field(self, key: str) -> str | None:
+        fields = self.facade_compatibility_matrix_fields
         return (
-            self.facade_compatibility_matrix_fields.get(key)
-            or self.envelope.field(key)
+            fields.get(key)
+            or fields.get(f"facade_compatibility_matrix_{key}")
+            or fields.get(f"facade_{key}")
             or self.envelope.field(f"facade_compatibility_matrix_{key}")
             or self.envelope.field(f"facade_{key}")
+            or self.envelope.field(key)
         )
 
     def _facade_matrix_bool(self, key: str, default: bool = False) -> bool:

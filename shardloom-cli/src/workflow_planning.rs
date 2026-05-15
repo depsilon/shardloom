@@ -773,10 +773,17 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
 }
 
 fn workflow_unsupported_diagnostic(operation: WorkflowUnsupportedOperation) -> Diagnostic {
-    let reason = format!(
-        "{} is not implemented for native ShardLoom workflow execution yet.",
-        operation.label
-    );
+    let reason = if operation.diagnostic_code == DiagnosticCode::NoFallbackExecution {
+        format!(
+            "{} is prohibited by ShardLoom's no-fallback policy.",
+            operation.label
+        )
+    } else {
+        format!(
+            "{} is not implemented for native ShardLoom workflow execution yet.",
+            operation.label
+        )
+    };
     match operation.diagnostic_code {
         DiagnosticCode::MaterializationRequired => Diagnostic::materialization_required(
             operation.feature,

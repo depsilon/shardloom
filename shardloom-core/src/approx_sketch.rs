@@ -355,6 +355,10 @@ impl ApproxSketchFunctionGateReport {
             && self.error_bounds_required
             && self.confidence_model_required
             && self.exact_reference_fixtures_required
+            && self.encoded_dictionary_strategy_required
+            && self.encoded_run_length_strategy_required
+            && self.selection_vector_strategy_required
+            && self.partial_decode_materialization_boundary_required
             && self.correctness_evidence_required
             && self.benchmark_evidence_required
             && self.execution_certificate_required
@@ -379,6 +383,7 @@ impl ApproxSketchFunctionGateReport {
                 .all(ApproxSketchFunctionGateEntry::side_effect_free)
             && !self.external_engine_invoked
             && !self.fallback_attempted
+            && !self.fallback_execution_allowed
     }
 
     #[must_use]
@@ -614,5 +619,24 @@ mod tests {
         assert!(!report.runtime_promotions_blocked());
         assert!(!report.side_effect_free());
         assert!(report.has_errors());
+    }
+
+    #[test]
+    fn approx_sketch_admission_requires_encoded_strategy_evidence() {
+        let mut report = plan_approx_sketch_function_gate();
+        report.encoded_dictionary_strategy_required = false;
+        assert!(!report.admission_contract_complete());
+
+        let mut report = plan_approx_sketch_function_gate();
+        report.encoded_run_length_strategy_required = false;
+        assert!(!report.admission_contract_complete());
+
+        let mut report = plan_approx_sketch_function_gate();
+        report.selection_vector_strategy_required = false;
+        assert!(!report.admission_contract_complete());
+
+        let mut report = plan_approx_sketch_function_gate();
+        report.partial_decode_materialization_boundary_required = false;
+        assert!(!report.admission_contract_complete());
     }
 }

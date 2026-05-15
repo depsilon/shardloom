@@ -2,7 +2,7 @@
   "artifacts": [
     {
       "dataset_profile": "narrow_fact_dim",
-      "file": "target\\shardloom-benchmark-evidence\\prepared_native_core.json",
+      "file": "target/shardloom-benchmark-evidence/prepared_native_core.json",
       "formats": [
         "csv"
       ],
@@ -12,7 +12,7 @@
     },
     {
       "dataset_profile": "dirty_csv",
-      "file": "target\\shardloom-benchmark-evidence\\prepared_native_dirty_csv.json",
+      "file": "target/shardloom-benchmark-evidence/prepared_native_dirty_csv.json",
       "formats": [
         "csv"
       ],
@@ -22,7 +22,7 @@
     },
     {
       "dataset_profile": "nested_json",
-      "file": "target\\shardloom-benchmark-evidence\\prepared_native_nested_json.json",
+      "file": "target/shardloom-benchmark-evidence/prepared_native_nested_json.json",
       "formats": [
         "jsonl"
       ],
@@ -32,7 +32,7 @@
     },
     {
       "dataset_profile": "null_heavy",
-      "file": "target\\shardloom-benchmark-evidence\\prepared_native_null_heavy.json",
+      "file": "target/shardloom-benchmark-evidence/prepared_native_null_heavy.json",
       "formats": [
         "csv"
       ],
@@ -42,7 +42,7 @@
     },
     {
       "dataset_profile": "cdc_delta_overlay",
-      "file": "target\\shardloom-benchmark-evidence\\prepared_native_cdc_overlay.json",
+      "file": "target/shardloom-benchmark-evidence/prepared_native_cdc_overlay.json",
       "formats": [
         "csv"
       ],
@@ -56,7 +56,7 @@
       "claim_gate_status": "fixture_smoke_only",
       "external_engine_invoked": "false",
       "fallback_attempted": "false",
-      "file": "target\\shardloom-benchmark-evidence\\prepared_vortex_batch.json",
+      "file": "target/shardloom-benchmark-evidence/prepared_vortex_batch.json",
       "performance_claim_allowed": "false",
       "requested_execution_mode": "prepared_vortex",
       "runner_kind": "single_process_prepared_native_batch",
@@ -69,7 +69,7 @@
       "claim_gate_status": "fixture_smoke_only",
       "external_engine_invoked": "false",
       "fallback_attempted": "false",
-      "file": "target\\shardloom-benchmark-evidence\\native_vortex_batch.json",
+      "file": "target/shardloom-benchmark-evidence/native_vortex_batch.json",
       "performance_claim_allowed": "false",
       "requested_execution_mode": "native_vortex",
       "runner_kind": "single_process_prepared_native_batch",
@@ -85,6 +85,270 @@
     "production_sql_dataframe_claim_allowed": false,
     "scope": "local one-iteration smoke evidence and direct CLI evidence only",
     "spark_replacement_claim_allowed": false
+  },
+  "comparative_dashboard": {
+    "cards": [
+      {
+        "label": "Rows",
+        "value": "1080"
+      },
+      {
+        "label": "Coverage Rows",
+        "value": "1080"
+      },
+      {
+        "label": "Formats",
+        "value": "6"
+      },
+      {
+        "label": "Performance Claim",
+        "value": "False"
+      }
+    ],
+    "claim_boundary": "comparative context only; not public performance, superiority, Spark replacement, or best-default evidence",
+    "claim_gate_distribution": {
+      "headers": [
+        "Claim gate",
+        "Rows",
+        "Share"
+      ],
+      "heading": "Claim-Gate Distribution",
+      "rows": [
+        [
+          "blocked",
+          "720",
+          "66.7%"
+        ],
+        [
+          "fixture_smoke_only",
+          "144",
+          "13.3%"
+        ],
+        [
+          "external_baseline_only",
+          "137",
+          "12.7%"
+        ],
+        [
+          "claim_grade",
+          "72",
+          "6.7%"
+        ],
+        [
+          "unsupported",
+          "7",
+          "2.0%"
+        ]
+      ]
+    },
+    "engine_timing_overview": {
+      "headers": [
+        "Engine",
+        "Available",
+        "Success / total",
+        "Geomean",
+        "CSV/Parquet geomean",
+        "Fastest rows",
+        "Relative bar"
+      ],
+      "heading": "Engine Timing Overview",
+      "rows": [
+        [
+          "shardloom",
+          "yes",
+          "72/120",
+          "120.15 ms",
+          "114.99 ms",
+          "0",
+          "100.0%"
+        ],
+        [
+          "shardloom-vortex",
+          "yes",
+          "72/120",
+          "31.00 ms",
+          "31.41 ms",
+          "0",
+          "25.8%"
+        ],
+        [
+          "shardloom-prepared-vortex",
+          "yes",
+          "72/120",
+          "30.23 ms",
+          "30.68 ms",
+          "1",
+          "25.2%"
+        ],
+        [
+          "pandas",
+          "yes",
+          "60/100",
+          "9.27 ms",
+          "8.97 ms",
+          "16",
+          "7.7%"
+        ],
+        [
+          "polars",
+          "yes",
+          "55/100",
+          "3.12 ms",
+          "3.13 ms",
+          "53",
+          "4.0%"
+        ],
+        [
+          "duckdb",
+          "no",
+          "0/120",
+          "n/a",
+          "n/a",
+          "0",
+          "0.0%"
+        ],
+        [
+          "datafusion",
+          "yes",
+          "22/40",
+          "5.40 ms",
+          "5.40 ms",
+          "2",
+          "4.5%"
+        ],
+        [
+          "dask",
+          "no",
+          "0/120",
+          "n/a",
+          "n/a",
+          "0",
+          "0.0%"
+        ],
+        [
+          "spark-default",
+          "no",
+          "0/120",
+          "n/a",
+          "n/a",
+          "0",
+          "0.0%"
+        ],
+        [
+          "spark-local-tuned",
+          "no",
+          "0/120",
+          "n/a",
+          "n/a",
+          "0",
+          "0.0%"
+        ]
+      ]
+    },
+    "generated": "2026-05-14T01:58:30.687800+00:00 from local smoke results over 10000 fact rows.",
+    "missing_baselines": [
+      "duckdb: ModuleNotFoundError: No module named 'duckdb'",
+      "dask: ModuleNotFoundError: No module named 'dask'",
+      "spark-default: ModuleNotFoundError: No module named 'pyspark'",
+      "spark-local-tuned: ModuleNotFoundError: No module named 'pyspark'"
+    ],
+    "source": "spark-retire/docs/shardloom-current-benchmark-dashboard.html",
+    "vortex_oriented_lanes": {
+      "headers": [
+        "Engine",
+        "Source format",
+        "Successful rows",
+        "Geomean",
+        "Mean"
+      ],
+      "heading": "Vortex-Oriented Lanes By Source Format",
+      "rows": [
+        [
+          "shardloom-vortex",
+          "csv",
+          "12",
+          "31.57 ms",
+          "32.44 ms"
+        ],
+        [
+          "shardloom-vortex",
+          "parquet",
+          "12",
+          "31.25 ms",
+          "32.00 ms"
+        ],
+        [
+          "shardloom-vortex",
+          "jsonl",
+          "12",
+          "30.42 ms",
+          "31.27 ms"
+        ],
+        [
+          "shardloom-vortex",
+          "arrow-ipc",
+          "12",
+          "30.40 ms",
+          "31.18 ms"
+        ],
+        [
+          "shardloom-vortex",
+          "avro",
+          "12",
+          "31.54 ms",
+          "32.18 ms"
+        ],
+        [
+          "shardloom-vortex",
+          "orc",
+          "12",
+          "30.86 ms",
+          "31.58 ms"
+        ],
+        [
+          "shardloom-prepared-vortex",
+          "csv",
+          "12",
+          "30.07 ms",
+          "30.84 ms"
+        ],
+        [
+          "shardloom-prepared-vortex",
+          "parquet",
+          "12",
+          "31.30 ms",
+          "32.68 ms"
+        ],
+        [
+          "shardloom-prepared-vortex",
+          "jsonl",
+          "12",
+          "30.26 ms",
+          "31.02 ms"
+        ],
+        [
+          "shardloom-prepared-vortex",
+          "arrow-ipc",
+          "12",
+          "30.33 ms",
+          "31.00 ms"
+        ],
+        [
+          "shardloom-prepared-vortex",
+          "avro",
+          "12",
+          "29.72 ms",
+          "30.46 ms"
+        ],
+        [
+          "shardloom-prepared-vortex",
+          "orc",
+          "12",
+          "29.71 ms",
+          "30.40 ms"
+        ]
+      ]
+    }
   },
   "encoded_predicate_provider_rows": [
     {
@@ -716,7 +980,7 @@
     }
   ],
   "schema_version": "shardloom.website.benchmark_evidence.v1",
-  "source_artifact_dir": "target\\shardloom-benchmark-evidence",
+  "source_artifact_dir": "target/shardloom-benchmark-evidence",
   "source_backed_scan_rows": [
     {
       "claim_gate": "not_claim_grade",
