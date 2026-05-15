@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom Status Board</title>
+  <meta name="description" content="Claim-safe public posture board for ShardLoom supported local smoke, fixture-smoke, report-only, blocked, planned, and not-claimed surfaces.">
+  <link rel="canonical" href="https://shardloom.io/status.html">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="ShardLoom Status Board">
+  <meta property="og:description" content="Claim-safe public posture board for ShardLoom supported local smoke, fixture-smoke, report-only, blocked, planned, and not-claimed surfaces.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/status.html">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="" href="/field-guide/">Field Guide</a>
+<a class="" href="/benchmarks.html">Telemetry</a>
+<a class="" href="/compute-engine-flow.html">Compute Flow</a>
+<a class="active" aria-current="page" href="/status.html">Status</a>
+<a class="" href="/readme.html">Docs</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="doc-hero status-hero">
+      <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        <p class="eyebrow">Launch Status Board</p>
+        <h1>Public posture for ShardLoom evidence.</h1>
+        <p class="lede">ShardLoom is a pre-release local compute engine foundation. This board separates supported local smoke evidence, fixture-smoke paths, report-only surfaces, blocked areas, planned work, and claims that are not made.</p>
+      </div>
+    </section>
+    <nav class="page-subnav" aria-label="Status sections">
+      <div class="shell">
+        <a href="#supported">Supported local smoke</a>
+        <a href="#fixture">Fixture-smoke</a>
+        <a href="#report-only">Report-only</a>
+        <a href="#blocked">Blocked</a>
+        <a href="#planned">Planned</a>
+        <a href="#not-claimed">Not claimed</a>
+      </div>
+    </nav>
+    <section id="supported">
+      <div class="shell">
+        <p class="eyebrow">Evidence-backed local surface</p>
+        <h2>Supported local smoke and evidence surfaces.</h2>
+        <div class="status-board">
+          <article class="status-column"><span class="claim-badge supported">supported local smoke</span><h3>No-fallback local execution evidence</h3><p>Supported rows expose <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code> for their scoped workload.</p></article>
+          <article class="status-column"><span class="claim-badge supported">supported local smoke</span><h3>Prepared/native Vortex batch smoke</h3><p>Scoped prepared/native batch rows preserve source-backed scan, materialization/decode, timing, and claim-gate fields.</p></article>
+          <article class="status-column"><span class="claim-badge supported">supported local smoke</span><h3>Benchmark evidence publication</h3><p>The public Telemetry page publishes committed local evidence snapshots and frames them as attribution baseline evidence.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="fixture">
+      <div class="shell">
+        <p class="eyebrow">Scoped fixture evidence</p>
+        <h2>Fixture-smoke paths are useful signals, not broad support.</h2>
+        <div class="status-board">
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Live mode</h3><p>Live helpers and in-memory reports exist, but durable state, brokers, freshness proof, and production claims remain outside scope.</p></article>
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Hybrid overlay</h3><p>Hybrid fixture reports exist for base-plus-delta reasoning; durable hot/cold commit semantics are not public support.</p></article>
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Table metadata smoke</h3><p>Table metadata evidence is scoped metadata proof, not a lakehouse/catalog runtime claim.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="report-only">
+      <div class="shell">
+        <p class="eyebrow">Report-only surfaces</p>
+        <h2>These surfaces can be documented or diagnosed without claiming runtime support.</h2>
+        <div class="status-board">
+          <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>REST/event surfaces</h3><p>Future API surfaces must preserve typed envelopes, selected mode, diagnostics, evidence, and claim gates before promotion.</p></article>
+          <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>Adapters and end-user wrappers</h3><p>CLI, Python, and planned adapter access must improve ergonomics without hiding execution mode or fallback status.</p></article>
+          <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>Object-store, lakehouse, and Foundry boundaries</h3><p>These areas remain boundary/status documentation unless runtime proof and release gates promote a narrow slice.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="blocked">
+      <div class="shell">
+        <p class="eyebrow">Blocked claims and paths</p>
+        <h2>Blocked means deterministic diagnostics or no public claim.</h2>
+        <div class="status-board">
+          <article class="status-column"><span class="claim-badge blocked">blocked</span><h3>Silent external fallback</h3><p>Unsupported work must not run through Spark, DuckDB, DataFusion, Polars, or any other external engine as ShardLoom execution.</p></article>
+          <article class="status-column"><span class="claim-badge blocked">blocked</span><h3>Production SQL/DataFrame support</h3><p>SQL/DataFrame surfaces require scoped implementation, tests, and evidence before public support language changes.</p></article>
+          <article class="status-column"><span class="claim-badge blocked">blocked</span><h3>Public performance or superiority claims</h3><p>Local benchmark rows remain attribution evidence until workload-scoped claim gates and release checks say otherwise.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="planned">
+      <div class="shell split">
+        <div>
+          <p class="eyebrow">Planned work</p>
+          <h2>Current planning posture.</h2>
+          <p class="section-lede">The active phase plan remains the source of truth for planned work. The website status board summarizes broad posture, but does not replace, the phase plan and completed ledger.</p>
+        </div>
+        <aside class="terminal-panel flow-command-panel">
+          <div class="console-row"><code>runtime</code><span>prepared/native Vortex path expansion and operator coverage remain the main optimization direction</span></div>
+          <div class="console-row"><code>language</code><span>SQL/DataFrame, adapters, REST/event, and notebook surfaces remain gated by scoped proof</span></div>
+          <div class="console-row"><code>platform</code><span>object-store, lakehouse, and Foundry paths remain report-only or blocked until evidence exists</span></div>
+          <div class="console-row"><code>release</code><span>public claims require workload-scoped evidence and release gates</span></div>
+        </aside>
+      </div>
+    </section>
+    <section id="not-claimed">
+      <div class="shell">
+        <p class="eyebrow">Claim boundary</p>
+        <h2>What this public site does not claim.</h2>
+        <div class="boundary-grid">
+          <article><strong>No performance or superiority claim</strong><span>Telemetry is local attribution evidence, not a public ranking.</span></article>
+          <article><strong>No Spark-displacement claim</strong><span>External engines are baseline context only and never fallback execution.</span></article>
+          <article><strong>No production SQL/DataFrame claim</strong><span>Language layers and planner surfaces remain gated by scoped evidence.</span></article>
+          <article><strong>No production object-store, lakehouse, or Foundry claim</strong><span>Those surfaces remain report-only, blocked, or planned until proof exists.</span></article>
+          <article><strong>No package-publication claim</strong><span>Public package readiness requires release gates outside this website page.</span></article>
+          <article><strong>No hidden fast mode</strong><span>Auto mode must report selected mode and reason; batch process reuse is not a hidden runtime.</span></article>
+        </div>
+      </div>
+    </section>
+    </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
