@@ -315,23 +315,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     until workload-scoped correctness and benchmark claim gates pass.
   - Dependencies/blockers: stable admitted filter-column kernel inputs, bridge selection-vector
     evidence, selected metric scan evidence, and certificate/no-fallback fields.
-- [ ] GAR-0021-A approximate aggregate and sketch function admission
-  - Source: RFC 0021; capability-certification sequencing; RFC 0032.
-  - Current state: approximate/sketch requirements are documented; registry/state/update kernels are
-    not implemented broadly.
-  - Next slice outcome: admission/report contract for approximate aggregate registry entries, sketch
-    state, merge, serialization, encoded-aware update kernels, exact-reference fixtures, error
-    distribution benchmarks, and certificates.
-  - User-visible surface: CLI capability discovery, function registry report, docs.
-  - Implementation scope: expression/function report types, CLI output, tests.
-  - Evidence required: correctness fixture refs, benchmark refs, execution certificate refs, Native
-    I/O refs, no-fallback refs.
-  - Acceptance: approximate/sketch functions are either admitted with evidence requirements or
-    deterministically unsupported.
-  - Verification: function registry tests, capability snapshot tests.
-  - Non-goals: no sketch runtime implementation in this admission slice.
-  - Fallback/claim boundary: no approximate aggregate accuracy/performance claim.
-  - Dependencies/blockers: exact-reference fixture design.
 - [ ] GAR-0038-A facade compatibility and legacy boundary matrix
   - Source: RFC 0038; top-level plan/execution facade docs; typed envelope docs.
   - Current state: top-level plan/execution facade exists, but SQL/DataFrame runtime, object-store

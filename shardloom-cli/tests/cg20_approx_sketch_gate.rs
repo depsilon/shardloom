@@ -37,6 +37,17 @@ fn cg20_approx_sketch_gate_exposes_function_surfaces() {
         "shardloom.approx_sketch_function_gate.v1"
     )));
     assert!(output.contains(&field("report_id", "cg20.approx_sketch_function_gate")));
+    assert!(output.contains(&field("gar_id", "GAR-0021-A")));
+    assert!(output.contains(&field("support_status", "report_only")));
+    assert!(output.contains(&field("claim_gate_status", "not_claim_grade")));
+    assert!(output.contains(&field(
+        "admission_contract_status",
+        "evidence_requirements_declared"
+    )));
+    assert!(output.contains(&field(
+        "deterministic_unsupported_status",
+        "blocked_until_certified"
+    )));
     assert!(output.contains(&field("canonical_function_name", "approx_count_distinct")));
     assert!(output.contains(&field("alias_names", "approx_distinct,approx_n_unique")));
     assert!(output.contains(&field("surface_count", "20")));
@@ -103,6 +114,8 @@ fn cg20_approx_sketch_gate_blocks_runtime_dependencies_and_claims() {
         "native_io_certificate_required",
         "runtime_promotions_blocked",
         "claim_blocked",
+        "admission_contract_complete",
+        "deterministic_unsupported_diagnostics_ready",
         "side_effect_free",
         "plan_only",
     ] {

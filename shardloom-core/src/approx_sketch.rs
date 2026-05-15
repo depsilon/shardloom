@@ -170,6 +170,11 @@ impl ApproxSketchFunctionGateEntry {
 pub struct ApproxSketchFunctionGateReport {
     pub schema_version: &'static str,
     pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub admission_contract_status: &'static str,
+    pub deterministic_unsupported_status: &'static str,
     pub canonical_function_name: &'static str,
     pub alias_names: Vec<&'static str>,
     pub value_handling_contracts: Vec<&'static str>,
@@ -217,6 +222,11 @@ impl ApproxSketchFunctionGateReport {
         Self {
             schema_version: "shardloom.approx_sketch_function_gate.v1",
             report_id: "cg20.approx_sketch_function_gate",
+            gar_id: "GAR-0021-A",
+            support_status: "report_only",
+            claim_gate_status: "not_claim_grade",
+            admission_contract_status: "evidence_requirements_declared",
+            deterministic_unsupported_status: "blocked_until_certified",
             canonical_function_name: "approx_count_distinct",
             alias_names: vec!["approx_distinct", "approx_n_unique"],
             value_handling_contracts: approx_sketch_value_handling_contracts(),
@@ -332,6 +342,43 @@ impl ApproxSketchFunctionGateReport {
                 .entries
                 .iter()
                 .all(ApproxSketchFunctionGateEntry::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn admission_contract_complete(&self) -> bool {
+        self.existing_function_coverage_matrix_entry_present
+            && self.existing_rfc_sequencing_contract_present
+            && self.function_registry_required
+            && self.aggregate_state_required
+            && self.sketch_serialization_required
+            && self.stable_hash_seed_policy_required
+            && self.error_bounds_required
+            && self.confidence_model_required
+            && self.exact_reference_fixtures_required
+            && self.correctness_evidence_required
+            && self.benchmark_evidence_required
+            && self.execution_certificate_required
+            && self.native_io_certificate_required
+            && self.runtime_promotions_blocked()
+            && self.claim_blocked()
+            && self.side_effect_free()
+    }
+
+    #[must_use]
+    pub fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        self.blocked_surface_count() > 0
+            && self
+                .entries
+                .iter()
+                .filter(|entry| {
+                    matches!(
+                        entry.status,
+                        ApproxSketchFunctionStatus::BlockedUntilCertified
+                    )
+                })
+                .all(ApproxSketchFunctionGateEntry::side_effect_free)
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
     }
 
     #[must_use]
@@ -481,6 +528,17 @@ mod tests {
             "shardloom.approx_sketch_function_gate.v1"
         );
         assert_eq!(report.report_id, "cg20.approx_sketch_function_gate");
+        assert_eq!(report.gar_id, "GAR-0021-A");
+        assert_eq!(report.support_status, "report_only");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(
+            report.admission_contract_status,
+            "evidence_requirements_declared"
+        );
+        assert_eq!(
+            report.deterministic_unsupported_status,
+            "blocked_until_certified"
+        );
         assert_eq!(report.canonical_function_name, "approx_count_distinct");
         assert_eq!(
             report.alias_names,
@@ -543,6 +601,8 @@ mod tests {
         assert!(report.runtime_promotions_blocked());
         assert!(report.claim_blocked());
         assert!(report.side_effect_free());
+        assert!(report.admission_contract_complete());
+        assert!(report.deterministic_unsupported_diagnostics_ready());
         assert!(!report.has_errors());
     }
 

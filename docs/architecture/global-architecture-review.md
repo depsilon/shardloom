@@ -395,12 +395,16 @@ plan before coding.
 - Source:
   [`docs/rfcs/0021-expression-engine-kernel-registry.md`](../rfcs/0021-expression-engine-kernel-registry.md)
 - Current read: Registry contracts and narrow kernels exist.
-- Evidence: `shardloom-core/src/expression.rs`,
+- Evidence: `shardloom-core/src/expression.rs`, `shardloom-core/src/approx_sketch.rs`,
+  `shardloom-cli/tests/cg20_approx_sketch_gate.rs`,
   `shardloom-core/src/physical_operator_kernel_contracts.rs`,
   `shardloom-cli/tests/kernel_registry_snapshots.rs`,
   `shardloom-vortex/src/encoded_count_physical_kernel.rs`
 - [x] Native expression and kernel registry domain types, diagnostics, and admission reports exist.
 - [x] Narrow physical kernels such as encoded count have evidence-backed slices.
+- [x] GAR-0021-A: `cg20-approx-sketch-gate` now exposes a report-only approximate/sketch admission
+  contract with GAR/support/claim fields, deterministic unsupported status, required evidence
+  booleans, and no-fallback/no-external-engine fields.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 

@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0021-A approximate aggregate and sketch function admission
+  - Primary files:
+    - `shardloom-core/src/approx_sketch.rs`
+    - `shardloom-cli/src/evidence_certificates.rs`
+    - `shardloom-cli/tests/cg20_approx_sketch_gate.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close GAR-0021-A by tying the existing CG-20 approximate/sketch function gate to the GAR
+    queue with stable support, claim, admission-contract, and deterministic-unsupported fields.
+  - Checklist:
+    - [x] Add `GAR-0021-A`, `support_status=report_only`, and
+          `claim_gate_status=not_claim_grade` to `cg20-approx-sketch-gate`.
+    - [x] Preserve the approximate/sketch admission contract for `approx_count_distinct`,
+          `approx_distinct`, `approx_n_unique`, grouped/ungrouped distinct, sketch construction,
+          merge, serialization/deserialization, stable hash/seed metadata, error bounds, exact
+          references, encoded strategies, certificates, and benchmark evidence.
+    - [x] Keep function registry entries, sketch runtime state, grouped aggregate runtime,
+          serialization runtime, encoded sketch updates, partial decode, generic sketch dependencies,
+          external engines, fallback, and claims blocked.
+  - Boundary:
+    - This completes the report-only admission slice. It does not implement approximate aggregate
+      kernels, sketch state, sketch serialization, SQL/DataFrame execution, generic function
+      registry mutation, external dependencies, benchmark reruns, accuracy claims, performance
+      claims, external engine invocation, or fallback execution.
+  - Evidence:
+    - CLI evidence: `cg20-approx-sketch-gate --format json` exposes GAR/support/claim fields,
+      admission status, deterministic unsupported status, surface order, required evidence booleans,
+      `admission_contract_complete=true`, `deterministic_unsupported_diagnostics_ready=true`,
+      `external_engine_invoked=false`, and `fallback_attempted=false`.
+    - Rust evidence: `ApproxSketchFunctionGateReport` keeps all runtime/claim paths blocked while
+      requiring correctness, benchmark, execution-certificate, Native I/O, exact-reference,
+      encoded-strategy, stable hash/seed, and error/confidence evidence.
+  - Vortex-first provider check:
+    - Subject area: approximate aggregate and sketch-function admission.
+    - Upstream/provider concepts checked: encoded dictionary, run-length, validity/selection-vector,
+      partial-decode, materialization, and Native I/O boundaries remain required evidence, not
+      runtime behavior.
+    - Decision: retain report-only deterministic blockers until encoded-aware sketch update kernels
+      and claim-grade evidence exist.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core approx_sketch --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test cg20_approx_sketch_gate`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata hard_release_readiness_gate_docs_are_present`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - `git diff --check`
 - [x] Session label: GAR-0018-A live profiling and runtime introspection report
   - Primary files:
     - `shardloom-core/src/observability.rs`
