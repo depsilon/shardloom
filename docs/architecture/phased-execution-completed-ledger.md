@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0004-A CDC and manifest transaction planning gate
+  - Primary files:
+    - `shardloom-core/src/table_intelligence.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/plan_only_invariants.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/table-intelligence-layer.md`
+  - Scope: close GAR-0004-A by adding a report-only CDC/manifest/transaction gate that makes the
+    RFC 0004 read/write/manifest/commit posture explicit in table-intelligence and CDC CLI output.
+  - Checklist:
+    - [x] Add `shardloom.cdc_manifest_transaction_gate.v1` with rows for CDC read intent, CDC write
+          intent, generalized manifest serialization, manifest metadata reads, object-store commits,
+          table/catalog commits, transaction execution, and unsupported commit diagnostics.
+    - [x] Keep CDC read intent classified as report-only evidence from declared change sets and CDC
+          summaries.
+    - [x] Keep CDC writes, generalized manifest serialization, metadata reads, transaction
+          execution, and object-store/table commit runtime unsupported until certified.
+    - [x] Emit deterministic info-level diagnostics for unsupported lanes with no-fallback status,
+          required evidence, and `claim_gate_status=not_claim_grade`.
+    - [x] Thread the gate through `table-intelligence-plan` and `incremental-plan cdc` typed output
+          fields.
+  - Boundary:
+    - This completes the planning/diagnostic gate only. It does not add metadata reads, data reads,
+      manifest serialization execution, object-store commits, table/catalog commits, transaction
+      writes, CDC execution, credential resolution, external engines, fallback execution, or
+      production table/lakehouse claims.
+  - Evidence:
+    - `table-intelligence-plan` and `incremental-plan cdc append-only` expose
+      `cdc_manifest_transaction_gate_report_id=gar0004a.cdc_manifest_transaction_gate`.
+    - Gate fields include `runtime_promotions_blocked=true`,
+      `deterministic_unsupported_diagnostics_ready=true`,
+      `fallback_attempted=false`, `fallback_execution_allowed=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=not_claim_grade`.
+    - Unsupported rows emit stable diagnostics without making the command fail, because this is a
+      report-only planning gate.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core table_intelligence --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test table_intelligence_plan_snapshots`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test plan_only_invariants`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata hard_release_readiness_gate_docs_are_present`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `git diff --check`
 - [x] Session label: GAR-0026-V selective-filter selection-vector-backed metric aggregation
   - Primary files:
     - `shardloom-vortex/src/source_backed_encoded_execution.rs`

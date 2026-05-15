@@ -10,7 +10,7 @@
     clippy::struct_excessive_bools
 )]
 
-use crate::{Diagnostic, DiagnosticSeverity};
+use crate::{Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus};
 use std::fmt::Write as _;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -830,6 +830,508 @@ pub fn plan_catalog_metadata_integration_gate() -> CatalogMetadataIntegrationGat
     CatalogMetadataIntegrationGateReport::planning_default()
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CdcManifestTransactionSurface {
+    CdcReadIntent,
+    CdcWriteIntent,
+    ManifestSerialization,
+    ManifestMetadataRead,
+    ObjectStoreCommit,
+    TableCatalogCommit,
+    TransactionExecution,
+    UnsupportedCommitDiagnostic,
+}
+
+impl CdcManifestTransactionSurface {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::CdcReadIntent => "cdc_read_intent",
+            Self::CdcWriteIntent => "cdc_write_intent",
+            Self::ManifestSerialization => "manifest_serialization",
+            Self::ManifestMetadataRead => "manifest_metadata_read",
+            Self::ObjectStoreCommit => "object_store_commit",
+            Self::TableCatalogCommit => "table_catalog_commit",
+            Self::TransactionExecution => "transaction_execution",
+            Self::UnsupportedCommitDiagnostic => "unsupported_commit_diagnostic",
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            Self::ObjectStoreCommit => DiagnosticCode::ObjectStoreUnsupported,
+            Self::TableCatalogCommit | Self::TransactionExecution => {
+                DiagnosticCode::CommitNotAtomic
+            }
+            Self::CdcReadIntent
+            | Self::CdcWriteIntent
+            | Self::ManifestSerialization
+            | Self::ManifestMetadataRead
+            | Self::UnsupportedCommitDiagnostic => DiagnosticCode::NotImplemented,
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_category(&self) -> DiagnosticCategory {
+        match self {
+            Self::ObjectStoreCommit => DiagnosticCategory::ObjectStore,
+            Self::ManifestSerialization => DiagnosticCategory::Translation,
+            Self::TableCatalogCommit | Self::TransactionExecution => DiagnosticCategory::Execution,
+            Self::CdcReadIntent
+            | Self::CdcWriteIntent
+            | Self::ManifestMetadataRead
+            | Self::UnsupportedCommitDiagnostic => DiagnosticCategory::Planning,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CdcManifestTransactionStatus {
+    ReportOnlyAvailable,
+    UnsupportedUntilCertified,
+}
+
+impl CdcManifestTransactionStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnlyAvailable => "report_only_available",
+            Self::UnsupportedUntilCertified => "unsupported_until_certified",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_report_only(&self) -> bool {
+        matches!(self, Self::ReportOnlyAvailable)
+    }
+
+    #[must_use]
+    pub const fn is_unsupported(&self) -> bool {
+        matches!(self, Self::UnsupportedUntilCertified)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CdcManifestTransactionGateEntry {
+    pub surface: CdcManifestTransactionSurface,
+    pub status: CdcManifestTransactionStatus,
+    pub existing_report_ref: Option<&'static str>,
+    pub required_evidence: &'static str,
+    pub report_only_available: bool,
+    pub cdc_read_runtime_allowed: bool,
+    pub cdc_write_runtime_allowed: bool,
+    pub manifest_serialization_allowed: bool,
+    pub manifest_metadata_read_allowed: bool,
+    pub transaction_execution_allowed: bool,
+    pub commit_execution_allowed: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+}
+
+impl CdcManifestTransactionGateEntry {
+    #[must_use]
+    pub const fn report_only(
+        surface: CdcManifestTransactionSurface,
+        existing_report_ref: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: CdcManifestTransactionStatus::ReportOnlyAvailable,
+            existing_report_ref: Some(existing_report_ref),
+            required_evidence,
+            report_only_available: true,
+            cdc_read_runtime_allowed: false,
+            cdc_write_runtime_allowed: false,
+            manifest_serialization_allowed: false,
+            manifest_metadata_read_allowed: false,
+            transaction_execution_allowed: false,
+            commit_execution_allowed: false,
+            data_read: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn unsupported(
+        surface: CdcManifestTransactionSurface,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: CdcManifestTransactionStatus::UnsupportedUntilCertified,
+            existing_report_ref: None,
+            required_evidence,
+            report_only_available: false,
+            cdc_read_runtime_allowed: false,
+            cdc_write_runtime_allowed: false,
+            manifest_serialization_allowed: false,
+            manifest_metadata_read_allowed: false,
+            transaction_execution_allowed: false,
+            commit_execution_allowed: false,
+            data_read: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.cdc_read_runtime_allowed
+            && !self.cdc_write_runtime_allowed
+            && !self.manifest_serialization_allowed
+            && !self.manifest_metadata_read_allowed
+            && !self.transaction_execution_allowed
+            && !self.commit_execution_allowed
+            && !self.data_read
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(&self) -> Option<Diagnostic> {
+        if !self.status.is_unsupported() {
+            return None;
+        }
+        Some(Diagnostic::new(
+            self.surface.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.surface.diagnostic_category(),
+            format!("{} is unsupported until certified", self.surface.as_str()),
+            Some(self.surface.as_str().to_string()),
+            Some(format!(
+                "{} requires {} before runtime promotion.",
+                self.surface.as_str(),
+                self.required_evidence
+            )),
+            Some(
+                "Keep this lane report-only and attach evidence before enabling execution."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CdcManifestTransactionGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub entries: Vec<CdcManifestTransactionGateEntry>,
+    pub existing_report_refs: Vec<&'static str>,
+    pub existing_cdc_planning_present: bool,
+    pub existing_manifest_contract_present: bool,
+    pub existing_object_store_commit_protocol_present: bool,
+    pub existing_local_staged_manifest_helpers_present: bool,
+    pub cdc_read_intent_report_only_available: bool,
+    pub cdc_write_intent_allowed: bool,
+    pub manifest_serialization_allowed: bool,
+    pub manifest_metadata_read_allowed: bool,
+    pub transaction_execution_allowed: bool,
+    pub commit_execution_allowed: bool,
+    pub object_store_io_allowed: bool,
+    pub data_read_allowed: bool,
+    pub write_io_allowed: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub cdc_transaction_claim_allowed: bool,
+    pub claim_gate_status: &'static str,
+    pub snapshot_pair_required: bool,
+    pub row_identity_required: bool,
+    pub manifest_schema_required: bool,
+    pub manifest_serialization_evidence_required: bool,
+    pub transaction_protocol_required: bool,
+    pub commit_protocol_required: bool,
+    pub object_store_provider_evidence_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub no_fallback_policy_required: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl CdcManifestTransactionGateReport {
+    #[must_use]
+    pub fn planning_default() -> Self {
+        let entries = cdc_manifest_transaction_gate_entries();
+        let diagnostics = entries
+            .iter()
+            .filter_map(CdcManifestTransactionGateEntry::to_diagnostic)
+            .collect();
+        Self {
+            schema_version: "shardloom.cdc_manifest_transaction_gate.v1",
+            report_id: "gar0004a.cdc_manifest_transaction_gate",
+            entries,
+            existing_report_refs: cdc_manifest_transaction_existing_report_refs(),
+            existing_cdc_planning_present: true,
+            existing_manifest_contract_present: true,
+            existing_object_store_commit_protocol_present: true,
+            existing_local_staged_manifest_helpers_present: true,
+            cdc_read_intent_report_only_available: true,
+            cdc_write_intent_allowed: false,
+            manifest_serialization_allowed: false,
+            manifest_metadata_read_allowed: false,
+            transaction_execution_allowed: false,
+            commit_execution_allowed: false,
+            object_store_io_allowed: false,
+            data_read_allowed: false,
+            write_io_allowed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            cdc_transaction_claim_allowed: false,
+            claim_gate_status: "not_claim_grade",
+            snapshot_pair_required: true,
+            row_identity_required: true,
+            manifest_schema_required: true,
+            manifest_serialization_evidence_required: true,
+            transaction_protocol_required: true,
+            commit_protocol_required: true,
+            object_store_provider_evidence_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            no_fallback_policy_required: true,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn surface_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn report_only_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_report_only())
+            .count()
+    }
+
+    #[must_use]
+    pub fn unsupported_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_unsupported())
+            .count()
+    }
+
+    #[must_use]
+    pub fn surface_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .map(|entry| entry.surface.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn runtime_promotions_blocked(&self) -> bool {
+        !self.cdc_write_intent_allowed
+            && !self.manifest_serialization_allowed
+            && !self.manifest_metadata_read_allowed
+            && !self.transaction_execution_allowed
+            && !self.commit_execution_allowed
+            && !self.object_store_io_allowed
+            && !self.data_read_allowed
+            && !self.write_io_allowed
+            && self
+                .entries
+                .iter()
+                .all(CdcManifestTransactionGateEntry::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn claim_blocked(&self) -> bool {
+        !self.cdc_transaction_claim_allowed && self.claim_gate_status == "not_claim_grade"
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        self.runtime_promotions_blocked()
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_unsupported())
+            .filter(|entry| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == entry.surface.diagnostic_code()
+                        && diagnostic.category == entry.surface.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(entry.surface.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        self.unsupported_surface_count() > 0
+            && self.unsupported_diagnostic_count() == self.unsupported_surface_count()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_code_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_unsupported())
+            .map(|entry| entry.surface.diagnostic_code().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_category_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_unsupported())
+            .map(|entry| entry.surface.diagnostic_category().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_severity_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_unsupported())
+            .map(|_| DiagnosticSeverity::Info.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || !self.claim_blocked()
+            || !self.deterministic_unsupported_diagnostics_ready()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(
+            out,
+            "existing report refs: {}",
+            self.existing_report_refs.join(",")
+        );
+        let _ = writeln!(
+            out,
+            "runtime promotions blocked: {}",
+            self.runtime_promotions_blocked()
+        );
+        let _ = writeln!(out, "claim blocked: {}", self.claim_blocked());
+        let _ = writeln!(
+            out,
+            "deterministic unsupported diagnostics ready: {}",
+            self.deterministic_unsupported_diagnostics_ready()
+        );
+        let _ = writeln!(out, "side effect free: {}", self.side_effect_free());
+        let _ = writeln!(out, "surfaces:");
+        for entry in &self.entries {
+            let _ = writeln!(
+                out,
+                "  - {} [{}] existing_ref={} report_only={} required_evidence={} runtime_allowed=false fallback_attempted=false external_engine_invoked=false claim_gate_status={}",
+                entry.surface.as_str(),
+                entry.status.as_str(),
+                entry.existing_report_ref.unwrap_or("none"),
+                entry.report_only_available,
+                entry.required_evidence,
+                entry.claim_gate_status
+            );
+        }
+        out
+    }
+}
+
+fn cdc_manifest_transaction_gate_entries() -> Vec<CdcManifestTransactionGateEntry> {
+    vec![
+        CdcManifestTransactionGateEntry::report_only(
+            CdcManifestTransactionSurface::CdcReadIntent,
+            "shardloom.cdc_incremental_planning.v1",
+            "declared_change_set,cdc_event_summary,incremental-plan cdc",
+        ),
+        CdcManifestTransactionGateEntry::unsupported(
+            CdcManifestTransactionSurface::CdcWriteIntent,
+            "write_intent,staged_manifest,commit_protocol,recovery_certificate",
+        ),
+        CdcManifestTransactionGateEntry::unsupported(
+            CdcManifestTransactionSurface::ManifestSerialization,
+            "generalized_manifest_schema,artifact_write_policy,native_io_certificate",
+        ),
+        CdcManifestTransactionGateEntry::unsupported(
+            CdcManifestTransactionSurface::ManifestMetadataRead,
+            "snapshot_ref,catalog_or_manifest_location,object_store_provider_policy,native_io_certificate",
+        ),
+        CdcManifestTransactionGateEntry::unsupported(
+            CdcManifestTransactionSurface::ObjectStoreCommit,
+            "object_store_commit_protocol,atomicity_evidence,idempotency_key_contract,cleanup_policy",
+        ),
+        CdcManifestTransactionGateEntry::unsupported(
+            CdcManifestTransactionSurface::TableCatalogCommit,
+            "catalog_transaction_protocol,table_metadata_write_policy,commit_recovery_certificate",
+        ),
+        CdcManifestTransactionGateEntry::unsupported(
+            CdcManifestTransactionSurface::TransactionExecution,
+            "transaction_state_machine,conflict_detection,commit_recovery_certificate,no_fallback_policy",
+        ),
+        CdcManifestTransactionGateEntry::report_only(
+            CdcManifestTransactionSurface::UnsupportedCommitDiagnostic,
+            "gar0004a.cdc_manifest_transaction_gate",
+            "stable_diagnostic_code,claim_gate_status,no_fallback_policy",
+        ),
+    ]
+}
+
+fn cdc_manifest_transaction_existing_report_refs() -> Vec<&'static str> {
+    vec![
+        "cg9.table_intelligence.foundation",
+        "shardloom.cdc_incremental_planning.v1",
+        "shardloom.dataset_manifest.v1",
+        "shardloom.object_store_commit_protocol.v1",
+        "cg10.object_store_request_planner.aggregate",
+        "cg4.commit_execution_promotion_gate",
+        "vortex-staged-manifest-file-plan",
+    ]
+}
+
+#[must_use]
+pub fn plan_cdc_manifest_transaction_gate() -> CdcManifestTransactionGateReport {
+    CdcManifestTransactionGateReport::planning_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -931,5 +1433,63 @@ mod tests {
         assert!(!report.external_table_format_dependency_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn cdc_manifest_transaction_gate_reports_current_boundaries() {
+        let report = plan_cdc_manifest_transaction_gate();
+        assert_eq!(
+            report.schema_version,
+            "shardloom.cdc_manifest_transaction_gate.v1"
+        );
+        assert_eq!(report.report_id, "gar0004a.cdc_manifest_transaction_gate");
+        assert_eq!(report.surface_count(), 8);
+        assert_eq!(report.report_only_surface_count(), 2);
+        assert_eq!(report.unsupported_surface_count(), 6);
+        assert_eq!(
+            report.surface_order(),
+            vec![
+                "cdc_read_intent",
+                "cdc_write_intent",
+                "manifest_serialization",
+                "manifest_metadata_read",
+                "object_store_commit",
+                "table_catalog_commit",
+                "transaction_execution",
+                "unsupported_commit_diagnostic",
+            ]
+        );
+        assert!(report.existing_cdc_planning_present);
+        assert!(report.existing_manifest_contract_present);
+        assert!(report.existing_object_store_commit_protocol_present);
+        assert!(report.existing_local_staged_manifest_helpers_present);
+        assert!(report.cdc_read_intent_report_only_available);
+    }
+
+    #[test]
+    fn cdc_manifest_transaction_gate_blocks_runtime_io_commits_and_claims() {
+        let report = plan_cdc_manifest_transaction_gate();
+        assert!(report.runtime_promotions_blocked());
+        assert!(report.claim_blocked());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert!(report.deterministic_unsupported_diagnostics_ready());
+        assert_eq!(
+            report.unsupported_diagnostic_count(),
+            report.unsupported_surface_count()
+        );
+        assert!(!report.cdc_write_intent_allowed);
+        assert!(!report.manifest_serialization_allowed);
+        assert!(!report.manifest_metadata_read_allowed);
+        assert!(!report.transaction_execution_allowed);
+        assert!(!report.commit_execution_allowed);
+        assert!(!report.object_store_io_allowed);
+        assert!(!report.data_read_allowed);
+        assert!(!report.write_io_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.cdc_transaction_claim_allowed);
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
     }
 }

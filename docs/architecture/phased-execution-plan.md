@@ -264,21 +264,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
 
-- [ ] GAR-0004-A CDC and manifest transaction planning gate
-  - Source: RFC 0004; table-intelligence layer; object-store request planner.
-  - Current state: CDC planning exists; table/catalog metadata reads, object-store commits, manifest
-    serialization, and transaction semantics are not executable broadly.
-  - Next slice outcome: gate report for CDC read/write intent, manifest serialization status,
-    transaction blockers, and unsupported commit diagnostics.
-  - User-visible surface: CLI incremental/table plan, typed envelope, docs.
-  - Implementation scope: table/intelligence report fields, CLI output, tests.
-  - Evidence required: manifest refs, diagnostic/no-fallback refs, Native I/O refs only for admitted
-    paths.
-  - Acceptance: CDC and transaction requests are explicitly supported, report-only, or unsupported.
-  - Verification: table intelligence tests, incremental plan tests, default GAR verification.
-  - Non-goals: no metadata reads, data reads, object-store commits, or transaction writes.
-  - Fallback/claim boundary: no CDC/table transaction claim.
-  - Dependencies/blockers: GAR-0020 metadata gate and GAR-0028 commit gate.
 - [ ] GAR-0005-B object-store Vortex I/O and upstream write integration gate
   - Source: RFC 0005; RFC 0008; Vortex upstream alignment hardening.
   - Current state: object-store Vortex I/O and upstream write integration are not enabled.
@@ -324,16 +309,19 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
   - Dependencies/blockers: GAR-0028 commit semantics.
 - [ ] GAR-0028-A object-store and lakehouse commit semantics gate
   - Source: RFC 0028; object-store request planner; table-intelligence layer.
-  - Current state: local Vortex staged-output and commit markers exist; object-store/table/lakehouse
-    commit semantics are not executed broadly.
-  - Next slice outcome: gate for object-store commit, table/catalog commit, sink commit, Foundry
-    dataset transaction, upstream Vortex write API, and output-payload fidelity.
+  - Current state: local Vortex staged-output, manifest draft/finalization, and commit markers
+    exist; object-store/table/lakehouse commit semantics and generalized manifest serialization are
+    not executed broadly.
+  - Next slice outcome: gate for generalized manifest serialization, object-store commit,
+    table/catalog commit, sink commit, Foundry dataset transaction, upstream Vortex write API, and
+    output-payload fidelity.
   - User-visible surface: CLI commit/output plan, release gate, docs.
   - Implementation scope: commit gate report, CLI output, tests.
   - Evidence required: commit protocol refs, Native I/O refs if executed, policy/no-fallback refs.
   - Acceptance: unsupported commit families are blocked with deterministic diagnostics and no writes.
   - Verification: commit gate tests, object-store planner tests, release readiness metadata tests.
-  - Non-goals: no object-store writes, table commits, Foundry transactions, or upstream write calls.
+  - Non-goals: no generalized manifest writes, object-store writes, table commits, Foundry
+    transactions, or upstream write calls.
   - Fallback/claim boundary: no production output/lakehouse claim.
   - Dependencies/blockers: GAR-0008, GAR-0020, and GAR-0036.
 

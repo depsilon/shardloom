@@ -62,6 +62,37 @@ For the CG-9 metadata gate:
 The aggregate report is evidence and routing context only. It does not certify that Iceberg, Delta,
 Hudi-like, catalog, manifest, recovery, or table-maintenance runtime behavior exists.
 
+## CDC, Manifest, And Transaction Gate
+
+`GAR-0004-A` adds `shardloom.cdc_manifest_transaction_gate.v1` to the table-intelligence and
+`incremental-plan cdc` CLI surfaces.
+
+The gate classifies:
+
+1. `cdc_read_intent` as report-only evidence backed by declared change sets and CDC summaries.
+2. `cdc_write_intent` as unsupported until write intent, staged manifest, commit protocol, and
+   recovery evidence exist.
+3. `manifest_serialization` as unsupported until generalized manifest schema, artifact write
+   policy, and Native I/O evidence exist.
+4. `manifest_metadata_read` as unsupported until snapshot refs, manifest/catalog locations,
+   object-store provider policy, and Native I/O evidence exist.
+5. `object_store_commit`, `table_catalog_commit`, and `transaction_execution` as unsupported until
+   commit protocol, transaction protocol, recovery, object-store provider, and no-fallback evidence
+   are attached.
+
+The gate is side-effect-free:
+
+- `runtime_promotions_blocked=true`
+- `deterministic_unsupported_diagnostics_ready=true`
+- `fallback_attempted=false`
+- `fallback_execution_allowed=false`
+- `external_engine_invoked=false`
+- `claim_gate_status=not_claim_grade`
+
+It does not authorize metadata reads, data reads, manifest serialization execution, object-store
+commits, table/catalog commits, transaction writes, CDC execution, credentials, external engines,
+fallback execution, or table/lakehouse production claims.
+
 ## Surface Order
 
 1. `schema_evolution`

@@ -316,9 +316,11 @@ pub use stateful_reuse::{
 
 pub use table_intelligence::{
     CatalogMetadataIntegrationGateEntry, CatalogMetadataIntegrationGateReport,
-    CatalogMetadataIntegrationStatus, CatalogMetadataIntegrationSurface, TableIntelligenceReport,
+    CatalogMetadataIntegrationStatus, CatalogMetadataIntegrationSurface,
+    CdcManifestTransactionGateEntry, CdcManifestTransactionGateReport,
+    CdcManifestTransactionStatus, CdcManifestTransactionSurface, TableIntelligenceReport,
     TableIntelligenceSurface, TableIntelligenceSurfaceKind, TableIntelligenceSurfaceStatus,
-    plan_catalog_metadata_integration_gate,
+    plan_catalog_metadata_integration_gate, plan_cdc_manifest_transaction_gate,
 };
 
 pub use translation::{

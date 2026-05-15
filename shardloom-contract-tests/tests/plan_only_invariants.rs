@@ -4,7 +4,7 @@ use shardloom_core::{
     ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionVersion, FileDescriptor,
     FileRole, LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, OutputTarget,
     SecurityPlan, SegmentId, SegmentLayout, SegmentStats, SnapshotId, SnapshotRef,
-    TableIntelligenceReport,
+    TableIntelligenceReport, plan_cdc_manifest_transaction_gate,
 };
 use shardloom_exec::{RecoveryPlan, RecoveryReport, RuntimePlanSkeleton, StreamingPlanSkeleton};
 use shardloom_plan::{
@@ -114,6 +114,20 @@ fn plan_only_types_do_not_imply_execution_or_side_effects() {
     assert!(!table_intelligence.catalog_io_performed);
     assert!(!table_intelligence.table_metadata_io_performed);
     assert!(!table_intelligence.fallback_execution_allowed);
+
+    let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
+    assert!(cdc_manifest_transaction_gate.side_effect_free());
+    assert!(cdc_manifest_transaction_gate.runtime_promotions_blocked());
+    assert!(cdc_manifest_transaction_gate.claim_blocked());
+    assert!(cdc_manifest_transaction_gate.deterministic_unsupported_diagnostics_ready());
+    assert_eq!(
+        cdc_manifest_transaction_gate.unsupported_diagnostic_count(),
+        cdc_manifest_transaction_gate.unsupported_surface_count()
+    );
+    assert!(!cdc_manifest_transaction_gate.commit_execution_allowed);
+    assert!(!cdc_manifest_transaction_gate.object_store_io_allowed);
+    assert!(!cdc_manifest_transaction_gate.fallback_attempted);
+    assert!(!cdc_manifest_transaction_gate.external_engine_invoked);
 
     let object_store_manifest = object_store_manifest_fixture();
     let range_policy = ObjectStoreRangePlanningPolicy {
