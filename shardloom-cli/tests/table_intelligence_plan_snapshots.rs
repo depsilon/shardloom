@@ -81,7 +81,7 @@ fn table_intelligence_json_preserves_no_io_no_dependency_no_fallback_defaults() 
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("side_effect_free", "true")));
-    assert!(output.contains(&field("diagnostic_count", "15")));
+    assert!(output.contains(&field("diagnostic_count", "23")));
     assert!(output.contains(&field("plan_only", "true")));
 }
 
@@ -212,6 +212,104 @@ fn table_intelligence_json_embeds_gar0020a_catalog_metadata_gate() {
     assert!(output.contains(&field(
         "catalog_metadata_integration_gate_local_manifest_table_metadata_smoke_claim_gate_status",
         "scoped_local_metadata_smoke_only"
+    )));
+}
+
+#[test]
+fn table_intelligence_json_embeds_gar0020b_table_execution_matrix() {
+    let output = run_table_intelligence_plan_json();
+
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_schema_version",
+        "shardloom.table_maintenance_execution_matrix.v1"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_report_id",
+        "gar0020b.table_maintenance_execution_matrix"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_gar_id",
+        "GAR-0020-B"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_support_status",
+        "report_only_with_unsupported_runtime_paths"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_operation_count",
+        "12"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_report_only_operation_count",
+        "4"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_unsupported_operation_count",
+        "8"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_operation_order",
+        "file_level_delete_compatibility,segment_tombstone_execution,row_level_delete_execution,position_delete_execution,equality_delete_execution,cdc_append_only_planning,cdc_metadata_only_planning,cdc_update_delete_tombstone_execution,compaction_planning,compaction_execution_write,table_metadata_write,table_maintenance_commit"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_runtime_promotions_blocked",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_deterministic_unsupported_diagnostics_ready",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_unsupported_diagnostic_count",
+        "8"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_diagnostic_count",
+        "8"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_fallback_attempted",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_external_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_table_format_execution_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_row_file_level_delete_compatibility_status",
+        "report_only_available"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_row_file_level_delete_compatibility_existing_report_ref",
+        "shardloom.delete_tombstone_compatibility.v1"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_row_cdc_update_delete_tombstone_execution_status",
+        "unsupported_until_certified"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_row_cdc_update_delete_tombstone_execution_required_commit_semantics",
+        "cdc_transaction_and_delete_semantics"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_row_table_metadata_write_write_io",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_row_table_metadata_write_external_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_row_table_maintenance_commit_claim_gate_status",
+        "not_claim_grade"
     )));
 }
 

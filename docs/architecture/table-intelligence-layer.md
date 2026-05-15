@@ -37,12 +37,16 @@ shardloom local-table-metadata-read-smoke --format json
       `CatalogMetadataIntegrationGateReport` before enabling runtime metadata access.
 - [x] Support one in-memory local manifest-backed table metadata read smoke through
       `LocalTableMetadataReadSmokeReport`.
+- [x] Expose delete/tombstone, CDC, compaction, and maintenance-write execution posture through
+      `TableMaintenanceExecutionMatrixReport`.
 Out of scope until promoted GAR slices complete:
 
 - Broader catalog/table metadata reads are carried by later GAR slices after the completed
   `GAR-0020-A` admission gate and `GAR-0020-C` local metadata smoke.
-- Delete/tombstone, CDC, compaction, table-maintenance writes, and table-format runtime surfaces are
-  carried by `GAR-0020-B` and `GAR-0028-A`.
+- Delete/tombstone runtime, CDC execution, compaction writes, table-maintenance writes, broad table
+  data I/O, object-store I/O, lakehouse/catalog commits, and table-format runtime surfaces remain
+  unsupported until their matrix rows are promoted by later evidence-bearing slices such as
+  `GAR-0028-A`.
 
 ## Default Policy
 
@@ -74,6 +78,43 @@ For the CG-9 metadata gate:
 
 The aggregate report is evidence and routing context only. It does not certify that Iceberg, Delta,
 Hudi-like, catalog, manifest, recovery, or table-maintenance runtime behavior exists.
+
+## Delete, CDC, And Maintenance Execution Matrix
+
+`GAR-0020-B` adds `shardloom.table_maintenance_execution_matrix.v1` to
+`table-intelligence-plan` under `table_maintenance_execution_matrix_*` fields. The matrix is a
+side-effect-free readiness and blocker surface for table operation families that were previously too
+broad to reason about as one item.
+
+The matrix classifies:
+
+1. `file_level_delete_compatibility`, `cdc_append_only_planning`,
+   `cdc_metadata_only_planning`, and `compaction_planning` as report-only evidence backed by the
+   existing delete/tombstone, CDC incremental, layout health, and compaction planning reports.
+2. `segment_tombstone_execution`, `row_level_delete_execution`, `position_delete_execution`,
+   `equality_delete_execution`, `cdc_update_delete_tombstone_execution`,
+   `compaction_execution_write`, `table_metadata_write`, and `table_maintenance_commit` as
+   unsupported until their required fixtures, commit semantics, correctness evidence, execution
+   certificates, Native I/O certificates, materialization/decode evidence, and no-fallback evidence
+   exist.
+
+The matrix reports:
+
+- `support_status=report_only_with_unsupported_runtime_paths`
+- `claim_gate_status=not_claim_grade`
+- `operation_count=12`
+- `report_only_operation_count=4`
+- `unsupported_operation_count=8`
+- `runtime_promotions_blocked=true`
+- `deterministic_unsupported_diagnostics_ready=true`
+- `fallback_attempted=false`
+- `fallback_execution_allowed=false`
+- `external_engine_invoked=false`
+- `table_format_execution_claim_allowed=false`
+
+It does not authorize delete/tombstone runtime, CDC execution, compaction writes, table metadata
+writes, table-maintenance commits, object-store I/O, lakehouse/catalog runtime, external engines,
+fallback execution, or production table-format claims.
 
 ## Catalog Metadata Integration Gate
 

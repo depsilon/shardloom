@@ -265,21 +265,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
 
-- [ ] GAR-0020-B delete/tombstone, CDC, and maintenance-write execution matrix
-  - Source: RFC 0020; RFC 0004; table-intelligence layer.
-  - Current state: delete/tombstone, CDC, compaction, and table maintenance are compatibility/planning
-    surfaces.
-  - Next slice outcome: execution matrix with support status, required fixtures, commit semantics,
-    and unsupported diagnostics.
-  - User-visible surface: CLI table plan, docs, capability view.
-  - Implementation scope: table report fields, fixture metadata, tests.
-  - Evidence required: correctness refs, commit refs, Native I/O refs for supported paths,
-    no-fallback refs.
-  - Acceptance: each operation has status and evidence gaps; unsupported paths do not execute.
-  - Verification: table compatibility tests, fixture manifest tests.
-  - Non-goals: no maintenance write runtime.
-  - Fallback/claim boundary: no table-format execution claim.
-  - Dependencies/blockers: GAR-0028 commit semantics.
 - [ ] GAR-0028-A object-store and lakehouse commit semantics gate
   - Source: RFC 0028; object-store request planner; table-intelligence layer.
   - Current state: local Vortex staged-output, manifest draft/finalization, and commit markers
@@ -297,6 +282,53 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     transactions, or upstream write calls.
   - Fallback/claim boundary: no production output/lakehouse claim.
   - Dependencies/blockers: GAR-0008, GAR-0020, and GAR-0036.
+- [ ] GAR-0020-D scoped local delete/tombstone read-execution smoke
+  - Source: RFC 0020; `TableMaintenanceExecutionMatrixReport`;
+    `docs/architecture/table-intelligence-layer.md`.
+  - Current state: GAR-0020-B exposes file-level delete compatibility as report-only and
+    segment/row/position/equality delete execution as `unsupported_until_certified`.
+  - Next slice outcome: one local fixture-smoke read path that applies a ShardLoom-native
+    delete/tombstone admission rule to a declared local manifest fixture and emits a correctness
+    digest plus deterministic blockers for every unsupported delete model.
+  - User-visible surface: CLI table-intelligence/table-compat output, docs, capability/evidence
+    fields.
+  - Implementation scope: table-intelligence report structs, local fixture metadata, CLI fields,
+    focused tests.
+  - Evidence required: correctness digest, execution certificate refs, Native I/O refs if any Vortex
+    read is performed, materialization/decode refs, policy/no-fallback refs.
+  - Acceptance: the admitted local fixture reports `support_status=fixture_smoke_only`, unsupported
+    delete models remain deterministic diagnostics, no table writes occur, and no unsupported delete
+    model is silently ignored.
+  - Verification: focused core and CLI snapshot tests; `cargo test -p shardloom-cli --test
+    table_intelligence_plan_snapshots`; `cargo test -p shardloom-core table_maintenance --lib`.
+  - Non-goals: no row/position/equality delete runtime, no table metadata writes, no object-store
+    reads/writes, no lakehouse/catalog runtime, no performance claim.
+  - Fallback/claim boundary: local fixture-smoke only; `fallback_attempted=false`,
+    `external_engine_invoked=false`, and no table-format execution claim.
+  - Dependencies/blockers: GAR-0020-B matrix, existing source-backed local read evidence.
+- [ ] GAR-0020-E scoped append-only CDC read/overlay smoke
+  - Source: RFC 0020; RFC 0004; `TableMaintenanceExecutionMatrixReport`; CDC manifest transaction
+    gate.
+  - Current state: append-only and metadata-only CDC planning are report-only; update/delete/
+    tombstone CDC execution is `unsupported_until_certified`.
+  - Next slice outcome: one local append-only CDC fixture smoke that combines a declared base
+    snapshot and append delta into a ShardLoom-native read/overlay evidence report without manifest
+    writes or transaction execution.
+  - User-visible surface: CLI incremental/table-intelligence output, benchmark fixture metadata if
+    reused, docs.
+  - Implementation scope: CDC fixture builder/report fields, CLI output, focused tests.
+  - Evidence required: correctness digest, execution certificate refs, Native I/O refs if any Vortex
+    read is performed, materialization/decode refs, policy/no-fallback refs.
+  - Acceptance: append-only CDC smoke emits scoped evidence; update/delete/tombstone CDC still emits
+    deterministic unsupported diagnostics; transaction, commit, and manifest-write fields remain
+    blocked.
+  - Verification: focused CDC/table-intelligence tests and default GAR code-bearing verification.
+  - Non-goals: no update/delete/tombstone CDC execution, no manifest serialization, no table/catalog
+    commit, no object-store runtime, no production incremental claim.
+  - Fallback/claim boundary: local append-only fixture-smoke only; no external engine, no fallback,
+    no production CDC/lakehouse claim.
+  - Dependencies/blockers: GAR-0004-A CDC/manifest gate, GAR-0028-A commit semantics gate for any
+    write/transaction promotion.
 
 #### GAR-P3 - User Surfaces, APIs, Adapters, And Workflow
 

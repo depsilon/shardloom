@@ -416,9 +416,16 @@ plan before coding.
   `local-table-metadata-read-smoke` expose one runtime-supported, in-memory local manifest-backed
   table metadata summary with scoped evidence refs, deterministic blocked-path diagnostics,
   `fallback_attempted=false`, and `external_engine_invoked=false`.
+- [x] GAR-0020-B: `TableMaintenanceExecutionMatrixReport` is embedded in
+  `table-intelligence-plan` and classifies delete/tombstone, CDC, compaction, table metadata write,
+  and table-maintenance commit lanes with `report_only_available` or
+  `unsupported_until_certified` status, required fixture/commit/evidence fields,
+  deterministic unsupported diagnostics, `fallback_attempted=false`, and
+  `external_engine_invoked=false`.
 - [ ] Broad catalog/table metadata integration, real table data I/O, delete/tombstone execution,
-  and CDC execution remain incomplete and are mirrored into
-  `docs/architecture/phased-execution-plan.md` as GAR-0020-B and related commit/lakehouse slices.
+  CDC execution, maintenance writes, and table/lakehouse commits remain incomplete; the current
+  matrix keeps those lanes unsupported until evidence-bearing promotion slices such as
+  `GAR-0020-D`, `GAR-0020-E`, and `GAR-0028-A` are completed.
 
 ### RFC 0021 - Expression Engine and Kernel Registry
 

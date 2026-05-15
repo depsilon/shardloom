@@ -21,12 +21,14 @@ use shardloom_core::{
     SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind,
     SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef,
     StatefulReusePromotionGateReport, StatefulReuseReport, TableCompatibilityPlan,
-    TableCompatibilityReport, TableFormatKind, TableIntelligenceReport, WriteIntent,
+    TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
+    TableMaintenanceExecutionMatrixReport, TableMaintenanceExecutionMatrixRow, WriteIntent,
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_catalog_metadata_integration_gate, plan_cdc_manifest_transaction_gate,
-    plan_stateful_reuse, plan_stateful_reuse_promotion_gate, run_local_table_metadata_read_smoke,
+    plan_stateful_reuse, plan_stateful_reuse_promotion_gate,
+    plan_table_maintenance_execution_matrix, run_local_table_metadata_read_smoke,
 };
 use shardloom_plan::{
     ImportedPlanCapabilityGateReport, NativePlanDocument, NativePlanNode, NativePlanNodeKind,
@@ -3197,12 +3199,15 @@ pub(crate) fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
     let report = TableIntelligenceReport::report_only_foundation();
     let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
     let catalog_metadata_integration_gate = plan_catalog_metadata_integration_gate();
+    let table_maintenance_execution_matrix = plan_table_maintenance_execution_matrix();
     let has_errors = report.has_errors()
         || cdc_manifest_transaction_gate.has_errors()
-        || catalog_metadata_integration_gate.has_errors();
+        || catalog_metadata_integration_gate.has_errors()
+        || table_maintenance_execution_matrix.has_errors();
     let mut diagnostics = report.diagnostics.clone();
     diagnostics.extend(cdc_manifest_transaction_gate.diagnostics.clone());
     diagnostics.extend(catalog_metadata_integration_gate.diagnostics.clone());
+    diagnostics.extend(table_maintenance_execution_matrix.diagnostics.clone());
     let status = if has_errors {
         CommandStatus::Unsupported
     } else {
@@ -3219,6 +3224,7 @@ pub(crate) fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
             &report,
             &cdc_manifest_transaction_gate,
             &catalog_metadata_integration_gate,
+            &table_maintenance_execution_matrix,
         ),
     );
     if has_errors {
@@ -3232,6 +3238,7 @@ fn table_intelligence_output_fields(
     report: &TableIntelligenceReport,
     cdc_manifest_transaction_gate: &CdcManifestTransactionGateReport,
     catalog_metadata_integration_gate: &CatalogMetadataIntegrationGateReport,
+    table_maintenance_execution_matrix: &TableMaintenanceExecutionMatrixReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "mode", "table_intelligence_plan");
@@ -3292,7 +3299,8 @@ fn table_intelligence_output_fields(
         "diagnostic_count",
         report.diagnostics.len()
             + cdc_manifest_transaction_gate.diagnostics.len()
-            + catalog_metadata_integration_gate.diagnostics.len(),
+            + catalog_metadata_integration_gate.diagnostics.len()
+            + table_maintenance_execution_matrix.diagnostics.len(),
     );
     append_cdc_manifest_transaction_gate_fields(
         &mut fields,
@@ -3304,9 +3312,389 @@ fn table_intelligence_output_fields(
         "catalog_metadata_integration_gate",
         catalog_metadata_integration_gate,
     );
+    append_table_maintenance_execution_matrix_fields(
+        &mut fields,
+        "table_maintenance_execution_matrix",
+        table_maintenance_execution_matrix,
+    );
     push_field(&mut fields, "execution", "not_performed");
     push_field(&mut fields, "plan_only", "true");
     fields
+}
+
+fn append_table_maintenance_execution_matrix_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &TableMaintenanceExecutionMatrixReport,
+) {
+    push_field(
+        fields,
+        &format!("{prefix}_schema_version"),
+        report.schema_version,
+    );
+    push_field(fields, &format!("{prefix}_report_id"), report.report_id);
+    push_field(fields, &format!("{prefix}_gar_id"), report.gar_id);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        report.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        report.claim_gate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        report.claim_boundary,
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_operation_count"),
+        report.operation_count(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_report_only_operation_count"),
+        report.report_only_operation_count(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_unsupported_operation_count"),
+        report.unsupported_operation_count(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_operation_order"),
+        &report.operation_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_family_order"),
+        &report.family_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_existing_report_refs"),
+        &report.existing_report_refs.join(","),
+    );
+    append_table_maintenance_execution_matrix_evidence_fields(fields, prefix, report);
+    append_table_maintenance_execution_matrix_requirement_fields(fields, prefix, report);
+    append_table_maintenance_execution_matrix_boundary_fields(fields, prefix, report);
+    for row in &report.rows {
+        append_table_maintenance_execution_matrix_row_fields(fields, prefix, row);
+    }
+}
+
+fn append_table_maintenance_execution_matrix_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &TableMaintenanceExecutionMatrixReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_delete_tombstone_compatibility_report_present"),
+        report.delete_tombstone_compatibility_report_present,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_cdc_incremental_planning_present"),
+        report.cdc_incremental_planning_present,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_layout_compaction_planning_present"),
+        report.layout_compaction_planning_present,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_local_metadata_smoke_present"),
+        report.local_metadata_smoke_present,
+    );
+}
+
+fn append_table_maintenance_execution_matrix_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &TableMaintenanceExecutionMatrixReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fixture_metadata_required"),
+        report.fixture_metadata_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_row_identity_required"),
+        report.row_identity_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_delete_tombstone_policy_required"),
+        report.delete_tombstone_policy_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_commit_semantics_required"),
+        report.commit_semantics_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_table_metadata_schema_required"),
+        report.table_metadata_schema_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_execution_certificate_required"),
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_native_io_certificate_required"),
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_materialization_decode_evidence_required"),
+        report.materialization_decode_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_no_fallback_policy_required"),
+        report.no_fallback_policy_required,
+    );
+}
+
+fn append_table_maintenance_execution_matrix_boundary_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &TableMaintenanceExecutionMatrixReport,
+) {
+    append_table_maintenance_execution_matrix_allowed_fields(fields, prefix, report);
+    append_table_maintenance_execution_matrix_status_fields(fields, prefix, report);
+}
+
+fn append_table_maintenance_execution_matrix_allowed_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &TableMaintenanceExecutionMatrixReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_execution_allowed"),
+        report.runtime_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_delete_tombstone_execution_allowed"),
+        report.delete_tombstone_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_cdc_execution_allowed"),
+        report.cdc_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_maintenance_write_allowed"),
+        report.maintenance_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_catalog_io_allowed"),
+        report.catalog_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_table_metadata_io_allowed"),
+        report.table_metadata_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_data_io_allowed"),
+        report.data_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_object_store_io_allowed"),
+        report.object_store_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_write_io_allowed"),
+        report.write_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_execution_allowed"),
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_table_format_execution_claim_allowed"),
+        report.table_format_execution_claim_allowed,
+    );
+}
+
+fn append_table_maintenance_execution_matrix_status_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &TableMaintenanceExecutionMatrixReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_promotions_blocked"),
+        report.runtime_promotions_blocked(),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_claim_blocked"),
+        report.claim_blocked(),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_deterministic_unsupported_diagnostics_ready"),
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_count"),
+        report.unsupported_diagnostic_count(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_code_order"),
+        &report.unsupported_diagnostic_code_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_category_order"),
+        &report.unsupported_diagnostic_category_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_severity_order"),
+        &report.unsupported_diagnostic_severity_order().join(","),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_side_effect_free"),
+        report.side_effect_free(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_diagnostic_count"),
+        report.diagnostics.len(),
+    );
+}
+
+fn append_table_maintenance_execution_matrix_row_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &TableMaintenanceExecutionMatrixRow,
+) {
+    let row_prefix = format!("{prefix}_row_{}", row.operation.as_str());
+    push_field(fields, &format!("{row_prefix}_family"), row.family.as_str());
+    push_field(fields, &format!("{row_prefix}_status"), row.status.as_str());
+    push_field(
+        fields,
+        &format!("{row_prefix}_existing_report_ref"),
+        row.existing_report_ref.unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_required_fixture"),
+        row.required_fixture,
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_required_commit_semantics"),
+        row.required_commit_semantics,
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_required_evidence"),
+        row.required_evidence,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_report_only_available"),
+        row.report_only_available,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_runtime_execution_allowed"),
+        row.runtime_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_delete_tombstone_execution_allowed"),
+        row.delete_tombstone_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_cdc_execution_allowed"),
+        row.cdc_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_maintenance_write_allowed"),
+        row.maintenance_write_allowed,
+    );
+    push_bool_field(fields, &format!("{row_prefix}_catalog_io"), row.catalog_io);
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_table_metadata_io"),
+        row.table_metadata_io,
+    );
+    push_bool_field(fields, &format!("{row_prefix}_data_io"), row.data_io);
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_object_store_io"),
+        row.object_store_io,
+    );
+    push_bool_field(fields, &format!("{row_prefix}_write_io"), row.write_io);
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_fallback_attempted"),
+        row.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_fallback_execution_allowed"),
+        row.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_external_engine_invoked"),
+        row.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_side_effect_free"),
+        row.side_effect_free(),
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_support_status"),
+        row.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
 }
 
 fn append_cdc_manifest_transaction_gate_fields(
@@ -4980,10 +5368,12 @@ mod tests {
         let report = TableIntelligenceReport::report_only_foundation();
         let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
         let catalog_metadata_integration_gate = plan_catalog_metadata_integration_gate();
+        let table_maintenance_execution_matrix = plan_table_maintenance_execution_matrix();
         let fields = table_intelligence_output_fields(
             &report,
             &cdc_manifest_transaction_gate,
             &catalog_metadata_integration_gate,
+            &table_maintenance_execution_matrix,
         );
 
         assert_eq!(
@@ -5063,6 +5453,46 @@ mod tests {
             output_field(
                 &fields,
                 "catalog_metadata_integration_gate_external_engine_invoked"
+            ),
+            "false"
+        );
+    }
+
+    #[test]
+    fn table_intelligence_fields_include_table_maintenance_execution_matrix() {
+        let report = TableIntelligenceReport::report_only_foundation();
+        let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
+        let catalog_metadata_integration_gate = plan_catalog_metadata_integration_gate();
+        let table_maintenance_execution_matrix = plan_table_maintenance_execution_matrix();
+        let fields = table_intelligence_output_fields(
+            &report,
+            &cdc_manifest_transaction_gate,
+            &catalog_metadata_integration_gate,
+            &table_maintenance_execution_matrix,
+        );
+
+        assert_eq!(
+            output_field(&fields, "table_maintenance_execution_matrix_gar_id"),
+            "GAR-0020-B"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "table_maintenance_execution_matrix_runtime_promotions_blocked"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "table_maintenance_execution_matrix_row_table_metadata_write_status"
+            ),
+            "unsupported_until_certified"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "table_maintenance_execution_matrix_row_table_metadata_write_external_engine_invoked"
             ),
             "false"
         );

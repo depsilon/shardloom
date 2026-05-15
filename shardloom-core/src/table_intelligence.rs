@@ -364,6 +364,611 @@ impl TableIntelligenceReport {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TableMaintenanceExecutionFamily {
+    DeleteTombstone,
+    Cdc,
+    MaintenanceWrite,
+}
+
+impl TableMaintenanceExecutionFamily {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::DeleteTombstone => "delete_tombstone",
+            Self::Cdc => "cdc",
+            Self::MaintenanceWrite => "maintenance_write",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TableMaintenanceExecutionOperation {
+    FileLevelDeleteCompatibility,
+    SegmentTombstoneExecution,
+    RowLevelDeleteExecution,
+    PositionDeleteExecution,
+    EqualityDeleteExecution,
+    CdcAppendOnlyPlanning,
+    CdcMetadataOnlyPlanning,
+    CdcUpdateDeleteTombstoneExecution,
+    CompactionPlanning,
+    CompactionExecutionWrite,
+    TableMetadataWrite,
+    TableMaintenanceCommit,
+}
+
+impl TableMaintenanceExecutionOperation {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::FileLevelDeleteCompatibility => "file_level_delete_compatibility",
+            Self::SegmentTombstoneExecution => "segment_tombstone_execution",
+            Self::RowLevelDeleteExecution => "row_level_delete_execution",
+            Self::PositionDeleteExecution => "position_delete_execution",
+            Self::EqualityDeleteExecution => "equality_delete_execution",
+            Self::CdcAppendOnlyPlanning => "cdc_append_only_planning",
+            Self::CdcMetadataOnlyPlanning => "cdc_metadata_only_planning",
+            Self::CdcUpdateDeleteTombstoneExecution => "cdc_update_delete_tombstone_execution",
+            Self::CompactionPlanning => "compaction_planning",
+            Self::CompactionExecutionWrite => "compaction_execution_write",
+            Self::TableMetadataWrite => "table_metadata_write",
+            Self::TableMaintenanceCommit => "table_maintenance_commit",
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            Self::TableMaintenanceCommit => DiagnosticCode::CommitNotAtomic,
+            _ => DiagnosticCode::NotImplemented,
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_category(&self) -> DiagnosticCategory {
+        match self {
+            Self::FileLevelDeleteCompatibility
+            | Self::CdcAppendOnlyPlanning
+            | Self::CdcMetadataOnlyPlanning
+            | Self::CompactionPlanning => DiagnosticCategory::Planning,
+            Self::TableMaintenanceCommit
+            | Self::CompactionExecutionWrite
+            | Self::TableMetadataWrite
+            | Self::SegmentTombstoneExecution
+            | Self::RowLevelDeleteExecution
+            | Self::PositionDeleteExecution
+            | Self::EqualityDeleteExecution
+            | Self::CdcUpdateDeleteTombstoneExecution => DiagnosticCategory::Execution,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TableMaintenanceExecutionStatus {
+    ReportOnlyAvailable,
+    UnsupportedUntilCertified,
+}
+
+impl TableMaintenanceExecutionStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnlyAvailable => "report_only_available",
+            Self::UnsupportedUntilCertified => "unsupported_until_certified",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_report_only(&self) -> bool {
+        matches!(self, Self::ReportOnlyAvailable)
+    }
+
+    #[must_use]
+    pub const fn is_unsupported(&self) -> bool {
+        matches!(self, Self::UnsupportedUntilCertified)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableMaintenanceExecutionMatrixRow {
+    pub family: TableMaintenanceExecutionFamily,
+    pub operation: TableMaintenanceExecutionOperation,
+    pub status: TableMaintenanceExecutionStatus,
+    pub existing_report_ref: Option<&'static str>,
+    pub required_fixture: &'static str,
+    pub required_commit_semantics: &'static str,
+    pub required_evidence: &'static str,
+    pub report_only_available: bool,
+    pub runtime_execution_allowed: bool,
+    pub delete_tombstone_execution_allowed: bool,
+    pub cdc_execution_allowed: bool,
+    pub maintenance_write_allowed: bool,
+    pub catalog_io: bool,
+    pub table_metadata_io: bool,
+    pub data_io: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+}
+
+impl TableMaintenanceExecutionMatrixRow {
+    #[must_use]
+    pub const fn report_only(
+        family: TableMaintenanceExecutionFamily,
+        operation: TableMaintenanceExecutionOperation,
+        existing_report_ref: &'static str,
+        required_fixture: &'static str,
+        required_commit_semantics: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            family,
+            operation,
+            status: TableMaintenanceExecutionStatus::ReportOnlyAvailable,
+            existing_report_ref: Some(existing_report_ref),
+            required_fixture,
+            required_commit_semantics,
+            required_evidence,
+            report_only_available: true,
+            runtime_execution_allowed: false,
+            delete_tombstone_execution_allowed: false,
+            cdc_execution_allowed: false,
+            maintenance_write_allowed: false,
+            catalog_io: false,
+            table_metadata_io: false,
+            data_io: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            support_status: "report_only",
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn unsupported(
+        family: TableMaintenanceExecutionFamily,
+        operation: TableMaintenanceExecutionOperation,
+        required_fixture: &'static str,
+        required_commit_semantics: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            family,
+            operation,
+            status: TableMaintenanceExecutionStatus::UnsupportedUntilCertified,
+            existing_report_ref: None,
+            required_fixture,
+            required_commit_semantics,
+            required_evidence,
+            report_only_available: false,
+            runtime_execution_allowed: false,
+            delete_tombstone_execution_allowed: false,
+            cdc_execution_allowed: false,
+            maintenance_write_allowed: false,
+            catalog_io: false,
+            table_metadata_io: false,
+            data_io: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            support_status: "unsupported",
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.runtime_execution_allowed
+            && !self.delete_tombstone_execution_allowed
+            && !self.cdc_execution_allowed
+            && !self.maintenance_write_allowed
+            && !self.catalog_io
+            && !self.table_metadata_io
+            && !self.data_io
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(&self) -> Option<Diagnostic> {
+        if !self.status.is_unsupported() {
+            return None;
+        }
+        Some(Diagnostic::new(
+            self.operation.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.operation.diagnostic_category(),
+            format!("{} is unsupported until certified", self.operation.as_str()),
+            Some(self.operation.as_str().to_string()),
+            Some(format!(
+                "{} requires fixture={}, commit_semantics={}, evidence={} before runtime promotion.",
+                self.operation.as_str(),
+                self.required_fixture,
+                self.required_commit_semantics,
+                self.required_evidence
+            )),
+            Some(
+                "Keep this table operation report-only or unsupported until dedicated evidence lands."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableMaintenanceExecutionMatrixReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub rows: Vec<TableMaintenanceExecutionMatrixRow>,
+    pub existing_report_refs: Vec<&'static str>,
+    pub delete_tombstone_compatibility_report_present: bool,
+    pub cdc_incremental_planning_present: bool,
+    pub layout_compaction_planning_present: bool,
+    pub local_metadata_smoke_present: bool,
+    pub fixture_metadata_required: bool,
+    pub row_identity_required: bool,
+    pub delete_tombstone_policy_required: bool,
+    pub commit_semantics_required: bool,
+    pub table_metadata_schema_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub materialization_decode_evidence_required: bool,
+    pub no_fallback_policy_required: bool,
+    pub runtime_execution_allowed: bool,
+    pub delete_tombstone_execution_allowed: bool,
+    pub cdc_execution_allowed: bool,
+    pub maintenance_write_allowed: bool,
+    pub catalog_io_allowed: bool,
+    pub table_metadata_io_allowed: bool,
+    pub data_io_allowed: bool,
+    pub object_store_io_allowed: bool,
+    pub write_io_allowed: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub table_format_execution_claim_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl TableMaintenanceExecutionMatrixReport {
+    #[must_use]
+    pub fn planning_default() -> Self {
+        let rows = table_maintenance_execution_matrix_rows();
+        let diagnostics = rows
+            .iter()
+            .filter_map(TableMaintenanceExecutionMatrixRow::to_diagnostic)
+            .collect();
+        Self {
+            schema_version: "shardloom.table_maintenance_execution_matrix.v1",
+            report_id: "gar0020b.table_maintenance_execution_matrix",
+            gar_id: "GAR-0020-B",
+            support_status: "report_only_with_unsupported_runtime_paths",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "delete/tombstone, CDC, compaction, and maintenance-write execution are not table-format runtime claims; existing rows are compatibility/planning evidence only",
+            rows,
+            existing_report_refs: table_maintenance_execution_existing_report_refs(),
+            delete_tombstone_compatibility_report_present: true,
+            cdc_incremental_planning_present: true,
+            layout_compaction_planning_present: true,
+            local_metadata_smoke_present: true,
+            fixture_metadata_required: true,
+            row_identity_required: true,
+            delete_tombstone_policy_required: true,
+            commit_semantics_required: true,
+            table_metadata_schema_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            materialization_decode_evidence_required: true,
+            no_fallback_policy_required: true,
+            runtime_execution_allowed: false,
+            delete_tombstone_execution_allowed: false,
+            cdc_execution_allowed: false,
+            maintenance_write_allowed: false,
+            catalog_io_allowed: false,
+            table_metadata_io_allowed: false,
+            data_io_allowed: false,
+            object_store_io_allowed: false,
+            write_io_allowed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            table_format_execution_claim_allowed: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn operation_count(&self) -> usize {
+        self.rows.len()
+    }
+
+    #[must_use]
+    pub fn report_only_operation_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_report_only())
+            .count()
+    }
+
+    #[must_use]
+    pub fn unsupported_operation_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_unsupported())
+            .count()
+    }
+
+    #[must_use]
+    pub fn operation_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.operation.as_str()).collect()
+    }
+
+    #[must_use]
+    pub fn family_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.family.as_str()).collect()
+    }
+
+    #[must_use]
+    pub fn runtime_promotions_blocked(&self) -> bool {
+        !self.runtime_execution_allowed
+            && !self.delete_tombstone_execution_allowed
+            && !self.cdc_execution_allowed
+            && !self.maintenance_write_allowed
+            && !self.catalog_io_allowed
+            && !self.table_metadata_io_allowed
+            && !self.data_io_allowed
+            && !self.object_store_io_allowed
+            && !self.write_io_allowed
+            && self
+                .rows
+                .iter()
+                .all(TableMaintenanceExecutionMatrixRow::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn claim_blocked(&self) -> bool {
+        !self.table_format_execution_claim_allowed && self.claim_gate_status == "not_claim_grade"
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        self.runtime_promotions_blocked()
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_unsupported())
+            .filter(|row| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == row.operation.diagnostic_code()
+                        && diagnostic.category == row.operation.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(row.operation.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        self.unsupported_operation_count() > 0
+            && self.unsupported_diagnostic_count() == self.unsupported_operation_count()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_code_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_unsupported())
+            .map(|row| row.operation.diagnostic_code().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_category_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_unsupported())
+            .map(|row| row.operation.diagnostic_category().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_severity_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_unsupported())
+            .map(|_| DiagnosticSeverity::Info.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || !self.claim_blocked()
+            || !self.deterministic_unsupported_diagnostics_ready()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(out, "gar_id: {}", self.gar_id);
+        let _ = writeln!(out, "support_status: {}", self.support_status);
+        let _ = writeln!(out, "claim_gate_status: {}", self.claim_gate_status);
+        let _ = writeln!(out, "claim_boundary: {}", self.claim_boundary);
+        let _ = writeln!(
+            out,
+            "runtime promotions blocked: {}",
+            self.runtime_promotions_blocked()
+        );
+        let _ = writeln!(
+            out,
+            "deterministic unsupported diagnostics ready: {}",
+            self.deterministic_unsupported_diagnostics_ready()
+        );
+        let _ = writeln!(out, "side effect free: {}", self.side_effect_free());
+        let _ = writeln!(out, "operations:");
+        for row in &self.rows {
+            let _ = writeln!(
+                out,
+                "  - {}:{} [{}] existing_ref={} required_fixture={} commit_semantics={} runtime_allowed=false fallback_attempted=false external_engine_invoked=false claim_gate_status={}",
+                row.family.as_str(),
+                row.operation.as_str(),
+                row.status.as_str(),
+                row.existing_report_ref.unwrap_or("none"),
+                row.required_fixture,
+                row.required_commit_semantics,
+                row.claim_gate_status
+            );
+        }
+        out
+    }
+}
+
+fn table_maintenance_execution_matrix_rows() -> Vec<TableMaintenanceExecutionMatrixRow> {
+    vec![
+        TableMaintenanceExecutionMatrixRow::report_only(
+            TableMaintenanceExecutionFamily::DeleteTombstone,
+            TableMaintenanceExecutionOperation::FileLevelDeleteCompatibility,
+            "shardloom.delete_tombstone_compatibility.v1",
+            "declared_delete_model_fixture",
+            "none_report_only",
+            "delete_tombstone_compatibility_report,no_fallback_policy",
+        ),
+        TableMaintenanceExecutionMatrixRow::unsupported(
+            TableMaintenanceExecutionFamily::DeleteTombstone,
+            TableMaintenanceExecutionOperation::SegmentTombstoneExecution,
+            "segment_tombstone_fixture,row_identity",
+            "native_tombstone_filter_rule",
+            "correctness_evidence,execution_certificate,native_io_certificate",
+        ),
+        TableMaintenanceExecutionMatrixRow::unsupported(
+            TableMaintenanceExecutionFamily::DeleteTombstone,
+            TableMaintenanceExecutionOperation::RowLevelDeleteExecution,
+            "row_level_delete_fixture,row_identity",
+            "native_row_delete_rule",
+            "correctness_evidence,execution_certificate,native_io_certificate",
+        ),
+        TableMaintenanceExecutionMatrixRow::unsupported(
+            TableMaintenanceExecutionFamily::DeleteTombstone,
+            TableMaintenanceExecutionOperation::PositionDeleteExecution,
+            "position_delete_fixture,row_position_identity",
+            "native_position_delete_rule",
+            "correctness_evidence,execution_certificate,native_io_certificate",
+        ),
+        TableMaintenanceExecutionMatrixRow::unsupported(
+            TableMaintenanceExecutionFamily::DeleteTombstone,
+            TableMaintenanceExecutionOperation::EqualityDeleteExecution,
+            "equality_delete_fixture,equality_predicate",
+            "native_equality_delete_rule",
+            "correctness_evidence,execution_certificate,native_io_certificate",
+        ),
+        TableMaintenanceExecutionMatrixRow::report_only(
+            TableMaintenanceExecutionFamily::Cdc,
+            TableMaintenanceExecutionOperation::CdcAppendOnlyPlanning,
+            "shardloom.cdc_incremental_planning.v1",
+            "snapshot_pair,append_only_change_set",
+            "none_report_only",
+            "cdc_incremental_planning_report,no_fallback_policy",
+        ),
+        TableMaintenanceExecutionMatrixRow::report_only(
+            TableMaintenanceExecutionFamily::Cdc,
+            TableMaintenanceExecutionOperation::CdcMetadataOnlyPlanning,
+            "shardloom.cdc_incremental_planning.v1",
+            "snapshot_pair,metadata_only_change_set",
+            "none_report_only",
+            "cdc_incremental_planning_report,no_fallback_policy",
+        ),
+        TableMaintenanceExecutionMatrixRow::unsupported(
+            TableMaintenanceExecutionFamily::Cdc,
+            TableMaintenanceExecutionOperation::CdcUpdateDeleteTombstoneExecution,
+            "snapshot_pair,row_identity,delete_tombstone_fixture",
+            "cdc_transaction_and_delete_semantics",
+            "correctness_evidence,execution_certificate,native_io_certificate,commit_protocol",
+        ),
+        TableMaintenanceExecutionMatrixRow::report_only(
+            TableMaintenanceExecutionFamily::MaintenanceWrite,
+            TableMaintenanceExecutionOperation::CompactionPlanning,
+            "shardloom.compaction_planning.v1",
+            "declared_layout_health_fixture",
+            "none_report_only",
+            "layout_health_report,compaction_planning_report,no_fallback_policy",
+        ),
+        TableMaintenanceExecutionMatrixRow::unsupported(
+            TableMaintenanceExecutionFamily::MaintenanceWrite,
+            TableMaintenanceExecutionOperation::CompactionExecutionWrite,
+            "compaction_candidate_fixture,write_payload_fixture",
+            "staged_output_and_atomic_commit_protocol",
+            "correctness_evidence,execution_certificate,native_io_certificate,commit_recovery",
+        ),
+        TableMaintenanceExecutionMatrixRow::unsupported(
+            TableMaintenanceExecutionFamily::MaintenanceWrite,
+            TableMaintenanceExecutionOperation::TableMetadataWrite,
+            "table_metadata_schema_fixture,catalog_ref",
+            "table_metadata_write_policy",
+            "dependency_license_approval,credential_policy,execution_certificate,native_io_certificate",
+        ),
+        TableMaintenanceExecutionMatrixRow::unsupported(
+            TableMaintenanceExecutionFamily::MaintenanceWrite,
+            TableMaintenanceExecutionOperation::TableMaintenanceCommit,
+            "manifest_delta_fixture,commit_marker_fixture",
+            "atomic_or_documented_non_atomic_commit_protocol",
+            "commit_protocol,conflict_detection,recovery_certificate,no_fallback_policy",
+        ),
+    ]
+}
+
+fn table_maintenance_execution_existing_report_refs() -> Vec<&'static str> {
+    vec![
+        "cg9.table_intelligence.foundation",
+        "shardloom.delete_tombstone_compatibility.v1",
+        "shardloom.cdc_incremental_planning.v1",
+        "shardloom.layout_health.v1",
+        "shardloom.compaction_planning.v1",
+        "gar0020c.local_manifest_table_metadata_read_smoke",
+        "gar0004a.cdc_manifest_transaction_gate",
+        "shardloom.object_store_commit_protocol.v1",
+    ]
+}
+
+#[must_use]
+pub fn plan_table_maintenance_execution_matrix() -> TableMaintenanceExecutionMatrixReport {
+    TableMaintenanceExecutionMatrixReport::planning_default()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CatalogMetadataIntegrationSurface {
     TableIntelligenceFoundation,
     CatalogRefSkeleton,
@@ -2199,6 +2804,126 @@ mod tests {
         assert!(!table_metadata.fallback_attempted);
         assert!(!table_metadata.external_engine_invoked);
         assert_eq!(table_metadata.claim_gate_status, "not_claim_grade");
+    }
+
+    #[test]
+    fn table_maintenance_execution_matrix_blocks_runtime_paths() {
+        let report = plan_table_maintenance_execution_matrix();
+        assert_eq!(
+            report.schema_version,
+            "shardloom.table_maintenance_execution_matrix.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "gar0020b.table_maintenance_execution_matrix"
+        );
+        assert_eq!(report.gar_id, "GAR-0020-B");
+        assert_eq!(
+            report.support_status,
+            "report_only_with_unsupported_runtime_paths"
+        );
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.operation_count(), 12);
+        assert_eq!(report.report_only_operation_count(), 4);
+        assert_eq!(report.unsupported_operation_count(), 8);
+        assert_eq!(
+            report.operation_order(),
+            vec![
+                "file_level_delete_compatibility",
+                "segment_tombstone_execution",
+                "row_level_delete_execution",
+                "position_delete_execution",
+                "equality_delete_execution",
+                "cdc_append_only_planning",
+                "cdc_metadata_only_planning",
+                "cdc_update_delete_tombstone_execution",
+                "compaction_planning",
+                "compaction_execution_write",
+                "table_metadata_write",
+                "table_maintenance_commit",
+            ]
+        );
+        assert!(report.delete_tombstone_compatibility_report_present);
+        assert!(report.cdc_incremental_planning_present);
+        assert!(report.layout_compaction_planning_present);
+        assert!(report.local_metadata_smoke_present);
+        assert!(report.fixture_metadata_required);
+        assert!(report.row_identity_required);
+        assert!(report.delete_tombstone_policy_required);
+        assert!(report.commit_semantics_required);
+        assert!(report.table_metadata_schema_required);
+        assert!(report.execution_certificate_required);
+        assert!(report.native_io_certificate_required);
+        assert!(report.materialization_decode_evidence_required);
+        assert!(report.no_fallback_policy_required);
+        assert!(report.runtime_promotions_blocked());
+        assert!(report.claim_blocked());
+        assert!(report.side_effect_free());
+        assert!(report.deterministic_unsupported_diagnostics_ready());
+        assert_eq!(
+            report.unsupported_diagnostic_count(),
+            report.unsupported_operation_count()
+        );
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn table_maintenance_execution_matrix_rows_are_deterministic_and_no_fallback() {
+        let report = plan_table_maintenance_execution_matrix();
+        let file_level_delete = report
+            .rows
+            .iter()
+            .find(|row| {
+                row.operation == TableMaintenanceExecutionOperation::FileLevelDeleteCompatibility
+            })
+            .expect("file-level delete row");
+        assert_eq!(
+            file_level_delete.status,
+            TableMaintenanceExecutionStatus::ReportOnlyAvailable
+        );
+        assert_eq!(file_level_delete.support_status, "report_only");
+        assert_eq!(
+            file_level_delete.existing_report_ref,
+            Some("shardloom.delete_tombstone_compatibility.v1")
+        );
+        assert!(!file_level_delete.runtime_execution_allowed);
+        assert!(file_level_delete.side_effect_free());
+
+        let cdc_delete = report
+            .rows
+            .iter()
+            .find(|row| {
+                row.operation
+                    == TableMaintenanceExecutionOperation::CdcUpdateDeleteTombstoneExecution
+            })
+            .expect("cdc delete/tombstone row");
+        assert_eq!(
+            cdc_delete.status,
+            TableMaintenanceExecutionStatus::UnsupportedUntilCertified
+        );
+        assert_eq!(cdc_delete.support_status, "unsupported");
+        assert_eq!(
+            cdc_delete.required_commit_semantics,
+            "cdc_transaction_and_delete_semantics"
+        );
+        assert!(!cdc_delete.cdc_execution_allowed);
+        assert!(!cdc_delete.fallback_attempted);
+        assert!(!cdc_delete.external_engine_invoked);
+        assert_eq!(cdc_delete.claim_gate_status, "not_claim_grade");
+
+        assert_eq!(
+            report.unsupported_diagnostic_code_order(),
+            vec![
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_COMMIT_NOT_ATOMIC",
+            ]
+        );
     }
 
     #[test]
