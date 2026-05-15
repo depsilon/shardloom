@@ -63,8 +63,10 @@ Out of scope until promoted GAR slices complete:
 - Broad delete/tombstone runtime beyond the completed `GAR-0020-D` local fixture smoke, CDC
   execution beyond the completed `GAR-0020-E` append-only overlay smoke, compaction writes,
   table-maintenance writes, broad table data I/O, object-store I/O, lakehouse/catalog commits, and
-  table-format runtime surfaces remain unsupported until their matrix rows are promoted by later
-  evidence-bearing slices such as `GAR-0028-A`.
+  table-format runtime surfaces remain unsupported. `GAR-0028-A` now supplies the deterministic
+  commit-semantics gate for those lakehouse/catalog paths; later runtime promotion still requires
+  workload fixtures, commit execution evidence, execution certificates, Native I/O certificates,
+  materialization/decode evidence, and no-fallback evidence.
 
 ## Default Policy
 

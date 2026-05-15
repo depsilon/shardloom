@@ -1498,6 +1498,9 @@ fn append_commit_execution_promotion_gate_summary_fields(
     push_field(fields, "mode", "commit_execution_promotion_gate");
     push_field(fields, "schema_version", report.schema_version);
     push_field(fields, "report_id", report.report_id);
+    push_field(fields, "gar_id", report.gar_id);
+    push_field(fields, "support_status", report.support_status);
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
     push_count_field(fields, "surface_count", report.surface_count());
     push_count_field(
         fields,
@@ -1515,6 +1518,31 @@ fn append_commit_execution_promotion_gate_summary_fields(
         report.broader_execution_ready_surface_count(),
     );
     push_field(fields, "surface_order", &report.surface_order().join(","));
+    push_field(
+        fields,
+        "existing_report_refs",
+        &report.existing_report_refs.join(","),
+    );
+    push_count_field(
+        fields,
+        "unsupported_diagnostic_count",
+        report.unsupported_diagnostic_count(),
+    );
+    push_bool_field(
+        fields,
+        "deterministic_unsupported_diagnostics_ready",
+        report.deterministic_unsupported_diagnostics_ready,
+    );
+    push_bool_field(
+        fields,
+        "unsupported_diagnostics_propagated",
+        report.unsupported_diagnostics_propagated(),
+    );
+    push_field(
+        fields,
+        "diagnostic_feature_order",
+        &report.diagnostic_feature_order().join(","),
+    );
     push_bool_field(
         fields,
         "existing_local_commit_execution_present",
@@ -1604,9 +1632,23 @@ fn append_commit_execution_promotion_gate_evidence_fields(
         "credential_effect_policy_required",
         report.credential_effect_policy_required,
     );
+    push_bool_field(
+        fields,
+        "upstream_vortex_write_api_policy_required",
+        report.upstream_vortex_write_api_policy_required,
+    );
 }
 
 fn append_commit_execution_promotion_gate_execution_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
+    append_commit_execution_promotion_gate_allowed_fields(fields, report);
+    append_commit_execution_promotion_gate_effect_fields(fields, report);
+    append_commit_execution_promotion_gate_claim_fields(fields, report);
+}
+
+fn append_commit_execution_promotion_gate_allowed_fields(
     fields: &mut Vec<(String, String)>,
     report: &CommitExecutionPromotionGateReport,
 ) {
@@ -1614,6 +1656,11 @@ fn append_commit_execution_promotion_gate_execution_fields(
         fields,
         "broader_commit_execution_allowed",
         report.broader_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "generalized_manifest_serialization_allowed",
+        report.generalized_manifest_serialization_allowed,
     );
     push_bool_field(
         fields,
@@ -1632,6 +1679,11 @@ fn append_commit_execution_promotion_gate_execution_fields(
     );
     push_bool_field(
         fields,
+        "lakehouse_transaction_commit_execution_allowed",
+        report.lakehouse_transaction_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
         "native_source_sink_commit_execution_allowed",
         report.native_source_sink_commit_execution_allowed,
     );
@@ -1642,9 +1694,25 @@ fn append_commit_execution_promotion_gate_execution_fields(
     );
     push_bool_field(
         fields,
+        "upstream_vortex_write_api_execution_allowed",
+        report.upstream_vortex_write_api_execution_allowed,
+    );
+    push_bool_field(
+        fields,
         "live_hybrid_checkpoint_commit_execution_allowed",
         report.live_hybrid_checkpoint_commit_execution_allowed,
     );
+    push_bool_field(
+        fields,
+        "output_payload_fidelity_claim_allowed",
+        report.output_payload_fidelity_claim_allowed,
+    );
+}
+
+fn append_commit_execution_promotion_gate_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
     push_bool_field(
         fields,
         "runtime_execution",
@@ -1653,11 +1721,28 @@ fn append_commit_execution_promotion_gate_execution_fields(
     push_bool_field(fields, "write_io", report.write_io);
     push_bool_field(fields, "object_store_io", report.object_store_io);
     push_bool_field(fields, "catalog_io", report.catalog_io);
+    push_bool_field(fields, "manifest_write_io", report.manifest_write_io);
+    push_bool_field(
+        fields,
+        "upstream_vortex_write_api_invoked",
+        report.upstream_vortex_write_api_invoked,
+    );
     push_bool_field(
         fields,
         "external_effects_executed",
         report.external_effects_executed,
     );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+}
+
+fn append_commit_execution_promotion_gate_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
     push_bool_field(
         fields,
         "exactly_once_claim_allowed",
@@ -1672,6 +1757,16 @@ fn append_commit_execution_promotion_gate_execution_fields(
         fields,
         "recovery_claim_allowed",
         report.recovery_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "lakehouse_claim_allowed",
+        report.lakehouse_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "production_output_claim_allowed",
+        report.production_output_claim_allowed,
     );
 }
 

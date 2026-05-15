@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0028-A object-store and lakehouse commit semantics gate
+  - Primary files:
+    - `shardloom-exec/src/recovery.rs`
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `shardloom-cli/tests/commit_execution_promotion_gate.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/object-store-request-planner.md`
+    - `docs/architecture/table-intelligence-layer.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close GAR-0028-A by turning the existing commit execution promotion gate into the RFC
+    0028 object-store/lakehouse commit-semantics gate for broad output, table/catalog, lakehouse,
+    Foundry, upstream Vortex writer, and payload-fidelity promotion surfaces.
+  - Checklist:
+    - [x] Add `gar_id=GAR-0028-A`, `support_status=report_only_with_blocked_runtime_paths`, and
+          `claim_gate_status=not_claim_grade` to `CommitExecutionPromotionGateReport`.
+    - [x] Add existing evidence refs for local staged output, manifest finalization, commit marker,
+          object-store request planning, object-store commit protocol planning, and the table
+          maintenance matrix.
+    - [x] Expand commit-promotion surfaces to include generalized manifest serialization,
+          lakehouse transaction commit, upstream Vortex write API execution, and output-payload
+          fidelity claims in addition to the existing local, object-store, table/catalog,
+          source/sink, Foundry, and live/hybrid checkpoint surfaces.
+    - [x] Emit deterministic info-level diagnostics for every blocked broad commit surface with
+          `fallback_attempted=false` and `fallback_execution_allowed=false`.
+    - [x] Expose CLI JSON/text fields for unsupported diagnostic propagation, evidence refs,
+          no-write/no-object-store/no-catalog/no-upstream-Vortex/no-external-engine flags, and
+          blocked lakehouse/output claims.
+    - [x] Move GAR-0028-A out of the phase plan and update the global architecture review,
+          object-store request planner, table intelligence layer, and RFC traceability docs.
+  - Boundary:
+    - This is a report-only/diagnostic gate. It does not execute generalized manifest
+      serialization, object-store commits, table/catalog commits, lakehouse transactions, Foundry
+      dataset transactions, upstream Vortex writer APIs, generalized sink commits, live/hybrid
+      checkpoint commits, or production output-payload fidelity certification.
+    - `runtime_execution=false`, `manifest_write_io=false`, `write_io=false`,
+      `object_store_io=false`, `catalog_io=false`, `upstream_vortex_write_api_invoked=false`,
+      `external_engine_invoked=false`, `fallback_attempted=false`, and
+      `fallback_execution_allowed=false` remain part of the report and CLI output.
+  - Evidence:
+    - Rust unit tests assert the expanded surface order, support/claim statuses, deterministic
+      diagnostic propagation, no-effect fields, and blocked claims.
+    - CLI tests assert the JSON fields, existing evidence refs, blocked execution surfaces, no-write
+      flags, and diagnostic feature order.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-exec commit_execution_promotion_gate --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test commit_execution_promotion_gate`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `git diff --check`
 - [x] Session label: GAR-0020-E scoped append-only CDC read/overlay smoke
   - Primary files:
     - `shardloom-core/src/table_intelligence.rs`

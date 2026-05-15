@@ -660,9 +660,18 @@ plan before coding.
 - [x] Local Vortex staged output, manifest draft/finalization, commit marker, and commit evidence
   exist.
 - [x] Commit execution gates keep unsupported object-store/table/catalog paths unsupported.
-- [ ] Object-store commit, table/catalog/lakehouse commit semantics, generalized sink commit,
-  Foundry dataset transaction commit, upstream Vortex write API execution, and production
-  output-payload fidelity remain incomplete.
+- [x] `GAR-0028-A` expands `CommitExecutionPromotionGateReport` into a deterministic RFC 0028
+  object-store/lakehouse commit-semantics gate. It records `GAR-0028-A`,
+  `support_status=report_only_with_blocked_runtime_paths`, `claim_gate_status=not_claim_grade`,
+  existing local staged-output/manifest/commit/object-store/table-maintenance evidence refs, and
+  info-level no-fallback diagnostics for generalized manifest serialization, generalized sink
+  commit, object-store commit, table/catalog commit, lakehouse transaction commit, native
+  source/sink commit, Foundry dataset transaction commit, upstream Vortex write API execution,
+  live/hybrid checkpoint commit, and output-payload fidelity claims.
+- [x] Unsupported RFC 0028 commit surfaces remain side-effect-free:
+  `runtime_execution=false`, `manifest_write_io=false`, `write_io=false`, `object_store_io=false`,
+  `catalog_io=false`, `upstream_vortex_write_api_invoked=false`, `external_engine_invoked=false`,
+  `fallback_attempted=false`, and `fallback_execution_allowed=false`.
 
 ### RFC 0029 - Correctness, Benchmarks, Execution Certificates, and Stateful Reuse
 

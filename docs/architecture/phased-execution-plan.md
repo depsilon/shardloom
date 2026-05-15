@@ -318,24 +318,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
-
-- [ ] GAR-0028-A object-store and lakehouse commit semantics gate
-  - Source: RFC 0028; object-store request planner; table-intelligence layer.
-  - Current state: local Vortex staged-output, manifest draft/finalization, and commit markers
-    exist; object-store/table/lakehouse commit semantics and generalized manifest serialization are
-    not executed broadly.
-  - Next slice outcome: gate for generalized manifest serialization, object-store commit,
-    table/catalog commit, sink commit, Foundry dataset transaction, upstream Vortex write API, and
-    output-payload fidelity.
-  - User-visible surface: CLI commit/output plan, release gate, docs.
-  - Implementation scope: commit gate report, CLI output, tests.
-  - Evidence required: commit protocol refs, Native I/O refs if executed, policy/no-fallback refs.
-  - Acceptance: unsupported commit families are blocked with deterministic diagnostics and no writes.
-  - Verification: commit gate tests, object-store planner tests, release readiness metadata tests.
-  - Non-goals: no generalized manifest writes, object-store writes, table commits, Foundry
-    transactions, or upstream write calls.
-  - Fallback/claim boundary: no production output/lakehouse claim.
-  - Dependencies/blockers: GAR-0008, GAR-0020, and GAR-0036.
 #### GAR-P3 - User Surfaces, APIs, Adapters, And Workflow
 
 - [ ] GAR-0010-A Python API ergonomics and typed capability view
