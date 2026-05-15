@@ -339,16 +339,17 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     production, Spark-displacement, or performance claims.
   - Dependencies/blockers: source/format-specific parser support, result-sink evidence, and
     operator coverage.
-- [ ] GAR-FLOW-2J prepared/native encoded operator or source-state expansion
+- [ ] GAR-FLOW-2K prepared/native encoded operator or broader source-state follow-through
   - Source: `docs/architecture/compute-engine-flow-reference.md`;
     `docs/architecture/benchmark-suite-catalog.md`; RFC 0026; RFC 0042.
   - Current state: prepared/native Vortex rows have process reuse, source metadata reuse,
-    hash/join dimension-label source-state reuse, source-backed scan evidence, and scoped
-    residual-native fixture paths; generalized row-state reuse and encoded/native operator coverage
-    remain incomplete.
+    hash/join dimension-label source-state reuse, distinct-count/high-cardinality
+    category/metric source-state reuse, source-backed scan evidence, and scoped residual-native
+    fixture paths; generalized row-state reuse and encoded/native operator coverage remain
+    incomplete.
   - Next slice outcome: add the next narrow prepared/native runtime improvement, such as another
     repeated-source-state family, a fused residual operator path with explicit timing, or one
-    encoded/native operator promotion with attached evidence.
+    encoded/native operator/provider promotion with attached evidence.
   - User-visible surface: `traditional-analytics-vortex-batch-run`, comparative benchmark evidence
     rows, compute-flow docs, and benchmark docs.
   - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, benchmark harness field
