@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0020-B delete/tombstone, CDC, and maintenance-write execution matrix
+  - Primary files:
+    - `shardloom-core/src/table_intelligence.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`
+    - `docs/architecture/table-intelligence-layer.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a typed `TableMaintenanceExecutionMatrixReport` and embed it in
+    `table-intelligence-plan` so delete/tombstone, CDC, compaction, table-metadata write, and
+    table-maintenance commit lanes have deterministic support status, required fixture evidence,
+    commit-semantics requirements, no-fallback fields, and unsupported diagnostics.
+  - Checklist:
+    - [x] Add row-level operation vocabulary for file-level delete compatibility, segment/row/
+          position/equality delete execution, append-only and metadata-only CDC planning,
+          update/delete/tombstone CDC execution, compaction planning, compaction execution writes,
+          table metadata writes, and table-maintenance commits.
+    - [x] Mark existing file-level delete compatibility, CDC planning, and compaction planning as
+          `report_only_available` with existing report refs.
+    - [x] Mark runtime delete/tombstone execution, CDC execution, maintenance writes, metadata
+          writes, and table-maintenance commits as `unsupported_until_certified` with deterministic
+          diagnostics.
+    - [x] Preserve side-effect-free table planning:
+          `runtime_execution_allowed=false`, `catalog_io_allowed=false`,
+          `table_metadata_io_allowed=false`, `data_io_allowed=false`,
+          `object_store_io_allowed=false`, `write_io_allowed=false`,
+          `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+          `external_engine_invoked=false`.
+    - [x] Keep `claim_gate_status=not_claim_grade` and
+          `table_format_execution_claim_allowed=false`.
+  - Boundary:
+    - This closes the matrix/diagnostic slice only. It does not implement delete/tombstone runtime,
+      CDC execution, compaction writes, table metadata writes, object-store I/O, lakehouse/catalog
+      commits, production table-format support, SQL/DataFrame support, performance claims, external
+      engines, or fallback execution.
+  - Evidence:
+    - `table-intelligence-plan --format json` now emits
+      `table_maintenance_execution_matrix_*` fields with operation counts, operation order,
+      existing report refs, required fixture/commit/evidence strings, deterministic unsupported
+      diagnostics, and no-fallback/no-external-engine boundaries.
+    - Focused core tests assert the matrix operation order, report-only/unsupported counts,
+      evidence requirements, side-effect-free state, deterministic diagnostics, and claim boundary.
+    - CLI snapshot tests assert the embedded GAR-0020-B fields and row-level status for
+      file-level delete compatibility, CDC update/delete/tombstone execution, table metadata write,
+      and table-maintenance commit rows.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core table_maintenance_execution_matrix --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli table_intelligence --tests`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
 - [x] Session label: GAR-FLOW-2G prepared/native batch runner harness integration
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

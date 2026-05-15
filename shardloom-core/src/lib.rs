@@ -320,9 +320,11 @@ pub use table_intelligence::{
     CdcManifestTransactionGateEntry, CdcManifestTransactionGateReport,
     CdcManifestTransactionStatus, CdcManifestTransactionSurface, LocalTableMetadataBlockedPath,
     LocalTableMetadataReadSmokeReport, TableIntelligenceReport, TableIntelligenceSurface,
-    TableIntelligenceSurfaceKind, TableIntelligenceSurfaceStatus,
+    TableIntelligenceSurfaceKind, TableIntelligenceSurfaceStatus, TableMaintenanceExecutionFamily,
+    TableMaintenanceExecutionMatrixReport, TableMaintenanceExecutionMatrixRow,
+    TableMaintenanceExecutionOperation, TableMaintenanceExecutionStatus,
     plan_catalog_metadata_integration_gate, plan_cdc_manifest_transaction_gate,
-    run_local_table_metadata_read_smoke,
+    plan_table_maintenance_execution_matrix, run_local_table_metadata_read_smoke,
 };
 
 pub use translation::{
