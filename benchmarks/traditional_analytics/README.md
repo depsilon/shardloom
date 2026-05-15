@@ -296,16 +296,20 @@ ShardLoom also exposes the scoped `traditional-analytics-vortex-batch-run` comma
 comma-separated list of prepared/native scenarios against the same prepared `.vortex` artifacts in
 one ShardLoom process and emits `shardloom.traditional_analytics.vortex_batch.v1` fields, including
 `runner_kind=single_process_prepared_native_batch`,
-`typed_envelope_preserved=true`, `process_startup_amortization_supported=true`, per-scenario
+`typed_envelope_preserved=true`, `process_startup_amortization_supported=true`,
+`source_metadata_snapshot_status=per_batch_source_metadata_reused`, per-scenario
 operator/source/Native I/O fields, and `fallback_attempted=false` /
-`external_engine_invoked=false`. The Python comparative harness uses this command for eligible
-prepared/native Vortex scenario groups, one batch process per format/iteration, and reports
-`persistent_runner_status=single_process_batch_runner_supported` on those rows. That status means
-the CLI process wall time is shared across the grouped rows; per-scenario
+`external_engine_invoked=false`. The per-batch source metadata snapshot records fact/dimension/CDC
+Vortex artifact sizes and digests once per command invocation and reuses that evidence for child
+scenario reports instead of recomputing it per scenario. The Python comparative harness uses this
+command for eligible prepared/native Vortex scenario groups, one batch process per format/iteration,
+and reports `persistent_runner_status=single_process_batch_runner_supported` on those rows. That
+status means the CLI process wall time is shared across the grouped rows; per-scenario
 `scenario_compute_micros`, `vortex_scan_micros`, and optional
 `computed_result_sink_write_micros` remain row-level evidence fields. This is a runtime support
-slice for scoped local prepared/native process reuse. It is not a persistent daemon, hidden fast
-mode, performance claim, SQL/DataFrame claim, object-store claim, or Spark-displacement claim.
+slice for scoped local prepared/native process and source-metadata reuse. It is not a persistent
+daemon, hidden fast mode, performance claim, encoded-native claim, SQL/DataFrame claim, object-store
+claim, or Spark-displacement claim.
 
 ### Website Evidence Snapshot
 

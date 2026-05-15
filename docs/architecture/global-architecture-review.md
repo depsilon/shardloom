@@ -947,10 +947,10 @@ plan before coding.
   capability rows, CLI JSON envelopes, Python typed accessors, and benchmark coverage rows, plus
   one scoped local CSV selective-filter smoke path; broader formats, operators, result sinks, and
   SQL/DataFrame direct transient runtime remain incomplete.
-- [ ] Prepared/native Vortex rows now carry a typed operator blocker matrix and explicit
-  `source_backed_scan_*` evidence, but still rely on temporary materialized or residual
-  ShardLoom-native operator paths for some scenarios until encoded/native operator coverage
-  matures.
+- [ ] Prepared/native Vortex rows now carry a typed operator blocker matrix, explicit
+  `source_backed_scan_*` evidence, and scoped batch source-metadata reuse, but still rely on
+  temporary materialized or residual ShardLoom-native operator paths for some scenarios until
+  encoded/native operator coverage matures.
   - [x] GAR-FLOW-2E aligns `compute-capability-matrix` with the scoped prepared/native
         residual-runtime evidence already present for grouped aggregate, join, and row-number/window
         rows. Those rows now report `support_status=fixture_certified`,
@@ -977,6 +977,13 @@ plan before coding.
         `fallback_attempted=false` / `external_engine_invoked=false`. This closes benchmark harness
         integration for scoped local prepared/native batch process reuse only; encoded-native
         operator claims, persistent daemon/service runtime, performance claims, SQL/DataFrame,
+        object-store/lakehouse, Spark-displacement, and production claims remain blocked.
+  - [x] GAR-FLOW-2H reuses one per-batch fact/dimension/CDC Vortex source metadata snapshot inside
+        `traditional-analytics-vortex-batch-run`, so child prepared/native scenario reports reuse
+        source size/digest evidence rather than recomputing it for each scenario. The batch envelope
+        emits `source_metadata_snapshot_*` fields plus no-fallback/no-external-engine policy fields.
+        This closes scoped source-metadata reuse only; row-state reuse, encoded-native operator
+        claims, persistent daemon/service runtime, performance claims, SQL/DataFrame,
         object-store/lakehouse, Spark-displacement, and production claims remain blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.

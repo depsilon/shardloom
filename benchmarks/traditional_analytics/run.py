@@ -2088,6 +2088,21 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "batch_runner_kind": batch_fields.get(
                     "runner_kind", "single_process_prepared_native_batch"
                 ),
+                "source_metadata_snapshot_status": batch_fields.get(
+                    "source_metadata_snapshot_status", "unknown"
+                ),
+                "source_metadata_snapshot_reused": batch_fields.get(
+                    "source_metadata_snapshot_reused", "unknown"
+                ),
+                "source_metadata_snapshot_reuse_count": batch_fields.get(
+                    "source_metadata_snapshot_reuse_count", "unknown"
+                ),
+                "source_metadata_digest_recompute_avoided_count": batch_fields.get(
+                    "source_metadata_digest_recompute_avoided_count", "unknown"
+                ),
+                "source_metadata_snapshot_claim_boundary": batch_fields.get(
+                    "source_metadata_snapshot_claim_boundary", "unknown"
+                ),
                 "batch_scenario_count": batch_fields.get("scenario_count", "unknown"),
                 "batch_scenario_order": batch_fields.get("scenario_order", ""),
                 "batch_total_scenario_compute_micros": batch_fields.get(
@@ -2167,6 +2182,13 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "ShardLoom batch runner status was unexpected: "
                 + str(fields.get("persistent_runner_status", "missing"))
             )
+        if fields.get("source_metadata_snapshot_status") != "per_batch_source_metadata_reused":
+            raise RuntimeError(
+                "ShardLoom batch source metadata snapshot status was unexpected: "
+                + str(fields.get("source_metadata_snapshot_status", "missing"))
+            )
+        if fields.get("source_metadata_snapshot_reused") != "true":
+            raise RuntimeError("ShardLoom batch did not report source metadata reuse")
         if fields.get("all_fallback_attempted_false") != "true":
             raise RuntimeError("ShardLoom batch reported fallback attempts")
         if fields.get("all_external_engine_invoked_false") != "true":

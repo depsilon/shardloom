@@ -16,6 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2H prepared/native batch source metadata reuse
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close a scoped prepared/native Vortex runtime-plumbing slice by reusing one
+    fact/dimension/CDC source metadata snapshot across child scenarios in
+    `traditional-analytics-vortex-batch-run`.
+  - Checklist:
+    - [x] Add an internal `TraditionalVortexSourceSnapshot` that records Vortex artifact sizes,
+          digests, and source-byte totals once per batch invocation.
+    - [x] Route child prepared/native Vortex scenario reports through the shared source snapshot
+          while preserving per-scenario scan/operator/result-sink evidence.
+    - [x] Emit batch-level `source_metadata_snapshot_*` fields, including reuse status, reuse
+          count, recompute-avoided count, claim boundary, and no-fallback/no-external-engine
+          policy fields.
+    - [x] Update compute-flow and benchmark docs so the runtime model distinguishes scoped
+          source-metadata reuse from persistent daemon/service runtime and from performance claims.
+    - [x] Propagate source metadata snapshot fields into comparative benchmark rows for eligible
+          prepared/native batch runs.
+  - Boundary:
+    - This is scoped runtime plumbing for local prepared/native batch evidence only. It does not
+      add row-state reuse, encoded-native operator claims, persistent daemon/service runtime,
+      SQL/DataFrame execution, object-store/lakehouse runtime, Spark displacement, production
+      claims, or performance/superiority claims.
+  - Evidence:
+    - Rust unit tests assert the batch envelope emits the source metadata snapshot fields, keeps
+      per-scenario evidence, and preserves `fallback_attempted=false` /
+      `external_engine_invoked=false`.
+    - Architecture docs record GAR-FLOW-2H as complete while keeping generalized encoded/native
+      operator coverage and claim-grade benchmark gates blocked.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics::tests::prepared_native_vortex_batch_run_preserves_evidence_envelope`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `git diff --check`
 - [x] Session label: GAR-0032-B Python DataFrame method capability matrix
   - Primary files:
     - `python/src/shardloom/context.py`

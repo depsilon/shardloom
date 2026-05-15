@@ -283,6 +283,13 @@ materialization/decode boundaries, result-sink replay evidence, deterministic un
 diagnostics, and `fallback_attempted=false` / `external_engine_invoked=false`. No hidden runner,
 daemon, service, or process-overhead claim is admitted from the benchmark artifact alone.
 
+GAR-FLOW-2H adds per-batch source metadata reuse inside
+`traditional-analytics-vortex-batch-run`. The command computes one fact/dimension/CDC Vortex source
+metadata snapshot per invocation, reuses artifact size/digest evidence across child scenarios, and
+emits `source_metadata_snapshot_*` fields. This is scoped runtime plumbing for prepared/native
+batch evidence, not a public performance, encoded-native, object-store, SQL/DataFrame, production,
+or Spark-displacement claim.
+
 GAR-FLOW-2D adds `work_avoidance_evidence_schema` to the JSON artifact and Markdown report. The
 schema uses only `measured`, `not_available`, `unsupported`, and `not_applicable` as status values.
 Every ShardLoom benchmark row reports status/value/reason triples for rows avoided, segments
