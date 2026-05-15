@@ -315,21 +315,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     until workload-scoped correctness and benchmark claim gates pass.
   - Dependencies/blockers: stable admitted filter-column kernel inputs, bridge selection-vector
     evidence, selected metric scan evidence, and certificate/no-fallback fields.
-- [ ] GAR-0014-A spill/OOM enforcement promotion gate
-  - Source: RFC 0014; spill reservation lifecycle integration; workspace feature matrix.
-  - Current state: memory admission and synthetic/local constraints exist; broad runtime spill/OOM
-    enforcement is not production-gated.
-  - Next slice outcome: gate that names required evidence for reservation release, native spill I/O,
-    cleanup, allocator integration, and fail-before-OOM behavior.
-  - User-visible surface: CLI memory/runtime plan, release readiness gate.
-  - Implementation scope: memory gate report, CLI output, contract tests.
-  - Evidence required: memory policy refs, no-fallback refs, security/path-safety refs for spill
-    artifacts.
-  - Acceptance: unsupported spill/OOM paths report blocked evidence without executing writes.
-  - Verification: memory gate tests, runtime exploit/path-safety tests if files are touched.
-  - Non-goals: no allocator or spill I/O implementation.
-  - Fallback/claim boundary: no production memory claim.
-  - Dependencies/blockers: release security/path-safety gates.
 - [ ] GAR-0016-A adaptive execution and runtime-filter report-only gate
   - Source: RFC 0016; dynamic work shaping; performance attribution docs.
   - Current state: adaptive execution/runtime filters/skew handling are represented as planning

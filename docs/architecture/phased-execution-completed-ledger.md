@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0014-A spill/OOM enforcement promotion gate closeout
+  - Primary files:
+    - `shardloom-exec/src/memory.rs`
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `shardloom-cli/tests/cg14_memory_runtime_hardening_gate.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close GAR-0014-A as a report-only promotion gate by making the existing CG-14 memory
+    runtime hardening gate carry explicit GAR identity, support and claim status, required evidence
+    refs, spill artifact path-safety refs, and no-external-engine/no-fallback fields.
+  - Checklist:
+    - [x] Add `gar_id=GAR-0014-A`, `support_status=report_only`,
+          `claim_gate_status=not_claim_grade`, and `promotion_gate_status=blocked_until_certified`
+          to `MemoryRuntimeHardeningGateReport` and CLI JSON fields.
+    - [x] Name the evidence required before reservation release, pressure reaction, native spill
+          read/write, spill cleanup, allocator integration, and fail-before-OOM behavior can be
+          promoted.
+    - [x] Attach security/path-safety refs for future spill artifacts and preserve blocked
+          unsupported paths without writes.
+    - [x] Move the GAR-0014-A planned item out of the active Planned queue while leaving actual
+          runtime spill/OOM production enforcement unclaimed in the global architecture review.
+  - Validation status:
+    - [x] `cargo test -p shardloom-exec memory_runtime_hardening_gate --lib`
+    - [x] `cargo test -p shardloom-cli --test cg14_memory_runtime_hardening_gate`
+    - [x] `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - [x] `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No allocator runtime, reservation release runtime, pressure reaction runtime, native spill
+          read/write, spill cleanup execution, object-store I/O, data reads, writes, production
+          memory claim, external engine invocation, or fallback execution.
 - [x] Session label: GAR-0026-U selective-filter encoding-specific kernel-input lowering
   - Primary files:
     - `shardloom-core/src/encoded.rs`

@@ -1232,6 +1232,14 @@ fn append_memory_runtime_hardening_identity_fields(
     push_field(fields, "execution", "not_performed");
     push_field(fields, "schema_version", report.schema_version);
     push_field(fields, "report_id", report.report_id);
+    push_field(fields, "gar_id", report.gar_id);
+    push_field(
+        fields,
+        "promotion_gate_status",
+        report.promotion_gate_status,
+    );
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
+    push_field(fields, "support_status", report.support_status);
     push_count_field(fields, "surface_count", report.surface_count());
     push_count_field(
         fields,
@@ -1254,6 +1262,16 @@ fn append_memory_runtime_hardening_existing_fields(
         fields,
         "existing_report_refs",
         &report.existing_report_refs.join(","),
+    );
+    push_field(
+        fields,
+        "required_evidence_refs",
+        &report.required_evidence_refs.join(","),
+    );
+    push_field(
+        fields,
+        "security_path_safety_refs",
+        &report.security_path_safety_refs.join(","),
     );
     push_bool_field(
         fields,
@@ -1389,6 +1407,21 @@ fn append_memory_runtime_hardening_requirement_fields(
     );
     push_bool_field(
         fields,
+        "fail_before_oom_evidence_required",
+        report.fail_before_oom_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "spill_artifact_path_safety_required",
+        report.spill_artifact_path_safety_required,
+    );
+    push_bool_field(
+        fields,
+        "unsupported_paths_blocked_without_writes",
+        report.unsupported_paths_blocked_without_writes,
+    );
+    push_bool_field(
+        fields,
         "runtime_promotions_blocked",
         report.runtime_promotions_blocked(),
     );
@@ -1413,6 +1446,11 @@ fn append_memory_runtime_hardening_side_effect_fields(
         report.fallback_execution_allowed,
     );
     push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
