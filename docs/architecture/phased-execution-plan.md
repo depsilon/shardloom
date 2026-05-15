@@ -223,6 +223,378 @@ Supporting docs:
 Use this section for the next implementation sequence. Keep it ordered by dependency and user value,
 not by numeric CG order.
 
+### P8.7 Retro-Future Website Visual System And Evidence UX
+
+Source:
+- `website/index.html`
+- `website/benchmarks.html`
+- `website/compute-engine-flow.html`
+- `website/assets/site.css`
+- `website/assets/compute-flow.js`
+- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/benchmarks/baseline-comparison-boundary.md`
+- current benchmark evidence snapshots
+- `docs/release/website-visual-identity-system.md`
+
+Outcome: give the ShardLoom website a distinctive, original retro-future/cyberpunk/space identity
+while preserving human readability, claim safety, accessibility, and evidence-first benchmark
+interpretation.
+
+Design target:
+- Spaceborne command deck.
+- Cyberpunk telemetry console.
+- Retro-future technical field manual.
+- Fallout-like information structure, not Fallout-like copying.
+
+Runtime rule: website visual/UX work must not change ShardLoom runtime behavior, benchmark results,
+package publication state, release gates, execution claims, or fallback policy.
+
+Priority rule: complete the remaining P8.7 website/public-readiness slices before returning to the
+GAR carry-forward queue unless a newer user instruction explicitly reorders the queue.
+
+Completed kickoff:
+- P8.7A retro-future ShardLoom brand direction and visual identity system is recorded in
+  `docs/architecture/phased-execution-completed-ledger.md`; remaining P8.7 implementation slices
+  continue below.
+
+- [ ] P8.7B command-deck site shell and navigation overhaul
+  - Source:
+    - P8.7A visual identity system.
+    - `website/index.html`.
+    - `website/assets/site.css`.
+    - `website/README.md`.
+  - Current state:
+    - Site has functional navigation and claim-safe static pages.
+    - Labels are still partly repo/document-oriented and do not yet present a command-deck shell.
+  - Next slice outcome:
+    - Redesign the global website shell into a mission-control navigation system while preserving
+      existing URLs and static deployment.
+  - User-visible surface:
+    - Header navigation, footer, page shell, shared CSS, and linked static pages.
+  - Implementation scope:
+    - Update site header/nav labels and footer framing.
+    - Add reusable shell classes: `command-shell`, `mission-nav`, `status-ribbon`,
+      `terminal-panel`, and `signal-card`.
+    - Preserve existing URLs or add explicit redirects.
+  - Evidence required:
+    - Local asset/link validation.
+    - Claim-safe label review.
+    - No runtime GitHub fetch evidence.
+  - Acceptance:
+    - Navigation uses human-readable labels: Home, Field Guide, Telemetry, Compute Flow, Status,
+      Docs, and GitHub.
+    - Header feels like a mission-control shell without harming readability.
+    - Footer includes license and brand guidance.
+    - Static asset validation still passes.
+  - Verification:
+    - `node website/validate_static_assets.js`
+    - link/reference check if available.
+    - `git diff --check`
+  - Non-goals:
+    - No new dynamic framework.
+    - No benchmark regeneration.
+    - No runtime code changes.
+  - Claim boundary:
+    - Navigation must not imply production, package-release, Spark-replacement, performance,
+      SQL/DataFrame, object-store/lakehouse, or Foundry readiness.
+  - Fallback boundary:
+    - No execution behavior changes; website copy must preserve no-fallback semantics.
+  - Ledger rule:
+    - When complete, move the completed session details to the completed ledger.
+- [ ] P8.7C cyberpunk/space design tokens and CSS component refactor
+  - Source:
+    - P8.7A visual identity system.
+    - `website/assets/site.css`.
+  - Current state:
+    - CSS has a clean technical base.
+    - It does not yet express the desired ShardLoom visual identity.
+  - Next slice outcome:
+    - Refactor CSS around reusable cyberpunk/space tokens and visual components.
+  - User-visible surface:
+    - All static website pages.
+  - Implementation scope:
+    - Add dark/space base palette and readable contrast defaults.
+    - Add terminal/card/glow/grid components.
+    - Add badge color semantics.
+    - Add responsive and reduced-motion rules.
+  - Evidence required:
+    - Token list visible in CSS.
+    - Accessibility/readability guardrails.
+    - Static asset validation.
+  - Acceptance:
+    - CSS defines `--void`, `--deep-space`, `--starlight`, `--plasma-cyan`, `--ion-teal`,
+      `--nebula-violet`, `--warning-amber`, `--danger-rose`, `--terminal-green`, and
+      `--grid-line`.
+    - Components include terminal panel, telemetry card, evidence chain, claim badge, raw data
+      drawer, and field guide card styling.
+    - `prefers-reduced-motion` is honored.
+    - Text remains readable on mobile and desktop.
+  - Verification:
+    - Browser/manual smoke review.
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Non-goals:
+    - No external CSS framework.
+    - No remote fonts unless explicitly approved.
+    - No runtime code changes.
+  - Claim boundary:
+    - Visual polish must not create unsupported product, production, or performance claims.
+  - Fallback boundary:
+    - No execution behavior changes; no fallback policy changes.
+  - Ledger rule:
+    - When complete, move the completed session details to the completed ledger.
+- [ ] P8.7D homepage command-deck overhaul
+  - Source:
+    - P8.7A-C.
+    - `website/index.html`.
+  - Current state:
+    - Homepage is claim-safe and structured.
+    - It needs a stronger human narrative and distinctive command-deck feel.
+  - Next slice outcome:
+    - Overhaul the homepage into the ShardLoom Command Deck.
+  - User-visible surface:
+    - `website/index.html`.
+  - Implementation scope:
+    - Hero.
+    - Command console.
+    - Why ShardLoom exists.
+    - Mission map.
+    - Execution mode cards.
+    - Telemetry preview.
+    - Field Guide preview.
+    - Claim boundaries.
+  - Evidence required:
+    - Claim-safe copy review.
+    - Local asset/link validation.
+  - Acceptance:
+    - Hero says something close to `Auditable compute over Vortex-native data.`
+    - Subhead explains pre-release status, no fallback, what ran, what materialized, what stayed
+      native, and which claims are supported.
+    - Command console includes Mode, Policy, Evidence, and Claim.
+    - Mission map includes request -> mode -> source/preparation -> provider -> result -> evidence
+      -> claim gate.
+    - Page includes a clear "what this is / what this is not" section.
+  - Verification:
+    - `node website/validate_static_assets.js`
+    - forbidden-claim phrase check.
+    - `git diff --check`
+  - Non-goals:
+    - No package install claim.
+    - No performance claim.
+    - No runtime code changes.
+  - Claim boundary:
+    - Pre-release technical preview only.
+  - Fallback boundary:
+    - No execution behavior changes; no fallback policy changes.
+  - Ledger rule:
+    - When complete, move the completed session details to the completed ledger.
+- [ ] P8.7E retro-future field-guide page system
+  - Source:
+    - P8.7A-C.
+    - Website field-guide concept registry once present.
+    - `docs/architecture/canonical-terminology.md`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+  - Current state:
+    - Field Guide content model is planned or partial.
+    - It needs a distinct technical-dossier page system.
+  - Next slice outcome:
+    - Style Field Guide index and term pages as original retro-future technical dossiers.
+  - User-visible surface:
+    - `website/field-guide/index.html`.
+    - `website/field-guide/**`.
+  - Implementation scope:
+    - Add dossier template.
+    - Add sidebar/index.
+    - Add related-concept cards.
+    - Add previous/next navigation.
+    - Add contribution/source-doc links.
+  - Evidence required:
+    - Concept pages include source docs and claim boundaries.
+    - Local links and generated pages validate.
+  - Acceptance:
+    - Term pages include What is X?, one-sentence answer, why it matters, how ShardLoom uses it,
+      what it proves, what it does not prove, evidence fields, related concepts, and source docs.
+    - Pages visually feel like a retro-future technical field manual.
+    - No Fallout, Modal, or third-party copying.
+  - Verification:
+    - Generator runs if pages are generated.
+    - link/reference check if available.
+    - `git diff --check`
+  - Non-goals:
+    - No runtime feature changes.
+    - No production or package-release claim.
+  - Claim boundary:
+    - Educational explanation only.
+  - Fallback boundary:
+    - No execution behavior changes; no fallback policy changes.
+  - Ledger rule:
+    - When complete, move the completed session details to the completed ledger.
+- [ ] P8.7F benchmark telemetry dashboard overhaul
+  - Source:
+    - `website/benchmarks.html`.
+    - `website/assets/data/benchmark-evidence.json`.
+    - `docs/benchmarks/baseline-comparison-boundary.md`.
+    - Current benchmark evidence artifacts.
+  - Current state:
+    - Benchmark page has useful evidence but remains table-heavy.
+    - Tables can be misread as leaderboards if not framed carefully.
+  - Next slice outcome:
+    - Redesign the benchmark page as a telemetry/evidence dashboard.
+  - User-visible surface:
+    - `website/benchmarks.html`.
+  - Implementation scope:
+    - Add telemetry hero.
+    - Add claim-boundary command panel.
+    - Add evidence lane cards.
+    - Add timing decomposition visuals.
+    - Move large raw tables into collapsible panels where appropriate.
+  - Evidence required:
+    - Performance claim remains false.
+    - External baselines remain baseline-only.
+    - Benchmark generation timestamp/source remains visible.
+  - Acceptance:
+    - Page framing says `Benchmark Evidence, Not A Leaderboard`.
+    - Rename risky labels: `Fastest rows` -> `local fastest count`, `Relative bar` -> `local
+      timing context`, and `Engine Timing Overview` -> `Local Timing Context`.
+    - Add telemetry cards for local smoke evidence, performance claim not allowed,
+      `fallback_attempted=false`, external engines baseline-only, and prepared/native batch smoke.
+    - Add timing decomposition for representative rows: compatibility parse, Vortex import,
+      Vortex write, Vortex scan, operator compute, result sink, and evidence/render.
+    - Raw tables are below explanation and collapsed where appropriate.
+  - Verification:
+    - `node website/validate_static_assets.js`
+    - forbidden-claim phrase check.
+    - `git diff --check`
+  - Non-goals:
+    - No benchmark recomputation in this slice.
+    - No performance/superiority claims.
+    - No runtime code changes.
+  - Claim boundary:
+    - Benchmark evidence only; not a leaderboard and not a public performance claim.
+  - Fallback boundary:
+    - No execution behavior changes; no fallback policy changes.
+  - Ledger rule:
+    - When complete, move the completed session details to the completed ledger.
+- [ ] P8.7G compute-flow mission-map overhaul
+  - Source:
+    - `website/compute-engine-flow.html`.
+    - `website/assets/compute-flow.js`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+  - Current state:
+    - Compute-flow page renders useful architecture detail.
+    - It needs a stronger visual/human top layer.
+  - Next slice outcome:
+    - Turn compute-flow page into a mission map for how ShardLoom executes work.
+  - User-visible surface:
+    - `website/compute-engine-flow.html`.
+  - Implementation scope:
+    - Add plain-English intro.
+    - Add execution-mode lane cards.
+    - Add engine-mode distinction.
+    - Add provider admission diagram.
+    - Preserve detailed generated content.
+  - Evidence required:
+    - Mode definitions match the architecture reference.
+    - Local compute-flow snapshot remains committed and local.
+  - Acceptance:
+    - Page explains access surface, policy/capability admission, execution mode, engine mode,
+      provider path, result/sink, evidence, and claim gate.
+    - Visual design uses command-deck/mission-map components.
+    - No runtime GitHub fetch is introduced.
+  - Verification:
+    - `node website/validate_static_assets.js`
+    - `node --check website/assets/compute-flow.js`
+    - `git diff --check`
+  - Non-goals:
+    - No runtime behavior changes.
+    - No new remote renderer or JS framework.
+  - Claim boundary:
+    - Explanation only; no production/runtime expansion claim.
+  - Fallback boundary:
+    - No execution behavior changes; no fallback policy changes.
+  - Ledger rule:
+    - When complete, move the completed session details to the completed ledger.
+- [ ] P8.7H launch-status board and public posture page
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/release/known-unsupported-paths.md`.
+    - `docs/release/hard-release-readiness-gate.md`.
+    - Website claim boundaries.
+  - Current state:
+    - Current public status is distributed across docs and website sections.
+    - There is no single public status board.
+  - Next slice outcome:
+    - Add `website/status.html` as a public posture board.
+  - User-visible surface:
+    - `website/status.html`.
+    - Navigation links to status board.
+    - `website/sitemap.xml` if needed.
+  - Implementation scope:
+    - Add sections for supported local smoke, fixture-smoke, report-only, blocked, planned, and not
+      claimed.
+    - Add launch readiness panel.
+    - Add known unsupported paths.
+  - Evidence required:
+    - Status language maps to phase plan and known unsupported docs.
+    - Claim boundaries remain explicit.
+  - Acceptance:
+    - Page clearly says pre-release, no production claim, no package release claim unless release
+      gate allows, no performance/superiority claim, and no Foundry production claim.
+    - Visual style resembles a launch readiness board.
+    - Sitemap and navigation include the page.
+  - Verification:
+    - `node website/validate_static_assets.js`
+    - forbidden-claim phrase check.
+    - `git diff --check`
+  - Non-goals:
+    - No dynamic phase-plan scraping unless static generation is already approved.
+    - No runtime code changes.
+  - Claim boundary:
+    - Status board reduces overclaiming risk; it does not create new support claims.
+  - Fallback boundary:
+    - No execution behavior changes; no fallback policy changes.
+  - Ledger rule:
+    - When complete, move the completed session details to the completed ledger.
+- [ ] P8.7I website visual QA, accessibility, and public-post polish gate
+  - Source:
+    - P8.7A-H.
+    - Website public-post readiness needs.
+  - Current state:
+    - Website is functional and claim-safe.
+    - There is no explicit visual/readability/public-post QA gate.
+  - Next slice outcome:
+    - Add website readiness validation for visual identity, links, assets, claims, accessibility,
+      and no runtime GitHub fetches.
+  - User-visible surface:
+    - Public site quality and release-readiness evidence.
+  - Implementation scope:
+    - Add or extend `scripts/check_website_readiness.py`.
+    - Add `docs/release/website-public-post-readiness.md`.
+  - Evidence required:
+    - Website readiness report.
+    - Public-post go/no-go checklist.
+  - Acceptance:
+    - Script checks local referenced assets, no runtime `raw.githubusercontent.com` fetches, no
+      forbidden claim phrases, canonical URLs, OG metadata, favicon, sitemap expected pages, no
+      private memo references, no copied Fallout/Modal/Bethesda/Vortex/Palantir brand assets, no
+      package publication claims unless release gate allows, and reduced-motion CSS if animation is
+      used.
+    - Readiness doc gives a go/no-go checklist for public posts.
+  - Verification:
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q scripts`
+    - `git diff --check`
+  - Non-goals:
+    - No live network crawl required.
+    - No external SEO service.
+    - No runtime code changes.
+  - Claim boundary:
+    - Public-post safe, not release-launch safe.
+  - Fallback boundary:
+    - No execution behavior changes; no fallback policy changes.
+  - Ledger rule:
+    - When complete, move the completed session details to the completed ledger.
+
 ### Global Architecture Review Carry-Forward
 
 Source: `docs/architecture/global-architecture-review.md`.
