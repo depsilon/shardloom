@@ -37,9 +37,14 @@ fn cg9_catalog_metadata_gate_exposes_surface_order_and_existing_evidence() {
         "shardloom.catalog_metadata_integration_gate.v1"
     )));
     assert!(output.contains(&field("report_id", "cg9.catalog_metadata_integration_gate")));
+    assert!(output.contains(&field("gar_id", "GAR-0020-A")));
+    assert!(output.contains(&field("gate_status", "report_only")));
+    assert!(output.contains(&field("support_status", "unsupported")));
+    assert!(output.contains(&field("claim_gate_status", "not_claim_grade")));
     assert!(output.contains(&field("surface_count", "11")));
     assert!(output.contains(&field("existing_evidence_surface_count", "2")));
     assert!(output.contains(&field("blocked_surface_count", "9")));
+    assert!(output.contains(&field("unsupported_surface_count", "9")));
     assert!(output.contains(&field(
         "surface_order",
         "table_intelligence_foundation,catalog_ref_skeleton,snapshot_manifest_boundary,catalog_table_resolution,table_metadata_read,partition_metadata_read,delete_tombstone_metadata_read,cdc_metadata_read,table_format_dependency_admission,commit_recovery_metadata_binding,metadata_cache_invalidation"
@@ -77,6 +82,11 @@ fn cg9_catalog_metadata_gate_blocks_runtime_io_dependencies_and_claims() {
         "metadata_integration_claim_allowed",
         "fallback_attempted",
         "fallback_execution_allowed",
+        "external_engine_invoked",
+        "row_table_metadata_read_runtime_allowed",
+        "row_table_metadata_read_fallback_attempted",
+        "row_table_metadata_read_fallback_execution_allowed",
+        "row_table_metadata_read_external_engine_invoked",
     ] {
         assert!(
             output.contains(&field(key, "false")),
@@ -100,13 +110,37 @@ fn cg9_catalog_metadata_gate_blocks_runtime_io_dependencies_and_claims() {
         "benchmark_evidence_required",
         "runtime_promotions_blocked",
         "claim_blocked",
+        "deterministic_unsupported_diagnostics_ready",
         "side_effect_free",
         "plan_only",
+        "row_table_metadata_read_requires_catalog_ref",
+        "row_table_metadata_read_requires_snapshot_ref",
+        "row_table_metadata_read_requires_table_metadata_io",
+        "row_table_metadata_read_requires_catalog_io",
+        "row_table_metadata_read_requires_object_store_io",
+        "row_table_metadata_read_requires_execution_certificate",
+        "row_table_metadata_read_requires_native_io_certificate",
+        "row_table_metadata_read_side_effect_free",
     ] {
         assert!(
             output.contains(&field(key, "true")),
             "missing true field {key}"
         );
     }
+    assert!(output.contains(&field("unsupported_diagnostic_count", "9")));
+    assert!(output.contains(&field("diagnostic_count", "9")));
+    assert!(output.contains(&field(
+        "unsupported_diagnostic_code_order",
+        "SL_NOT_IMPLEMENTED,SL_NOT_IMPLEMENTED,SL_NOT_IMPLEMENTED,SL_NOT_IMPLEMENTED,SL_NOT_IMPLEMENTED,SL_NOT_IMPLEMENTED,SL_EXTERNAL_EFFECT_DISABLED,SL_NOT_IMPLEMENTED,SL_NOT_IMPLEMENTED"
+    )));
+    assert!(output.contains(&field(
+        "row_table_metadata_read_status",
+        "blocked_until_certified"
+    )));
+    assert!(output.contains(&field(
+        "row_table_metadata_read_claim_gate_status",
+        "not_claim_grade"
+    )));
     assert!(output.contains(&field("execution", "not_performed")));
+    assert!(output.contains("\"diagnostics\":[{\"code\":\"SL_NOT_IMPLEMENTED\""));
 }

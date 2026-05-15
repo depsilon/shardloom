@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0020-A table/catalog metadata admission gate
+  - Primary files:
+    - `shardloom-core/src/table_intelligence.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/tests/cg9_catalog_metadata_gate.rs`
+    - `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/table-intelligence-layer.md`
+  - Scope: close GAR-0020-A by turning the catalog/table metadata gate into an evidence-bearing,
+    report-only admission contract for catalog resolution, snapshot/manifest reads, table metadata
+    reads, partition/delete/CDC metadata reads, external table-format dependency admission, commit
+    recovery metadata binding, and metadata cache invalidation.
+  - Checklist:
+    - [x] Add `gar_id=GAR-0020-A`, `gate_status=report_only`,
+          `support_status=unsupported`, `claim_gate_status=not_claim_grade`, and claim-boundary
+          fields to `CatalogMetadataIntegrationGateReport`.
+    - [x] Emit deterministic info-level unsupported diagnostics for every blocked table/catalog
+          metadata lane with stable diagnostic code/category/severity order.
+    - [x] Expose the gate through `cg9-catalog-metadata-gate` and embed it in
+          `table-intelligence-plan` JSON output.
+    - [x] Keep catalog I/O, object-store I/O, table metadata I/O, data reads, writes, credential
+          resolution, external table-format dependencies, external engines, fallback execution, and
+          table/catalog runtime claims disabled.
+  - Boundary:
+    - This completes the admission/diagnostic gate only. It does not add catalog resolution,
+      snapshot/manifest reads, table metadata reads, partition/delete/CDC metadata reads, data
+      reads, object-store reads, credentials, external table-format dependencies, cache runtime,
+      table/catalog commit behavior, external engines, fallback execution, lakehouse support, or
+      production table/catalog claims.
+  - Evidence:
+    - `cg9-catalog-metadata-gate` exposes `gar_id=GAR-0020-A`,
+      `support_status=unsupported`, `claim_gate_status=not_claim_grade`,
+      `deterministic_unsupported_diagnostics_ready=true`,
+      `unsupported_diagnostic_count=9`, `diagnostic_count=9`, `side_effect_free=true`,
+      `external_engine_invoked=false`, and `fallback_attempted=false`.
+    - `table-intelligence-plan` embeds the same gate under
+      `catalog_metadata_integration_gate_*` fields and reports the combined CDC/catalog
+      info-diagnostic count without promoting runtime support.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core catalog_metadata_gate --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test cg9_catalog_metadata_gate --test table_intelligence_plan_snapshots`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `git diff --check`
 - [x] Session label: GAR-0005-B object-store Vortex I/O and upstream write integration gate
   - Primary files:
     - `shardloom-vortex/src/adapter.rs`

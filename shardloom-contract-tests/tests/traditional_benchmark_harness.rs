@@ -639,6 +639,7 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
         completed_ledger
             .contains("GAR-0005-B object-store Vortex I/O and upstream write integration gate")
     );
+    assert!(completed_ledger.contains("GAR-0020-A table/catalog metadata admission gate"));
     assert!(completed_ledger.contains(
         "GAR-0007-A/B compatibility output writer matrix and local fixture-smoke evidence"
     ));
