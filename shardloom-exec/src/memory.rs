@@ -1030,13 +1030,22 @@ impl MemoryRuntimeHardeningGateEntry {
 pub struct MemoryRuntimeHardeningGateReport {
     pub schema_version: &'static str,
     pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub promotion_gate_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub support_status: &'static str,
     pub entries: Vec<MemoryRuntimeHardeningGateEntry>,
     pub existing_report_refs: Vec<&'static str>,
+    pub required_evidence_refs: Vec<&'static str>,
+    pub security_path_safety_refs: Vec<&'static str>,
     pub existing_memory_reservation_admission_present: bool,
     pub existing_operator_memory_spill_declaration_gate_present: bool,
     pub existing_spill_reservation_integration_present: bool,
     pub existing_spill_lifecycle_plan_present: bool,
     pub existing_dynamic_runtime_promotion_gate_present: bool,
+    pub fail_before_oom_evidence_required: bool,
+    pub spill_artifact_path_safety_required: bool,
+    pub unsupported_paths_blocked_without_writes: bool,
     pub resource_derived_chunk_sizing_allowed: bool,
     pub adaptive_parallelism_allowed: bool,
     pub memory_reservation_release_allowed: bool,
@@ -1065,6 +1074,7 @@ pub struct MemoryRuntimeHardeningGateReport {
     pub spill_io_performed: bool,
     pub fallback_execution_allowed: bool,
     pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -1074,13 +1084,22 @@ impl MemoryRuntimeHardeningGateReport {
         Self {
             schema_version: "shardloom.memory_runtime_hardening_gate.v1",
             report_id: "cg14.memory_runtime_hardening_gate",
+            gar_id: "GAR-0014-A",
+            promotion_gate_status: "blocked_until_certified",
+            claim_gate_status: "not_claim_grade",
+            support_status: "report_only",
             entries: memory_runtime_hardening_entries(),
             existing_report_refs: memory_runtime_hardening_existing_report_refs(),
+            required_evidence_refs: memory_runtime_hardening_required_evidence_refs(),
+            security_path_safety_refs: memory_runtime_hardening_security_path_safety_refs(),
             existing_memory_reservation_admission_present: true,
             existing_operator_memory_spill_declaration_gate_present: true,
             existing_spill_reservation_integration_present: true,
             existing_spill_lifecycle_plan_present: true,
             existing_dynamic_runtime_promotion_gate_present: true,
+            fail_before_oom_evidence_required: true,
+            spill_artifact_path_safety_required: true,
+            unsupported_paths_blocked_without_writes: true,
             resource_derived_chunk_sizing_allowed: false,
             adaptive_parallelism_allowed: false,
             memory_reservation_release_allowed: false,
@@ -1109,6 +1128,7 @@ impl MemoryRuntimeHardeningGateReport {
             spill_io_performed: false,
             fallback_execution_allowed: false,
             fallback_attempted: false,
+            external_engine_invoked: false,
             diagnostics: Vec::new(),
         }
     }
@@ -1181,6 +1201,7 @@ impl MemoryRuntimeHardeningGateReport {
             && !self.spill_io_performed
             && !self.fallback_execution_allowed
             && !self.fallback_attempted
+            && !self.external_engine_invoked
             && self
                 .entries
                 .iter()
@@ -1202,9 +1223,12 @@ impl MemoryRuntimeHardeningGateReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "memory runtime hardening gate\nschema_version: {}\nreport_id: {}\nruntime promotions blocked: {}\nlarge workload claim allowed: {}\nruntime execution: false\nspill IO performed: false\nfallback execution: disabled",
+            "memory runtime hardening gate\nschema_version: {}\nreport_id: {}\ngar_id: {}\npromotion_gate_status: {}\nclaim_gate_status: {}\nruntime promotions blocked: {}\nlarge workload claim allowed: {}\nruntime execution: false\nspill IO performed: false\nfallback execution: disabled\nexternal engine invoked: false",
             self.schema_version,
             self.report_id,
+            self.gar_id,
+            self.promotion_gate_status,
+            self.claim_gate_status,
             self.runtime_promotions_blocked(),
             self.large_workload_claim_allowed
         )
@@ -1270,6 +1294,31 @@ fn memory_runtime_hardening_existing_report_refs() -> Vec<&'static str> {
         "shardloom.spill_reservation_integration.v1",
         "shardloom.spill_lifecycle.v1",
         "shardloom.dynamic_runtime_promotion_gate.v1",
+    ]
+}
+
+fn memory_runtime_hardening_required_evidence_refs() -> Vec<&'static str> {
+    vec![
+        "memory_reservation_release_evidence",
+        "pressure_reaction_runtime_evidence",
+        "native_spill_write_evidence",
+        "native_spill_read_evidence",
+        "spill_cleanup_recovery_evidence",
+        "allocator_runtime_integration_evidence",
+        "fail_before_oom_evidence",
+        "execution_certificate_refs",
+        "native_io_certificate_refs",
+        "benchmark_evidence_refs",
+        "no_fallback_policy_refs",
+    ]
+}
+
+fn memory_runtime_hardening_security_path_safety_refs() -> Vec<&'static str> {
+    vec![
+        "workspace_path_safety_report",
+        "runtime_input_safety_report",
+        "evidence_artifact_safety_report",
+        "spill_artifact_path_safety_ref",
     ]
 }
 
@@ -1975,6 +2024,10 @@ mod tests {
             report.schema_version,
             "shardloom.memory_runtime_hardening_gate.v1"
         );
+        assert_eq!(report.gar_id, "GAR-0014-A");
+        assert_eq!(report.support_status, "report_only");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.promotion_gate_status, "blocked_until_certified");
         assert_eq!(report.surface_count(), 14);
         assert_eq!(report.existing_evidence_surface_count(), 5);
         assert_eq!(report.blocked_surface_count(), 9);
@@ -2020,6 +2073,24 @@ mod tests {
         assert!(report.native_io_certificate_required);
         assert!(report.benchmark_evidence_required);
         assert!(report.no_fallback_evidence_required);
+        assert!(report.fail_before_oom_evidence_required);
+        assert!(report.spill_artifact_path_safety_required);
+        assert!(report.unsupported_paths_blocked_without_writes);
+        assert!(
+            report
+                .required_evidence_refs
+                .contains(&"memory_reservation_release_evidence")
+        );
+        assert!(
+            report
+                .required_evidence_refs
+                .contains(&"fail_before_oom_evidence")
+        );
+        assert!(
+            report
+                .security_path_safety_refs
+                .contains(&"spill_artifact_path_safety_ref")
+        );
         assert!(!report.resource_derived_chunk_sizing_allowed);
         assert!(!report.adaptive_parallelism_allowed);
         assert!(!report.native_spill_write_allowed);
@@ -2030,6 +2101,7 @@ mod tests {
         assert!(!report.runtime_execution);
         assert!(!report.spill_io_performed);
         assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
         assert!(
             report
                 .to_human_text()

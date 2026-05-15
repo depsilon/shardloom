@@ -38,6 +38,10 @@ fn cg14_memory_runtime_hardening_gate_exposes_existing_and_blocked_surfaces() {
         "shardloom.memory_runtime_hardening_gate.v1"
     )));
     assert!(output.contains(&field("report_id", "cg14.memory_runtime_hardening_gate")));
+    assert!(output.contains(&field("gar_id", "GAR-0014-A")));
+    assert!(output.contains(&field("promotion_gate_status", "blocked_until_certified")));
+    assert!(output.contains(&field("claim_gate_status", "not_claim_grade")));
+    assert!(output.contains(&field("support_status", "report_only")));
     assert!(output.contains(&field("surface_count", "14")));
     assert!(output.contains(&field("existing_evidence_surface_count", "5")));
     assert!(output.contains(&field("blocked_surface_count", "9")));
@@ -48,6 +52,14 @@ fn cg14_memory_runtime_hardening_gate_exposes_existing_and_blocked_surfaces() {
     assert!(output.contains(&field(
         "existing_report_refs",
         "shardloom.memory_admission.v1,shardloom.operator_memory_spill_declaration.v1,shardloom.spill_reservation_integration.v1,shardloom.spill_lifecycle.v1,shardloom.dynamic_runtime_promotion_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "required_evidence_refs",
+        "memory_reservation_release_evidence,pressure_reaction_runtime_evidence,native_spill_write_evidence,native_spill_read_evidence,spill_cleanup_recovery_evidence,allocator_runtime_integration_evidence,fail_before_oom_evidence,execution_certificate_refs,native_io_certificate_refs,benchmark_evidence_refs,no_fallback_policy_refs"
+    )));
+    assert!(output.contains(&field(
+        "security_path_safety_refs",
+        "workspace_path_safety_report,runtime_input_safety_report,evidence_artifact_safety_report,spill_artifact_path_safety_ref"
     )));
 }
 
@@ -70,6 +82,9 @@ fn cg14_memory_runtime_hardening_gate_blocks_runtime_spill_and_claims() {
     assert!(output.contains(&field("native_io_certificate_required", "true")));
     assert!(output.contains(&field("benchmark_evidence_required", "true")));
     assert!(output.contains(&field("no_fallback_evidence_required", "true")));
+    assert!(output.contains(&field("fail_before_oom_evidence_required", "true")));
+    assert!(output.contains(&field("spill_artifact_path_safety_required", "true")));
+    assert!(output.contains(&field("unsupported_paths_blocked_without_writes", "true")));
     assert!(output.contains(&field("resource_derived_chunk_sizing_allowed", "false")));
     assert!(output.contains(&field("adaptive_parallelism_allowed", "false")));
     assert!(output.contains(&field("native_spill_write_allowed", "false")));
@@ -83,4 +98,5 @@ fn cg14_memory_runtime_hardening_gate_blocks_runtime_spill_and_claims() {
     assert!(output.contains(&field("spill_io_performed", "false")));
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
 }

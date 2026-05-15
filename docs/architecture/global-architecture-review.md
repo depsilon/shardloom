@@ -276,8 +276,14 @@ plan before coding.
 - [x] Bounded memory, reservations, spill lifecycle, spill payload, and Vortex memory bridge
   surfaces exist.
 - [x] CLI/report surfaces describe OOM/spill posture for supported slices.
-- [ ] Broad runtime spill/OOM promotion and production enforcement remain limited to synthetic or
-  local constraints.
+- [x] GAR-0014-A closes the spill/OOM enforcement promotion gate through
+  `cg14-memory-runtime-hardening-gate`: the report carries `gar_id=GAR-0014-A`,
+  `support_status=report_only`, `claim_gate_status=not_claim_grade`,
+  reservation-release/native-spill-read-write/cleanup/allocator/fail-before-OOM evidence refs,
+  spill artifact path-safety refs, and no runtime execution, no spill I/O, no external engine, and
+  no fallback.
+- [ ] Actual runtime spill/OOM production enforcement remains limited to synthetic or local
+  constraints beyond the promotion gate.
 
 ### RFC 0015 - Correctness, Semantics, Differential Testing, and Fuzzing
 
