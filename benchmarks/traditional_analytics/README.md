@@ -291,6 +291,18 @@ use deterministic residual/no-fallback paths. This records real filter-column se
 scoped selected-metric evidence, but it still does not permit an encoded-native or performance claim
 because the metric aggregation remains residual-native and not a generalized encoded aggregation
 kernel.
+
+ShardLoom also exposes the scoped `traditional-analytics-vortex-batch-run` command. It runs a
+comma-separated list of prepared/native scenarios against the same prepared `.vortex` artifacts in
+one ShardLoom process and emits `shardloom.traditional_analytics.vortex_batch.v1` fields, including
+`runner_kind=single_process_prepared_native_batch`,
+`typed_envelope_preserved=true`, `process_startup_amortization_supported=true`, per-scenario
+operator/source/Native I/O fields, and `fallback_attempted=false` /
+`external_engine_invoked=false`. This is a runtime support slice for scoped local prepared/native
+process reuse. The default comparative harness rows still use per-scenario CLI attribution until
+the harness is explicitly migrated to consume the batch command; the batch command itself is not a
+persistent daemon, hidden fast mode, performance claim, SQL/DataFrame claim, object-store claim, or
+Spark-displacement claim.
 `filter + projection + limit` now reports a scoped residual-native fused scan path for prepared/native
 rows when filter/projection pushdown runs without full-table materialization. `group by aggregation`
 now reports a scoped residual-native grouped scan path when projection pushdown over
@@ -345,19 +357,24 @@ from the outer harness timing, report `build_time_millis` separately, and keep
 `build_time_excluded=true` for per-scenario rows. Prepared artifact setup is
 reported as `preparation_millis` and `preparation_cli_process_wall_millis`; it
 is not folded into startup/warmup or pure operator timing. The current decision
-record is `docs/architecture/benchmark-persistent-runner-decision.md`; until a
-typed-envelope-preserving persistent runner exists, rows keep
-`persistent_runner_status=process_per_scenario_attributed_not_reduced`.
+record is `docs/architecture/benchmark-persistent-runner-decision.md`. Default
+comparative prepared/native rows still keep
+`persistent_runner_status=process_per_scenario_attributed_not_reduced`; the
+explicit `traditional-analytics-vortex-batch-run` command emits
+`persistent_runner_status=single_process_batch_runner_supported` for scoped
+single-process batch runs only.
 
 The JSON artifact and Markdown report also include
 `persistent_runner_admission_gate`. This is a report-only gate, not a runtime
-feature flag. It requires any future persistent runner to preserve per-run
-`shardloom.output.v2` typed envelopes, execution-mode selection,
-Native I/O and operator-blocker evidence, materialization/decode boundaries,
-result-sink replay evidence when enabled, deterministic unsupported diagnostics,
-and row-level `fallback_attempted=false` / `external_engine_invoked=false`.
-No hidden benchmark fast mode, process-overhead claim, or performance claim is
-allowed until the gate is implemented and claim-grade reruns pass.
+feature flag. It requires any broader persistent runner or harness migration to
+preserve per-run `shardloom.output.v2` typed envelopes, execution-mode
+selection, Native I/O and operator-blocker evidence, materialization/decode
+boundaries, result-sink replay evidence when enabled, deterministic unsupported
+diagnostics, and row-level `fallback_attempted=false` /
+`external_engine_invoked=false`. The scoped batch command satisfies that
+evidence boundary for local prepared/native batch process reuse only. No hidden benchmark fast mode,
+process-overhead claim, or performance claim is allowed
+until claim-grade reruns pass.
 
 The report also emits `format_preparation_matrix`. That matrix compares
 ShardLoom compatibility preparation costs by source format: source read,

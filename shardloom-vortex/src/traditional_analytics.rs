@@ -39,6 +39,8 @@ const SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_backed_scan_evidence.v1";
 const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.encoded_predicate_provider.v4";
+const TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.vortex_batch.v1";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
@@ -600,6 +602,62 @@ impl TraditionalAnalyticsVortexRequest {
     ) -> Self {
         Self {
             scenario,
+            fact_vortex,
+            dim_vortex,
+            cdc_delta_vortex: None,
+            requested_execution_mode: ShardLoomExecutionMode::NativeVortex,
+            result_workspace_dir: None,
+            write_result_vortex: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn with_requested_execution_mode(mut self, value: ShardLoomExecutionMode) -> Self {
+        self.requested_execution_mode = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_cdc_delta_vortex(mut self, value: Option<PathBuf>) -> Self {
+        self.cdc_delta_vortex = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_result_workspace_dir(mut self, value: Option<PathBuf>) -> Self {
+        self.result_workspace_dir = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_result_vortex_write(mut self, value: bool) -> Self {
+        self.write_result_vortex = value;
+        self
+    }
+}
+
+/// Request for running several prepared/native Vortex traditional analytics
+/// scenarios in one `ShardLoom` CLI/library process.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraditionalAnalyticsVortexBatchRequest {
+    pub scenarios: Vec<TraditionalAnalyticsScenario>,
+    pub fact_vortex: PathBuf,
+    pub dim_vortex: PathBuf,
+    pub cdc_delta_vortex: Option<PathBuf>,
+    pub requested_execution_mode: ShardLoomExecutionMode,
+    pub result_workspace_dir: Option<PathBuf>,
+    pub write_result_vortex: bool,
+}
+
+impl TraditionalAnalyticsVortexBatchRequest {
+    #[must_use]
+    pub fn new(
+        scenarios: Vec<TraditionalAnalyticsScenario>,
+        fact_vortex: PathBuf,
+        dim_vortex: PathBuf,
+    ) -> Self {
+        Self {
+            scenarios,
             fact_vortex,
             dim_vortex,
             cdc_delta_vortex: None,
@@ -2254,6 +2312,187 @@ pub struct TraditionalAnalyticsVortexReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+/// Report emitted by the scoped single-process prepared/native Vortex batch
+/// runner.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraditionalAnalyticsVortexBatchReport {
+    pub reports: Vec<TraditionalAnalyticsVortexReport>,
+    pub requested_execution_mode: ShardLoomExecutionMode,
+    pub result_sink_requested: bool,
+    pub total_scenario_compute_micros: u64,
+    pub total_vortex_scan_micros: u64,
+    pub total_result_sink_write_micros: Option<u64>,
+    pub total_rows_scanned: u64,
+    pub total_rows_materialized: u64,
+    pub all_native_io_certificates_certified: bool,
+    pub all_result_sink_replays_verified: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl TraditionalAnalyticsVortexBatchReport {
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "ShardLoom prepared/native Vortex batch runner\nscenarios: {}\nrunner: single process\nscenario compute micros: {}\nVortex scan micros: {}\nfallback execution: disabled\nclaim boundary: scoped batch process reuse only",
+            self.scenario_order().join(","),
+            self.total_scenario_compute_micros,
+            self.total_vortex_scan_micros
+        )
+    }
+
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        let selected_modes = self
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .execution_mode_selection
+                    .selected_execution_mode
+                    .as_str()
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+        let mut fields = vec![
+            (
+                "schema_version".to_string(),
+                TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "runner_kind".to_string(),
+                "single_process_prepared_native_batch".to_string(),
+            ),
+            ("support_status".to_string(), "runtime_supported".to_string()),
+            (
+                "claim_gate_status".to_string(),
+                "fixture_smoke_only".to_string(),
+            ),
+            (
+                "claim_boundary".to_string(),
+                "scoped single-process prepared/native Vortex batch runner; no persistent daemon, no hidden benchmark fast mode, no SQL/DataFrame, object-store, production, performance, or Spark-displacement claim".to_string(),
+            ),
+            (
+                "requested_execution_mode".to_string(),
+                self.requested_execution_mode.as_str().to_string(),
+            ),
+            (
+                "selected_execution_modes".to_string(),
+                selected_modes.join(","),
+            ),
+            (
+                "scenario_count".to_string(),
+                self.reports.len().to_string(),
+            ),
+            ("scenario_order".to_string(), self.scenario_order().join(",")),
+            (
+                "typed_envelope_preserved".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "process_startup_amortization_supported".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "persistent_runner_status".to_string(),
+                "single_process_batch_runner_supported".to_string(),
+            ),
+            (
+                "persistent_runner_claim_boundary".to_string(),
+                "scoped single-process batch runner only; not a daemon, service, hidden fast mode, or performance claim".to_string(),
+            ),
+            (
+                "prepared_artifact_reuse_eligible".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepared_artifact_reuse_scope".to_string(),
+                "caller_supplied_fact_dim_cdc_vortex_artifacts_reused_across_requested_scenarios"
+                    .to_string(),
+            ),
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("fallback_attempted".to_string(), "false".to_string()),
+            (
+                "external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "all_fallback_attempted_false".to_string(),
+                self.all_fallback_attempted_false().to_string(),
+            ),
+            (
+                "all_external_engine_invoked_false".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "all_native_io_certificates_certified".to_string(),
+                self.all_native_io_certificates_certified.to_string(),
+            ),
+            (
+                "result_sink_requested".to_string(),
+                self.result_sink_requested.to_string(),
+            ),
+            (
+                "all_result_sink_replays_verified".to_string(),
+                self.all_result_sink_replays_verified.to_string(),
+            ),
+            (
+                "total_scenario_compute_micros".to_string(),
+                self.total_scenario_compute_micros.to_string(),
+            ),
+            (
+                "total_vortex_scan_micros".to_string(),
+                self.total_vortex_scan_micros.to_string(),
+            ),
+            (
+                "total_result_sink_write_micros".to_string(),
+                self.total_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "total_rows_scanned".to_string(),
+                self.total_rows_scanned.to_string(),
+            ),
+            (
+                "total_rows_materialized".to_string(),
+                self.total_rows_materialized.to_string(),
+            ),
+            (
+                "performance_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "spark_displacement_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "encoded_native_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+        ];
+        for report in &self.reports {
+            fields.extend(batch_scenario_fields(report));
+        }
+        fields
+    }
+
+    fn scenario_order(&self) -> Vec<String> {
+        self.reports
+            .iter()
+            .map(|report| traditional_scenario_slug(report.scenario))
+            .collect()
+    }
+
+    fn all_fallback_attempted_false(&self) -> bool {
+        self.reports
+            .iter()
+            .all(|report| !report.fallback_execution_allowed)
+    }
+}
+
 impl TraditionalAnalyticsVortexReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
@@ -2591,6 +2830,97 @@ impl TraditionalAnalyticsVortexReport {
         ]);
         fields
     }
+}
+
+fn traditional_scenario_slug(scenario: TraditionalAnalyticsScenario) -> String {
+    scenario.as_str().replace(['/', ' ', '+'], "-")
+}
+
+fn batch_child_field(child_fields: &[(String, String)], name: &str) -> String {
+    child_fields
+        .iter()
+        .find(|(key, _)| key == name)
+        .map_or_else(String::new, |(_, value)| value.clone())
+}
+
+fn batch_scenario_fields(report: &TraditionalAnalyticsVortexReport) -> Vec<(String, String)> {
+    let child_fields = report.fields();
+    let prefix = format!("scenario_{}", traditional_scenario_slug(report.scenario));
+    vec![
+        (
+            format!("{prefix}_name"),
+            report.scenario.as_str().to_string(),
+        ),
+        (format!("{prefix}_result_json"), report.result_json.clone()),
+        (
+            format!("{prefix}_selected_execution_mode"),
+            report
+                .execution_mode_selection
+                .selected_execution_mode
+                .as_str()
+                .to_string(),
+        ),
+        (
+            format!("{prefix}_mode_selection_reason"),
+            report
+                .execution_mode_selection
+                .mode_selection_reason
+                .clone(),
+        ),
+        (
+            format!("{prefix}_rows_scanned"),
+            report.rows_scanned.to_string(),
+        ),
+        (
+            format!("{prefix}_rows_materialized"),
+            report.rows_materialized.to_string(),
+        ),
+        (
+            format!("{prefix}_scenario_compute_micros"),
+            report.scenario_compute_micros.to_string(),
+        ),
+        (
+            format!("{prefix}_vortex_scan_micros"),
+            report.vortex_scan_micros.to_string(),
+        ),
+        (
+            format!("{prefix}_operator_execution_class"),
+            batch_child_field(&child_fields, "operator_execution_class"),
+        ),
+        (
+            format!("{prefix}_operator_admission_status"),
+            batch_child_field(&child_fields, "operator_admission_status"),
+        ),
+        (
+            format!("{prefix}_operator_blocker_id"),
+            batch_child_field(&child_fields, "operator_blocker_id"),
+        ),
+        (
+            format!("{prefix}_operator_encoded_native_claim_allowed"),
+            batch_child_field(&child_fields, "operator_encoded_native_claim_allowed"),
+        ),
+        (
+            format!("{prefix}_source_backed_scan_evidence_status"),
+            batch_child_field(&child_fields, "source_backed_scan_evidence_status"),
+        ),
+        (
+            format!("{prefix}_native_io_certificate_status"),
+            report.native_io_certificate.status().to_string(),
+        ),
+        (
+            format!("{prefix}_result_sink_claim_gate_status"),
+            report.result_sink_claim_gate_status.clone(),
+        ),
+        (
+            format!("{prefix}_fallback_execution_allowed"),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (format!("{prefix}_fallback_attempted"), "false".to_string()),
+        (
+            format!("{prefix}_external_engine_invoked"),
+            "false".to_string(),
+        ),
+    ]
 }
 
 trait StreamingExecutionFieldView {
@@ -4047,6 +4377,29 @@ pub fn run_traditional_analytics_vortex_benchmark(
         std::mem::drop(request);
         Err(ShardLoomError::InvalidOperation(
             "native Vortex traditional analytics benchmark requires feature `vortex-traditional-analytics-benchmark`; fallback execution was not attempted".to_string(),
+        ))
+    }
+}
+
+/// Runs multiple local traditional analytics scenarios directly from prepared
+/// native Vortex files in one process.
+///
+/// # Errors
+/// Returns an error when the feature gate is disabled, no scenarios are
+/// supplied, a scenario is unsupported, or any underlying native Vortex run
+/// fails.
+pub fn run_traditional_analytics_vortex_batch_benchmark(
+    request: TraditionalAnalyticsVortexBatchRequest,
+) -> Result<TraditionalAnalyticsVortexBatchReport> {
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    {
+        run_traditional_analytics_vortex_batch_benchmark_enabled(request)
+    }
+    #[cfg(not(feature = "vortex-traditional-analytics-benchmark"))]
+    {
+        std::mem::drop(request);
+        Err(ShardLoomError::InvalidOperation(
+            "native Vortex traditional analytics batch benchmark requires feature `vortex-traditional-analytics-benchmark`; fallback execution was not attempted".to_string(),
         ))
     }
 }
@@ -5848,6 +6201,116 @@ fn traditional_coverage_row_ref(
         input_format.as_str(),
         scenario.as_str().replace(['/', ' '], "-")
     )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn run_traditional_analytics_vortex_batch_benchmark_enabled(
+    request: TraditionalAnalyticsVortexBatchRequest,
+) -> Result<TraditionalAnalyticsVortexBatchReport> {
+    let TraditionalAnalyticsVortexBatchRequest {
+        scenarios,
+        fact_vortex,
+        dim_vortex,
+        cdc_delta_vortex,
+        requested_execution_mode,
+        result_workspace_dir,
+        write_result_vortex,
+    } = request;
+    if scenarios.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "traditional analytics native Vortex batch run requires at least one scenario; fallback execution was not attempted".to_string(),
+        ));
+    }
+    if write_result_vortex && result_workspace_dir.is_none() {
+        return Err(ShardLoomError::InvalidOperation(
+            "traditional-analytics-vortex-batch-run --write-result-vortex requires --workspace for caller-owned result artifact output; fallback execution was not attempted".to_string(),
+        ));
+    }
+
+    let mut reports = Vec::with_capacity(scenarios.len());
+    for (index, scenario) in scenarios.into_iter().enumerate() {
+        let scenario_workspace = result_workspace_dir.as_ref().map(|workspace| {
+            workspace.join(format!(
+                "{:02}-{}",
+                index + 1,
+                traditional_scenario_slug(scenario)
+            ))
+        });
+        let child_request = TraditionalAnalyticsVortexRequest::new(
+            scenario,
+            fact_vortex.clone(),
+            dim_vortex.clone(),
+        )
+        .with_cdc_delta_vortex(cdc_delta_vortex.clone())
+        .with_requested_execution_mode(requested_execution_mode)
+        .with_result_workspace_dir(scenario_workspace)
+        .with_result_vortex_write(write_result_vortex);
+        reports.push(run_traditional_analytics_vortex_benchmark_enabled(
+            child_request,
+        )?);
+    }
+
+    let total_scenario_compute_micros = checked_u64_values_sum(
+        reports.iter().map(|report| report.scenario_compute_micros),
+        "native Vortex batch scenario compute micros",
+    )?;
+    let total_vortex_scan_micros = checked_u64_values_sum(
+        reports.iter().map(|report| report.vortex_scan_micros),
+        "native Vortex batch scan micros",
+    )?;
+    let total_result_sink_write_micros = if write_result_vortex {
+        Some(checked_u64_values_sum(
+            reports
+                .iter()
+                .map(|report| report.computed_result_sink_write_micros.unwrap_or(0)),
+            "native Vortex batch result sink write micros",
+        )?)
+    } else {
+        None
+    };
+    let total_rows_scanned = checked_u64_values_sum(
+        reports.iter().map(|report| report.rows_scanned),
+        "native Vortex batch rows scanned",
+    )?;
+    let total_rows_materialized = checked_u64_values_sum(
+        reports.iter().map(|report| report.rows_materialized),
+        "native Vortex batch rows materialized",
+    )?;
+    let all_native_io_certificates_certified = reports
+        .iter()
+        .all(|report| report.native_io_certificate.is_certified());
+    let all_result_sink_replays_verified = write_result_vortex
+        && reports
+            .iter()
+            .all(|report| report.computed_result_sink_replay_verified);
+    let diagnostics = reports
+        .iter()
+        .flat_map(|report| report.diagnostics.clone())
+        .collect();
+
+    Ok(TraditionalAnalyticsVortexBatchReport {
+        reports,
+        requested_execution_mode,
+        result_sink_requested: write_result_vortex,
+        total_scenario_compute_micros,
+        total_vortex_scan_micros,
+        total_result_sink_write_micros,
+        total_rows_scanned,
+        total_rows_materialized,
+        all_native_io_certificates_certified,
+        all_result_sink_replays_verified,
+        diagnostics,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn checked_u64_values_sum(values: impl IntoIterator<Item = u64>, context: &str) -> Result<u64> {
+    values.into_iter().try_fold(0u64, |total, value| {
+        total
+            .checked_add(value)
+            .ok_or_else(|| ShardLoomError::InvalidOperation(format!("{context} overflowed u64")))
+    })
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -12102,6 +12565,135 @@ mod tests {
                 .map(String::as_str),
             Some("false")
         );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_native_vortex_batch_run_preserves_evidence_envelope() {
+        let root = traditional_analytics_test_root("prepared-native-batch");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_native_vortex_replay_verification(true),
+        )
+        .unwrap();
+
+        let batch_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                    TraditionalAnalyticsScenario::GroupByAggregation,
+                ],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+            .with_result_workspace_dir(Some(root.join("batch-results")))
+            .with_result_vortex_write(true),
+        )
+        .unwrap();
+
+        assert_eq!(batch_report.reports.len(), 2);
+        assert_eq!(
+            batch_report.total_scenario_compute_micros,
+            batch_report
+                .reports
+                .iter()
+                .map(|report| report.scenario_compute_micros)
+                .sum::<u64>()
+        );
+        assert_eq!(
+            batch_report.total_vortex_scan_micros,
+            batch_report.total_scenario_compute_micros
+        );
+        assert!(batch_report.total_result_sink_write_micros.is_some());
+        assert!(batch_report.all_native_io_certificates_certified);
+        assert!(batch_report.all_result_sink_replays_verified);
+        assert!(
+            batch_report
+                .reports
+                .iter()
+                .all(|report| !report.fallback_execution_allowed)
+        );
+        assert!(batch_report.reports.iter().all(|report| {
+            report.execution_mode_selection.selected_execution_mode
+                == ShardLoomExecutionMode::PreparedVortex
+        }));
+
+        let fields = field_map(batch_report.fields());
+        assert_field_eq(
+            &fields,
+            "schema_version",
+            "shardloom.traditional_analytics.vortex_batch.v1",
+        );
+        assert_field_eq(
+            &fields,
+            "runner_kind",
+            "single_process_prepared_native_batch",
+        );
+        assert_field_eq(&fields, "support_status", "runtime_supported");
+        assert_field_eq(&fields, "claim_gate_status", "fixture_smoke_only");
+        assert_field_eq(
+            &fields,
+            "persistent_runner_status",
+            "single_process_batch_runner_supported",
+        );
+        assert_field_eq(&fields, "typed_envelope_preserved", "true");
+        assert_field_eq(&fields, "process_startup_amortization_supported", "true");
+        assert_field_eq(&fields, "prepared_artifact_reuse_eligible", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert_field_eq(&fields, "performance_claim_allowed", "false");
+        assert_field_eq(&fields, "spark_displacement_claim_allowed", "false");
+        assert_field_eq(&fields, "encoded_native_claim_allowed", "false");
+        assert_field_eq(
+            &fields,
+            "scenario_order",
+            "selective-filter,group-by-aggregation",
+        );
+        assert_field_eq(
+            &fields,
+            "selected_execution_modes",
+            "prepared_vortex,prepared_vortex",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_operator_execution_class",
+            "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_operator_execution_class",
+            "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_source_backed_scan_evidence_status",
+            "scoped_local_vortex_scan_evidence",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_result_sink_claim_gate_status",
+            "result_sink_replay_certified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_external_engine_invoked",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]

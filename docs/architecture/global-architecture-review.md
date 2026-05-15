@@ -915,6 +915,15 @@ plan before coding.
         `operator_admission_status=residual_native_fixture_admitted`, and
         `operator_encoded_native_claim_allowed=false`; encoded-native, spill-safe, broad runtime,
         performance, SQL/DataFrame, object-store, lakehouse, and production claims remain blocked.
+  - [x] GAR-FLOW-2F adds `traditional-analytics-vortex-batch-run`, a scoped single-process
+        prepared/native Vortex batch runner that executes multiple requested scenarios against the
+        same caller-supplied prepared Vortex artifacts, preserves per-scenario typed evidence,
+        Native I/O certificate fields, operator blocker fields, result-sink replay evidence when
+        requested, and `fallback_attempted=false` / `external_engine_invoked=false`. This closes
+        only process-reuse runtime support for local prepared/native fixture paths; persistent
+        daemon/service runtime, default benchmark harness integration, encoded-native operator
+        claims, performance claims, SQL/DataFrame, object-store/lakehouse, Spark-displacement, and
+        production claims remain blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

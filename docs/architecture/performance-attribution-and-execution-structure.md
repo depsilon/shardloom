@@ -302,13 +302,16 @@ preparation_cli_process_wall_millis
 preparation_included_in_timing
 ```
 
-The companion `persistent_runner_admission_gate` is report-only. Current rows
-must keep
-`persistent_runner_status=process_per_scenario_attributed_not_reduced`; no
-hidden persistent runner, daemon, or fast mode is admitted until typed
-envelopes, mode-selection evidence, Native I/O refs, operator blocker fields,
-materialization/decode boundaries, result-sink replay evidence, deterministic
-unsupported diagnostics, and no-fallback fields are preserved per run.
+The companion `persistent_runner_admission_gate` is report-only. Default
+comparative rows must keep
+`persistent_runner_status=process_per_scenario_attributed_not_reduced`. The
+explicit `traditional-analytics-vortex-batch-run` command may emit
+`persistent_runner_status=single_process_batch_runner_supported` for scoped
+single-process prepared/native batch runs only. No hidden persistent runner,
+daemon, service, or fast mode is admitted until typed envelopes, mode-selection
+evidence, Native I/O refs, operator blocker fields, materialization/decode
+boundaries, result-sink replay evidence, deterministic unsupported diagnostics,
+and no-fallback fields are preserved per run.
 
 Every ShardLoom benchmark row must carry work-avoidance status/value/reason
 triples for:

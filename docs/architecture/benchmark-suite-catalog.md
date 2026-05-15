@@ -271,12 +271,14 @@ query/operator timing.
 
 GAR-FLOW-2C adds a report-only `persistent_runner_admission_gate` to the JSON artifact and
 Markdown report. The gate keeps
-`persistent_runner_status=process_per_scenario_attributed_not_reduced` explicit and requires any
-future persistent runner to preserve per-run typed envelopes, execution-mode fields, Native I/O
-refs, operator blocker fields, materialization/decode boundaries, result-sink replay evidence,
-deterministic unsupported diagnostics, and `fallback_attempted=false` /
-`external_engine_invoked=false`. No hidden runner, daemon, or process-overhead claim is admitted
-from the benchmark artifact alone.
+`persistent_runner_status=process_per_scenario_attributed_not_reduced` explicit for default
+comparative rows. GAR-FLOW-2F adds `traditional-analytics-vortex-batch-run`, which may emit
+`persistent_runner_status=single_process_batch_runner_supported` for scoped single-process
+prepared/native batch runs only. Any broader persistent runner or harness migration must preserve
+per-run typed envelopes, execution-mode fields, Native I/O refs, operator blocker fields,
+materialization/decode boundaries, result-sink replay evidence, deterministic unsupported
+diagnostics, and `fallback_attempted=false` / `external_engine_invoked=false`. No hidden runner,
+daemon, service, or process-overhead claim is admitted from the benchmark artifact alone.
 
 GAR-FLOW-2D adds `work_avoidance_evidence_schema` to the JSON artifact and Markdown report. The
 schema uses only `measured`, `not_available`, `unsupported`, and `not_applicable` as status values.

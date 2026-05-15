@@ -102,6 +102,12 @@ or claim.
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. | Fixture evidence only; no production hybrid, object-store, or table-commit claim. |
 | Streaming/zero-copy/backpressure | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, and `capabilities engines` now expose a GAR-0013 streaming capability matrix covering local fixture evidence, object-store streaming reads, zero-decode, zero-copy/materialization boundaries, bounded backpressure, and live/hybrid broker runtime. | Object-store streaming reads, durable broker adapters, runtime backpressure enforcement, broad operator/source/sink evidence, and workload certification. | Matrix rows are fixture-smoke or report-only unless explicitly blocked/materializing; broad streaming/runtime/object-store/broker claims remain not claim-grade. |
 
+`traditional-analytics-vortex-batch-run` is the scoped prepared/native batch command. It runs a
+comma-separated list of prepared/native Vortex scenarios in one ShardLoom process, reuses the
+caller-supplied prepared Vortex artifacts, preserves per-scenario evidence fields, and emits
+`persistent_runner_status=single_process_batch_runner_supported`. That status means scoped process
+reuse only; it is not a daemon, service, hidden benchmark fast mode, or performance claim.
+
 ### View 1 - Access And Users
 
 This view is the product/API map. Every entrypoint must preserve the same typed protocol; adapters
@@ -862,15 +868,22 @@ certificate refs, materialization/decode refs, fallback status, and claim
 boundary. Today that admits only `local_vortex_count_scalar`; downstream readers
 must not infer universal native Vortex support from that row.
 
-The artifact must also carry `persistent_runner_admission_gate`. Current rows
-must keep `persistent_runner_status=process_per_scenario_attributed_not_reduced`
-and the persistent-runner admission fields (`process_startup_attribution`,
+The artifact must also carry `persistent_runner_admission_gate`. Default
+comparative prepared/native rows still keep
+`persistent_runner_status=process_per_scenario_attributed_not_reduced` and the
+persistent-runner admission fields (`process_startup_attribution`,
 `python_harness_overhead_status`, `cli_process_wall_millis`,
 `python_harness_overhead_millis`, `startup_warmup_millis`,
 `build_time_millis`, `build_time_excluded`, `preparation_millis`,
 `preparation_cli_process_wall_millis`, and
-`preparation_included_in_timing`). A future persistent runner is not admitted
-unless it preserves typed envelopes, execution-mode evidence, Native I/O refs,
+`preparation_included_in_timing`). The explicit
+`traditional-analytics-vortex-batch-run` command is the first scoped admitted
+process-reuse path and emits
+`persistent_runner_status=single_process_batch_runner_supported` while
+preserving per-scenario typed evidence and no-fallback fields. That batch status
+does not admit a persistent daemon, service runtime, hidden fast mode, or
+performance claim. Any broader persistent runner or default harness integration
+must preserve typed envelopes, execution-mode evidence, Native I/O refs,
 operator blocker fields, materialization/decode boundaries, result-sink replay
 evidence, deterministic unsupported diagnostics, and no-fallback fields per run.
 
