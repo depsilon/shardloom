@@ -747,13 +747,18 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0038-top-level-plan-execution-facade.md`](../rfcs/0038-top-level-plan-execution-facade.md)
-- Current read: Top-level facade contracts exist; broad runtime facade is incomplete.
+- Current read: Top-level facade contracts and a typed compatibility matrix exist; broad runtime
+  facade remains incomplete.
 - Evidence: `shardloom-plan/src/execution_facade.rs`, `shardloom-vortex/src/top_level_facade.rs`,
-  `shardloom-vortex/tests`
+  `shardloom-vortex/tests`, `shardloom-exec/src/lib.rs`, `python/src/shardloom/client.py`,
+  `python/tests/test_cli_client.py`
 - [x] Vortex-native top-level provider dispatch and artifact-rich result surfaces exist.
 - [x] Facade reports preserve explicit provider selection and no-fallback evidence.
-- [ ] SQL/DataFrame runtime, object-store runtime, writes, and legacy facade compatibility remain
-  incomplete; external engines remain baseline/oracle only.
+- [x] GAR-0038-A facade compatibility matrix separates executable provider-dispatched paths,
+  report-only paths, unsupported SQL/DataFrame/object-store/write runtimes, removed/unsupported
+  legacy placeholders, and prohibited external-engine fallback.
+- [ ] SQL/DataFrame runtime, object-store runtime, writes, and any executable legacy facade shim
+  remain incomplete; external engines remain baseline/oracle only.
 
 ### RFC 0039 - Typed Command/Result Envelope and CLI Modularity
 

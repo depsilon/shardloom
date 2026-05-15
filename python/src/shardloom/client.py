@@ -1545,6 +1545,42 @@ class ExecutionResultEnvelopeView:
                 return fields
         return {}
 
+    @property
+    def facade_compatibility_matrix_fields(self) -> Mapping[str, str]:
+        """Return typed GAR-0038 facade compatibility matrix fields when present."""
+
+        artifact = next(
+            (
+                artifact
+                for artifact in self.envelope.artifacts
+                if artifact.get("artifact_kind") == "facade_compatibility_matrix"
+            ),
+            None,
+        )
+        if artifact is not None:
+            fields = _artifact_payload_field_map(artifact)
+            if fields:
+                return fields
+        keys = (
+            "facade_compatibility_matrix_report_id",
+            "facade_compatibility_matrix_gar_id",
+            "facade_compatibility_matrix_support_status",
+            "facade_compatibility_matrix_claim_gate_status",
+            "facade_compatibility_matrix_row_order",
+            "facade_executable_surface_count",
+            "facade_report_only_surface_count",
+            "facade_unsupported_surface_count",
+            "facade_legacy_boundary_count",
+            "facade_prohibited_surface_count",
+            "facade_legacy_boundary_status",
+            "facade_all_rows_no_fallback_no_external_engine",
+        )
+        return {
+            key: value
+            for key in keys
+            if (value := self.envelope.field(key)) is not None
+        }
+
     def _execution_mode_field(self, key: str) -> str | None:
         return self.execution_mode_selection_fields.get(key) or self.envelope.field(key)
 
@@ -1562,6 +1598,26 @@ class ExecutionResultEnvelopeView:
         if value is not None and value != "evidence_incomplete":
             return _string_bool_value(value, key)
         return self.envelope.field_bool(key, default) is True
+
+    def _facade_matrix_field(self, key: str) -> str | None:
+        return (
+            self.facade_compatibility_matrix_fields.get(key)
+            or self.envelope.field(key)
+            or self.envelope.field(f"facade_compatibility_matrix_{key}")
+            or self.envelope.field(f"facade_{key}")
+        )
+
+    def _facade_matrix_bool(self, key: str, default: bool = False) -> bool:
+        value = self._facade_matrix_field(key)
+        if value is None:
+            return default
+        return _string_bool_value(value, key)
+
+    def _facade_matrix_int(self, key: str) -> int | None:
+        value = self._facade_matrix_field(key)
+        if value is None:
+            return None
+        return int(value)
 
     @property
     def requested_execution_mode(self) -> str | None:
@@ -1720,6 +1776,54 @@ class ExecutionResultEnvelopeView:
         """Whether prepared/native execution used a materialized temporary operator."""
 
         return self._compute_flow_bool("operator_temporary_materialization_used")
+
+    @property
+    def facade_compatibility_matrix_report_id(self) -> str | None:
+        """Return the GAR-0038 facade compatibility matrix report id."""
+
+        return self._facade_matrix_field("report_id")
+
+    @property
+    def facade_compatibility_matrix_gar_id(self) -> str | None:
+        """Return the GAR id for the facade compatibility matrix."""
+
+        return self._facade_matrix_field("gar_id")
+
+    @property
+    def facade_compatibility_matrix_support_status(self) -> str | None:
+        """Return the facade matrix support status."""
+
+        return self._facade_matrix_field("support_status")
+
+    @property
+    def facade_compatibility_matrix_claim_gate_status(self) -> str | None:
+        """Return the facade matrix claim-gate status."""
+
+        return self._facade_matrix_field("claim_gate_status")
+
+    @property
+    def facade_compatibility_matrix_row_order(self) -> tuple[str, ...]:
+        """Return ordered surface names from the facade compatibility matrix."""
+
+        return _csv_values(self._facade_matrix_field("row_order"))
+
+    @property
+    def facade_unsupported_surface_count(self) -> int | None:
+        """Return the count of unsupported runtime surfaces in the facade matrix."""
+
+        return self._facade_matrix_int("unsupported_surface_count")
+
+    @property
+    def facade_legacy_boundary_status(self) -> str | None:
+        """Return the legacy facade boundary status."""
+
+        return self._facade_matrix_field("legacy_boundary_status")
+
+    @property
+    def facade_all_rows_no_fallback_no_external_engine(self) -> bool:
+        """Whether all facade matrix rows preserve no-fallback/no-external-engine policy."""
+
+        return self._facade_matrix_bool("all_rows_no_fallback_no_external_engine")
 
     @property
     def evidence_slots(self) -> tuple[ExecutionEvidenceSlot, ...]:

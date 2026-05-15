@@ -265,6 +265,57 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": "external_engine_invoked", "value": "false"},
                             ]
                         },
+                    },
+                    {
+                        "artifact_id": "gar0038.facade_compatibility_matrix",
+                        "artifact_kind": "facade_compatibility_matrix",
+                        "status": "mixed_report_only_matrix",
+                        "payload": {
+                            "fields": [
+                                {
+                                    "key": "schema_version",
+                                    "value": "shardloom.facade_compatibility_matrix.v1",
+                                },
+                                {
+                                    "key": "report_id",
+                                    "value": "gar0038.facade_compatibility_matrix",
+                                },
+                                {"key": "gar_id", "value": "GAR-0038-A"},
+                                {
+                                    "key": "support_status",
+                                    "value": "mixed_report_only_matrix",
+                                },
+                                {"key": "claim_gate_status", "value": "not_claim_grade"},
+                                {
+                                    "key": "row_order",
+                                    "value": (
+                                        "vortex_primitive,prepared_encoded,"
+                                        "source_backed_encoded,reader_backed_encoded,"
+                                        "report_only,sql_dataframe_runtime,"
+                                        "object_store_runtime,write_runtime,"
+                                        "legacy_native_vortex_scan_placeholder,"
+                                        "external_engine_fallback"
+                                    ),
+                                },
+                                {"key": "unsupported_surface_count", "value": "3"},
+                                {
+                                    "key": "legacy_boundary_status",
+                                    "value": "legacy_placeholder_removed_or_unsupported",
+                                },
+                                {
+                                    "key": "all_rows_no_fallback_no_external_engine",
+                                    "value": "true",
+                                },
+                                {
+                                    "key": "surface_sql_dataframe_runtime_support_status",
+                                    "value": "unsupported",
+                                },
+                                {
+                                    "key": "surface_external_engine_fallback_support_status",
+                                    "value": "prohibited",
+                                },
+                            ]
+                        },
                     }
                 ],
                 "artifact_refs": [{"id": "vortex_local_engine_report", "kind": "execution_artifact", "status": "available", "uri": None}],
@@ -358,6 +409,35 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertFalse(result.operator_encoded_native_claim_allowed)
         self.assertTrue(result.operator_temporary_materialization_used)
+        self.assertEqual(
+            result.facade_compatibility_matrix_report_id,
+            "gar0038.facade_compatibility_matrix",
+        )
+        self.assertEqual(result.facade_compatibility_matrix_gar_id, "GAR-0038-A")
+        self.assertEqual(
+            result.facade_compatibility_matrix_support_status,
+            "mixed_report_only_matrix",
+        )
+        self.assertEqual(
+            result.facade_compatibility_matrix_claim_gate_status,
+            "not_claim_grade",
+        )
+        self.assertIn(
+            "sql_dataframe_runtime",
+            result.facade_compatibility_matrix_row_order,
+        )
+        self.assertEqual(result.facade_unsupported_surface_count, 3)
+        self.assertEqual(
+            result.facade_legacy_boundary_status,
+            "legacy_placeholder_removed_or_unsupported",
+        )
+        self.assertTrue(result.facade_all_rows_no_fallback_no_external_engine)
+        self.assertEqual(
+            result.facade_compatibility_matrix_fields[
+                "surface_sql_dataframe_runtime_support_status"
+            ],
+            "unsupported",
+        )
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.external_engine_invoked)
         self.assertEqual(len(result.evidence_slots), 3)

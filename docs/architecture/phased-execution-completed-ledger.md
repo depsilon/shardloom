@@ -16,6 +16,59 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0038-A facade compatibility and legacy boundary matrix
+  - Primary files:
+    - `shardloom-exec/src/lib.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close GAR-0038-A by adding a typed report-only facade compatibility matrix that
+    separates executable provider-dispatched facade paths, report-only paths, unsupported runtime
+    surfaces, removed/unsupported legacy placeholders, and prohibited external-engine fallback.
+  - Checklist:
+    - [x] Add `facade_compatibility_matrix` as a typed output artifact on top-level execution
+          envelopes.
+    - [x] Surface summary result/capability fields for GAR id, support status, claim-gate status,
+          surface counts, legacy boundary status, row order, and no-fallback/no-external-engine
+          status.
+    - [x] Add Python `ExecutionResultEnvelopeView` accessors for the matrix report id, GAR id,
+          support status, claim status, row order, unsupported count, legacy boundary status, and
+          all-rows no-fallback/no-external-engine flag.
+    - [x] Keep SQL/DataFrame runtime, object-store runtime, writes, legacy placeholder execution,
+          and external-engine fallback explicitly unsupported or prohibited.
+  - Boundary:
+    - This completes the report-only compatibility matrix and typed access surface. It does not add
+      SQL/DataFrame execution, object-store execution, write/commit runtime, legacy facade shims,
+      external engine invocation, fallback execution, performance claims, or production API claims.
+  - Evidence:
+    - Rust evidence: `facade_compatibility_matrix_report()` produces deterministic counts and row
+      classifications, with every row reporting `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+    - Envelope evidence: top-level execution output now includes a `facade_compatibility_matrix`
+      artifact plus result/capability summary fields for machine-readable adapters.
+    - Python evidence: `ExecutionResultEnvelopeView` reads matrix fields from the typed artifact
+      before falling back to summary fields.
+  - Vortex-first provider check:
+    - Subject area: top-level plan/execution facade boundaries.
+    - Upstream/provider concepts checked: admitted local Vortex primitive, prepared encoded,
+      source-backed encoded, and reader-backed encoded provider-dispatch surfaces remain
+      provider-gated and evidence-scoped.
+    - Decision: keep broad SQL/DataFrame, object-store, write, and legacy placeholder runtime
+      outside the facade until separate implementation/evidence gates exist.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-exec facade --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-exec typed_output_envelope --lib`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_execution_result_view_preserves_artifact_rich_slots`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata hard_release_readiness_gate_docs_are_present`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - `git diff --check`
 - [x] Session label: GAR-0021-A approximate aggregate and sketch function admission
   - Primary files:
     - `shardloom-core/src/approx_sketch.rs`
