@@ -872,24 +872,26 @@ certificate refs, materialization/decode refs, fallback status, and claim
 boundary. Today that admits only `local_vortex_count_scalar`; downstream readers
 must not infer universal native Vortex support from that row.
 
-The artifact must also carry `persistent_runner_admission_gate`. Default
-comparative prepared/native rows still keep
-`persistent_runner_status=process_per_scenario_attributed_not_reduced` and the
-persistent-runner admission fields (`process_startup_attribution`,
+The artifact must also carry `persistent_runner_admission_gate`. Eligible
+comparative prepared/native rows now consume the explicit
+`traditional-analytics-vortex-batch-run` command and report
+`persistent_runner_status=single_process_batch_runner_supported` while
+preserving per-scenario typed evidence and no-fallback fields. Those rows also
+carry `batch_runner_kind`, `batch_scenario_count`,
+`batch_cli_process_wall_millis`, `batch_process_wall_shared=true`, and
+`batch_process_startup_attribution` so shared process wall time is not mistaken
+for per-scenario operator work. Rows that still use explicit single-scenario CLI
+execution keep `persistent_runner_status=process_per_scenario_attributed_not_reduced`
+and the existing persistent-runner admission fields (`process_startup_attribution`,
 `python_harness_overhead_status`, `cli_process_wall_millis`,
 `python_harness_overhead_millis`, `startup_warmup_millis`,
 `build_time_millis`, `build_time_excluded`, `preparation_millis`,
-`preparation_cli_process_wall_millis`, and
-`preparation_included_in_timing`). The explicit
-`traditional-analytics-vortex-batch-run` command is the first scoped admitted
-process-reuse path and emits
-`persistent_runner_status=single_process_batch_runner_supported` while
-preserving per-scenario typed evidence and no-fallback fields. That batch status
-does not admit a persistent daemon, service runtime, hidden fast mode, or
-performance claim. Any broader persistent runner or default harness integration
-must preserve typed envelopes, execution-mode evidence, Native I/O refs,
-operator blocker fields, materialization/decode boundaries, result-sink replay
-evidence, deterministic unsupported diagnostics, and no-fallback fields per run.
+`preparation_cli_process_wall_millis`, and `preparation_included_in_timing`).
+The batch status does not admit a persistent daemon, service runtime, hidden
+fast mode, or performance claim. Any broader persistent runner must preserve
+typed envelopes, execution-mode evidence, Native I/O refs, operator blocker
+fields, materialization/decode boundaries, result-sink replay evidence,
+deterministic unsupported diagnostics, and no-fallback fields per run.
 
 The artifact also carries `work_avoidance_evidence_schema`. ShardLoom rows must
 report `measured`, `not_available`, `unsupported`, or `not_applicable` status

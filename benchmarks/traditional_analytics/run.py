@@ -102,6 +102,9 @@ OPERATOR_BLOCKER_MATRIX_FIELDS = (
     "operator_encoded_native_claim_allowed",
 )
 PERSISTENT_RUNNER_STATUS = "process_per_scenario_attributed_not_reduced"
+BATCH_RUNNER_STATUS = "single_process_batch_runner_supported"
+BATCH_PROCESS_STARTUP_ATTRIBUTION = "single_process_batch_cli_wall_shared_across_scenarios"
+BATCH_HARNESS_OVERHEAD_STATUS = "batch_outer_harness_wall_minus_cli_process_wall_not_row_allocated"
 PERSISTENT_RUNNER_ADMISSION_FIELDS = (
     "persistent_runner_status",
     "process_startup_attribution",
@@ -114,6 +117,13 @@ PERSISTENT_RUNNER_ADMISSION_FIELDS = (
     "preparation_millis",
     "preparation_cli_process_wall_millis",
     "preparation_included_in_timing",
+)
+BATCH_RUNNER_ADMISSION_FIELDS = (
+    "batch_runner_kind",
+    "batch_scenario_count",
+    "batch_cli_process_wall_millis",
+    "batch_process_wall_shared",
+    "batch_process_startup_attribution",
 )
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
@@ -313,6 +323,9 @@ class EngineRunner:
     name: str
     version: str
     scenarios: dict[str, Callable[[DatasetPaths, str], Any]]
+    batch_scenarios: (
+        Callable[[DatasetPaths, str, tuple[str, ...]], dict[str, Any]] | None
+    ) = None
     formats: tuple[str, ...] = ("csv",)
     prepare: Callable[[DatasetPaths, tuple[str, ...]], None] | None = None
     warmup: Callable[[], None] | None = None
@@ -1931,6 +1944,242 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             "__shardloom_evidence": fields,
         }
 
+    def prepared_refs_for_batch(prepared: dict[str, Path | float | str]) -> tuple[str, str]:
+        prepared_refs = [str(prepared["fact"]), str(prepared["dim"])]
+        prepared_digests = [str(prepared["fact_digest"]), str(prepared["dim_digest"])]
+        if "cdc_delta" in prepared:
+            prepared_refs.append(str(prepared["cdc_delta"]))
+            prepared_digests.append(str(prepared["cdc_delta_digest"]))
+        return "|".join(prepared_refs), "|".join(prepared_digests)
+
+    def extract_batch_scenario_output(
+        scenario: str,
+        batch_fields: dict[str, str],
+        prepared: dict[str, Path | float | str],
+        completed: dict[str, Any],
+    ) -> dict[str, Any]:
+        prefix = f"scenario_{vortex_batch_scenario_slug(scenario)}_"
+        fields = {
+            key[len(prefix) :]: value
+            for key, value in batch_fields.items()
+            if key.startswith(prefix)
+        }
+        if not fields:
+            raise BenchmarkUnsupported(
+                f"ShardLoom batch runner did not emit evidence for scenario: {scenario}"
+            )
+        required_true_fields = [
+            "native_work_envelope_created",
+            "native_work_stream_created",
+            "native_result_stream_created",
+            "native_io_certificate_emitted",
+            "vortex_source_adapter_used",
+            "vortex_file_read",
+            "upstream_vortex_scan_called",
+            "materialization_boundary_report_emitted",
+            "native_io_per_path_certificate_emitted",
+            "native_io_materializing_transitions_have_boundaries",
+        ]
+        missing_evidence = [
+            field for field in required_true_fields if fields.get(field) != "true"
+        ]
+        if missing_evidence:
+            raise RuntimeError(
+                "ShardLoom batch native Vortex evidence was missing for "
+                + scenario
+                + ": "
+                + ", ".join(missing_evidence)
+            )
+        if fields.get("native_io_certificate_status") != "certified":
+            raise RuntimeError(
+                "ShardLoom batch NativeIoCertificate was not certified for "
+                + scenario
+                + ": "
+                + str(fields.get("native_io_certificate_status", "missing"))
+            )
+        if (
+            fields.get("native_io_certificate_path_id")
+            != "native_vortex_source_to_native_runtime_result"
+        ):
+            raise RuntimeError(
+                "ShardLoom batch NativeIoCertificate path was unexpected for "
+                + scenario
+                + ": "
+                + str(fields.get("native_io_certificate_path_id", "missing"))
+            )
+        if SHARDLOOM_RESULT_SINK:
+            for field in (
+                "computed_result_sink_requested",
+                "computed_result_sink_written",
+                "computed_result_sink_replay_verified",
+            ):
+                if fields.get(field) != "true":
+                    raise RuntimeError(
+                        "ShardLoom batch result sink evidence was missing for "
+                        + scenario
+                        + ": "
+                        + field
+                    )
+            if (
+                fields.get("computed_result_sink_native_io_certificate_status")
+                != "certified"
+            ):
+                raise RuntimeError(
+                    "ShardLoom batch result sink NativeIoCertificate was not certified for "
+                    + scenario
+                    + ": "
+                    + str(
+                        fields.get(
+                            "computed_result_sink_native_io_certificate_status",
+                            "missing",
+                        )
+                    )
+                )
+        result_json = fields.get("result_json")
+        if result_json is None:
+            raise RuntimeError(
+                "ShardLoom batch result_json field was missing for " + scenario
+            )
+        prepared_ref, prepared_digest = prepared_refs_for_batch(prepared)
+        batch_wall = completed.get("process_wall_millis", "not_measured")
+        fields.update(
+            {
+                "requested_execution_mode": "prepared_vortex",
+                "selected_execution_mode": fields.get(
+                    "selected_execution_mode", "prepared_vortex"
+                ),
+                "execution_mode": fields.get("selected_execution_mode", "prepared_vortex"),
+                "mode_selection_reason": fields.get(
+                    "mode_selection_reason",
+                    "compatibility input was prepared into Vortex once before scenario timing",
+                ),
+                "execution_mode_family": "native_vortex",
+                "preparation_millis": str(prepared["preparation_millis"]),
+                "preparation_cli_process_wall_millis": str(
+                    prepared["preparation_cli_process_wall_millis"]
+                ),
+                "cdc_delta_preparation_millis": str(
+                    prepared.get("cdc_delta_preparation_millis", "0")
+                ),
+                "cdc_delta_preparation_cli_process_wall_millis": str(
+                    prepared.get("cdc_delta_preparation_cli_process_wall_millis", "0")
+                ),
+                "preparation_included_in_timing": "false",
+                "prepared_artifact_ref": prepared_ref,
+                "prepared_artifact_digest": prepared_digest,
+                "source_native_io_certificate_status": str(
+                    prepared["source_native_io_certificate_status"]
+                ),
+                "source_native_io_certificate_id": str(
+                    prepared["source_native_io_certificate_id"]
+                ),
+                "compatibility_import_included": "false",
+                "compatibility_to_vortex_included": "false",
+                "vortex_prepare_included": "false",
+                "vortex_write_reopen_included": "false",
+                "direct_transient_execution": "false",
+                "persistent_runner_status": BATCH_RUNNER_STATUS,
+                "process_startup_attribution": BATCH_PROCESS_STARTUP_ATTRIBUTION,
+                "python_harness_overhead_status": BATCH_HARNESS_OVERHEAD_STATUS,
+                "cli_process_wall_millis": str(batch_wall),
+                "batch_cli_process_wall_millis": str(batch_wall),
+                "batch_process_wall_shared": "true",
+                "batch_process_startup_attribution": BATCH_PROCESS_STARTUP_ATTRIBUTION,
+                "batch_runner_kind": batch_fields.get(
+                    "runner_kind", "single_process_prepared_native_batch"
+                ),
+                "batch_scenario_count": batch_fields.get("scenario_count", "unknown"),
+                "batch_scenario_order": batch_fields.get("scenario_order", ""),
+                "batch_total_scenario_compute_micros": batch_fields.get(
+                    "total_scenario_compute_micros", "unknown"
+                ),
+                "batch_total_vortex_scan_micros": batch_fields.get(
+                    "total_vortex_scan_micros", "unknown"
+                ),
+                "batch_total_result_sink_write_micros": batch_fields.get(
+                    "total_result_sink_write_micros", "none"
+                ),
+            }
+        )
+        return {
+            "__benchmark_result": json.loads(result_json),
+            "__shardloom_evidence": fields,
+        }
+
+    def run_batch_scenarios(
+        paths: DatasetPaths, data_format: str, scenarios: tuple[str, ...]
+    ) -> dict[str, Any]:
+        if data_format == SHARDLOOM_VORTEX_FORMAT:
+            raise BenchmarkUnsupported(
+                "shardloom-vortex reports prepared/native results under the requested source format rows"
+            )
+        if any(scenario == "small change over large base" for scenario in scenarios):
+            prepare_cdc_delta_format(paths, data_format)
+        else:
+            prepare_format(paths, data_format)
+        prepared = prepared_paths[data_format]
+        scenario_csv = ",".join(scenarios)
+        command = [
+            str(binary),
+            "traditional-analytics-vortex-batch-run",
+            scenario_csv,
+            str(prepared["fact"]),
+            str(prepared["dim"]),
+            "--execution-mode",
+            "prepared_vortex",
+            "--format",
+            "json",
+        ]
+        if "cdc_delta" in prepared:
+            command.extend(["--cdc-delta-vortex", str(prepared["cdc_delta"])])
+        if SHARDLOOM_RESULT_SINK:
+            result_workspace = (
+                paths.root
+                / "shardloom_prepared_vortex_batch_result_sinks"
+                / data_format
+                / hashlib.sha256(scenario_csv.encode("utf-8")).hexdigest()[:12]
+            )
+            command.extend(
+                ["--workspace", str(result_workspace), "--write-result-vortex"]
+            )
+        completed = subprocess_run(command, root, env)
+        try:
+            payload = json.loads(completed["stdout"].splitlines()[0])
+        except (json.JSONDecodeError, IndexError) as exc:
+            if completed["returncode"] != 0:
+                raise RuntimeError(
+                    completed["stderr"] or completed["stdout"] or "unknown failure"
+                ) from exc
+            raise RuntimeError(f"ShardLoom batch emitted invalid JSON: {exc}") from exc
+        if completed["returncode"] != 0:
+            raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
+        fields = parse_output_fields(payload)
+        if payload.get("status") != "success":
+            reason = fields.get("reason") or payload.get("human_text") or "unsupported"
+            raise BenchmarkUnsupported(str(reason))
+        if fields.get("schema_version") != "shardloom.traditional_analytics.vortex_batch.v1":
+            raise RuntimeError(
+                "ShardLoom batch schema was unexpected: "
+                + str(fields.get("schema_version", "missing"))
+            )
+        if fields.get("persistent_runner_status") != BATCH_RUNNER_STATUS:
+            raise RuntimeError(
+                "ShardLoom batch runner status was unexpected: "
+                + str(fields.get("persistent_runner_status", "missing"))
+            )
+        if fields.get("all_fallback_attempted_false") != "true":
+            raise RuntimeError("ShardLoom batch reported fallback attempts")
+        if fields.get("all_external_engine_invoked_false") != "true":
+            raise RuntimeError("ShardLoom batch reported external engine invocation")
+        if fields.get("all_native_io_certificates_certified") != "true":
+            raise RuntimeError("ShardLoom batch Native I/O certificates were not certified")
+        return {
+            scenario: extract_batch_scenario_output(
+                scenario, fields, prepared, completed
+            )
+            for scenario in scenarios
+        }
+
     return EngineRunner(
         engine_name,
         shardloom_version(root, SHARDLOOM_BUILD_PROFILE),
@@ -1943,6 +2192,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             for scenario in SHARDLOOM_EXECUTABLE_SCENARIOS
         },
         formats=FORMAT_ORDER,
+        batch_scenarios=run_batch_scenarios,
         prepare=prepare,
         build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
@@ -2133,6 +2383,10 @@ def scenario_slug(scenario: str) -> str:
         .replace(" ", "-")
         .replace("_", "-")
     )
+
+
+def vortex_batch_scenario_slug(scenario: str) -> str:
+    return scenario.replace("/", "-").replace(" ", "-").replace("+", "-")
 
 
 def normalize_group_rows(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
@@ -3873,15 +4127,35 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         is_shardloom_engine(str(result.get("engine") or ""))
         and result.get("status") == "success"
     ):
-        if metrics.get("persistent_runner_status") != PERSISTENT_RUNNER_STATUS:
-            raise RuntimeError("ShardLoom row hid or altered persistent runner status")
-        if metrics.get("process_startup_attribution") != "per_scenario_cli_process_wall_measured":
-            raise RuntimeError("ShardLoom row must attribute per-scenario CLI process startup")
-        if (
-            metrics.get("python_harness_overhead_status")
-            != "outer_harness_wall_minus_cli_process_wall"
-        ):
-            raise RuntimeError("ShardLoom row must explain Python harness overhead attribution")
+        persistent_runner_status = metrics.get("persistent_runner_status")
+        if persistent_runner_status == BATCH_RUNNER_STATUS:
+            missing_batch_fields = [
+                field for field in BATCH_RUNNER_ADMISSION_FIELDS if field not in metrics
+            ]
+            if missing_batch_fields:
+                raise RuntimeError(
+                    "ShardLoom batch row omitted batch-runner fields: "
+                    + ", ".join(missing_batch_fields)
+                )
+            if metrics.get("process_startup_attribution") != BATCH_PROCESS_STARTUP_ATTRIBUTION:
+                raise RuntimeError("ShardLoom batch row must attribute shared batch CLI wall time")
+            if metrics.get("python_harness_overhead_status") != BATCH_HARNESS_OVERHEAD_STATUS:
+                raise RuntimeError("ShardLoom batch row must explain shared batch overhead")
+            if metrics.get("batch_process_wall_shared") is not True:
+                raise RuntimeError("ShardLoom batch row must mark shared process wall timing")
+        else:
+            if persistent_runner_status != PERSISTENT_RUNNER_STATUS:
+                raise RuntimeError("ShardLoom row hid or altered persistent runner status")
+            if (
+                metrics.get("process_startup_attribution")
+                != "per_scenario_cli_process_wall_measured"
+            ):
+                raise RuntimeError("ShardLoom row must attribute per-scenario CLI process startup")
+            if (
+                metrics.get("python_harness_overhead_status")
+                != "outer_harness_wall_minus_cli_process_wall"
+            ):
+                raise RuntimeError("ShardLoom row must explain Python harness overhead attribution")
         if metrics.get("cli_process_wall_millis") is None:
             raise RuntimeError("ShardLoom row must preserve CLI process wall timing")
 
@@ -4712,65 +4986,17 @@ def failed_result(
     }
 
 
-def run_one(
+def successful_result_from_iterations(
     runner: EngineRunner,
     paths: DatasetPaths,
     scenario: str,
     data_format: str,
     iterations: int,
+    values: list[Any],
+    evidence_rows: list[dict[str, str]],
+    timings: list[float],
+    peak_memory: list[int],
 ) -> dict[str, Any]:
-    scenario_fn = runner.scenarios.get(scenario)
-    if scenario_fn is None:
-        return failed_result(
-            runner.name,
-            scenario,
-            data_format,
-            "unsupported",
-            f"{runner.name} does not implement benchmark scenario: {scenario}",
-            paths,
-            iterations,
-        )
-    values = []
-    evidence_rows = []
-    timings = []
-    peak_memory = []
-    for _ in range(iterations):
-        started = time.perf_counter()
-        with MemorySampler() as sampler:
-            try:
-                value, evidence = unwrap_engine_value(scenario_fn(paths, data_format))
-            except BenchmarkUnsupported as exc:
-                elapsed = (time.perf_counter() - started) * 1000.0
-                return failed_result(
-                    runner.name,
-                    scenario,
-                    data_format,
-                    "unsupported",
-                    str(exc),
-                    paths,
-                    iterations,
-                    elapsed,
-                )
-            except Exception as exc:
-                elapsed = (time.perf_counter() - started) * 1000.0
-                return failed_result(
-                    runner.name,
-                    scenario,
-                    data_format,
-                    "execution_error",
-                    f"{type(exc).__name__}: {exc}",
-                    paths,
-                    iterations,
-                    elapsed,
-                )
-            else:
-                elapsed = time.perf_counter() - started
-        values.append(value)
-        evidence_rows.append(evidence)
-        timings.append(elapsed * 1000.0)
-        if sampler.peak_bytes is not None:
-            peak_memory.append(sampler.peak_bytes)
-
     digest = canonical_digest(values[-1])
     stable = all(canonical_digest(value) == digest for value in values)
     evidence = evidence_rows[-1] if evidence_rows else {}
@@ -4794,6 +5020,7 @@ def run_one(
             if parsed is not None
         ]
         return None if not values else round(statistics.mean(values), 4)
+
     bytes_written = None
     computed_result_sink_bytes = None
     scenario_compute_millis = None
@@ -4862,11 +5089,14 @@ def run_one(
     work_avoidance = work_avoidance_metadata(runner.name, evidence)
     result_sink_included = computed_result_sink_write_millis is not None
     query_runtime_millis = round(statistics.mean(timings), 4)
-    python_harness_overhead_millis = (
-        round(max(0.0, query_runtime_millis - cli_process_wall_millis), 4)
-        if cli_process_wall_millis is not None
-        else None
-    )
+    if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
+        python_harness_overhead_millis = None
+    else:
+        python_harness_overhead_millis = (
+            round(max(0.0, query_runtime_millis - cli_process_wall_millis), 4)
+            if cli_process_wall_millis is not None
+            else None
+        )
     filter_project_limit_fused = (
         scenario == "filter + projection + limit"
         and parse_optional_bool(evidence.get("streaming_filter_pushdown_applied")) is True
@@ -4897,6 +5127,104 @@ def run_one(
             else "local_file_reopen_scan_path",
         )
     )
+    metrics = {
+        "wall_time_millis": round(sum(timings), 4),
+        "query_runtime_millis": query_runtime_millis,
+        "total_runtime_millis": query_runtime_millis,
+        "peak_memory_bytes": max(peak_memory) if peak_memory else None,
+        "bytes_read": bytes_read
+        if bytes_read is not None
+        else scenario_bytes(paths, scenario, data_format),
+        "bytes_written": bytes_written,
+        "rows_scanned": rows_scanned(paths, scenario),
+        "rows_materialized": parse_optional_int(evidence.get("rows_materialized"))
+        if evidence
+        else rows_materialized(values[-1]),
+        "data_decoded": parse_optional_bool(evidence.get("data_decoded")),
+        "data_materialized": parse_optional_bool(evidence.get("data_materialized")),
+        "row_read": parse_optional_bool(evidence.get("row_read")),
+        "arrow_converted": parse_optional_bool(evidence.get("arrow_converted")),
+        "object_store_io": parse_optional_bool(evidence.get("object_store_io")),
+        "write_io": parse_optional_bool(evidence.get("write_io")),
+        "spill_io_performed": parse_optional_bool(evidence.get("spill_io_performed")),
+        "object_store_requests": 0,
+        "spill_required_bytes": None,
+        "scenario_compute_millis": scenario_compute_millis,
+        "operator_compute_millis": operator_compute_millis,
+        "cli_process_wall_millis": cli_process_wall_millis,
+        "python_harness_overhead_millis": python_harness_overhead_millis,
+        "computed_result_sink_write_millis": computed_result_sink_write_millis,
+        "result_sink_write_millis": computed_result_sink_write_millis,
+        "computed_result_sink_bytes": computed_result_sink_bytes,
+        "startup_warmup_millis": runner.startup_time_millis,
+        "build_time_millis": runner.build_time_millis,
+        "preparation_millis": preparation_millis
+        if preparation_millis is not None
+        else runner.preparation_time_millis,
+        "preparation_cli_process_wall_millis": preparation_cli_process_wall_millis,
+        "preparation_included_in_timing": preparation_included_in_timing,
+        "prepared_artifact_ref": prepared_artifact_ref,
+        "prepared_artifact_digest": prepared_artifact_digest,
+        "source_read_millis": source_read_millis,
+        "compatibility_parse_millis": compatibility_parse_millis,
+        "compatibility_to_vortex_import_millis": compatibility_to_vortex_import_millis,
+        "vortex_write_millis": vortex_write_millis,
+        "vortex_reopen_millis": vortex_reopen_millis,
+        "vortex_scan_millis": vortex_scan_millis,
+        "evidence_render_millis": evidence_render_millis,
+        "build_time_excluded": True,
+        "process_startup_attribution": evidence.get(
+            "process_startup_attribution", "not_measured"
+        ),
+        "python_harness_overhead_status": evidence.get(
+            "python_harness_overhead_status", "not_measured"
+        ),
+        "compatibility_to_vortex_included": execution_mode[
+            "compatibility_import_included"
+        ],
+        "vortex_reopen_scan_included": (
+            execution_mode["vortex_write_reopen_included"]
+            or vortex_scan_millis is not None
+        ),
+        "result_sink_included": result_sink_included,
+        "representation_transition_summary": evidence.get(
+            "native_io_representation_transitions", "not_reported"
+        ),
+        "encoded_native_execution_status": encoded_native_execution_status,
+        "fusion_status": (
+            "filter_project_limit_fused=true"
+            if filter_project_limit_fused
+            else "not_fused_or_not_applicable"
+        ),
+        "filter_project_limit_fused": filter_project_limit_fused,
+        "fusion_blocker": fusion_blocker,
+        "materialization_required": parse_optional_bool(
+            evidence.get("data_materialized")
+        ),
+        "decode_required": parse_optional_bool(evidence.get("data_decoded")),
+        "scan_api_status": scan_api_status,
+        "persistent_runner_status": evidence.get(
+            "persistent_runner_status", PERSISTENT_RUNNER_STATUS
+        ),
+    }
+    if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
+        metrics.update(
+            {
+                "batch_runner_kind": evidence.get("batch_runner_kind"),
+                "batch_scenario_count": parse_optional_int(
+                    evidence.get("batch_scenario_count")
+                ),
+                "batch_cli_process_wall_millis": parse_optional_float(
+                    evidence.get("batch_cli_process_wall_millis")
+                ),
+                "batch_process_wall_shared": parse_optional_bool(
+                    evidence.get("batch_process_wall_shared")
+                ),
+                "batch_process_startup_attribution": evidence.get(
+                    "batch_process_startup_attribution"
+                ),
+            }
+        )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -4905,86 +5233,7 @@ def run_one(
         "status": "success" if stable else "unstable_output",
         "iterations": iterations,
         "iteration_wall_time_millis": [round(value, 4) for value in timings],
-        "metrics": {
-            "wall_time_millis": round(sum(timings), 4),
-            "query_runtime_millis": query_runtime_millis,
-            "total_runtime_millis": query_runtime_millis,
-            "peak_memory_bytes": max(peak_memory) if peak_memory else None,
-            "bytes_read": bytes_read
-            if bytes_read is not None
-            else scenario_bytes(paths, scenario, data_format),
-            "bytes_written": bytes_written,
-            "rows_scanned": rows_scanned(paths, scenario),
-            "rows_materialized": parse_optional_int(evidence.get("rows_materialized"))
-            if evidence
-            else rows_materialized(values[-1]),
-            "data_decoded": parse_optional_bool(evidence.get("data_decoded")),
-            "data_materialized": parse_optional_bool(evidence.get("data_materialized")),
-            "row_read": parse_optional_bool(evidence.get("row_read")),
-            "arrow_converted": parse_optional_bool(evidence.get("arrow_converted")),
-            "object_store_io": parse_optional_bool(evidence.get("object_store_io")),
-            "write_io": parse_optional_bool(evidence.get("write_io")),
-            "spill_io_performed": parse_optional_bool(evidence.get("spill_io_performed")),
-            "object_store_requests": 0,
-            "spill_required_bytes": None,
-            "scenario_compute_millis": scenario_compute_millis,
-            "operator_compute_millis": operator_compute_millis,
-            "cli_process_wall_millis": cli_process_wall_millis,
-            "python_harness_overhead_millis": python_harness_overhead_millis,
-            "computed_result_sink_write_millis": computed_result_sink_write_millis,
-            "result_sink_write_millis": computed_result_sink_write_millis,
-            "computed_result_sink_bytes": computed_result_sink_bytes,
-            "startup_warmup_millis": runner.startup_time_millis,
-            "build_time_millis": runner.build_time_millis,
-            "preparation_millis": preparation_millis
-            if preparation_millis is not None
-            else runner.preparation_time_millis,
-            "preparation_cli_process_wall_millis": preparation_cli_process_wall_millis,
-            "preparation_included_in_timing": preparation_included_in_timing,
-            "prepared_artifact_ref": prepared_artifact_ref,
-            "prepared_artifact_digest": prepared_artifact_digest,
-            "source_read_millis": source_read_millis,
-            "compatibility_parse_millis": compatibility_parse_millis,
-            "compatibility_to_vortex_import_millis": compatibility_to_vortex_import_millis,
-            "vortex_write_millis": vortex_write_millis,
-            "vortex_reopen_millis": vortex_reopen_millis,
-            "vortex_scan_millis": vortex_scan_millis,
-            "evidence_render_millis": evidence_render_millis,
-            "build_time_excluded": True,
-            "process_startup_attribution": evidence.get(
-                "process_startup_attribution", "not_measured"
-            ),
-            "python_harness_overhead_status": evidence.get(
-                "python_harness_overhead_status", "not_measured"
-            ),
-            "compatibility_to_vortex_included": execution_mode[
-                "compatibility_import_included"
-            ],
-            "vortex_reopen_scan_included": (
-                execution_mode["vortex_write_reopen_included"]
-                or vortex_scan_millis is not None
-            ),
-            "result_sink_included": result_sink_included,
-            "representation_transition_summary": evidence.get(
-                "native_io_representation_transitions", "not_reported"
-            ),
-            "encoded_native_execution_status": encoded_native_execution_status,
-            "fusion_status": (
-                "filter_project_limit_fused=true"
-                if filter_project_limit_fused
-                else "not_fused_or_not_applicable"
-            ),
-            "filter_project_limit_fused": filter_project_limit_fused,
-            "fusion_blocker": fusion_blocker,
-            "materialization_required": parse_optional_bool(
-                evidence.get("data_materialized")
-            ),
-            "decode_required": parse_optional_bool(evidence.get("data_decoded")),
-            "scan_api_status": scan_api_status,
-            "persistent_runner_status": evidence.get(
-                "persistent_runner_status", PERSISTENT_RUNNER_STATUS
-            ),
-        },
+        "metrics": metrics,
         "correctness_digest": digest,
         "correctness_digest_stable": stable,
         "output_preview": values[-1] if not isinstance(values[-1], list) else values[-1][:5],
@@ -4995,6 +5244,131 @@ def run_one(
         **operator_metadata,
         **execution_mode,
     }
+
+
+def run_one(
+    runner: EngineRunner,
+    paths: DatasetPaths,
+    scenario: str,
+    data_format: str,
+    iterations: int,
+) -> dict[str, Any]:
+    scenario_fn = runner.scenarios.get(scenario)
+    if scenario_fn is None:
+        return failed_result(
+            runner.name,
+            scenario,
+            data_format,
+            "unsupported",
+            f"{runner.name} does not implement benchmark scenario: {scenario}",
+            paths,
+            iterations,
+        )
+    values = []
+    evidence_rows = []
+    timings = []
+    peak_memory = []
+    for _ in range(iterations):
+        started = time.perf_counter()
+        with MemorySampler() as sampler:
+            try:
+                value, evidence = unwrap_engine_value(scenario_fn(paths, data_format))
+            except BenchmarkUnsupported as exc:
+                elapsed = (time.perf_counter() - started) * 1000.0
+                return failed_result(
+                    runner.name,
+                    scenario,
+                    data_format,
+                    "unsupported",
+                    str(exc),
+                    paths,
+                    iterations,
+                    elapsed,
+                )
+            except Exception as exc:
+                elapsed = (time.perf_counter() - started) * 1000.0
+                return failed_result(
+                    runner.name,
+                    scenario,
+                    data_format,
+                    "execution_error",
+                    f"{type(exc).__name__}: {exc}",
+                    paths,
+                    iterations,
+                    elapsed,
+                )
+            else:
+                elapsed = time.perf_counter() - started
+        values.append(value)
+        evidence_rows.append(evidence)
+        timings.append(elapsed * 1000.0)
+        if sampler.peak_bytes is not None:
+            peak_memory.append(sampler.peak_bytes)
+
+    return successful_result_from_iterations(
+        runner,
+        paths,
+        scenario,
+        data_format,
+        iterations,
+        values,
+        evidence_rows,
+        timings,
+        peak_memory,
+    )
+
+
+def run_batch(
+    runner: EngineRunner,
+    paths: DatasetPaths,
+    scenarios: tuple[str, ...],
+    data_format: str,
+    iterations: int,
+) -> list[dict[str, Any]]:
+    if runner.batch_scenarios is None:
+        raise BenchmarkUnsupported(f"{runner.name} does not expose batch execution")
+    values_by_scenario: dict[str, list[Any]] = {scenario: [] for scenario in scenarios}
+    evidence_by_scenario: dict[str, list[dict[str, str]]] = {
+        scenario: [] for scenario in scenarios
+    }
+    timings_by_scenario: dict[str, list[float]] = {scenario: [] for scenario in scenarios}
+    peak_memory_by_scenario: dict[str, list[int]] = {scenario: [] for scenario in scenarios}
+    for _ in range(iterations):
+        with MemorySampler() as sampler:
+            outputs = runner.batch_scenarios(paths, data_format, scenarios)
+        for scenario in scenarios:
+            if scenario not in outputs:
+                raise BenchmarkUnsupported(
+                    f"{runner.name} batch output omitted scenario: {scenario}"
+                )
+            value, evidence = unwrap_engine_value(outputs[scenario])
+            values_by_scenario[scenario].append(value)
+            evidence_by_scenario[scenario].append(evidence)
+            scenario_compute_millis = micros_to_millis_field(
+                evidence.get("scenario_compute_micros")
+            )
+            timings_by_scenario[scenario].append(
+                scenario_compute_millis
+                if scenario_compute_millis is not None
+                else parse_optional_float(evidence.get("batch_cli_process_wall_millis"))
+                or 0.0
+            )
+            if sampler.peak_bytes is not None:
+                peak_memory_by_scenario[scenario].append(sampler.peak_bytes)
+    return [
+        successful_result_from_iterations(
+            runner,
+            paths,
+            scenario,
+            data_format,
+            iterations,
+            values_by_scenario[scenario],
+            evidence_by_scenario[scenario],
+            timings_by_scenario[scenario],
+            peak_memory_by_scenario[scenario],
+        )
+        for scenario in scenarios
+    ]
 
 
 def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]]:
@@ -5673,11 +6047,16 @@ def persistent_runner_admission_gate() -> dict[str, Any]:
         "gate_id": "gar-flow-2c.persistent_runner_admission.v1",
         "support_status": "report_only",
         "persistent_runner_admitted": False,
-        "current_status": PERSISTENT_RUNNER_STATUS,
+        "scoped_batch_runner_supported": True,
+        "current_status": (
+            f"{BATCH_RUNNER_STATUS} for eligible prepared/native Vortex groups; "
+            f"{PERSISTENT_RUNNER_STATUS} otherwise"
+        ),
         "hidden_fast_mode_allowed": False,
         "performance_claim_allowed": False,
         "claim_gate_status": "not_claim_grade",
-        "row_fields": list(PERSISTENT_RUNNER_ADMISSION_FIELDS),
+        "row_fields": list(PERSISTENT_RUNNER_ADMISSION_FIELDS)
+        + list(BATCH_RUNNER_ADMISSION_FIELDS),
         "must_preserve": [
             "shardloom.output.v2 typed envelopes per run",
             "execution-mode selection fields",
@@ -5701,7 +6080,7 @@ def persistent_runner_admission_gate() -> dict[str, Any]:
             "worker lifecycle contract exists",
             "IPC or in-process protocol preserves typed artifacts",
             "per-run no-fallback and external-engine flags are validated",
-            "benchmark rows prove timing equivalence against process-per-scenario mode",
+            "benchmark rows prove timing equivalence against process-per-scenario mode before any claim",
             "release claim gate consumes persistent-runner status",
         ],
         "source_grounded_rationale": [
@@ -5961,6 +6340,7 @@ def render_persistent_runner_admission_gate(artifact: dict[str, Any]) -> str:
         ["Gate", str(gate["gate_id"])],
         ["Support status", str(gate["support_status"])],
         ["Persistent runner admitted", str(gate["persistent_runner_admitted"])],
+        ["Scoped batch runner supported", str(gate["scoped_batch_runner_supported"])],
         ["Current status", str(gate["current_status"])],
         ["Hidden fast mode allowed", str(gate["hidden_fast_mode_allowed"])],
         ["Performance claim allowed", str(gate["performance_claim_allowed"])],
@@ -6008,7 +6388,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "Claim-grade ShardLoom timing rows require at least three iterations, stable correctness digests, and the full evidence set; one-iteration smoke rows remain not-claim-grade.",
         "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
         "ShardLoom rows expose cli_process_wall_millis and python_harness_overhead_millis where the Python harness can measure them. Build time is reported separately and excluded from per-scenario timing.",
-        "The persistent_runner_admission_gate is report-only; current ShardLoom rows keep persistent_runner_status=process_per_scenario_attributed_not_reduced and do not hide a fast mode.",
+        "Eligible prepared/native ShardLoom rows may use persistent_runner_status=single_process_batch_runner_supported; per-scenario CLI rows keep persistent_runner_status=process_per_scenario_attributed_not_reduced, and neither status permits a hidden fast mode or performance claim.",
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -6971,6 +7351,7 @@ def main() -> int:
                         record_result(result)
                 continue
             for data_format in engine_formats:
+                runnable_scenarios = []
                 for scenario in args.scenario_list:
                     profile_block = scenario_dataset_profile_block_reason(
                         scenario, args.dataset_profile
@@ -6985,6 +7366,7 @@ def main() -> int:
                             paths,
                             args.iterations,
                         )
+                        record_result(result)
                     elif data_format not in runner.formats:
                         result = failed_result(
                             engine,
@@ -6995,8 +7377,29 @@ def main() -> int:
                             paths,
                             args.iterations,
                         )
+                        record_result(result)
                     else:
-                        result = run_one(runner, paths, scenario, data_format, args.iterations)
+                        runnable_scenarios.append(scenario)
+                if not runnable_scenarios:
+                    continue
+                if runner.batch_scenarios is not None:
+                    try:
+                        for result in run_batch(
+                            runner,
+                            paths,
+                            tuple(runnable_scenarios),
+                            data_format,
+                            args.iterations,
+                        ):
+                            record_result(result)
+                        continue
+                    except BenchmarkUnsupported:
+                        # The batch command is an optimization of the benchmark harness process
+                        # boundary, not a runtime fallback. Keep a deterministic report by
+                        # running the existing single-scenario CLI path explicitly.
+                        pass
+                for scenario in runnable_scenarios:
+                    result = run_one(runner, paths, scenario, data_format, args.iterations)
                     record_result(result)
         finally:
             if runner.close is not None:

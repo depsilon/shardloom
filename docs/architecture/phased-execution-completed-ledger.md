@@ -16,6 +16,77 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2G prepared/native batch runner harness integration
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: wire the comparative Python benchmark harness to consume the scoped
+    `traditional-analytics-vortex-batch-run` command for eligible prepared/native Vortex scenario
+    groups while preserving per-scenario result, evidence, timing, and no-fallback fields.
+  - Checklist:
+    - [x] Add an optional batch runner hook to the Python `EngineRunner` model.
+    - [x] Run eligible prepared/native Vortex rows through one batch command per format/iteration.
+    - [x] Preserve prefixed child report fields from the Rust batch report so the harness can
+          rebuild row-level evidence envelopes.
+    - [x] Add batch attribution fields:
+          `persistent_runner_status=single_process_batch_runner_supported`,
+          `batch_runner_kind=single_process_prepared_native_batch`,
+          `batch_cli_process_wall_millis`, `batch_process_wall_shared=true`, and
+          `batch_process_startup_attribution`.
+    - [x] Keep per-scenario `scenario_compute_micros`, `vortex_scan_micros`,
+          result-sink evidence, operator blocker fields, source-backed scan evidence, Native I/O
+          certificate status, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - [x] Fall back only at the benchmark harness process boundary to explicit single-scenario CLI
+          execution if a batch grouping cannot be consumed; no ShardLoom runtime fallback is added.
+  - Boundary:
+    - This completes scoped local prepared/native benchmark harness integration only. It does not
+      add a persistent daemon/service runtime, hidden fast mode, broad encoded-native operator
+      coverage, SQL/DataFrame execution, object-store/lakehouse/Foundry support, production
+      support, performance/superiority claims, Spark-displacement claims, external engines, or
+      fallback execution.
+  - Evidence:
+    - Focused harness smoke `target/shardloom-gar-flow-2g-smoke.json` ran
+      `shardloom-prepared-vortex` for `selective filter` and `group by aggregation` with one CSV
+      batch group and produced successful rows with
+      `persistent_runner_status=single_process_batch_runner_supported`,
+      `batch_scenario_count=2`, shared CLI process wall time, row-level scenario compute timing,
+      `selected_execution_mode=prepared_vortex`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - The existing Rust test `prepared_native_vortex_batch_run_preserves_evidence_envelope`
+      continues to validate the batch command evidence envelope.
+  - Vortex-first provider check:
+    - Subject area: prepared/native benchmark harness process reuse.
+    - Upstream Vortex concept checked: existing local Vortex file scan/source provider over
+      caller-supplied prepared artifacts.
+    - Decision: `use_vortex_native_provider` through the already admitted
+      `traditional-analytics-vortex-batch-run` boundary; this slice changes harness grouping and
+      evidence attribution, not Vortex execution semantics.
+    - Vortex API/provider surface: existing local Vortex scan/source evidence inherited from child
+      prepared/native reports.
+    - ShardLoom provider/report/certificate surface: Python benchmark row evidence, Rust
+      `TraditionalAnalyticsVortexBatchReport`, per-scenario Native I/O certificate fields,
+      operator blocker matrix, source-backed scan fields, and batch runner attribution fields.
+    - Residual handling: unchanged `shardloom_native` residual operators; no external residual
+      executor.
+    - Materialization/decode boundary: inherited per-scenario materialization/decode evidence; batch
+      grouping does not add decode, Arrow conversion, object-store I/O, or write behavior beyond
+      requested certified result-sink replay.
+    - Gates still blocked: encoded-native aggregate/join/window/general operator coverage,
+      persistent daemon/runtime service, claim-grade correctness and performance gates,
+      SQL/DataFrame, object-store/lakehouse, production, and public claims.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex prepared_native_vortex_batch_run_preserves_evidence_envelope --lib --features vortex-traditional-analytics-benchmark`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clean --release -p shardloom-cli -p shardloom-exec -p shardloom-plan`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --scenario "group by aggregation" --rows 1000 --dim-rows 50 --iterations 1 --skip-shardloom-native --no-markdown --output target\shardloom-gar-flow-2g-smoke.json`
+    - `git diff --check`
 - [x] Session label: GAR-FLOW-2F prepared/native Vortex batch runner
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

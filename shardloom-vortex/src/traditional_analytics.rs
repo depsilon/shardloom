@@ -2846,81 +2846,75 @@ fn batch_child_field(child_fields: &[(String, String)], name: &str) -> String {
 fn batch_scenario_fields(report: &TraditionalAnalyticsVortexReport) -> Vec<(String, String)> {
     let child_fields = report.fields();
     let prefix = format!("scenario_{}", traditional_scenario_slug(report.scenario));
-    vec![
-        (
-            format!("{prefix}_name"),
-            report.scenario.as_str().to_string(),
-        ),
-        (format!("{prefix}_result_json"), report.result_json.clone()),
-        (
-            format!("{prefix}_selected_execution_mode"),
-            report
-                .execution_mode_selection
-                .selected_execution_mode
-                .as_str()
-                .to_string(),
-        ),
-        (
-            format!("{prefix}_mode_selection_reason"),
-            report
-                .execution_mode_selection
-                .mode_selection_reason
-                .clone(),
-        ),
-        (
-            format!("{prefix}_rows_scanned"),
-            report.rows_scanned.to_string(),
-        ),
-        (
-            format!("{prefix}_rows_materialized"),
-            report.rows_materialized.to_string(),
-        ),
-        (
-            format!("{prefix}_scenario_compute_micros"),
-            report.scenario_compute_micros.to_string(),
-        ),
-        (
-            format!("{prefix}_vortex_scan_micros"),
-            report.vortex_scan_micros.to_string(),
-        ),
-        (
-            format!("{prefix}_operator_execution_class"),
-            batch_child_field(&child_fields, "operator_execution_class"),
-        ),
-        (
-            format!("{prefix}_operator_admission_status"),
-            batch_child_field(&child_fields, "operator_admission_status"),
-        ),
-        (
-            format!("{prefix}_operator_blocker_id"),
-            batch_child_field(&child_fields, "operator_blocker_id"),
-        ),
-        (
-            format!("{prefix}_operator_encoded_native_claim_allowed"),
-            batch_child_field(&child_fields, "operator_encoded_native_claim_allowed"),
-        ),
-        (
-            format!("{prefix}_source_backed_scan_evidence_status"),
-            batch_child_field(&child_fields, "source_backed_scan_evidence_status"),
-        ),
-        (
-            format!("{prefix}_native_io_certificate_status"),
-            report.native_io_certificate.status().to_string(),
-        ),
-        (
-            format!("{prefix}_result_sink_claim_gate_status"),
-            report.result_sink_claim_gate_status.clone(),
-        ),
-        (
-            format!("{prefix}_fallback_execution_allowed"),
-            report.fallback_execution_allowed.to_string(),
-        ),
-        (format!("{prefix}_fallback_attempted"), "false".to_string()),
-        (
-            format!("{prefix}_external_engine_invoked"),
-            "false".to_string(),
-        ),
-    ]
+    let mut fields = child_fields
+        .iter()
+        .map(|(key, value)| (format!("{prefix}_{key}"), value.clone()))
+        .collect::<Vec<_>>();
+    let mut ensure_field = |name: &str, value: String| {
+        let key = format!("{prefix}_{name}");
+        if !fields.iter().any(|(existing, _)| existing == &key) {
+            fields.push((key, value));
+        }
+    };
+    ensure_field("name", report.scenario.as_str().to_string());
+    ensure_field("result_json", report.result_json.clone());
+    ensure_field(
+        "selected_execution_mode",
+        report
+            .execution_mode_selection
+            .selected_execution_mode
+            .as_str()
+            .to_string(),
+    );
+    ensure_field(
+        "mode_selection_reason",
+        report
+            .execution_mode_selection
+            .mode_selection_reason
+            .clone(),
+    );
+    ensure_field("rows_scanned", report.rows_scanned.to_string());
+    ensure_field("rows_materialized", report.rows_materialized.to_string());
+    ensure_field(
+        "scenario_compute_micros",
+        report.scenario_compute_micros.to_string(),
+    );
+    ensure_field("vortex_scan_micros", report.vortex_scan_micros.to_string());
+    ensure_field(
+        "operator_execution_class",
+        batch_child_field(&child_fields, "operator_execution_class"),
+    );
+    ensure_field(
+        "operator_admission_status",
+        batch_child_field(&child_fields, "operator_admission_status"),
+    );
+    ensure_field(
+        "operator_blocker_id",
+        batch_child_field(&child_fields, "operator_blocker_id"),
+    );
+    ensure_field(
+        "operator_encoded_native_claim_allowed",
+        batch_child_field(&child_fields, "operator_encoded_native_claim_allowed"),
+    );
+    ensure_field(
+        "source_backed_scan_evidence_status",
+        batch_child_field(&child_fields, "source_backed_scan_evidence_status"),
+    );
+    ensure_field(
+        "native_io_certificate_status",
+        report.native_io_certificate.status().to_string(),
+    );
+    ensure_field(
+        "result_sink_claim_gate_status",
+        report.result_sink_claim_gate_status.clone(),
+    );
+    ensure_field(
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed.to_string(),
+    );
+    ensure_field("fallback_attempted", "false".to_string());
+    ensure_field("external_engine_invoked", "false".to_string());
+    fields
 }
 
 trait StreamingExecutionFieldView {

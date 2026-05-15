@@ -262,19 +262,22 @@ filter/encoded vector-kernel admission status to the same evidence posture.
 The admission is diagnostic-only until correctness and benchmark evidence are
 attached; it is not a SIMD-dispatch or performance-claim benchmark row.
 
-P7.5.7 keeps the Python-driven per-scenario CLI runner and publishes
-`docs/architecture/benchmark-persistent-runner-decision.md` as the decision record. ShardLoom rows
-must report `cli_process_wall_millis`, derived `python_harness_overhead_millis`,
+GAR-FLOW-2G keeps process attribution explicit while letting eligible prepared/native Vortex rows
+use the scoped batch command. ShardLoom rows must report `cli_process_wall_millis`,
 `build_time_millis`, `build_time_excluded`, `preparation_cli_process_wall_millis`, and
-`persistent_runner_status` where feasible. Build time and prepared-artifact setup are not pure
-query/operator timing.
+`persistent_runner_status` where feasible. Per-scenario CLI rows report derived
+`python_harness_overhead_millis`; batch rows report `batch_cli_process_wall_millis`,
+`batch_process_wall_shared=true`, and `batch_process_startup_attribution` instead of allocating
+shared CLI wall time to a single scenario. Build time, prepared-artifact setup, and batch process
+wall time are not pure query/operator timing.
 
 GAR-FLOW-2C adds a report-only `persistent_runner_admission_gate` to the JSON artifact and
-Markdown report. The gate keeps
-`persistent_runner_status=process_per_scenario_attributed_not_reduced` explicit for default
-comparative rows. GAR-FLOW-2F adds `traditional-analytics-vortex-batch-run`, which may emit
+Markdown report. GAR-FLOW-2F adds `traditional-analytics-vortex-batch-run`, and GAR-FLOW-2G wires
+the Python harness to consume it for eligible prepared/native groups. Those rows may emit
 `persistent_runner_status=single_process_batch_runner_supported` for scoped single-process
-prepared/native batch runs only. Any broader persistent runner or harness migration must preserve
+prepared/native batch runs only; other ShardLoom rows keep
+`persistent_runner_status=process_per_scenario_attributed_not_reduced`. Any broader persistent
+runner must preserve
 per-run typed envelopes, execution-mode fields, Native I/O refs, operator blocker fields,
 materialization/decode boundaries, result-sink replay evidence, deterministic unsupported
 diagnostics, and `fallback_attempted=false` / `external_engine_invoked=false`. No hidden runner,
