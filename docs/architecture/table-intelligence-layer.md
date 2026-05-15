@@ -31,7 +31,8 @@ shardloom cg9-catalog-metadata-gate --format json
       `CatalogMetadataIntegrationGateReport` before enabling runtime metadata access.
 Out of scope until promoted GAR slices complete:
 
-- Catalog/table metadata reads and data reads are carried by `GAR-0020-A`.
+- Local manifest-backed table metadata read smoke and broader catalog/table metadata reads are
+  carried by `GAR-0020-C` after the completed `GAR-0020-A` admission gate.
 - Delete/tombstone, CDC, compaction, table-maintenance writes, and table-format runtime surfaces are
   carried by `GAR-0020-B` and `GAR-0028-A`.
 
@@ -58,9 +59,48 @@ For the CG-9 metadata gate:
 - `metadata_integration_claim_allowed=false`
 - `fallback_attempted=false`
 - `fallback_execution_allowed=false`
+- `external_engine_invoked=false`
+- `support_status=unsupported`
+- `claim_gate_status=not_claim_grade`
+- `deterministic_unsupported_diagnostics_ready=true`
 
 The aggregate report is evidence and routing context only. It does not certify that Iceberg, Delta,
 Hudi-like, catalog, manifest, recovery, or table-maintenance runtime behavior exists.
+
+## Catalog Metadata Integration Gate
+
+`GAR-0020-A` adds deterministic admission diagnostics to
+`CatalogMetadataIntegrationGateReport`. The gate is exposed directly through
+`cg9-catalog-metadata-gate` and embedded in `table-intelligence-plan` under
+`catalog_metadata_integration_gate_*` fields.
+
+The gate classifies:
+
+1. `table_intelligence_foundation` and `catalog_ref_skeleton` as existing report-only evidence.
+2. `snapshot_manifest_boundary`, `catalog_table_resolution`, `table_metadata_read`,
+   `partition_metadata_read`, `delete_tombstone_metadata_read`, and `cdc_metadata_read` as
+   unsupported until fixture evidence, snapshot/catalog refs, table metadata schema, credential
+   policy, execution certificate, Native I/O certificate, and no-fallback policy evidence exist.
+3. `table_format_dependency_admission` as unsupported until dependency/license approval,
+   feature-gating, version records, policy admission, and no-fallback evidence exist.
+4. `commit_recovery_metadata_binding` and `metadata_cache_invalidation` as unsupported until commit
+   protocol, recovery, cache-key, invalidation, credential, execution, and Native I/O evidence
+   exists.
+
+The gate is side-effect-free:
+
+- `support_status=unsupported`
+- `runtime_promotions_blocked=true`
+- `deterministic_unsupported_diagnostics_ready=true`
+- `unsupported_diagnostic_count=9`
+- `fallback_attempted=false`
+- `fallback_execution_allowed=false`
+- `external_engine_invoked=false`
+- `claim_gate_status=not_claim_grade`
+
+It does not authorize catalog resolution runtime, metadata reads, data reads, external table-format
+dependencies, credentials, object-store I/O, table/catalog writes, lakehouse runtime, external
+engines, fallback execution, or production table/catalog claims.
 
 ## CDC, Manifest, And Transaction Gate
 
@@ -116,6 +156,5 @@ fallback execution, or table/lakehouse production claims.
 - [x] Contract tests assert the aggregate report is side-effect-free.
 - [x] Planned catalog/table metadata integration must update this report before enabling runtime
       behavior.
-- [x] Planned table-format dependency approval is carried by `GAR-0020-A`; dependencies must be
-      approved through dependency/license policy and must
-      not introduce external execution fallback.
+- [x] Table-format dependency admission is represented by `GAR-0020-A`; runtime dependency approval
+      remains gated by dependency/license policy and must not introduce external execution fallback.

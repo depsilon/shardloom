@@ -388,6 +388,41 @@ impl CatalogMetadataIntegrationSurface {
             Self::MetadataCacheInvalidation => "metadata_cache_invalidation",
         }
     }
+
+    #[must_use]
+    pub const fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            Self::SnapshotManifestBoundary
+            | Self::TableMetadataRead
+            | Self::PartitionMetadataRead
+            | Self::DeleteTombstoneMetadataRead
+            | Self::CdcMetadataRead
+            | Self::MetadataCacheInvalidation
+            | Self::CatalogTableResolution
+            | Self::CommitRecoveryMetadataBinding
+            | Self::TableIntelligenceFoundation
+            | Self::CatalogRefSkeleton => DiagnosticCode::NotImplemented,
+            Self::TableFormatDependencyAdmission => DiagnosticCode::ExternalEffectDisabled,
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_category(&self) -> DiagnosticCategory {
+        match self {
+            Self::SnapshotManifestBoundary
+            | Self::CatalogTableResolution
+            | Self::TableMetadataRead
+            | Self::PartitionMetadataRead
+            | Self::DeleteTombstoneMetadataRead
+            | Self::CdcMetadataRead
+            | Self::MetadataCacheInvalidation => DiagnosticCategory::Planning,
+            Self::TableFormatDependencyAdmission => DiagnosticCategory::ExternalEffect,
+            Self::CommitRecoveryMetadataBinding => DiagnosticCategory::Execution,
+            Self::TableIntelligenceFoundation | Self::CatalogRefSkeleton => {
+                DiagnosticCategory::Planning
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -409,6 +444,11 @@ impl CatalogMetadataIntegrationStatus {
     pub const fn is_existing_evidence(&self) -> bool {
         matches!(self, Self::ExistingReportOnlyEvidence)
     }
+
+    #[must_use]
+    pub const fn is_blocked(&self) -> bool {
+        matches!(self, Self::BlockedUntilCertified)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -416,6 +456,7 @@ pub struct CatalogMetadataIntegrationGateEntry {
     pub surface: CatalogMetadataIntegrationSurface,
     pub status: CatalogMetadataIntegrationStatus,
     pub existing_report_ref: Option<&'static str>,
+    pub required_evidence: &'static str,
     pub requires_catalog_ref: bool,
     pub requires_snapshot_ref: bool,
     pub requires_table_metadata_io: bool,
@@ -426,7 +467,10 @@ pub struct CatalogMetadataIntegrationGateEntry {
     pub requires_execution_certificate: bool,
     pub requires_native_io_certificate: bool,
     pub runtime_allowed: bool,
+    pub fallback_attempted: bool,
     pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -492,6 +536,7 @@ impl CatalogMetadataIntegrationGateEntry {
             surface,
             status: CatalogMetadataIntegrationStatus::ExistingReportOnlyEvidence,
             existing_report_ref: Some(existing_report_ref),
+            required_evidence: existing_report_ref,
             requires_catalog_ref: false,
             requires_snapshot_ref: false,
             requires_table_metadata_io: false,
@@ -502,7 +547,10 @@ impl CatalogMetadataIntegrationGateEntry {
             requires_execution_certificate: false,
             requires_native_io_certificate: false,
             runtime_allowed: false,
+            fallback_attempted: false,
             fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
         }
     }
 
@@ -510,11 +558,13 @@ impl CatalogMetadataIntegrationGateEntry {
     pub const fn blocked(
         surface: CatalogMetadataIntegrationSurface,
         requirements: CatalogMetadataIntegrationRequirements,
+        required_evidence: &'static str,
     ) -> Self {
         Self {
             surface,
             status: CatalogMetadataIntegrationStatus::BlockedUntilCertified,
             existing_report_ref: None,
+            required_evidence,
             requires_catalog_ref: requirements.requires_catalog_ref,
             requires_snapshot_ref: requirements.requires_snapshot_ref,
             requires_table_metadata_io: requirements.requires_table_metadata_io,
@@ -525,13 +575,46 @@ impl CatalogMetadataIntegrationGateEntry {
             requires_execution_certificate: true,
             requires_native_io_certificate: true,
             runtime_allowed: false,
+            fallback_attempted: false,
             fallback_execution_allowed: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
         }
     }
 
     #[must_use]
     pub const fn side_effect_free(&self) -> bool {
-        !self.runtime_allowed && !self.fallback_execution_allowed
+        !self.runtime_allowed
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(&self) -> Option<Diagnostic> {
+        if !self.status.is_blocked() {
+            return None;
+        }
+        Some(Diagnostic::new(
+            self.surface.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.surface.diagnostic_category(),
+            format!(
+                "{} is blocked until table/catalog metadata evidence is certified",
+                self.surface.as_str()
+            ),
+            Some(self.surface.as_str().to_string()),
+            Some(format!(
+                "{} requires {} before runtime promotion.",
+                self.surface.as_str(),
+                self.required_evidence
+            )),
+            Some(
+                "Keep this table/catalog lane report-only; do not perform catalog, metadata, data, credential, object-store, or write I/O."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ))
     }
 }
 
@@ -539,6 +622,11 @@ impl CatalogMetadataIntegrationGateEntry {
 pub struct CatalogMetadataIntegrationGateReport {
     pub schema_version: &'static str,
     pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub gate_status: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
     pub entries: Vec<CatalogMetadataIntegrationGateEntry>,
     pub existing_report_refs: Vec<&'static str>,
     pub compatibility_profiles: Vec<&'static str>,
@@ -572,16 +660,27 @@ pub struct CatalogMetadataIntegrationGateReport {
     pub benchmark_evidence_required: bool,
     pub fallback_attempted: bool,
     pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 impl CatalogMetadataIntegrationGateReport {
     #[must_use]
     pub fn planning_default() -> Self {
+        let entries = catalog_metadata_integration_entries();
+        let diagnostics = entries
+            .iter()
+            .filter_map(CatalogMetadataIntegrationGateEntry::to_diagnostic)
+            .collect();
         Self {
             schema_version: "shardloom.catalog_metadata_integration_gate.v1",
             report_id: "cg9.catalog_metadata_integration_gate",
-            entries: catalog_metadata_integration_entries(),
+            gar_id: "GAR-0020-A",
+            gate_status: "report_only",
+            support_status: "unsupported",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "catalog resolution, snapshot/manifest reads, table metadata reads, data reads, credentials, external table-format dependencies, and table/catalog runtime claims remain unsupported until certified",
+            entries,
             existing_report_refs: catalog_metadata_existing_report_refs(),
             compatibility_profiles: catalog_metadata_compatibility_profiles(),
             existing_table_intelligence_foundation_present: true,
@@ -614,7 +713,8 @@ impl CatalogMetadataIntegrationGateReport {
             benchmark_evidence_required: true,
             fallback_attempted: false,
             fallback_execution_allowed: false,
-            diagnostics: Vec::new(),
+            external_engine_invoked: false,
+            diagnostics,
         }
     }
 
@@ -635,13 +735,13 @@ impl CatalogMetadataIntegrationGateReport {
     pub fn blocked_surface_count(&self) -> usize {
         self.entries
             .iter()
-            .filter(|entry| {
-                matches!(
-                    entry.status,
-                    CatalogMetadataIntegrationStatus::BlockedUntilCertified
-                )
-            })
+            .filter(|entry| entry.status.is_blocked())
             .count()
+    }
+
+    #[must_use]
+    pub fn unsupported_surface_count(&self) -> usize {
+        self.blocked_surface_count()
     }
 
     #[must_use]
@@ -667,12 +767,12 @@ impl CatalogMetadataIntegrationGateReport {
             && self
                 .entries
                 .iter()
-                .all(|entry| !entry.runtime_allowed && !entry.fallback_execution_allowed)
+                .all(CatalogMetadataIntegrationGateEntry::side_effect_free)
     }
 
     #[must_use]
     pub fn claim_blocked(&self) -> bool {
-        !self.metadata_integration_claim_allowed
+        !self.metadata_integration_claim_allowed && self.claim_gate_status == "not_claim_grade"
     }
 
     #[must_use]
@@ -680,6 +780,7 @@ impl CatalogMetadataIntegrationGateReport {
         self.runtime_promotions_blocked()
             && !self.fallback_attempted
             && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
             && self
                 .entries
                 .iter()
@@ -687,9 +788,61 @@ impl CatalogMetadataIntegrationGateReport {
     }
 
     #[must_use]
+    pub fn unsupported_diagnostic_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_blocked())
+            .filter(|entry| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == entry.surface.diagnostic_code()
+                        && diagnostic.category == entry.surface.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(entry.surface.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        self.unsupported_surface_count() > 0
+            && self.unsupported_diagnostic_count() == self.unsupported_surface_count()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_code_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_blocked())
+            .map(|entry| entry.surface.diagnostic_code().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_category_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_blocked())
+            .map(|entry| entry.surface.diagnostic_category().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_severity_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_blocked())
+            .map(|_| DiagnosticSeverity::Info.as_str())
+            .collect()
+    }
+
+    #[must_use]
     pub fn has_errors(&self) -> bool {
         !self.side_effect_free()
             || !self.claim_blocked()
+            || !self.deterministic_unsupported_diagnostics_ready()
             || self.diagnostics.iter().any(|diagnostic| {
                 matches!(
                     diagnostic.severity,
@@ -703,6 +856,11 @@ impl CatalogMetadataIntegrationGateReport {
         let mut out = String::new();
         let _ = writeln!(out, "schema_version: {}", self.schema_version);
         let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(out, "gar_id: {}", self.gar_id);
+        let _ = writeln!(out, "gate_status: {}", self.gate_status);
+        let _ = writeln!(out, "support_status: {}", self.support_status);
+        let _ = writeln!(out, "claim_gate_status: {}", self.claim_gate_status);
+        let _ = writeln!(out, "claim_boundary: {}", self.claim_boundary);
         let _ = writeln!(
             out,
             "compatibility profiles: {}",
@@ -719,6 +877,11 @@ impl CatalogMetadataIntegrationGateReport {
             self.runtime_promotions_blocked()
         );
         let _ = writeln!(out, "claim blocked: {}", self.claim_blocked());
+        let _ = writeln!(
+            out,
+            "deterministic unsupported diagnostics ready: {}",
+            self.deterministic_unsupported_diagnostics_ready()
+        );
         let _ = writeln!(out, "side effect free: {}", self.side_effect_free());
         let _ = writeln!(out, "fallback attempted: {}", self.fallback_attempted);
         let _ = writeln!(
@@ -726,14 +889,20 @@ impl CatalogMetadataIntegrationGateReport {
             "fallback execution allowed: {}",
             self.fallback_execution_allowed
         );
+        let _ = writeln!(
+            out,
+            "external engine invoked: {}",
+            self.external_engine_invoked
+        );
         let _ = writeln!(out, "surfaces:");
         for entry in &self.entries {
             let _ = writeln!(
                 out,
-                "  - {} [{}] existing_ref={} runtime_allowed={} requires_catalog_ref={} requires_snapshot_ref={} requires_table_metadata_io={} requires_catalog_io={} requires_object_store_io={} requires_dependency_approval={} requires_credential_policy={} requires_execution_certificate={} requires_native_io_certificate={} fallback_execution_allowed={}",
+                "  - {} [{}] existing_ref={} required_evidence={} runtime_allowed={} requires_catalog_ref={} requires_snapshot_ref={} requires_table_metadata_io={} requires_catalog_io={} requires_object_store_io={} requires_dependency_approval={} requires_credential_policy={} requires_execution_certificate={} requires_native_io_certificate={} fallback_attempted={} fallback_execution_allowed={} external_engine_invoked={} claim_gate_status={}",
                 entry.surface.as_str(),
                 entry.status.as_str(),
                 entry.existing_report_ref.unwrap_or("none"),
+                entry.required_evidence,
                 entry.runtime_allowed,
                 entry.requires_catalog_ref,
                 entry.requires_snapshot_ref,
@@ -744,7 +913,10 @@ impl CatalogMetadataIntegrationGateReport {
                 entry.requires_credential_policy,
                 entry.requires_execution_certificate,
                 entry.requires_native_io_certificate,
-                entry.fallback_execution_allowed
+                entry.fallback_attempted,
+                entry.fallback_execution_allowed,
+                entry.external_engine_invoked,
+                entry.claim_gate_status
             );
         }
         out
@@ -764,38 +936,47 @@ fn catalog_metadata_integration_entries() -> Vec<CatalogMetadataIntegrationGateE
         CatalogMetadataIntegrationGateEntry::blocked(
             CatalogMetadataIntegrationSurface::SnapshotManifestBoundary,
             CatalogMetadataIntegrationRequirements::SNAPSHOT_MANIFEST_BOUNDARY,
+            "snapshot_ref,manifest_location,object_store_provider_policy,native_io_certificate,execution_certificate",
         ),
         CatalogMetadataIntegrationGateEntry::blocked(
             CatalogMetadataIntegrationSurface::CatalogTableResolution,
             CatalogMetadataIntegrationRequirements::CATALOG_TABLE_RESOLUTION,
+            "catalog_ref,snapshot_ref,table_identifier,credential_policy,dependency_license_approval,effect_policy",
         ),
         CatalogMetadataIntegrationGateEntry::blocked(
             CatalogMetadataIntegrationSurface::TableMetadataRead,
             CatalogMetadataIntegrationRequirements::CATALOG_BACKED_METADATA,
+            "catalog_ref,snapshot_ref,table_metadata_schema,credential_policy,native_io_certificate,execution_certificate",
         ),
         CatalogMetadataIntegrationGateEntry::blocked(
             CatalogMetadataIntegrationSurface::PartitionMetadataRead,
             CatalogMetadataIntegrationRequirements::CATALOG_BACKED_METADATA,
+            "partition_spec,snapshot_ref,table_metadata_schema,credential_policy,native_io_certificate",
         ),
         CatalogMetadataIntegrationGateEntry::blocked(
             CatalogMetadataIntegrationSurface::DeleteTombstoneMetadataRead,
             CatalogMetadataIntegrationRequirements::CATALOG_BACKED_METADATA,
+            "delete_tombstone_policy,row_identity,snapshot_ref,credential_policy,native_io_certificate",
         ),
         CatalogMetadataIntegrationGateEntry::blocked(
             CatalogMetadataIntegrationSurface::CdcMetadataRead,
             CatalogMetadataIntegrationRequirements::CATALOG_BACKED_METADATA,
+            "cdc_manifest_schema,change_set_ref,snapshot_pair,credential_policy,native_io_certificate",
         ),
         CatalogMetadataIntegrationGateEntry::blocked(
             CatalogMetadataIntegrationSurface::TableFormatDependencyAdmission,
             CatalogMetadataIntegrationRequirements::TABLE_FORMAT_DEPENDENCY_ADMISSION,
+            "dependency_license_approval,feature_gate,version_record,policy_admission,no_fallback_policy",
         ),
         CatalogMetadataIntegrationGateEntry::blocked(
             CatalogMetadataIntegrationSurface::CommitRecoveryMetadataBinding,
             CatalogMetadataIntegrationRequirements::CATALOG_BACKED_METADATA,
+            "commit_protocol,recovery_certificate,conflict_detection,credential_policy,native_io_certificate",
         ),
         CatalogMetadataIntegrationGateEntry::blocked(
             CatalogMetadataIntegrationSurface::MetadataCacheInvalidation,
             CatalogMetadataIntegrationRequirements::CATALOG_BACKED_METADATA,
+            "cache_key_contract,snapshot_ref,invalidation_policy,credential_policy,execution_certificate",
         ),
     ]
 }
@@ -1381,9 +1562,14 @@ mod tests {
             "shardloom.catalog_metadata_integration_gate.v1"
         );
         assert_eq!(report.report_id, "cg9.catalog_metadata_integration_gate");
+        assert_eq!(report.gar_id, "GAR-0020-A");
+        assert_eq!(report.gate_status, "report_only");
+        assert_eq!(report.support_status, "unsupported");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
         assert_eq!(report.surface_count(), 11);
         assert_eq!(report.existing_evidence_surface_count(), 2);
         assert_eq!(report.blocked_surface_count(), 9);
+        assert_eq!(report.unsupported_surface_count(), 9);
         assert_eq!(
             report.surface_order(),
             vec![
@@ -1407,6 +1593,11 @@ mod tests {
         assert!(report.runtime_promotions_blocked());
         assert!(report.claim_blocked());
         assert!(report.side_effect_free());
+        assert!(report.deterministic_unsupported_diagnostics_ready());
+        assert_eq!(
+            report.unsupported_diagnostic_count(),
+            report.unsupported_surface_count()
+        );
         assert!(!report.has_errors());
     }
 
@@ -1433,6 +1624,66 @@ mod tests {
         assert!(!report.external_table_format_dependency_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.fallback_execution_allowed);
+        assert!(!report.external_engine_invoked);
+        assert!(report.claim_boundary.contains("table metadata reads"));
+    }
+
+    #[test]
+    fn catalog_metadata_gate_emits_deterministic_unsupported_diagnostics() {
+        let report = plan_catalog_metadata_integration_gate();
+        assert_eq!(
+            report.unsupported_diagnostic_code_order(),
+            vec![
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_EXTERNAL_EFFECT_DISABLED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+            ]
+        );
+        assert_eq!(
+            report.unsupported_diagnostic_category_order(),
+            vec![
+                "planning",
+                "planning",
+                "planning",
+                "planning",
+                "planning",
+                "planning",
+                "external_effect",
+                "execution",
+                "planning",
+            ]
+        );
+        assert_eq!(
+            report.unsupported_diagnostic_severity_order(),
+            vec![
+                "info", "info", "info", "info", "info", "info", "info", "info", "info",
+            ]
+        );
+        let table_metadata = report
+            .entries
+            .iter()
+            .find(|entry| entry.surface == CatalogMetadataIntegrationSurface::TableMetadataRead)
+            .expect("table metadata row");
+        assert_eq!(table_metadata.status.as_str(), "blocked_until_certified");
+        assert!(
+            table_metadata
+                .required_evidence
+                .contains("table_metadata_schema")
+        );
+        assert!(table_metadata.requires_catalog_ref);
+        assert!(table_metadata.requires_table_metadata_io);
+        assert!(table_metadata.requires_catalog_io);
+        assert!(table_metadata.requires_object_store_io);
+        assert!(!table_metadata.runtime_allowed);
+        assert!(!table_metadata.fallback_attempted);
+        assert!(!table_metadata.external_engine_invoked);
+        assert_eq!(table_metadata.claim_gate_status, "not_claim_grade");
     }
 
     #[test]

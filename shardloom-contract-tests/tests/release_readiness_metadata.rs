@@ -769,6 +769,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
         completed_ledger
             .contains("GAR-0005-B object-store Vortex I/O and upstream write integration gate")
     );
+    assert!(completed_ledger.contains("GAR-0020-A table/catalog metadata admission gate"));
     assert!(completed_ledger.contains(
         "GAR-0007-A/B compatibility output writer matrix and local fixture-smoke evidence"
     ));

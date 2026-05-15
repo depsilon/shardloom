@@ -7,22 +7,22 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    ByteRange, CapabilityCertificationReport, CatalogKind, CatalogMetadataIntegrationGateReport,
-    CatalogRef, CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport,
-    CdcManifestTransactionGateEntry, CdcManifestTransactionGateReport, ChangeSet, ColumnRef,
-    CommandStatus, CompactionPlanningPolicy, CompactionPlanningReport, DatasetFormat,
-    DatasetManifest, DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport,
-    Diagnostic, DiagnosticCategory, DiagnosticCode, EncodedSegment, EncodingKind, FieldId,
-    FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy,
-    LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability,
-    OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField,
-    PartitionSpec, PartitionTransform, SchemaDefinition, SchemaEvolutionCompatibilityReport,
-    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind,
-    SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef,
-    StatefulReusePromotionGateReport, StatefulReuseReport, TableCompatibilityPlan,
-    TableCompatibilityReport, TableFormatKind, TableIntelligenceReport, WriteIntent,
-    evaluate_cdc_incremental_planning, evaluate_compaction_planning,
-    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    ByteRange, CapabilityCertificationReport, CatalogKind, CatalogMetadataIntegrationGateEntry,
+    CatalogMetadataIntegrationGateReport, CatalogRef, CdcEventKind, CdcEventSummary,
+    CdcIncrementalPlanningReport, CdcManifestTransactionGateEntry,
+    CdcManifestTransactionGateReport, ChangeSet, ColumnRef, CommandStatus,
+    CompactionPlanningPolicy, CompactionPlanningReport, DatasetFormat, DatasetManifest, DatasetRef,
+    DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, DiagnosticCategory,
+    DiagnosticCode, EncodedSegment, EncodingKind, FieldId, FieldName, FieldPath, FileDescriptor,
+    FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy, LayoutHealthReport, LayoutKind,
+    LogicalDType, ManifestId, ManifestSegment, Nullability, OutputFormat, OutputTarget,
+    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
+    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
+    SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind, SegmentId, SegmentLayout,
+    SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatefulReusePromotionGateReport,
+    StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
+    TableIntelligenceReport, WriteIntent, evaluate_cdc_incremental_planning,
+    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_catalog_metadata_integration_gate, plan_cdc_manifest_transaction_gate,
     plan_stateful_reuse, plan_stateful_reuse_promotion_gate,
@@ -3144,9 +3144,13 @@ fn append_compaction_side_effect_fields(
 pub(crate) fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
     let report = TableIntelligenceReport::report_only_foundation();
     let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
-    let has_errors = report.has_errors() || cdc_manifest_transaction_gate.has_errors();
+    let catalog_metadata_integration_gate = plan_catalog_metadata_integration_gate();
+    let has_errors = report.has_errors()
+        || cdc_manifest_transaction_gate.has_errors()
+        || catalog_metadata_integration_gate.has_errors();
     let mut diagnostics = report.diagnostics.clone();
     diagnostics.extend(cdc_manifest_transaction_gate.diagnostics.clone());
+    diagnostics.extend(catalog_metadata_integration_gate.diagnostics.clone());
     let status = if has_errors {
         CommandStatus::Unsupported
     } else {
@@ -3159,7 +3163,11 @@ pub(crate) fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
         "table intelligence plan".to_string(),
         report.to_human_text(),
         diagnostics,
-        table_intelligence_output_fields(&report, &cdc_manifest_transaction_gate),
+        table_intelligence_output_fields(
+            &report,
+            &cdc_manifest_transaction_gate,
+            &catalog_metadata_integration_gate,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -3171,6 +3179,7 @@ pub(crate) fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
 fn table_intelligence_output_fields(
     report: &TableIntelligenceReport,
     cdc_manifest_transaction_gate: &CdcManifestTransactionGateReport,
+    catalog_metadata_integration_gate: &CatalogMetadataIntegrationGateReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "mode", "table_intelligence_plan");
@@ -3226,11 +3235,22 @@ fn table_intelligence_output_fields(
         report.fallback_execution_allowed,
     );
     push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
-    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    push_count_field(
+        &mut fields,
+        "diagnostic_count",
+        report.diagnostics.len()
+            + cdc_manifest_transaction_gate.diagnostics.len()
+            + catalog_metadata_integration_gate.diagnostics.len(),
+    );
     append_cdc_manifest_transaction_gate_fields(
         &mut fields,
         "cdc_manifest_transaction_gate",
         cdc_manifest_transaction_gate,
+    );
+    append_catalog_metadata_integration_gate_prefixed_fields(
+        &mut fields,
+        "catalog_metadata_integration_gate",
+        catalog_metadata_integration_gate,
     );
     push_field(&mut fields, "execution", "not_performed");
     push_field(&mut fields, "plan_only", "true");
@@ -3598,6 +3618,11 @@ pub(crate) fn catalog_metadata_integration_gate_fields(
     push_field(&mut fields, "mode", "catalog_metadata_integration_gate");
     push_field(&mut fields, "schema_version", report.schema_version);
     push_field(&mut fields, "report_id", report.report_id);
+    push_field(&mut fields, "gar_id", report.gar_id);
+    push_field(&mut fields, "gate_status", report.gate_status);
+    push_field(&mut fields, "support_status", report.support_status);
+    push_field(&mut fields, "claim_gate_status", report.claim_gate_status);
+    push_field(&mut fields, "claim_boundary", report.claim_boundary);
     push_count_field(&mut fields, "surface_count", report.surface_count());
     push_count_field(
         &mut fields,
@@ -3608,6 +3633,11 @@ pub(crate) fn catalog_metadata_integration_gate_fields(
         &mut fields,
         "blocked_surface_count",
         report.blocked_surface_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "unsupported_surface_count",
+        report.unsupported_surface_count(),
     );
     push_field(
         &mut fields,
@@ -3628,6 +3658,9 @@ pub(crate) fn catalog_metadata_integration_gate_fields(
     append_catalog_metadata_allowed_fields(&mut fields, report);
     append_catalog_metadata_required_fields(&mut fields, report);
     append_catalog_metadata_status_fields(&mut fields, report);
+    for entry in &report.entries {
+        append_catalog_metadata_integration_gate_entry_fields(&mut fields, "", entry);
+    }
     fields
 }
 
@@ -3789,10 +3822,445 @@ fn append_catalog_metadata_status_fields(
         "fallback_execution_allowed",
         report.fallback_execution_allowed,
     );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_field(fields, "support_status", report.support_status);
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
+    push_field(fields, "claim_boundary", report.claim_boundary);
+    push_bool_field(
+        fields,
+        "deterministic_unsupported_diagnostics_ready",
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_count_field(
+        fields,
+        "unsupported_diagnostic_count",
+        report.unsupported_diagnostic_count(),
+    );
+    push_field(
+        fields,
+        "unsupported_diagnostic_code_order",
+        &report.unsupported_diagnostic_code_order().join(","),
+    );
+    push_field(
+        fields,
+        "unsupported_diagnostic_category_order",
+        &report.unsupported_diagnostic_category_order().join(","),
+    );
+    push_field(
+        fields,
+        "unsupported_diagnostic_severity_order",
+        &report.unsupported_diagnostic_severity_order().join(","),
+    );
     push_bool_field(fields, "side_effect_free", report.side_effect_free());
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
     push_field(fields, "execution", "not_performed");
     push_field(fields, "plan_only", "true");
+}
+
+fn append_catalog_metadata_integration_gate_prefixed_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CatalogMetadataIntegrationGateReport,
+) {
+    push_field(
+        fields,
+        &format!("{prefix}_schema_version"),
+        report.schema_version,
+    );
+    push_field(fields, &format!("{prefix}_report_id"), report.report_id);
+    push_field(fields, &format!("{prefix}_gar_id"), report.gar_id);
+    push_field(fields, &format!("{prefix}_gate_status"), report.gate_status);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        report.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        report.claim_gate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        report.claim_boundary,
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_surface_count"),
+        report.surface_count(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_existing_evidence_surface_count"),
+        report.existing_evidence_surface_count(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_blocked_surface_count"),
+        report.blocked_surface_count(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_unsupported_surface_count"),
+        report.unsupported_surface_count(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_surface_order"),
+        &report.surface_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_existing_report_refs"),
+        &report.existing_report_refs.join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_compatibility_profiles"),
+        &report.compatibility_profiles.join(","),
+    );
+    append_catalog_metadata_integration_gate_prefixed_existing_fields(fields, prefix, report);
+    append_catalog_metadata_integration_gate_prefixed_allowed_fields(fields, prefix, report);
+    append_catalog_metadata_integration_gate_prefixed_required_fields(fields, prefix, report);
+    append_catalog_metadata_integration_gate_prefixed_status_fields(fields, prefix, report);
+    for entry in &report.entries {
+        append_catalog_metadata_integration_gate_entry_fields(fields, prefix, entry);
+    }
+}
+
+fn append_catalog_metadata_integration_gate_prefixed_existing_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CatalogMetadataIntegrationGateReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_existing_table_intelligence_foundation_present"),
+        report.existing_table_intelligence_foundation_present,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_existing_schema_partition_delete_compatibility_present"),
+        report.existing_schema_partition_delete_compatibility_present,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_existing_cdc_layout_compaction_planning_present"),
+        report.existing_cdc_layout_compaction_planning_present,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_existing_catalog_ref_skeleton_present"),
+        report.existing_catalog_ref_skeleton_present,
+    );
+}
+
+fn append_catalog_metadata_integration_gate_prefixed_allowed_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CatalogMetadataIntegrationGateReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_snapshot_manifest_metadata_read_allowed"),
+        report.snapshot_manifest_metadata_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_catalog_resolution_allowed"),
+        report.catalog_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_table_metadata_read_allowed"),
+        report.table_metadata_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_catalog_io_allowed"),
+        report.catalog_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_object_store_io_allowed"),
+        report.object_store_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_data_io_allowed"),
+        report.data_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_write_io_allowed"),
+        report.write_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_table_format_dependency_allowed"),
+        report.external_table_format_dependency_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_credential_resolution_allowed"),
+        report.credential_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_metadata_cache_runtime_allowed"),
+        report.metadata_cache_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_metadata_integration_claim_allowed"),
+        report.metadata_integration_claim_allowed,
+    );
+}
+
+fn append_catalog_metadata_integration_gate_prefixed_required_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CatalogMetadataIntegrationGateReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_table_intelligence_report_required"),
+        report.table_intelligence_report_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_catalog_ref_required"),
+        report.catalog_ref_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_snapshot_ref_required"),
+        report.snapshot_ref_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_schema_digest_required"),
+        report.schema_digest_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_partition_spec_required"),
+        report.partition_spec_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_delete_tombstone_policy_required"),
+        report.delete_tombstone_policy_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_dependency_license_approval_required"),
+        report.dependency_license_approval_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_credential_policy_required"),
+        report.credential_policy_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_effect_policy_required"),
+        report.effect_policy_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_materialization_boundary_required"),
+        report.materialization_boundary_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_execution_certificate_required"),
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_native_io_certificate_required"),
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_benchmark_evidence_required"),
+        report.benchmark_evidence_required,
+    );
+}
+
+fn append_catalog_metadata_integration_gate_prefixed_status_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CatalogMetadataIntegrationGateReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_promotions_blocked"),
+        report.runtime_promotions_blocked(),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_claim_blocked"),
+        report.claim_blocked(),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_execution_allowed"),
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_deterministic_unsupported_diagnostics_ready"),
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_count"),
+        report.unsupported_diagnostic_count(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_code_order"),
+        &report.unsupported_diagnostic_code_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_category_order"),
+        &report.unsupported_diagnostic_category_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_severity_order"),
+        &report.unsupported_diagnostic_severity_order().join(","),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_side_effect_free"),
+        report.side_effect_free(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_diagnostic_count"),
+        report.diagnostics.len(),
+    );
+}
+
+fn append_catalog_metadata_integration_gate_entry_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    entry: &CatalogMetadataIntegrationGateEntry,
+) {
+    let row_prefix = if prefix.is_empty() {
+        format!("row_{}", entry.surface.as_str())
+    } else {
+        format!("{prefix}_row_{}", entry.surface.as_str())
+    };
+    push_field(
+        fields,
+        &format!("{row_prefix}_status"),
+        entry.status.as_str(),
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_existing_report_ref"),
+        entry.existing_report_ref.unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_required_evidence"),
+        entry.required_evidence,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_requires_catalog_ref"),
+        entry.requires_catalog_ref,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_requires_snapshot_ref"),
+        entry.requires_snapshot_ref,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_requires_table_metadata_io"),
+        entry.requires_table_metadata_io,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_requires_catalog_io"),
+        entry.requires_catalog_io,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_requires_object_store_io"),
+        entry.requires_object_store_io,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_requires_dependency_approval"),
+        entry.requires_dependency_approval,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_requires_credential_policy"),
+        entry.requires_credential_policy,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_requires_execution_certificate"),
+        entry.requires_execution_certificate,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_requires_native_io_certificate"),
+        entry.requires_native_io_certificate,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_runtime_allowed"),
+        entry.runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_fallback_attempted"),
+        entry.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_fallback_execution_allowed"),
+        entry.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_external_engine_invoked"),
+        entry.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_side_effect_free"),
+        entry.side_effect_free(),
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_claim_gate_status"),
+        entry.claim_gate_status,
+    );
 }
 
 fn layout_health_fixture(scenario: &str) -> Result<DatasetManifest, ShardLoomError> {
@@ -4189,7 +4657,12 @@ mod tests {
     fn table_intelligence_fields_include_report_only_no_io_no_fallback() {
         let report = TableIntelligenceReport::report_only_foundation();
         let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
-        let fields = table_intelligence_output_fields(&report, &cdc_manifest_transaction_gate);
+        let catalog_metadata_integration_gate = plan_catalog_metadata_integration_gate();
+        let fields = table_intelligence_output_fields(
+            &report,
+            &cdc_manifest_transaction_gate,
+            &catalog_metadata_integration_gate,
+        );
 
         assert_eq!(
             output_field(&fields, "schema_version"),
@@ -4243,6 +4716,31 @@ mod tests {
             output_field(
                 &fields,
                 "cdc_manifest_transaction_gate_fallback_execution_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "catalog_metadata_integration_gate_gar_id"),
+            "GAR-0020-A"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "catalog_metadata_integration_gate_deterministic_unsupported_diagnostics_ready"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "catalog_metadata_integration_gate_table_metadata_read_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "catalog_metadata_integration_gate_external_engine_invoked"
             ),
             "false"
         );

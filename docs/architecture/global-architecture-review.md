@@ -397,13 +397,23 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0020-schema-evolution-catalog-table-compatibility.md`](../rfcs/0020-schema-evolution-catalog-table-compatibility.md)
-- Current read: Typed reports exist; real table/catalog integration is incomplete.
+- Current read: Typed reports and a report-only catalog/table metadata admission gate exist; real
+  table/catalog runtime integration is incomplete.
 - Evidence: `shardloom-core/src/schema.rs`, `shardloom-core/src/table_intelligence.rs`,
-  `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`
+  `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`,
+  `shardloom-cli/tests/cg9_catalog_metadata_gate.rs`
 - [x] Schema, partition, delete/tombstone, and aggregate table evidence reports exist.
 - [x] Current table-intelligence surfaces are no-IO and typed.
-- [ ] Catalog/table metadata integration, real table I/O, delete/tombstone execution, and CDC
-  execution remain incomplete.
+- [x] GAR-0020-A: `CatalogMetadataIntegrationGateReport` exposes deterministic, report-only
+  admission diagnostics for catalog resolution, snapshot/manifest reads, table metadata reads,
+  partition/delete/CDC metadata reads, external table-format dependency admission, commit recovery
+  metadata binding, and metadata cache invalidation with `support_status=unsupported`,
+  `claim_gate_status=not_claim_grade`, `fallback_attempted=false`, and
+  `external_engine_invoked=false`.
+- [ ] Local manifest-backed table metadata read smoke, broad catalog/table metadata integration,
+  real table data I/O, delete/tombstone execution, and CDC execution remain incomplete and are
+  mirrored into `docs/architecture/phased-execution-plan.md` as GAR-0020-B, GAR-0020-C, and related
+  commit/lakehouse slices.
 
 ### RFC 0021 - Expression Engine and Kernel Registry
 

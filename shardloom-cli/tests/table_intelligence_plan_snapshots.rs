@@ -81,6 +81,7 @@ fn table_intelligence_json_preserves_no_io_no_dependency_no_fallback_defaults() 
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("side_effect_free", "true")));
+    assert!(output.contains(&field("diagnostic_count", "15")));
     assert!(output.contains(&field("plan_only", "true")));
 }
 
@@ -134,6 +135,68 @@ fn table_intelligence_json_embeds_gar0004a_cdc_manifest_transaction_gate() {
         "false"
     )));
     assert!(output.contains("\"diagnostics\":[{\"code\":\"SL_NOT_IMPLEMENTED\""));
+}
+
+#[test]
+fn table_intelligence_json_embeds_gar0020a_catalog_metadata_gate() {
+    let output = run_table_intelligence_plan_json();
+
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_schema_version",
+        "shardloom.catalog_metadata_integration_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_report_id",
+        "cg9.catalog_metadata_integration_gate"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_gar_id",
+        "GAR-0020-A"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_support_status",
+        "unsupported"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_surface_count",
+        "11"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_unsupported_surface_count",
+        "9"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_deterministic_unsupported_diagnostics_ready",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_diagnostic_count",
+        "9"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_table_metadata_read_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_external_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_row_table_metadata_read_status",
+        "blocked_until_certified"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_row_table_metadata_read_requires_table_metadata_io",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "catalog_metadata_integration_gate_row_table_metadata_read_fallback_attempted",
+        "false"
+    )));
 }
 
 #[test]
