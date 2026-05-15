@@ -124,6 +124,9 @@ BATCH_RUNNER_ADMISSION_FIELDS = (
     "batch_cli_process_wall_millis",
     "batch_process_wall_shared",
     "batch_process_startup_attribution",
+    "source_state_reuse_status",
+    "source_state_prepare_micros",
+    "source_state_prepare_timing_scope",
 )
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
@@ -2103,6 +2106,27 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "source_metadata_snapshot_claim_boundary": batch_fields.get(
                     "source_metadata_snapshot_claim_boundary", "unknown"
                 ),
+                "source_state_reuse_status": batch_fields.get(
+                    "source_state_reuse_status", "unknown"
+                ),
+                "source_state_reused": batch_fields.get(
+                    "source_state_reused", "unknown"
+                ),
+                "source_state_reuse_consumer_count": batch_fields.get(
+                    "source_state_reuse_consumer_count", "unknown"
+                ),
+                "source_state_recompute_avoided_count": batch_fields.get(
+                    "source_state_recompute_avoided_count", "unknown"
+                ),
+                "source_state_prepare_micros": batch_fields.get(
+                    "source_state_prepare_micros", "unknown"
+                ),
+                "source_state_prepare_timing_scope": batch_fields.get(
+                    "source_state_prepare_timing_scope", "unknown"
+                ),
+                "source_state_claim_boundary": batch_fields.get(
+                    "source_state_claim_boundary", "unknown"
+                ),
                 "batch_scenario_count": batch_fields.get("scenario_count", "unknown"),
                 "batch_scenario_order": batch_fields.get("scenario_order", ""),
                 "batch_total_scenario_compute_micros": batch_fields.get(
@@ -2189,6 +2213,15 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             )
         if fields.get("source_metadata_snapshot_reused") != "true":
             raise RuntimeError("ShardLoom batch did not report source metadata reuse")
+        if fields.get("source_state_prepare_timing_scope") != "batch_shared_pre_scenario":
+            raise RuntimeError(
+                "ShardLoom batch source-state timing scope was unexpected: "
+                + str(fields.get("source_state_prepare_timing_scope", "missing"))
+            )
+        if fields.get("source_state_fallback_attempted") != "false":
+            raise RuntimeError("ShardLoom batch source-state reported fallback attempts")
+        if fields.get("source_state_external_engine_invoked") != "false":
+            raise RuntimeError("ShardLoom batch source-state reported external engine invocation")
         if fields.get("all_fallback_attempted_false") != "true":
             raise RuntimeError("ShardLoom batch reported fallback attempts")
         if fields.get("all_external_engine_invoked_false") != "true":
