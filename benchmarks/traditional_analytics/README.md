@@ -395,6 +395,12 @@ not-yet-isolated values stay present as `null`, `n/a`, or
 `compatibility_import_certified` rows time the ingest/stage/certification
 workflow; do not read those rows as pure ShardLoom query-speed rows.
 
+The CLI `runtime-report --format json` exposes the same field order as a
+GAR-0018-A report-only introspection schema. It is useful for tooling that wants
+to verify benchmark row shape before interpreting micro-metrics, but it does not
+collect live profiles, emit traces, write profile artifacts, enable distributed
+introspection, invoke external engines, or create performance claims.
+
 Every row also carries the persistent-runner admission fields
 `persistent_runner_status`, `process_startup_attribution`,
 `python_harness_overhead_status`, `cli_process_wall_millis`,

@@ -3,7 +3,10 @@
 //! This module defines planning/reporting types only. It does not collect metrics,
 //! emit traces, execute profiling, or perform runtime effects.
 
-use crate::{Diagnostic, DiagnosticCode, EncodingKind, LogicalDType, Result, ShardLoomError};
+use crate::{
+    Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, EncodingKind,
+    FallbackStatus, LogicalDType, Result, ShardLoomError,
+};
 
 fn validate_non_empty(label: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
@@ -1128,8 +1131,29 @@ pub fn plan_observability_schema_coverage() -> ObservabilitySchemaCoverageReport
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct RuntimeObservabilityReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
     pub status: ObservabilityPlanStatus,
+    pub local_benchmark_span_schema_present: bool,
+    pub local_benchmark_stage_timing_schema_present: bool,
+    pub benchmark_metadata_surface_present: bool,
+    pub local_benchmark_spans_measured: bool,
+    pub live_profiling_supported: bool,
+    pub distributed_runtime_introspection_supported: bool,
+    pub profiler_backend_enabled: bool,
+    pub trace_backend_enabled: bool,
+    pub exporter_integration_enabled: bool,
+    pub runtime_collection_enabled: bool,
+    pub profile_artifact_generated: bool,
+    pub debug_bundle_generated: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
     pub metrics: Vec<MetricSample>,
     pub spans: Vec<TraceSpanSkeleton>,
     pub events: Vec<StructuredEvent>,
@@ -1141,26 +1165,51 @@ impl RuntimeObservabilityReport {
     #[must_use]
     pub fn not_run() -> Self {
         Self {
+            schema_version: "shardloom.runtime_observability_report.v1",
+            report_id: "gar-0018-a.runtime_introspection.v1",
+            gar_id: "GAR-0018-A",
+            support_status: "report_only",
+            claim_gate_status: "not_claim_grade",
             status: ObservabilityPlanStatus::DiagnosticOnly,
+            local_benchmark_span_schema_present: true,
+            local_benchmark_stage_timing_schema_present: true,
+            benchmark_metadata_surface_present: true,
+            local_benchmark_spans_measured: false,
+            live_profiling_supported: false,
+            distributed_runtime_introspection_supported: false,
+            profiler_backend_enabled: false,
+            trace_backend_enabled: false,
+            exporter_integration_enabled: false,
+            runtime_collection_enabled: false,
+            profile_artifact_generated: false,
+            debug_bundle_generated: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
             metrics: Vec::new(),
             spans: Vec::new(),
             events: Vec::new(),
             operator_profiles: Vec::new(),
             kernel_profiles: Vec::new(),
-            diagnostics: Vec::new(),
+            diagnostics: vec![
+                Self::report_only_blocker(
+                    "live_profiling",
+                    "Live profiling collection is not implemented for native ShardLoom runtime.",
+                ),
+                Self::report_only_blocker(
+                    "distributed_runtime_introspection",
+                    "Distributed runtime introspection is blocked until coordinator, worker, task, and trace-backend evidence exists.",
+                ),
+                Self::no_fallback_info(),
+            ],
         }
     }
     #[must_use]
     pub fn from_plan(plan: &ObservabilityPlan) -> Self {
-        Self {
-            status: plan.status,
-            metrics: Vec::new(),
-            spans: Vec::new(),
-            events: Vec::new(),
-            operator_profiles: Vec::new(),
-            kernel_profiles: Vec::new(),
-            diagnostics: plan.diagnostics.clone(),
-        }
+        let mut report = Self::not_run();
+        report.status = plan.status;
+        report.diagnostics.clone_from(&plan.diagnostics);
+        report
     }
     pub fn add_metric(&mut self, metric: MetricSample) {
         self.metrics.push(metric);
@@ -1179,6 +1228,58 @@ impl RuntimeObservabilityReport {
     }
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn local_benchmark_stage_timing_fields(&self) -> Vec<&'static str> {
+        vec![
+            "source_read_millis",
+            "compatibility_parse_millis",
+            "compatibility_to_vortex_import_millis",
+            "vortex_write_millis",
+            "vortex_reopen_millis",
+            "vortex_scan_millis",
+            "operator_compute_millis",
+            "result_sink_write_millis",
+            "evidence_render_millis",
+            "total_runtime_millis",
+        ]
+    }
+    #[must_use]
+    pub fn local_benchmark_stage_timing_field_count(&self) -> usize {
+        self.local_benchmark_stage_timing_fields().len()
+    }
+    #[must_use]
+    pub fn runtime_blocker_order(&self) -> Vec<&'static str> {
+        vec![
+            "live_profiling_collector",
+            "distributed_trace_backend",
+            "profiler_backend",
+            "metrics_exporter",
+            "coordinator_worker_runtime",
+            "execution_certificate",
+            "native_io_certificate",
+            "redaction_policy",
+            "no_fallback_evidence",
+        ]
+    }
+    #[must_use]
+    pub fn runtime_blocker_count(&self) -> usize {
+        self.runtime_blocker_order().len()
+    }
+    #[must_use]
+    pub fn no_runtime_collection_or_external_effects(&self) -> bool {
+        !self.local_benchmark_spans_measured
+            && !self.live_profiling_supported
+            && !self.distributed_runtime_introspection_supported
+            && !self.profiler_backend_enabled
+            && !self.trace_backend_enabled
+            && !self.exporter_integration_enabled
+            && !self.runtime_collection_enabled
+            && !self.profile_artifact_generated
+            && !self.debug_bundle_generated
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
@@ -1204,13 +1305,40 @@ impl RuntimeObservabilityReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "Runtime observability report\nstatus: {}\nmetrics: {}\nspans: {}\nevents: {}\noperator_profiles: {}\nkernel_profiles: {}\nfallback execution: disabled",
+            "Runtime observability report\nstatus: {}\nsupport_status: {}\nclaim_gate_status: {}\nlocal benchmark stage timing schema: {}\nmetrics: {}\nspans: {}\nevents: {}\noperator_profiles: {}\nkernel_profiles: {}\nlive profiling: unsupported\ndistributed introspection: unsupported\nfallback execution: disabled",
             self.status.as_str(),
+            self.support_status,
+            self.claim_gate_status,
+            self.local_benchmark_stage_timing_schema_present,
             self.metrics.len(),
             self.spans.len(),
             self.events.len(),
             self.operator_profiles.len(),
             self.kernel_profiles.len()
+        )
+    }
+    fn report_only_blocker(feature: &str, message: &str) -> Diagnostic {
+        Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Info,
+            DiagnosticCategory::UnsupportedFeature,
+            message,
+            Some(feature.to_string()),
+            Some("Report-only introspection surface; runtime collection is not executed.".to_string()),
+            Some("Use benchmark stage timing fields and execution certificates until native profiling is certified.".to_string()),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+    fn no_fallback_info() -> Diagnostic {
+        Diagnostic::new(
+            DiagnosticCode::NoFallbackExecution,
+            DiagnosticSeverity::Info,
+            DiagnosticCategory::NoFallbackPolicy,
+            "Runtime observability reporting does not invoke external engines or fallback execution.",
+            None,
+            Some("Observability collection is report-only in this slice.".to_string()),
+            Some("Keep fallback_attempted=false and external_engine_invoked=false for all profiling blockers.".to_string()),
+            FallbackStatus::disabled_by_policy(),
         )
     }
 }
@@ -1381,6 +1509,25 @@ mod tests {
         let p = ObservabilityPlan::default_foundation_plan();
         let r = RuntimeObservabilityReport::from_plan(&p);
         assert!(r.metrics.is_empty());
+    }
+    #[test]
+    fn runtime_report_exposes_report_only_introspection_boundaries() {
+        let report = RuntimeObservabilityReport::not_run();
+
+        assert_eq!(report.gar_id, "GAR-0018-A");
+        assert_eq!(report.support_status, "report_only");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(report.local_benchmark_span_schema_present);
+        assert!(report.local_benchmark_stage_timing_schema_present);
+        assert_eq!(report.local_benchmark_stage_timing_field_count(), 10);
+        assert_eq!(report.runtime_blocker_count(), 9);
+        assert!(report.no_runtime_collection_or_external_effects());
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.fallback.attempted)
+        );
     }
     #[test]
     fn runtime_report_detects_unsafe_fields() {
