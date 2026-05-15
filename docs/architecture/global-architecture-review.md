@@ -240,11 +240,15 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0010-developer-experience-agent-usability.md`](../rfcs/0010-developer-experience-agent-usability.md)
-- Current read: CLI/Python/report ergonomics are in place; mature runtime APIs are not.
+- Current read: CLI/Python/report ergonomics and typed capability posture accessors are in place;
+  mature runtime APIs are not.
 - Evidence: `shardloom-cli/src/main.rs`, `shardloom-core/src/output.rs`,
-  `shardloom-core/src/wrapper_architecture.rs`, `python/tests/test_cli_client.py`,
-  `docs/architecture/rfc-coverage-followthrough.md`
+  `shardloom-core/src/wrapper_architecture.rs`, `python/src/shardloom/context.py`,
+  `python/tests/test_cli_client.py`, `docs/architecture/rfc-coverage-followthrough.md`
 - [x] CLI JSON, Python wrapper, typed outputs, and agent-facing contract packs exist.
+- [x] `GAR-0010-A` adds Python `CapabilityPosture` accessors for support, claim gate, runtime,
+  data/write/object-store/catalog I/O, no-fallback, external-engine, blockers, and required
+  evidence so Python users can inspect capability state without scraping CLI text.
 - [x] Deterministic unsupported diagnostics preserve no-fallback semantics.
 - [ ] Mature ergonomic runtime APIs, DataFrame/notebook surfaces, REST runtime, and user-facing
   package publication remain incomplete.
@@ -800,12 +804,15 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0037-client-wrapper-sdk-ecosystem-surface.md`](../rfcs/0037-client-wrapper-sdk-ecosystem-surface.md)
-- Current read: Wrapper architecture and Python CLI wrapper exist; ecosystem clients are planned work.
+- Current read: Wrapper architecture, the Python CLI wrapper, and typed Python capability posture
+  accessors exist; ecosystem clients are planned work.
 - Evidence: `shardloom-core/src/wrapper_architecture.rs`,
   `shardloom-cli/tests/python_wrapper_snapshots.rs`, `python/src/shardloom/client.py`,
-  `python/tests/test_cli_client.py`
+  `python/src/shardloom/context.py`, `python/tests/test_cli_client.py`
 - [x] One-protocol/many-thin-wrappers architecture and no-fallback wrapper reports exist.
 - [x] Python wrapper reads CLI JSON rather than creating an alternate execution path.
+- [x] `GAR-0010-A` exposes no-scraping Python capability posture over existing `OutputEnvelope`
+  fields while preserving side-effect-free capability discovery and no runtime expansion.
 - [ ] Generated clients, DB-API, SQLAlchemy, Ibis, dbt, Airflow, Dagster, Prefect, MCP, Flight,
   ADBC, and BI connector implementations remain incomplete.
 

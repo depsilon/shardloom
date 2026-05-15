@@ -102,6 +102,27 @@ stores, touch catalogs, execute SQL, or invoke external engines. The explicit
 `smoke_check()` and `capabilities()` methods run only no-dataset CLI JSON
 commands and preserve no-fallback status.
 
+Capability views also expose a normalized posture object so Python callers can
+inspect support, claim, runtime, effect, and policy state without scraping raw
+CLI text:
+
+```python
+posture = capabilities.sql_support.posture
+
+print(posture.support_status)
+print(posture.claim_gate_status)
+print(posture.report_only, posture.unsupported, posture.claim_grade)
+print(posture.runtime_execution)
+print(posture.data_read, posture.write_io, posture.object_store_io)
+print(posture.fallback_attempted, posture.external_engine_invoked)
+print(posture.required_evidence)
+```
+
+The posture view does not widen runtime support. It is a typed convenience
+surface over existing `OutputEnvelope` fields and diagnostics. Unsupported or
+report-only scopes remain unsupported or report-only, and
+`fallback_attempted=false` / `external_engine_invoked=false` stay visible.
+
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
 batch path when allowed; `live` selects the CG-22 in-memory fixture path for
 bounded/unbounded change streams; `hybrid` selects the CG-22 declared Vortex-base

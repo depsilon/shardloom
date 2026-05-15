@@ -42,6 +42,7 @@ from .client import (
     WorkflowReadinessSmokeReport,
 )
 from .context import (
+    CapabilityPosture,
     CapabilityView,
     ContextCapabilities,
     ShardLoomContext,
@@ -91,6 +92,7 @@ __all__ = [
     "HybridOverlayRunReport",
     "LiveChangeContractPlan",
     "LiveFixtureRunReport",
+    "CapabilityPosture",
     "CapabilityView",
     "CompatibilitySourcePlan",
     "CompatibilitySourceSmokeReport",

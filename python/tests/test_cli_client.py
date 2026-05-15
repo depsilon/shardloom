@@ -16,6 +16,7 @@ from shardloom import (
     ClaimGateCloseoutReport,
     ComputeCapabilityMatrix,
     CompatibilitySourceSmokeReport,
+    CapabilityPosture,
     ContextCapabilities,
     CapabilityView,
     EngineCapabilityMatrix,
@@ -835,6 +836,18 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "scope", "value": scope},
                         {"key": "capability_status", "value": "planned"},
                     ]
+                    if scope == "python":
+                        fields.extend([
+                            {"key": "support_status", "value": "report_only"},
+                            {"key": "claim_gate_status", "value": "not_claim_grade"},
+                            {"key": "runtime_execution", "value": "false"},
+                            {"key": "data_read", "value": "false"},
+                            {"key": "write_io", "value": "false"},
+                            {"key": "object_store_io", "value": "false"},
+                            {"key": "catalog_io", "value": "false"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"},
+                        ])
                     if scope == "adapters":
                         fields.append({"key": "adapter_certification_required", "value": "true"})
                     if scope == "operators":
@@ -862,6 +875,8 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "no_runtime", "value": "true"},
                             {"key": "no_fallback", "value": "true"},
                             {"key": "no_effects", "value": "true"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"},
                         ])
                 else:
                     raise AssertionError(args)
@@ -884,7 +899,24 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertIsInstance(capabilities, ContextCapabilities)
         self.assertIsInstance(capabilities.python, CapabilityView)
+        self.assertIsInstance(capabilities.python.posture, CapabilityPosture)
         self.assertEqual(capabilities.python.field("scope"), "python")
+        self.assertEqual(capabilities.python.support_status, "report_only")
+        self.assertEqual(capabilities.python.claim_gate_status, "not_claim_grade")
+        self.assertEqual(capabilities.python.claim_gate_statuses, ("not_claim_grade",))
+        self.assertFalse(capabilities.python.runtime_execution)
+        self.assertFalse(capabilities.python.data_read)
+        self.assertFalse(capabilities.python.write_io)
+        self.assertFalse(capabilities.python.object_store_io)
+        self.assertFalse(capabilities.python.catalog_io)
+        self.assertFalse(capabilities.python.external_engine_invoked)
+        self.assertTrue(capabilities.python.no_fallback)
+        self.assertTrue(capabilities.python.no_effects)
+        self.assertEqual(capabilities.python.posture.support_status, "report_only")
+        self.assertTrue(capabilities.python.posture.report_only)
+        self.assertFalse(capabilities.python.posture.supported)
+        self.assertFalse(capabilities.python.posture.unsupported)
+        self.assertFalse(capabilities.python.posture.claim_grade)
         self.assertEqual(capabilities.deployment.field("scope"), "deployment")
         self.assertEqual(capabilities.engines.field("scope"), "engines")
         self.assertEqual(capabilities.workflow.field("scope"), "workflow")
@@ -895,6 +927,11 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             capabilities.sql_support.planner_readiness_claim_gate_status,
             "not_claim_grade",
+        )
+        self.assertEqual(capabilities.sql_support.claim_gate_status, "not_claim_grade")
+        self.assertEqual(
+            capabilities.sql_support.claim_gate_statuses,
+            ("not_claim_grade",),
         )
         self.assertEqual(
             capabilities.sql_support.sql_planner_readiness_rows,
@@ -911,6 +948,10 @@ class ShardLoomClientTests(unittest.TestCase):
             capabilities.dataframe.dataframe_planner_readiness_rows,
         )
         self.assertTrue(capabilities.sql_support.planner_readiness_non_executing)
+        self.assertFalse(capabilities.sql_support.runtime_execution)
+        self.assertFalse(capabilities.sql_support.external_engine_invoked)
+        self.assertTrue(capabilities.sql_support.posture.report_only)
+        self.assertFalse(capabilities.sql_support.posture.claim_grade)
         self.assertTrue(capabilities.dataframe.planner_readiness_non_executing)
         self.assertIn("adapter_certification_required", capabilities.adapters.required_gates)
         self.assertIn(
@@ -929,6 +970,14 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(capabilities.cross_cg.no_runtime)
         self.assertTrue(capabilities.cross_cg.no_fallback)
         self.assertTrue(capabilities.cross_cg.no_effects)
+        self.assertFalse(capabilities.cross_cg.fallback_attempted)
+        self.assertFalse(capabilities.cross_cg.external_engine_invoked)
+        self.assertTrue(capabilities.cross_cg.posture.unsupported)
+        self.assertTrue(capabilities.cross_cg.posture.report_only)
+        self.assertEqual(
+            capabilities.cross_cg.posture.required_evidence,
+            ("execution_certificate", "native_io_certificate"),
+        )
         self.assertEqual(ctx.functions().field("scope"), "functions")
         self.assertEqual(ctx.workflow_capabilities().field("scope"), "workflow")
         self.assertEqual(ctx.remote_api_capabilities().field("scope"), "remote-api")
