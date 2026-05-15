@@ -126,15 +126,16 @@ pub(crate) fn handle_observability_schema_coverage(format: OutputFormat) -> Exit
 
 pub(crate) fn handle_runtime_report(format: OutputFormat) -> ExitCode {
     let report = RuntimeObservabilityReport::not_run();
-    emit_observability_style_report(
+    emit(
         "runtime-report",
-        "runtime observability report",
+        format,
+        CommandStatus::Success,
+        "runtime observability report".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        "runtime_report",
-        "not_performed",
-        format,
-    )
+        runtime_observability_fields(&report),
+    );
+    ExitCode::SUCCESS
 }
 
 pub(crate) fn handle_profile_plan(format: OutputFormat) -> ExitCode {
@@ -149,7 +150,7 @@ pub(crate) fn handle_profile_plan(format: OutputFormat) -> ExitCode {
         "profiling collection not implemented".to_string(),
         plan.to_human_text(),
         plan.diagnostics.clone(),
-        observability_style_fields("profile_plan", "not_performed"),
+        profile_plan_fields(),
     );
     ExitCode::SUCCESS
 }
@@ -217,6 +218,159 @@ fn observability_style_fields(mode: &str, metrics_collection: &str) -> Vec<(Stri
             metrics_collection.to_string(),
         ),
     ]
+}
+
+fn runtime_observability_fields(report: &RuntimeObservabilityReport) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_runtime_observability_identity_fields(&mut fields, report);
+    append_runtime_observability_benchmark_fields(&mut fields, report);
+    append_runtime_observability_blocker_fields(&mut fields, report);
+    fields
+}
+
+fn append_runtime_observability_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RuntimeObservabilityReport,
+) {
+    push_field(fields, "mode", "runtime_report");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "gar_id", report.gar_id);
+    push_field(fields, "support_status", report.support_status);
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
+    push_field(fields, "runtime_report_status", report.status.as_str());
+}
+
+fn append_runtime_observability_benchmark_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RuntimeObservabilityReport,
+) {
+    push_bool_field(
+        fields,
+        "local_benchmark_span_schema_present",
+        report.local_benchmark_span_schema_present,
+    );
+    push_bool_field(
+        fields,
+        "local_benchmark_stage_timing_schema_present",
+        report.local_benchmark_stage_timing_schema_present,
+    );
+    push_count_field(
+        fields,
+        "local_benchmark_stage_timing_field_count",
+        report.local_benchmark_stage_timing_field_count(),
+    );
+    push_field(
+        fields,
+        "local_benchmark_stage_timing_field_order",
+        &report.local_benchmark_stage_timing_fields().join(","),
+    );
+    push_bool_field(
+        fields,
+        "benchmark_metadata_surface_present",
+        report.benchmark_metadata_surface_present,
+    );
+    push_bool_field(
+        fields,
+        "local_benchmark_spans_measured",
+        report.local_benchmark_spans_measured,
+    );
+}
+
+fn append_runtime_observability_blocker_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RuntimeObservabilityReport,
+) {
+    push_field(fields, "live_profiling_status", "unsupported");
+    push_field(
+        fields,
+        "distributed_runtime_introspection_status",
+        "unsupported",
+    );
+    push_bool_field(
+        fields,
+        "live_profiling_supported",
+        report.live_profiling_supported,
+    );
+    push_bool_field(
+        fields,
+        "distributed_runtime_introspection_supported",
+        report.distributed_runtime_introspection_supported,
+    );
+    push_bool_field(
+        fields,
+        "profiler_backend_enabled",
+        report.profiler_backend_enabled,
+    );
+    push_bool_field(
+        fields,
+        "trace_backend_enabled",
+        report.trace_backend_enabled,
+    );
+    push_bool_field(
+        fields,
+        "exporter_integration_enabled",
+        report.exporter_integration_enabled,
+    );
+    push_bool_field(
+        fields,
+        "runtime_collection_enabled",
+        report.runtime_collection_enabled,
+    );
+    push_bool_field(
+        fields,
+        "profile_artifact_generated",
+        report.profile_artifact_generated,
+    );
+    push_bool_field(
+        fields,
+        "debug_bundle_generated",
+        report.debug_bundle_generated,
+    );
+    push_count_field(
+        fields,
+        "runtime_blocker_count",
+        report.runtime_blocker_count(),
+    );
+    push_field(
+        fields,
+        "runtime_blocker_order",
+        &report.runtime_blocker_order().join(","),
+    );
+    push_bool_field(
+        fields,
+        "no_runtime_collection_or_external_effects",
+        report.no_runtime_collection_or_external_effects(),
+    );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "metrics_collection", "not_performed");
+    push_field(fields, "plan_only", "true");
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn profile_plan_fields() -> Vec<(String, String)> {
+    let mut fields = observability_style_fields("profile_plan", "not_performed");
+    push_field(&mut fields, "gar_id", "GAR-0018-A");
+    push_field(&mut fields, "support_status", "unsupported");
+    push_field(&mut fields, "claim_gate_status", "not_claim_grade");
+    push_field(&mut fields, "live_profiling_status", "unsupported");
+    push_field(&mut fields, "profiler_backend_enabled", "false");
+    push_field(&mut fields, "runtime_collection_enabled", "false");
+    push_field(&mut fields, "profile_artifact_generated", "false");
+    push_field(&mut fields, "external_engine_invoked", "false");
+    push_field(&mut fields, "fallback_attempted", "false");
+    fields
 }
 
 fn emit_unsupported_plan_report(

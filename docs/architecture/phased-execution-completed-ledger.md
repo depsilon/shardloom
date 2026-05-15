@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0018-A live profiling and runtime introspection report
+  - Primary files:
+    - `shardloom-core/src/observability.rs`
+    - `shardloom-cli/src/diagnostics.rs`
+    - `shardloom-cli/tests/observability_schema_coverage.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `benchmarks/traditional_analytics/README.md`
+  - Scope: close GAR-0018-A by adding a report-only runtime-introspection artifact that separates
+    local benchmark stage-timing schema from unsupported live profiling, distributed runtime
+    introspection, profiler backend, trace backend, metrics exporter, profile artifact, and debug
+    bundle collection.
+  - Checklist:
+    - [x] Add stable `GAR-0018-A`, `support_status=report_only`, and
+          `claim_gate_status=not_claim_grade` fields to `runtime-report`.
+    - [x] Expose the canonical local benchmark stage timing field order from the compute-engine flow:
+          `source_read_millis`, `compatibility_parse_millis`,
+          `compatibility_to_vortex_import_millis`, `vortex_write_millis`,
+          `vortex_reopen_millis`, `vortex_scan_millis`, `operator_compute_millis`,
+          `result_sink_write_millis`, `evidence_render_millis`, and `total_runtime_millis`.
+    - [x] Add deterministic unsupported/profile blockers for live profiling and distributed runtime
+          introspection without enabling collectors, exporters, dependencies, or runtime effects.
+    - [x] Preserve `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+          `external_engine_invoked=false`.
+  - Boundary:
+    - This completes the report-only GAR-0018-A introspection slice. It does not implement a live
+      profiler, trace collector, distributed tracing backend, metrics exporter, profile artifact
+      writer, debug bundle writer, production observability backend, dependency, benchmark rerun, or
+      performance claim.
+  - Evidence:
+    - CLI evidence: `runtime-report --format json` exposes local benchmark timing schema fields,
+      runtime blocker order, live/distributed profiling unsupported status, no-effect fields, and
+      no-fallback/no-external-engine booleans.
+    - CLI evidence: `profile-plan --format json` keeps live profiling unsupported and
+      side-effect-free.
+    - Rust evidence: `RuntimeObservabilityReport::not_run()` records the report-only boundary and
+      guarantees no runtime collection or external effects.
+  - Vortex-first provider check:
+    - Subject area: benchmark/runtime introspection and profiling.
+    - Upstream/provider concepts checked: Vortex scan/operator stage timing remains benchmark
+      metadata; no Vortex telemetry, trace backend, exporter, object-store, or external engine is
+      invoked by this slice.
+    - Decision: expose local benchmark introspection schema only; keep runtime/live/distributed
+      collection blocked until certificate, Native I/O, redaction, backend, and no-fallback evidence
+      exists.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core runtime_report --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test observability_schema_coverage`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata hard_release_readiness_gate_docs_are_present`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - `git diff --check`
 - [x] Session label: GAR-0017-A fault-tolerance execution gate split
   - Primary files:
     - `shardloom-exec/src/recovery.rs`

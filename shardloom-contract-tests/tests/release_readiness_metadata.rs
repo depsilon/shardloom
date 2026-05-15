@@ -738,7 +738,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(plan.contains("GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 39);
+    assert!(plan.matches("- [ ] GAR-").count() >= 38);
     assert!(!plan.contains(
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));
@@ -769,6 +769,9 @@ fn security_rfc_and_p80_completion_are_traceable() {
     ));
     assert!(completed_ledger.contains("GAR-0016-A adaptive runtime gate consolidation"));
     assert!(completed_ledger.contains("GAR-0017-A fault-tolerance execution gate split"));
+    assert!(
+        completed_ledger.contains("GAR-0018-A live profiling and runtime introspection report")
+    );
     assert!(completed_ledger.contains("GAR-0014-A spill/OOM enforcement promotion gate closeout"));
     assert!(completed_ledger.contains("GAR-0026-J prepared/native global sort/top-k"));
     assert!(completed_ledger.contains("GAR-0027-A CPU/SIMD/vectorization admission slice"));

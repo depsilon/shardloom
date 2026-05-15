@@ -315,20 +315,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     until workload-scoped correctness and benchmark claim gates pass.
   - Dependencies/blockers: stable admitted filter-column kernel inputs, bridge selection-vector
     evidence, selected metric scan evidence, and certificate/no-fallback fields.
-- [ ] GAR-0018-A live profiling and runtime introspection report
-  - Source: RFC 0018; operational evidence policy hardening; benchmark-suite catalog.
-  - Current state: observability schemas exist; live profiling/distributed introspection are not
-    runtime features.
-  - Next slice outcome: report-only introspection artifact for local benchmark spans, unsupported
-    live profiling, and distributed runtime blockers.
-  - User-visible surface: CLI observability plan, benchmark metadata, docs.
-  - Implementation scope: observability report fields, benchmark metadata, tests.
-  - Evidence required: benchmark refs and diagnostic/no-fallback refs.
-  - Acceptance: introspection fields distinguish measured local spans from unsupported live profiling.
-  - Verification: observability snapshot tests, benchmark contract tests.
-  - Non-goals: no live profiler, collector, distributed tracing backend, or dependency.
-  - Fallback/claim boundary: no production profiling claim.
-  - Dependencies/blockers: benchmark attribution contract.
 - [ ] GAR-0021-A approximate aggregate and sketch function admission
   - Source: RFC 0021; capability-certification sequencing; RFC 0032.
   - Current state: approximate/sketch requirements are documented; registry/state/update kernels are

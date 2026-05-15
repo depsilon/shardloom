@@ -438,6 +438,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("`vortex-run` primitive evidence"));
     assert!(normalized.contains("final row evidence"));
     assert!(readme.contains("decision-trace counts"));
+    assert!(readme.contains("runtime-report --format json"));
+    assert!(readme.contains("report-only introspection schema"));
     assert!(readme.contains("claim blockers"));
     assert!(readme.contains("segment-prune"));
     assert!(readme.contains("bytes-not-read"));
@@ -637,10 +639,13 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     ));
     assert!(completed_ledger.contains("GAR-0016-A adaptive runtime gate consolidation"));
     assert!(completed_ledger.contains("GAR-0017-A fault-tolerance execution gate split"));
+    assert!(
+        completed_ledger.contains("GAR-0018-A live profiling and runtime introspection report")
+    );
     assert!(completed_ledger.contains("GAR-0014-A spill/OOM enforcement promotion gate closeout"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 39);
+    assert!(plan.matches("- [ ] GAR-").count() >= 38);
     for required_field in [
         "Current state:",
         "Next slice outcome:",

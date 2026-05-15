@@ -193,6 +193,14 @@ writing a report, so downstream readers can rely on field presence rather than
 inferring timing scope from prose. If `requested_execution_mode=auto`, the row
 must still preserve the selected mode and reason.
 
+`runtime-report --format json` now mirrors this timing vocabulary as the
+GAR-0018-A report-only runtime-introspection schema. That command is an
+interpretation aid for local benchmark rows only: it reports the stage-timing
+field order and deterministic blockers for live profiling, distributed runtime
+introspection, profiler backends, trace backends, metrics exporters, profile
+artifacts, and debug bundles. It does not collect profiles, emit traces, invoke
+external engines, or upgrade benchmark rows into performance claims.
+
 Prepared/native rows also carry the operator blocker matrix:
 `operator_execution_class`, `operator_admission_status`, `operator_blocker_id`,
 `operator_blocker_reason`, and `operator_encoded_native_claim_allowed`. Valid

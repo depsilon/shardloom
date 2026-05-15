@@ -353,11 +353,16 @@ plan before coding.
 - Source:
   [`docs/rfcs/0018-observability-tracing-profiling.md`](../rfcs/0018-observability-tracing-profiling.md)
 - Current read: Observability schema and report surfaces exist.
-- Evidence: `shardloom-core/src/observability.rs`, `shardloom-vortex/src/query_trace.rs`,
+- Evidence: `shardloom-core/src/observability.rs`, `shardloom-cli/src/diagnostics.rs`,
+  `shardloom-cli/tests/observability_schema_coverage.rs`, `shardloom-vortex/src/query_trace.rs`,
   `shardloom-vortex/src/runtime_utilization.rs`
 - [x] Trace schema, profile/runtime report commands, and Vortex query trace evidence exist.
 - [x] Observability tests cover current report contracts.
-- [ ] Live profiling and distributed runtime introspection remain incomplete.
+- [x] GAR-0018-A: `runtime-report` now exposes a report-only local benchmark stage-timing
+  introspection schema, unsupported live profiling and distributed introspection blockers, and
+  no-effect/no-fallback fields.
+- [ ] Live profiling collectors, profile artifacts, debug bundles, metrics exporters, trace
+  backends, and distributed runtime introspection execution remain incomplete.
 
 ### RFC 0019 - Security, Secrets, Governance, and Agent Safety
 
