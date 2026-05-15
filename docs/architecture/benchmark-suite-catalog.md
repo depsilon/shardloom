@@ -209,19 +209,21 @@ classes are `encoded_native`, `residual_native`, `materialized_temporary`, and
 claim.
 The `selective filter` prepared/native row also carries
 `encoded_predicate_provider_*` fields. The current status is
-`reader_generated_filter_column_batches_admitted` when the scoped local
-filter-column probe observes the admitted encodings: Vortex scan filter pushdown
-is requested, a separate scoped local scan projects real `flag,value` reader
-chunks without decode/materialization, the observed `flag:fastlanes.bitpacked`
-and `value:vortex.sequence` chunks lower into ShardLoom-owned encoded kernel
-inputs, and the reader-generated conjunctive bridge intersects their selection
-vectors. GAR-0026-S adds the bridge contract, GAR-0026-T adds filter-column
-probe evidence, and GAR-0026-U adds the scoped encoding-specific kernel-input
-lowering. The row still sets
+`reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted`
+when the scoped local filter-column probe observes the admitted encodings: a
+scoped local scan projects real `flag,value` reader chunks without
+decode/materialization, the observed `flag:fastlanes.bitpacked` and
+`value:vortex.sequence` chunks lower into ShardLoom-owned encoded kernel inputs,
+the reader-generated conjunctive bridge intersects their selection vectors, and
+the selected metric path consumes the admitted selection vector for scoped
+`row_count` and `metric_sum` evidence. GAR-0026-S adds the bridge contract,
+GAR-0026-T adds filter-column probe evidence, GAR-0026-U adds the scoped
+encoding-specific kernel-input lowering, and GAR-0026-V adds selected metric
+selection-vector consumption. The row still sets
 `encoded_predicate_provider_operator_execution_class=residual_native` and
-`encoded_predicate_provider_encoded_native_claim_allowed=false` because selected
-metric aggregation does not yet consume the admitted selection vector end to
-end. Unsupported or changed encodings must remain deterministic no-fallback
+`encoded_predicate_provider_encoded_native_claim_allowed=false` because this is
+scoped residual-native metric aggregation, not a generalized encoded aggregation
+kernel. Unsupported or changed encodings must remain deterministic no-fallback
 diagnostics, not hidden decode or external-engine execution.
 The current scoped `filter + projection + limit` prepared/native row is a
 residual-native fused scan path: Vortex scan filter/projection pushdown and
