@@ -16,6 +16,44 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P8.7A retro-future ShardLoom brand direction and visual identity system
+  - Primary files:
+    - `docs/release/website-visual-identity-system.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: establish the original ShardLoom website visual identity system before any visual
+    implementation changes, and reorder the phase plan so P8.7 website/public-readiness slices run
+    before the remaining GAR queue.
+  - Checklist:
+    - [x] Define the design thesis: ShardLoom is the command deck for auditable compute.
+    - [x] Define retro-future technical field guide, cyberpunk telemetry console, and spaceborne
+          command-deck mood.
+    - [x] Add explicit forbidden-copying boundaries for Fallout, Vault-Tec, Pip-Boy, Bethesda,
+          Modal, Vortex, Palantir, Apache branding, and other third-party trade dress.
+    - [x] Define design tokens for dark space/cyberpunk visuals, readable contrast, neon accents,
+          and status semantics.
+    - [x] Define component vocabulary for command shell, terminal panels, signal cards, telemetry
+          cards, evidence chains, claim badges, mode dossiers, field-guide cards, raw-data drawers,
+          status ribbons, and mission-log entries.
+    - [x] Map public pages to Command Deck, Field Guide, Telemetry, Mission Map, Status Board, Docs,
+          and GitHub roles.
+    - [x] Define accessibility constraints, reduced-motion rules, benchmark telemetry posture, and
+          claim-safety guardrails.
+  - Boundary:
+    - This is a planning/reference slice only. It does not edit website CSS or HTML, change
+      ShardLoom runtime behavior, regenerate benchmarks, publish packages, add external
+      frameworks, add runtime GitHub fetches, change release gates, or create performance,
+      Spark-replacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package
+      publication claims.
+  - Evidence:
+    - `docs/release/website-visual-identity-system.md` records brand safety, claim safety,
+      accessibility, design-token, component, page-mapping, benchmark-telemetry, and implementation
+      guardrails.
+    - The phase plan now carries P8.7B through P8.7I as detailed Planned slices before the GAR
+      carry-forward queue.
+  - Validation:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
 - [x] Session label: GAR-0020-B delete/tombstone, CDC, and maintenance-write execution matrix
   - Primary files:
     - `shardloom-core/src/table_intelligence.rs`
