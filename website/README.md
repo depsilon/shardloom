@@ -33,9 +33,10 @@ the committed local snapshot at `assets/data/compute-engine-flow-reference.md`, 
 tables and Mermaid node labels, and renders the current access, runtime, execution-lane,
 batch/live/hybrid, I/O/downstream, timing, and guardrail summaries. The canonical source remains
 `docs/architecture/compute-engine-flow-reference.md`; update the committed snapshot whenever that
-canonical document changes. The website does not fetch `raw.githubusercontent.com` or any other
-GitHub runtime source during page render. If the local static fetch fails, the page uses embedded
-claim-safe fallback copy.
+canonical document changes. The local snapshot is served as a normal static asset and uses the
+short `/assets/data/*` cache policy while the site is iterating. The website does not fetch
+`raw.githubusercontent.com` or any other GitHub runtime source during page render. If the local
+static fetch fails, the page uses embedded claim-safe fallback copy.
 
 ## Generated Static Pages
 
