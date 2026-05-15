@@ -1024,6 +1024,16 @@ plan before coding.
         scoped dirty-input residual-state reuse only; generalized encoded/native operators,
         performance claims, SQL/DataFrame, object-store/lakehouse, Spark-displacement, and
         production claims remain blocked.
+  - [x] GAR-FLOW-2N reuses one per-batch filtered `id,value,metric` state for selective-filter and
+        filter/projection/limit child scenarios inside `traditional-analytics-vortex-batch-run`.
+        The batch envelope emits aggregate `source_state_reuse_*` fields plus family-specific
+        `source_state_selective_filter_*` fields so shared predicate/filter setup remains visible.
+        Selective-filter rows retain scoped `encoded_predicate_provider_*` evidence, but the
+        shared-state metric aggregate is reported as residual-native
+        `batch_source_state_metric_aggregation_used`. This closes scoped selective-filter
+        residual-state reuse only; generalized encoded/native operators, performance claims,
+        SQL/DataFrame, object-store/lakehouse, Spark-displacement, and production claims remain
+        blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

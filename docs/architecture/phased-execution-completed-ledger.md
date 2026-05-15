@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2N prepared/native batch selective-filter source-state reuse
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+  - Scope: close a sixth scoped prepared/native Vortex runtime-plumbing source-state slice by
+    reusing one per-batch filtered `id,value,metric` state across selective-filter and
+    filter/projection/limit child scenarios in `traditional-analytics-vortex-batch-run`.
+  - Checklist:
+    - [x] Add `TraditionalSelectiveFilterState` to the prepared/native batch source-state envelope.
+    - [x] Route eligible selective-filter and filter/projection/limit batch children through the
+          shared filtered state when both are present.
+    - [x] Emit aggregate and family-specific `source_state_selective_filter_*` evidence fields while
+          preserving child typed envelopes.
+    - [x] Preserve scoped `encoded_predicate_provider_*` evidence for selective-filter rows while
+          reporting shared-state metric aggregation as residual-native
+          `batch_source_state_metric_aggregation_used`.
+    - [x] Propagate selective-filter source-state reuse fields into comparative benchmark rows.
+    - [x] Keep `operator_execution_class=residual_native`,
+          `operator_encoded_native_claim_allowed=false`, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+  - Evidence/verification:
+    - Focused Rust test:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_reuses_selective_filter_source_state --lib`.
+    - Benchmark harness contract test requires `source_state_selective_filter_*` propagation and
+      docs.
+  - Claim boundary:
+    - This is scoped local prepared/native residual-state runtime plumbing only.
+    - It is not generalized encoded/native operator coverage, a persistent daemon/service runtime, a
+      hidden benchmark fast mode, a performance/superiority claim, a SQL/DataFrame claim, an
+      object-store/lakehouse claim, a Spark-displacement claim, or a production claim.
+
 - [x] Session label: GAR-FLOW-2M prepared/native batch dirty-input source-state reuse
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
