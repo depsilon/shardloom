@@ -132,10 +132,14 @@ Website copy must stay claim-safe:
 
 - ShardLoom is pre-release.
 - ShardLoom is Vortex-native and no-fallback by design.
+- ShardLoom is an independent downstream Vortex-first workflow layer, not an official Vortex
+  project and not Vortex-endorsed.
 - Current evidence supports an evidence-certified local compute engine foundation.
 - Do not position ShardLoom as an Apache Spark substitute.
 - Do not claim production SQL or DataFrame runtime support.
 - Do not claim production object-store, lakehouse, or Foundry support.
+- Treat Foundry as a future validation target only; do not imply Palantir endorsement,
+  Foundry-native status, or Foundry certification.
 - Do not make performance, superiority, or best-default claims.
 - Benchmark pages must preserve `claim_gate_status`, execution-mode separation, materialization and
   no-fallback evidence, and the boundary that local smoke evidence is not claim-grade performance

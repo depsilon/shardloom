@@ -8,6 +8,8 @@ project license and does not change the existing Apache-2.0 licensing for code.
 Use ShardLoom brand assets accurately and avoid misleading uses, including:
 
 - implying endorsement, certification, partnership, or official status where none exists,
+- implying ShardLoom is an official Vortex project, Vortex-endorsed project, Palantir-endorsed
+  project, or Foundry-certified integration,
 - presenting an unrelated project, package, service, benchmark, or integration as ShardLoom,
 - making unsupported production, performance, Spark-replacement, SQL/DataFrame, object-store,
   lakehouse, or Foundry claims,
