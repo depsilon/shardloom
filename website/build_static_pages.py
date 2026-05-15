@@ -305,25 +305,75 @@ def markdown_to_html(markdown: str) -> str:
     return "\n".join(output)
 
 
-def page(title: str, description: str, body: str, active: str) -> str:
+def site_nav(active: str) -> str:
     nav = [
         ("Home", "/", "home"),
-        ("Benchmarks", "/benchmarks.html", "benchmarks"),
+        ("Field Guide", "/field-guide/", "field-guide"),
+        ("Telemetry", "/benchmarks.html", "telemetry"),
         ("Compute Flow", "/compute-engine-flow.html", "flow"),
-        ("README", "/readme.html", "readme"),
+        ("Status", "/#status", "status"),
+        ("Docs", "/readme.html", "docs"),
         ("GitHub", "https://github.com/depsilon/shardloom", "github"),
     ]
-    nav_html = "\n".join(
-        f'<a class="{"active" if key == active else ""}" href="{href}">{label}</a>'
-        for label, href, key in nav
-    )
+    links = []
+    for label, href, key in nav:
+        class_name = "active" if key == active else ""
+        current_attr = ' aria-current="page"' if key == active else ""
+        links.append(f'<a class="{class_name}"{current_attr} href="{href}">{label}</a>')
+    return "\n".join(links)
+
+
+def status_ribbon() -> str:
+    return """
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+"""
+
+
+def site_footer() -> str:
+    return """
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+"""
+
+
+def page_header_logo() -> str:
+    return '<img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">'
+
+
+def page(
+    title: str,
+    description: str,
+    body: str,
+    active: str,
+    canonical_path_override: str | None = None,
+) -> str:
+    nav_html = site_nav(active)
     canonical_paths = {
         "home": "",
-        "benchmarks": "benchmarks.html",
+        "field-guide": "field-guide/",
+        "telemetry": "benchmarks.html",
         "flow": "compute-engine-flow.html",
-        "readme": "readme.html",
+        "docs": "readme.html",
     }
-    canonical_path = canonical_paths.get(active, "")
+    canonical_path = canonical_path_override
+    if canonical_path is None:
+        canonical_path = canonical_paths.get(active, "")
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -336,22 +386,21 @@ def page(title: str, description: str, body: str, active: str) -> str:
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
 </head>
-<body>
-  <header class="site-header">
-    <div class="shell nav">
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
       <a class="brand" href="/" aria-label="ShardLoom home">
-        <img src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
-        <span>ShardLoom</span>
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
       </a>
       <nav class="nav-links" aria-label="Primary">
         {nav_html}
       </nav>
     </div>
   </header>
+{status_ribbon()}
   <main>{body}</main>
-  <footer>
-    <div class="shell">Apache-2.0 project code. ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</div>
-  </footer>
+{site_footer()}
 </body>
 </html>
 """
@@ -362,6 +411,7 @@ def doc_page(source: Path, title: str, description: str, source_label: str, acti
     body = f"""
     <section class="doc-hero">
       <div class="shell">
+        {page_header_logo()}
         <p class="eyebrow">Rendered repository document</p>
         <h1>{esc(title)}</h1>
         <p class="lede">{esc(description)}</p>
@@ -377,6 +427,294 @@ def doc_page(source: Path, title: str, description: str, source_label: str, acti
     </section>
     """
     return page(title, description, body, active)
+
+
+FIELD_GUIDE_CONCEPTS: list[dict[str, Any]] = [
+    {
+        "slug": "no-fallback",
+        "title": "No Fallback",
+        "answer": "ShardLoom must not silently delegate unsupported execution to another query engine.",
+        "why": "The policy keeps evidence auditable: unsupported work becomes a deterministic diagnostic instead of an invisible execution handoff.",
+        "how": "CLI, benchmark, and evidence rows expose fallback and external-engine fields so readers can see whether ShardLoom executed the supported path.",
+        "proves": "A supported row can show `fallback_attempted=false` and `external_engine_invoked=false` for its scoped workload.",
+        "not_proves": "It does not prove every SQL, DataFrame, object-store, lakehouse, or adapter path is implemented.",
+        "evidence": ["fallback_attempted", "external_engine_invoked", "claim_gate_status", "diagnostic_code"],
+        "related": ["execution-modes", "claim-gates", "unsupported-diagnostics"],
+        "sources": ["AGENTS.md", "docs/rfcs/0002-no-fallback-and-vortex-io.md"],
+        "boundary": "No-fallback evidence is workload-scoped and does not create a broad production platform claim.",
+    },
+    {
+        "slug": "execution-modes",
+        "title": "Execution Modes",
+        "answer": "Execution modes identify the source and preparation lane that a run used.",
+        "why": "Mode attribution separates compatibility certification costs from prepared/native Vortex runtime paths.",
+        "how": "Benchmark and CLI rows report modes such as `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto`.",
+        "proves": "A row can identify which lane was selected and which timing fields belong to that lane.",
+        "not_proves": "`auto` is not a hidden fast mode, and mode vocabulary is not the same as broad runtime support.",
+        "evidence": ["selected_execution_mode", "requested_execution_mode", "mode timing fields", "claim_gate_status"],
+        "related": ["prepared-vortex", "native-vortex", "compatibility-import-certified"],
+        "sources": ["docs/architecture/compute-engine-flow-reference.md", "docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md"],
+        "boundary": "Execution mode labels are explanatory and must not be read as performance claims.",
+    },
+    {
+        "slug": "compatibility-import-certified",
+        "title": "Compatibility Import Certified",
+        "answer": "The compatibility lane imports local compatibility data into Vortex evidence paths and records certification costs.",
+        "why": "It helps prove workflow coverage, but it carries parse, import, write/reopen, scan, sink, and evidence overhead.",
+        "how": "The benchmark page decomposes compatibility parse, Vortex import, Vortex write, Vortex scan, operator, sink, and evidence fields.",
+        "proves": "It can show that a compatibility input moved through a Vortex-backed evidence workflow without fallback.",
+        "not_proves": "It is not pure query speed and should not be ranked against direct-file engine baselines.",
+        "evidence": ["compatibility_parse_millis", "compatibility_to_vortex_import_millis", "vortex_write_millis", "vortex_scan_millis"],
+        "related": ["prepared-vortex", "benchmark-telemetry", "claim-gates"],
+        "sources": ["website/benchmarks.html", "benchmarks/traditional_analytics/README.md"],
+        "boundary": "Certification-lane evidence is not public speed, superiority, or best-default proof.",
+    },
+    {
+        "slug": "prepared-vortex",
+        "title": "Prepared Vortex",
+        "answer": "Prepared Vortex is the current runtime-development lane for already prepared Vortex artifacts.",
+        "why": "It removes compatibility import from the timed path and makes prepared/native optimization work easier to interpret.",
+        "how": "Prepared rows expose source-backed scan, Native I/O, materialization/decode, no-fallback, and claim-gate fields.",
+        "proves": "A prepared row can show scoped local execution over prepared Vortex artifacts with explicit evidence fields.",
+        "not_proves": "It does not prove generalized encoded aggregation, production SQL/DataFrame runtime, or superiority over other engines.",
+        "evidence": ["prepared_vortex", "source_backed_scan_*", "native_io_certificate_status", "materialization_boundary_report_emitted"],
+        "related": ["native-vortex", "materialization-boundary", "benchmark-telemetry"],
+        "sources": ["README.md", "docs/architecture/compute-engine-flow-reference.md"],
+        "boundary": "Prepared Vortex is the main optimization direction, but current rows remain claim-gated.",
+    },
+    {
+        "slug": "native-vortex",
+        "title": "Native Vortex",
+        "answer": "Native Vortex is the lane for scoped execution over existing Vortex artifacts.",
+        "why": "It keeps Vortex as the native substrate instead of treating Vortex as a temporary translation detail.",
+        "how": "Native rows must preserve admission, source-backed scan, Native I/O, materialization, and no-fallback evidence.",
+        "proves": "A scoped row can show the selected Vortex-native input path and its evidence posture.",
+        "not_proves": "It does not prove every Vortex layout, object-store source, table format, or downstream sink is supported.",
+        "evidence": ["native_vortex", "source_backed_scan_provider_kind", "source_backed_scan_native_io_certificate_status"],
+        "related": ["prepared-vortex", "native-io-certificate", "execution-modes"],
+        "sources": ["docs/rfcs/0005-vortex-native-file-io-output.md", "docs/skills/vortex/vortex-file-io.md"],
+        "boundary": "Native Vortex evidence is scoped to the supported artifacts and operators present in the repo.",
+    },
+    {
+        "slug": "native-io-certificate",
+        "title": "Native I/O Certificate",
+        "answer": "A Native I/O certificate records whether a scoped run used the approved ShardLoom/Vortex-native I/O path.",
+        "why": "It gives readers a concrete evidence field instead of asking them to infer native behavior from marketing language.",
+        "how": "Prepared/native rows and workflow evidence attach certificate status where the supported path can be reviewed.",
+        "proves": "A scoped workload can show that its native I/O evidence was emitted and certified.",
+        "not_proves": "It does not certify every source, sink, object-store path, or table-format runtime.",
+        "evidence": ["native_io_certificate_status", "source_backed_scan_native_io_certificate_status", "certificate_refs"],
+        "related": ["native-vortex", "prepared-vortex", "materialization-boundary"],
+        "sources": ["docs/rfcs/0031-universal-native-io-envelope.md", "docs/architecture/compute-engine-flow-reference.md"],
+        "boundary": "Native I/O certificates are scoped to the workload and source/sink path that emitted them.",
+    },
+    {
+        "slug": "materialization-boundary",
+        "title": "Materialization Boundary",
+        "answer": "A materialization boundary records where data was decoded, materialized, converted, or kept native.",
+        "why": "It prevents a row from implying encoded-native execution when residual-native or decoded work actually happened.",
+        "how": "Prepared/native evidence exposes decode, materialization, row-read, Arrow conversion, and boundary-report fields.",
+        "proves": "A row can show whether data crossed a boundary for the scoped scenario.",
+        "not_proves": "It does not prove zero-copy, zero-decode, or encoded-native execution unless the row says so with evidence.",
+        "evidence": ["data_decoded", "data_materialized", "row_read", "arrow_converted", "materialization_boundary_report_emitted"],
+        "related": ["prepared-vortex", "claim-gates", "native-io-certificate"],
+        "sources": ["docs/rfcs/0013-streaming-zero-copy-boundary-interoperability.md", "website/benchmarks.html"],
+        "boundary": "Boundary fields explain execution posture; they are not performance claims.",
+    },
+    {
+        "slug": "claim-gates",
+        "title": "Claim Gates",
+        "answer": "Claim gates state whether a row is claim-grade, fixture-smoke, report-only, blocked, unsupported, or not claim-grade.",
+        "why": "They keep public interpretation tied to available correctness, benchmark, certificate, and policy evidence.",
+        "how": "Website, benchmark, and CLI outputs preserve `claim_gate_status` and explicit not-claimable posture.",
+        "proves": "A row can say which claim boundary applies to the current evidence.",
+        "not_proves": "A claim gate label does not expand support beyond the named workload and evidence refs.",
+        "evidence": ["claim_gate_status", "performance_claim_allowed", "claim_boundary", "support_status"],
+        "related": ["benchmark-telemetry", "no-fallback", "unsupported-diagnostics"],
+        "sources": ["docs/benchmarks/baseline-comparison-boundary.md", "docs/architecture/phased-execution-plan.md"],
+        "boundary": "If evidence is missing, public claims stay closed.",
+    },
+    {
+        "slug": "benchmark-telemetry",
+        "title": "Benchmark Telemetry",
+        "answer": "Benchmark telemetry is evidence and attribution, not a speed leaderboard.",
+        "why": "ShardLoom rows include workflow and evidence costs that direct local engine rows may not carry.",
+        "how": "The website separates compatibility import, prepared Vortex, native Vortex, external baselines, freshness labels, and raw tables.",
+        "proves": "The current page shows local smoke coverage, timing decomposition, and claim-gate posture from committed artifacts.",
+        "not_proves": "It does not prove performance superiority, replacement, production platform readiness, or best-default status.",
+        "evidence": ["local fastest count", "local timing context", "source_backed_scan_*", "encoded_predicate_provider_*"],
+        "related": ["compatibility-import-certified", "prepared-vortex", "claim-gates"],
+        "sources": ["website/benchmarks.html", "target/shardloom-benchmark-evidence/"],
+        "boundary": "External engines are baseline context only and never fallback execution.",
+    },
+    {
+        "slug": "unsupported-diagnostics",
+        "title": "Unsupported Diagnostics",
+        "answer": "Unsupported diagnostics are deterministic reports for paths ShardLoom does not currently execute.",
+        "why": "They are part of the no-fallback contract: unsupported work should be clear, stable, and actionable.",
+        "how": "Capability views, phase items, and report-only rows expose blockers instead of silently invoking another engine.",
+        "proves": "A blocked path can be intentionally documented without pretending it is implemented.",
+        "not_proves": "A report-only row is not runtime support.",
+        "evidence": ["support_status", "unsupported_reason", "required_evidence", "fallback_attempted"],
+        "related": ["no-fallback", "claim-gates", "execution-modes"],
+        "sources": ["docs/release/known-unsupported-paths.md", "docs/architecture/global-architecture-review.md"],
+        "boundary": "Unsupported/report-only explanations reduce overclaiming risk but do not create new runtime support.",
+    },
+]
+
+
+def concept_url(slug_value: str) -> str:
+    return f"/field-guide/{slug_value}.html"
+
+
+def concept_by_slug(slug_value: str) -> dict[str, Any]:
+    for concept in FIELD_GUIDE_CONCEPTS:
+        if concept["slug"] == slug_value:
+            return concept
+    raise KeyError(slug_value)
+
+
+def bullet_list(items: list[str]) -> str:
+    return "<ul>" + "".join(f"<li>{inline_markdown(item)}</li>" for item in items) + "</ul>"
+
+
+def field_guide_index_page() -> str:
+    cards = "".join(
+        f"""
+          <article class="field-guide-card">
+            <span class="claim-badge">Dossier</span>
+            <h3>{esc(concept['title'])}</h3>
+            <p>{esc(concept['answer'])}</p>
+            <div class="action-row"><a class="button" href="{concept_url(concept['slug'])}">Open dossier</a></div>
+          </article>
+        """
+        for concept in FIELD_GUIDE_CONCEPTS
+    )
+    body = f"""
+    <section class="doc-hero field-guide-hero">
+      <div class="shell">
+        {page_header_logo()}
+        <p class="eyebrow">Field Guide</p>
+        <h1>Technical dossiers for auditable compute.</h1>
+        <p class="lede">Short, source-linked explanations of the terms that matter when reading ShardLoom evidence: execution modes, no-fallback policy, Vortex-native paths, materialization boundaries, benchmark telemetry, and claim gates.</p>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell">
+        <div class="field-guide-grid">{cards}</div>
+      </div>
+    </section>
+    """
+    return page(
+        "ShardLoom Field Guide",
+        "Technical dossiers for interpreting ShardLoom evidence.",
+        body,
+        "field-guide",
+        "field-guide/",
+    )
+
+
+def field_guide_concept_page(
+    concept: dict[str, Any],
+    previous_concept: dict[str, Any] | None,
+    next_concept: dict[str, Any] | None,
+) -> str:
+    related = "".join(
+        f'<a class="claim-badge" href="{concept_url(slug_value)}">{esc(concept_by_slug(slug_value)["title"])}</a>'
+        for slug_value in concept["related"]
+    )
+    prev_link = (
+        f'<a class="button" href="{concept_url(previous_concept["slug"])}">Previous: {esc(previous_concept["title"])}</a>'
+        if previous_concept
+        else ""
+    )
+    next_link = (
+        f'<a class="button primary" href="{concept_url(next_concept["slug"])}">Next: {esc(next_concept["title"])}</a>'
+        if next_concept
+        else ""
+    )
+    source_links = bullet_list([f"`{source}`" for source in concept["sources"]])
+    body = f"""
+    <section class="doc-hero field-guide-hero">
+      <div class="shell">
+        {page_header_logo()}
+        <p class="eyebrow">Field Guide dossier</p>
+        <h1>{esc(concept['title'])}</h1>
+        <p class="lede">{esc(concept['answer'])}</p>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell dossier-layout">
+        <aside class="dossier-sidebar">
+          <h2>In this dossier</h2>
+          <a href="#why">Why it matters</a>
+          <a href="#how">How ShardLoom uses it</a>
+          <a href="#proof">What it proves</a>
+          <a href="#boundary">Claim boundary</a>
+          <a href="#sources">Source docs</a>
+        </aside>
+        <article class="dossier-body">
+          <section id="why">
+            <p class="eyebrow">Why it matters</p>
+            <p>{esc(concept['why'])}</p>
+          </section>
+          <section id="how">
+            <p class="eyebrow">How ShardLoom uses it</p>
+            <p>{esc(concept['how'])}</p>
+          </section>
+          <section id="proof">
+            <p class="eyebrow">What it proves</p>
+            <p>{esc(concept['proves'])}</p>
+            <h3>What it does not prove</h3>
+            <p>{esc(concept['not_proves'])}</p>
+            <h3>Evidence fields</h3>
+            {bullet_list([f"`{field}`" for field in concept['evidence']])}
+          </section>
+          <section id="boundary">
+            <p class="eyebrow">Claim boundary</p>
+            <p>{esc(concept['boundary'])}</p>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Source docs</p>
+            {source_links}
+          </section>
+          <section class="related-concepts">
+            <p class="eyebrow">Related concepts</p>
+            <div>{related}</div>
+          </section>
+          <nav class="dossier-nav" aria-label="Dossier navigation">
+            <a class="button" href="/field-guide/">Field Guide index</a>
+            {prev_link}
+            {next_link}
+          </nav>
+        </article>
+      </div>
+    </section>
+    """
+    return page(
+        f"{concept['title']} - ShardLoom Field Guide",
+        concept["answer"],
+        body,
+        "field-guide",
+        f"field-guide/{concept['slug']}.html",
+    )
+
+
+def write_field_guide_pages() -> None:
+    target_dir = WEBSITE / "field-guide"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "index.html").write_text(field_guide_index_page(), encoding="utf-8")
+    for index, concept in enumerate(FIELD_GUIDE_CONCEPTS):
+        previous_concept = FIELD_GUIDE_CONCEPTS[index - 1] if index > 0 else None
+        next_concept = (
+            FIELD_GUIDE_CONCEPTS[index + 1]
+            if index + 1 < len(FIELD_GUIDE_CONCEPTS)
+            else None
+        )
+        (target_dir / f"{concept['slug']}.html").write_text(
+            field_guide_concept_page(concept, previous_concept, next_concept),
+            encoding="utf-8",
+        )
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -471,6 +809,8 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
             ):
                 provider_rows.append(
                     {
+                        "file": repo_relative_path(path),
+                        "generated_at_utc": artifact.get("generated_at_utc"),
                         "scenario": result.get("scenario_name"),
                         "status": provider_status,
                         "classification": evidence.get(
@@ -505,6 +845,8 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
             if evidence.get("source_backed_scan_evidence_status"):
                 source_rows.append(
                     {
+                        "file": repo_relative_path(path),
+                        "generated_at_utc": artifact.get("generated_at_utc"),
                         "scenario": result.get("scenario_name"),
                         "provider": evidence.get("source_backed_scan_provider_kind"),
                         "projected_columns": evidence.get(
@@ -624,6 +966,23 @@ def html_table(headers: list[str], rows: list[list[Any]]) -> str:
     return "\n".join(body)
 
 
+def details_block(summary: str, body: str, class_name: str = "raw-data-drawer") -> str:
+    return (
+        f'<details class="{esc(class_name)}">'
+        f"<summary>{esc(summary)}</summary>"
+        f"{body}</details>"
+    )
+
+
+def latest_generated_at(rows: list[dict[str, Any]]) -> str:
+    values = [str(row.get("generated_at_utc", "")) for row in rows if row.get("generated_at_utc")]
+    return max(values) if values else ""
+
+
+def latest_artifact_generated_at(summary: dict[str, Any]) -> str:
+    return latest_generated_at(summary.get("artifacts", []))
+
+
 def strip_html_fragment(fragment: str) -> str:
     text = html.unescape(fragment)
     width_match = re.search(r"width:\s*([0-9.]+%)", text)
@@ -673,6 +1032,24 @@ def extract_dashboard_table(source: str, heading: str) -> dict[str, Any]:
     }
 
 
+def relabel_dashboard_table(table: dict[str, Any]) -> dict[str, Any]:
+    header_replacements = {
+        "Fastest rows": "local fastest count",
+        "Relative bar": "local timing context",
+    }
+    heading_replacements = {
+        "Engine Timing Overview": "Local Timing Context",
+    }
+    return {
+        **table,
+        "heading": heading_replacements.get(table.get("heading"), table.get("heading")),
+        "headers": [
+            header_replacements.get(header, header)
+            for header in table.get("headers", [])
+        ],
+    }
+
+
 def comparative_dashboard_summary(path: Path) -> dict[str, Any]:
     source = path.read_text(encoding="utf-8")
     generated = ""
@@ -713,14 +1090,16 @@ def comparative_dashboard_summary(path: Path) -> dict[str, Any]:
         "source": dashboard_source_label(path),
         "generated": generated,
         "cards": cards,
-        "engine_timing_overview": extract_dashboard_table(source, "Engine Timing Overview"),
+        "engine_timing_overview": relabel_dashboard_table(
+            extract_dashboard_table(source, "Engine Timing Overview")
+        ),
         "vortex_oriented_lanes": extract_dashboard_table(
             source,
             "Vortex-Oriented Lanes By Source Format",
         ),
         "claim_gate_distribution": extract_dashboard_table(source, "Claim-Gate Distribution"),
         "missing_baselines": missing_baselines,
-        "claim_boundary": "comparative context only; not public performance, superiority, Spark replacement, or best-default evidence",
+        "claim_boundary": "comparative context only; not public performance, superiority, Spark-displacement, or best-default evidence",
     }
 
 
@@ -737,6 +1116,129 @@ def table_from_dashboard(table: dict[str, Any]) -> str:
     if not headers or not rows:
         return '<p class="empty-note">No local comparative dashboard table was available for this section.</p>'
     return html_table(headers, rows)
+
+
+def dashboard_table_value(table: dict[str, Any], row_label: str, column: str) -> str:
+    headers = table.get("headers") or []
+    rows = table.get("rows") or []
+    if column not in headers:
+        return "n/a"
+    column_index = headers.index(column)
+    for row in rows:
+        if row and row[0] == row_label and len(row) > column_index:
+            return str(row[column_index])
+    return "n/a"
+
+
+def batch_row_value(rows: list[dict[str, Any]], mode: str, key: str) -> str:
+    for row in rows:
+        if row.get("requested_execution_mode") == mode:
+            value = row.get(key)
+            return "n/a" if value in (None, "") else str(value)
+    return "n/a"
+
+
+def compact_source_list(rows: list[dict[str, Any]]) -> str:
+    files = sorted({str(row.get("file", "")) for row in rows if row.get("file")})
+    if not files:
+        return "target/shardloom-benchmark-evidence"
+    if len(files) == 1:
+        return files[0]
+    return f"{files[0]} and {len(files) - 1} related artifact(s)"
+
+
+def freshness_note(label: str, source: str, generated: str = "") -> str:
+    generated_text = f" - {esc(generated)}" if generated else ""
+    return (
+        '<p class="freshness-label">'
+        f"<strong>{esc(label)}</strong> Source: <code>{esc(source)}</code>{generated_text}"
+        "</p>"
+    )
+
+
+def mode_comparison_visual(
+    comparative: dict[str, Any] | None, batch_rows: list[dict[str, Any]]
+) -> str:
+    timing_table = (comparative or {}).get("engine_timing_overview", {})
+    cards = [
+        (
+            "compatibility_import_certified geomean",
+            dashboard_table_value(timing_table, "shardloom", "Geomean"),
+            "certification lane with import, write/reopen, scan, sink, and evidence work",
+        ),
+        (
+            "shardloom-vortex geomean",
+            dashboard_table_value(timing_table, "shardloom-vortex", "Geomean"),
+            "Vortex-oriented local lane from the comparative dashboard snapshot",
+        ),
+        (
+            "shardloom-prepared-vortex geomean",
+            dashboard_table_value(timing_table, "shardloom-prepared-vortex", "Geomean"),
+            "prepared-artifact lane and current runtime-development direction",
+        ),
+        (
+            "prepared_vortex batch smoke total/compute",
+            f"{batch_row_value(batch_rows, 'prepared_vortex', 'total_scenario_compute_millis')} ms",
+            "single-process batch runner structural smoke evidence",
+        ),
+        (
+            "native_vortex batch smoke total/compute",
+            f"{batch_row_value(batch_rows, 'native_vortex', 'total_scenario_compute_millis')} ms",
+            "native Vortex batch runner structural smoke evidence",
+        ),
+    ]
+    return (
+        '<div class="mode-comparison-grid">'
+        + "".join(
+            '<article class="mode-comparison-card">'
+            f"<span>{esc(label)}</span>"
+            f"<strong>{esc(value)}</strong>"
+            f"<p>{esc(detail)}</p>"
+            "</article>"
+            for label, value, detail in cards
+        )
+        + "</div>"
+    )
+
+
+def representative_timing_decomposition(rows: list[dict[str, Any]]) -> str:
+    selected: list[dict[str, Any]] = []
+    for mode in ("compatibility_import_certified", "prepared_vortex"):
+        for row in rows:
+            if row.get("selected_execution_mode") == mode:
+                selected.append(row)
+                break
+    if not selected:
+        return '<p class="empty-note">No representative timing rows were available.</p>'
+    return html_table(
+        [
+            "Representative row",
+            "Mode",
+            "Compat parse ms",
+            "Vortex import ms",
+            "Vortex write ms",
+            "Vortex scan ms",
+            "Operator ms",
+            "Result sink ms",
+            "Evidence/render ms",
+            "Total ms",
+        ],
+        [
+            [
+                row.get("scenario"),
+                row.get("selected_execution_mode"),
+                value_at(row, "compatibility_parse_millis"),
+                value_at(row, "compatibility_to_vortex_import_millis"),
+                value_at(row, "vortex_write_millis"),
+                value_at(row, "vortex_scan_millis"),
+                value_at(row, "operator_compute_millis"),
+                value_at(row, "result_sink_write_millis"),
+                value_at(row, "evidence_render_millis"),
+                value_at(row, "total_runtime_millis"),
+            ]
+            for row in selected
+        ],
+    )
 
 
 def benchmark_page(summary: dict[str, Any]) -> str:
@@ -897,6 +1399,128 @@ def benchmark_page(summary: dict[str, Any]) -> str:
             for row in summary["materialization_rows"]
         ],
     )
+    latest_artifact_at = latest_artifact_generated_at(summary)
+    encoded_generated_at = (
+        latest_generated_at(summary["encoded_predicate_provider_rows"])
+        or latest_artifact_at
+    )
+    source_generated_at = (
+        latest_generated_at(summary["source_backed_scan_rows"]) or latest_artifact_at
+    )
+    encoded_source = compact_source_list(summary["encoded_predicate_provider_rows"])
+    source_scan_source = compact_source_list(summary["source_backed_scan_rows"])
+    batch_source = (
+        "target/shardloom-benchmark-evidence/prepared_vortex_batch.json and "
+        "native_vortex_batch.json"
+    )
+    encoded_summaries = sorted(
+        {
+            str(row.get("encoding_summary"))
+            for row in summary["encoded_predicate_provider_rows"]
+            if row.get("encoding_summary")
+        }
+    )
+    encoded_summary_text = ", ".join(encoded_summaries) if encoded_summaries else "not recorded"
+    freshness_panel = (
+        '<div class="freshness-grid">'
+        + (
+            freshness_note(
+                "Comparative dashboard",
+                summary.get("comparative_dashboard", {}).get("source", "not imported"),
+                summary.get("comparative_dashboard", {}).get("generated", ""),
+            )
+            if summary.get("comparative_dashboard")
+            else freshness_note("Comparative dashboard", "not imported")
+        )
+        + freshness_note(
+            "Prepared/native batch smoke",
+            batch_source,
+            "batch runner PR #634; source files do not carry generated_at_utc",
+        )
+        + freshness_note("Encoded predicate evidence", encoded_source, encoded_generated_at)
+        + freshness_note("Source-backed scan evidence", source_scan_source, source_generated_at)
+        + "</div>"
+    )
+    user_layer_table = html_table(
+        [
+            "Scenario family",
+            "ShardLoom user path",
+            "Lightweight engine path",
+            "What ShardLoom simplifies",
+            "Current status",
+        ],
+        [
+            [
+                "compatibility import to Vortex evidence",
+                "Run the compatibility lane and receive import, Vortex write/reopen, scan, sink, evidence, and claim-gate fields together.",
+                "Use direct local execution, then assemble any preparation, write, certification, and evidence records separately.",
+                "One reported workflow for staging compatibility input into a Vortex evidence path.",
+                "certification lane; not pure query speed",
+            ],
+            [
+                "prepared/native Vortex query",
+                "Point at prepared Vortex artifacts and read execution mode, Native I/O, source-backed scan, and no-fallback evidence.",
+                "Run direct local queries against the engine's supported input path and track external evidence separately.",
+                "Keeps the Vortex artifact, execution mode, and claim boundary visible in the same row.",
+                "runtime-development lane",
+            ],
+            [
+                "dirty CSV cleanup/write",
+                "Use the dirty CSV scenario to exercise clean-cast handling, sink output, and evidence fields.",
+                "Load, clean, cast, write, and document evidence as separate user steps.",
+                "Combines cleanup workflow evidence with result-sink and no-fallback reporting.",
+                "fixture-smoke evidence",
+            ],
+            [
+                "nested JSON field scan",
+                "Run the nested JSON path with explicit field-scan, materialization, and claim-gate reporting.",
+                "Use the engine's JSON support and maintain field/proof context outside the result.",
+                "Keeps nested-field access and evidence posture in the same output surface.",
+                "fixture-smoke evidence",
+            ],
+            [
+                "CDC overlay",
+                "Run overlay smoke with Vortex-oriented evidence and explicit support boundaries.",
+                "Build the overlay workflow and evidence reporting around the direct execution engine.",
+                "Surfaces overlay posture without implying production CDC semantics.",
+                "fixture-smoke/report-only boundary",
+            ],
+            [
+                "result-sink replay",
+                "Read sink/write evidence alongside the run row and claim gate.",
+                "Persist results and assemble replay/certification context separately.",
+                "Makes result-sink proof part of the reported compute workflow.",
+                "scoped local evidence",
+            ],
+            [
+                "unsupported path diagnostics",
+                "Receive deterministic unsupported, blocked, or report-only status without fallback execution.",
+                "Handle unsupported engine behavior or missing features through engine-specific errors and external policy.",
+                "Turns unsupported states into explicit no-fallback diagnostics.",
+                "core policy behavior",
+            ],
+            [
+                "object-store/lakehouse/Foundry boundary",
+                "Expose public status and claim boundaries without production runtime claims.",
+                "Use separate production platform integrations where supported by that engine or system.",
+                "Prevents website readers from mistaking roadmap or compatibility posture for supported platform runtime.",
+                "not production-claimed",
+            ],
+        ],
+    )
+    scorecard_html = """
+        <div class="scorecard-grid">
+          <article><strong>Pure local speed</strong><span>early / not claimed</span></article>
+          <article><strong>Coverage breadth</strong><span>improving</span></article>
+          <article><strong>User-layer simplicity</strong><span>core design goal</span></article>
+          <article><strong>Evidence/certification</strong><span>current differentiator</span></article>
+          <article><strong>Optimization maturity</strong><span>beta</span></article>
+        </div>
+    """
+    mode_visual = mode_comparison_visual(
+        summary.get("comparative_dashboard"), summary["batch_rows"]
+    )
+    timing_decomposition = representative_timing_decomposition(rows)
     metadata = summary["table_metadata_smoke"]
     artifact_list = "\n".join(
         f"<li><code>{esc(row['file'])}</code> - profile <code>{esc(row['dataset_profile'])}</code>, {esc(row['rows'])} rows</li>"
@@ -915,7 +1539,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
           <div>
             <p class="eyebrow">Comparative context</p>
             <h2>Local Comparative Dashboard</h2>
-            <p class="section-lede">This imports the richer local dashboard snapshot as context only. It helps explain what ran, which baselines were unavailable, and where ShardLoom's compatibility/prepared/native rows sit, but it is not a public performance, superiority, Spark replacement, or best-default claim.</p>
+            <p class="section-lede">This imports the richer local dashboard snapshot as context only. It helps explain what ran, which baselines were unavailable, and where ShardLoom's compatibility/prepared/native rows sit, but it is not a public performance, superiority, Spark-displacement, or best-default claim.</p>
           </div>
           <p class="source-note">Source: <code>{esc(comparative.get('source'))}</code><br>{esc(comparative.get('generated'))}</p>
         </div>
@@ -929,20 +1553,42 @@ def benchmark_page(summary: dict[str, Any]) -> str:
           <strong>Read this as attribution, not ranking.</strong>
           <span>Compatibility rows include ingest, stage, write/reopen, scan, result, and evidence work. External engines are baseline rows only and cannot satisfy ShardLoom-native evidence gates.</span>
         </div>
+        <div class="comparison-guidance">
+          <article>
+            <h3>What to compare</h3>
+            <ul>
+              <li><code>compatibility_import_certified</code> vs <code>prepared_vortex</code></li>
+              <li><code>prepared_vortex</code> vs <code>native_vortex</code> batch smoke</li>
+              <li>source-backed scan fields vs materialized compatibility path fields</li>
+            </ul>
+          </article>
+          <article>
+            <h3>What not to compare as a public ranking</h3>
+            <ul>
+              <li>ShardLoom vs Polars, DuckDB, DataFusion, or Spark</li>
+              <li>compatibility import totals vs pure direct-file query time</li>
+              <li>fixture-smoke evidence vs production platform runtime claims</li>
+            </ul>
+          </article>
+        </div>
       </div>
     </section>
-    <section>
+    <section id="local-timing-context">
       <div class="shell">
-        <h2>Engine Timing Overview</h2>
-        <p class="section-lede">The local dashboard table is preserved with claim-safe language. Columns named fastest or relative are local snapshot descriptors, not superiority claims.</p>
-        {table_from_dashboard(comparative.get('engine_timing_overview', {}))}
+        <h2>Local Timing Context</h2>
+        <p class="section-lede">The mode view keeps compatibility certification, Vortex-oriented, prepared Vortex, and batch smoke lanes separated. These numbers are local context for attribution before optimization, not a leaderboard.</p>
+        {mode_visual}
+        <h3>Representative timing decomposition</h3>
+        <p class="section-lede">The decomposition highlights why compatibility import totals should not be read as pure query speed: parse/import, Vortex write, scan, operator, sink, and evidence work are separate fields.</p>
+        {timing_decomposition}
+        {details_block('Raw local timing context table', table_from_dashboard(comparative.get('engine_timing_overview', {})))}
       </div>
     </section>
     <section>
       <div class="shell">
         <h2>Vortex-Oriented Lanes By Source Format</h2>
         <p class="section-lede">This view makes the prepared and Vortex-oriented lanes easier to compare across source formats while keeping the compatibility/import boundary separate.</p>
-        {table_from_dashboard(comparative.get('vortex_oriented_lanes', {}))}
+        {details_block('Raw Vortex-oriented lanes table', table_from_dashboard(comparative.get('vortex_oriented_lanes', {})))}
       </div>
     </section>
     <section>
@@ -950,7 +1596,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         <div>
           <h2>Claim-Gate Distribution</h2>
           <p class="section-lede">The distribution is useful because most rows remain blocked, fixture-only, external-baseline-only, or otherwise not claim-grade. That is expected for the current pre-release posture.</p>
-          {table_from_dashboard(comparative.get('claim_gate_distribution', {}))}
+          {details_block('Raw claim-gate distribution table', table_from_dashboard(comparative.get('claim_gate_distribution', {})))}
         </div>
         <aside class="side-panel">
           <h3>Missing baselines</h3>
@@ -973,9 +1619,10 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     body = f"""
     <section class="doc-hero benchmark-hero">
       <div class="shell">
+        {page_header_logo()}
         <p class="eyebrow">Local evidence snapshot</p>
-        <h1>Benchmark Evidence</h1>
-        <p class="lede">Current prepared/native benchmark smoke evidence for ShardLoom. These rows are raw local measurements and evidence fields, not performance, superiority, Spark replacement, production SQL/DataFrame, object-store, lakehouse, or Foundry claims.</p>
+        <h1>Benchmark Evidence, Not A Leaderboard</h1>
+        <p class="lede">Current prepared/native benchmark smoke evidence for ShardLoom. These rows are raw local measurements and evidence fields, not performance, superiority, Spark-displacement, production SQL/DataFrame, object-store, lakehouse, or Foundry claims.</p>
         <div class="metric-grid">
           <div class="metric"><strong>{len(rows)}</strong><span>ShardLoom timing rows</span></div>
           <div class="metric"><strong>{len(summary['source_backed_scan_rows'])}</strong><span>source-backed scan rows</span></div>
@@ -986,6 +1633,10 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     </section>
     <nav class="page-subnav" aria-label="Benchmark evidence sections">
       <div class="shell">
+        <a href="#takeaways">Key takeaways</a>
+        <a href="#why-raw-speed">Raw speed axis</a>
+        <a href="#user-layer">User layer</a>
+        <a href="#optimization">Optimization</a>
         <a href="#claim-boundary">Claim boundary</a>
         <a href="#comparative-context">Comparative context</a>
         <a href="#timing">Execution timing</a>
@@ -995,13 +1646,115 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         <a href="#materialization">Materialization</a>
       </div>
     </nav>
+    <section id="takeaways" class="takeaway-section">
+      <div class="shell">
+        <p class="eyebrow">Key takeaways</p>
+        <h2>What These Results Actually Show</h2>
+        <div class="takeaway-grid">
+          <article class="telemetry-card">
+            <h3>Not a speed leaderboard</h3>
+            <p>This benchmark is an attribution baseline before optimization. It records workflow, evidence, and claim gates alongside local timing.</p>
+          </article>
+          <article class="telemetry-card">
+            <h3>ShardLoom is carrying more workflow surface</h3>
+            <p>Compatibility rows include mode attribution, Vortex preparation, sink proof, materialization/decode boundaries, no-fallback fields, and claim gates.</p>
+          </article>
+          <article class="telemetry-card">
+            <h3>Prepared/native is the real runtime direction</h3>
+            <p>The prepared/native path is the main optimization direction; compatibility import is the certification lane, not pure query speed.</p>
+          </article>
+          <article class="telemetry-card">
+            <h3>Lightweight engines are excellent but narrower at the workflow layer</h3>
+            <p>Lightweight engines are excellent on direct local execution paths. ShardLoom is targeting a broader user workflow and evidence layer.</p>
+          </article>
+          <article class="telemetry-card">
+            <h3>This is pre-optimization baseline evidence</h3>
+            <p>Pure speed remains early and not claimed. The page shows what is measured before fused encoded/native operator work matures.</p>
+          </article>
+        </div>
+        <div class="telemetry-signal-grid" aria-label="Benchmark claim and policy signals">
+          <article class="signal-card telemetry-card">
+            <span class="claim-badge supported">local smoke evidence</span>
+            <h3>Local workflow coverage</h3>
+            <p>Rows cover compatibility import, prepared Vortex, source-backed scan, materialization, result-sink, and batch smoke evidence.</p>
+          </article>
+          <article class="signal-card telemetry-card">
+            <span class="claim-badge blocked">performance claim not allowed</span>
+            <h3>Claim gate stays closed</h3>
+            <p>Timing is shown for attribution and engineering direction only. It is not a public speed, superiority, or best-default claim.</p>
+          </article>
+          <article class="signal-card telemetry-card">
+            <span class="claim-badge supported"><code>fallback_attempted=false</code></span>
+            <h3>No fallback evidence</h3>
+            <p>ShardLoom rows preserve explicit no-fallback fields instead of silently delegating unsupported work.</p>
+          </article>
+          <article class="signal-card telemetry-card">
+            <span class="claim-badge blocked">external-baseline-only</span>
+            <h3>External engines are context</h3>
+            <p>Baseline rows explain the local environment. They do not satisfy ShardLoom-native evidence gates.</p>
+          </article>
+          <article class="signal-card telemetry-card">
+            <span class="claim-badge supported">prepared/native batch smoke</span>
+            <h3>Batch runner structural signal</h3>
+            <p>The single-process prepared/native runner is visible as smoke evidence, not a hidden fast mode.</p>
+          </article>
+        </div>
+        {freshness_panel}
+      </div>
+    </section>
+    <section id="why-raw-speed">
+      <div class="shell split">
+        <div>
+          <p class="eyebrow">Interpretation</p>
+          <h2>Why Raw Speed Is Not The Only Axis</h2>
+          <p class="section-lede">Local direct-file speed matters, and it is useful context. ShardLoom also measures the workflow surface that makes a run auditable: execution mode attribution, Vortex preparation, result-sink proof, materialization/decode boundaries, source/sink evidence, no-fallback fields, and claim gates.</p>
+          <p class="section-lede">External engines are baseline context only. They do not satisfy ShardLoom-native evidence, no-fallback, or Vortex-native claim gates.</p>
+        </div>
+        <aside class="side-panel evidence-chain">
+          <h3>Evidence axis</h3>
+          <ol>
+            <li>mode attribution</li>
+            <li>Vortex preparation</li>
+            <li>source/sink proof</li>
+            <li>materialization/decode boundary</li>
+            <li>fallback and external-engine fields</li>
+            <li>claim gate</li>
+          </ol>
+        </aside>
+      </div>
+    </section>
+    <section id="user-layer" class="comparison-section">
+      <div class="shell">
+        <p class="eyebrow">Developer and agent surface</p>
+        <h2>User-Layer Simplicity</h2>
+        <p class="section-lede">ShardLoom is targeting a broader user workflow and evidence layer. The current evidence is not that ShardLoom is quicker; it is that more of the preparation, execution, sink, diagnostic, and claim-boundary workflow is surfaced in one place.</p>
+        {user_layer_table}
+      </div>
+    </section>
+    <section id="optimization">
+      <div class="shell split">
+        <div>
+          <p class="eyebrow">Maturity posture</p>
+          <h2>Optimization Maturity</h2>
+          <p class="section-lede">Current state is beta/pre-optimization. Compatibility import is still expensive, prepared/native is improving, and the single-process batch runner is a structural unlock for the next runtime work.</p>
+          <ul class="check-list">
+            <li>encoded/native/fused operator work remains future optimization.</li>
+            <li>prepared/native Vortex is the main optimization direction.</li>
+            <li>no performance or superiority claim is made from these rows.</li>
+          </ul>
+        </div>
+        <aside>
+          {scorecard_html}
+        </aside>
+      </div>
+    </section>
     <section id="claim-boundary">
       <div class="shell">
         <h2>Claim Boundary</h2>
         <div class="boundary-grid">
           <article><strong>Allowed interpretation</strong><span>{esc(summary['claim_boundary']['scope'])}</span></article>
           <article><strong>Performance claim</strong><span>not allowed</span></article>
-          <article><strong>Spark replacement claim</strong><span>not allowed</span></article>
+          <article><strong>Spark-displacement claim</strong><span>not allowed</span></article>
           <article><strong>Production platform claim</strong><span>not allowed</span></article>
         </div>
       </div>
@@ -1023,7 +1776,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
       <div class="shell">
         <h2>Execution Mode Timing</h2>
         <p class="section-lede">Compatibility import rows, prepared Vortex rows, and native Vortex batch rows are separated. Compatibility rows include ingest/stage/certification work; prepared/native rows start from prepared Vortex artifacts.</p>
-        {mode_table}
+        {details_block('Raw execution mode timing table', mode_table)}
       </div>
     </section>
     <section id="batch">
@@ -1037,21 +1790,25 @@ def benchmark_page(summary: dict[str, Any]) -> str:
       <div class="shell">
         <h2>Encoded Predicate Provider Evidence</h2>
         <p class="section-lede">Applicable to the selective-filter prepared/native row. The row records admitted filter-column batches and selected-metric selection-vector consumption, but still blocks encoded-native and performance claims.</p>
-        {provider_table}
+        <div class="notice-panel">
+          <strong>Encoded-predicate verification note.</strong>
+          <span>The current committed artifact reports <code>{esc(encoded_summary_text)}</code>. This is scoped provider evidence only, not an encoded-native claim. If a future artifact or source reports a different value-column encoding, update the generator and source evidence together.</span>
+        </div>
+        {details_block('Raw encoded predicate provider table', provider_table)}
       </div>
     </section>
     <section id="source-backed">
       <div class="shell">
         <h2>Source-Backed Scan Evidence</h2>
         <p class="section-lede">Prepared rows expose Vortex source-backed scan fields and no-fallback evidence instead of relabeling residual-native operators as encoded-native.</p>
-        {source_table}
+        {details_block('Raw source-backed scan table', source_table)}
       </div>
     </section>
     <section id="materialization">
       <div class="shell">
         <h2>Materialization, Decode, And No-Fallback</h2>
         <p class="section-lede">These fields make decode/materialization boundaries explicit for prepared rows.</p>
-        {materialization_table}
+        {details_block('Raw materialization and decode table', materialization_table)}
       </div>
     </section>
     <section>
@@ -1074,7 +1831,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         "ShardLoom Benchmark Evidence",
         "Claim-safe prepared/native local benchmark evidence for ShardLoom.",
         body,
-        "benchmarks",
+        "telemetry",
     )
 
 
@@ -1094,13 +1851,14 @@ def main() -> int:
     args = parser.parse_args()
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    write_field_guide_pages()
     (WEBSITE / "readme.html").write_text(
         doc_page(
             ROOT / "README.md",
             "Repository README",
             "Rendered current README from the ShardLoom repository.",
             "README.md",
-            "readme",
+            "docs",
         ),
         encoding="utf-8",
     )

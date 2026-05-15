@@ -17,31 +17,39 @@
   <meta property="og:url" content="https://shardloom.io/">
   <script src="/assets/compute-flow.js" defer></script>
 </head>
-<body>
-  <header class="site-header">
-    <div class="shell nav">
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
       <a class="brand" href="/" aria-label="ShardLoom home">
-        <img src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
-        <span>ShardLoom</span>
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
       </a>
       <nav class="nav-links" aria-label="Primary">
-        <a href="/benchmarks.html">Benchmarks</a>
+        <a class="active" aria-current="page" href="/">Home</a>
+        <a href="/field-guide/">Field Guide</a>
+        <a href="/benchmarks.html">Telemetry</a>
         <a href="/compute-engine-flow.html">Compute Flow</a>
-        <a href="/readme.html">README</a>
         <a href="#status">Status</a>
-        <a href="#boundaries">Boundaries</a>
+        <a href="/readme.html">Docs</a>
         <a href="https://github.com/depsilon/shardloom">GitHub</a>
       </nav>
     </div>
   </header>
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
 
   <main>
     <section class="home-hero" aria-labelledby="hero-title">
       <div class="shell hero-grid">
         <div class="hero-copy">
           <span class="status-pill">Pre-release</span>
-          <h1 id="hero-title">ShardLoom</h1>
-          <p class="lede">A Vortex-native, no-fallback local compute engine foundation that keeps runtime modes, materialization boundaries, and public claims tied to evidence.</p>
+          <h1 id="hero-title">Auditable compute over Vortex-native data.</h1>
+          <p class="lede">ShardLoom is a pre-release local compute engine foundation that refuses silent fallback. Each run is designed to show what ran, what materialized, what stayed native, and which claims the evidence actually supports.</p>
           <div class="action-row">
             <a class="button primary" href="/benchmarks.html">Benchmark evidence</a>
             <a class="button" href="/compute-engine-flow.html">Compute flow</a>
@@ -51,17 +59,47 @@
             <article class="status-chip"><strong>Vortex-native</strong><span>Vortex is the native data substrate and evidence target.</span></article>
             <article class="status-chip"><strong>No fallback</strong><span>Unsupported paths return diagnostics, not external engine delegation.</span></article>
             <article class="status-chip"><strong>Evidence-certified</strong><span>Local execution slices carry certificates, timing fields, and claim gates.</span></article>
-            <article class="status-chip"><strong>Claim-safe</strong><span>No Spark replacement, production platform, or performance claim.</span></article>
+            <article class="status-chip"><strong>Claim-safe</strong><span>No Apache Spark substitute, production platform, or performance claim.</span></article>
           </div>
         </div>
         <div class="hero-media" aria-label="ShardLoom logo">
           <img class="hero-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
-          <div class="hero-console" aria-label="Current evidence posture">
-            <div class="console-row"><code>mode</code><span>compatibility_import_certified, prepared_vortex, native_vortex, direct_compatibility_transient, auto</span></div>
-            <div class="console-row"><code>engine</code><span>batch foundation; live and hybrid fixture evidence only</span></div>
-            <div class="console-row"><code>policy</code><span>fallback_attempted=false, external_engine_invoked=false</span></div>
-            <div class="console-row"><code>claim</code><span>pre-release local evidence; no performance or production platform claim</span></div>
+          <div class="hero-console terminal-panel" aria-label="Current evidence posture">
+            <div class="console-row"><code>Mode</code><span>compatibility_import_certified, prepared_vortex, native_vortex, direct_compatibility_transient, auto</span></div>
+            <div class="console-row"><code>Policy</code><span>fallback_attempted=false, external_engine_invoked=false</span></div>
+            <div class="console-row"><code>Evidence</code><span>execution certificates, Native I/O, source-backed scan, materialization/decode, and timing fields</span></div>
+            <div class="console-row"><code>Claim</code><span>pre-release local evidence; no performance or production platform claim</span></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell split">
+        <div>
+          <p class="eyebrow">Why ShardLoom exists</p>
+          <h2>Make execution visible instead of magical.</h2>
+          <p class="section-lede">Many local engines are excellent at direct-file execution. ShardLoom is targeting the larger workflow around a run: admission, preparation, native Vortex paths, result-sink proof, no-fallback policy, and claim boundaries that a human or agent can inspect.</p>
+        </div>
+        <div class="comparison-guidance">
+          <article class="field-guide-card">
+            <h3>What this is</h3>
+            <ul>
+              <li>a Vortex-native local compute foundation</li>
+              <li>a no-fallback evidence surface</li>
+              <li>a pre-optimization runtime-development lane</li>
+              <li>a public status board for supported, blocked, and report-only paths</li>
+            </ul>
+          </article>
+          <article class="field-guide-card">
+            <h3>What this is not</h3>
+            <ul>
+              <li>not a public speed leaderboard</li>
+              <li>not an Apache Spark substitute claim</li>
+              <li>not a production SQL/DataFrame platform claim</li>
+              <li>not a production object-store, lakehouse, or Foundry claim</li>
+            </ul>
+          </article>
         </div>
       </div>
     </section>
@@ -71,7 +109,7 @@
         <div>
           <p class="eyebrow">Current state</p>
           <h2>Local compute foundation, not a finished platform claim.</h2>
-          <p class="section-lede">ShardLoom’s public posture is intentionally narrow: explicit execution-mode reporting, prepared/native Vortex evidence, no-fallback enforcement, and deterministic unsupported diagnostics.</p>
+          <p class="section-lede">ShardLoom's public posture is intentionally narrow: explicit execution-mode reporting, prepared/native Vortex evidence, no-fallback enforcement, and deterministic unsupported diagnostics.</p>
           <div class="action-row">
             <a class="button primary" href="/benchmarks.html">Review benchmark page</a>
             <a class="button" href="/readme.html">Read repository README</a>
@@ -85,9 +123,9 @@
           </div>
         </div>
         <div class="proof-grid">
-          <article class="proof-card"><strong>Compatibility import</strong><span>Certification lane that includes ingest, stage, write/reopen, scan, result, and evidence work.</span></article>
-          <article class="proof-card"><strong>Prepared Vortex</strong><span>Preferred path for query-runtime evidence from already prepared Vortex artifacts.</span></article>
-          <article class="proof-card"><strong>Native Vortex</strong><span>Scoped native-artifact lane with visible admission, Native I/O, and no-fallback fields.</span></article>
+          <article class="proof-card signal-card"><strong>Compatibility import</strong><span>Certification lane that includes ingest, stage, write/reopen, scan, result, and evidence work.</span></article>
+          <article class="proof-card signal-card"><strong>Prepared Vortex</strong><span>Preferred path for query-runtime evidence from already prepared Vortex artifacts.</span></article>
+          <article class="proof-card signal-card"><strong>Native Vortex</strong><span>Scoped native-artifact lane with visible admission, Native I/O, and no-fallback fields.</span></article>
         </div>
       </div>
     </section>
@@ -180,18 +218,19 @@
       </div>
     </section>
 
-    <section>
+    <section id="field-guide">
       <div class="shell">
         <p class="eyebrow">Evidence surfaces</p>
-        <h2>Static pages for the current repository state.</h2>
-        <p class="section-lede">The site publishes generated, committed pages rather than relying on a Cloudflare build step.</p>
+        <h2>Field Guide starting points for the current repository state.</h2>
+        <p class="section-lede">The site publishes generated, committed pages rather than relying on a Cloudflare build step. The Field Guide now provides short technical dossiers for the main evidence and claim-boundary terms.</p>
         <div class="evidence-path" aria-label="Evidence path">
           <article class="evidence-step"><strong>Request</strong><span>typed workload, source, policy, output intent</span></article>
-          <article class="evidence-step"><strong>Admission</strong><span>capability, semantic, mode, and engine checks</span></article>
-          <article class="evidence-step"><strong>Execution</strong><span>Vortex provider or ShardLoom-native kernel</span></article>
-          <article class="evidence-step"><strong>Boundary</strong><span>materialization, decode, source, and sink evidence</span></article>
-          <article class="evidence-step"><strong>Certificate</strong><span>Native I/O, execution, correctness, and policy refs</span></article>
-          <article class="evidence-step"><strong>Claim gate</strong><span>claim_grade, fixture_smoke_only, or not_claim_grade</span></article>
+          <article class="evidence-step"><strong>Mode</strong><span>compatibility, prepared Vortex, native Vortex, or explicit unsupported path</span></article>
+          <article class="evidence-step"><strong>Source/preparation</strong><span>compatibility import, prepared artifact, native source, or blocked adapter</span></article>
+          <article class="evidence-step"><strong>Provider</strong><span>Vortex provider, ShardLoom-native kernel, residual-native path, or diagnostic</span></article>
+          <article class="evidence-step"><strong>Result</strong><span>result ref, sink artifact, replay path, or unsupported status</span></article>
+          <article class="evidence-step"><strong>Evidence</strong><span>Native I/O, execution, materialization/decode, source/sink, and policy refs</span></article>
+          <article class="evidence-step"><strong>Claim gate</strong><span>claim_grade, fixture_smoke_only, report_only, blocked, or not_claim_grade</span></article>
         </div>
         <div class="card-grid">
           <article class="card">
@@ -209,6 +248,11 @@
             <p>The repository README rendered as a static website page for quick project orientation.</p>
             <div class="action-row"><a class="button" href="/readme.html">Open</a></div>
           </article>
+          <article class="card field-guide-card">
+            <h3>Field Guide</h3>
+            <p>Technical dossiers for no-fallback, execution modes, prepared/native Vortex, claim gates, and benchmark telemetry.</p>
+            <div class="action-row"><a class="button" href="/field-guide/">Open</a></div>
+          </article>
         </div>
       </div>
     </section>
@@ -219,7 +263,7 @@
         <h2>What the website does not claim.</h2>
         <p class="section-lede">These boundaries keep the public site aligned with the repository evidence.</p>
         <div class="boundary-grid">
-          <article><strong>No Spark replacement claim</strong><span>External engines appear only as baselines or references, never fallback execution.</span></article>
+          <article><strong>No Apache Spark substitute claim</strong><span>External engines appear only as baselines or references, never fallback execution.</span></article>
           <article><strong>No production SQL/DataFrame claim</strong><span>Language and adapter surfaces remain gated unless implementation and evidence support them.</span></article>
           <article><strong>No production object-store/lakehouse/Foundry claim</strong><span>Those surfaces remain blocked, report-only, or planned until future proof exists.</span></article>
           <article><strong>No performance or superiority claim</strong><span>Smoke measurements and local comparisons are attribution evidence, not public ranking proof.</span></article>
@@ -239,8 +283,17 @@
     </section>
   </main>
 
-  <footer>
-    <div class="shell">Apache-2.0 project code. ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</div>
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
   </footer>
 </body>
 </html>

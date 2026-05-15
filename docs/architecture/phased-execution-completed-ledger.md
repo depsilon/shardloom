@@ -16,6 +16,205 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P8.7E retro-future field-guide page system
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/field-guide/index.html`
+    - `website/field-guide/*.html`
+    - `website/assets/site.css`
+    - `website/index.html`
+    - `website/404.html`
+    - `website/README.md`
+    - `website/_redirects`
+    - `website/sitemap.xml`
+    - `website/validate_static_assets.js`
+  - Scope: add a generated static Field Guide with source-linked technical dossiers for the
+    concepts readers need when interpreting ShardLoom evidence.
+  - Checklist:
+    - [x] Add a Field Guide concept registry in `website/build_static_pages.py`.
+    - [x] Generate a Field Guide index and concept pages under `website/field-guide/`.
+    - [x] Add dossiers for no fallback, execution modes, compatibility import, prepared Vortex,
+          native Vortex, Native I/O certificate, materialization boundary, claim gates, benchmark
+          telemetry, and unsupported diagnostics.
+    - [x] Include one-sentence answers, why it matters, how ShardLoom uses it, what it proves, what
+          it does not prove, evidence fields, related concepts, source docs, and claim boundaries.
+    - [x] Switch Field Guide navigation from the temporary homepage anchor to `/field-guide/`.
+    - [x] Add sitemap and redirect entries for the new public page system.
+    - [x] Extend website validation to recursively check generated HTML files and directory index
+          links.
+  - Boundary:
+    - This slice creates educational static pages only. It does not change ShardLoom runtime
+      behavior, benchmark data, release state, package publication, external framework usage, or
+      execution support claims.
+  - Evidence:
+    - `website/field-guide/` contains committed generated pages with source docs and claim
+      boundaries.
+    - `website/validate_static_assets.js` now validates local links and anchors across generated
+      nested HTML pages.
+  - Validation:
+    - `python -m py_compile website/build_static_pages.py`
+    - `python website/build_static_pages.py --benchmark-dir target/shardloom-benchmark-evidence --comparative-dashboard C:\Users\djhei\Projects\spark-retire\docs\shardloom-current-benchmark-dashboard.html`
+    - `node --check website/validate_static_assets.js`
+    - `node website/validate_static_assets.js`
+    - forbidden-claim and forbidden-copying `rg` checks
+    - Edge headless desktop/mobile screenshots under `target/codex-website-p87e-field-guide/`
+    - `git diff --check`
+- [x] Session label: P8.7D homepage command-deck overhaul
+  - Primary files:
+    - `website/index.html`
+    - `website/assets/site.css`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: turn the homepage into a clearer ShardLoom Command Deck with a claim-safe hero,
+    command console, mission map, workflow explanation, and explicit "what this is / what this is
+    not" framing.
+  - Checklist:
+    - [x] Update the hero to `Auditable compute over Vortex-native data.`
+    - [x] Explain pre-release status, no fallback, what ran, what materialized, what stayed native,
+          and which claims are supported.
+    - [x] Add a Mode, Policy, Evidence, and Claim command console.
+    - [x] Add a "Why ShardLoom exists" section focused on visible execution and workflow evidence.
+    - [x] Add "What this is" and "What this is not" cards.
+    - [x] Expand the mission map to request -> mode -> source/preparation -> provider -> result
+          -> evidence -> claim gate.
+    - [x] Keep the public boundaries claim-safe and avoid speed, superiority, production platform,
+          Apache Spark substitute, package-publication, object-store/lakehouse, or Foundry claims.
+  - Boundary:
+    - This slice changes only static website homepage copy/layout and supporting CSS. It does not
+      change ShardLoom runtime behavior, benchmark results, package publication, release gates,
+      execution claims, or fallback policy.
+  - Evidence:
+    - `website/index.html` carries the command-deck hero, command console, and mission map.
+    - Edge headless mobile screenshot verifies the homepage starts with the narrative hero and wraps
+      without clipping after the wordmark header.
+  - Validation:
+    - `node website/validate_static_assets.js`
+    - forbidden-claim `rg` check
+    - Edge headless screenshots under `target/codex-website-p87d-homepage/`
+    - `git diff --check`
+- [x] Session label: P8.7F benchmark telemetry dashboard overhaul
+  - Primary files:
+    - `website/benchmarks.html`
+    - `website/build_static_pages.py`
+    - `website/assets/data/benchmark-evidence.json`
+    - `website/assets/site.css`
+    - `website/README.md`
+    - `README.md`
+  - Scope: reframe the generated benchmark page around workflow coverage, user-layer simplicity,
+    and pre-optimization evidence rather than raw speed or public ranking.
+  - Checklist:
+    - [x] Add `Benchmark Evidence, Not A Leaderboard` framing.
+    - [x] Add `What These Results Actually Show`, `Why Raw Speed Is Not The Only Axis`,
+          `User-Layer Simplicity`, and `Optimization Maturity` sections.
+    - [x] Add explicit telemetry signals for local smoke evidence, performance claim not allowed,
+          `fallback_attempted=false`, external-baseline-only context, and prepared/native batch
+          smoke.
+    - [x] Rename risky imported dashboard labels to `local fastest count`, `local timing context`,
+          and `Local Timing Context`.
+    - [x] Add representative timing decomposition for compatibility parse, Vortex import, Vortex
+          write, Vortex scan, operator compute, result sink, evidence/render, and total fields.
+    - [x] Move large raw timing/evidence tables into expandable raw-data drawers.
+    - [x] Add freshness/source labels and encoded-predicate verification notes from current
+          committed artifacts.
+  - Boundary:
+    - This slice changes generated static website interpretation and README wording only. It does
+      not recompute benchmarks, change runtime code, add dependencies, publish packages, or create
+      performance, superiority, Spark-displacement, production SQL/DataFrame,
+      object-store/lakehouse, Foundry, or package-publication claims.
+  - Evidence:
+    - `website/build_static_pages.py` imports existing local artifacts from
+      `target/shardloom-benchmark-evidence/` and the comparative dashboard snapshot without
+      executing benchmark workloads.
+    - The generated page preserves `claim_gate_status`, `fallback_attempted=false`,
+      `external_engine_invoked=false`, external-baseline-only framing, source-backed scan fields,
+      materialization/decode fields, and encoded predicate provider fields.
+  - Validation:
+    - `python -m py_compile website/build_static_pages.py`
+    - `python website/build_static_pages.py --benchmark-dir target/shardloom-benchmark-evidence --comparative-dashboard C:\Users\djhei\Projects\spark-retire\docs\shardloom-current-benchmark-dashboard.html`
+    - `node --check website/validate_static_assets.js`
+    - `node website/validate_static_assets.js`
+    - `python -m compileall -q website`
+    - forbidden-claim and risky-label `rg` checks
+    - Edge headless desktop/mobile screenshots under `target/codex-website-benchmark-interpretation/`
+    - `git diff --check`
+- [x] Session label: P8.7C cyberpunk/space design tokens and CSS component refactor
+  - Primary files:
+    - `website/assets/site.css`
+    - `website/index.html`
+    - `website/404.html`
+    - `website/build_static_pages.py`
+    - `website/benchmarks.html`
+    - `website/compute-engine-flow.html`
+    - `website/readme.html`
+  - Scope: add the P8.7 visual-system tokens and reusable website component classes while keeping
+    static pages readable and claim-safe.
+  - Checklist:
+    - [x] Define `--void`, `--deep-space`, `--starlight`, `--muted-starlight`,
+          `--plasma-cyan`, `--ion-teal`, `--nebula-violet`, `--warning-amber`,
+          `--danger-rose`, `--terminal-green`, and `--grid-line`.
+    - [x] Add or refine terminal panel, telemetry card, evidence chain, claim badge, raw data
+          drawer, field guide card, mode dossier, status ribbon, and command-shell styling.
+    - [x] Replace duplicative icon-plus-text header branding with the trimmed ShardLoom wordmark.
+    - [x] Add responsive wrapping and `prefers-reduced-motion` CSS guardrails.
+    - [x] Verify desktop/mobile benchmark screenshots for text fitting and navigation wrapping.
+  - Boundary:
+    - This slice changes static website CSS/HTML/generator shell only. It does not change
+      ShardLoom runtime behavior, benchmark results, package publication, release gates, execution
+      claims, or fallback policy.
+  - Evidence:
+    - CSS token definitions and component selectors are present in `website/assets/site.css`.
+    - Generated pages inherit the wordmark shell through `website/build_static_pages.py`.
+  - Validation:
+    - `python -m py_compile website/build_static_pages.py`
+    - `node --check website/validate_static_assets.js`
+    - `node website/validate_static_assets.js`
+    - `python -m compileall -q website`
+    - Edge headless desktop/mobile screenshots under `target/codex-website-benchmark-interpretation/`
+    - `git diff --check`
+- [x] Session label: P8.7B command-deck site shell and navigation overhaul
+  - Primary files:
+    - `website/index.html`
+    - `website/404.html`
+    - `website/build_static_pages.py`
+    - `website/assets/site.css`
+    - `website/validate_static_assets.js`
+    - `website/README.md`
+    - `website/_redirects`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: convert the website global shell to a command-deck navigation frame while preserving
+    the existing static URLs, Cloudflare Workers Static Assets deployment model, and claim-safe
+    public posture.
+  - Checklist:
+    - [x] Replace repo/document-oriented nav labels with Home, Field Guide, Telemetry, Compute
+          Flow, Status, Docs, and GitHub.
+    - [x] Route Field Guide and Status to existing homepage anchors until their dedicated P8.7E
+          and P8.7H pages land.
+    - [x] Add reusable shell classes for `command-shell`, `mission-nav`, `status-ribbon`,
+          `terminal-panel`, and `signal-card`.
+    - [x] Update the static page generator so generated README, compute-flow, and benchmark pages
+          inherit the same shell.
+    - [x] Add command-deck footer guidance with Apache-2.0 license, brand-asset, and claim-boundary
+          language.
+    - [x] Extend website validation to check local static links, local anchors, committed assets,
+          and no runtime GitHub raw fetches.
+  - Boundary:
+    - This slice changes only the static website shell, generator, validation, redirects, and phase
+      documentation. It does not change ShardLoom runtime behavior, regenerate benchmark evidence,
+      publish packages, add external JavaScript frameworks, add runtime GitHub fetches, or create
+      performance, Spark-replacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or
+      package-publication claims.
+  - Evidence:
+    - `node website/validate_static_assets.js` checks committed assets, local HTML links, local
+      anchors, and the absence of runtime `raw.githubusercontent.com` references.
+    - `website/README.md` records the public shell labels and temporary Field Guide/Status anchor
+      routing until later P8.7 slices promote them to dedicated pages.
+  - Validation:
+    - `python -m py_compile website/build_static_pages.py`
+    - `python website/build_static_pages.py --benchmark-dir target/shardloom-benchmark-evidence --comparative-dashboard C:\Users\djhei\Projects\spark-retire\docs\shardloom-current-benchmark-dashboard.html`
+    - `node --check website/validate_static_assets.js`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
 - [x] Session label: P8.7A retro-future ShardLoom brand direction and visual identity system
   - Primary files:
     - `docs/release/website-visual-identity-system.md`
