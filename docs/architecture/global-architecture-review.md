@@ -397,11 +397,13 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0020-schema-evolution-catalog-table-compatibility.md`](../rfcs/0020-schema-evolution-catalog-table-compatibility.md)
-- Current read: Typed reports and a report-only catalog/table metadata admission gate exist; real
-  table/catalog runtime integration is incomplete.
+- Current read: Typed reports, a report-only catalog/table metadata admission gate, and one scoped
+  local manifest-backed metadata smoke exist; broad table/catalog runtime integration is
+  incomplete.
 - Evidence: `shardloom-core/src/schema.rs`, `shardloom-core/src/table_intelligence.rs`,
   `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`,
-  `shardloom-cli/tests/cg9_catalog_metadata_gate.rs`
+  `shardloom-cli/tests/cg9_catalog_metadata_gate.rs`,
+  `shardloom-cli/tests/local_table_metadata_read_smoke.rs`
 - [x] Schema, partition, delete/tombstone, and aggregate table evidence reports exist.
 - [x] Current table-intelligence surfaces are no-IO and typed.
 - [x] GAR-0020-A: `CatalogMetadataIntegrationGateReport` exposes deterministic, report-only
@@ -410,10 +412,13 @@ plan before coding.
   metadata binding, and metadata cache invalidation with `support_status=unsupported`,
   `claim_gate_status=not_claim_grade`, `fallback_attempted=false`, and
   `external_engine_invoked=false`.
-- [ ] Local manifest-backed table metadata read smoke, broad catalog/table metadata integration,
-  real table data I/O, delete/tombstone execution, and CDC execution remain incomplete and are
-  mirrored into `docs/architecture/phased-execution-plan.md` as GAR-0020-B, GAR-0020-C, and related
-  commit/lakehouse slices.
+- [x] GAR-0020-C: `LocalTableMetadataReadSmokeReport` and
+  `local-table-metadata-read-smoke` expose one runtime-supported, in-memory local manifest-backed
+  table metadata summary with scoped evidence refs, deterministic blocked-path diagnostics,
+  `fallback_attempted=false`, and `external_engine_invoked=false`.
+- [ ] Broad catalog/table metadata integration, real table data I/O, delete/tombstone execution,
+  and CDC execution remain incomplete and are mirrored into
+  `docs/architecture/phased-execution-plan.md` as GAR-0020-B and related commit/lakehouse slices.
 
 ### RFC 0021 - Expression Engine and Kernel Registry
 
