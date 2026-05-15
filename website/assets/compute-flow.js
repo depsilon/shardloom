@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var SOURCE_URL = "https://raw.githubusercontent.com/depsilon/shardloom/main/docs/architecture/compute-engine-flow-reference.md";
+  var SOURCE_URL = "/assets/data/compute-engine-flow-reference.md";
 
   var fallbackFlow = {
     views: [
@@ -322,7 +322,7 @@
         return response.text();
       })
       .then(function (markdown) {
-        hydrate(root, parseFlow(markdown), "Loaded from canonical architecture reference");
+        hydrate(root, parseFlow(markdown), "Loaded from local architecture reference snapshot");
       })
       .catch(function () {
         hydrate(root, fallbackFlow, "Using static fallback");

@@ -29,10 +29,13 @@ The root `wrangler.toml` uses Workers Static Assets only. It does not define a W
 Worker runtime JavaScript, or secrets.
 
 The landing page includes a small first-party browser script at `assets/compute-flow.js`. It fetches
-`docs/architecture/compute-engine-flow-reference.md` from the `main` branch on GitHub, parses the
-flow tables and Mermaid node labels, and renders the current access, runtime, execution-lane,
-batch/live/hybrid, I/O/downstream, timing, and guardrail summaries. If the fetch fails, the page
-uses embedded claim-safe fallback copy.
+the committed local snapshot at `assets/data/compute-engine-flow-reference.md`, parses the flow
+tables and Mermaid node labels, and renders the current access, runtime, execution-lane,
+batch/live/hybrid, I/O/downstream, timing, and guardrail summaries. The canonical source remains
+`docs/architecture/compute-engine-flow-reference.md`; update the committed snapshot whenever that
+canonical document changes. The website does not fetch `raw.githubusercontent.com` or any other
+GitHub runtime source during page render. If the local static fetch fails, the page uses embedded
+claim-safe fallback copy.
 
 ## Generated Static Pages
 
@@ -93,6 +96,10 @@ Website copy must stay claim-safe:
 - `assets/compute-flow.js`: first-party parser for the canonical compute-engine flow reference.
 - `assets/site.css`: shared CSS for generated static pages.
 - `assets/data/benchmark-evidence.json`: generated benchmark evidence snapshot data.
+- `assets/data/compute-engine-flow-reference.md`: committed local snapshot parsed by the landing
+  page; canonical docs remain under `docs/architecture/`.
+- `validate_static_assets.js`: local validation for runtime asset references and the compute-flow
+  snapshot.
 - `build_static_pages.py`: local maintainer helper for regenerating the committed static pages.
 
 Do not add a second license file under this directory. Project code remains under the repository
