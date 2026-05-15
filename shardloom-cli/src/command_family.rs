@@ -323,6 +323,7 @@ fn is_workflow_planning_command(command: &str) -> bool {
             | "table-intelligence-plan"
             | "local-table-metadata-read-smoke"
             | "local-delete-tombstone-read-smoke"
+            | "local-append-only-cdc-overlay-smoke"
             | "incremental-plan"
             | "stateful-reuse-plan"
             | "cg17-stateful-reuse-gate"
@@ -502,6 +503,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("local-delete-tombstone-read-smoke"),
+            CommandFamily::WorkflowPlanning
+        );
+        assert_eq!(
+            classify_command("local-append-only-cdc-overlay-smoke"),
             CommandFamily::WorkflowPlanning
         );
         assert_eq!(

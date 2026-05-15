@@ -15,21 +15,22 @@ use shardloom_core::{
     DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, DiagnosticCategory,
     DiagnosticCode, EncodedSegment, EncodingKind, FieldId, FieldName, FieldPath, FileDescriptor,
     FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy, LayoutHealthReport, LayoutKind,
-    LocalDeleteTombstoneReadSmokeReport, LocalTableMetadataReadSmokeReport, LogicalDType,
-    ManifestId, ManifestSegment, Nullability, OutputFormat, OutputTarget,
-    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
-    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
-    SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind, SegmentId, SegmentLayout,
-    SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatefulReusePromotionGateReport,
-    StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
-    TableIntelligenceReport, TableMaintenanceExecutionMatrixReport,
-    TableMaintenanceExecutionMatrixRow, WriteIntent, evaluate_cdc_incremental_planning,
-    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    LocalAppendOnlyCdcOverlaySmokeReport, LocalDeleteTombstoneReadSmokeReport,
+    LocalTableMetadataReadSmokeReport, LogicalDType, ManifestId, ManifestSegment, Nullability,
+    OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField,
+    PartitionSpec, PartitionTransform, SchemaDefinition, SchemaEvolutionCompatibilityReport,
+    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind,
+    SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef,
+    StatefulReusePromotionGateReport, StatefulReuseReport, TableCompatibilityPlan,
+    TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
+    TableMaintenanceExecutionMatrixReport, TableMaintenanceExecutionMatrixRow, WriteIntent,
+    evaluate_cdc_incremental_planning, evaluate_compaction_planning,
+    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_catalog_metadata_integration_gate, plan_cdc_manifest_transaction_gate,
     plan_stateful_reuse, plan_stateful_reuse_promotion_gate,
-    plan_table_maintenance_execution_matrix, run_local_delete_tombstone_read_smoke,
-    run_local_table_metadata_read_smoke,
+    plan_table_maintenance_execution_matrix, run_local_append_only_cdc_overlay_smoke,
+    run_local_delete_tombstone_read_smoke, run_local_table_metadata_read_smoke,
 };
 use shardloom_plan::{
     ImportedPlanCapabilityGateReport, NativePlanDocument, NativePlanNode, NativePlanNodeKind,
@@ -537,6 +538,50 @@ pub(crate) fn handle_local_delete_tombstone_read_smoke(
         report.to_human_text(),
         report.diagnostics.clone(),
         local_delete_tombstone_read_smoke_fields(&report),
+    );
+    if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_local_append_only_cdc_overlay_smoke(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "local-append-only-cdc-overlay-smoke",
+            format,
+            "local append-only CDC overlay smoke failed",
+            &cli_unknown_arg_error("local-append-only-cdc-overlay-smoke", &extra),
+        );
+    }
+    let report = match run_local_append_only_cdc_overlay_smoke() {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "local-append-only-cdc-overlay-smoke",
+                format,
+                "local append-only CDC overlay smoke failed",
+                &error,
+            );
+        }
+    };
+    let has_errors = report.has_errors();
+    emit(
+        "local-append-only-cdc-overlay-smoke",
+        format,
+        if has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "local append-only CDC overlay smoke".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        local_append_only_cdc_overlay_smoke_fields(&report),
     );
     if has_errors {
         ExitCode::from(1)
@@ -3462,6 +3507,11 @@ fn append_table_maintenance_execution_matrix_evidence_fields(
         &format!("{prefix}_local_delete_tombstone_smoke_present"),
         report.local_delete_tombstone_smoke_present,
     );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_local_append_only_cdc_overlay_smoke_present"),
+        report.local_append_only_cdc_overlay_smoke_present,
+    );
 }
 
 fn append_table_maintenance_execution_matrix_requirement_fields(
@@ -5273,6 +5323,287 @@ fn append_local_delete_tombstone_diagnostic_fields(
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
+fn local_append_only_cdc_overlay_smoke_fields(
+    report: &LocalAppendOnlyCdcOverlaySmokeReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_local_append_only_cdc_identity_fields(&mut fields, report);
+    append_local_append_only_cdc_summary_fields(&mut fields, report);
+    append_local_append_only_cdc_evidence_fields(&mut fields, report);
+    append_local_append_only_cdc_boundary_fields(&mut fields, report);
+    append_local_append_only_cdc_diagnostic_fields(&mut fields, report);
+    push_field(&mut fields, "execution", "performed");
+    push_field(&mut fields, "plan_only", "false");
+    fields
+}
+
+fn append_local_append_only_cdc_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalAppendOnlyCdcOverlaySmokeReport,
+) {
+    push_field(fields, "mode", "local_append_only_cdc_overlay_smoke");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "gar_id", report.gar_id);
+    push_field(fields, "support_status", report.support_status);
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
+    push_field(fields, "claim_boundary", report.claim_boundary);
+    push_field(fields, "fixture_id", report.fixture_id);
+    push_field(fields, "catalog_kind", report.catalog_kind);
+    push_field(fields, "catalog_ref_summary", &report.catalog_ref_summary);
+    push_field(fields, "dataset_uri", &report.dataset_uri);
+    push_field(fields, "dataset_format", &report.dataset_format);
+    push_field(fields, "base_manifest_id", &report.base_manifest_id);
+    push_field(fields, "delta_manifest_id", &report.delta_manifest_id);
+    push_field(fields, "base_snapshot_id", &report.base_snapshot_id);
+    push_field(fields, "delta_snapshot_id", &report.delta_snapshot_id);
+    push_field(fields, "schema_id", &report.schema_id);
+}
+
+fn append_local_append_only_cdc_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalAppendOnlyCdcOverlaySmokeReport,
+) {
+    push_field(
+        fields,
+        "incremental_plan_report_ref",
+        report.incremental_plan_report_ref,
+    );
+    push_field(fields, "incremental_status", report.incremental_status);
+    push_field(
+        fields,
+        "change_set_from_snapshot",
+        &report.change_set_from_snapshot,
+    );
+    push_field(
+        fields,
+        "change_set_to_snapshot",
+        &report.change_set_to_snapshot,
+    );
+    push_field(fields, "overlay_rule", report.overlay_rule);
+    push_field(fields, "cdc_event_order", &report.cdc_event_order.join(","));
+    push_field(
+        fields,
+        "blocked_path_order",
+        &report.blocked_path_order().join(","),
+    );
+    push_count_field(fields, "base_row_count", report.base_row_count);
+    push_count_field(fields, "append_row_count", report.append_row_count);
+    push_count_field(fields, "effective_row_count", report.effective_row_count);
+    push_count_field(
+        fields,
+        "base_manifest_file_count",
+        report.base_manifest_file_count,
+    );
+    push_count_field(
+        fields,
+        "delta_manifest_file_count",
+        report.delta_manifest_file_count,
+    );
+    push_count_field(
+        fields,
+        "base_manifest_segment_count",
+        report.base_manifest_segment_count,
+    );
+    push_count_field(
+        fields,
+        "delta_manifest_segment_count",
+        report.delta_manifest_segment_count,
+    );
+    push_count_field(
+        fields,
+        "changed_segment_count",
+        report.changed_segment_count,
+    );
+    push_count_field(fields, "insert_count", report.insert_count);
+    push_count_field(fields, "update_count", report.update_count);
+    push_count_field(fields, "delete_count", report.delete_count);
+    push_count_field(fields, "tombstone_count", report.tombstone_count);
+    push_count_field(
+        fields,
+        "unsupported_change_count",
+        report.unsupported_change_count,
+    );
+    push_field(fields, "base_row_ids", &join_u64s(&report.base_row_ids));
+    push_field(
+        fields,
+        "appended_row_ids",
+        &join_u64s(&report.appended_row_ids),
+    );
+    push_field(
+        fields,
+        "effective_row_ids",
+        &join_u64s(&report.effective_row_ids),
+    );
+    push_field(fields, "correctness_summary", &report.correctness_summary);
+    push_field(fields, "correctness_digest", &report.correctness_digest);
+}
+
+fn append_local_append_only_cdc_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalAppendOnlyCdcOverlaySmokeReport,
+) {
+    push_field(fields, "correctness_refs", report.correctness_refs);
+    push_field(fields, "benchmark_refs", report.benchmark_refs);
+    push_field(
+        fields,
+        "execution_certificate_refs",
+        report.execution_certificate_refs,
+    );
+    push_field(
+        fields,
+        "native_io_certificate_refs",
+        report.native_io_certificate_refs,
+    );
+    push_field(
+        fields,
+        "materialization_decode_refs",
+        report.materialization_decode_refs,
+    );
+    push_field(fields, "policy_refs", report.policy_refs);
+}
+
+fn append_local_append_only_cdc_boundary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalAppendOnlyCdcOverlaySmokeReport,
+) {
+    push_bool_field(
+        fields,
+        "local_catalog_ref_resolved",
+        report.local_catalog_ref_resolved,
+    );
+    push_bool_field(
+        fields,
+        "local_base_snapshot_declared",
+        report.local_base_snapshot_declared,
+    );
+    push_bool_field(
+        fields,
+        "local_append_delta_declared",
+        report.local_append_delta_declared,
+    );
+    push_bool_field(
+        fields,
+        "cdc_incremental_plan_evaluated",
+        report.cdc_incremental_plan_evaluated,
+    );
+    push_bool_field(
+        fields,
+        "append_overlay_rule_applied",
+        report.append_overlay_rule_applied,
+    );
+    push_bool_field(
+        fields,
+        "result_row_order_preserved",
+        report.result_row_order_preserved,
+    );
+    push_bool_field(
+        fields,
+        "table_metadata_write_performed",
+        report.table_metadata_write_performed,
+    );
+    push_bool_field(
+        fields,
+        "manifest_write_performed",
+        report.manifest_write_performed,
+    );
+    push_bool_field(
+        fields,
+        "transaction_execution_performed",
+        report.transaction_execution_performed,
+    );
+    push_bool_field(
+        fields,
+        "commit_execution_performed",
+        report.commit_execution_performed,
+    );
+    push_bool_field(
+        fields,
+        "data_file_read_performed",
+        report.data_file_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "object_store_io_performed",
+        report.object_store_io_performed,
+    );
+    push_bool_field(fields, "write_io_performed", report.write_io_performed);
+    push_bool_field(
+        fields,
+        "credential_resolution_performed",
+        report.credential_resolution_performed,
+    );
+    push_bool_field(
+        fields,
+        "external_table_format_dependency_invoked",
+        report.external_table_format_dependency_invoked,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "production_incremental_claim_allowed",
+        report.production_incremental_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "lakehouse_claim_allowed",
+        report.lakehouse_claim_allowed,
+    );
+}
+
+fn append_local_append_only_cdc_diagnostic_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalAppendOnlyCdcOverlaySmokeReport,
+) {
+    push_bool_field(
+        fields,
+        "fixture_smoke_supported",
+        report.fixture_smoke_supported(),
+    );
+    push_bool_field(fields, "claim_scoped", report.claim_scoped());
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_count_field(fields, "blocked_path_count", report.blocked_paths.len());
+    push_count_field(
+        fields,
+        "unsupported_diagnostic_count",
+        report.unsupported_diagnostic_count(),
+    );
+    push_bool_field(
+        fields,
+        "deterministic_unsupported_diagnostics_ready",
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_field(
+        fields,
+        "unsupported_diagnostic_code_order",
+        &report.unsupported_diagnostic_code_order().join(","),
+    );
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn join_u64s(values: &[u64]) -> String {
+    values
+        .iter()
+        .map(u64::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 fn layout_health_fixture(scenario: &str) -> Result<DatasetManifest, ShardLoomError> {
     let mut manifest = layout_health_base_manifest()?;
     match scenario {
@@ -5786,6 +6117,13 @@ mod tests {
             output_field(
                 &fields,
                 "table_maintenance_execution_matrix_local_delete_tombstone_smoke_present"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "table_maintenance_execution_matrix_local_append_only_cdc_overlay_smoke_present"
             ),
             "true"
         );

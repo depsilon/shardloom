@@ -665,7 +665,7 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
     let planned_gar_slices = planned_gar_slices(&plan);
-    assert!(planned_gar_slices.len() >= 32);
+    assert!(planned_gar_slices.len() + completed_gar_session_count(&completed_ledger) >= 32);
     for required_field in [
         "Current state:",
         "Next slice outcome:",
@@ -753,6 +753,13 @@ fn planned_gar_slices(plan: &str) -> Vec<String> {
         slices.push(lines[previous_start..].join("\n"));
     }
     slices
+}
+
+fn completed_gar_session_count(completed_ledger: &str) -> usize {
+    completed_ledger
+        .lines()
+        .filter(|line| line.starts_with("- [x] Session label: GAR-"))
+        .count()
 }
 
 fn workspace_root() -> PathBuf {

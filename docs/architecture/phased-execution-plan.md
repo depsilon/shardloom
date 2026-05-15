@@ -336,30 +336,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     transactions, or upstream write calls.
   - Fallback/claim boundary: no production output/lakehouse claim.
   - Dependencies/blockers: GAR-0008, GAR-0020, and GAR-0036.
-- [ ] GAR-0020-E scoped append-only CDC read/overlay smoke
-  - Source: RFC 0020; RFC 0004; `TableMaintenanceExecutionMatrixReport`; CDC manifest transaction
-    gate.
-  - Current state: append-only and metadata-only CDC planning are report-only; update/delete/
-    tombstone CDC execution is `unsupported_until_certified`.
-  - Next slice outcome: one local append-only CDC fixture smoke that combines a declared base
-    snapshot and append delta into a ShardLoom-native read/overlay evidence report without manifest
-    writes or transaction execution.
-  - User-visible surface: CLI incremental/table-intelligence output, benchmark fixture metadata if
-    reused, docs.
-  - Implementation scope: CDC fixture builder/report fields, CLI output, focused tests.
-  - Evidence required: correctness digest, execution certificate refs, Native I/O refs if any Vortex
-    read is performed, materialization/decode refs, policy/no-fallback refs.
-  - Acceptance: append-only CDC smoke emits scoped evidence; update/delete/tombstone CDC still emits
-    deterministic unsupported diagnostics; transaction, commit, and manifest-write fields remain
-    blocked.
-  - Verification: focused CDC/table-intelligence tests and default GAR code-bearing verification.
-  - Non-goals: no update/delete/tombstone CDC execution, no manifest serialization, no table/catalog
-    commit, no object-store runtime, no production incremental claim.
-  - Fallback/claim boundary: local append-only fixture-smoke only; no external engine, no fallback,
-    no production CDC/lakehouse claim.
-  - Dependencies/blockers: GAR-0004-A CDC/manifest gate, GAR-0028-A commit semantics gate for any
-    write/transaction promotion.
-
 #### GAR-P3 - User Surfaces, APIs, Adapters, And Workflow
 
 - [ ] GAR-0010-A Python API ergonomics and typed capability view

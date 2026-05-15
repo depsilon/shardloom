@@ -29,6 +29,13 @@ The scoped local delete/tombstone smoke is `LocalDeleteTombstoneReadSmokeReport`
 shardloom local-delete-tombstone-read-smoke --format json
 ```
 
+The scoped append-only CDC overlay smoke is `LocalAppendOnlyCdcOverlaySmokeReport`, exposed
+through:
+
+```powershell
+shardloom local-append-only-cdc-overlay-smoke --format json
+```
+
 ## Scope
 
 - [x] Aggregate existing schema evolution compatibility evidence.
@@ -45,6 +52,8 @@ shardloom local-delete-tombstone-read-smoke --format json
       `LocalTableMetadataReadSmokeReport`.
 - [x] Support one in-memory local manifest-backed delete/tombstone read smoke through
       `LocalDeleteTombstoneReadSmokeReport`.
+- [x] Support one in-memory local append-only CDC overlay smoke through
+      `LocalAppendOnlyCdcOverlaySmokeReport`.
 - [x] Expose delete/tombstone, CDC, compaction, and maintenance-write execution posture through
       `TableMaintenanceExecutionMatrixReport`.
 Out of scope until promoted GAR slices complete:
@@ -52,9 +61,10 @@ Out of scope until promoted GAR slices complete:
 - Broader catalog/table metadata reads are carried by later GAR slices after the completed
   `GAR-0020-A` admission gate and `GAR-0020-C` local metadata smoke.
 - Broad delete/tombstone runtime beyond the completed `GAR-0020-D` local fixture smoke, CDC
-  execution, compaction writes, table-maintenance writes, broad table data I/O, object-store I/O,
-  lakehouse/catalog commits, and table-format runtime surfaces remain unsupported until their
-  matrix rows are promoted by later evidence-bearing slices such as `GAR-0020-E` and `GAR-0028-A`.
+  execution beyond the completed `GAR-0020-E` append-only overlay smoke, compaction writes,
+  table-maintenance writes, broad table data I/O, object-store I/O, lakehouse/catalog commits, and
+  table-format runtime surfaces remain unsupported until their matrix rows are promoted by later
+  evidence-bearing slices such as `GAR-0028-A`.
 
 ## Default Policy
 
@@ -219,6 +229,49 @@ external table-format dependencies, certify table-format runtime, or create prod
 table/catalog/lakehouse/performance claims. The `TableMaintenanceExecutionMatrixReport` therefore
 continues to block broad runtime promotion while exposing `local_delete_tombstone_smoke_present=true`
 and the `gar0020d.local_delete_tombstone_read_smoke` evidence ref.
+
+## Local Append-Only CDC Overlay Smoke
+
+`GAR-0020-E` adds `shardloom.local_append_only_cdc_overlay_smoke.v1` as the first scoped
+append-only CDC read/overlay smoke. It constructs an in-memory local fixture with a declared base
+snapshot, one append delta snapshot, and a CDC incremental plan. The smoke applies a
+ShardLoom-native overlay rule that appends delta rows after base rows and emits the effective row ids
+plus a stable correctness digest.
+
+The smoke reports:
+
+- `support_status=fixture_smoke_only`
+- `claim_gate_status=scoped_append_only_cdc_overlay_smoke_only`
+- `incremental_status=execute_changed_segments_only`
+- `overlay_rule=base_snapshot_then_append_delta`
+- `base_row_count=3`
+- `append_row_count=2`
+- `effective_row_count=5`
+- `changed_segment_count=1`
+- `insert_count=2`
+- `update_count=0`
+- `delete_count=0`
+- `tombstone_count=0`
+- `effective_row_ids=1001,1002,1003,4001,4002`
+- `correctness_digest=fnv1a64:*`
+- `fallback_attempted=false`
+- `fallback_execution_allowed=false`
+- `external_engine_invoked=false`
+- `manifest_write_performed=false`
+- `transaction_execution_performed=false`
+- `deterministic_unsupported_diagnostics_ready=true`
+
+The unsupported path diagnostics remain deterministic for `cdc_update`, `cdc_delete`,
+`cdc_tombstone`, `manifest_serialization`, `manifest_write`, `transaction_execution`,
+`object_store_commit`, `table_catalog_commit`, and `table_format_cdc_runtime`.
+
+The smoke remains deliberately narrow. It does not read Vortex files, read object stores, write
+manifests or table metadata, execute transactions or commits, execute update/delete/tombstone CDC
+paths, invoke external table-format dependencies, certify table-format CDC runtime, or create
+production incremental/lakehouse/performance claims. The `TableMaintenanceExecutionMatrixReport`
+therefore continues to block broad runtime promotion while exposing
+`local_append_only_cdc_overlay_smoke_present=true` and the
+`gar0020e.local_append_only_cdc_overlay_smoke` evidence ref.
 
 ## CDC, Manifest, And Transaction Gate
 
