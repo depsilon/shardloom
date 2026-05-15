@@ -320,11 +320,16 @@ plan before coding.
 - Source:
   [`docs/rfcs/0016-optimizer-adaptive-execution-runtime-filters-skew.md`](../rfcs/0016-optimizer-adaptive-execution-runtime-filters-skew.md)
 - Current read: Optimizer/adaptive report contracts exist; runtime adaptivity is incomplete.
-- Evidence: `shardloom-plan/src/optimizer.rs`, `shardloom-exec/src/sizing.rs`,
+- Evidence: `shardloom-plan/src/optimizer.rs`, `shardloom-cli/src/optimizer_planning.rs`,
+  `shardloom-cli/tests/adaptive_optimizer_memory_snapshots.rs`, `shardloom-exec/src/sizing.rs`,
   `shardloom-core/src/manifest.rs`
 - [x] Optimizer, sizing, adaptive planning, dynamic work-shaping, layout health, and compaction
   planning surfaces exist.
 - [x] Metadata-driven reports avoid claiming unsupported runtime behavior.
+- [x] GAR-0016-A: `optimizer-adaptive-memory-plan` now exposes a report-only adaptive runtime gate
+  with stable runtime-filter, dynamic-pruning, skew, adaptive-parallelism, and compaction-write
+  blocker fields plus `support_status=report_only`, `claim_gate_status=not_claim_grade`,
+  `fallback_attempted=false`, and `external_engine_execution=false`.
 - [ ] Runtime adaptive execution, runtime filters, skew handling, and compaction writes remain
   incomplete.
 

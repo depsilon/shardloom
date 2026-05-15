@@ -1114,10 +1114,15 @@ pub struct AdaptiveOptimizerMemoryReport {
     pub deterministic_oom_boundary: bool,
     pub sink_requirement_boundary_required: bool,
     pub runtime_fact_required_before_adaptation: bool,
+    pub adaptive_parallelism_required: bool,
+    pub compaction_write_boundary_required: bool,
     pub optimizer_execution: bool,
     pub runtime_adaptation_applied: bool,
     pub runtime_filter_built: bool,
     pub runtime_filter_applied: bool,
+    pub adaptive_parallelism_applied: bool,
+    pub compaction_write_allowed: bool,
+    pub compaction_execution_allowed: bool,
     pub plan_rewritten: bool,
     pub data_read: bool,
     pub data_decoded: bool,
@@ -1205,10 +1210,15 @@ impl AdaptiveOptimizerMemoryReport {
             deterministic_oom_boundary: true,
             sink_requirement_boundary_required: true,
             runtime_fact_required_before_adaptation: true,
+            adaptive_parallelism_required: true,
+            compaction_write_boundary_required: true,
             optimizer_execution: false,
             runtime_adaptation_applied: false,
             runtime_filter_built: false,
             runtime_filter_applied: false,
+            adaptive_parallelism_applied: false,
+            compaction_write_allowed: false,
+            compaction_execution_allowed: false,
             plan_rewritten: false,
             data_read: false,
             data_decoded: false,
@@ -1263,11 +1273,57 @@ impl AdaptiveOptimizerMemoryReport {
     }
 
     #[must_use]
+    pub fn adaptive_runtime_gate_surface_order(&self) -> Vec<&'static str> {
+        vec![
+            "runtime_filter",
+            "dynamic_pruning",
+            "skew_signal",
+            "adaptive_parallelism",
+            "compaction_write",
+        ]
+    }
+
+    #[must_use]
+    pub fn runtime_gate_prerequisite_order(&self) -> Vec<&'static str> {
+        vec![
+            "conservative_runtime_filter_proof",
+            "runtime_fact_evidence",
+            "bounded_memory_budget",
+            "spill_policy",
+            "skew_signal_measurement",
+            "adaptive_parallelism_policy",
+            "compaction_plan_evidence",
+            "write_intent",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ]
+    }
+
+    #[must_use]
+    pub fn runtime_gate_prerequisite_count(&self) -> usize {
+        self.runtime_gate_prerequisite_order().len()
+    }
+
+    #[must_use]
+    pub const fn support_status(&self) -> &'static str {
+        "report_only"
+    }
+
+    #[must_use]
+    pub const fn claim_gate_status(&self) -> &'static str {
+        "not_claim_grade"
+    }
+
+    #[must_use]
     pub const fn is_side_effect_free(&self) -> bool {
         !self.optimizer_execution
             && !self.runtime_adaptation_applied
             && !self.runtime_filter_built
             && !self.runtime_filter_applied
+            && !self.adaptive_parallelism_applied
+            && !self.compaction_write_allowed
+            && !self.compaction_execution_allowed
             && !self.plan_rewritten
             && !self.data_read
             && !self.data_decoded
@@ -1462,11 +1518,27 @@ mod tests {
         assert_eq!(report.conservative_runtime_filter_count(), 1);
         assert_eq!(report.adaptive_decision_count(), 2);
         assert_eq!(report.skew_signal_count(), 1);
+        assert_eq!(
+            report.adaptive_runtime_gate_surface_order(),
+            vec![
+                "runtime_filter",
+                "dynamic_pruning",
+                "skew_signal",
+                "adaptive_parallelism",
+                "compaction_write"
+            ]
+        );
+        assert_eq!(report.runtime_gate_prerequisite_count(), 11);
+        assert_eq!(report.support_status(), "report_only");
+        assert_eq!(report.claim_gate_status(), "not_claim_grade");
         assert!(report.is_side_effect_free());
         assert!(!report.has_errors());
         assert!(!report.runtime_adaptation_applied);
         assert!(!report.runtime_filter_built);
         assert!(!report.runtime_filter_applied);
+        assert!(!report.adaptive_parallelism_applied);
+        assert!(!report.compaction_write_allowed);
+        assert!(!report.compaction_execution_allowed);
         assert!(!report.plan_rewritten);
         assert!(!report.fallback_execution_allowed);
         assert!(!report.fallback_attempted);

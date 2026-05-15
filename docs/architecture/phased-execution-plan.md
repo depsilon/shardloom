@@ -315,21 +315,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     until workload-scoped correctness and benchmark claim gates pass.
   - Dependencies/blockers: stable admitted filter-column kernel inputs, bridge selection-vector
     evidence, selected metric scan evidence, and certificate/no-fallback fields.
-- [ ] GAR-0016-A adaptive execution and runtime-filter report-only gate
-  - Source: RFC 0016; dynamic work shaping; performance attribution docs.
-  - Current state: adaptive execution/runtime filters/skew handling are represented as planning
-    concepts, not runtime behavior.
-  - Next slice outcome: gate listing prerequisites for runtime filters, skew decisions, adaptive
-    parallelism, and compaction writes.
-  - User-visible surface: CLI optimizer/adaptive plan, docs.
-  - Implementation scope: optimizer report fields, CLI output, tests.
-  - Evidence required: benchmark refs only for supported lanes; diagnostic and no-fallback refs for
-    report-only lanes.
-  - Acceptance: runtime-adaptive requests cannot be mistaken for executed behavior.
-  - Verification: optimizer plan tests, benchmark contract tests if metadata changes.
-  - Non-goals: no adaptive runtime, runtime filters, or compaction writes.
-  - Fallback/claim boundary: `support_status=report_only`.
-  - Dependencies/blockers: operator/runtime evidence from GAR-0027.
 - [ ] GAR-0017-A retry, cancellation, and recovery execution gate
   - Source: RFC 0017; object-store request planner; operational evidence policy hardening.
   - Current state: retry/cancellation/commit planning exists; broad execution is not enabled.
