@@ -264,20 +264,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
 
-- [ ] GAR-0005-B object-store Vortex I/O and upstream write integration gate
-  - Source: RFC 0005; RFC 0008; Vortex upstream alignment hardening.
-  - Current state: object-store Vortex I/O and upstream write integration are not enabled.
-  - Next slice outcome: report-only gate for object-store Vortex read/write provider requirements,
-    credentials, idempotency, and unsupported diagnostics.
-  - User-visible surface: CLI Vortex API inventory, object-store plan, release gate.
-  - Implementation scope: inventory/gate report fields, tests.
-  - Evidence required: policy/no-fallback refs and upstream API refs.
-  - Acceptance: object-store Vortex paths cannot be claimed without provider, credential, Native I/O,
-    and write evidence.
-  - Verification: Vortex API inventory tests, object-store planner tests.
-  - Non-goals: no network I/O, write execution, or dependency expansion.
-  - Fallback/claim boundary: `support_status=report_only|unsupported`.
-  - Dependencies/blockers: GAR-0008 provider gate and GAR-0019 credential policy.
 - [ ] GAR-0020-A table/catalog metadata admission gate
   - Source: RFC 0020; table-intelligence layer; RFC 0041.
   - Current state: table intelligence reports exist; catalog/table metadata reads and data reads are

@@ -229,3 +229,85 @@ fn vortex_api_inventory_keeps_local_io_inventory_effect_free() {
     assert!(output.contains(&field("vortex_local_io_external_engine_invoked", "false")));
     assert!(output.contains(&field("vortex_local_io_fallback_attempted", "false")));
 }
+
+#[test]
+fn vortex_api_inventory_exposes_gar0005b_object_store_io_gate() {
+    let output = run_vortex_api_inventory_json();
+
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_schema_version",
+        "shardloom.vortex_object_store_io_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_report_id",
+        "gar0005b.vortex_object_store_io.gate"
+    )));
+    assert!(output.contains(&field("vortex_object_store_io_gate_gar_id", "GAR-0005-B")));
+    assert!(output.contains(&field("vortex_object_store_io_gate_status", "report_only")));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_support_status",
+        "unsupported"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_unsupported_surface_count",
+        "7"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_report_only_surface_count",
+        "1"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_row_object_store_vortex_read_provider_status",
+        "unsupported_until_certified"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_row_write_idempotency_required_evidence",
+        "idempotency_key_contract,commit_protocol,recovery_certificate"
+    )));
+}
+
+#[test]
+fn vortex_api_inventory_keeps_object_store_io_gate_effect_free() {
+    let output = run_vortex_api_inventory_json();
+
+    for key in [
+        "vortex_object_store_io_gate_object_store_read_execution_allowed",
+        "vortex_object_store_io_gate_object_store_write_execution_allowed",
+        "vortex_object_store_io_gate_upstream_vortex_read_allowed",
+        "vortex_object_store_io_gate_upstream_vortex_write_allowed",
+        "vortex_object_store_io_gate_credential_resolution_allowed",
+        "vortex_object_store_io_gate_credentials_resolved",
+        "vortex_object_store_io_gate_provider_probe",
+        "vortex_object_store_io_gate_network_probe",
+        "vortex_object_store_io_gate_runtime_execution",
+        "vortex_object_store_io_gate_data_read",
+        "vortex_object_store_io_gate_data_written",
+        "vortex_object_store_io_gate_object_store_io",
+        "vortex_object_store_io_gate_write_io",
+        "vortex_object_store_io_gate_external_engine_invoked",
+        "vortex_object_store_io_gate_fallback_attempted",
+        "vortex_object_store_io_gate_fallback_execution_allowed",
+    ] {
+        assert!(
+            output.contains(&field(key, "false")),
+            "missing false field {key}"
+        );
+    }
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_side_effect_free",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_deterministic_unsupported_diagnostics_ready",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "vortex_object_store_io_gate_unsupported_diagnostic_count",
+        "7"
+    )));
+    assert!(output.contains("\"diagnostics\":[{\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
+}

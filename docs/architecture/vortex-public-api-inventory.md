@@ -759,6 +759,27 @@ fallback execution.
   shapes, SQL/DataFrame runtime, lakehouse output, performance claims, and fallback execution remain
   unsupported.
 
+## GAR-0005-B object-store Vortex I/O and upstream write gate
+
+- `vortex-api-inventory` now emits `shardloom.vortex_object_store_io_gate.v1`.
+- `object-store-request-plan` carries `vortex_object_store_io_gate_ref` so object-store planning
+  output points at the Vortex provider/write admission boundary.
+- Gate rows cover:
+  - `object_store_vortex_read_provider`
+  - `object_store_vortex_write_provider`
+  - `credential_policy`
+  - `range_request_budget`
+  - `write_idempotency`
+  - `upstream_sink_api`
+  - `native_io_certificate`
+  - `unsupported_diagnostic`
+- The gate is report-only and keeps `support_status=unsupported`,
+  `claim_gate_status=not_claim_grade`, `deterministic_unsupported_diagnostics_ready=true`,
+  `side_effect_free=true`, `fallback_attempted=false`, and `external_engine_invoked=false`.
+- No provider probe, network probe, credential resolution, object-store read, object-store write,
+  upstream object-store sink call, generalized schema/encoding write, table/catalog interaction,
+  dependency expansion, fallback execution, performance claim, or production writer claim is added.
+
 
 - CG-1.2b adds metadata/footer probe contracts only; default report construction does not inspect
   local file existence and scan/data traversal remains deferred.

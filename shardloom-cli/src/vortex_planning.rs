@@ -23,11 +23,11 @@ use shardloom_vortex::{
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
     VortexLocalIoCoverageReport, VortexMetadataCountKernelAdmissionReport,
     VortexMetadataFilterKernelAdmissionReport, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexProjectionCandidateSource, VortexProjectionReadinessSignal,
-    VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveSignal,
-    VortexQueryPrimitiveValue, VortexReadPlan, VortexScanCompatibilityReport,
-    VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
-    admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
+    VortexMetadataProbeReport, VortexObjectStoreIoGateReport, VortexProjectionCandidateSource,
+    VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
+    VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue, VortexReadPlan,
+    VortexScanCompatibilityReport, VortexStatisticsMappingReport, VortexWriteOptions,
+    VortexWritePlan, admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
     build_vortex_runtime_task_graph, evaluate_vortex_execution_readiness,
     evaluate_vortex_metadata_physical_kernels,
     execute_vortex_count_all_from_encoded_count_data_path_approval, execute_vortex_metadata_only,
@@ -58,6 +58,10 @@ fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     fields.push((key.to_string(), value.to_string()));
+}
+
+fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize) {
+    push_field(fields, key, &value.to_string());
 }
 
 fn safe_metadata_kernel_memory() -> OperatorMemoryCertification {
@@ -957,6 +961,7 @@ fn vortex_api_inventory_fields(
     scan_report: &VortexScanCompatibilityReport,
     provider_report: &VortexComputeProviderReport,
     local_io_report: &VortexLocalIoCoverageReport,
+    object_store_io_gate: &VortexObjectStoreIoGateReport,
 ) -> Vec<(String, String)> {
     let mut fields = vortex_api_inventory_base_fields();
     fields.extend(vortex_api_inventory_report_fields(
@@ -972,6 +977,7 @@ fn vortex_api_inventory_fields(
     fields.extend(vortex_source_split_effect_fields(scan_report));
     fields.extend(vortex_segment_extraction_admission_fields(scan_report));
     fields.extend(vortex_local_io_coverage_fields(local_io_report));
+    fields.extend(vortex_object_store_io_gate_fields(object_store_io_gate));
     fields
 }
 
@@ -1488,18 +1494,282 @@ fn vortex_local_io_coverage_fields(report: &VortexLocalIoCoverageReport) -> Vec<
     fields
 }
 
+fn vortex_object_store_io_gate_fields(
+    report: &VortexObjectStoreIoGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_vortex_object_store_io_gate_summary_fields(&mut fields, report);
+    append_vortex_object_store_io_gate_requirement_fields(&mut fields, report);
+    append_vortex_object_store_io_gate_effect_fields(&mut fields, report);
+    append_vortex_object_store_io_gate_diagnostic_fields(&mut fields, report);
+    for row in &report.rows {
+        let row_prefix = format!("vortex_object_store_io_gate_row_{}", row.surface.as_str());
+        fields.extend([
+            (
+                format!("{row_prefix}_status"),
+                row.status.as_str().to_string(),
+            ),
+            (
+                format!("{row_prefix}_user_surface"),
+                row.user_surface.to_string(),
+            ),
+            (
+                format!("{row_prefix}_upstream_api_surface"),
+                row.upstream_api_surface.to_string(),
+            ),
+            (
+                format!("{row_prefix}_required_evidence"),
+                row.required_evidence.to_string(),
+            ),
+            (
+                format!("{row_prefix}_claim_gate_status"),
+                row.claim_gate_status.to_string(),
+            ),
+        ]);
+    }
+    fields
+}
+
+fn append_vortex_object_store_io_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexObjectStoreIoGateReport,
+) {
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_report_id",
+        report.report_id,
+    );
+    push_field(fields, "vortex_object_store_io_gate_gar_id", report.gar_id);
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_status",
+        report.gate_status,
+    );
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_support_status",
+        report.support_status,
+    );
+    push_count_field(
+        fields,
+        "vortex_object_store_io_gate_row_count",
+        report.rows.len(),
+    );
+    push_count_field(
+        fields,
+        "vortex_object_store_io_gate_unsupported_surface_count",
+        report.unsupported_surface_count(),
+    );
+    push_count_field(
+        fields,
+        "vortex_object_store_io_gate_report_only_surface_count",
+        report.report_only_surface_count(),
+    );
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_row_order",
+        &report.row_order().join(","),
+    );
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_required_policy_refs",
+        report.required_policy_refs,
+    );
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_claim_boundary",
+        report.claim_boundary,
+    );
+}
+
+fn append_vortex_object_store_io_gate_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexObjectStoreIoGateReport,
+) {
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_provider_capability_policy_required",
+        report.provider_capability_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_credential_policy_required",
+        report.credential_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_range_request_budget_required",
+        report.range_request_budget_required,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_idempotency_key_required",
+        report.idempotency_key_required,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_upstream_api_reference_required",
+        report.upstream_api_reference_required,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+}
+
+fn append_vortex_object_store_io_gate_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexObjectStoreIoGateReport,
+) {
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_object_store_read_execution_allowed",
+        report.object_store_read_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_object_store_write_execution_allowed",
+        report.object_store_write_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_upstream_vortex_read_allowed",
+        report.upstream_vortex_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_upstream_vortex_write_allowed",
+        report.upstream_vortex_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_credential_resolution_allowed",
+        report.credential_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_credentials_resolved",
+        report.credentials_resolved,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_provider_probe",
+        report.provider_probe,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_network_probe",
+        report.network_probe,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_runtime_execution",
+        report.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_data_read",
+        report.data_read,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_data_written",
+        report.data_written,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_object_store_io",
+        report.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_write_io",
+        report.write_io,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_side_effect_free",
+        report.side_effect_free(),
+    );
+}
+
+fn append_vortex_object_store_io_gate_diagnostic_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexObjectStoreIoGateReport,
+) {
+    push_bool_field(
+        fields,
+        "vortex_object_store_io_gate_deterministic_unsupported_diagnostics_ready",
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_count_field(
+        fields,
+        "vortex_object_store_io_gate_unsupported_diagnostic_count",
+        report.unsupported_diagnostic_count(),
+    );
+    push_field(
+        fields,
+        "vortex_object_store_io_gate_unsupported_diagnostic_code_order",
+        &report.unsupported_diagnostic_code_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "vortex_object_store_io_gate_diagnostic_count",
+        report.diagnostics.len(),
+    );
+}
+
 pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
     let report = VortexAdapterCapabilityReport::foundation();
     let scan_report = plan_vortex_scan_compatibility();
     let provider_report = VortexComputeProviderReport::local_scan_provider();
     let local_io_report = VortexLocalIoCoverageReport::current();
+    let object_store_io_gate = VortexObjectStoreIoGateReport::current();
+    let mut diagnostics = report.diagnostics.clone();
+    diagnostics.extend(object_store_io_gate.diagnostics.clone());
     emit(
         "vortex-api-inventory",
         format,
         CommandStatus::Success,
         "vortex API inventory".to_string(),
         format!(
-            "{}\n{}\n{}\n{}",
+            "{}\n{}\n{}\n{}\n{}",
             report.to_human_text(),
             scan_report
                 .source_split_runtime_admission_proof
@@ -1507,10 +1777,16 @@ pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
             scan_report
                 .segment_extraction_admission_report
                 .to_human_text(),
-            local_io_report.to_human_text()
+            local_io_report.to_human_text(),
+            object_store_io_gate.to_human_text()
         ),
-        report.diagnostics.clone(),
-        vortex_api_inventory_fields(&scan_report, &provider_report, &local_io_report),
+        diagnostics,
+        vortex_api_inventory_fields(
+            &scan_report,
+            &provider_report,
+            &local_io_report,
+            &object_store_io_gate,
+        ),
     );
     ExitCode::SUCCESS
 }

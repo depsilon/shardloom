@@ -635,6 +635,10 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
             .contains("GAR-0013-A streaming runtime capability and unsupported diagnostics")
     );
     assert!(completed_ledger.contains("GAR-0005-A local Vortex reader/writer coverage lane"));
+    assert!(
+        completed_ledger
+            .contains("GAR-0005-B object-store Vortex I/O and upstream write integration gate")
+    );
     assert!(completed_ledger.contains(
         "GAR-0007-A/B compatibility output writer matrix and local fixture-smoke evidence"
     ));
@@ -656,7 +660,7 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(completed_ledger.contains("GAR-0014-A spill/OOM enforcement promotion gate closeout"));
     assert!(plan.contains("GAR-0032-A SQL parser/binder report-only readiness"));
     assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 34);
+    assert!(plan.matches("- [ ] GAR-").count() >= 33);
     for required_field in [
         "Current state:",
         "Next slice outcome:",

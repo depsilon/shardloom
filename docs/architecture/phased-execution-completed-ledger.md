@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0005-B object-store Vortex I/O and upstream write integration gate
+  - Primary files:
+    - `shardloom-vortex/src/adapter.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `shardloom-cli/src/object_store_planning.rs`
+    - `shardloom-cli/tests/vortex_api_inventory_snapshots.rs`
+    - `shardloom-cli/tests/object_store_request_plan_snapshots.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Scope: close GAR-0005-B by adding a report-only object-store Vortex I/O and upstream write
+    integration gate that makes provider, credential, request-budget, idempotency, upstream API,
+    Native I/O certificate, benchmark-evidence, and no-fallback requirements explicit.
+  - Checklist:
+    - [x] Add `shardloom.vortex_object_store_io_gate.v1` with rows for object-store Vortex read
+          provider, object-store Vortex write provider, credential policy, range request budget,
+          write idempotency, upstream sink API, Native I/O certificate, and unsupported diagnostics.
+    - [x] Expose the gate through `vortex-api-inventory` and reference it from
+          `object-store-request-plan`.
+    - [x] Keep object-store Vortex read/write execution, upstream Vortex object-store writes,
+          credential resolution, provider/network probes, runtime execution, object-store I/O,
+          write I/O, external engines, and fallback execution disabled.
+    - [x] Emit deterministic info-level unsupported diagnostics with
+          `claim_gate_status=not_claim_grade`.
+  - Boundary:
+    - This completes the admission/diagnostic gate only. It does not add network I/O, credential
+      loading, object-store provider probes, object-store reads or writes, upstream Vortex
+      object-store sink calls, generalized schema/encoding writes, commits, table/catalog
+      integration, lakehouse output, dependency expansion, external engines, fallback execution, or
+      performance/production writer claims.
+  - Evidence:
+    - `vortex-api-inventory` exposes
+      `vortex_object_store_io_gate_report_id=gar0005b.vortex_object_store_io.gate`,
+      `vortex_object_store_io_gate_support_status=unsupported`,
+      `vortex_object_store_io_gate_deterministic_unsupported_diagnostics_ready=true`,
+      `vortex_object_store_io_gate_side_effect_free=true`, and
+      `vortex_object_store_io_gate_claim_gate_status=not_claim_grade`.
+    - `object-store-request-plan` exposes `vortex_object_store_io_gate_ref` plus no-I/O,
+      no-credential, no-upstream-write, no-external-engine, and no-fallback fields.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex object_store_io_gate --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test vortex_api_inventory_snapshots --test object_store_request_plan_snapshots`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `git diff --check`
 - [x] Session label: GAR-0004-A CDC and manifest transaction planning gate
   - Primary files:
     - `shardloom-core/src/table_intelligence.rs`
