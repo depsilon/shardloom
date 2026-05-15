@@ -315,20 +315,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     until workload-scoped correctness and benchmark claim gates pass.
   - Dependencies/blockers: stable admitted filter-column kernel inputs, bridge selection-vector
     evidence, selected metric scan evidence, and certificate/no-fallback fields.
-- [ ] GAR-0017-A retry, cancellation, and recovery execution gate
-  - Source: RFC 0017; object-store request planner; operational evidence policy hardening.
-  - Current state: retry/cancellation/commit planning exists; broad execution is not enabled.
-  - Next slice outcome: gate that separates request validation, cancellation signal, retry allowed,
-    checkpoint write, cleanup, and commit execution.
-  - User-visible surface: CLI retry/recovery/object-store reports, diagnostics.
-  - Implementation scope: report fields, CLI output, tests.
-  - Evidence required: policy/no-fallback refs, idempotency refs, checkpoint/commit evidence if
-    execution is admitted.
-  - Acceptance: default gate denies execution and gives deterministic blockers.
-  - Verification: retry gate tests, object-store planner tests.
-  - Non-goals: no retries, checkpoint writes, cleanup, or commits.
-  - Fallback/claim boundary: no fault-tolerance runtime claim.
-  - Dependencies/blockers: object-store provider gate and credential policy.
 - [ ] GAR-0018-A live profiling and runtime introspection report
   - Source: RFC 0018; operational evidence policy hardening; benchmark-suite catalog.
   - Current state: observability schemas exist; live profiling/distributed introspection are not

@@ -38,7 +38,9 @@ Out of scope until promoted GAR slices complete:
   only.
 - Coordinator/worker start, distributed tasks, checkpoint/attempt records, retry execution, cleanup,
   and object-store commits remain blocked after `GAR-0008-B`; that slice adds the blocker matrix
-  only. Runtime promotion remains carried by `GAR-0017-A` and `GAR-0028-A`.
+  only. `GAR-0017-A` now exposes the fault-tolerance execution gate; runtime promotion remains
+  carried by `GAR-0028-A` and future provider, credential, commit-semantics, execution-certificate,
+  Native I/O, and no-fallback evidence.
 
 ## Default Policy
 

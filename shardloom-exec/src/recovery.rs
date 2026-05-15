@@ -1187,14 +1187,28 @@ pub struct FaultTolerancePromotionGateReport {
     pub cg10_object_store_evidence_required: bool,
     pub cg16_execution_certificate_evidence_required: bool,
     pub cg22_engine_mode_evidence_required: bool,
+    pub request_validation_report_only: bool,
+    pub cancellation_signal_required: bool,
+    pub retry_policy_required: bool,
+    pub checkpoint_plan_required: bool,
+    pub cleanup_policy_required: bool,
+    pub commit_semantics_required: bool,
     pub retry_execution_allowed: bool,
     pub cancellation_execution_allowed: bool,
     pub cleanup_execution_allowed: bool,
+    pub checkpoint_write_allowed: bool,
+    pub commit_execution_allowed: bool,
     pub ambiguous_commit_resolution_allowed: bool,
     pub idempotent_write_claim_allowed: bool,
     pub exactly_once_claim_allowed: bool,
     pub resumability_claim_allowed: bool,
     pub recovery_claim_allowed: bool,
+    pub request_validation_performed: bool,
+    pub cancellation_signal_consumed: bool,
+    pub retry_execution_performed: bool,
+    pub checkpoint_write_performed: bool,
+    pub cleanup_execution_performed: bool,
+    pub commit_execution_performed: bool,
     pub runtime_execution_performed: bool,
     pub object_store_io: bool,
     pub output_dataset_write: bool,
@@ -1255,14 +1269,28 @@ impl FaultTolerancePromotionGateReport {
             cg10_object_store_evidence_required: true,
             cg16_execution_certificate_evidence_required: true,
             cg22_engine_mode_evidence_required: true,
+            request_validation_report_only: true,
+            cancellation_signal_required: true,
+            retry_policy_required: true,
+            checkpoint_plan_required: true,
+            cleanup_policy_required: true,
+            commit_semantics_required: true,
             retry_execution_allowed: false,
             cancellation_execution_allowed: false,
             cleanup_execution_allowed: false,
+            checkpoint_write_allowed: false,
+            commit_execution_allowed: false,
             ambiguous_commit_resolution_allowed: false,
             idempotent_write_claim_allowed: false,
             exactly_once_claim_allowed: false,
             resumability_claim_allowed: false,
             recovery_claim_allowed: false,
+            request_validation_performed: false,
+            cancellation_signal_consumed: false,
+            retry_execution_performed: false,
+            checkpoint_write_performed: false,
+            cleanup_execution_performed: false,
+            commit_execution_performed: false,
             runtime_execution_performed: false,
             object_store_io: false,
             output_dataset_write: false,
@@ -1293,10 +1321,40 @@ impl FaultTolerancePromotionGateReport {
             .map(|entry| entry.area.as_str())
             .collect()
     }
+    pub fn execution_gate_order(&self) -> Vec<&'static str> {
+        vec![
+            "request_validation",
+            "cancellation_signal",
+            "retry_allowed",
+            "checkpoint_write",
+            "cleanup_execution",
+            "commit_execution",
+        ]
+    }
+    pub fn execution_gate_blocker_order(&self) -> Vec<&'static str> {
+        vec![
+            "request_validation_policy",
+            "cancellation_signal_policy",
+            "retry_policy",
+            "idempotency_key_contract",
+            "checkpoint_plan",
+            "cleanup_policy",
+            "commit_semantics",
+            "side_effect_boundary",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ]
+    }
+    pub fn execution_gate_blocker_count(&self) -> usize {
+        self.execution_gate_blocker_order().len()
+    }
     pub fn execution_promotions_blocked(&self) -> bool {
         !self.retry_execution_allowed
             && !self.cancellation_execution_allowed
             && !self.cleanup_execution_allowed
+            && !self.checkpoint_write_allowed
+            && !self.commit_execution_allowed
             && !self.ambiguous_commit_resolution_allowed
             && !self.idempotent_write_claim_allowed
             && self.execution_ready_area_count() == 0
@@ -1309,6 +1367,12 @@ impl FaultTolerancePromotionGateReport {
     pub fn side_effect_free(&self) -> bool {
         self.execution_promotions_blocked()
             && self.exactly_once_resumability_recovery_claims_blocked()
+            && !self.request_validation_performed
+            && !self.cancellation_signal_consumed
+            && !self.retry_execution_performed
+            && !self.checkpoint_write_performed
+            && !self.cleanup_execution_performed
+            && !self.commit_execution_performed
             && !self.runtime_execution_performed
             && !self.object_store_io
             && !self.output_dataset_write
@@ -4242,6 +4306,24 @@ mod tests {
         assert_eq!(report.promotion_area_count(), 6);
         assert_eq!(report.blocked_area_count(), 6);
         assert_eq!(report.execution_ready_area_count(), 0);
+        assert_eq!(
+            report.execution_gate_order(),
+            vec![
+                "request_validation",
+                "cancellation_signal",
+                "retry_allowed",
+                "checkpoint_write",
+                "cleanup_execution",
+                "commit_execution"
+            ]
+        );
+        assert_eq!(report.execution_gate_blocker_count(), 11);
+        assert!(report.request_validation_report_only);
+        assert!(report.cancellation_signal_required);
+        assert!(report.retry_policy_required);
+        assert!(report.checkpoint_plan_required);
+        assert!(report.cleanup_policy_required);
+        assert!(report.commit_semantics_required);
         assert!(
             report
                 .area_order()
@@ -4263,11 +4345,19 @@ mod tests {
         assert!(!report.retry_execution_allowed);
         assert!(!report.cancellation_execution_allowed);
         assert!(!report.cleanup_execution_allowed);
+        assert!(!report.checkpoint_write_allowed);
+        assert!(!report.commit_execution_allowed);
         assert!(!report.ambiguous_commit_resolution_allowed);
         assert!(!report.idempotent_write_claim_allowed);
         assert!(!report.exactly_once_claim_allowed);
         assert!(!report.resumability_claim_allowed);
         assert!(!report.recovery_claim_allowed);
+        assert!(!report.request_validation_performed);
+        assert!(!report.cancellation_signal_consumed);
+        assert!(!report.retry_execution_performed);
+        assert!(!report.checkpoint_write_performed);
+        assert!(!report.cleanup_execution_performed);
+        assert!(!report.commit_execution_performed);
         assert!(!report.object_store_io);
         assert!(!report.output_dataset_write);
         assert!(!report.external_effects_executed);

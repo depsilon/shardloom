@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0017-A fault-tolerance execution gate split
+  - Primary files:
+    - `shardloom-exec/src/recovery.rs`
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `shardloom-cli/tests/fault_tolerance_promotion_gate.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close GAR-0017-A by extending `fault-tolerance-promotion-gate` with an explicit
+    report-only execution-gate view for request validation, cancellation signal handling, retry
+    admission, checkpoint writes, cleanup execution, and commit execution.
+  - Checklist:
+    - [x] Add stable `GAR-0017-A`, `support_status=report_only`, and
+          `claim_gate_status=not_claim_grade` fields to the fault-tolerance promotion gate.
+    - [x] Expose `execution_gate_order` and `execution_gate_blocker_order` so retry/recovery
+          promotion blockers are machine-readable instead of inferred from prose.
+    - [x] Add explicit report-only status and allowed/performed booleans for request validation,
+          cancellation signal consumption, retry execution, checkpoint writes, cleanup execution,
+          and commit execution.
+    - [x] Preserve side-effect-free behavior: no runtime execution, object-store I/O, output dataset
+          write, external effects, checkpoint writes, cleanup execution, commit execution, or
+          fallback.
+  - Boundary:
+    - This completes the report-only GAR-0017-A split. It does not implement retries,
+      cancellation propagation runtime, checkpoint writes, cleanup execution, ambiguous commit
+      resolution, commit execution, recovery execution, object-store provider use, credential
+      resolution, exactly-once/resumability claims, external effects, or fallback execution.
+  - Evidence:
+    - CLI evidence: `fault-tolerance-promotion-gate --format json` exposes
+      `execution_gate_order=request_validation,cancellation_signal,retry_allowed,checkpoint_write,cleanup_execution,commit_execution`,
+      blocker order, status fields, allowed/performed booleans, `runtime_execution=false`,
+      `object_store_io=false`, `output_dataset_write=false`,
+      `external_effects_executed=false`, `fallback_execution_allowed=false`, and
+      `fallback_attempted=false`.
+    - Rust evidence: `FaultTolerancePromotionGateReport` keeps every execution/effect flag false
+      while requiring request-validation policy, cancellation-signal policy, retry policy,
+      idempotency keys, checkpoint plan, cleanup policy, commit semantics, side-effect boundaries,
+      execution certificates, Native I/O certificates, and no-fallback evidence before promotion.
+    - Snapshot evidence: `shardloom-cli/tests/fault_tolerance_promotion_gate.rs` locks the GAR id,
+      support/claim status, execution-gate order, blocker order, and no-effect/no-fallback fields.
+  - Vortex-first provider check:
+    - Subject area: retry, cancellation, checkpoint, cleanup, commit, and recovery promotion.
+    - Upstream/provider concepts checked: checkpoint writes, object-store commits, cleanup effects,
+      and commit/recovery execution require provider, credential, commit-semantics, execution
+      certificate, Native I/O, and no-fallback evidence before runtime promotion.
+    - Decision: keep the gate report-only and deterministic instead of executing fault-tolerance
+      side effects.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-exec fault_tolerance_promotion_gate --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test fault_tolerance_promotion_gate`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata hard_release_readiness_gate_docs_are_present`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - `git diff --check`
 - [x] Session label: GAR-0016-A adaptive runtime gate consolidation
   - Primary files:
     - `shardloom-plan/src/optimizer.rs`
