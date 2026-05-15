@@ -8,7 +8,8 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     ByteRange, CapabilityCertificationReport, CatalogKind, CatalogMetadataIntegrationGateReport,
-    CatalogRef, CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet, ColumnRef,
+    CatalogRef, CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport,
+    CdcManifestTransactionGateEntry, CdcManifestTransactionGateReport, ChangeSet, ColumnRef,
     CommandStatus, CompactionPlanningPolicy, CompactionPlanningReport, DatasetFormat,
     DatasetManifest, DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport,
     Diagnostic, DiagnosticCategory, DiagnosticCode, EncodedSegment, EncodingKind, FieldId,
@@ -23,8 +24,8 @@ use shardloom_core::{
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
-    plan_catalog_metadata_integration_gate, plan_stateful_reuse,
-    plan_stateful_reuse_promotion_gate,
+    plan_catalog_metadata_integration_gate, plan_cdc_manifest_transaction_gate,
+    plan_stateful_reuse, plan_stateful_reuse_promotion_gate,
 };
 use shardloom_plan::{
     ImportedPlanCapabilityGateReport, NativePlanDocument, NativePlanNode, NativePlanNodeKind,
@@ -3142,7 +3143,11 @@ fn append_compaction_side_effect_fields(
 
 pub(crate) fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
     let report = TableIntelligenceReport::report_only_foundation();
-    let status = if report.has_errors() {
+    let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
+    let has_errors = report.has_errors() || cdc_manifest_transaction_gate.has_errors();
+    let mut diagnostics = report.diagnostics.clone();
+    diagnostics.extend(cdc_manifest_transaction_gate.diagnostics.clone());
+    let status = if has_errors {
         CommandStatus::Unsupported
     } else {
         CommandStatus::Success
@@ -3153,17 +3158,20 @@ pub(crate) fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
         status,
         "table intelligence plan".to_string(),
         report.to_human_text(),
-        report.diagnostics.clone(),
-        table_intelligence_output_fields(&report),
+        diagnostics,
+        table_intelligence_output_fields(&report, &cdc_manifest_transaction_gate),
     );
-    if report.has_errors() {
+    if has_errors {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
     }
 }
 
-fn table_intelligence_output_fields(report: &TableIntelligenceReport) -> Vec<(String, String)> {
+fn table_intelligence_output_fields(
+    report: &TableIntelligenceReport,
+    cdc_manifest_transaction_gate: &CdcManifestTransactionGateReport,
+) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "mode", "table_intelligence_plan");
     push_field(&mut fields, "schema_version", report.schema_version);
@@ -3219,9 +3227,368 @@ fn table_intelligence_output_fields(report: &TableIntelligenceReport) -> Vec<(St
     );
     push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    append_cdc_manifest_transaction_gate_fields(
+        &mut fields,
+        "cdc_manifest_transaction_gate",
+        cdc_manifest_transaction_gate,
+    );
     push_field(&mut fields, "execution", "not_performed");
     push_field(&mut fields, "plan_only", "true");
     fields
+}
+
+fn append_cdc_manifest_transaction_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CdcManifestTransactionGateReport,
+) {
+    push_field(
+        fields,
+        &format!("{prefix}_schema_version"),
+        report.schema_version,
+    );
+    push_field(fields, &format!("{prefix}_report_id"), report.report_id);
+    push_count_field(
+        fields,
+        &format!("{prefix}_surface_count"),
+        report.surface_count(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_report_only_surface_count"),
+        report.report_only_surface_count(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_unsupported_surface_count"),
+        report.unsupported_surface_count(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_surface_order"),
+        &report.surface_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_existing_report_refs"),
+        &report.existing_report_refs.join(","),
+    );
+    append_cdc_manifest_transaction_gate_evidence_fields(fields, prefix, report);
+    append_cdc_manifest_transaction_gate_requirement_fields(fields, prefix, report);
+    append_cdc_manifest_transaction_gate_status_fields(fields, prefix, report);
+    for entry in &report.entries {
+        append_cdc_manifest_transaction_gate_entry_fields(fields, prefix, entry);
+    }
+}
+
+fn append_cdc_manifest_transaction_gate_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CdcManifestTransactionGateReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_existing_cdc_planning_present"),
+        report.existing_cdc_planning_present,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_existing_manifest_contract_present"),
+        report.existing_manifest_contract_present,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_existing_object_store_commit_protocol_present"),
+        report.existing_object_store_commit_protocol_present,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_existing_local_staged_manifest_helpers_present"),
+        report.existing_local_staged_manifest_helpers_present,
+    );
+}
+
+fn append_cdc_manifest_transaction_gate_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CdcManifestTransactionGateReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_snapshot_pair_required"),
+        report.snapshot_pair_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_row_identity_required"),
+        report.row_identity_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_manifest_schema_required"),
+        report.manifest_schema_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_manifest_serialization_evidence_required"),
+        report.manifest_serialization_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_transaction_protocol_required"),
+        report.transaction_protocol_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_commit_protocol_required"),
+        report.commit_protocol_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_object_store_provider_evidence_required"),
+        report.object_store_provider_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_execution_certificate_required"),
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_native_io_certificate_required"),
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_no_fallback_policy_required"),
+        report.no_fallback_policy_required,
+    );
+}
+
+fn append_cdc_manifest_transaction_gate_status_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CdcManifestTransactionGateReport,
+) {
+    append_cdc_manifest_transaction_gate_runtime_status_fields(fields, prefix, report);
+    append_cdc_manifest_transaction_gate_policy_status_fields(fields, prefix, report);
+    append_cdc_manifest_transaction_gate_diagnostic_status_fields(fields, prefix, report);
+}
+
+fn append_cdc_manifest_transaction_gate_runtime_status_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CdcManifestTransactionGateReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_cdc_read_intent_report_only_available"),
+        report.cdc_read_intent_report_only_available,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_cdc_write_intent_allowed"),
+        report.cdc_write_intent_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_manifest_serialization_allowed"),
+        report.manifest_serialization_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_manifest_metadata_read_allowed"),
+        report.manifest_metadata_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_transaction_execution_allowed"),
+        report.transaction_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_commit_execution_allowed"),
+        report.commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_object_store_io_allowed"),
+        report.object_store_io_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_data_read_allowed"),
+        report.data_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_write_io_allowed"),
+        report.write_io_allowed,
+    );
+}
+
+fn append_cdc_manifest_transaction_gate_policy_status_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CdcManifestTransactionGateReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_promotions_blocked"),
+        report.runtime_promotions_blocked(),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_claim_blocked"),
+        report.claim_blocked(),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_side_effect_free"),
+        report.side_effect_free(),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_execution_allowed"),
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_cdc_transaction_claim_allowed"),
+        report.cdc_transaction_claim_allowed,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        report.claim_gate_status,
+    );
+}
+
+fn append_cdc_manifest_transaction_gate_diagnostic_status_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    report: &CdcManifestTransactionGateReport,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_deterministic_unsupported_diagnostics_ready"),
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_count"),
+        report.unsupported_diagnostic_count(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_code_order"),
+        &report.unsupported_diagnostic_code_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_category_order"),
+        &report.unsupported_diagnostic_category_order().join(","),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_unsupported_diagnostic_severity_order"),
+        &report.unsupported_diagnostic_severity_order().join(","),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_diagnostic_count"),
+        report.diagnostics.len(),
+    );
+}
+
+fn append_cdc_manifest_transaction_gate_entry_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    entry: &CdcManifestTransactionGateEntry,
+) {
+    let row_prefix = format!("{prefix}_row_{}", entry.surface.as_str());
+    push_field(
+        fields,
+        &format!("{row_prefix}_status"),
+        entry.status.as_str(),
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_existing_report_ref"),
+        entry.existing_report_ref.unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_required_evidence"),
+        entry.required_evidence,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_report_only_available"),
+        entry.report_only_available,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_manifest_serialization_allowed"),
+        entry.manifest_serialization_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_manifest_metadata_read_allowed"),
+        entry.manifest_metadata_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_transaction_execution_allowed"),
+        entry.transaction_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_commit_execution_allowed"),
+        entry.commit_execution_allowed,
+    );
+    push_bool_field(fields, &format!("{row_prefix}_data_read"), entry.data_read);
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_object_store_io"),
+        entry.object_store_io,
+    );
+    push_bool_field(fields, &format!("{row_prefix}_write_io"), entry.write_io);
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_fallback_attempted"),
+        entry.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_fallback_execution_allowed"),
+        entry.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_external_engine_invoked"),
+        entry.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        &format!("{row_prefix}_side_effect_free"),
+        entry.side_effect_free(),
+    );
+    push_field(
+        fields,
+        &format!("{row_prefix}_claim_gate_status"),
+        entry.claim_gate_status,
+    );
 }
 
 pub(crate) fn catalog_metadata_integration_gate_fields(
@@ -3563,7 +3930,11 @@ pub(crate) fn emit_cdc_incremental_plan(format: OutputFormat, scenario: &str) ->
         }
     };
     let report = evaluate_cdc_incremental_planning(change_set, cdc_events);
-    let status = if report.has_errors() {
+    let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
+    let has_errors = report.has_errors() || cdc_manifest_transaction_gate.has_errors();
+    let mut diagnostics = report.diagnostics.clone();
+    diagnostics.extend(cdc_manifest_transaction_gate.diagnostics.clone());
+    let status = if has_errors {
         CommandStatus::Unsupported
     } else {
         CommandStatus::Success
@@ -3574,10 +3945,10 @@ pub(crate) fn emit_cdc_incremental_plan(format: OutputFormat, scenario: &str) ->
         status,
         "CDC incremental planning report".to_string(),
         report.to_human_text(),
-        report.diagnostics.clone(),
-        cdc_incremental_output_fields(&report, scenario),
+        diagnostics,
+        cdc_incremental_output_fields(&report, scenario, &cdc_manifest_transaction_gate),
     );
-    if report.has_errors() {
+    if has_errors {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
@@ -3587,6 +3958,7 @@ pub(crate) fn emit_cdc_incremental_plan(format: OutputFormat, scenario: &str) ->
 fn cdc_incremental_output_fields(
     report: &CdcIncrementalPlanningReport,
     scenario: &str,
+    cdc_manifest_transaction_gate: &CdcManifestTransactionGateReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "fallback_execution_allowed", "false");
@@ -3596,6 +3968,11 @@ fn cdc_incremental_output_fields(
     append_cdc_incremental_count_fields(&mut fields, report);
     append_cdc_incremental_requirement_fields(&mut fields, report);
     append_cdc_incremental_side_effect_fields(&mut fields, report);
+    append_cdc_manifest_transaction_gate_fields(
+        &mut fields,
+        "cdc_manifest_transaction_gate",
+        cdc_manifest_transaction_gate,
+    );
     push_field(&mut fields, "execution", "not_performed");
     push_field(&mut fields, "plan_only", "true");
     fields
@@ -3811,7 +4188,8 @@ mod tests {
     #[test]
     fn table_intelligence_fields_include_report_only_no_io_no_fallback() {
         let report = TableIntelligenceReport::report_only_foundation();
-        let fields = table_intelligence_output_fields(&report);
+        let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
+        let fields = table_intelligence_output_fields(&report, &cdc_manifest_transaction_gate);
 
         assert_eq!(
             output_field(&fields, "schema_version"),
@@ -3839,6 +4217,71 @@ mod tests {
         assert_eq!(output_field(&fields, "side_effect_free"), "true");
         assert!(output_field(&fields, "surface_order").contains("schema_evolution"));
         assert!(output_field(&fields, "surface_order").contains("commit_recovery"));
+        assert_eq!(
+            output_field(&fields, "cdc_manifest_transaction_gate_report_id"),
+            "gar0004a.cdc_manifest_transaction_gate"
+        );
+        assert_eq!(
+            output_field(&fields, "cdc_manifest_transaction_gate_surface_count"),
+            "8"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "cdc_manifest_transaction_gate_runtime_promotions_blocked"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "cdc_manifest_transaction_gate_deterministic_unsupported_diagnostics_ready"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "cdc_manifest_transaction_gate_fallback_execution_allowed"
+            ),
+            "false"
+        );
+    }
+
+    #[test]
+    fn cdc_incremental_fields_include_manifest_transaction_gate() {
+        let (change_set, events) = cdc_incremental_fixture("append-only").expect("fixture");
+        let report = evaluate_cdc_incremental_planning(change_set, events);
+        let cdc_manifest_transaction_gate = plan_cdc_manifest_transaction_gate();
+        let fields =
+            cdc_incremental_output_fields(&report, "append-only", &cdc_manifest_transaction_gate);
+
+        assert_eq!(output_field(&fields, "mode"), "cdc_incremental_plan");
+        assert_eq!(
+            output_field(&fields, "cdc_status"),
+            "execute_changed_segments_only"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "cdc_manifest_transaction_gate_cdc_read_intent_report_only_available"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "cdc_manifest_transaction_gate_commit_execution_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "cdc_manifest_transaction_gate_external_engine_invoked"
+            ),
+            "false"
+        );
     }
 
     fn output_field<'a>(fields: &'a [(String, String)], key: &str) -> &'a str {

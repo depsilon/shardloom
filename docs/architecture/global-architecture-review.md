@@ -115,13 +115,19 @@ plan before coding.
 - Source:
   [`docs/rfcs/0004-native-dataset-manifest-snapshot-incremental.md`](../rfcs/0004-native-dataset-manifest-snapshot-incremental.md)
 - Current read: Contracts and local staged helpers exist; table/incremental execution is not broad.
-- Evidence: `shardloom-core/src/manifest.rs`, `shardloom-vortex/src/staged_manifest.rs`,
-  `shardloom-vortex/src/manifest_finalization.rs`, `shardloom-vortex/src/commit_protocol.rs`,
-  `shardloom-vortex/tests/staged_write_readiness.rs`
+- Evidence: `shardloom-core/src/manifest.rs`, `shardloom-core/src/table_intelligence.rs`,
+  `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`,
+  `shardloom-vortex/src/staged_manifest.rs`, `shardloom-vortex/src/manifest_finalization.rs`,
+  `shardloom-vortex/src/commit_protocol.rs`, `shardloom-vortex/tests/staged_write_readiness.rs`
 - [x] Manifest, snapshot, change, staged write, and commit-protocol report contracts exist.
 - [x] Local staged write/readiness evidence covers a narrow Vortex artifact path.
-- [ ] CDC planning, table/catalog metadata reads, object-store commits, generalized manifest
-  serialization, and broad transaction semantics remain incomplete.
+- [x] `GAR-0004-A` adds `shardloom.cdc_manifest_transaction_gate.v1` to the table-intelligence
+  and CDC incremental CLI surfaces, classifying CDC read intent as report-only while CDC write
+  intent, generalized manifest serialization, manifest metadata reads, object-store commits,
+  table/catalog commits, and transaction execution stay unsupported with deterministic info-level
+  diagnostics, `claim_gate_status=not_claim_grade`, no I/O, no fallback, and no external engine.
+- [ ] Table/catalog metadata reads, object-store commits, generalized manifest serialization, CDC
+  write execution, and broad transaction semantics remain incomplete.
 
 ### RFC 0005 - Vortex-Native File IO and Output Contract
 

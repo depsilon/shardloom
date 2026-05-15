@@ -21,6 +21,27 @@ fn run_table_intelligence_plan_json() -> String {
     String::from_utf8(output.stdout).expect("stdout is utf8")
 }
 
+fn run_incremental_cdc_plan_json() -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["incremental-plan", "cdc", "append-only", "--format", "json"])
+        .output()
+        .expect("incremental-plan cdc command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    String::from_utf8(output.stdout).expect("stdout is utf8")
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
@@ -61,4 +82,97 @@ fn table_intelligence_json_preserves_no_io_no_dependency_no_fallback_defaults() 
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("side_effect_free", "true")));
     assert!(output.contains(&field("plan_only", "true")));
+}
+
+#[test]
+fn table_intelligence_json_embeds_gar0004a_cdc_manifest_transaction_gate() {
+    let output = run_table_intelligence_plan_json();
+
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_schema_version",
+        "shardloom.cdc_manifest_transaction_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_report_id",
+        "gar0004a.cdc_manifest_transaction_gate"
+    )));
+    assert!(output.contains(&field("cdc_manifest_transaction_gate_surface_count", "8")));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_report_only_surface_count",
+        "2"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_unsupported_surface_count",
+        "6"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_surface_order",
+        "cdc_read_intent,cdc_write_intent,manifest_serialization,manifest_metadata_read,object_store_commit,table_catalog_commit,transaction_execution,unsupported_commit_diagnostic"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_runtime_promotions_blocked",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_deterministic_unsupported_diagnostics_ready",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_unsupported_diagnostic_count",
+        "6"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_fallback_attempted",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_external_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains("\"diagnostics\":[{\"code\":\"SL_NOT_IMPLEMENTED\""));
+}
+
+#[test]
+fn incremental_cdc_json_embeds_gar0004a_gate_without_runtime_promotion() {
+    let output = run_incremental_cdc_plan_json();
+
+    assert!(output.contains("\"command\":\"incremental-plan\""));
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("mode", "cdc_incremental_plan")));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_report_id",
+        "gar0004a.cdc_manifest_transaction_gate"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_cdc_read_intent_report_only_available",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_cdc_write_intent_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_manifest_serialization_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_manifest_metadata_read_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_transaction_execution_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_commit_execution_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "cdc_manifest_transaction_gate_fallback_execution_allowed",
+        "false"
+    )));
 }
