@@ -16,6 +16,24 @@ fn read_repo_file(path: impl AsRef<Path>) -> String {
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()))
 }
 
+fn planned_gar_slices(plan: &str) -> Vec<String> {
+    let lines = plan.lines().collect::<Vec<_>>();
+    let mut slices = Vec::new();
+    let mut start = None;
+    for (index, line) in lines.iter().enumerate() {
+        if line.starts_with("- [ ] GAR-") {
+            if let Some(previous_start) = start {
+                slices.push(lines[previous_start..index].join("\n"));
+            }
+            start = Some(index);
+        }
+    }
+    if let Some(previous_start) = start {
+        slices.push(lines[previous_start..].join("\n"));
+    }
+    slices
+}
+
 #[test]
 fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
     let pyproject = read_repo_file("python/pyproject.toml");
@@ -738,7 +756,13 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(plan.contains("GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
-    assert!(plan.matches("- [ ] GAR-").count() >= 32);
+    let planned_gar_slices = planned_gar_slices(&plan);
+    assert!(planned_gar_slices.len() >= 32);
+    assert!(
+        planned_gar_slices
+            .iter()
+            .all(|slice| slice.contains("Evidence required:"))
+    );
     assert!(!plan.contains(
         "- [x] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
     ));

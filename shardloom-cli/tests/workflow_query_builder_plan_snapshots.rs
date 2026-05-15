@@ -434,6 +434,9 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     )));
     assert!(fallback_engine.contains("\"code\":\"SL_NO_FALLBACK_EXECUTION\""));
     assert!(fallback_engine.contains("\"category\":\"no_fallback_policy\""));
+    assert!(fallback_engine.contains(
+        "external fallback engine workflow execution is prohibited by ShardLoom's no-fallback policy"
+    ));
     assert!(fallback_engine.contains(&field("diagnostic_category", "no_fallback_policy")));
     assert!(fallback_engine.contains(&field("runtime_required", "false")));
 }

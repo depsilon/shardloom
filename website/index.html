@@ -9,588 +9,13 @@
   <link rel="canonical" href="https://shardloom.io/">
   <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
   <meta property="og:title" content="ShardLoom">
   <meta property="og:description" content="Pre-release Vortex-native, no-fallback compute engine foundation.">
   <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://shardloom.io/">
   <script src="/assets/compute-flow.js" defer></script>
-  <style>
-    :root {
-      color-scheme: light;
-      --page: #f7fafb;
-      --ink: #071229;
-      --muted: #516170;
-      --panel: #ffffff;
-      --panel-alt: #eef6f8;
-      --line: #d5e1e7;
-      --navy: #06164d;
-      --cyan: #05aee2;
-      --teal: #00c7c7;
-      --violet: #5a35ff;
-      --amber: #a66a00;
-      --shadow: 0 20px 60px rgba(7, 18, 41, 0.12);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      margin: 0;
-      background: var(--page);
-      color: var(--ink);
-      font: 16px/1.56 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    a {
-      color: inherit;
-    }
-
-    .shell {
-      width: min(1160px, calc(100% - 32px));
-      margin: 0 auto;
-    }
-
-    .site-header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      border-bottom: 1px solid rgba(213, 225, 231, 0.82);
-      background: rgba(247, 250, 251, 0.9);
-      backdrop-filter: blur(14px);
-    }
-
-    .nav {
-      min-height: 70px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 22px;
-    }
-
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      font-weight: 750;
-    }
-
-    .brand img {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      object-fit: cover;
-      background: #fff;
-      border: 1px solid var(--line);
-    }
-
-    .nav-links {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 18px;
-      color: var(--muted);
-      font-size: 0.94rem;
-    }
-
-    .nav-links a {
-      text-decoration: none;
-    }
-
-    .nav-links a:hover {
-      color: var(--ink);
-    }
-
-    main {
-      overflow: hidden;
-    }
-
-    .hero {
-      min-height: calc(100vh - 70px);
-      display: grid;
-      align-items: center;
-      padding: 64px 0 44px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .hero-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.04fr) minmax(340px, 0.96fr);
-      gap: 44px;
-      align-items: center;
-    }
-
-    .mark-panel {
-      position: relative;
-      min-height: 430px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background:
-        linear-gradient(140deg, rgba(5, 174, 226, 0.12), rgba(0, 199, 199, 0.05)),
-        var(--panel);
-      box-shadow: var(--shadow);
-      padding: 28px;
-      display: grid;
-      align-content: center;
-    }
-
-    .hero-logo {
-      width: min(100%, 640px);
-      height: auto;
-      display: block;
-      justify-self: center;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      width: fit-content;
-      border: 1px solid rgba(5, 174, 226, 0.28);
-      border-radius: 999px;
-      background: rgba(5, 174, 226, 0.08);
-      color: #064b62;
-      padding: 7px 12px;
-      font-size: 0.82rem;
-      font-weight: 720;
-      text-transform: uppercase;
-    }
-
-    .status-pill::before {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--teal);
-    }
-
-    h1 {
-      margin: 18px 0 0;
-      font-size: clamp(3rem, 8vw, 6.8rem);
-      line-height: 0.95;
-      letter-spacing: 0;
-    }
-
-    .lede {
-      max-width: 690px;
-      margin: 24px 0 0;
-      color: var(--muted);
-      font-size: 1.18rem;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 32px;
-    }
-
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 44px;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-      padding: 10px 15px;
-      text-decoration: none;
-      font-weight: 700;
-      background: var(--panel);
-    }
-
-    .button.primary {
-      border-color: var(--navy);
-      background: var(--navy);
-      color: #fff;
-    }
-
-    .quick-facts {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 34px;
-    }
-
-    .fact {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.68);
-      padding: 13px;
-    }
-
-    .fact strong {
-      display: block;
-      font-size: 0.9rem;
-    }
-
-    .fact span {
-      display: block;
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 0.86rem;
-    }
-
-    section {
-      padding: 70px 0;
-      border-bottom: 1px solid var(--line);
-    }
-
-    h2 {
-      margin: 0;
-      font-size: clamp(1.9rem, 4vw, 3.4rem);
-      line-height: 1.05;
-      letter-spacing: 0;
-    }
-
-    .section-lede {
-      max-width: 780px;
-      margin: 14px 0 0;
-      color: var(--muted);
-      font-size: 1.04rem;
-    }
-
-    .flow-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 28px;
-    }
-
-    .flow-source {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-      margin: 18px 0 0;
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-
-    .source-badge {
-      border: 1px solid rgba(5, 174, 226, 0.28);
-      border-radius: 999px;
-      background: rgba(5, 174, 226, 0.08);
-      color: #064b62;
-      padding: 5px 10px;
-      font-weight: 700;
-    }
-
-    .flow-panels {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 12px;
-    }
-
-    .flow-panel {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      padding: 18px;
-    }
-
-    .flow-panel-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      align-items: baseline;
-      margin-bottom: 12px;
-    }
-
-    .flow-panel h3 {
-      margin: 0;
-      font-size: 1rem;
-      line-height: 1.25;
-    }
-
-    .flow-panel-kicker {
-      color: var(--muted);
-      font-size: 0.78rem;
-      font-weight: 800;
-      text-align: right;
-      text-transform: uppercase;
-    }
-
-    .flow-list {
-      display: grid;
-      gap: 10px;
-    }
-
-    .flow-item {
-      border-top: 1px solid var(--line);
-      padding-top: 10px;
-    }
-
-    .flow-item:first-child {
-      border-top: 0;
-      padding-top: 0;
-    }
-
-    .flow-item strong {
-      display: block;
-      font-size: 0.92rem;
-    }
-
-    .flow-item span {
-      display: block;
-      margin-top: 3px;
-      color: var(--muted);
-      font-size: 0.88rem;
-    }
-
-    .flow-table-wrap {
-      overflow-x: auto;
-      margin-top: 12px;
-    }
-
-    .flow-table {
-      width: 100%;
-      min-width: 680px;
-      border-collapse: collapse;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      overflow: hidden;
-      background: var(--panel);
-      font-size: 0.9rem;
-    }
-
-    .flow-table th,
-    .flow-table td {
-      padding: 12px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      vertical-align: top;
-    }
-
-    .flow-table th {
-      color: var(--muted);
-      text-transform: uppercase;
-      font-size: 0.76rem;
-    }
-
-    .flow-table tr:last-child td {
-      border-bottom: 0;
-    }
-
-    .flow-columns {
-      display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-      gap: 12px;
-      margin-top: 12px;
-    }
-
-    .flow-compact {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel-alt);
-      padding: 18px;
-    }
-
-    .flow-compact h3 {
-      margin: 0 0 12px;
-      font-size: 1rem;
-    }
-
-    .pill-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .pill-list li {
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: #fff;
-      padding: 6px 10px;
-      color: var(--muted);
-      font-size: 0.84rem;
-      font-weight: 700;
-    }
-
-    .guardrail-list {
-      display: grid;
-      gap: 8px;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .guardrail-list li {
-      border-left: 3px solid var(--amber);
-      background: #fffaf0;
-      padding: 9px 11px;
-      color: #574003;
-      font-size: 0.88rem;
-    }
-
-    .step,
-    .card,
-    .boundary {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      padding: 18px;
-    }
-
-    .step-index {
-      color: var(--cyan);
-      font-size: 0.82rem;
-      font-weight: 800;
-    }
-
-    .step h3,
-    .card h3,
-    .boundary h3 {
-      margin: 8px 0;
-      font-size: 1rem;
-      line-height: 1.25;
-    }
-
-    .step p,
-    .card p,
-    .boundary p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.94rem;
-    }
-
-    .split {
-      display: grid;
-      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-      gap: 30px;
-      align-items: start;
-    }
-
-    .status-table {
-      width: 100%;
-      border-collapse: collapse;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      overflow: hidden;
-      background: var(--panel);
-    }
-
-    .status-table th,
-    .status-table td {
-      padding: 15px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      vertical-align: top;
-    }
-
-    .status-table th {
-      width: 32%;
-      color: var(--muted);
-      font-size: 0.82rem;
-      text-transform: uppercase;
-    }
-
-    .status-table tr:last-child th,
-    .status-table tr:last-child td {
-      border-bottom: 0;
-    }
-
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 28px;
-    }
-
-    .boundary-list {
-      display: grid;
-      gap: 10px;
-      margin-top: 28px;
-    }
-
-    .boundary {
-      border-left: 4px solid var(--amber);
-      background: #fffaf0;
-    }
-
-    .repo-band {
-      background: var(--ink);
-      color: #fff;
-    }
-
-    .repo-band .section-lede {
-      color: #c7d4dd;
-    }
-
-    .repo-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 26px;
-    }
-
-    .repo-band .button {
-      background: transparent;
-      color: #fff;
-      border-color: rgba(255, 255, 255, 0.28);
-    }
-
-    .repo-band .button.primary {
-      background: #fff;
-      color: var(--ink);
-      border-color: #fff;
-    }
-
-    footer {
-      padding: 30px 0;
-      color: var(--muted);
-      font-size: 0.92rem;
-      background: #fff;
-    }
-
-    @media (max-width: 920px) {
-      .hero-grid,
-      .split,
-      .flow-grid,
-      .flow-panels,
-      .flow-columns,
-      .card-grid,
-      .quick-facts {
-        grid-template-columns: 1fr;
-      }
-
-      .hero {
-        min-height: auto;
-      }
-
-      .mark-panel {
-        min-height: 300px;
-        order: -1;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .nav {
-        align-items: flex-start;
-        flex-direction: column;
-        padding: 14px 0;
-      }
-
-      .nav-links {
-        justify-content: flex-start;
-        gap: 14px;
-      }
-
-      section {
-        padding: 54px 0;
-      }
-    }
-  </style>
 </head>
 <body>
   <header class="site-header">
@@ -600,9 +25,8 @@
         <span>ShardLoom</span>
       </a>
       <nav class="nav-links" aria-label="Primary">
-        <a href="#flow">Flow</a>
         <a href="/benchmarks.html">Benchmarks</a>
-        <a href="/compute-engine-flow.html">Compute Flow Doc</a>
+        <a href="/compute-engine-flow.html">Compute Flow</a>
         <a href="/readme.html">README</a>
         <a href="#status">Status</a>
         <a href="#boundaries">Boundaries</a>
@@ -612,135 +36,96 @@
   </header>
 
   <main>
-    <section class="hero" aria-labelledby="hero-title">
+    <section class="home-hero" aria-labelledby="hero-title">
       <div class="shell hero-grid">
-        <div>
+        <div class="hero-copy">
           <span class="status-pill">Pre-release</span>
           <h1 id="hero-title">ShardLoom</h1>
-          <p class="lede">A Vortex-native, no-fallback, evidence-certified local compute engine foundation built around explicit unsupported diagnostics and claim gates before broader platform promises.</p>
-          <div class="actions">
-            <a class="button primary" href="https://github.com/depsilon/shardloom">View repository</a>
-            <a class="button" href="/benchmarks.html">Benchmark evidence</a>
-            <a class="button" href="#boundaries">Read claim boundaries</a>
+          <p class="lede">A Vortex-native, no-fallback local compute engine foundation that keeps runtime modes, materialization boundaries, and public claims tied to evidence.</p>
+          <div class="action-row">
+            <a class="button primary" href="/benchmarks.html">Benchmark evidence</a>
+            <a class="button" href="/compute-engine-flow.html">Compute flow</a>
+            <a class="button" href="https://github.com/depsilon/shardloom">Repository</a>
           </div>
-          <div class="quick-facts" aria-label="ShardLoom status summary">
-            <div class="fact"><strong>Vortex-native</strong><span>Vortex is the native data substrate.</span></div>
-            <div class="fact"><strong>No fallback</strong><span>Unsupported paths fail explicitly.</span></div>
-            <div class="fact"><strong>Evidence-first</strong><span>Local compute slices are certificate-backed.</span></div>
+          <div class="status-strip" aria-label="ShardLoom status summary">
+            <article class="status-chip"><strong>Vortex-native</strong><span>Vortex is the native data substrate and evidence target.</span></article>
+            <article class="status-chip"><strong>No fallback</strong><span>Unsupported paths return diagnostics, not external engine delegation.</span></article>
+            <article class="status-chip"><strong>Evidence-certified</strong><span>Local execution slices carry certificates, timing fields, and claim gates.</span></article>
+            <article class="status-chip"><strong>Claim-safe</strong><span>No Spark replacement, production platform, or performance claim.</span></article>
           </div>
         </div>
-        <div class="mark-panel" aria-label="ShardLoom logo">
+        <div class="hero-media" aria-label="ShardLoom logo">
           <img class="hero-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+          <div class="hero-console" aria-label="Current evidence posture">
+            <div class="console-row"><code>mode</code><span>compatibility_import_certified, prepared_vortex, native_vortex, direct_compatibility_transient, auto</span></div>
+            <div class="console-row"><code>engine</code><span>batch foundation; live and hybrid fixture evidence only</span></div>
+            <div class="console-row"><code>policy</code><span>fallback_attempted=false, external_engine_invoked=false</span></div>
+            <div class="console-row"><code>claim</code><span>pre-release local evidence; no performance or production platform claim</span></div>
+          </div>
         </div>
       </div>
     </section>
 
-    <section id="evidence">
+    <section id="status">
       <div class="shell split">
         <div>
-          <h2>Evidence Snapshot</h2>
-          <p class="section-lede">The website includes committed static snapshots for the current benchmark evidence, the compute-engine flow reference, and the repository README. The benchmark page separates compatibility-import, prepared Vortex, and native Vortex rows and keeps every performance or platform claim blocked unless the evidence says otherwise.</p>
-          <div class="actions">
-            <a class="button primary" href="/benchmarks.html">Open benchmark evidence</a>
-            <a class="button" href="/compute-engine-flow.html">Open compute flow</a>
-            <a class="button" href="/readme.html">Open README</a>
+          <p class="eyebrow">Current state</p>
+          <h2>Local compute foundation, not a finished platform claim.</h2>
+          <p class="section-lede">ShardLoom’s public posture is intentionally narrow: explicit execution-mode reporting, prepared/native Vortex evidence, no-fallback enforcement, and deterministic unsupported diagnostics.</p>
+          <div class="action-row">
+            <a class="button primary" href="/benchmarks.html">Review benchmark page</a>
+            <a class="button" href="/readme.html">Read repository README</a>
+          </div>
+          <div class="access-ribbon" aria-label="Access surfaces">
+            <span><strong>CLI</strong>canonical entrypoint</span>
+            <span><strong>Python</strong>typed wrapper</span>
+            <span><strong>Benchmarks</strong>evidence reports</span>
+            <span><strong>Adapters</strong>planned thin surfaces</span>
+            <span><strong>REST/events</strong>report-only contract</span>
           </div>
         </div>
-        <table class="status-table">
-          <tbody>
-            <tr>
-              <th scope="row">Benchmark scope</th>
-              <td>Local smoke evidence for prepared/native Vortex scenarios, source-backed scans, result sinks, table metadata, and no-fallback fields.</td>
-            </tr>
-            <tr>
-              <th scope="row">Claim gate</th>
-              <td><code>fixture_smoke_only</code>, <code>not_claim_grade</code>, or scoped metadata status as recorded by the artifacts.</td>
-            </tr>
-            <tr>
-              <th scope="row">Mode split</th>
-              <td><code>compatibility_import_certified</code>, <code>prepared_vortex</code>, and <code>native_vortex</code> are presented as separate timing surfaces.</td>
-            </tr>
-            <tr>
-              <th scope="row">Fallback policy</th>
-              <td><code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code> remain visible on the evidence rows.</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="proof-grid">
+          <article class="proof-card"><strong>Compatibility import</strong><span>Certification lane that includes ingest, stage, write/reopen, scan, result, and evidence work.</span></article>
+          <article class="proof-card"><strong>Prepared Vortex</strong><span>Preferred path for query-runtime evidence from already prepared Vortex artifacts.</span></article>
+          <article class="proof-card"><strong>Native Vortex</strong><span>Scoped native-artifact lane with visible admission, Native I/O, and no-fallback fields.</span></article>
+        </div>
       </div>
     </section>
 
     <section id="flow">
       <div class="shell" data-flow-root>
-        <h2>Current Compute Flow</h2>
-        <p class="section-lede">This section is populated from the canonical compute-engine flow reference on <code>main</code>, with static fallback content when the source cannot be loaded. The full rendered reference is also available as a static page.</p>
+        <p class="eyebrow">Architecture flow</p>
+        <h2>Compute flow from access to claim gate.</h2>
+        <p class="section-lede">This summary is parsed from the canonical compute-engine flow reference. The full generated page now renders Mermaid diagrams as first-party static HTML so the architecture remains readable without a client Mermaid runtime.</p>
         <p class="flow-source">
           <span class="source-badge" data-flow-source-status>Loading architecture reference</span>
           <a href="/compute-engine-flow.html">Rendered compute-engine flow</a>
           <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md">Source Markdown</a>
         </p>
-        <div class="flow-grid" data-flow-views>
-          <article class="step">
-            <span class="step-index">01</span>
-            <h3>Access and users</h3>
-            <p>CLI, Python, benchmarks, adapters, and future REST/event surfaces preserve the shared typed protocol.</p>
-          </article>
-          <article class="step">
-            <span class="step-index">02</span>
-            <h3>Runtime contract</h3>
-            <p>Policy, capability, semantic profile, execution mode, and engine mode are admitted before execution.</p>
-          </article>
-          <article class="step">
-            <span class="step-index">03</span>
-            <h3>Mode lanes</h3>
-            <p>Compatibility, prepared Vortex, native Vortex, direct transient, and auto lanes stay explicit.</p>
-          </article>
-          <article class="step">
-            <span class="step-index">04</span>
-            <h3>Evidence and downstream use</h3>
-            <p>Typed outputs carry result refs, diagnostics, certificates, timing fields, and claim gates.</p>
-          </article>
-        </div>
+        <div class="flow-grid" data-flow-views></div>
         <div class="flow-panels">
           <article class="flow-panel">
-            <div class="flow-panel-header">
-              <h3>Access Surfaces</h3>
-              <span class="flow-panel-kicker">View 1</span>
-            </div>
+            <div class="flow-panel-header"><h3>Access Surfaces</h3><span class="flow-panel-kicker">View 1</span></div>
             <div class="flow-list" data-flow-access></div>
           </article>
           <article class="flow-panel">
-            <div class="flow-panel-header">
-              <h3>Runtime Contract</h3>
-              <span class="flow-panel-kicker">View 2</span>
-            </div>
+            <div class="flow-panel-header"><h3>Runtime Contract</h3><span class="flow-panel-kicker">View 2</span></div>
             <div class="flow-list" data-flow-runtime></div>
           </article>
           <article class="flow-panel">
-            <div class="flow-panel-header">
-              <h3>Execution Lanes</h3>
-              <span class="flow-panel-kicker">View 3</span>
-            </div>
+            <div class="flow-panel-header"><h3>Execution Lanes</h3><span class="flow-panel-kicker">View 3</span></div>
             <div class="flow-list" data-flow-lanes></div>
           </article>
           <article class="flow-panel">
-            <div class="flow-panel-header">
-              <h3>Batch, Live, Hybrid</h3>
-              <span class="flow-panel-kicker">View 4</span>
-            </div>
+            <div class="flow-panel-header"><h3>Batch, Live, Hybrid</h3><span class="flow-panel-kicker">View 4</span></div>
             <div class="flow-list" data-flow-engine></div>
           </article>
           <article class="flow-panel">
-            <div class="flow-panel-header">
-              <h3>I/O And Downstream Use</h3>
-              <span class="flow-panel-kicker">View 5</span>
-            </div>
+            <div class="flow-panel-header"><h3>I/O And Downstream Use</h3><span class="flow-panel-kicker">View 5</span></div>
             <div class="flow-list" data-flow-downstream></div>
           </article>
           <article class="flow-panel">
-            <div class="flow-panel-header">
-              <h3>Mode Timing Fields</h3>
-              <span class="flow-panel-kicker">Benchmark contract</span>
-            </div>
+            <div class="flow-panel-header"><h3>Mode Timing Fields</h3><span class="flow-panel-kicker">Benchmark contract</span></div>
             <ul class="pill-list" data-flow-timing></ul>
           </article>
         </div>
@@ -765,51 +150,64 @@
       </div>
     </section>
 
-    <section id="status">
-      <div class="shell split">
-        <div>
-          <h2>What Exists Today</h2>
-          <p class="section-lede">ShardLoom is not presented as a finished platform. The repository currently proves a local compute engine foundation and keeps broad capability claims behind evidence gates.</p>
+    <section>
+      <div class="shell">
+        <p class="eyebrow">Runtime lanes</p>
+        <h2>Separate how data enters from what workload semantics mean.</h2>
+        <p class="section-lede">Execution modes describe source/preparation lanes. Engine modes describe batch, live, or hybrid workload semantics. The website keeps these separate so benchmark readers do not infer a hidden fast mode or production live/hybrid runtime.</p>
+        <div class="mode-lanes">
+          <article class="mode-lane">
+            <span class="lane-tag">Execution</span>
+            <h3>compatibility_import_certified</h3>
+            <p>Use for ingest/stage certification. Timing includes compatibility parse, import, Vortex write/reopen, scan, result, and evidence work.</p>
+          </article>
+          <article class="mode-lane">
+            <span class="lane-tag">Execution</span>
+            <h3>prepared_vortex</h3>
+            <p>Use for current prepared-artifact benchmark evidence. It is the preferred performance-development lane, not a public performance claim.</p>
+          </article>
+          <article class="mode-lane">
+            <span class="lane-tag">Execution</span>
+            <h3>native_vortex</h3>
+            <p>Use for scoped existing Vortex artifacts with visible admission, source-backed scan, Native I/O, and no-fallback fields.</p>
+          </article>
+          <article class="mode-lane">
+            <span class="lane-tag">Engine</span>
+            <h3>batch / live / hybrid</h3>
+            <p>Batch is the local foundation. Live and hybrid have fixture evidence and contracts, but no broker, durable state, or production platform claim.</p>
+          </article>
         </div>
-        <table class="status-table">
-          <tbody>
-            <tr>
-              <th scope="row">Engine posture</th>
-              <td>Pre-release Vortex-native compute foundation with no-fallback policy surfaces.</td>
-            </tr>
-            <tr>
-              <th scope="row">Evidence scope</th>
-              <td>Local prepared/native benchmark slices with explicit certificates, materialization/decode fields, and claim gates.</td>
-            </tr>
-            <tr>
-              <th scope="row">User access</th>
-              <td>CLI and typed evidence surfaces are the current primary path; broader adapters remain gated.</td>
-            </tr>
-            <tr>
-              <th scope="row">Claim posture</th>
-              <td>No performance, superiority, Spark replacement, production SQL/DataFrame, object-store, lakehouse, or Foundry claim.</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     </section>
 
-    <section id="foundation">
+    <section>
       <div class="shell">
-        <h2>Design Commitments</h2>
-        <p class="section-lede">The project optimizes for clear boundaries before expansion.</p>
+        <p class="eyebrow">Evidence surfaces</p>
+        <h2>Static pages for the current repository state.</h2>
+        <p class="section-lede">The site publishes generated, committed pages rather than relying on a Cloudflare build step.</p>
+        <div class="evidence-path" aria-label="Evidence path">
+          <article class="evidence-step"><strong>Request</strong><span>typed workload, source, policy, output intent</span></article>
+          <article class="evidence-step"><strong>Admission</strong><span>capability, semantic, mode, and engine checks</span></article>
+          <article class="evidence-step"><strong>Execution</strong><span>Vortex provider or ShardLoom-native kernel</span></article>
+          <article class="evidence-step"><strong>Boundary</strong><span>materialization, decode, source, and sink evidence</span></article>
+          <article class="evidence-step"><strong>Certificate</strong><span>Native I/O, execution, correctness, and policy refs</span></article>
+          <article class="evidence-step"><strong>Claim gate</strong><span>claim_grade, fixture_smoke_only, or not_claim_grade</span></article>
+        </div>
         <div class="card-grid">
           <article class="card">
-            <h3>Vortex-native foundation</h3>
-            <p>Vortex input, output, scan boundaries, and Native I/O evidence are first-class parts of the architecture.</p>
+            <h3>Benchmark evidence</h3>
+            <p>Prepared/native rows, source-backed scan fields, materialization/decode evidence, and the local comparative dashboard context.</p>
+            <div class="action-row"><a class="button" href="/benchmarks.html">Open</a></div>
           </article>
           <article class="card">
-            <h3>Deterministic unsupported paths</h3>
-            <p>Unsupported execution is blocked with diagnostics instead of silent delegation to Spark, DataFusion, DuckDB, Polars, or another engine.</p>
+            <h3>Compute flow</h3>
+            <p>Execution modes, batch/live/hybrid engine modes, access surfaces, adapters, sinks, downstream use, and claim gates.</p>
+            <div class="action-row"><a class="button" href="/compute-engine-flow.html">Open</a></div>
           </article>
           <article class="card">
-            <h3>Evidence before claims</h3>
-            <p>Capability, benchmark, and release claims stay gated until the repository contains supporting implementation and verification evidence.</p>
+            <h3>README</h3>
+            <p>The repository README rendered as a static website page for quick project orientation.</p>
+            <div class="action-row"><a class="button" href="/readme.html">Open</a></div>
           </article>
         </div>
       </div>
@@ -817,33 +215,22 @@
 
     <section id="boundaries">
       <div class="shell">
-        <h2>Claim Boundaries</h2>
-        <p class="section-lede">These boundaries are intentional. They keep the website aligned with the current repository state.</p>
-        <div class="boundary-list">
-          <article class="boundary">
-            <h3>No Spark replacement claim</h3>
-            <p>External engines can appear as baselines or references, not as fallback execution or displacement claims.</p>
-          </article>
-          <article class="boundary">
-            <h3>No production SQL or DataFrame claim</h3>
-            <p>SQL/DataFrame surfaces remain gated until implementation, tests, and evidence support production language.</p>
-          </article>
-          <article class="boundary">
-            <h3>No production object-store, lakehouse, or Foundry claim</h3>
-            <p>Those surfaces remain blocked or report-only unless future evidence explicitly admits them.</p>
-          </article>
-          <article class="boundary">
-            <h3>No performance or superiority claim</h3>
-            <p>Benchmark smoke and local evidence are not presented as performance proof or best-default positioning.</p>
-          </article>
+        <p class="eyebrow">Claim boundaries</p>
+        <h2>What the website does not claim.</h2>
+        <p class="section-lede">These boundaries keep the public site aligned with the repository evidence.</p>
+        <div class="boundary-grid">
+          <article><strong>No Spark replacement claim</strong><span>External engines appear only as baselines or references, never fallback execution.</span></article>
+          <article><strong>No production SQL/DataFrame claim</strong><span>Language and adapter surfaces remain gated unless implementation and evidence support them.</span></article>
+          <article><strong>No production object-store/lakehouse/Foundry claim</strong><span>Those surfaces remain blocked, report-only, or planned until future proof exists.</span></article>
+          <article><strong>No performance or superiority claim</strong><span>Smoke measurements and local comparisons are attribution evidence, not public ranking proof.</span></article>
         </div>
       </div>
     </section>
 
     <section class="repo-band">
       <div class="shell">
-        <h2>Repository</h2>
-        <p class="section-lede">ShardLoom development happens in the existing depsilon/shardloom repository. The website is deployed from the website/ directory through Cloudflare Workers Static Assets.</p>
+        <h2>Deployed from the existing repository.</h2>
+        <p class="section-lede">Cloudflare Workers Static Assets serves the committed <code>website/</code> directory for <code>shardloom.io</code>. The repository does not need to be renamed.</p>
         <div class="repo-actions">
           <a class="button primary" href="https://github.com/depsilon/shardloom">Open GitHub</a>
           <a class="button" href="https://shardloom.io/">shardloom.io</a>
@@ -853,7 +240,7 @@
   </main>
 
   <footer>
-    <div class="shell">Apache-2.0 licensed project code. ShardLoom name, logo, and icon are brand assets; see BRAND.md.</div>
+    <div class="shell">Apache-2.0 project code. ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</div>
   </footer>
 </body>
 </html>

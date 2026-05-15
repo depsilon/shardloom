@@ -4904,10 +4904,14 @@ fn run_traditional_direct_transient_csv_smoke_enabled(
             accum.add(row.metric);
         }
     }
+    let selected_rows_materialized = accum.row_count;
     let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
     let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
-    let runtime_execution_certificate =
-        direct_transient_execution_certificate(request.scenario, request.input_format, 1)?;
+    let runtime_execution_certificate = direct_transient_execution_certificate(
+        request.scenario,
+        request.input_format,
+        selected_rows_materialized,
+    )?;
 
     Ok(TraditionalDirectTransientReport {
         scenario: request.scenario,
@@ -4918,7 +4922,7 @@ fn run_traditional_direct_transient_csv_smoke_enabled(
         fact_rows: usize_to_u64(fact_rows.len())?,
         dim_rows: usize_to_u64(dim_rows.len())?,
         rows_scanned: usize_to_u64(fact_rows.len())?,
-        rows_materialized: 1,
+        rows_materialized: selected_rows_materialized,
         fact_source_path: request.fact_csv,
         dim_source_path: request.dim_csv,
         fact_source_bytes,
@@ -9601,6 +9605,11 @@ fn run_streaming_partition_pruning_scenario(
         &["event_date", "metric"],
         Some(partition_pruning_date_range_expr()),
         |fields, chunk_rows| {
+            if !fields.contains_key("event_date") {
+                return Err(ShardLoomError::InvalidOperation(
+                    "partition pruning requires an event_date fixture column".to_string(),
+                ));
+            }
             let event_dates = utf8_field(fields, "event_date")?;
             let metrics = primitive_field::<f64>(fields, "metric")?;
             if event_dates.len() != chunk_rows || metrics.len() != chunk_rows {
@@ -10529,7 +10538,7 @@ fn run_streaming_filter_projection_limit_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
-    let mut top_rows = std::collections::BinaryHeap::<(u64, u32)>::new();
+    let mut limited_rows = Vec::<(u64, u32)>::new();
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["id", "value"],
@@ -10545,18 +10554,15 @@ fn run_streaming_filter_projection_limit_scenario(
                 )));
             }
             for (id, value) in ids.into_iter().zip(values) {
-                top_rows.push((id, value));
-                if top_rows.len() > 100 {
-                    let _ = top_rows.pop();
-                }
+                limited_rows.push((id, value));
             }
             Ok(())
         },
     )?;
-    let mut limited = top_rows.into_sorted_vec();
-    limited.truncate(100);
+    limited_rows.sort_by_key(|(id, _)| *id);
+    limited_rows.truncate(100);
     let mut accum = TraditionalGroupAccum::default();
-    for (_id, value) in limited {
+    for (_id, value) in limited_rows {
         accum.add(f64::from(value));
     }
     let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
@@ -12720,7 +12726,7 @@ mod tests {
         assert_eq!(report.fact_rows, 3);
         assert_eq!(report.dim_rows, 2);
         assert_eq!(report.rows_scanned, 3);
-        assert_eq!(report.rows_materialized, 1);
+        assert_eq!(report.rows_materialized, 2);
         assert!(!workspace.exists());
         assert_eq!(
             report.execution_mode_selection.selected_execution_mode,
@@ -12741,7 +12747,7 @@ mod tests {
         );
         assert_eq!(
             report.runtime_execution_certificate.expected_outcome,
-            Some(ExpectedOutcome::Rows { row_count: Some(1) })
+            Some(ExpectedOutcome::Rows { row_count: Some(2) })
         );
 
         let fields = field_map(report.fields());

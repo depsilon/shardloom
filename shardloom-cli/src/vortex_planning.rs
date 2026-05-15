@@ -2167,6 +2167,16 @@ fn translation_plan_fields(
             "compatibility_output_writer_target_feature_gate",
             "none",
         );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_implementation_ref",
+            "none",
+        );
+        push_field(
+            &mut fields,
+            "compatibility_output_writer_target_evidence_ref",
+            "none",
+        );
         push_bool_field(
             &mut fields,
             "compatibility_output_writer_target_metadata_loss_reported",
@@ -4301,6 +4311,38 @@ mod tests {
                 "compatibility_output_writer_target_fallback_attempted"
             ),
             "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "compatibility_output_writer_target_external_engine_invoked"
+            ),
+            "false"
+        );
+    }
+
+    #[test]
+    fn translation_plan_fields_include_full_writer_matrix_for_unknown_targets() {
+        let plan = TranslationPlan::for_target(OutputTarget::from_uri(
+            DatasetUri::new("file://tmp/out.custom").expect("valid uri"),
+        ));
+        let matrix = CompatibilityOutputWriterMatrixReport::current();
+        let fields = translation_plan_fields(&plan, &matrix);
+
+        assert_eq!(
+            output_field(&fields, "compatibility_output_writer_target_status"),
+            "unsupported"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "compatibility_output_writer_target_implementation_ref"
+            ),
+            "none"
+        );
+        assert_eq!(
+            output_field(&fields, "compatibility_output_writer_target_evidence_ref"),
+            "none"
         );
         assert_eq!(
             output_field(

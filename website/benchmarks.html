@@ -40,7 +40,18 @@
         </div>
       </div>
     </section>
-    <section>
+    <nav class="page-subnav" aria-label="Benchmark evidence sections">
+      <div class="shell">
+        <a href="#claim-boundary">Claim boundary</a>
+        <a href="#comparative-context">Comparative context</a>
+        <a href="#timing">Execution timing</a>
+        <a href="#batch">Batch smoke</a>
+        <a href="#encoded">Encoded predicate</a>
+        <a href="#source-backed">Source-backed scans</a>
+        <a href="#materialization">Materialization</a>
+      </div>
+    </nav>
+    <section id="claim-boundary">
       <div class="shell">
         <h2>Claim Boundary</h2>
         <div class="boundary-grid">
@@ -52,6 +63,103 @@
       </div>
     </section>
     <section>
+      <div class="shell">
+        <h2>How To Read The Evidence</h2>
+        <p class="section-lede">ShardLoom evidence is grouped by lane and claim posture. The goal is attribution: what ran, what was prepared, what materialized, and which claims remain blocked.</p>
+        <div class="benchmark-map">
+          <article><h3>Compatibility import</h3><p>Certification lane. Includes parse/import/write/reopen/scan and therefore should not be read as pure query speed.</p></article>
+          <article><h3>Prepared Vortex</h3><p>Prepared-artifact lane. Current runtime-development focus with fixture-smoke evidence and no public performance claim.</p></article>
+          <article><h3>Native Vortex</h3><p>Existing Vortex input lane. Scoped local rows must carry source-backed scan and Native I/O evidence.</p></article>
+          <article><h3>External baselines</h3><p>Comparison rows only. They never satisfy ShardLoom-native, Vortex-native, no-fallback, or claim-grade gates.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="comparative-context" class="comparison-section">
+      <div class="shell">
+        <div class="section-header-row">
+          <div>
+            <p class="eyebrow">Comparative context</p>
+            <h2>Local Comparative Dashboard</h2>
+            <p class="section-lede">This imports the richer local dashboard snapshot as context only. It helps explain what ran, which baselines were unavailable, and where ShardLoom's compatibility/prepared/native rows sit, but it is not a public performance, superiority, Spark replacement, or best-default claim.</p>
+          </div>
+          <p class="source-note">Source: <code>spark-retire/docs/shardloom-current-benchmark-dashboard.html</code><br>2026-05-14T01:58:30.687800+00:00 from local smoke results over 10000 fact rows.</p>
+        </div>
+        <div class="metric-grid comparison-metrics">
+          <div class="metric"><strong>1080</strong><span>comparative rows</span></div>
+          <div class="metric"><strong>1080</strong><span>coverage rows</span></div>
+          <div class="metric"><strong>6</strong><span>source formats</span></div>
+          <div class="metric"><strong>False</strong><span>performance claim allowed</span></div>
+        </div>
+        <div class="notice-panel">
+          <strong>Read this as attribution, not ranking.</strong>
+          <span>Compatibility rows include ingest, stage, write/reopen, scan, result, and evidence work. External engines are baseline rows only and cannot satisfy ShardLoom-native evidence gates.</span>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Engine Timing Overview</h2>
+        <p class="section-lede">The local dashboard table is preserved with claim-safe language. Columns named fastest or relative are local snapshot descriptors, not superiority claims.</p>
+        <div class="table-scroll"><table>
+<thead><tr><th>Engine</th><th>Available</th><th>Success / total</th><th>Geomean</th><th>CSV/Parquet geomean</th><th>Fastest rows</th><th>Relative bar</th></tr></thead><tbody>
+<tr><td>shardloom</td><td>yes</td><td>72/120</td><td>120.15 ms</td><td>114.99 ms</td><td>0</td><td>100.0%</td></tr>
+<tr><td>shardloom-vortex</td><td>yes</td><td>72/120</td><td>31.00 ms</td><td>31.41 ms</td><td>0</td><td>25.8%</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>yes</td><td>72/120</td><td>30.23 ms</td><td>30.68 ms</td><td>1</td><td>25.2%</td></tr>
+<tr><td>pandas</td><td>yes</td><td>60/100</td><td>9.27 ms</td><td>8.97 ms</td><td>16</td><td>7.7%</td></tr>
+<tr><td>polars</td><td>yes</td><td>55/100</td><td>3.12 ms</td><td>3.13 ms</td><td>53</td><td>4.0%</td></tr>
+<tr><td>duckdb</td><td>no</td><td>0/120</td><td>n/a</td><td>n/a</td><td>0</td><td>0.0%</td></tr>
+<tr><td>datafusion</td><td>yes</td><td>22/40</td><td>5.40 ms</td><td>5.40 ms</td><td>2</td><td>4.5%</td></tr>
+<tr><td>dask</td><td>no</td><td>0/120</td><td>n/a</td><td>n/a</td><td>0</td><td>0.0%</td></tr>
+<tr><td>spark-default</td><td>no</td><td>0/120</td><td>n/a</td><td>n/a</td><td>0</td><td>0.0%</td></tr>
+<tr><td>spark-local-tuned</td><td>no</td><td>0/120</td><td>n/a</td><td>n/a</td><td>0</td><td>0.0%</td></tr>
+</tbody></table></div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Vortex-Oriented Lanes By Source Format</h2>
+        <p class="section-lede">This view makes the prepared and Vortex-oriented lanes easier to compare across source formats while keeping the compatibility/import boundary separate.</p>
+        <div class="table-scroll"><table>
+<thead><tr><th>Engine</th><th>Source format</th><th>Successful rows</th><th>Geomean</th><th>Mean</th></tr></thead><tbody>
+<tr><td>shardloom-vortex</td><td>csv</td><td>12</td><td>31.57 ms</td><td>32.44 ms</td></tr>
+<tr><td>shardloom-vortex</td><td>parquet</td><td>12</td><td>31.25 ms</td><td>32.00 ms</td></tr>
+<tr><td>shardloom-vortex</td><td>jsonl</td><td>12</td><td>30.42 ms</td><td>31.27 ms</td></tr>
+<tr><td>shardloom-vortex</td><td>arrow-ipc</td><td>12</td><td>30.40 ms</td><td>31.18 ms</td></tr>
+<tr><td>shardloom-vortex</td><td>avro</td><td>12</td><td>31.54 ms</td><td>32.18 ms</td></tr>
+<tr><td>shardloom-vortex</td><td>orc</td><td>12</td><td>30.86 ms</td><td>31.58 ms</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>12</td><td>30.07 ms</td><td>30.84 ms</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>parquet</td><td>12</td><td>31.30 ms</td><td>32.68 ms</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>jsonl</td><td>12</td><td>30.26 ms</td><td>31.02 ms</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>arrow-ipc</td><td>12</td><td>30.33 ms</td><td>31.00 ms</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>avro</td><td>12</td><td>29.72 ms</td><td>30.46 ms</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>orc</td><td>12</td><td>29.71 ms</td><td>30.40 ms</td></tr>
+</tbody></table></div>
+      </div>
+    </section>
+    <section>
+      <div class="shell split">
+        <div>
+          <h2>Claim-Gate Distribution</h2>
+          <p class="section-lede">The distribution is useful because most rows remain blocked, fixture-only, external-baseline-only, or otherwise not claim-grade. That is expected for the current pre-release posture.</p>
+          <div class="table-scroll"><table>
+<thead><tr><th>Claim gate</th><th>Rows</th><th>Share</th></tr></thead><tbody>
+<tr><td>blocked</td><td>720</td><td>66.7%</td></tr>
+<tr><td>fixture_smoke_only</td><td>144</td><td>13.3%</td></tr>
+<tr><td>external_baseline_only</td><td>137</td><td>12.7%</td></tr>
+<tr><td>claim_grade</td><td>72</td><td>6.7%</td></tr>
+<tr><td>unsupported</td><td>7</td><td>2.0%</td></tr>
+</tbody></table></div>
+        </div>
+        <aside class="side-panel">
+          <h3>Missing baselines</h3>
+          <p>Missing optional libraries are shown so readers do not mistake absent baseline rows for ShardLoom evidence.</p>
+          <ul><li>duckdb: ModuleNotFoundError: No module named &#x27;duckdb&#x27;</li><li>dask: ModuleNotFoundError: No module named &#x27;dask&#x27;</li><li>spark-default: ModuleNotFoundError: No module named &#x27;pyspark&#x27;</li><li>spark-local-tuned: ModuleNotFoundError: No module named &#x27;pyspark&#x27;</li></ul>
+        </aside>
+      </div>
+    </section>
+
+    <section id="timing">
       <div class="shell">
         <h2>Execution Mode Timing</h2>
         <p class="section-lede">Compatibility import rows, prepared Vortex rows, and native Vortex batch rows are separated. Compatibility rows include ingest/stage/certification work; prepared/native rows start from prepared Vortex artifacts.</p>
@@ -80,7 +188,7 @@
 </tbody></table></div>
       </div>
     </section>
-    <section>
+    <section id="batch">
       <div class="shell">
         <h2>Prepared And Native Batch Smoke</h2>
         <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the single-process batch runner explicit. They are not a persistent daemon or hidden fast mode.</p>
@@ -91,7 +199,7 @@
 </tbody></table></div>
       </div>
     </section>
-    <section>
+    <section id="encoded">
       <div class="shell">
         <h2>Encoded Predicate Provider Evidence</h2>
         <p class="section-lede">Applicable to the selective-filter prepared/native row. The row records admitted filter-column batches and selected-metric selection-vector consumption, but still blocks encoded-native and performance claims.</p>
@@ -101,7 +209,7 @@
 </tbody></table></div>
       </div>
     </section>
-    <section>
+    <section id="source-backed">
       <div class="shell">
         <h2>Source-Backed Scan Evidence</h2>
         <p class="section-lede">Prepared rows expose Vortex source-backed scan fields and no-fallback evidence instead of relabeling residual-native operators as encoded-native.</p>
@@ -120,7 +228,7 @@
 </tbody></table></div>
       </div>
     </section>
-    <section>
+    <section id="materialization">
       <div class="shell">
         <h2>Materialization, Decode, And No-Fallback</h2>
         <p class="section-lede">These fields make decode/materialization boundaries explicit for prepared rows.</p>
@@ -162,15 +270,15 @@
     <section>
       <div class="shell">
         <h2>Evidence Artifacts</h2>
-        <p class="section-lede">The raw smoke artifacts were generated under <code>target\shardloom-benchmark-evidence</code>. The website commits the summarized, claim-safe snapshot in <code>website/assets/data/benchmark-evidence.json</code>.</p>
-        <ul class="artifact-list"><li><code>target\shardloom-benchmark-evidence\prepared_native_core.json</code> - profile <code>narrow_fact_dim</code>, 10000 rows</li>
-<li><code>target\shardloom-benchmark-evidence\prepared_native_dirty_csv.json</code> - profile <code>dirty_csv</code>, 10000 rows</li>
-<li><code>target\shardloom-benchmark-evidence\prepared_native_nested_json.json</code> - profile <code>nested_json</code>, 10000 rows</li>
-<li><code>target\shardloom-benchmark-evidence\prepared_native_null_heavy.json</code> - profile <code>null_heavy</code>, 10000 rows</li>
-<li><code>target\shardloom-benchmark-evidence\prepared_native_cdc_overlay.json</code> - profile <code>cdc_delta_overlay</code>, 10000 rows</li></ul>
+        <p class="section-lede">The raw smoke artifacts were generated under <code>target/shardloom-benchmark-evidence</code>. The website commits the summarized, claim-safe snapshot in <code>website/assets/data/benchmark-evidence.json</code>.</p>
+        <ul class="artifact-list"><li><code>target/shardloom-benchmark-evidence/prepared_native_core.json</code> - profile <code>narrow_fact_dim</code>, 10000 rows</li>
+<li><code>target/shardloom-benchmark-evidence/prepared_native_dirty_csv.json</code> - profile <code>dirty_csv</code>, 10000 rows</li>
+<li><code>target/shardloom-benchmark-evidence/prepared_native_nested_json.json</code> - profile <code>nested_json</code>, 10000 rows</li>
+<li><code>target/shardloom-benchmark-evidence/prepared_native_null_heavy.json</code> - profile <code>null_heavy</code>, 10000 rows</li>
+<li><code>target/shardloom-benchmark-evidence/prepared_native_cdc_overlay.json</code> - profile <code>cdc_delta_overlay</code>, 10000 rows</li></ul>
       </div>
     </section>
-    </main>
+</main>
   <footer>
     <div class="shell">Apache-2.0 project code. ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</div>
   </footer>

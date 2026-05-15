@@ -114,7 +114,57 @@ claim-gated benchmark/reporting</code></pre>
 <p><code>traditional-analytics-vortex-batch-run</code> is the scoped prepared/native batch command. It runs a comma-separated list of prepared/native Vortex scenarios in one ShardLoom process, reuses the caller-supplied prepared Vortex artifacts, preserves per-scenario evidence fields, and emits <code>persistent_runner_status=single_process_batch_runner_supported</code>. That status means scoped process reuse only; it is not a daemon, service, hidden benchmark fast mode, or performance claim.</p>
 <h4 id="view-1-access-and-users">View 1 - Access And Users</h4>
 <p>This view is the product/API map. Every entrypoint must preserve the same typed protocol; adapters are allowed to improve ergonomics, not to create a hidden execution path.</p>
-<pre><code data-language="mermaid">flowchart LR
+<figure class="mermaid-rendered">
+<figcaption><strong>Rendered flowchart</strong><span>Static rendering from the Mermaid source in this repository.</span></figcaption>
+<div class="diagram-groups">
+<section class="diagram-group">
+<h4>People and automation</h4>
+<ol class="diagram-node-list">
+<li><strong>End users</strong><span>analyst / engineer / app developer</span></li>
+<li><strong>Adapter authors</strong><span>DB / orchestration / BI / notebook</span></li>
+<li><strong>Operators and agents</strong><span>CI / release gates / automation</span></li>
+</ol></section>
+<section class="diagram-group">
+<h4>Access surfaces</h4>
+<ol class="diagram-node-list">
+<li><strong>CLI</strong><span>current canonical entrypoint</span></li>
+<li><strong>Python client</strong><span>typed wrapper over CLI protocol</span></li>
+<li><strong>Benchmark harness</strong><span>comparison reports and evidence</span></li>
+<li><strong>REST / event API</strong><span>report-only contract</span></li>
+<li><strong>SDK / notebook clients</strong><span>planned</span></li>
+<li><strong>Thin adapters</strong><span>planned DB-API / SQLAlchemy / Ibis / dbt / BI</span></li>
+</ol></section>
+<section class="diagram-group">
+<h4>Shared protocol</h4>
+<ol class="diagram-node-list">
+<li><strong>Typed request envelope</strong><span>workload + source + policy + output intent</span></li>
+<li><strong>Typed output envelope</strong><span>result refs + diagnostics + evidence + claim gate</span></li>
+</ol></section>
+</div>
+<details class="diagram-edges">
+<summary>Flow connections</summary><ol>
+<li><span>End users</span> <span>CLI</span></li>
+<li><span>End users</span> <span>Python client</span></li>
+<li><span>End users</span> <span>SDK / notebook clients</span></li>
+<li><span>End users</span> <span>Thin adapters</span></li>
+<li><span>Adapter authors</span> <span>Thin adapters</span></li>
+<li><span>Operators and agents</span> <span>CLI</span></li>
+<li><span>Operators and agents</span> <span>Benchmark harness</span></li>
+<li><span>SDK / notebook clients</span> <span>Python client</span></li>
+<li><span>SDK / notebook clients</span> <span>REST / event API</span></li>
+<li><span>Thin adapters</span> <span>Python client</span></li>
+<li><span>Thin adapters</span> <span>REST / event API</span></li>
+<li><span>CLI</span> <span>Typed request envelope</span></li>
+<li><span>Python client</span> <span>Typed request envelope</span></li>
+<li><span>Benchmark harness</span> <span>Typed request envelope</span></li>
+<li><span>REST / event API</span> <span>Typed request envelope</span></li>
+<li><span>Typed request envelope</span> <span>Typed output envelope</span></li>
+<li><span>Typed output envelope</span> <span>CLI_RESULT</span></li>
+<li><span>Typed output envelope</span> <span>PY_RESULT</span></li>
+<li><span>Typed output envelope</span> <span>ADAPTER_RESULT</span></li>
+<li><span>Typed output envelope</span> <span>BENCH_RESULT</span></li>
+</ol></details>
+<details class="diagram-source"><summary>Mermaid source</summary><pre><code data-language="mermaid">flowchart LR
     subgraph PEOPLE[&quot;People and automation&quot;]
         USER[&quot;End users&lt;br/&gt;analyst / engineer / app developer&quot;]
         ADAPTER_AUTHOR[&quot;Adapter authors&lt;br/&gt;DB / orchestration / BI / notebook&quot;]
@@ -155,10 +205,60 @@ claim-gated benchmark/reporting</code></pre>
     OUTPUT --&gt; CLI_RESULT[&quot;CLI text / JSON / artifacts&quot;]
     OUTPUT --&gt; PY_RESULT[&quot;Python typed models / artifact refs&quot;]
     OUTPUT --&gt; ADAPTER_RESULT[&quot;Adapter-facing result refs&quot;]
-    OUTPUT --&gt; BENCH_RESULT[&quot;Benchmark coverage + timing report&quot;]</code></pre>
+    OUTPUT --&gt; BENCH_RESULT[&quot;Benchmark coverage + timing report&quot;]</code></pre></details>
+</figure>
 <h4 id="view-2-runtime-contract">View 2 - Runtime Contract</h4>
 <p>This view is the invariant. A request reaches execution only after policy, capability, semantics, and explicit mode selection. Unsupported work exits through diagnostics and evidence, not fallback.</p>
-<pre><code data-language="mermaid">flowchart TD
+<figure class="mermaid-rendered">
+<figcaption><strong>Rendered flowchart</strong><span>Static rendering from the Mermaid source in this repository.</span></figcaption>
+<div class="diagram-groups">
+<section class="diagram-group">
+<h4>1. Request binding</h4>
+<ol class="diagram-node-list">
+<li><strong>Typed request</strong><span>query / workload / downstream intent</span></li>
+<li><strong>Source descriptors</strong><span>format / schema / URI / pushdown</span></li>
+<li><strong>Output intent</strong><span>result / Vortex artifact / export / platform ref</span></li>
+</ol></section>
+<section class="diagram-group">
+<h4>2. Admission before execution</h4>
+<ol class="diagram-node-list">
+<li><strong>Policy</strong><span>governance / credentials / no fallback</span></li>
+<li><strong>Capability matrix</strong><span>source + operator + sink + feature gates</span></li>
+<li><strong>Semantic profile</strong><span>schema / expression / workload constitution</span></li>
+<li><strong>Explicit execution mode</strong><span>requested + selected + reason</span></li>
+<li><strong>Engine mode</strong><span>batch / live / hybrid / auto</span></li>
+</ol></section>
+<section class="diagram-group">
+<h4>3. Provider decision</h4>
+<ol class="diagram-node-list">
+<li><strong>Source or preparation boundary</strong></li>
+<li><strong>Plan IR and physical plan</strong></li>
+<li><strong>Provider admission</strong><span>Vortex provider / ShardLoom kernel / diagnostic</span></li>
+<li><strong>Deterministic unsupported diagnostic</strong><span>support_status=unsupported</span></li>
+<li><strong>Supported execution</strong><span>encoded / native / residual ShardLoom kernel</span></li>
+</ol></section>
+<section class="diagram-group">
+<h4>4. Output and evidence</h4>
+<ol class="diagram-node-list">
+<li><strong>Result stream / scalar / result ref</strong></li>
+<li><strong>Sink and materialization boundary</strong></li>
+<li><strong>Evidence bundle</strong><span>certificates / diagnostics / benchmark rows / traces</span></li>
+<li><strong>Claim gate</strong><span>claim_grade / fixture_smoke_only / not_claim_grade</span></li>
+<li><strong>Typed output envelope</strong></li>
+</ol></section>
+</div>
+<details class="diagram-edges">
+<summary>Flow connections</summary><ol>
+<li><span>Typed request</span> <span>Source descriptors</span></li>
+<li><span>Typed request</span> <span>Output intent</span></li>
+<li><span>Source descriptors</span> <span>Policy</span></li>
+<li><span>Output intent</span> <span>Explicit execution mode</span></li>
+<li><span>Engine mode</span> <span>Source or preparation boundary</span></li>
+<li><span>Provider admission</span> <em>unsupported</em> <span>Deterministic unsupported diagnostic</span></li>
+<li><span>Provider admission</span> <em>supported</em> <span>Supported execution</span></li>
+<li><span>Evidence bundle</span> <span>Claim gate</span></li>
+</ol></details>
+<details class="diagram-source"><summary>Mermaid source</summary><pre><code data-language="mermaid">flowchart TD
     subgraph REQUEST_PHASE[&quot;1. Request binding&quot;]
         REQUEST[&quot;Typed request&lt;br/&gt;query / workload / downstream intent&quot;]
         SOURCE[&quot;Source descriptors&lt;br/&gt;format / schema / URI / pushdown&quot;]
@@ -196,10 +296,49 @@ claim-gated benchmark/reporting</code></pre>
     ENGINE --&gt; BOUNDARY --&gt; PLAN --&gt; ADMISSION
     ADMISSION --&gt;|&quot;unsupported&quot;| DIAGNOSTIC --&gt; EVIDENCE
     ADMISSION --&gt;|&quot;supported&quot;| EXECUTE --&gt; RESULT --&gt; SINK --&gt; EVIDENCE
-    EVIDENCE --&gt; CLAIM --&gt; ENVELOPE</code></pre>
+    EVIDENCE --&gt; CLAIM --&gt; ENVELOPE</code></pre></details>
+</figure>
 <h4 id="view-3-execution-mode-lanes">View 3 - Execution Mode Lanes</h4>
 <p>This view explains timing interpretation. <code>auto</code> is not a runtime engine; it selects and reports one explicit mode. Compatibility lanes include ingest/stage/certification costs. Prepared/native lanes are the intended query-runtime lanes when evidence supports them.</p>
-<pre><code data-language="mermaid">flowchart TD
+<figure class="mermaid-rendered">
+<figcaption><strong>Rendered flowchart</strong><span>Static rendering from the Mermaid source in this repository.</span></figcaption>
+<div class="diagram-groups">
+<section class="diagram-group">
+<h4>Flow nodes</h4>
+<ol class="diagram-node-list">
+<li><strong>requested_execution_mode</strong></li>
+<li><strong>auto</strong><span>transparent selector</span></li>
+<li><strong>selected_execution_mode</strong><span>mode_selection_reason required</span></li>
+<li><strong>compatibility_import_certified</strong><span>current ingest/stage certification lane</span></li>
+<li><strong>prepared_vortex</strong><span>current/preferred performance lane</span></li>
+<li><strong>native_vortex</strong><span>current scoped native-artifact lane</span></li>
+<li><strong>direct_compatibility_transient</strong><span>scoped CSV smoke + unsupported diagnostics</span></li>
+<li><strong>Compatibility ingest boundary</strong><span>adapter -&gt; NativeWorkStream -&gt; Vortex write/reopen</span></li>
+<li><strong>Prepared Vortex boundary</strong><span>prepare once -&gt; reuse artifact</span></li>
+<li><strong>Native Vortex boundary</strong><span>existing .vortex -&gt; Source / Scan / Split</span></li>
+<li><strong>Transient compatibility boundary</strong><span>no persistent Vortex artifact</span></li>
+<li><strong>Provider admission</strong><span>Vortex provider / ShardLoom kernel / diagnostic</span></li>
+<li><strong>Selective-filter encoded predicate provider</strong><span>admitted filter inputs; metric aggregation pending</span></li>
+</ol></section>
+</div>
+<details class="diagram-edges">
+<summary>Flow connections</summary><ol>
+<li><span>requested_execution_mode</span> <span>auto</span></li>
+<li><span>requested_execution_mode</span> <span>compatibility_import_certified</span></li>
+<li><span>requested_execution_mode</span> <span>prepared_vortex</span></li>
+<li><span>requested_execution_mode</span> <span>native_vortex</span></li>
+<li><span>requested_execution_mode</span> <span>direct_compatibility_transient</span></li>
+<li><span>selected_execution_mode</span> <span>compatibility_import_certified</span></li>
+<li><span>selected_execution_mode</span> <span>prepared_vortex</span></li>
+<li><span>selected_execution_mode</span> <span>native_vortex</span></li>
+<li><span>selected_execution_mode</span> <span>direct_compatibility_transient</span></li>
+<li><span>compatibility_import_certified</span> <span>Compatibility ingest boundary</span></li>
+<li><span>prepared_vortex</span> <span>Prepared Vortex boundary</span></li>
+<li><span>native_vortex</span> <span>Native Vortex boundary</span></li>
+<li><span>direct_compatibility_transient</span> <span>Transient compatibility boundary</span></li>
+<li><span>Provider admission</span> <em>selective filter today</em> <span>Selective-filter encoded predicate provider</span></li>
+</ol></details>
+<details class="diagram-source"><summary>Mermaid source</summary><pre><code data-language="mermaid">flowchart TD
     REQUESTED[&quot;requested_execution_mode&quot;]
     AUTO[&quot;auto&lt;br/&gt;transparent selector&quot;]
     SELECTED[&quot;selected_execution_mode&lt;br/&gt;mode_selection_reason required&quot;]
@@ -231,7 +370,8 @@ claim-gated benchmark/reporting</code></pre>
     PREPARED --&gt; PREPARED_BOUNDARY --&gt; PROVIDER
     NATIVE --&gt; NATIVE_BOUNDARY --&gt; PROVIDER
     DIRECT --&gt; DIRECT_BOUNDARY --&gt; PROVIDER
-    PROVIDER --&gt;|&quot;selective filter today&quot;| SELECTIVE_BLOCKER</code></pre>
+    PROVIDER --&gt;|&quot;selective filter today&quot;| SELECTIVE_BLOCKER</code></pre></details>
+</figure>
 <p>Mode timing fields must stay visible:</p>
 <pre><code data-language="text">source_read_millis
 compatibility_parse_millis
@@ -250,7 +390,49 @@ total_runtime_millis</code></pre>
 <li>Engine mode answers &quot;what workload semantics did ShardLoom admit?&quot;</li>
 </ul>
 <p>The current repo has concrete engine-mode contracts and fixture evidence. It does not yet have production broker-backed live execution, durable live state, object-store-backed hybrid execution, or live/hybrid public claims.</p>
-<pre><code data-language="mermaid">flowchart TD
+<figure class="mermaid-rendered">
+<figcaption><strong>Rendered flowchart</strong><span>Static rendering from the Mermaid source in this repository.</span></figcaption>
+<div class="diagram-groups">
+<section class="diagram-group">
+<h4>Current scoped engine surfaces</h4>
+<ol class="diagram-node-list">
+<li><strong>batch</strong><span>bounded snapshot local Vortex analytics</span></li>
+<li><strong>live-change-contract-plan</strong><span>change records + watermark/checkpoint vocabulary</span></li>
+<li><strong>live-fixture-run</strong><span>in-memory fixture operators + certificates</span></li>
+<li><strong>hybrid-overlay-run</strong><span>base snapshot + hot delta fixture evidence</span></li>
+<li><strong>streaming-plan / streaming-batch-plan / backpressure-plan</strong><span>full matrix + blocked diagnostics</span></li>
+</ol></section>
+<section class="diagram-group">
+<h4>Claim and effect boundary</h4>
+<ol class="diagram-node-list">
+<li><strong>fixture evidence only</strong><span>production_claim_allowed=false</span></li>
+<li><strong>no broker / object-store / external engine</strong><span>fallback_attempted=false</span></li>
+<li><strong>planned gates</strong><span>durable state / freshness / object-store / workload evidence</span></li>
+</ol></section>
+<section class="diagram-group">
+<h4>Flow nodes</h4>
+<ol class="diagram-node-list">
+<li><strong>Typed request</strong><span>workload + source + output intent</span></li>
+<li><strong>requested_engine_mode</strong><span>auto / batch / live / hybrid</span></li>
+<li><strong>engine-selection-plan</strong><span>selected_engine_mode + allowed/rejected modes</span></li>
+<li><strong>engine-capability-matrix</strong><span>batch/live/hybrid rows</span></li>
+<li><strong>GAR-0013 streaming capability matrix</strong><span>local / object-store / zero-copy / zero-decode / backpressure</span></li>
+</ol></section>
+</div>
+<details class="diagram-edges">
+<summary>Flow connections</summary><ol>
+<li><span>Typed request</span> <span>requested_engine_mode</span></li>
+<li><span>engine-capability-matrix</span> <span>GAR-0013 streaming capability matrix</span></li>
+<li><span>engine-capability-matrix</span> <span>batch</span></li>
+<li><span>engine-capability-matrix</span> <span>live-change-contract-plan</span></li>
+<li><span>engine-capability-matrix</span> <span>hybrid-overlay-run</span></li>
+<li><span>streaming-plan / streaming-batch-plan / backpressure-plan</span> <span>fixture evidence only</span></li>
+<li><span>batch</span> <span>fixture evidence only</span></li>
+<li><span>live-fixture-run</span> <span>fixture evidence only</span></li>
+<li><span>hybrid-overlay-run</span> <span>fixture evidence only</span></li>
+<li><span>fixture evidence only</span> <span>no broker / object-store / external engine</span></li>
+</ol></details>
+<details class="diagram-source"><summary>Mermaid source</summary><pre><code data-language="mermaid">flowchart TD
     REQUEST[&quot;Typed request&lt;br/&gt;workload + source + output intent&quot;]
     ENGINE_REQUEST[&quot;requested_engine_mode&lt;br/&gt;auto / batch / live / hybrid&quot;]
     ENGINE_SELECTION[&quot;engine-selection-plan&lt;br/&gt;selected_engine_mode + allowed/rejected modes&quot;]
@@ -280,7 +462,8 @@ total_runtime_millis</code></pre>
     BATCH --&gt; FIXTURE_CLAIM
     LIVE_FIXTURE --&gt; FIXTURE_CLAIM
     HYBRID_FIXTURE --&gt; FIXTURE_CLAIM
-    FIXTURE_CLAIM --&gt; NO_EFFECTS --&gt; PLANNED_GATES</code></pre>
+    FIXTURE_CLAIM --&gt; NO_EFFECTS --&gt; PLANNED_GATES</code></pre></details>
+</figure>
 <p>Current engine-mode surfaces:</p>
 <div class="table-scroll"><table>
 <thead><tr><th>Engine mode</th><th>Current surface</th><th>Current support</th><th>Claim boundary</th></tr></thead>
@@ -301,7 +484,71 @@ hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, obj
 <p>Planned updates are carried in the phase plan, especially <code>GAR-0034-A</code> for live/hybrid fabric blockers and freshness gates. Runtime-focused follow-through now shifts from the completed scoped prepared/native benchmark paths and CPU admission diagnostics toward kernel/provider expansion, source-backed API coverage, facade coverage, and other evidence-gated residual-native paths.</p>
 <h4 id="view-5-i-o-evidence-and-downstream-use">View 5 - I/O, Evidence, And Downstream Use</h4>
 <p>This view connects runtime output to every consumer. Downstream users read typed outputs or referenced artifacts; they do not imply a hidden execution mode, fallback engine, or unverified sink.</p>
-<pre><code data-language="mermaid">flowchart LR
+<figure class="mermaid-rendered">
+<figcaption><strong>Rendered flowchart</strong><span>Static rendering from the Mermaid source in this repository.</span></figcaption>
+<div class="diagram-groups">
+<section class="diagram-group">
+<h4>Input families</h4>
+<ol class="diagram-node-list">
+<li><strong>Compatibility files</strong><span>CSV / Parquet / JSONL / Arrow IPC / Avro / ORC</span></li>
+<li><strong>Existing Vortex artifacts</strong></li>
+<li><strong>Object-store refs</strong><span>planned / unsupported</span></li>
+<li><strong>Table/catalog refs</strong><span>planned / unsupported</span></li>
+<li><strong>Streams and events</strong><span>planned / unsupported</span></li>
+</ol></section>
+<section class="diagram-group">
+<h4>Runtime outcome</h4>
+<ol class="diagram-node-list">
+<li><strong>Supported execution</strong></li>
+<li><strong>Unsupported diagnostic</strong></li>
+<li><strong>Result / ref</strong></li>
+</ol></section>
+<section class="diagram-group">
+<h4>Sink and delivery options</h4>
+<ol class="diagram-node-list">
+<li><strong>No sink</strong><span>typed result/ref only</span></li>
+<li><strong>Vortex result artifact</strong><span>current scoped replay evidence</span></li>
+<li><strong>Compatibility export</strong><span>planned / unsupported</span></li>
+<li><strong>Table/lakehouse commit</strong><span>planned / unsupported</span></li>
+<li><strong>Object-store write</strong><span>planned / unsupported</span></li>
+<li><strong>REST/event delivery</strong><span>report-only contract</span></li>
+</ol></section>
+<section class="diagram-group">
+<h4>Evidence and claims</h4>
+<ol class="diagram-node-list">
+<li><strong>Benchmark timing ledger</strong></li>
+<li><strong>External baseline/oracle</strong><span>comparison only</span></li>
+<li><strong>Evidence bundle</strong><span>correctness / Native I/O / materialization / policy</span></li>
+<li><strong>Claim gate</strong></li>
+<li><strong>Typed output envelope</strong></li>
+</ol></section>
+</div>
+<details class="diagram-edges">
+<summary>Flow connections</summary><ol>
+<li><span>Compatibility files</span> <span>Supported execution</span></li>
+<li><span>Existing Vortex artifacts</span> <span>Supported execution</span></li>
+<li><span>Object-store refs</span> <span>Unsupported diagnostic</span></li>
+<li><span>Table/catalog refs</span> <span>Unsupported diagnostic</span></li>
+<li><span>Streams and events</span> <span>Unsupported diagnostic</span></li>
+<li><span>Supported execution</span> <span>Result / ref</span></li>
+<li><span>Unsupported diagnostic</span> <span>Evidence bundle</span></li>
+<li><span>Result / ref</span> <span>No sink</span></li>
+<li><span>Result / ref</span> <span>Vortex result artifact</span></li>
+<li><span>Result / ref</span> <span>Compatibility export</span></li>
+<li><span>Result / ref</span> <span>Table/lakehouse commit</span></li>
+<li><span>Result / ref</span> <span>Object-store write</span></li>
+<li><span>Result / ref</span> <span>REST/event delivery</span></li>
+<li><span>Supported execution</span> <span>Benchmark timing ledger</span></li>
+<li><span>External baseline/oracle</span> <span>Evidence bundle</span></li>
+<li><span>Evidence bundle</span> <span>Claim gate</span></li>
+<li><span>Typed output envelope</span> <span>CLI_RESULT</span></li>
+<li><span>Typed output envelope</span> <span>PY_RESULT</span></li>
+<li><span>Typed output envelope</span> <span>ADAPTER_RESULT</span></li>
+<li><span>Typed output envelope</span> <span>BENCH_RESULT</span></li>
+<li><span>Typed output envelope</span> <span>AUTO_RESULT</span></li>
+<li><span>Typed output envelope</span> <span>PLATFORM_RESULT</span></li>
+</ol></details>
+<details class="diagram-source"><summary>Mermaid source</summary><pre><code data-language="mermaid">flowchart LR
     subgraph INPUTS[&quot;Input families&quot;]
         COMPAT_INPUT[&quot;Compatibility files&lt;br/&gt;CSV / Parquet / JSONL / Arrow IPC / Avro / ORC&quot;]
         VORTEX_INPUT[&quot;Existing Vortex artifacts&quot;]
@@ -355,7 +602,8 @@ hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, obj
     ENVELOPE --&gt; ADAPTER_RESULT[&quot;Adapter consumers&quot;]
     ENVELOPE --&gt; BENCH_RESULT[&quot;Benchmark comparison report&quot;]
     ENVELOPE --&gt; AUTO_RESULT[&quot;Automation / agent follow-up&quot;]
-    ENVELOPE --&gt; PLATFORM_RESULT[&quot;Governed platform consumers&lt;br/&gt;planned&quot;]</code></pre>
+    ENVELOPE --&gt; PLATFORM_RESULT[&quot;Governed platform consumers&lt;br/&gt;planned&quot;]</code></pre></details>
+</figure>
 <p>These diagrams are intentionally broader than the current implementation. Planned nodes must remain unchecked in <code>docs/architecture/global-architecture-review.md</code> and represented in <code>docs/architecture/phased-execution-plan.md</code> until implemented and certified. Current commands must return deterministic unsupported diagnostics where execution is absent. Planned nodes do not authorize fallback execution, dependency expansion, package publication, external side effects, or public performance claims.</p>
 <p>End-to-end contract:</p>
 <ul>
@@ -663,7 +911,36 @@ hybrid = base snapshot plus hot delta workload semantics</code></pre>
 <pre><code data-language="text">local comparison engine -&gt; baseline timing/correctness row -&gt; external_baseline_only coverage row</code></pre>
 <p>External engines remain baselines only. pandas, Polars, DuckDB, DataFusion, Spark, Dask, Velox, Trino, Snowflake, Databricks, BigQuery, and similar systems may appear in comparison reports as local or platform baselines, migration references, or oracle references. They must never execute unsupported ShardLoom work as fallback, and their rows cannot satisfy ShardLoom-native, Vortex-native, Native I/O, execution-certificate, or no-fallback claim gates.</p>
 <h3 id="claim-gate-flow">Claim Gate Flow</h3>
-<pre><code data-language="mermaid">flowchart TD
+<figure class="mermaid-rendered">
+<figcaption><strong>Rendered flowchart</strong><span>Static rendering from the Mermaid source in this repository.</span></figcaption>
+<div class="diagram-groups">
+<section class="diagram-group">
+<h4>Flow nodes</h4>
+<ol class="diagram-node-list">
+<li><strong>Execution result</strong></li>
+</ol></section>
+</div>
+<details class="diagram-edges">
+<summary>Flow connections</summary><ol>
+<li><span>Execution result</span> <span>C</span></li>
+<li><span>Execution result</span> <span>D</span></li>
+<li><span>Execution result</span> <span>E</span></li>
+<li><span>Execution result</span> <span>F</span></li>
+<li><span>Execution result</span> <span>G</span></li>
+<li><span>B</span> <span>H</span></li>
+<li><span>C</span> <span>H</span></li>
+<li><span>D</span> <span>H</span></li>
+<li><span>E</span> <span>H</span></li>
+<li><span>F</span> <span>H</span></li>
+<li><span>G</span> <span>H</span></li>
+<li><span>H</span> <em>yes</em> <span>I</span></li>
+<li><span>H</span> <em>no</em> <span>J</span></li>
+<li><span>H</span> <em>unsupported path</em> <span>K</span></li>
+<li><span>H</span> <em>insufficient evidence</em> <span>L</span></li>
+<li><span>H</span> <em>fixture only</em> <span>M</span></li>
+<li><span>H</span> <em>external baseline</em> <span>N</span></li>
+</ol></details>
+<details class="diagram-source"><summary>Mermaid source</summary><pre><code data-language="mermaid">flowchart TD
     A[&quot;Execution result&quot;] --&gt; B[&quot;Correctness evidence&quot;]
     A --&gt; C[&quot;Benchmark evidence&quot;]
     A --&gt; D[&quot;Execution certificate&quot;]
@@ -683,7 +960,8 @@ hybrid = base snapshot plus hot delta workload semantics</code></pre>
     H --&gt;|unsupported path| K[&quot;support_status=unsupported&lt;br/&gt;claim_gate_status=not_claim_grade&quot;]
     H --&gt;|insufficient evidence| L[&quot;not claimable&quot;]
     H --&gt;|fixture only| M[&quot;fixture_smoke_only&quot;]
-    H --&gt;|external baseline| N[&quot;external_baseline_only&quot;]</code></pre>
+    H --&gt;|external baseline| N[&quot;external_baseline_only&quot;]</code></pre></details>
+</figure>
 <p>A ShardLoom timing row can be <code>claim_grade</code> only when it has:</p>
 <pre><code data-language="text">stable correctness digest
 minimum iteration count

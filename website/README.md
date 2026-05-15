@@ -40,16 +40,21 @@ The site also commits static rendered pages so Cloudflare can serve the current 
 running a build step:
 
 - `benchmarks.html`: claim-safe benchmark evidence snapshot generated from local artifacts under
-  `target/shardloom-benchmark-evidence/`.
+  `target/shardloom-benchmark-evidence/`, optionally enriched from the local comparative dashboard
+  at `spark-retire/docs/shardloom-current-benchmark-dashboard.html`.
 - `compute-engine-flow.html`: rendered
-  `docs/architecture/compute-engine-flow-reference.md`.
+  `docs/architecture/compute-engine-flow-reference.md`. Mermaid fences are rendered into
+  first-party static HTML summaries with the raw Mermaid source kept in expandable details; no
+  client Mermaid runtime or CDN dependency is required.
 - `readme.html`: rendered root `README.md`.
 - `assets/data/benchmark-evidence.json`: normalized benchmark evidence used by `benchmarks.html`.
 
 Regenerate those pages locally after refreshing benchmark evidence or changing the rendered docs:
 
 ```powershell
-python website\build_static_pages.py --benchmark-dir target\shardloom-benchmark-evidence
+python website\build_static_pages.py `
+  --benchmark-dir target\shardloom-benchmark-evidence `
+  --comparative-dashboard C:\Users\djhei\Projects\spark-retire\docs\shardloom-current-benchmark-dashboard.html
 ```
 
 The generator is a standard-library Python helper for maintainers. Cloudflare still serves committed
