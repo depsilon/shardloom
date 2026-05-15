@@ -615,6 +615,20 @@ h4 {
   color: var(--amber);
 }
 
+.claim-badge.fixture,
+.claim-badge[data-status="fixture-smoke"] {
+  border-color: rgba(124, 92, 255, 0.34);
+  background: rgba(124, 92, 255, 0.1);
+  color: var(--violet);
+}
+
+.claim-badge.report-only,
+.claim-badge[data-status="report-only"] {
+  border-color: rgba(4, 169, 222, 0.3);
+  background: rgba(4, 169, 222, 0.08);
+  color: #064a61;
+}
+
 .claim-badge[data-status="forbidden"],
 .claim-badge.forbidden {
   border-color: rgba(141, 47, 37, 0.34);
@@ -981,6 +995,112 @@ tr:last-child td {
   margin-top: 6px;
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.flow-mission-hero,
+.status-hero {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(0, 217, 255, 0.14), transparent 28%),
+    radial-gradient(circle at 78% 18%, rgba(124, 92, 255, 0.12), transparent 32%),
+    linear-gradient(135deg, rgba(5, 8, 22, 0.04), rgba(0, 255, 198, 0.05)),
+    #fff;
+}
+
+.mission-chain {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 30px;
+}
+
+.mission-chain article,
+.provider-admission-grid article,
+.status-column {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+}
+
+.mission-chain article {
+  position: relative;
+  min-height: 142px;
+  overflow: hidden;
+}
+
+.mission-chain article::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--cyan);
+}
+
+.mission-chain article:nth-child(2n)::before {
+  background: var(--teal);
+}
+
+.mission-chain article:nth-child(3n)::before {
+  background: var(--violet);
+}
+
+.mission-chain article:nth-child(4n)::before {
+  background: var(--amber);
+}
+
+.mission-chain strong,
+.provider-admission-grid strong,
+.status-column h3 {
+  display: block;
+  color: var(--ink);
+}
+
+.mission-chain span,
+.provider-admission-grid span,
+.status-column p {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.flow-command-panel {
+  padding: 18px;
+}
+
+.mission-mode-lanes .mode-lane {
+  min-height: 210px;
+}
+
+.provider-admission-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.status-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.compact-status-board {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.status-column {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.status-column h3,
+.status-column p {
+  margin: 0;
 }
 
 .benchmark-map {
@@ -1381,7 +1501,11 @@ footer {
   .proof-grid,
   .card-grid,
   .diagram-groups,
+  .mission-chain,
   .mode-lanes,
+  .provider-admission-grid,
+  .status-board,
+  .compact-status-board,
   .benchmark-map,
   .evidence-path,
   .status-ribbon-inner,
@@ -1410,6 +1534,10 @@ footer {
   .telemetry-signal-grid,
   .mode-comparison-grid,
   .freshness-grid,
+  .mission-chain,
+  .provider-admission-grid,
+  .status-board,
+  .compact-status-board,
   .access-ribbon {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1454,6 +1582,10 @@ footer {
   .telemetry-signal-grid,
   .mode-comparison-grid,
   .freshness-grid,
+  .mission-chain,
+  .provider-admission-grid,
+  .status-board,
+  .compact-status-board,
   .access-ribbon {
     grid-template-columns: 1fr;
   }

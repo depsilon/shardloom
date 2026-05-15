@@ -46,10 +46,12 @@ running a build step:
 - `benchmarks.html`: claim-safe benchmark evidence snapshot generated from local artifacts under
   `target/shardloom-benchmark-evidence/`, optionally enriched from the local comparative dashboard
   at `spark-retire/docs/shardloom-current-benchmark-dashboard.html`.
-- `compute-engine-flow.html`: rendered
+- `compute-engine-flow.html`: mission-map page plus rendered
   `docs/architecture/compute-engine-flow-reference.md`. Mermaid fences are rendered into
   first-party static HTML summaries with the raw Mermaid source kept in expandable details; no
   client Mermaid runtime or CDN dependency is required.
+- `status.html`: public posture board for supported local smoke, fixture-smoke, report-only,
+  blocked, planned, and not-claimed surfaces.
 - `readme.html`: rendered root `README.md`.
 - `assets/data/benchmark-evidence.json`: normalized benchmark evidence used by `benchmarks.html`.
 - `field-guide/index.html` and `field-guide/*.html`: generated technical dossiers for the public
@@ -104,7 +106,7 @@ The public shell uses clear labels with command-deck framing:
 - Field Guide: `/field-guide/`
 - Telemetry: `/benchmarks.html`
 - Compute Flow: `/compute-engine-flow.html`
-- Status: `/#status` until the dedicated status board lands.
+- Status: `/status.html`
 - Docs: `/readme.html`
 - GitHub: `https://github.com/depsilon/shardloom`
 
@@ -141,6 +143,7 @@ Website copy must stay claim-safe:
 - `field-guide/*.html`: generated Field Guide concept dossiers.
 - `benchmarks.html`: generated benchmark evidence snapshot.
 - `compute-engine-flow.html`: generated rendered architecture reference.
+- `status.html`: generated public posture and launch-status board.
 - `readme.html`: generated rendered repository README.
 - `404.html`: custom 404 page.
 - `robots.txt`: crawler policy.

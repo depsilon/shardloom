@@ -4,11 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Compute Engine Flow</title>
-  <meta name="description" content="Rendered canonical compute-engine flow reference, including execution modes, engine modes, access surfaces, and claim gates.">
+  <meta name="description" content="Mission-map view of ShardLoom access surfaces, execution modes, engine modes, provider admission, downstream usage, evidence, and claim gates.">
   <link rel="canonical" href="https://shardloom.io/compute-engine-flow.html">
   <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="Compute Engine Flow">
+  <meta property="og:description" content="Mission-map view of ShardLoom access surfaces, execution modes, engine modes, provider admission, downstream usage, evidence, and claim gates.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/compute-engine-flow.html">
+  <meta name="twitter:card" content="summary_large_image">
 </head>
 <body class="command-shell">
   <header class="site-header mission-nav">
@@ -22,7 +28,7 @@
 <a class="" href="/field-guide/">Field Guide</a>
 <a class="" href="/benchmarks.html">Telemetry</a>
 <a class="active" aria-current="page" href="/compute-engine-flow.html">Compute Flow</a>
-<a class="" href="/#status">Status</a>
+<a class="" href="/status.html">Status</a>
 <a class="" href="/readme.html">Docs</a>
 <a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
       </nav>
@@ -38,18 +44,99 @@
   </div>
 
   <main>
-    <section class="doc-hero">
+    <section class="doc-hero flow-mission-hero">
       <div class="shell">
         <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
-        <p class="eyebrow">Rendered repository document</p>
-        <h1>Compute Engine Flow</h1>
-        <p class="lede">Rendered canonical compute-engine flow reference, including execution modes, engine modes, access surfaces, and claim gates.</p>
+        <p class="eyebrow">Compute Flow Mission Map</p>
+        <h1>From request to evidence to claim gate.</h1>
+        <p class="lede">ShardLoom routes each request through policy admission, explicit execution and engine modes, a provider path, result/sink handling, evidence generation, and a claim gate. This page is explanation only; it does not expand runtime support.</p>
         <p class="source-note">Source: <code>docs/architecture/compute-engine-flow-reference.md</code></p>
+        <div class="mission-chain" aria-label="ShardLoom execution mission map">
+          <article><strong>Access</strong><span>CLI, Python, benchmarks, adapters, and planned REST/event surfaces enter through one typed request envelope.</span></article>
+          <article><strong>Admission</strong><span>Policy, capability, semantic profile, requested mode, and output intent are checked before execution.</span></article>
+          <article><strong>Execution mode</strong><span>compatibility_import_certified, prepared_vortex, native_vortex, direct_compatibility_transient, or auto with selected reason.</span></article>
+          <article><strong>Engine mode</strong><span>batch, live fixture, hybrid fixture, or report-only streaming semantics remain separate from source/preparation lanes.</span></article>
+          <article><strong>Provider path</strong><span>Vortex provider, ShardLoom-native kernel, residual-native fixture path, source-backed scan, or deterministic diagnostic.</span></article>
+          <article><strong>Result and sink</strong><span>Typed output carries result refs, sink artifacts, replay references, or unsupported status.</span></article>
+          <article><strong>Evidence</strong><span>Native I/O, execution certificate, timing, materialization/decode, source/sink, and policy evidence stay visible.</span></article>
+          <article><strong>Claim gate</strong><span>claim_grade, fixture_smoke_only, report_only, blocked, or not_claim_grade controls what can be said.</span></article>
+        </div>
       </div>
     </section>
-    <section class="doc-section">
+    <nav class="page-subnav" aria-label="Compute flow sections">
+      <div class="shell">
+        <a href="#flow-overview">Overview</a>
+        <a href="#flow-modes">Mode lanes</a>
+        <a href="#engine-fabric">Engine fabric</a>
+        <a href="#provider-admission">Provider admission</a>
+        <a href="#downstream">Downstream use</a>
+        <a href="#canonical-reference">Canonical reference</a>
+      </div>
+    </nav>
+    <section id="flow-overview">
+      <div class="shell split">
+        <div>
+          <p class="eyebrow">Plain-English route</p>
+          <h2>One request, one visible route.</h2>
+          <p class="section-lede">ShardLoom should never make users infer what happened. The public flow separates the user access surface from the runtime contract, the source/preparation lane, the workload engine semantics, the provider path, and the evidence envelope.</p>
+        </div>
+        <aside class="terminal-panel flow-command-panel">
+          <div class="console-row"><code>policy</code><span>no fallback, credentials, governance, capability admission</span></div>
+          <div class="console-row"><code>mode</code><span>requested, selected, reason, unsupported diagnostic if needed</span></div>
+          <div class="console-row"><code>provider</code><span>Vortex source, prepared artifact, native kernel, or blocked path</span></div>
+          <div class="console-row"><code>output</code><span>result ref, evidence refs, timing, claim_gate_status</span></div>
+        </aside>
+      </div>
+    </section>
+    <section id="flow-modes">
+      <div class="shell">
+        <p class="eyebrow">Execution mode lanes</p>
+        <h2>Source and preparation choices stay explicit.</h2>
+        <p class="section-lede">These lanes are not interchangeable timing rows. Compatibility import carries ingest/stage/certification work. Prepared and native Vortex lanes are the current runtime-development direction. Direct transient and auto stay constrained by diagnostics and selected-mode reporting.</p>
+        <div class="mode-lanes mission-mode-lanes">
+          <article class="mode-lane"><span class="lane-tag">Certification</span><h3>compatibility_import_certified</h3><p>Reads compatibility input, imports to Vortex, writes/reopens/scans, computes, and certifies the workflow.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Runtime direction</span><h3>prepared_vortex</h3><p>Runs scoped scenarios from prepared Vortex artifacts with source-backed scan and no-fallback evidence.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Native artifact</span><h3>native_vortex</h3><p>Runs from existing Vortex input where the local row carries Native I/O and claim-boundary fields.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Diagnostic</span><h3>direct_compatibility_transient / auto</h3><p>Direct transient remains narrow and not Vortex-native; auto must report selected mode and reason.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="engine-fabric">
+      <div class="shell">
+        <p class="eyebrow">Engine fabric</p>
+        <h2>Batch, live, and hybrid are workload semantics, not hidden fast modes.</h2>
+        <div class="status-board compact-status-board">
+          <article class="status-column"><span class="claim-badge supported">current foundation</span><h3>Batch</h3><p>Bounded local Vortex analytics are the practical execution foundation for current evidence-backed rows.</p></article>
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Live</h3><p>Live helpers and in-memory fixture reports exist; durable state, broker adapters, and freshness evidence are not public support claims.</p></article>
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Hybrid</h3><p>Hybrid overlay helpers and fixture reports exist; durable hot/cold commit semantics remain outside current public support.</p></article>
+          <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>Streaming</h3><p>Streaming, zero-copy, and backpressure plans remain capability/report posture unless evidence promotes a workload.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="provider-admission">
+      <div class="shell">
+        <p class="eyebrow">Provider admission</p>
+        <h2>The provider path is admitted before work runs.</h2>
+        <div class="provider-admission-grid">
+          <article><strong>1. Policy gate</strong><span>No-fallback, credential, external-effect, and release-claim rules are checked first.</span></article>
+          <article><strong>2. Capability gate</strong><span>Source, operator, sink, engine mode, and evidence requirements decide whether a path is supported, fixture-only, report-only, or blocked.</span></article>
+          <article><strong>3. Provider route</strong><span>Admitted work chooses a Vortex/source-backed path, a ShardLoom-native/residual-native path, or a deterministic diagnostic.</span></article>
+          <article><strong>4. Evidence route</strong><span>Outputs carry certificates, timing fields, fallback/external-engine flags, materialization/decode status, and claim_gate_status.</span></article>
+        </div>
+      </div>
+    </section>
+    <section id="downstream">
+      <div class="shell">
+        <p class="eyebrow">I/O and downstream use</p>
+        <h2>Downstream consumers receive evidence, not a hidden engine story.</h2>
+        <p class="section-lede">CLI, Python, benchmark pages, adapters, and future REST/event consumers must preserve the typed output envelope: result refs, diagnostics, certificates, timing fields, and claim gates. Compatibility files, Vortex artifacts, object-store/table inputs, and stream inputs do not imply support until the capability and evidence rows say so.</p>
+      </div>
+    </section>
+    <section id="canonical-reference" class="doc-section">
       <div class="shell doc-layout">
         <article class="doc-body">
+          <p class="eyebrow">Canonical reference</p>
+          <h2>Full Compute Engine Flow Reference</h2>
           <h2 id="shardloom-compute-engine-flow-reference">ShardLoom Compute Engine Flow Reference</h2>
 <h3 id="purpose">Purpose</h3>
 <p>This document defines the high-level compute-engine flow ShardLoom is supposed to follow.</p>

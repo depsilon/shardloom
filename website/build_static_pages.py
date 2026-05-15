@@ -311,7 +311,7 @@ def site_nav(active: str) -> str:
         ("Field Guide", "/field-guide/", "field-guide"),
         ("Telemetry", "/benchmarks.html", "telemetry"),
         ("Compute Flow", "/compute-engine-flow.html", "flow"),
-        ("Status", "/#status", "status"),
+        ("Status", "/status.html", "status"),
         ("Docs", "/readme.html", "docs"),
         ("GitHub", "https://github.com/depsilon/shardloom", "github"),
     ]
@@ -369,11 +369,13 @@ def page(
         "field-guide": "field-guide/",
         "telemetry": "benchmarks.html",
         "flow": "compute-engine-flow.html",
+        "status": "status.html",
         "docs": "readme.html",
     }
     canonical_path = canonical_path_override
     if canonical_path is None:
         canonical_path = canonical_paths.get(active, "")
+    canonical_url = f"https://shardloom.io/{canonical_path}"
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -381,10 +383,16 @@ def page(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{esc(title)}</title>
   <meta name="description" content="{esc(description)}">
-  <link rel="canonical" href="https://shardloom.io/{canonical_path}">
+  <link rel="canonical" href="{canonical_url}">
   <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="{esc(title)}">
+  <meta property="og:description" content="{esc(description)}">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{canonical_url}">
+  <meta name="twitter:card" content="summary_large_image">
 </head>
 <body class="command-shell">
   <header class="site-header mission-nav">
@@ -427,6 +435,217 @@ def doc_page(source: Path, title: str, description: str, source_label: str, acti
     </section>
     """
     return page(title, description, body, active)
+
+
+def compute_flow_page(source: Path) -> str:
+    markdown = source.read_text(encoding="utf-8")
+    body = f"""
+    <section class="doc-hero flow-mission-hero">
+      <div class="shell">
+        {page_header_logo()}
+        <p class="eyebrow">Compute Flow Mission Map</p>
+        <h1>From request to evidence to claim gate.</h1>
+        <p class="lede">ShardLoom routes each request through policy admission, explicit execution and engine modes, a provider path, result/sink handling, evidence generation, and a claim gate. This page is explanation only; it does not expand runtime support.</p>
+        <p class="source-note">Source: <code>docs/architecture/compute-engine-flow-reference.md</code></p>
+        <div class="mission-chain" aria-label="ShardLoom execution mission map">
+          <article><strong>Access</strong><span>CLI, Python, benchmarks, adapters, and planned REST/event surfaces enter through one typed request envelope.</span></article>
+          <article><strong>Admission</strong><span>Policy, capability, semantic profile, requested mode, and output intent are checked before execution.</span></article>
+          <article><strong>Execution mode</strong><span>compatibility_import_certified, prepared_vortex, native_vortex, direct_compatibility_transient, or auto with selected reason.</span></article>
+          <article><strong>Engine mode</strong><span>batch, live fixture, hybrid fixture, or report-only streaming semantics remain separate from source/preparation lanes.</span></article>
+          <article><strong>Provider path</strong><span>Vortex provider, ShardLoom-native kernel, residual-native fixture path, source-backed scan, or deterministic diagnostic.</span></article>
+          <article><strong>Result and sink</strong><span>Typed output carries result refs, sink artifacts, replay references, or unsupported status.</span></article>
+          <article><strong>Evidence</strong><span>Native I/O, execution certificate, timing, materialization/decode, source/sink, and policy evidence stay visible.</span></article>
+          <article><strong>Claim gate</strong><span>claim_grade, fixture_smoke_only, report_only, blocked, or not_claim_grade controls what can be said.</span></article>
+        </div>
+      </div>
+    </section>
+    <nav class="page-subnav" aria-label="Compute flow sections">
+      <div class="shell">
+        <a href="#flow-overview">Overview</a>
+        <a href="#flow-modes">Mode lanes</a>
+        <a href="#engine-fabric">Engine fabric</a>
+        <a href="#provider-admission">Provider admission</a>
+        <a href="#downstream">Downstream use</a>
+        <a href="#canonical-reference">Canonical reference</a>
+      </div>
+    </nav>
+    <section id="flow-overview">
+      <div class="shell split">
+        <div>
+          <p class="eyebrow">Plain-English route</p>
+          <h2>One request, one visible route.</h2>
+          <p class="section-lede">ShardLoom should never make users infer what happened. The public flow separates the user access surface from the runtime contract, the source/preparation lane, the workload engine semantics, the provider path, and the evidence envelope.</p>
+        </div>
+        <aside class="terminal-panel flow-command-panel">
+          <div class="console-row"><code>policy</code><span>no fallback, credentials, governance, capability admission</span></div>
+          <div class="console-row"><code>mode</code><span>requested, selected, reason, unsupported diagnostic if needed</span></div>
+          <div class="console-row"><code>provider</code><span>Vortex source, prepared artifact, native kernel, or blocked path</span></div>
+          <div class="console-row"><code>output</code><span>result ref, evidence refs, timing, claim_gate_status</span></div>
+        </aside>
+      </div>
+    </section>
+    <section id="flow-modes">
+      <div class="shell">
+        <p class="eyebrow">Execution mode lanes</p>
+        <h2>Source and preparation choices stay explicit.</h2>
+        <p class="section-lede">These lanes are not interchangeable timing rows. Compatibility import carries ingest/stage/certification work. Prepared and native Vortex lanes are the current runtime-development direction. Direct transient and auto stay constrained by diagnostics and selected-mode reporting.</p>
+        <div class="mode-lanes mission-mode-lanes">
+          <article class="mode-lane"><span class="lane-tag">Certification</span><h3>compatibility_import_certified</h3><p>Reads compatibility input, imports to Vortex, writes/reopens/scans, computes, and certifies the workflow.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Runtime direction</span><h3>prepared_vortex</h3><p>Runs scoped scenarios from prepared Vortex artifacts with source-backed scan and no-fallback evidence.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Native artifact</span><h3>native_vortex</h3><p>Runs from existing Vortex input where the local row carries Native I/O and claim-boundary fields.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Diagnostic</span><h3>direct_compatibility_transient / auto</h3><p>Direct transient remains narrow and not Vortex-native; auto must report selected mode and reason.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="engine-fabric">
+      <div class="shell">
+        <p class="eyebrow">Engine fabric</p>
+        <h2>Batch, live, and hybrid are workload semantics, not hidden fast modes.</h2>
+        <div class="status-board compact-status-board">
+          <article class="status-column"><span class="claim-badge supported">current foundation</span><h3>Batch</h3><p>Bounded local Vortex analytics are the practical execution foundation for current evidence-backed rows.</p></article>
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Live</h3><p>Live helpers and in-memory fixture reports exist; durable state, broker adapters, and freshness evidence are not public support claims.</p></article>
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Hybrid</h3><p>Hybrid overlay helpers and fixture reports exist; durable hot/cold commit semantics remain outside current public support.</p></article>
+          <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>Streaming</h3><p>Streaming, zero-copy, and backpressure plans remain capability/report posture unless evidence promotes a workload.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="provider-admission">
+      <div class="shell">
+        <p class="eyebrow">Provider admission</p>
+        <h2>The provider path is admitted before work runs.</h2>
+        <div class="provider-admission-grid">
+          <article><strong>1. Policy gate</strong><span>No-fallback, credential, external-effect, and release-claim rules are checked first.</span></article>
+          <article><strong>2. Capability gate</strong><span>Source, operator, sink, engine mode, and evidence requirements decide whether a path is supported, fixture-only, report-only, or blocked.</span></article>
+          <article><strong>3. Provider route</strong><span>Admitted work chooses a Vortex/source-backed path, a ShardLoom-native/residual-native path, or a deterministic diagnostic.</span></article>
+          <article><strong>4. Evidence route</strong><span>Outputs carry certificates, timing fields, fallback/external-engine flags, materialization/decode status, and claim_gate_status.</span></article>
+        </div>
+      </div>
+    </section>
+    <section id="downstream">
+      <div class="shell">
+        <p class="eyebrow">I/O and downstream use</p>
+        <h2>Downstream consumers receive evidence, not a hidden engine story.</h2>
+        <p class="section-lede">CLI, Python, benchmark pages, adapters, and future REST/event consumers must preserve the typed output envelope: result refs, diagnostics, certificates, timing fields, and claim gates. Compatibility files, Vortex artifacts, object-store/table inputs, and stream inputs do not imply support until the capability and evidence rows say so.</p>
+      </div>
+    </section>
+    <section id="canonical-reference" class="doc-section">
+      <div class="shell doc-layout">
+        <article class="doc-body">
+          <p class="eyebrow">Canonical reference</p>
+          <h2>Full Compute Engine Flow Reference</h2>
+          {markdown_to_html(markdown)}
+        </article>
+      </div>
+    </section>
+    """
+    return page(
+        "Compute Engine Flow",
+        "Mission-map view of ShardLoom access surfaces, execution modes, engine modes, provider admission, downstream usage, evidence, and claim gates.",
+        body,
+        "flow",
+    )
+
+
+def status_page() -> str:
+    body = f"""
+    <section class="doc-hero status-hero">
+      <div class="shell">
+        {page_header_logo()}
+        <p class="eyebrow">Launch Status Board</p>
+        <h1>Public posture for ShardLoom evidence.</h1>
+        <p class="lede">ShardLoom is a pre-release local compute engine foundation. This board separates supported local smoke evidence, fixture-smoke paths, report-only surfaces, blocked areas, planned work, and claims that are not made.</p>
+      </div>
+    </section>
+    <nav class="page-subnav" aria-label="Status sections">
+      <div class="shell">
+        <a href="#supported">Supported local smoke</a>
+        <a href="#fixture">Fixture-smoke</a>
+        <a href="#report-only">Report-only</a>
+        <a href="#blocked">Blocked</a>
+        <a href="#planned">Planned</a>
+        <a href="#not-claimed">Not claimed</a>
+      </div>
+    </nav>
+    <section id="supported">
+      <div class="shell">
+        <p class="eyebrow">Evidence-backed local surface</p>
+        <h2>Supported local smoke and evidence surfaces.</h2>
+        <div class="status-board">
+          <article class="status-column"><span class="claim-badge supported">supported local smoke</span><h3>No-fallback local execution evidence</h3><p>Supported rows expose <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code> for their scoped workload.</p></article>
+          <article class="status-column"><span class="claim-badge supported">supported local smoke</span><h3>Prepared/native Vortex batch smoke</h3><p>Scoped prepared/native batch rows preserve source-backed scan, materialization/decode, timing, and claim-gate fields.</p></article>
+          <article class="status-column"><span class="claim-badge supported">supported local smoke</span><h3>Benchmark evidence publication</h3><p>The public Telemetry page publishes committed local evidence snapshots and frames them as attribution baseline evidence.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="fixture">
+      <div class="shell">
+        <p class="eyebrow">Scoped fixture evidence</p>
+        <h2>Fixture-smoke paths are useful signals, not broad support.</h2>
+        <div class="status-board">
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Live mode</h3><p>Live helpers and in-memory reports exist, but durable state, brokers, freshness proof, and production claims remain outside scope.</p></article>
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Hybrid overlay</h3><p>Hybrid fixture reports exist for base-plus-delta reasoning; durable hot/cold commit semantics are not public support.</p></article>
+          <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Table metadata smoke</h3><p>Table metadata evidence is scoped metadata proof, not a lakehouse/catalog runtime claim.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="report-only">
+      <div class="shell">
+        <p class="eyebrow">Report-only surfaces</p>
+        <h2>These surfaces can be documented or diagnosed without claiming runtime support.</h2>
+        <div class="status-board">
+          <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>REST/event surfaces</h3><p>Future API surfaces must preserve typed envelopes, selected mode, diagnostics, evidence, and claim gates before promotion.</p></article>
+          <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>Adapters and end-user wrappers</h3><p>CLI, Python, and planned adapter access must improve ergonomics without hiding execution mode or fallback status.</p></article>
+          <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>Object-store, lakehouse, and Foundry boundaries</h3><p>These areas remain boundary/status documentation unless runtime proof and release gates promote a narrow slice.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="blocked">
+      <div class="shell">
+        <p class="eyebrow">Blocked claims and paths</p>
+        <h2>Blocked means deterministic diagnostics or no public claim.</h2>
+        <div class="status-board">
+          <article class="status-column"><span class="claim-badge blocked">blocked</span><h3>Silent external fallback</h3><p>Unsupported work must not run through Spark, DuckDB, DataFusion, Polars, or any other external engine as ShardLoom execution.</p></article>
+          <article class="status-column"><span class="claim-badge blocked">blocked</span><h3>Production SQL/DataFrame support</h3><p>SQL/DataFrame surfaces require scoped implementation, tests, and evidence before public support language changes.</p></article>
+          <article class="status-column"><span class="claim-badge blocked">blocked</span><h3>Public performance or superiority claims</h3><p>Local benchmark rows remain attribution evidence until workload-scoped claim gates and release checks say otherwise.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="planned">
+      <div class="shell split">
+        <div>
+          <p class="eyebrow">Planned work</p>
+          <h2>Current planning posture.</h2>
+          <p class="section-lede">The active phase plan remains the source of truth for planned work. The website status board summarizes broad posture, but does not replace, the phase plan and completed ledger.</p>
+        </div>
+        <aside class="terminal-panel flow-command-panel">
+          <div class="console-row"><code>runtime</code><span>prepared/native Vortex path expansion and operator coverage remain the main optimization direction</span></div>
+          <div class="console-row"><code>language</code><span>SQL/DataFrame, adapters, REST/event, and notebook surfaces remain gated by scoped proof</span></div>
+          <div class="console-row"><code>platform</code><span>object-store, lakehouse, and Foundry paths remain report-only or blocked until evidence exists</span></div>
+          <div class="console-row"><code>release</code><span>public claims require workload-scoped evidence and release gates</span></div>
+        </aside>
+      </div>
+    </section>
+    <section id="not-claimed">
+      <div class="shell">
+        <p class="eyebrow">Claim boundary</p>
+        <h2>What this public site does not claim.</h2>
+        <div class="boundary-grid">
+          <article><strong>No performance or superiority claim</strong><span>Telemetry is local attribution evidence, not a public ranking.</span></article>
+          <article><strong>No Spark-displacement claim</strong><span>External engines are baseline context only and never fallback execution.</span></article>
+          <article><strong>No production SQL/DataFrame claim</strong><span>Language layers and planner surfaces remain gated by scoped evidence.</span></article>
+          <article><strong>No production object-store, lakehouse, or Foundry claim</strong><span>Those surfaces remain report-only, blocked, or planned until proof exists.</span></article>
+          <article><strong>No package-publication claim</strong><span>Public package readiness requires release gates outside this website page.</span></article>
+          <article><strong>No hidden fast mode</strong><span>Auto mode must report selected mode and reason; batch process reuse is not a hidden runtime.</span></article>
+        </div>
+      </div>
+    </section>
+    """
+    return page(
+        "ShardLoom Status Board",
+        "Claim-safe public posture board for ShardLoom supported local smoke, fixture-smoke, report-only, blocked, planned, and not-claimed surfaces.",
+        body,
+        "status",
+    )
 
 
 FIELD_GUIDE_CONCEPTS: list[dict[str, Any]] = [
@@ -1863,15 +2082,12 @@ def main() -> int:
         encoding="utf-8",
     )
     (WEBSITE / "compute-engine-flow.html").write_text(
-        doc_page(
+        compute_flow_page(
             ROOT / "docs" / "architecture" / "compute-engine-flow-reference.md",
-            "Compute Engine Flow",
-            "Rendered canonical compute-engine flow reference, including execution modes, engine modes, access surfaces, and claim gates.",
-            "docs/architecture/compute-engine-flow-reference.md",
-            "flow",
         ),
         encoding="utf-8",
     )
+    (WEBSITE / "status.html").write_text(status_page(), encoding="utf-8")
     summary = benchmark_summary(args.benchmark_dir)
     comparative_dashboard = args.comparative_dashboard
     if comparative_dashboard is None:

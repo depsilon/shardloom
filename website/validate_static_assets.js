@@ -6,6 +6,7 @@ const requiredFiles = [
   "assets/compute-flow.js",
   "assets/data/compute-engine-flow-reference.md",
   "index.html",
+  "status.html",
 ];
 
 const runtimeFiles = [
@@ -13,6 +14,7 @@ const runtimeFiles = [
   "404.html",
   "benchmarks.html",
   "compute-engine-flow.html",
+  "status.html",
   "readme.html",
   "_headers",
   "_redirects",
