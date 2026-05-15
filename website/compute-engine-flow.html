@@ -10,25 +10,37 @@
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
 </head>
-<body>
-  <header class="site-header">
-    <div class="shell nav">
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
       <a class="brand" href="/" aria-label="ShardLoom home">
-        <img src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
-        <span>ShardLoom</span>
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
       </a>
       <nav class="nav-links" aria-label="Primary">
         <a class="" href="/">Home</a>
-<a class="" href="/benchmarks.html">Benchmarks</a>
-<a class="active" href="/compute-engine-flow.html">Compute Flow</a>
-<a class="" href="/readme.html">README</a>
+<a class="" href="/field-guide/">Field Guide</a>
+<a class="" href="/benchmarks.html">Telemetry</a>
+<a class="active" aria-current="page" href="/compute-engine-flow.html">Compute Flow</a>
+<a class="" href="/#status">Status</a>
+<a class="" href="/readme.html">Docs</a>
 <a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
       </nav>
     </div>
   </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
   <main>
     <section class="doc-hero">
       <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
         <p class="eyebrow">Rendered repository document</p>
         <h1>Compute Engine Flow</h1>
         <p class="lede">Rendered canonical compute-engine flow reference, including execution modes, engine modes, access surfaces, and claim gates.</p>
@@ -891,7 +903,7 @@ batch = bounded/snapshot workload semantics
 live = continuous/change-stream workload semantics
 hybrid = base snapshot plus hot delta workload semantics</code></pre>
 <p>The benchmark artifact must also carry <code>execution_mode_attribution_contract</code>, including the canonical mode vocabulary, the required execution-mode fields, and the required stage timing fields. The harness rejects rows that omit the contract fields. Unknown stage values stay explicit as <code>null</code>, <code>n/a</code>, or <code>not_measured</code>; missing fields are not allowed. Prepared/native rows must also carry an operator blocker matrix with <code>operator_execution_class</code>, <code>operator_admission_status</code>, <code>operator_blocker_id</code>, <code>operator_blocker_reason</code>, and <code>operator_encoded_native_claim_allowed</code> so temporary or residual-native operators are never read as encoded-native operator execution. Native Vortex benchmark rows must additionally carry <code>native_vortex_admission_*</code> fields that identify the exact admitted lane, provider kind/API surface, certificate refs, materialization/decode refs, fallback status, and claim boundary. Today that admits only <code>local_vortex_count_scalar</code>; downstream readers must not infer universal native Vortex support from that row.</p>
-<p>The artifact must also carry <code>persistent_runner_admission_gate</code>. Default comparative prepared/native rows still keep <code>persistent_runner_status=process_per_scenario_attributed_not_reduced</code> and the persistent-runner admission fields (<code>process_startup_attribution</code>, <code>python_harness_overhead_status</code>, <code>cli_process_wall_millis</code>, <code>python_harness_overhead_millis</code>, <code>startup_warmup_millis</code>, <code>build_time_millis</code>, <code>build_time_excluded</code>, <code>preparation_millis</code>, <code>preparation_cli_process_wall_millis</code>, and <code>preparation_included_in_timing</code>). The explicit <code>traditional-analytics-vortex-batch-run</code> command is the first scoped admitted process-reuse path and emits <code>persistent_runner_status=single_process_batch_runner_supported</code> while preserving per-scenario typed evidence and no-fallback fields. That batch status does not admit a persistent daemon, service runtime, hidden fast mode, or performance claim. Any broader persistent runner or default harness integration must preserve typed envelopes, execution-mode evidence, Native I/O refs, operator blocker fields, materialization/decode boundaries, result-sink replay evidence, deterministic unsupported diagnostics, and no-fallback fields per run.</p>
+<p>The artifact must also carry <code>persistent_runner_admission_gate</code>. Eligible comparative prepared/native rows now consume the explicit <code>traditional-analytics-vortex-batch-run</code> command and report <code>persistent_runner_status=single_process_batch_runner_supported</code> while preserving per-scenario typed evidence and no-fallback fields. Those rows also carry <code>batch_runner_kind</code>, <code>batch_scenario_count</code>, <code>batch_cli_process_wall_millis</code>, <code>batch_process_wall_shared=true</code>, and <code>batch_process_startup_attribution</code> so shared process wall time is not mistaken for per-scenario operator work. Rows that still use explicit single-scenario CLI execution keep <code>persistent_runner_status=process_per_scenario_attributed_not_reduced</code> and the existing persistent-runner admission fields (<code>process_startup_attribution</code>, <code>python_harness_overhead_status</code>, <code>cli_process_wall_millis</code>, <code>python_harness_overhead_millis</code>, <code>startup_warmup_millis</code>, <code>build_time_millis</code>, <code>build_time_excluded</code>, <code>preparation_millis</code>, <code>preparation_cli_process_wall_millis</code>, and <code>preparation_included_in_timing</code>). The batch status does not admit a persistent daemon, service runtime, hidden fast mode, or performance claim. Any broader persistent runner must preserve typed envelopes, execution-mode evidence, Native I/O refs, operator blocker fields, materialization/decode boundaries, result-sink replay evidence, deterministic unsupported diagnostics, and no-fallback fields per run.</p>
 <p>The artifact also carries <code>work_avoidance_evidence_schema</code>. ShardLoom rows must report <code>measured</code>, <code>not_available</code>, <code>unsupported</code>, or <code>not_applicable</code> status for rows avoided, segments pruned, bytes avoided, encoded-vector reuse, and pushdown proof. <code>not_available</code> means unknown/not measured, not zero, and it does not permit performance or optimization claims.</p>
 <p><code>auto</code> is selection vocabulary only. A row with <code>requested_execution_mode=auto</code> must preserve <code>selected_execution_mode</code> and <code>mode_selection_reason</code> so downstream readers can see the actual runtime path.</p>
 <h3 id="benchmark-lanes">Benchmark Lanes</h3>
@@ -1147,8 +1159,19 @@ Unsupported work must return deterministic unsupported diagnostics, not delegate
       </div>
     </section>
     </main>
-  <footer>
-    <div class="shell">Apache-2.0 project code. ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</div>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
   </footer>
+
 </body>
 </html>

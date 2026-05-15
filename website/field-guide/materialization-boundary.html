@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Materialization Boundary - ShardLoom Field Guide</title>
+  <meta name="description" content="A materialization boundary records where data was decoded, materialized, converted, or kept native.">
+  <link rel="canonical" href="https://shardloom.io/field-guide/materialization-boundary.html">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="active" aria-current="page" href="/field-guide/">Field Guide</a>
+<a class="" href="/benchmarks.html">Telemetry</a>
+<a class="" href="/compute-engine-flow.html">Compute Flow</a>
+<a class="" href="/#status">Status</a>
+<a class="" href="/readme.html">Docs</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="doc-hero field-guide-hero">
+      <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        <p class="eyebrow">Field Guide dossier</p>
+        <h1>Materialization Boundary</h1>
+        <p class="lede">A materialization boundary records where data was decoded, materialized, converted, or kept native.</p>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell dossier-layout">
+        <aside class="dossier-sidebar">
+          <h2>In this dossier</h2>
+          <a href="#why">Why it matters</a>
+          <a href="#how">How ShardLoom uses it</a>
+          <a href="#proof">What it proves</a>
+          <a href="#boundary">Claim boundary</a>
+          <a href="#sources">Source docs</a>
+        </aside>
+        <article class="dossier-body">
+          <section id="why">
+            <p class="eyebrow">Why it matters</p>
+            <p>It prevents a row from implying encoded-native execution when residual-native or decoded work actually happened.</p>
+          </section>
+          <section id="how">
+            <p class="eyebrow">How ShardLoom uses it</p>
+            <p>Prepared/native evidence exposes decode, materialization, row-read, Arrow conversion, and boundary-report fields.</p>
+          </section>
+          <section id="proof">
+            <p class="eyebrow">What it proves</p>
+            <p>A row can show whether data crossed a boundary for the scoped scenario.</p>
+            <h3>What it does not prove</h3>
+            <p>It does not prove zero-copy, zero-decode, or encoded-native execution unless the row says so with evidence.</p>
+            <h3>Evidence fields</h3>
+            <ul><li><code>data_decoded</code></li><li><code>data_materialized</code></li><li><code>row_read</code></li><li><code>arrow_converted</code></li><li><code>materialization_boundary_report_emitted</code></li></ul>
+          </section>
+          <section id="boundary">
+            <p class="eyebrow">Claim boundary</p>
+            <p>Boundary fields explain execution posture; they are not performance claims.</p>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Source docs</p>
+            <ul><li><code>docs/rfcs/0013-streaming-zero-copy-boundary-interoperability.md</code></li><li><code>website/benchmarks.html</code></li></ul>
+          </section>
+          <section class="related-concepts">
+            <p class="eyebrow">Related concepts</p>
+            <div><a class="claim-badge" href="/field-guide/prepared-vortex.html">Prepared Vortex</a><a class="claim-badge" href="/field-guide/claim-gates.html">Claim Gates</a><a class="claim-badge" href="/field-guide/native-io-certificate.html">Native I/O Certificate</a></div>
+          </section>
+          <nav class="dossier-nav" aria-label="Dossier navigation">
+            <a class="button" href="/field-guide/">Field Guide index</a>
+            <a class="button" href="/field-guide/native-io-certificate.html">Previous: Native I/O Certificate</a>
+            <a class="button primary" href="/field-guide/claim-gates.html">Next: Claim Gates</a>
+          </nav>
+        </article>
+      </div>
+    </section>
+    </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

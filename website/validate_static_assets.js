@@ -37,11 +37,36 @@ function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
+function collectFiles(directory, prefix = "") {
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    if (entry.name === "__pycache__") {
+      continue;
+    }
+    const relativePath = path.join(prefix, entry.name);
+    const absolutePath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectFiles(absolutePath, relativePath));
+    } else {
+      files.push(relativePath.replace(/\\/g, "/"));
+    }
+  }
+  return files;
+}
+
 for (const relativePath of requiredFiles) {
   assert(exists(relativePath), `Missing required website file: ${relativePath}`);
 }
 
-for (const relativePath of runtimeFiles) {
+const htmlRuntimeFiles = collectFiles(root).filter((relativePath) =>
+  relativePath.endsWith(".html"),
+);
+const filesToScanForRuntimeRefs = Array.from(
+  new Set([...runtimeFiles, ...htmlRuntimeFiles]),
+);
+
+for (const relativePath of filesToScanForRuntimeRefs) {
   if (!exists(relativePath)) {
     continue;
   }
@@ -78,6 +103,90 @@ while ((match = assetPattern.exec(indexHtml)) !== null) {
 assert(
   missingAssets.length === 0,
   `index.html references missing committed assets: ${missingAssets.join(", ")}`,
+);
+
+function localFileForPath(sitePath) {
+  const pathWithoutQuery = sitePath.split("?")[0];
+  const [pathname] = pathWithoutQuery.split("#");
+  if (pathname === "" || pathname === "/") {
+    return "index.html";
+  }
+  if (!pathname.startsWith("/")) {
+    return null;
+  }
+  const relativePath = pathname.replace(/^\//, "");
+  if (relativePath.endsWith("/")) {
+    return `${relativePath}index.html`;
+  }
+  if (exists(relativePath)) {
+    const stats = fs.statSync(path.join(root, relativePath));
+    if (stats.isDirectory()) {
+      return `${relativePath}/index.html`;
+    }
+    return relativePath;
+  }
+  if (exists(`${relativePath}/index.html`)) {
+    return `${relativePath}/index.html`;
+  }
+  return relativePath;
+}
+
+function fragmentForPath(sitePath) {
+  const hashIndex = sitePath.indexOf("#");
+  if (hashIndex === -1) {
+    return "";
+  }
+  return sitePath.slice(hashIndex + 1);
+}
+
+const missingLocalRefs = [];
+const missingAnchors = [];
+const localRefPattern = /\b(?:src|href)=["']([^"']+)["']/g;
+
+for (const relativePath of htmlRuntimeFiles) {
+  const source = read(relativePath);
+  while ((match = localRefPattern.exec(source)) !== null) {
+    const target = match[1];
+    if (
+      target.startsWith("http:") ||
+      target.startsWith("https:") ||
+      target.startsWith("mailto:")
+    ) {
+      continue;
+    }
+    const localFile = target.startsWith("#")
+      ? relativePath
+      : localFileForPath(target);
+    if (!localFile) {
+      continue;
+    }
+    if (!exists(localFile)) {
+      missingLocalRefs.push(`${relativePath} -> ${target}`);
+      continue;
+    }
+    const fragment = target.startsWith("#")
+      ? target.slice(1)
+      : fragmentForPath(target);
+    if (fragment) {
+      const targetSource = read(localFile);
+      const idPattern = new RegExp(
+        `\\b(?:id|name)=["']${fragment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']`,
+      );
+      if (!idPattern.test(targetSource)) {
+        missingAnchors.push(`${relativePath} -> ${target}`);
+      }
+    }
+  }
+}
+
+assert(
+  missingLocalRefs.length === 0,
+  `Website runtime files reference missing local files: ${missingLocalRefs.join(", ")}`,
+);
+
+assert(
+  missingAnchors.length === 0,
+  `Website runtime files reference missing anchors: ${missingAnchors.join(", ")}`,
 );
 
 console.log("website static asset validation passed");
