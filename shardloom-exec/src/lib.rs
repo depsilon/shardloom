@@ -191,6 +191,346 @@ impl ShardLoomExecutionInlineArtifact {
     }
 }
 
+/// No-fallback policy fields for one top-level facade compatibility row.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FacadeCompatibilityRowPolicy {
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl FacadeCompatibilityRowPolicy {
+    #[must_use]
+    pub const fn no_external_effects() -> Self {
+        Self {
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.fallback_attempted && !self.external_engine_invoked
+    }
+}
+
+/// One top-level facade compatibility row for executable, report-only, legacy, and unsupported
+/// surfaces.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FacadeCompatibilityMatrixRow {
+    pub surface: &'static str,
+    pub category: &'static str,
+    pub support_status: &'static str,
+    pub provider_dispatch_required: bool,
+    pub typed_envelope_required: bool,
+    pub legacy_boundary: bool,
+    pub claim_gate_status: &'static str,
+    pub policy: FacadeCompatibilityRowPolicy,
+    pub detail: &'static str,
+}
+
+impl FacadeCompatibilityMatrixRow {
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        self.policy.side_effect_free()
+    }
+}
+
+fn executable_facade_row(
+    surface: &'static str,
+    detail: &'static str,
+) -> FacadeCompatibilityMatrixRow {
+    FacadeCompatibilityMatrixRow {
+        surface,
+        category: "executable_via_admitted_provider",
+        support_status: "supported_when_provider_admitted",
+        provider_dispatch_required: true,
+        typed_envelope_required: true,
+        legacy_boundary: false,
+        claim_gate_status: "workload_scoped_only",
+        policy: FacadeCompatibilityRowPolicy::no_external_effects(),
+        detail,
+    }
+}
+
+fn report_only_facade_row(
+    surface: &'static str,
+    detail: &'static str,
+) -> FacadeCompatibilityMatrixRow {
+    FacadeCompatibilityMatrixRow {
+        surface,
+        category: "report_only",
+        support_status: "report_only",
+        provider_dispatch_required: false,
+        typed_envelope_required: true,
+        legacy_boundary: false,
+        claim_gate_status: "not_claim_grade",
+        policy: FacadeCompatibilityRowPolicy::no_external_effects(),
+        detail,
+    }
+}
+
+fn unsupported_runtime_facade_row(
+    surface: &'static str,
+    detail: &'static str,
+) -> FacadeCompatibilityMatrixRow {
+    FacadeCompatibilityMatrixRow {
+        surface,
+        category: "unsupported_runtime",
+        support_status: "unsupported",
+        provider_dispatch_required: false,
+        typed_envelope_required: true,
+        legacy_boundary: false,
+        claim_gate_status: "not_claim_grade",
+        policy: FacadeCompatibilityRowPolicy::no_external_effects(),
+        detail,
+    }
+}
+
+fn legacy_facade_row(surface: &'static str, detail: &'static str) -> FacadeCompatibilityMatrixRow {
+    FacadeCompatibilityMatrixRow {
+        surface,
+        category: "legacy_boundary",
+        support_status: "removed_or_unsupported",
+        provider_dispatch_required: false,
+        typed_envelope_required: false,
+        legacy_boundary: true,
+        claim_gate_status: "not_claim_grade",
+        policy: FacadeCompatibilityRowPolicy::no_external_effects(),
+        detail,
+    }
+}
+
+fn prohibited_facade_row(
+    surface: &'static str,
+    detail: &'static str,
+) -> FacadeCompatibilityMatrixRow {
+    FacadeCompatibilityMatrixRow {
+        surface,
+        category: "prohibited_boundary",
+        support_status: "prohibited",
+        provider_dispatch_required: false,
+        typed_envelope_required: true,
+        legacy_boundary: false,
+        claim_gate_status: "not_claim_grade",
+        policy: FacadeCompatibilityRowPolicy::no_external_effects(),
+        detail,
+    }
+}
+
+/// GAR-0038-A compatibility matrix for the top-level plan/execution facade.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FacadeCompatibilityMatrixReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<FacadeCompatibilityMatrixRow>,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl FacadeCompatibilityMatrixReport {
+    #[must_use]
+    pub fn planning_default() -> Self {
+        Self {
+            schema_version: "shardloom.facade_compatibility_matrix.v1",
+            report_id: "gar0038.facade_compatibility_matrix",
+            gar_id: "GAR-0038-A",
+            support_status: "mixed_report_only_matrix",
+            claim_gate_status: "not_claim_grade",
+            rows: vec![
+                executable_facade_row(
+                    "vortex_primitive",
+                    "local Vortex primitive plans must dispatch through an admitted provider and preserve typed evidence",
+                ),
+                executable_facade_row(
+                    "prepared_encoded",
+                    "prepared encoded plans must preserve execution certificates, Native I/O certificates, and residual boundaries",
+                ),
+                executable_facade_row(
+                    "source_backed_encoded",
+                    "source-backed encoded plans require source/split refs and provider evidence before execution claims",
+                ),
+                executable_facade_row(
+                    "reader_backed_encoded",
+                    "reader-backed encoded plans require reader split evidence and supported provider surfaces",
+                ),
+                report_only_facade_row(
+                    "report_only",
+                    "report-only plans may succeed only as no-execution contracts",
+                ),
+                unsupported_runtime_facade_row(
+                    "sql_dataframe_runtime",
+                    "SQL and DataFrame execution remain outside the top-level facade runtime",
+                ),
+                unsupported_runtime_facade_row(
+                    "object_store_runtime",
+                    "object-store execution remains blocked until provider, credential, and Native I/O evidence exist",
+                ),
+                unsupported_runtime_facade_row(
+                    "write_runtime",
+                    "write and commit execution remain blocked by output and commit semantics gates",
+                ),
+                legacy_facade_row(
+                    "legacy_native_vortex_scan_placeholder",
+                    "the old one-variant placeholder facade must not be treated as a supported runtime API",
+                ),
+                prohibited_facade_row(
+                    "external_engine_fallback",
+                    "external engines may be baselines or oracles only, never facade fallback execution",
+                ),
+            ],
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> String {
+        self.rows
+            .iter()
+            .map(|row| row.surface)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn executable_surface_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.category == "executable_via_admitted_provider")
+            .count()
+    }
+
+    #[must_use]
+    pub fn report_only_surface_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.category == "report_only")
+            .count()
+    }
+
+    #[must_use]
+    pub fn unsupported_surface_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.category == "unsupported_runtime")
+            .count()
+    }
+
+    #[must_use]
+    pub fn legacy_boundary_count(&self) -> usize {
+        self.rows.iter().filter(|row| row.legacy_boundary).count()
+    }
+
+    #[must_use]
+    pub fn prohibited_surface_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.category == "prohibited_boundary")
+            .count()
+    }
+
+    #[must_use]
+    pub fn no_fallback_no_external_engine(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .all(FacadeCompatibilityMatrixRow::side_effect_free)
+    }
+
+    #[must_use]
+    fn legacy_boundary_status(&self) -> &'static str {
+        if self.legacy_boundary_count() > 0 {
+            "legacy_placeholder_removed_or_unsupported"
+        } else {
+            "no_legacy_boundary"
+        }
+    }
+
+    #[must_use]
+    fn to_output_artifact(&self) -> OutputTypedArtifact {
+        let mut artifact = OutputTypedArtifact::new(
+            self.report_id.to_string(),
+            "facade_compatibility_matrix",
+            self.support_status.to_string(),
+        )
+        .with_field("schema_version", self.schema_version)
+        .with_field("report_id", self.report_id)
+        .with_field("gar_id", self.gar_id)
+        .with_field("support_status", self.support_status)
+        .with_field("claim_gate_status", self.claim_gate_status)
+        .with_field("row_order", self.row_order())
+        .with_field(
+            "executable_surface_count",
+            self.executable_surface_count().to_string(),
+        )
+        .with_field(
+            "report_only_surface_count",
+            self.report_only_surface_count().to_string(),
+        )
+        .with_field(
+            "unsupported_surface_count",
+            self.unsupported_surface_count().to_string(),
+        )
+        .with_field(
+            "legacy_boundary_count",
+            self.legacy_boundary_count().to_string(),
+        )
+        .with_field(
+            "prohibited_surface_count",
+            self.prohibited_surface_count().to_string(),
+        )
+        .with_field("legacy_boundary_status", self.legacy_boundary_status())
+        .with_field(
+            "all_rows_no_fallback_no_external_engine",
+            bool_str(self.no_fallback_no_external_engine()),
+        )
+        .with_field("fallback_attempted", bool_str(self.fallback_attempted))
+        .with_field(
+            "external_engine_invoked",
+            bool_str(self.external_engine_invoked),
+        );
+        for row in &self.rows {
+            let prefix = format!("surface_{}", row.surface);
+            artifact = artifact
+                .with_field(format!("{prefix}_category"), row.category)
+                .with_field(format!("{prefix}_support_status"), row.support_status)
+                .with_field(
+                    format!("{prefix}_provider_dispatch_required"),
+                    bool_str(row.provider_dispatch_required),
+                )
+                .with_field(
+                    format!("{prefix}_typed_envelope_required"),
+                    bool_str(row.typed_envelope_required),
+                )
+                .with_field(
+                    format!("{prefix}_legacy_boundary"),
+                    bool_str(row.legacy_boundary),
+                )
+                .with_field(format!("{prefix}_claim_gate_status"), row.claim_gate_status)
+                .with_field(
+                    format!("{prefix}_fallback_attempted"),
+                    bool_str(row.policy.fallback_attempted),
+                )
+                .with_field(
+                    format!("{prefix}_external_engine_invoked"),
+                    bool_str(row.policy.external_engine_invoked),
+                )
+                .with_field(format!("{prefix}_detail"), row.detail);
+        }
+        artifact
+    }
+}
+
+#[must_use]
+pub fn facade_compatibility_matrix_report() -> FacadeCompatibilityMatrixReport {
+    FacadeCompatibilityMatrixReport::planning_default()
+}
+
 /// Typed top-level execution result returned by the execution facade.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShardLoomExecutionResult {
@@ -442,7 +782,7 @@ impl ShardLoomExecutionResult {
     }
 
     fn attach_output_fields(&self, envelope: OutputEnvelope) -> OutputEnvelope {
-        envelope
+        let envelope = envelope
             .with_result_field("plan_id", self.plan_id.clone())
             .with_result_field("plan_kind", self.plan_kind.clone())
             .with_result_field("engine_mode", self.engine_mode.clone())
@@ -521,6 +861,77 @@ impl ShardLoomExecutionResult {
             .with_capability_snapshot_field(
                 "provider_version",
                 optional_string(self.provider_version.as_deref()),
+            );
+        Self::attach_facade_matrix_output_fields(envelope)
+    }
+
+    fn attach_facade_matrix_output_fields(envelope: OutputEnvelope) -> OutputEnvelope {
+        let facade_matrix = facade_compatibility_matrix_report();
+        envelope
+            .with_result_field(
+                "facade_compatibility_matrix_report_id",
+                facade_matrix.report_id,
+            )
+            .with_result_field("facade_compatibility_matrix_gar_id", facade_matrix.gar_id)
+            .with_result_field(
+                "facade_compatibility_matrix_support_status",
+                facade_matrix.support_status,
+            )
+            .with_result_field(
+                "facade_compatibility_matrix_claim_gate_status",
+                facade_matrix.claim_gate_status,
+            )
+            .with_result_field(
+                "facade_compatibility_matrix_row_order",
+                facade_matrix.row_order(),
+            )
+            .with_result_field(
+                "facade_executable_surface_count",
+                facade_matrix.executable_surface_count().to_string(),
+            )
+            .with_result_field(
+                "facade_report_only_surface_count",
+                facade_matrix.report_only_surface_count().to_string(),
+            )
+            .with_result_field(
+                "facade_unsupported_surface_count",
+                facade_matrix.unsupported_surface_count().to_string(),
+            )
+            .with_result_field(
+                "facade_legacy_boundary_count",
+                facade_matrix.legacy_boundary_count().to_string(),
+            )
+            .with_result_field(
+                "facade_prohibited_surface_count",
+                facade_matrix.prohibited_surface_count().to_string(),
+            )
+            .with_result_field(
+                "facade_legacy_boundary_status",
+                facade_matrix.legacy_boundary_status(),
+            )
+            .with_result_field(
+                "facade_all_rows_no_fallback_no_external_engine",
+                bool_str(facade_matrix.no_fallback_no_external_engine()),
+            )
+            .with_capability_snapshot_field(
+                "facade_compatibility_matrix_report_id",
+                facade_matrix.report_id,
+            )
+            .with_capability_snapshot_field(
+                "facade_compatibility_matrix_support_status",
+                facade_matrix.support_status,
+            )
+            .with_capability_snapshot_field(
+                "facade_compatibility_matrix_claim_gate_status",
+                facade_matrix.claim_gate_status,
+            )
+            .with_capability_snapshot_field(
+                "facade_legacy_boundary_status",
+                facade_matrix.legacy_boundary_status(),
+            )
+            .with_capability_snapshot_field(
+                "facade_all_rows_no_fallback_no_external_engine",
+                bool_str(facade_matrix.no_fallback_no_external_engine()),
             )
     }
 
@@ -556,7 +967,9 @@ impl ShardLoomExecutionResult {
         for artifact in &self.inline_artifacts {
             envelope = envelope.with_artifact(artifact.to_output_artifact());
         }
-        envelope.with_artifact(self.evidence_slots_artifact())
+        envelope
+            .with_artifact(self.evidence_slots_artifact())
+            .with_artifact(facade_compatibility_matrix_report().to_output_artifact())
     }
 
     #[must_use]
@@ -824,7 +1237,8 @@ mod tests {
 
     use super::{
         ExecutionEvidenceSlotKind, ExecutionEvidenceSlotStatus, ShardLoomExecutionInlineArtifact,
-        ShardLoomExecutionResult, ShardLoomExecutionStatus, execute, status, unsupported,
+        ShardLoomExecutionResult, ShardLoomExecutionStatus, execute,
+        facade_compatibility_matrix_report, status, unsupported,
     };
 
     #[test]
@@ -888,6 +1302,33 @@ mod tests {
     }
 
     #[test]
+    fn facade_compatibility_matrix_separates_supported_legacy_and_blocked_surfaces() {
+        let report = facade_compatibility_matrix_report();
+
+        assert_eq!(report.gar_id, "GAR-0038-A");
+        assert_eq!(report.executable_surface_count(), 4);
+        assert_eq!(report.report_only_surface_count(), 1);
+        assert_eq!(report.unsupported_surface_count(), 3);
+        assert_eq!(report.legacy_boundary_count(), 1);
+        assert_eq!(report.prohibited_surface_count(), 1);
+        assert!(report.no_fallback_no_external_engine());
+        assert_eq!(
+            report.legacy_boundary_status(),
+            "legacy_placeholder_removed_or_unsupported"
+        );
+        assert!(report.rows.iter().any(
+            |row| row.surface == "sql_dataframe_runtime" && row.support_status == "unsupported"
+        ));
+        assert!(
+            report
+                .rows
+                .iter()
+                .any(|row| row.surface == "external_engine_fallback"
+                    && row.support_status == "prohibited")
+        );
+    }
+
+    #[test]
     fn typed_output_envelope_preserves_artifact_rich_execution_result() {
         let plan =
             build_vortex_count_all_plan("plan.count", "file://tmp/data.vortex").expect("plan");
@@ -925,6 +1366,20 @@ mod tests {
         assert!(json.contains("\"id\":\"cert.native-io\""));
         assert!(json.contains("\"artifact_id\":\"artifact.provider-report\""));
         assert!(json.contains("\"artifact_kind\":\"execution_evidence_slots\""));
+        assert!(json.contains("\"artifact_kind\":\"facade_compatibility_matrix\""));
+        assert!(json.contains("\"key\":\"gar_id\",\"value\":\"GAR-0038-A\""));
+        assert!(json.contains(
+            "\"key\":\"facade_compatibility_matrix_report_id\",\"value\":\"gar0038.facade_compatibility_matrix\""
+        ));
+        assert!(json.contains(
+            "\"key\":\"facade_all_rows_no_fallback_no_external_engine\",\"value\":\"true\""
+        ));
+        assert!(json.contains(
+            "\"key\":\"surface_sql_dataframe_runtime_support_status\",\"value\":\"unsupported\""
+        ));
+        assert!(json.contains(
+            "\"key\":\"surface_legacy_native_vortex_scan_placeholder_legacy_boundary\",\"value\":\"true\""
+        ));
         assert!(json.contains("\"key\":\"provider_version\",\"value\":\"provider-1\""));
         assert!(json.contains("\"key\":\"fallback_attempted\",\"value\":\"false\""));
         assert_eq!(result.evidence_completeness_status(), "complete");

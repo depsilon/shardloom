@@ -315,22 +315,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     until workload-scoped correctness and benchmark claim gates pass.
   - Dependencies/blockers: stable admitted filter-column kernel inputs, bridge selection-vector
     evidence, selected metric scan evidence, and certificate/no-fallback fields.
-- [ ] GAR-0038-A facade compatibility and legacy boundary matrix
-  - Source: RFC 0038; top-level plan/execution facade docs; typed envelope docs.
-  - Current state: top-level plan/execution facade exists, but SQL/DataFrame runtime, object-store
-    runtime, writes, and legacy facade compatibility are not broad.
-  - Next slice outcome: matrix that separates executable facade paths, report-only paths, legacy
-    shims, and unsupported paths.
-  - User-visible surface: CLI top-level command, Python client, docs.
-  - Implementation scope: facade report, CLI/Python typed models, contract tests.
-  - Evidence required: diagnostic refs and no-fallback refs; execution evidence only for supported
-    paths.
-  - Acceptance: facade does not route unsupported work into external engines or hidden fallback.
-  - Verification: facade contract tests, Python tests, default GAR verification.
-  - Non-goals: no SQL/DataFrame/object-store/write runtime.
-  - Fallback/claim boundary: external engines remain baseline/oracle only.
-  - Dependencies/blockers: GAR-0039 typed-envelope migration.
-
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
 
 - [ ] GAR-0004-A CDC and manifest transaction planning gate
