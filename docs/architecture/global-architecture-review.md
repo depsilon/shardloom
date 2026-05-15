@@ -908,6 +908,13 @@ plan before coding.
   `source_backed_scan_*` evidence, but still rely on temporary materialized or residual
   ShardLoom-native operator paths for some scenarios until encoded/native operator coverage
   matures.
+  - [x] GAR-FLOW-2E aligns `compute-capability-matrix` with the scoped prepared/native
+        residual-runtime evidence already present for grouped aggregate, join, and row-number/window
+        rows. Those rows now report `support_status=fixture_certified`,
+        `operator_execution_class=residual_native`,
+        `operator_admission_status=residual_native_fixture_admitted`, and
+        `operator_encoded_native_claim_allowed=false`; encoded-native, spill-safe, broad runtime,
+        performance, SQL/DataFrame, object-store, lakehouse, and production claims remain blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

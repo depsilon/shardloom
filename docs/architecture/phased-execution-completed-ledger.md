@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2E prepared/native residual capability alignment
+  - Primary files:
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/compute_capability_matrix_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+  - Scope: align the report-only `compute-capability-matrix` with existing scoped
+    prepared/native Vortex residual-runtime evidence for grouped aggregate, join, and
+    row-number/window rows.
+  - Checklist:
+    - [x] Add explicit `operator_execution_class` values to compute capability rows instead of
+          inferring class from materialization wording.
+    - [x] Promote grouped aggregate, join, and row-number/window rows from `planned` to
+          `fixture_certified` with prepared/native residual-runtime evidence refs.
+    - [x] Emit `operator_admission_status` and `operator_blocker_reason` fields beside the existing
+          operator blocker matrix.
+    - [x] Preserve `operator_encoded_native_claim_allowed=false` for the residual-native rows and
+          keep unsupported/report-only rows diagnosable.
+  - Boundary:
+    - This is a capability/evidence alignment slice. It does not add a new runtime path, encoded
+      aggregate/join/window execution, SQL/DataFrame execution, object-store/lakehouse/Foundry
+      support, production support, performance/superiority claims, external engines, or fallback
+      execution.
+  - Evidence:
+    - `compute-capability-matrix` now reports grouped aggregate, join, and row-number/window with
+      `support_status=fixture_certified`, `operator_execution_class=residual_native`,
+      `operator_admission_status=residual_native_fixture_admitted`,
+      `operator_encoded_native_claim_allowed=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - The matrix still reports `performance_claim_allowed=false`,
+      `spark_displacement_claim_allowed=false`, `production_claim_allowed=false`, and
+      `claim_grade_compute_engine_complete=false`.
+  - Vortex-first provider check:
+    - Subject area: prepared/native local Vortex operator capability reporting.
+    - Upstream Vortex concept checked: scan/source projection and local Vortex artifact lanes.
+    - Decision: `wrap_vortex_concept` plus `implement_shardloom_kernel` evidence refs for scoped
+      residual-native operator state.
+    - Residual handling: `shardloom_native`; no external residual executor.
+    - Materialization/decode boundary: projected Vortex scan feeds scoped residual state without
+      full fact-table materialization; encoded-native operator claims remain blocked.
+    - Gates still blocked: encoded-native aggregate/join/window, spill-safe broad operators,
+      claim-grade benchmarks, SQL/DataFrame, object-store/lakehouse, production, and performance
+      claims.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test compute_capability_matrix_snapshots --test typed_envelope_compatibility_lock`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
 - [x] Session label: GAR-0020-C local manifest-backed table metadata read smoke
   - Primary files:
     - `shardloom-core/src/table_intelligence.rs`

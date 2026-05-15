@@ -707,7 +707,15 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 ),
                 (
                     "compute_row_grouped_aggregate_operator_execution_class",
-                    "unsupported",
+                    "residual_native",
+                ),
+                (
+                    "compute_row_grouped_aggregate_operator_admission_status",
+                    "residual_native_fixture_admitted",
+                ),
+                (
+                    "compute_row_grouped_aggregate_operator_encoded_native_claim_allowed",
+                    "false",
                 ),
                 ("production_certified_count", "0"),
                 ("no_fallback", "true"),
