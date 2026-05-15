@@ -309,10 +309,10 @@ def site_nav(active: str) -> str:
     nav = [
         ("Home", "/", "home"),
         ("Field Guide", "/field-guide/", "field-guide"),
-        ("Telemetry", "/benchmarks.html", "telemetry"),
-        ("Compute Flow", "/compute-engine-flow.html", "flow"),
-        ("Status", "/status.html", "status"),
-        ("Docs", "/readme.html", "docs"),
+        ("Telemetry", "/benchmarks", "telemetry"),
+        ("Compute Flow", "/compute-engine-flow", "flow"),
+        ("Status", "/status", "status"),
+        ("Docs", "/readme", "docs"),
         ("GitHub", "https://github.com/depsilon/shardloom", "github"),
     ]
     links = []
@@ -367,10 +367,10 @@ def page(
     canonical_paths = {
         "home": "",
         "field-guide": "field-guide/",
-        "telemetry": "benchmarks.html",
-        "flow": "compute-engine-flow.html",
-        "status": "status.html",
-        "docs": "readme.html",
+        "telemetry": "benchmarks",
+        "flow": "compute-engine-flow",
+        "status": "status",
+        "docs": "readme",
     }
     canonical_path = canonical_path_override
     if canonical_path is None:
@@ -783,7 +783,7 @@ FIELD_GUIDE_CONCEPTS: list[dict[str, Any]] = [
 
 
 def concept_url(slug_value: str) -> str:
-    return f"/field-guide/{slug_value}.html"
+    return f"/field-guide/{slug_value}"
 
 
 def concept_by_slug(slug_value: str) -> dict[str, Any]:
@@ -915,7 +915,7 @@ def field_guide_concept_page(
         concept["answer"],
         body,
         "field-guide",
-        f"field-guide/{concept['slug']}.html",
+        f"field-guide/{concept['slug']}",
     )
 
 

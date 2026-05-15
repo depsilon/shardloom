@@ -120,6 +120,8 @@ def site_url_for(relative_path: str) -> str:
         return "https://shardloom.io/"
     if relative_path.endswith("/index.html"):
         return f"https://shardloom.io/{relative_path.removesuffix('index.html')}"
+    if relative_path.endswith(".html"):
+        return f"https://shardloom.io/{relative_path.removesuffix('.html')}"
     return f"https://shardloom.io/{relative_path}"
 
 

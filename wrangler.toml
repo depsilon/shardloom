@@ -3,5 +3,5 @@ compatibility_date = "2026-05-14"
 
 [assets]
 directory = "./website"
-html_handling = "none"
+html_handling = "auto-trailing-slash"
 not_found_handling = "404-page"
