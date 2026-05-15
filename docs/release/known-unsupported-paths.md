@@ -18,8 +18,9 @@ object-store, platform, or Foundry workload until those paths have claim-grade e
 - object-store runtime
 - distributed scheduler/runtime
 - lakehouse/table runtime claims beyond report-only catalog/table compatibility planning
-- real Foundry proof-of-use beyond the local Foundry-style smoke
-- Foundry native dataset source/sink execution
+- real Foundry proof-of-use beyond the local Foundry-style smoke; Foundry remains a future
+  validation target only, with no Palantir endorsement or Foundry-certified claim
+- Foundry dataset source/sink execution
 - external platform execution through Spark, Snowflake, Databricks, BigQuery, Trino, Ray, Dask, or
   Velox
 - direct transient compatibility execution as a Vortex-native claim

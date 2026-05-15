@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shardloom"
 dynamic = ["version"]
-description = "Python client for ShardLoom, a Vortex-native no-fallback evidence-certified local compute engine"
+description = "Pre-release Python client for ShardLoom, a Vortex-first no-fallback evidence-certified local compute engine"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"

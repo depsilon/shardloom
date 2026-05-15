@@ -3,6 +3,13 @@
 Website: [shardloom.io](https://shardloom.io) (pre-release, claim-safe static site deployed from
 `website/`).
 
+Public technical-preview posture: ShardLoom is a pre-release, Vortex-first, no-fallback local
+compute engine foundation with evidence-certified local execution slices. It is an independent
+downstream workflow layer over Vortex-native data, not an official Vortex project and not
+Vortex-endorsed. It does not claim production platform readiness, public performance superiority,
+Apache Spark substitution, production SQL/DataFrame support, production object-store/lakehouse
+support, production Foundry support, package publication readiness, or Foundry vendor endorsement.
+
 The website includes rendered snapshots of this README, the compute-engine flow reference, and the
 current prepared/native benchmark evidence. Those pages are documentation and evidence surfaces,
 not performance, Apache Spark substitute, production SQL/DataFrame, object-store, lakehouse, or

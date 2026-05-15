@@ -46,7 +46,7 @@ fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
     let pyproject = read_repo_file("python/pyproject.toml");
     assert!(pyproject.contains("name = \"shardloom\""));
     assert!(
-        pyproject.contains("Vortex-native no-fallback evidence-certified local compute engine")
+        pyproject.contains("Pre-release Python client for ShardLoom, a Vortex-first no-fallback evidence-certified local compute engine")
     );
     for keyword in [
         "analytics",
@@ -82,7 +82,7 @@ fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
 fn cargo_metadata_marks_current_workspace_crates_internal() {
     let workspace = read_repo_file("Cargo.toml");
     for expected in [
-        "description = \"Vortex-native no-fallback local compute engine",
+        "description = \"Pre-release Vortex-first no-fallback local compute engine",
         "homepage = \"https://shardloom.io\"",
         "documentation = \"https://github.com/depsilon/shardloom/tree/main/docs\"",
         "readme = \"README.md\"",
