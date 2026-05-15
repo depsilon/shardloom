@@ -51,6 +51,12 @@ for (const relativePath of runtimeFiles) {
   );
 }
 
+const computeFlowJs = read("assets/compute-flow.js");
+assert(
+  !computeFlowJs.includes('cache: "no-store"'),
+  "compute-flow.js must not bypass the short static cache for the local markdown snapshot",
+);
+
 const indexHtml = read("index.html");
 const assetPattern = /\b(?:src|href|content)=["']([^"']*\/assets\/[^"']+)["']/g;
 const missingAssets = [];

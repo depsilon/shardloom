@@ -314,7 +314,7 @@
 
     hydrate(root, fallbackFlow, "Using static fallback");
 
-    fetch(SOURCE_URL, { cache: "no-store" })
+    fetch(SOURCE_URL)
       .then(function (response) {
         if (!response.ok) {
           throw new Error("Architecture reference request failed: " + response.status);
