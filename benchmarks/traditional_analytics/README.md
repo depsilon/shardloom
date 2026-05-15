@@ -318,9 +318,14 @@ prepared/native Vortex scenario groups, one batch process per format/iteration, 
 the CLI process wall time is shared across the grouped rows; per-scenario
 `scenario_compute_micros`, `vortex_scan_micros`, and optional
 `computed_result_sink_write_micros` remain row-level evidence fields. This is a runtime support
-slice for scoped local prepared/native process, source-metadata, dimension-label source-state, and
-category/metric source-state reuse. It is not a persistent daemon, hidden fast mode, performance
-claim, encoded-native claim, SQL/DataFrame claim, object-store claim, or Spark-displacement claim.
+slice for scoped local prepared/native process, source-metadata, dimension-label source-state,
+category/metric source-state reuse, and ranked-metric source-state reuse. Sort/top-k, top-N per
+group, and row-number/window child scenarios share one per-batch `group_key,id,metric` ranked state
+when multiple ranked consumers are present and emit
+`source_state_reuse_status=per_batch_ranked_metric_state_reused` plus family-specific
+`source_state_ranked_metric_*` fields such as `source_state_ranked_metric_reuse_status`. It is not a
+persistent daemon, hidden fast mode, performance claim, encoded-native claim, SQL/DataFrame claim,
+object-store claim, or Spark-displacement claim.
 
 ### Website Evidence Snapshot
 
