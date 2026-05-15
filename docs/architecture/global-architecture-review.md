@@ -166,13 +166,25 @@ plan before coding.
 ### RFC 0007 - Translation Layer Contract
 
 - Source: [`docs/rfcs/0007-translation-layer-contract.md`](../rfcs/0007-translation-layer-contract.md)
-- Current read: Translation/report contracts exist; compatibility writers are planned work.
+- Current read: Translation/report contracts exist, and GAR-0007-A/B now makes current writer
+  support explicit. Local fixture-smoke compatibility writers exist for the traditional analytics
+  path; production sinks and lakehouse table commits remain gated.
 - Evidence: `shardloom-core/src/translation.rs`, `shardloom-cli/src/vortex_planning.rs`,
-  `shardloom-cli/tests/correctness_plan_snapshots.rs`
+  `shardloom-contract-tests/tests/fidelity_invariants.rs`,
+  `shardloom-vortex/src/traditional_analytics.rs`,
+  `benchmarks/traditional_analytics/README.md`
 - [x] Plan/report contracts distinguish Vortex native, compatibility export, and unsupported paths.
 - [x] Compatibility surfaces preserve no-fallback and evidence terminology.
-- [ ] Actual Parquet, Arrow, Iceberg, Delta, and related compatibility output writers remain
-  unimplemented or unsupported.
+- [x] GAR-0007-A adds `shardloom.compatibility_output_writer_matrix.v1` through
+  `translation-plan`, classifying native Vortex reference output, local fixture-smoke compatibility
+  output rows, Iceberg/Delta table-commit blockers, metadata-loss posture, feature gates,
+  implementation/evidence refs, and no-fallback/no-external-engine fields.
+- [x] GAR-0007-B hardens the existing feature-gated traditional analytics writer smoke so CSV,
+  JSONL, Parquet, Arrow IPC, Avro, and ORC local compatibility outputs are written non-empty,
+  replayed, and kept separate from production sink claims.
+- [ ] Production output sink APIs, object-store output, broad user-facing write methods,
+  Iceberg/Delta table commit semantics, catalog integration, lakehouse transaction support, and
+  performance/superiority claims remain incomplete.
 
 ### RFC 0008 - Object-Store Runtime and Distributed Task Model
 

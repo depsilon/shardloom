@@ -196,6 +196,12 @@ the fairness parameters. The harness builds ShardLoom with the
 adapter/import, local Vortex file write, Vortex file reopen, Vortex scan, and
 temporary benchmark operators over Vortex-derived arrays. These rows cover the feature-gated
 universal-I/O path for CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro, and ORC.
+When `--compatibility-output-format` is used by the CLI or fixture tests, the
+same feature-gated path writes local compatibility outputs from Vortex-derived
+tables for CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC. That is fixture-smoke
+translation evidence only: Vortex remains the highest-fidelity native output,
+and the benchmark does not claim production sink APIs, object-store output, or
+Iceberg/Delta table commit support.
 
 For workflow replay evidence, the same command accepts `--verify-native-replay`.
 That mode re-opens the emitted Vortex source artifacts, compares native replay

@@ -14022,8 +14022,21 @@ mod tests {
                 import_report.result_json,
                 "[{\"dim_label\":\"one\",\"row_count\":2,\"metric_sum\":6.5},{\"dim_label\":\"two\",\"row_count\":1,\"metric_sum\":3.5}]"
             );
+            assert_eq!(
+                import_report.compatibility_output_format,
+                Some(output_format)
+            );
             assert!(import_report.compatibility_output_written);
             assert!(import_report.native_to_compatibility_output_performed);
+            assert!(!import_report.fallback_execution_allowed);
+            assert!(import_report.runtime_execution_certificate.fallback_free());
+            assert!(
+                import_report
+                    .runtime_execution_certificate
+                    .external_query_engine_free()
+            );
+            assert!(!import_report.object_store_io);
+            assert!(import_report.write_io);
             let fact_output = import_report
                 .fact_compatibility_output_path
                 .clone()
@@ -14034,6 +14047,8 @@ mod tests {
                 .expect("dimension compatibility output path");
             assert!(fact_output.exists());
             assert!(dim_output.exists());
+            assert!(import_report.fact_compatibility_output_bytes > 0);
+            assert!(import_report.dim_compatibility_output_bytes > 0);
 
             let replay_report = run_traditional_analytics_benchmark(
                 TraditionalAnalyticsRequest::new(

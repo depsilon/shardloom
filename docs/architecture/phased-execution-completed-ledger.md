@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0007-A/B compatibility output writer matrix and local fixture-smoke evidence
+  - Primary files:
+    - `shardloom-core/src/translation.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `shardloom-contract-tests/tests/fidelity_invariants.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close GAR-0007-A and GAR-0007-B by making compatibility output support explicit through
+    `shardloom.compatibility_output_writer_matrix.v1`, surfacing the matrix through
+    `translation-plan`, and hardening the existing feature-gated traditional analytics
+    compatibility-output smoke evidence.
+  - Checklist:
+    - [x] Add a claim-safe writer matrix with one native Vortex reference row, local fixture-smoke
+          rows for CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC, and blocked/report-only rows for
+          Iceberg-compatible and Delta-compatible table commit targets.
+    - [x] Surface target-specific writer status, feature gate, implementation ref, evidence ref,
+          metadata-loss posture, local/object-store/table-commit booleans, claim boundary, and
+          no-fallback/no-external-engine fields through `translation-plan`.
+    - [x] Strengthen the existing compatibility-output roundtrip test so every feature-gated local
+          output format writes non-empty fact/dimension files, remains fallback-free, remains
+          external-query-engine-free, avoids object-store I/O, and records write I/O separately.
+    - [x] Preserve Vortex as the highest-fidelity native output target and classify compatibility
+          outputs as export/translation targets, not fallback execution.
+  - Boundary:
+    - This completes the current matrix and first local compatibility writer smoke slice. It does
+      not add production sink APIs, broad user-facing `write_parquet`/`write_arrow` methods,
+      object-store output, Iceberg/Delta table commits, catalog integration, lakehouse transaction
+      semantics, performance/superiority claims, Spark replacement claims, external engine
+      invocation, or fallback execution.
+  - Evidence:
+    - Matrix/report evidence: `translation-plan <target>` includes
+      `compatibility_output_writer_matrix_schema=shardloom.compatibility_output_writer_matrix.v1`,
+      `compatibility_output_writer_target_status`, target claim-gate status, feature gate,
+      implementation ref, evidence ref, metadata-loss flag, local/object-store/table-commit
+      booleans, and claim boundary fields.
+    - Smoke evidence: `shardloom-vortex` feature test
+      `enabled_build_roundtrips_common_formats_through_vortex_outputs` writes and replays CSV,
+      JSONL, Parquet, Arrow IPC, Avro, and ORC compatibility outputs from Vortex-derived tables.
+    - Policy evidence: matrix, CLI fields, and smoke reports preserve `fallback_attempted=false`,
+      `fallback_execution_allowed=false`, `external_engine_invoked=false`, object-store output
+      disabled for compatibility smoke rows, and Iceberg/Delta commit claims blocked.
+  - Vortex-first provider check:
+    - Subject area: output translation and local compatibility writer smoke.
+    - Upstream/provider concepts checked: Vortex remains the native highest-fidelity output;
+      Parquet/Arrow IPC/Avro/ORC writers are optional feature-gated compatibility export writers
+      used only in the traditional analytics smoke path after Vortex-derived tables are produced.
+    - Decision: expose current local compatibility writer smoke evidence instead of claiming broad
+      output sink support; keep Iceberg/Delta table commits blocked until table/catalog/commit
+      evidence exists.
+    - `fallback_attempted=false`: preserved.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core compatibility_output_writer_matrix --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom translation_plan_fields`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_roundtrips_common_formats_through_vortex_outputs --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `git diff --check`
 - [x] Session label: GAR-0005-A local Vortex reader/writer coverage lane
   - Primary files:
     - `shardloom-vortex/src/adapter.rs`
