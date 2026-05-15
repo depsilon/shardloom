@@ -1770,6 +1770,9 @@ fn append_fault_tolerance_promotion_gate_summary_fields(
     report: &FaultTolerancePromotionGateReport,
 ) {
     push_field(fields, "mode", "fault_tolerance_promotion_gate");
+    push_field(fields, "gar_id", "GAR-0017-A");
+    push_field(fields, "support_status", "report_only");
+    push_field(fields, "claim_gate_status", "not_claim_grade");
     push_field(fields, "schema_version", report.schema_version);
     push_field(fields, "report_id", report.report_id);
     push_count_field(
@@ -1784,6 +1787,21 @@ fn append_fault_tolerance_promotion_gate_summary_fields(
         report.execution_ready_area_count(),
     );
     push_field(fields, "area_order", &report.area_order().join(","));
+    push_field(
+        fields,
+        "execution_gate_order",
+        &report.execution_gate_order().join(","),
+    );
+    push_field(
+        fields,
+        "execution_gate_blocker_order",
+        &report.execution_gate_blocker_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "execution_gate_blocker_count",
+        report.execution_gate_blocker_count(),
+    );
     append_fault_tolerance_promotion_gate_evidence_fields(fields, report);
     append_fault_tolerance_promotion_gate_execution_fields(fields, report);
     append_fault_tolerance_promotion_gate_claim_fields(fields, report);
@@ -1846,6 +1864,36 @@ fn append_fault_tolerance_promotion_gate_evidence_fields(
         "cg22_engine_mode_evidence_required",
         report.cg22_engine_mode_evidence_required,
     );
+    push_bool_field(
+        fields,
+        "request_validation_report_only",
+        report.request_validation_report_only,
+    );
+    push_bool_field(
+        fields,
+        "cancellation_signal_required",
+        report.cancellation_signal_required,
+    );
+    push_bool_field(
+        fields,
+        "retry_policy_required",
+        report.retry_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "checkpoint_plan_required",
+        report.checkpoint_plan_required,
+    );
+    push_bool_field(
+        fields,
+        "cleanup_policy_required",
+        report.cleanup_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "commit_semantics_required",
+        report.commit_semantics_required,
+    );
 }
 
 fn append_fault_tolerance_promotion_gate_execution_fields(
@@ -1869,6 +1917,16 @@ fn append_fault_tolerance_promotion_gate_execution_fields(
     );
     push_bool_field(
         fields,
+        "checkpoint_write_allowed",
+        report.checkpoint_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        "commit_execution_allowed",
+        report.commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
         "ambiguous_commit_resolution_allowed",
         report.ambiguous_commit_resolution_allowed,
     );
@@ -1881,6 +1939,46 @@ fn append_fault_tolerance_promotion_gate_execution_fields(
         fields,
         "execution_promotions_blocked",
         report.execution_promotions_blocked(),
+    );
+    push_field(
+        fields,
+        "request_validation_status",
+        "report_only_no_execution",
+    );
+    push_field(fields, "cancellation_signal_status", "report_only_blocked");
+    push_field(fields, "retry_allowed_status", "report_only_blocked");
+    push_field(fields, "checkpoint_write_status", "report_only_blocked");
+    push_field(fields, "cleanup_execution_status", "report_only_blocked");
+    push_field(fields, "commit_execution_status", "report_only_blocked");
+    push_bool_field(
+        fields,
+        "request_validation_performed",
+        report.request_validation_performed,
+    );
+    push_bool_field(
+        fields,
+        "cancellation_signal_consumed",
+        report.cancellation_signal_consumed,
+    );
+    push_bool_field(
+        fields,
+        "retry_execution_performed",
+        report.retry_execution_performed,
+    );
+    push_bool_field(
+        fields,
+        "checkpoint_write_performed",
+        report.checkpoint_write_performed,
+    );
+    push_bool_field(
+        fields,
+        "cleanup_execution_performed",
+        report.cleanup_execution_performed,
+    );
+    push_bool_field(
+        fields,
+        "commit_execution_performed",
+        report.commit_execution_performed,
     );
     push_bool_field(
         fields,

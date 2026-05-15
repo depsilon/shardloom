@@ -338,10 +338,14 @@ plan before coding.
 - Source:
   [`docs/rfcs/0017-fault-tolerance-cancellation-recovery.md`](../rfcs/0017-fault-tolerance-cancellation-recovery.md)
 - Current read: Recovery and commit contracts exist; broad execution is incomplete.
-- Evidence: `shardloom-exec/src/recovery.rs`, `shardloom-vortex/src/commit_intent.rs`,
+- Evidence: `shardloom-exec/src/recovery.rs`, `shardloom-cli/src/operational_hardening.rs`,
+  `shardloom-cli/tests/fault_tolerance_promotion_gate.rs`, `shardloom-vortex/src/commit_intent.rs`,
   `shardloom-vortex/src/commit_protocol.rs`
 - [x] Recovery, cleanup, retry, cancellation, commit-intent, and commit-protocol reports exist.
 - [x] CLI gates distinguish planned recovery from executed recovery.
+- [x] GAR-0017-A: `fault-tolerance-promotion-gate` now separates request validation,
+  cancellation signal, retry allowance, checkpoint write, cleanup execution, and commit execution
+  with deterministic report-only blockers, no-effect booleans, and `fallback_attempted=false`.
 - [ ] Broad retry, cancellation, and commit execution remain incomplete.
 
 ### RFC 0018 - Observability, Tracing, Profiling, and Runtime Introspection
