@@ -1008,6 +1008,14 @@ plan before coding.
         ranked residual-state reuse only; generalized encoded/native operators, distributed sort,
         persistent daemon/service runtime, performance claims, SQL/DataFrame, object-store/lakehouse,
         Spark-displacement, and production claims remain blocked.
+  - [x] GAR-FLOW-2L reuses one per-batch group/category/metric grouped state for group-by
+        aggregation and multi-key group-by child scenarios inside
+        `traditional-analytics-vortex-batch-run`. The batch envelope emits aggregate
+        `source_state_reuse_*` fields plus family-specific
+        `source_state_group_category_metric_*` fields so shared setup remains visible. This closes
+        scoped grouped residual-state reuse only; generalized encoded/native operators, performance
+        claims, SQL/DataFrame, object-store/lakehouse, Spark-displacement, and production claims
+        remain blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

@@ -130,6 +130,7 @@ BATCH_RUNNER_ADMISSION_FIELDS = (
     "source_state_family_count",
     "source_state_dimension_label_reuse_status",
     "source_state_category_metric_reuse_status",
+    "source_state_group_category_metric_reuse_status",
     "source_state_ranked_metric_reuse_status",
 )
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
@@ -2148,6 +2149,18 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "source_state_category_metric_recompute_avoided_count": batch_fields.get(
                     "source_state_category_metric_recompute_avoided_count", "unknown"
+                ),
+                "source_state_group_category_metric_reuse_status": batch_fields.get(
+                    "source_state_group_category_metric_reuse_status", "unknown"
+                ),
+                "source_state_group_category_metric_reused": batch_fields.get(
+                    "source_state_group_category_metric_reused", "unknown"
+                ),
+                "source_state_group_category_metric_reuse_consumer_count": batch_fields.get(
+                    "source_state_group_category_metric_reuse_consumer_count", "unknown"
+                ),
+                "source_state_group_category_metric_recompute_avoided_count": batch_fields.get(
+                    "source_state_group_category_metric_recompute_avoided_count", "unknown"
                 ),
                 "source_state_ranked_metric_reuse_status": batch_fields.get(
                     "source_state_ranked_metric_reuse_status", "unknown"

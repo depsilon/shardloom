@@ -321,6 +321,17 @@ present. The batch envelope can emit
 evidence for local prepared/native batch rows only; it is not a distributed sort, encoded-native,
 performance, SQL/DataFrame, object-store/lakehouse, production, or Spark-displacement claim.
 
+GAR-FLOW-2L adds a fourth scoped prepared/native source-state reuse path inside
+`traditional-analytics-vortex-batch-run`. Group-by aggregation and multi-key group-by child
+scenarios share one per-batch `group_key,category,metric` grouped state when both are present. The
+batch envelope can emit
+`source_state_reuse_status=per_batch_group_category_metric_state_reused`,
+`source_state_group_category_metric_reuse_status`,
+`source_state_group_category_metric_reuse_consumer_count`, and
+`source_state_group_category_metric_recompute_avoided_count`. This is residual-native
+runtime-plumbing evidence for local prepared/native batch rows only; it is not encoded-native,
+performance, SQL/DataFrame, object-store/lakehouse, production, or Spark-displacement claim.
+
 GAR-FLOW-2D adds `work_avoidance_evidence_schema` to the JSON artifact and Markdown report. The
 schema uses only `measured`, `not_available`, `unsupported`, and `not_applicable` as status values.
 Every ShardLoom benchmark row reports status/value/reason triples for rows avoided, segments

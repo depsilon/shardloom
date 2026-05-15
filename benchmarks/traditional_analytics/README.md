@@ -312,16 +312,20 @@ state when both are present and emit
 `source_state_reuse_status=per_batch_category_metric_state_reused` plus family-specific
 `source_state_category_metric_*` fields such as
 `source_state_category_metric_reuse_status`. The shared setup cost is explicit batch evidence and is
-not hidden in per-scenario timings. The Python comparative harness uses this command for eligible
-prepared/native Vortex scenario groups, one batch process per format/iteration, and reports
-`persistent_runner_status=single_process_batch_runner_supported` on those rows. That status means
-the CLI process wall time is shared across the grouped rows; per-scenario
+not hidden in per-scenario timings. Group-by aggregation and multi-key group-by child scenarios
+share one per-batch `group_key,category,metric` grouped state when both are present and emit
+`source_state_reuse_status=per_batch_group_category_metric_state_reused` plus family-specific
+`source_state_group_category_metric_*` fields such as
+`source_state_group_category_metric_reuse_status`. The Python comparative harness uses this command
+for eligible prepared/native Vortex scenario groups, one batch process per format/iteration, and
+reports `persistent_runner_status=single_process_batch_runner_supported` on those rows. That status
+means the CLI process wall time is shared across the grouped rows; per-scenario
 `scenario_compute_micros`, `vortex_scan_micros`, and optional
 `computed_result_sink_write_micros` remain row-level evidence fields. This is a runtime support
 slice for scoped local prepared/native process, source-metadata, dimension-label source-state,
-category/metric source-state reuse, and ranked-metric source-state reuse. Sort/top-k, top-N per
-group, and row-number/window child scenarios share one per-batch `group_key,id,metric` ranked state
-when multiple ranked consumers are present and emit
+category/metric source-state reuse, group/category/metric source-state reuse, and ranked-metric
+source-state reuse. Sort/top-k, top-N per group, and row-number/window child scenarios share one
+per-batch `group_key,id,metric` ranked state when multiple ranked consumers are present and emit
 `source_state_reuse_status=per_batch_ranked_metric_state_reused` plus family-specific
 `source_state_ranked_metric_*` fields such as `source_state_ranked_metric_reuse_status`. It is not a
 persistent daemon, hidden fast mode, performance claim, encoded-native claim, SQL/DataFrame claim,
