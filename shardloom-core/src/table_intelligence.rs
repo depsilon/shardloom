@@ -12,9 +12,9 @@
 
 use crate::{
     ByteRange, CatalogKind, CatalogRef, ColumnRef, DatasetFormat, DatasetManifest, DatasetRef,
-    DatasetUri, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, EncodedSegment,
-    EncodingKind, FallbackStatus, FieldId, FieldName, FieldPath, FileDescriptor, FileRole,
-    LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, PartitionField,
+    DatasetUri, DeleteModel, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
+    EncodedSegment, EncodingKind, FallbackStatus, FieldId, FieldName, FieldPath, FileDescriptor,
+    FileRole, LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, PartitionField,
     PartitionSpec, PartitionTransform, Result, SchemaDefinition, SchemaField, SchemaId,
     SchemaVersion, SegmentId, SegmentLayout, SegmentStats, SnapshotId, SnapshotRef,
 };
@@ -622,6 +622,7 @@ pub struct TableMaintenanceExecutionMatrixReport {
     pub cdc_incremental_planning_present: bool,
     pub layout_compaction_planning_present: bool,
     pub local_metadata_smoke_present: bool,
+    pub local_delete_tombstone_smoke_present: bool,
     pub fixture_metadata_required: bool,
     pub row_identity_required: bool,
     pub delete_tombstone_policy_required: bool,
@@ -668,6 +669,7 @@ impl TableMaintenanceExecutionMatrixReport {
             cdc_incremental_planning_present: true,
             layout_compaction_planning_present: true,
             local_metadata_smoke_present: true,
+            local_delete_tombstone_smoke_present: true,
             fixture_metadata_required: true,
             row_identity_required: true,
             delete_tombstone_policy_required: true,
@@ -958,6 +960,7 @@ fn table_maintenance_execution_existing_report_refs() -> Vec<&'static str> {
         "shardloom.layout_health.v1",
         "shardloom.compaction_planning.v1",
         "gar0020c.local_manifest_table_metadata_read_smoke",
+        "gar0020d.local_delete_tombstone_read_smoke",
         "gar0004a.cdc_manifest_transaction_gate",
         "shardloom.object_store_commit_protocol.v1",
     ]
@@ -2119,6 +2122,614 @@ pub fn run_local_table_metadata_read_smoke() -> Result<LocalTableMetadataReadSmo
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalDeleteTombstoneBlockedModel {
+    RowLevelDelete,
+    PositionDelete,
+    EqualityDelete,
+    ExternalTableMetadata,
+    CdcUpdateDeleteTombstone,
+    ObjectStoreDeleteManifest,
+    TableFormatDeleteRuntime,
+}
+
+impl LocalDeleteTombstoneBlockedModel {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::RowLevelDelete => "row_level_delete",
+            Self::PositionDelete => "position_delete",
+            Self::EqualityDelete => "equality_delete",
+            Self::ExternalTableMetadata => "external_table_metadata",
+            Self::CdcUpdateDeleteTombstone => "cdc_update_delete_tombstone",
+            Self::ObjectStoreDeleteManifest => "object_store_delete_manifest",
+            Self::TableFormatDeleteRuntime => "table_format_delete_runtime",
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            Self::ObjectStoreDeleteManifest => DiagnosticCode::ObjectStoreUnsupported,
+            Self::ExternalTableMetadata | Self::TableFormatDeleteRuntime => {
+                DiagnosticCode::ExternalEffectDisabled
+            }
+            Self::RowLevelDelete
+            | Self::PositionDelete
+            | Self::EqualityDelete
+            | Self::CdcUpdateDeleteTombstone => DiagnosticCode::NotImplemented,
+        }
+    }
+
+    #[must_use]
+    pub const fn diagnostic_category(&self) -> DiagnosticCategory {
+        match self {
+            Self::ObjectStoreDeleteManifest => DiagnosticCategory::ObjectStore,
+            Self::ExternalTableMetadata | Self::TableFormatDeleteRuntime => {
+                DiagnosticCategory::ExternalEffect
+            }
+            Self::RowLevelDelete
+            | Self::PositionDelete
+            | Self::EqualityDelete
+            | Self::CdcUpdateDeleteTombstone => DiagnosticCategory::Execution,
+        }
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(self) -> Diagnostic {
+        Diagnostic::new(
+            self.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.diagnostic_category(),
+            format!(
+                "{} remains blocked outside GAR-0020-D's local delete/tombstone fixture scope",
+                self.as_str()
+            ),
+            Some(self.as_str().to_string()),
+            Some(
+                "GAR-0020-D only applies file-level delete and segment tombstone admission to a declared in-memory local manifest fixture; no broad table-format runtime is certified."
+                    .to_string(),
+            ),
+            Some(
+                "Keep unsupported delete models blocked until dedicated row identity, position identity, equality predicate, CDC, object-store, and table-format evidence lands."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct LocalDeleteTombstoneReadSmokeReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub fixture_id: &'static str,
+    pub catalog_kind: &'static str,
+    pub catalog_ref_summary: String,
+    pub dataset_uri: String,
+    pub dataset_format: String,
+    pub manifest_id: String,
+    pub manifest_version: String,
+    pub snapshot_id: String,
+    pub schema_id: String,
+    pub admitted_delete_model_order: Vec<&'static str>,
+    pub unsupported_delete_model_order: Vec<&'static str>,
+    pub delete_tombstone_admission_rule: &'static str,
+    pub row_identity_rule: &'static str,
+    pub base_row_count: usize,
+    pub file_deleted_row_count: usize,
+    pub segment_tombstoned_row_count: usize,
+    pub effective_row_count: usize,
+    pub manifest_file_count: usize,
+    pub manifest_segment_count: usize,
+    pub native_vortex_file_count: usize,
+    pub admitted_file_delete_count: usize,
+    pub admitted_segment_tombstone_count: usize,
+    pub effective_row_ids: Vec<u64>,
+    pub correctness_summary: String,
+    pub correctness_digest: String,
+    pub correctness_refs: &'static str,
+    pub benchmark_refs: &'static str,
+    pub execution_certificate_refs: &'static str,
+    pub native_io_certificate_refs: &'static str,
+    pub materialization_decode_refs: &'static str,
+    pub policy_refs: &'static str,
+    pub local_catalog_ref_resolved: bool,
+    pub local_manifest_metadata_read_performed: bool,
+    pub in_memory_fixture_rows_read: bool,
+    pub delete_tombstone_rule_applied: bool,
+    pub result_row_order_preserved: bool,
+    pub table_metadata_write_performed: bool,
+    pub data_file_read_performed: bool,
+    pub object_store_io_performed: bool,
+    pub write_io_performed: bool,
+    pub credential_resolution_performed: bool,
+    pub external_table_format_dependency_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub performance_claim_allowed: bool,
+    pub table_format_execution_claim_allowed: bool,
+    pub production_table_catalog_claim_allowed: bool,
+    pub lakehouse_claim_allowed: bool,
+    pub blocked_models: Vec<LocalDeleteTombstoneBlockedModel>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl LocalDeleteTombstoneReadSmokeReport {
+    #[must_use]
+    pub fn fixture_smoke_supported(&self) -> bool {
+        self.support_status == "fixture_smoke_only"
+            && self.local_catalog_ref_resolved
+            && self.local_manifest_metadata_read_performed
+            && self.in_memory_fixture_rows_read
+            && self.delete_tombstone_rule_applied
+            && self.base_row_count
+                == self.file_deleted_row_count
+                    + self.segment_tombstoned_row_count
+                    + self.effective_row_count
+    }
+
+    #[must_use]
+    pub fn claim_scoped(&self) -> bool {
+        self.claim_gate_status == "scoped_local_delete_tombstone_smoke_only"
+            && !self.performance_claim_allowed
+            && !self.table_format_execution_claim_allowed
+            && !self.production_table_catalog_claim_allowed
+            && !self.lakehouse_claim_allowed
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.table_metadata_write_performed
+            && !self.data_file_read_performed
+            && !self.object_store_io_performed
+            && !self.write_io_performed
+            && !self.credential_resolution_performed
+            && !self.external_table_format_dependency_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_count(&self) -> usize {
+        self.blocked_models
+            .iter()
+            .filter(|model| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == model.diagnostic_code()
+                        && diagnostic.category == model.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(model.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        !self.blocked_models.is_empty()
+            && self.unsupported_diagnostic_count() == self.blocked_models.len()
+    }
+
+    #[must_use]
+    pub fn blocked_model_order(&self) -> Vec<&'static str> {
+        self.blocked_models
+            .iter()
+            .map(LocalDeleteTombstoneBlockedModel::as_str)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn unsupported_diagnostic_code_order(&self) -> Vec<&'static str> {
+        self.blocked_models
+            .iter()
+            .map(|model| model.diagnostic_code().as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.fixture_smoke_supported()
+            || !self.claim_scoped()
+            || !self.side_effect_free()
+            || !self.deterministic_unsupported_diagnostics_ready()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(out, "gar_id: {}", self.gar_id);
+        let _ = writeln!(out, "support_status: {}", self.support_status);
+        let _ = writeln!(out, "claim_gate_status: {}", self.claim_gate_status);
+        let _ = writeln!(out, "claim_boundary: {}", self.claim_boundary);
+        let _ = writeln!(out, "fixture_id: {}", self.fixture_id);
+        let _ = writeln!(
+            out,
+            "admitted_delete_models: {}",
+            self.admitted_delete_model_order.join(",")
+        );
+        let _ = writeln!(
+            out,
+            "rows: base={} file_deleted={} segment_tombstoned={} effective={}",
+            self.base_row_count,
+            self.file_deleted_row_count,
+            self.segment_tombstoned_row_count,
+            self.effective_row_count
+        );
+        let _ = writeln!(out, "correctness_digest: {}", self.correctness_digest);
+        let _ = writeln!(out, "side_effect_free: {}", self.side_effect_free());
+        let _ = writeln!(out, "fallback_attempted: {}", self.fallback_attempted);
+        let _ = writeln!(
+            out,
+            "external_engine_invoked: {}",
+            self.external_engine_invoked
+        );
+        let _ = writeln!(
+            out,
+            "blocked_models: {}",
+            self.blocked_model_order().join(",")
+        );
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocalDeleteTombstoneFixtureRow {
+    row_id: u64,
+    segment_id: &'static str,
+    file_uri: String,
+}
+
+#[derive(Debug, Clone)]
+struct LocalDeleteTombstoneFixture {
+    catalog: CatalogRef,
+    manifest: DatasetManifest,
+    schema: SchemaDefinition,
+    rows: Vec<LocalDeleteTombstoneFixtureRow>,
+    deleted_file_uri: String,
+    tombstoned_segment_id: &'static str,
+}
+
+#[must_use]
+fn local_delete_tombstone_blocked_models() -> Vec<LocalDeleteTombstoneBlockedModel> {
+    vec![
+        LocalDeleteTombstoneBlockedModel::RowLevelDelete,
+        LocalDeleteTombstoneBlockedModel::PositionDelete,
+        LocalDeleteTombstoneBlockedModel::EqualityDelete,
+        LocalDeleteTombstoneBlockedModel::ExternalTableMetadata,
+        LocalDeleteTombstoneBlockedModel::CdcUpdateDeleteTombstone,
+        LocalDeleteTombstoneBlockedModel::ObjectStoreDeleteManifest,
+        LocalDeleteTombstoneBlockedModel::TableFormatDeleteRuntime,
+    ]
+}
+
+fn local_delete_tombstone_fixture() -> Result<LocalDeleteTombstoneFixture> {
+    let catalog = CatalogRef::new(
+        CatalogKind::LocalManifest,
+        "gar0020d-local-delete-tombstone",
+    )?
+    .with_namespace("fixtures.gar0020d")?;
+    let manifest_id = ManifestId::new("gar0020d-local-delete-tombstone-v1")?;
+    let snapshot_id = SnapshotId::new("gar0020d-snapshot-0001")?;
+    let dataset_uri = DatasetUri::new("file://fixtures/gar0020d/orders.vortex")?;
+    let dataset = DatasetRef::from_uri(dataset_uri)?
+        .with_snapshot(snapshot_id.clone())
+        .with_manifest(manifest_id.clone());
+    let snapshot = SnapshotRef::new(snapshot_id.clone());
+    let mut manifest = DatasetManifest::new(manifest_id, dataset, snapshot);
+
+    let (kept_file, deleted_file, tombstoned_file) = local_delete_tombstone_files()?;
+    manifest.add_file(kept_file.clone());
+    manifest.add_file(deleted_file.clone());
+    manifest.add_file(tombstoned_file.clone());
+    add_local_delete_tombstone_segments(
+        &mut manifest,
+        &snapshot_id,
+        kept_file,
+        deleted_file,
+        tombstoned_file,
+    )?;
+
+    Ok(LocalDeleteTombstoneFixture {
+        catalog,
+        manifest,
+        schema: local_delete_tombstone_schema()?,
+        rows: local_delete_tombstone_rows(),
+        deleted_file_uri: local_delete_deleted_file_uri().to_string(),
+        tombstoned_segment_id: "gar0020d-segment-tombstone",
+    })
+}
+
+fn local_delete_kept_file_uri() -> &'static str {
+    "file://fixtures/gar0020d/orders.vortex/part-keep.vortex"
+}
+
+fn local_delete_deleted_file_uri() -> &'static str {
+    "file://fixtures/gar0020d/orders.vortex/part-delete.vortex"
+}
+
+fn local_delete_tombstoned_file_uri() -> &'static str {
+    "file://fixtures/gar0020d/orders.vortex/part-tombstone.vortex"
+}
+
+fn local_delete_tombstone_file(uri: &'static str, size_bytes: u64) -> Result<FileDescriptor> {
+    Ok(FileDescriptor::new(
+        DatasetUri::new(uri)?,
+        DatasetFormat::Vortex,
+        FileRole::NativeVortexData,
+    )
+    .with_size_bytes(size_bytes))
+}
+
+fn local_delete_tombstone_files() -> Result<(FileDescriptor, FileDescriptor, FileDescriptor)> {
+    Ok((
+        local_delete_tombstone_file(local_delete_kept_file_uri(), 2048)?,
+        local_delete_tombstone_file(local_delete_deleted_file_uri(), 1024)?,
+        local_delete_tombstone_file(local_delete_tombstoned_file_uri(), 1024)?,
+    ))
+}
+
+fn add_local_delete_tombstone_segments(
+    manifest: &mut DatasetManifest,
+    snapshot_id: &SnapshotId,
+    kept_file: FileDescriptor,
+    deleted_file: FileDescriptor,
+    tombstoned_file: FileDescriptor,
+) -> Result<()> {
+    for (segment_id, file, row_count) in [
+        ("gar0020d-segment-keep", kept_file, 3_u64),
+        ("gar0020d-segment-file-delete", deleted_file, 2_u64),
+        ("gar0020d-segment-tombstone", tombstoned_file, 1_u64),
+    ] {
+        manifest.add_segment(
+            local_delete_tombstone_segment(segment_id, file, row_count)?
+                .with_snapshot(snapshot_id.clone()),
+        );
+    }
+    Ok(())
+}
+
+fn local_delete_tombstone_segment(
+    segment_id: &'static str,
+    file: FileDescriptor,
+    row_count: u64,
+) -> Result<ManifestSegment> {
+    let layout = SegmentLayout::new(
+        EncodingKind::VortexNative("fixture_delete_tombstone_smoke".to_string()),
+        LayoutKind::VortexNative("local_delete_tombstone_smoke".to_string()),
+    )
+    .with_byte_ranges(vec![ByteRange::new(0, file.size_bytes.unwrap_or(0))]);
+    let segment = EncodedSegment::new(
+        SegmentId::new(segment_id)?,
+        ColumnRef::new("order_id")?,
+        LogicalDType::UInt64,
+        Nullability::NonNullable,
+        layout,
+        SegmentStats::with_row_count(row_count),
+    );
+    Ok(ManifestSegment::new(segment, file))
+}
+
+fn local_delete_tombstone_schema() -> Result<SchemaDefinition> {
+    let mut schema = SchemaDefinition::new(
+        SchemaId::new("gar0020d-orders-schema")?,
+        SchemaVersion::new(1)?,
+    );
+    schema.add_field(
+        SchemaField::new(
+            FieldName::new("order_id")?,
+            LogicalDType::UInt64,
+            Nullability::NonNullable,
+        )
+        .with_id(FieldId::new("field.order_id")?),
+    );
+    schema.add_field(
+        SchemaField::new(
+            FieldName::new("segment_marker")?,
+            LogicalDType::Utf8,
+            Nullability::NonNullable,
+        )
+        .with_id(FieldId::new("field.segment_marker")?),
+    );
+    Ok(schema)
+}
+
+fn local_delete_tombstone_rows() -> Vec<LocalDeleteTombstoneFixtureRow> {
+    let kept_file_uri = local_delete_kept_file_uri();
+    let deleted_file_uri = local_delete_deleted_file_uri();
+    let tombstoned_file_uri = local_delete_tombstoned_file_uri();
+    vec![
+        LocalDeleteTombstoneFixtureRow {
+            row_id: 1001,
+            segment_id: "gar0020d-segment-keep",
+            file_uri: kept_file_uri.to_string(),
+        },
+        LocalDeleteTombstoneFixtureRow {
+            row_id: 1002,
+            segment_id: "gar0020d-segment-keep",
+            file_uri: kept_file_uri.to_string(),
+        },
+        LocalDeleteTombstoneFixtureRow {
+            row_id: 1003,
+            segment_id: "gar0020d-segment-keep",
+            file_uri: kept_file_uri.to_string(),
+        },
+        LocalDeleteTombstoneFixtureRow {
+            row_id: 2001,
+            segment_id: "gar0020d-segment-file-delete",
+            file_uri: deleted_file_uri.to_string(),
+        },
+        LocalDeleteTombstoneFixtureRow {
+            row_id: 2002,
+            segment_id: "gar0020d-segment-file-delete",
+            file_uri: deleted_file_uri.to_string(),
+        },
+        LocalDeleteTombstoneFixtureRow {
+            row_id: 3001,
+            segment_id: "gar0020d-segment-tombstone",
+            file_uri: tombstoned_file_uri.to_string(),
+        },
+    ]
+}
+
+fn local_delete_tombstone_effective_rows(
+    fixture: &LocalDeleteTombstoneFixture,
+) -> Vec<&LocalDeleteTombstoneFixtureRow> {
+    fixture
+        .rows
+        .iter()
+        .filter(|row| {
+            row.file_uri != fixture.deleted_file_uri
+                && row.segment_id != fixture.tombstoned_segment_id
+        })
+        .collect()
+}
+
+fn local_delete_tombstone_summary(
+    fixture: &LocalDeleteTombstoneFixture,
+    effective_row_ids: &[u64],
+    file_deleted_rows: usize,
+    segment_tombstoned_rows: usize,
+) -> String {
+    let effective_row_ids = effective_row_ids
+        .iter()
+        .map(u64::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "fixture_id=gar0020d-local-delete-tombstone catalog_kind={} catalog_name={} dataset={} manifest={} snapshot={} schema={} admitted_delete_models={},{} rule=local_manifest_file_delete_and_segment_tombstone_admission row_identity=stable_fixture_row_id base_rows={} file_deleted_rows={} segment_tombstoned_rows={} effective_rows={} effective_row_ids={} fallback_attempted=false external_engine_invoked=false",
+        fixture.catalog.kind.as_str(),
+        fixture.catalog.name,
+        fixture.manifest.dataset.uri.as_str(),
+        fixture.manifest.id.as_str(),
+        fixture.manifest.snapshot.id.as_str(),
+        fixture.schema.id.as_str(),
+        DeleteModel::FileLevelDelete.as_str(),
+        DeleteModel::SegmentLevelTombstone.as_str(),
+        fixture.rows.len(),
+        file_deleted_rows,
+        segment_tombstoned_rows,
+        effective_row_ids
+            .split(',')
+            .filter(|value| !value.is_empty())
+            .count(),
+        effective_row_ids
+    )
+}
+
+pub fn run_local_delete_tombstone_read_smoke() -> Result<LocalDeleteTombstoneReadSmokeReport> {
+    let fixture = local_delete_tombstone_fixture()?;
+    let effective_rows = local_delete_tombstone_effective_rows(&fixture);
+    let effective_row_ids = effective_rows
+        .iter()
+        .map(|row| row.row_id)
+        .collect::<Vec<_>>();
+    let file_deleted_row_count = fixture
+        .rows
+        .iter()
+        .filter(|row| row.file_uri == fixture.deleted_file_uri)
+        .count();
+    let segment_tombstoned_row_count = fixture
+        .rows
+        .iter()
+        .filter(|row| row.segment_id == fixture.tombstoned_segment_id)
+        .count();
+    let correctness_summary = local_delete_tombstone_summary(
+        &fixture,
+        &effective_row_ids,
+        file_deleted_row_count,
+        segment_tombstoned_row_count,
+    );
+    let blocked_models = local_delete_tombstone_blocked_models();
+    let diagnostics = blocked_models
+        .iter()
+        .map(|model| model.to_diagnostic())
+        .collect();
+
+    Ok(LocalDeleteTombstoneReadSmokeReport {
+        schema_version: "shardloom.local_delete_tombstone_read_smoke.v1",
+        report_id: "gar0020d.local_delete_tombstone_read_smoke",
+        gar_id: "GAR-0020-D",
+        support_status: "fixture_smoke_only",
+        claim_gate_status: "scoped_local_delete_tombstone_smoke_only",
+        claim_boundary: "one in-memory local manifest fixture applying file-level delete and segment tombstone admission; no row/position/equality delete runtime, object-store, lakehouse/catalog, table-format execution, production, or performance claim",
+        fixture_id: "gar0020d-local-delete-tombstone",
+        catalog_kind: fixture.catalog.kind.as_str(),
+        catalog_ref_summary: fixture.catalog.summary(),
+        dataset_uri: fixture.manifest.dataset.uri.as_str().to_string(),
+        dataset_format: fixture.manifest.dataset.format.as_str().to_string(),
+        manifest_id: fixture.manifest.id.as_str().to_string(),
+        manifest_version: fixture.manifest.version.as_str().to_string(),
+        snapshot_id: fixture.manifest.snapshot.id.as_str().to_string(),
+        schema_id: fixture.schema.id.as_str().to_string(),
+        admitted_delete_model_order: vec![
+            DeleteModel::FileLevelDelete.as_str(),
+            DeleteModel::SegmentLevelTombstone.as_str(),
+        ],
+        unsupported_delete_model_order: blocked_models
+            .iter()
+            .map(LocalDeleteTombstoneBlockedModel::as_str)
+            .collect(),
+        delete_tombstone_admission_rule: "local_manifest_file_delete_and_segment_tombstone_admission",
+        row_identity_rule: "stable_fixture_row_id",
+        base_row_count: fixture.rows.len(),
+        file_deleted_row_count,
+        segment_tombstoned_row_count,
+        effective_row_count: effective_row_ids.len(),
+        manifest_file_count: fixture.manifest.file_count(),
+        manifest_segment_count: fixture.manifest.segment_count(),
+        native_vortex_file_count: fixture.manifest.native_vortex_file_count(),
+        admitted_file_delete_count: 1,
+        admitted_segment_tombstone_count: 1,
+        effective_row_ids,
+        correctness_digest: stable_metadata_digest(&correctness_summary),
+        correctness_summary,
+        correctness_refs: "shardloom-core::table_intelligence::local_delete_tombstone_read_smoke",
+        benchmark_refs: "not_required_fixture_smoke_no_performance_claim",
+        execution_certificate_refs: "shardloom-cli/tests/local_delete_tombstone_read_smoke.rs",
+        native_io_certificate_refs: "not_required_no_vortex_file_read_or_source_sink_io",
+        materialization_decode_refs: "in_memory_fixture_row_identity_only_no_file_decode_no_table_materialization",
+        policy_refs: "fallback_attempted=false,external_engine_invoked=false,object_store_io=false,table_metadata_write=false",
+        local_catalog_ref_resolved: true,
+        local_manifest_metadata_read_performed: true,
+        in_memory_fixture_rows_read: true,
+        delete_tombstone_rule_applied: true,
+        result_row_order_preserved: true,
+        table_metadata_write_performed: false,
+        data_file_read_performed: false,
+        object_store_io_performed: false,
+        write_io_performed: false,
+        credential_resolution_performed: false,
+        external_table_format_dependency_invoked: false,
+        fallback_attempted: false,
+        fallback_execution_allowed: false,
+        external_engine_invoked: false,
+        performance_claim_allowed: false,
+        table_format_execution_claim_allowed: false,
+        production_table_catalog_claim_allowed: false,
+        lakehouse_claim_allowed: false,
+        blocked_models,
+        diagnostics,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CdcManifestTransactionSurface {
     CdcReadIntent,
     CdcWriteIntent,
@@ -2847,6 +3458,7 @@ mod tests {
         assert!(report.cdc_incremental_planning_present);
         assert!(report.layout_compaction_planning_present);
         assert!(report.local_metadata_smoke_present);
+        assert!(report.local_delete_tombstone_smoke_present);
         assert!(report.fixture_metadata_required);
         assert!(report.row_identity_required);
         assert!(report.delete_tombstone_policy_required);
@@ -3005,6 +3617,106 @@ mod tests {
                 "SL_NOT_IMPLEMENTED",
                 "SL_EXTERNAL_EFFECT_DISABLED",
                 "SL_NOT_IMPLEMENTED",
+            ]
+        );
+    }
+
+    #[test]
+    fn local_delete_tombstone_smoke_applies_fixture_admission_rule() {
+        let report = run_local_delete_tombstone_read_smoke().expect("local delete/tombstone smoke");
+        assert_eq!(
+            report.schema_version,
+            "shardloom.local_delete_tombstone_read_smoke.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "gar0020d.local_delete_tombstone_read_smoke"
+        );
+        assert_eq!(report.gar_id, "GAR-0020-D");
+        assert_eq!(report.support_status, "fixture_smoke_only");
+        assert_eq!(
+            report.claim_gate_status,
+            "scoped_local_delete_tombstone_smoke_only"
+        );
+        assert_eq!(report.fixture_id, "gar0020d-local-delete-tombstone");
+        assert_eq!(report.catalog_kind, "local_manifest");
+        assert_eq!(report.dataset_format, "vortex");
+        assert_eq!(
+            report.admitted_delete_model_order,
+            vec!["file_level_delete", "segment_level_tombstone"]
+        );
+        assert_eq!(
+            report.delete_tombstone_admission_rule,
+            "local_manifest_file_delete_and_segment_tombstone_admission"
+        );
+        assert_eq!(report.row_identity_rule, "stable_fixture_row_id");
+        assert_eq!(report.base_row_count, 6);
+        assert_eq!(report.file_deleted_row_count, 2);
+        assert_eq!(report.segment_tombstoned_row_count, 1);
+        assert_eq!(report.effective_row_count, 3);
+        assert_eq!(report.manifest_file_count, 3);
+        assert_eq!(report.manifest_segment_count, 3);
+        assert_eq!(report.native_vortex_file_count, 3);
+        assert_eq!(report.admitted_file_delete_count, 1);
+        assert_eq!(report.admitted_segment_tombstone_count, 1);
+        assert_eq!(report.effective_row_ids, vec![1001, 1002, 1003]);
+        assert!(
+            report
+                .correctness_summary
+                .contains("effective_row_ids=1001,1002,1003")
+        );
+        assert!(report.correctness_digest.starts_with("fnv1a64:"));
+        assert!(report.fixture_smoke_supported());
+        assert!(report.claim_scoped());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn local_delete_tombstone_smoke_blocks_unsupported_models_and_claims() {
+        let report = run_local_delete_tombstone_read_smoke().expect("local delete/tombstone smoke");
+        assert!(report.local_catalog_ref_resolved);
+        assert!(report.local_manifest_metadata_read_performed);
+        assert!(report.in_memory_fixture_rows_read);
+        assert!(report.delete_tombstone_rule_applied);
+        assert!(report.result_row_order_preserved);
+        assert!(!report.table_metadata_write_performed);
+        assert!(!report.data_file_read_performed);
+        assert!(!report.object_store_io_performed);
+        assert!(!report.write_io_performed);
+        assert!(!report.credential_resolution_performed);
+        assert!(!report.external_table_format_dependency_invoked);
+        assert!(!report.fallback_attempted);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.table_format_execution_claim_allowed);
+        assert!(!report.production_table_catalog_claim_allowed);
+        assert!(!report.lakehouse_claim_allowed);
+        assert_eq!(
+            report.blocked_model_order(),
+            vec![
+                "row_level_delete",
+                "position_delete",
+                "equality_delete",
+                "external_table_metadata",
+                "cdc_update_delete_tombstone",
+                "object_store_delete_manifest",
+                "table_format_delete_runtime",
+            ]
+        );
+        assert_eq!(report.unsupported_diagnostic_count(), 7);
+        assert!(report.deterministic_unsupported_diagnostics_ready());
+        assert_eq!(
+            report.unsupported_diagnostic_code_order(),
+            vec![
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_EXTERNAL_EFFECT_DISABLED",
+                "SL_NOT_IMPLEMENTED",
+                "SL_OBJECT_STORE_UNSUPPORTED",
+                "SL_EXTERNAL_EFFECT_DISABLED",
             ]
         );
     }

@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0020-D scoped local delete/tombstone read-execution smoke
+  - Primary files:
+    - `shardloom-core/src/table_intelligence.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/local_delete_tombstone_read_smoke.rs`
+    - `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`
+    - `docs/architecture/table-intelligence-layer.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: close GAR-0020-D by adding one in-memory local manifest delete/tombstone fixture smoke
+    that applies a ShardLoom-native file-level delete and segment tombstone admission rule, emits
+    effective row ids plus a correctness digest, and keeps unsupported delete models explicit.
+  - Checklist:
+    - [x] Add `LocalDeleteTombstoneReadSmokeReport` with
+          `schema_version=shardloom.local_delete_tombstone_read_smoke.v1`,
+          `report_id=gar0020d.local_delete_tombstone_read_smoke`,
+          `gar_id=GAR-0020-D`, `support_status=fixture_smoke_only`, and
+          `claim_gate_status=scoped_local_delete_tombstone_smoke_only`.
+    - [x] Add a local fixture with six declared rows, one file-level delete, one segment tombstone,
+          and effective row ids `1001,1002,1003`.
+    - [x] Attach a stable `fnv1a64:*` correctness digest and evidence refs.
+    - [x] Emit deterministic unsupported diagnostics for row-level, position, equality, external
+          table metadata, CDC update/delete/tombstone, object-store delete manifest, and table-format
+          delete runtime paths.
+    - [x] Add the `local-delete-tombstone-read-smoke` CLI command and command-family routing.
+    - [x] Embed `local_delete_tombstone_smoke_present=true` and
+          `gar0020d.local_delete_tombstone_read_smoke` in the table-maintenance matrix evidence.
+    - [x] Move the planned GAR-0020-D item out of the phase plan and update GAR/table docs.
+  - Boundary:
+    - This is a local fixture-smoke-only read path. It does not read Vortex data files, read object
+      stores, write table metadata, execute row/position/equality deletes, execute CDC
+      update/delete/tombstone behavior, invoke external table-format dependencies, certify
+      table-format runtime, or make production table/catalog/lakehouse/performance claims.
+    - `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+      `external_engine_invoked=false` remain part of the report and CLI output.
+  - Evidence:
+    - Core tests assert the admitted file-level delete and segment tombstone row-elision contract,
+      effective rows, correctness digest, no-fallback fields, no-write fields, and unsupported model
+      diagnostic order.
+    - CLI tests assert command output fields, claim boundaries, and deterministic diagnostics.
+    - `table-intelligence-plan` now exposes the GAR-0020-D evidence ref without promoting broad
+      table-format runtime claims.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core local_delete_tombstone --lib`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test local_delete_tombstone_read_smoke`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test table_intelligence_plan_snapshots`
 - [x] Session label: P8.7G-H-I website mission map, status board, and public-post readiness gate
   - Primary files:
     - `website/build_static_pages.py`

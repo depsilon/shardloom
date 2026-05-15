@@ -23,6 +23,12 @@ The scoped local metadata smoke is `LocalTableMetadataReadSmokeReport`, exposed 
 shardloom local-table-metadata-read-smoke --format json
 ```
 
+The scoped local delete/tombstone smoke is `LocalDeleteTombstoneReadSmokeReport`, exposed through:
+
+```powershell
+shardloom local-delete-tombstone-read-smoke --format json
+```
+
 ## Scope
 
 - [x] Aggregate existing schema evolution compatibility evidence.
@@ -37,16 +43,18 @@ shardloom local-table-metadata-read-smoke --format json
       `CatalogMetadataIntegrationGateReport` before enabling runtime metadata access.
 - [x] Support one in-memory local manifest-backed table metadata read smoke through
       `LocalTableMetadataReadSmokeReport`.
+- [x] Support one in-memory local manifest-backed delete/tombstone read smoke through
+      `LocalDeleteTombstoneReadSmokeReport`.
 - [x] Expose delete/tombstone, CDC, compaction, and maintenance-write execution posture through
       `TableMaintenanceExecutionMatrixReport`.
 Out of scope until promoted GAR slices complete:
 
 - Broader catalog/table metadata reads are carried by later GAR slices after the completed
   `GAR-0020-A` admission gate and `GAR-0020-C` local metadata smoke.
-- Delete/tombstone runtime, CDC execution, compaction writes, table-maintenance writes, broad table
-  data I/O, object-store I/O, lakehouse/catalog commits, and table-format runtime surfaces remain
-  unsupported until their matrix rows are promoted by later evidence-bearing slices such as
-  `GAR-0028-A`.
+- Broad delete/tombstone runtime beyond the completed `GAR-0020-D` local fixture smoke, CDC
+  execution, compaction writes, table-maintenance writes, broad table data I/O, object-store I/O,
+  lakehouse/catalog commits, and table-format runtime surfaces remain unsupported until their
+  matrix rows are promoted by later evidence-bearing slices such as `GAR-0020-E` and `GAR-0028-A`.
 
 ## Default Policy
 
@@ -177,6 +185,40 @@ metadata, execute CDC/delete/tombstone behavior, certify lakehouse/object-store/
 support production SQL/DataFrame/table/catalog claims. The CG-9 metadata gate therefore continues to
 report `table_metadata_read_allowed=false` for broad runtime promotion while exposing the scoped
 smoke command and report refs.
+
+## Local Delete/Tombstone Read Smoke
+
+`GAR-0020-D` adds `shardloom.local_delete_tombstone_read_smoke.v1` as the first scoped
+delete/tombstone read-execution smoke. It constructs an in-memory local manifest fixture with native
+Vortex file/segment metadata, applies a ShardLoom-native admission rule for one file-level delete
+and one segment tombstone, and emits the effective row ids plus a stable correctness digest.
+
+The smoke reports:
+
+- `support_status=fixture_smoke_only`
+- `claim_gate_status=scoped_local_delete_tombstone_smoke_only`
+- `admitted_delete_model_order=file_level_delete,segment_level_tombstone`
+- `base_row_count=6`
+- `file_deleted_row_count=2`
+- `segment_tombstoned_row_count=1`
+- `effective_row_count=3`
+- `effective_row_ids=1001,1002,1003`
+- `correctness_digest=fnv1a64:*`
+- `fallback_attempted=false`
+- `fallback_execution_allowed=false`
+- `external_engine_invoked=false`
+- `deterministic_unsupported_diagnostics_ready=true`
+
+The unsupported model diagnostics remain deterministic for `row_level_delete`, `position_delete`,
+`equality_delete`, `external_table_metadata`, `cdc_update_delete_tombstone`,
+`object_store_delete_manifest`, and `table_format_delete_runtime`.
+
+The smoke remains deliberately narrow. It does not read Vortex files, read object stores, write table
+metadata, execute row/position/equality deletes, execute CDC update/delete/tombstone paths, invoke
+external table-format dependencies, certify table-format runtime, or create production
+table/catalog/lakehouse/performance claims. The `TableMaintenanceExecutionMatrixReport` therefore
+continues to block broad runtime promotion while exposing `local_delete_tombstone_smoke_present=true`
+and the `gar0020d.local_delete_tombstone_read_smoke` evidence ref.
 
 ## CDC, Manifest, And Transaction Gate
 

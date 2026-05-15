@@ -321,6 +321,8 @@ fn is_workflow_planning_command(command: &str) -> bool {
             | "layout-health-plan"
             | "compaction-plan"
             | "table-intelligence-plan"
+            | "local-table-metadata-read-smoke"
+            | "local-delete-tombstone-read-smoke"
             | "incremental-plan"
             | "stateful-reuse-plan"
             | "cg17-stateful-reuse-gate"
@@ -496,6 +498,10 @@ mod tests {
         assert_eq!(classify_command("serve"), CommandFamily::RestApiPlanning);
         assert_eq!(
             classify_command("workflow-unsupported-plan"),
+            CommandFamily::WorkflowPlanning
+        );
+        assert_eq!(
+            classify_command("local-delete-tombstone-read-smoke"),
             CommandFamily::WorkflowPlanning
         );
         assert_eq!(

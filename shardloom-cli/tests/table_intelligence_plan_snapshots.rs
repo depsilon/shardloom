@@ -314,6 +314,20 @@ fn table_intelligence_json_embeds_gar0020b_table_execution_matrix() {
 }
 
 #[test]
+fn table_intelligence_json_embeds_gar0020d_local_delete_tombstone_smoke_ref() {
+    let output = run_table_intelligence_plan_json();
+
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_existing_report_refs",
+        "cg9.table_intelligence.foundation,shardloom.delete_tombstone_compatibility.v1,shardloom.cdc_incremental_planning.v1,shardloom.layout_health.v1,shardloom.compaction_planning.v1,gar0020c.local_manifest_table_metadata_read_smoke,gar0020d.local_delete_tombstone_read_smoke,gar0004a.cdc_manifest_transaction_gate,shardloom.object_store_commit_protocol.v1"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_local_delete_tombstone_smoke_present",
+        "true"
+    )));
+}
+
+#[test]
 fn incremental_cdc_json_embeds_gar0004a_gate_without_runtime_promotion() {
     let output = run_incremental_cdc_plan_json();
 

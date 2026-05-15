@@ -15,20 +15,21 @@ use shardloom_core::{
     DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, DiagnosticCategory,
     DiagnosticCode, EncodedSegment, EncodingKind, FieldId, FieldName, FieldPath, FileDescriptor,
     FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy, LayoutHealthReport, LayoutKind,
-    LocalTableMetadataReadSmokeReport, LogicalDType, ManifestId, ManifestSegment, Nullability,
-    OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField,
-    PartitionSpec, PartitionTransform, SchemaDefinition, SchemaEvolutionCompatibilityReport,
-    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind,
-    SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef,
-    StatefulReusePromotionGateReport, StatefulReuseReport, TableCompatibilityPlan,
-    TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
-    TableMaintenanceExecutionMatrixReport, TableMaintenanceExecutionMatrixRow, WriteIntent,
-    evaluate_cdc_incremental_planning, evaluate_compaction_planning,
-    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    LocalDeleteTombstoneReadSmokeReport, LocalTableMetadataReadSmokeReport, LogicalDType,
+    ManifestId, ManifestSegment, Nullability, OutputFormat, OutputTarget,
+    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
+    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
+    SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind, SegmentId, SegmentLayout,
+    SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatefulReusePromotionGateReport,
+    StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
+    TableIntelligenceReport, TableMaintenanceExecutionMatrixReport,
+    TableMaintenanceExecutionMatrixRow, WriteIntent, evaluate_cdc_incremental_planning,
+    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_catalog_metadata_integration_gate, plan_cdc_manifest_transaction_gate,
     plan_stateful_reuse, plan_stateful_reuse_promotion_gate,
-    plan_table_maintenance_execution_matrix, run_local_table_metadata_read_smoke,
+    plan_table_maintenance_execution_matrix, run_local_delete_tombstone_read_smoke,
+    run_local_table_metadata_read_smoke,
 };
 use shardloom_plan::{
     ImportedPlanCapabilityGateReport, NativePlanDocument, NativePlanNode, NativePlanNodeKind,
@@ -492,6 +493,50 @@ pub(crate) fn handle_local_table_metadata_read_smoke(
         report.to_human_text(),
         report.diagnostics.clone(),
         local_table_metadata_read_smoke_fields(&report),
+    );
+    if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_local_delete_tombstone_read_smoke(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "local-delete-tombstone-read-smoke",
+            format,
+            "local delete/tombstone read smoke failed",
+            &cli_unknown_arg_error("local-delete-tombstone-read-smoke", &extra),
+        );
+    }
+    let report = match run_local_delete_tombstone_read_smoke() {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "local-delete-tombstone-read-smoke",
+                format,
+                "local delete/tombstone read smoke failed",
+                &error,
+            );
+        }
+    };
+    let has_errors = report.has_errors();
+    emit(
+        "local-delete-tombstone-read-smoke",
+        format,
+        if has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "local manifest-backed delete/tombstone read smoke".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        local_delete_tombstone_read_smoke_fields(&report),
     );
     if has_errors {
         ExitCode::from(1)
@@ -3412,6 +3457,11 @@ fn append_table_maintenance_execution_matrix_evidence_fields(
         &format!("{prefix}_local_metadata_smoke_present"),
         report.local_metadata_smoke_present,
     );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_local_delete_tombstone_smoke_present"),
+        report.local_delete_tombstone_smoke_present,
+    );
 }
 
 fn append_table_maintenance_execution_matrix_requirement_fields(
@@ -4973,6 +5023,256 @@ fn append_local_table_metadata_diagnostic_fields(
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
+fn local_delete_tombstone_read_smoke_fields(
+    report: &LocalDeleteTombstoneReadSmokeReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_local_delete_tombstone_identity_fields(&mut fields, report);
+    append_local_delete_tombstone_summary_fields(&mut fields, report);
+    append_local_delete_tombstone_evidence_fields(&mut fields, report);
+    append_local_delete_tombstone_boundary_fields(&mut fields, report);
+    append_local_delete_tombstone_diagnostic_fields(&mut fields, report);
+    push_field(&mut fields, "execution", "performed");
+    push_field(&mut fields, "plan_only", "false");
+    fields
+}
+
+fn append_local_delete_tombstone_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalDeleteTombstoneReadSmokeReport,
+) {
+    push_field(fields, "mode", "local_delete_tombstone_read_smoke");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "gar_id", report.gar_id);
+    push_field(fields, "support_status", report.support_status);
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
+    push_field(fields, "claim_boundary", report.claim_boundary);
+    push_field(fields, "fixture_id", report.fixture_id);
+    push_field(fields, "catalog_kind", report.catalog_kind);
+    push_field(fields, "catalog_ref_summary", &report.catalog_ref_summary);
+    push_field(fields, "dataset_uri", &report.dataset_uri);
+    push_field(fields, "dataset_format", &report.dataset_format);
+    push_field(fields, "manifest_id", &report.manifest_id);
+    push_field(fields, "manifest_version", &report.manifest_version);
+    push_field(fields, "snapshot_id", &report.snapshot_id);
+    push_field(fields, "schema_id", &report.schema_id);
+}
+
+fn append_local_delete_tombstone_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalDeleteTombstoneReadSmokeReport,
+) {
+    push_field(
+        fields,
+        "admitted_delete_model_order",
+        &report.admitted_delete_model_order.join(","),
+    );
+    push_field(
+        fields,
+        "unsupported_delete_model_order",
+        &report.unsupported_delete_model_order.join(","),
+    );
+    push_field(
+        fields,
+        "delete_tombstone_admission_rule",
+        report.delete_tombstone_admission_rule,
+    );
+    push_field(fields, "row_identity_rule", report.row_identity_rule);
+    push_count_field(fields, "base_row_count", report.base_row_count);
+    push_count_field(
+        fields,
+        "file_deleted_row_count",
+        report.file_deleted_row_count,
+    );
+    push_count_field(
+        fields,
+        "segment_tombstoned_row_count",
+        report.segment_tombstoned_row_count,
+    );
+    push_count_field(fields, "effective_row_count", report.effective_row_count);
+    push_count_field(fields, "manifest_file_count", report.manifest_file_count);
+    push_count_field(
+        fields,
+        "manifest_segment_count",
+        report.manifest_segment_count,
+    );
+    push_count_field(
+        fields,
+        "native_vortex_file_count",
+        report.native_vortex_file_count,
+    );
+    push_count_field(
+        fields,
+        "admitted_file_delete_count",
+        report.admitted_file_delete_count,
+    );
+    push_count_field(
+        fields,
+        "admitted_segment_tombstone_count",
+        report.admitted_segment_tombstone_count,
+    );
+    push_field(
+        fields,
+        "effective_row_ids",
+        &report
+            .effective_row_ids
+            .iter()
+            .map(u64::to_string)
+            .collect::<Vec<_>>()
+            .join(","),
+    );
+    push_field(fields, "correctness_summary", &report.correctness_summary);
+    push_field(fields, "correctness_digest", &report.correctness_digest);
+}
+
+fn append_local_delete_tombstone_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalDeleteTombstoneReadSmokeReport,
+) {
+    push_field(fields, "correctness_refs", report.correctness_refs);
+    push_field(fields, "benchmark_refs", report.benchmark_refs);
+    push_field(
+        fields,
+        "execution_certificate_refs",
+        report.execution_certificate_refs,
+    );
+    push_field(
+        fields,
+        "native_io_certificate_refs",
+        report.native_io_certificate_refs,
+    );
+    push_field(
+        fields,
+        "materialization_decode_refs",
+        report.materialization_decode_refs,
+    );
+    push_field(fields, "policy_refs", report.policy_refs);
+}
+
+fn append_local_delete_tombstone_boundary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalDeleteTombstoneReadSmokeReport,
+) {
+    push_bool_field(
+        fields,
+        "local_catalog_ref_resolved",
+        report.local_catalog_ref_resolved,
+    );
+    push_bool_field(
+        fields,
+        "local_manifest_metadata_read_performed",
+        report.local_manifest_metadata_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "in_memory_fixture_rows_read",
+        report.in_memory_fixture_rows_read,
+    );
+    push_bool_field(
+        fields,
+        "delete_tombstone_rule_applied",
+        report.delete_tombstone_rule_applied,
+    );
+    push_bool_field(
+        fields,
+        "result_row_order_preserved",
+        report.result_row_order_preserved,
+    );
+    push_bool_field(
+        fields,
+        "table_metadata_write_performed",
+        report.table_metadata_write_performed,
+    );
+    push_bool_field(
+        fields,
+        "data_file_read_performed",
+        report.data_file_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "object_store_io_performed",
+        report.object_store_io_performed,
+    );
+    push_bool_field(fields, "write_io_performed", report.write_io_performed);
+    push_bool_field(
+        fields,
+        "credential_resolution_performed",
+        report.credential_resolution_performed,
+    );
+    push_bool_field(
+        fields,
+        "external_table_format_dependency_invoked",
+        report.external_table_format_dependency_invoked,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "table_format_execution_claim_allowed",
+        report.table_format_execution_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "production_table_catalog_claim_allowed",
+        report.production_table_catalog_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "lakehouse_claim_allowed",
+        report.lakehouse_claim_allowed,
+    );
+}
+
+fn append_local_delete_tombstone_diagnostic_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalDeleteTombstoneReadSmokeReport,
+) {
+    push_bool_field(
+        fields,
+        "fixture_smoke_supported",
+        report.fixture_smoke_supported(),
+    );
+    push_bool_field(fields, "claim_scoped", report.claim_scoped());
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_count_field(fields, "blocked_model_count", report.blocked_models.len());
+    push_field(
+        fields,
+        "blocked_model_order",
+        &report.blocked_model_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "unsupported_diagnostic_count",
+        report.unsupported_diagnostic_count(),
+    );
+    push_bool_field(
+        fields,
+        "deterministic_unsupported_diagnostics_ready",
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_field(
+        fields,
+        "unsupported_diagnostic_code_order",
+        &report.unsupported_diagnostic_code_order().join(","),
+    );
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
 fn layout_health_fixture(scenario: &str) -> Result<DatasetManifest, ShardLoomError> {
     let mut manifest = layout_health_base_manifest()?;
     match scenario {
@@ -5479,6 +5779,13 @@ mod tests {
             output_field(
                 &fields,
                 "table_maintenance_execution_matrix_runtime_promotions_blocked"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "table_maintenance_execution_matrix_local_delete_tombstone_smoke_present"
             ),
             "true"
         );
