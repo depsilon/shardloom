@@ -315,6 +315,58 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
+- [ ] GAR-FLOW-1C direct transient format/operator/result-sink expansion gate
+  - Source: `docs/architecture/compute-engine-flow-reference.md`; RFC 0033; RFC 0042.
+  - Current state: `direct_compatibility_transient` has deterministic admission diagnostics and one
+    scoped local CSV selective-filter smoke path; broader formats, operators, result sinks, and
+    SQL/DataFrame direct transient runtime remain incomplete.
+  - Next slice outcome: split direct transient follow-through into explicit unsupported diagnostics
+    or one new scoped smoke path with evidence, depending on the selected format/operator.
+  - User-visible surface: CLI benchmark rows, Python typed accessors if capability fields change,
+    benchmark docs, and compute-flow docs.
+  - Implementation scope: direct-transient admission/report fields, traditional benchmark runner
+    coverage, focused Rust/Python tests, and docs.
+  - Evidence required: correctness refs for any admitted smoke path; execution certificate refs;
+    materialization/decode refs; policy/no-fallback refs; result-sink refs if output is written.
+  - Acceptance: every newly named direct-transient path reports `support_status`,
+    `claim_gate_status`, `fallback_attempted=false`, `external_engine_invoked=false`, and either
+    deterministic unsupported diagnostics or scoped fixture evidence.
+  - Verification: focused traditional-analytics direct-transient tests, benchmark harness contract
+    test, Python compileall if Python fields change, and default GAR verification.
+  - Non-goals: no broad direct-transient runtime, no SQL/DataFrame execution, no external engine,
+    no Vortex-native claim, and no performance claim.
+  - Fallback/claim boundary: direct transient remains scoped and cannot satisfy Vortex-native,
+    production, Spark-displacement, or performance claims.
+  - Dependencies/blockers: source/format-specific parser support, result-sink evidence, and
+    operator coverage.
+- [ ] GAR-FLOW-2I prepared/native source-state reuse and encoded operator coverage expansion
+  - Source: `docs/architecture/compute-engine-flow-reference.md`;
+    `docs/architecture/benchmark-suite-catalog.md`; RFC 0026; RFC 0042.
+  - Current state: prepared/native Vortex rows have process reuse, source metadata reuse,
+    source-backed scan evidence, and scoped residual-native fixture paths; generalized row-state
+    reuse and encoded/native operator coverage remain incomplete.
+  - Next slice outcome: add one narrow prepared/native runtime improvement, such as row-state reuse
+    for a repeated scenario family or one encoded/native operator promotion with attached evidence.
+  - User-visible surface: `traditional-analytics-vortex-batch-run`, comparative benchmark evidence
+    rows, compute-flow docs, and benchmark docs.
+  - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`, benchmark harness field
+    mapping if needed, Rust tests, and architecture docs.
+  - Evidence required: correctness refs, benchmark refs, execution certificate refs, Native I/O
+    certificate refs, materialization/decode refs, source-backed scan refs, and policy/no-fallback
+    refs.
+  - Acceptance: the selected prepared/native path exposes explicit reuse/operator evidence,
+    preserves child typed envelopes, and keeps residual-native versus encoded-native claim status
+    unambiguous.
+  - Verification: focused `shardloom-vortex` tests, traditional benchmark harness tests, cargo fmt,
+    cargo test for touched crates, and `git diff --check`.
+  - Non-goals: no persistent daemon/service runtime, no hidden fast mode, no SQL/DataFrame runtime,
+    no object-store/lakehouse runtime, no broad CDC/table transaction claim, and no public
+    performance/superiority claim.
+  - Fallback/claim boundary: `fallback_attempted=false` and `external_engine_invoked=false`; only
+    encoded/native operator claims with complete evidence may set encoded-native claim fields true.
+  - Dependencies/blockers: Vortex-first provider check, correctness fixture coverage, benchmark
+    evidence, Native I/O certificates, and claim gate evidence.
+
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics

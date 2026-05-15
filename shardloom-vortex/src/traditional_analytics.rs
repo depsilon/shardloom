@@ -692,6 +692,57 @@ impl TraditionalAnalyticsVortexBatchRequest {
     }
 }
 
+/// File metadata and digest evidence shared by child scenarios in one
+/// prepared/native Vortex batch run.
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TraditionalVortexSourceSnapshot {
+    fact_vortex_bytes: u64,
+    dim_vortex_bytes: u64,
+    cdc_delta_vortex_bytes: u64,
+    fact_vortex_digest: String,
+    dim_vortex_digest: String,
+    cdc_delta_vortex_digest: Option<String>,
+    source_bytes_read: u64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalVortexSourceSnapshot {
+    fn from_paths(
+        fact_vortex: &std::path::Path,
+        dim_vortex: &std::path::Path,
+        cdc_delta_vortex: Option<&std::path::Path>,
+    ) -> Result<Self> {
+        let fact_vortex_bytes = file_len(fact_vortex, "fact Vortex file")?;
+        let dim_vortex_bytes = file_len(dim_vortex, "dimension Vortex file")?;
+        let cdc_delta_vortex_bytes =
+            cdc_delta_vortex.map_or(Ok(0), |path| file_len(path, "CDC delta Vortex file"))?;
+        let fact_vortex_digest = file_digest(fact_vortex, "fact Vortex file")?;
+        let dim_vortex_digest = file_digest(dim_vortex, "dimension Vortex file")?;
+        let cdc_delta_vortex_digest = cdc_delta_vortex
+            .map(|path| file_digest(path, "CDC delta Vortex file"))
+            .transpose()?;
+        let source_bytes_read = fact_vortex_bytes
+            .checked_add(dim_vortex_bytes)
+            .and_then(|bytes| bytes.checked_add(cdc_delta_vortex_bytes))
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "native Vortex traditional analytics source byte count overflow".to_string(),
+                )
+            })?;
+
+        Ok(Self {
+            fact_vortex_bytes,
+            dim_vortex_bytes,
+            cdc_delta_vortex_bytes,
+            fact_vortex_digest,
+            dim_vortex_digest,
+            cdc_delta_vortex_digest,
+            source_bytes_read,
+        })
+    }
+}
+
 /// Report-only Vortex layout/write advisor evidence for a certified local
 /// analytics workflow.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2409,6 +2460,38 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "prepared_artifact_reuse_scope".to_string(),
                 "caller_supplied_fact_dim_cdc_vortex_artifacts_reused_across_requested_scenarios"
                     .to_string(),
+            ),
+            (
+                "source_metadata_snapshot_status".to_string(),
+                "per_batch_source_metadata_reused".to_string(),
+            ),
+            (
+                "source_metadata_snapshot_reused".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "source_metadata_snapshot_scope".to_string(),
+                "caller_supplied_fact_dim_cdc_vortex_artifacts".to_string(),
+            ),
+            (
+                "source_metadata_snapshot_reuse_count".to_string(),
+                self.reports.len().to_string(),
+            ),
+            (
+                "source_metadata_digest_recompute_avoided_count".to_string(),
+                self.reports.len().saturating_sub(1).to_string(),
+            ),
+            (
+                "source_metadata_snapshot_claim_boundary".to_string(),
+                "runtime plumbing evidence only; not a performance, encoded-native, production, SQL/DataFrame, object-store, lakehouse, or Spark-displacement claim".to_string(),
+            ),
+            (
+                "source_metadata_snapshot_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "source_metadata_snapshot_external_engine_invoked".to_string(),
+                "false".to_string(),
             ),
             (
                 "fallback_execution_allowed".to_string(),
@@ -6225,6 +6308,11 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             "traditional-analytics-vortex-batch-run --write-result-vortex requires --workspace for caller-owned result artifact output; fallback execution was not attempted".to_string(),
         ));
     }
+    let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
+        &fact_vortex,
+        &dim_vortex,
+        cdc_delta_vortex.as_deref(),
+    )?;
 
     let mut reports = Vec::with_capacity(scenarios.len());
     for (index, scenario) in scenarios.into_iter().enumerate() {
@@ -6244,9 +6332,12 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         .with_requested_execution_mode(requested_execution_mode)
         .with_result_workspace_dir(scenario_workspace)
         .with_result_vortex_write(write_result_vortex);
-        reports.push(run_traditional_analytics_vortex_benchmark_enabled(
-            child_request,
-        )?);
+        reports.push(
+            run_traditional_analytics_vortex_benchmark_with_source_snapshot(
+                child_request,
+                &source_snapshot,
+            )?,
+        );
     }
 
     let total_scenario_compute_micros = checked_u64_values_sum(
@@ -6316,6 +6407,20 @@ fn checked_u64_values_sum(values: impl IntoIterator<Item = u64>, context: &str) 
 fn run_traditional_analytics_vortex_benchmark_enabled(
     request: TraditionalAnalyticsVortexRequest,
 ) -> Result<TraditionalAnalyticsVortexReport> {
+    let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
+        &request.fact_vortex,
+        &request.dim_vortex,
+        request.cdc_delta_vortex.as_deref(),
+    )?;
+    run_traditional_analytics_vortex_benchmark_with_source_snapshot(request, &source_snapshot)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn run_traditional_analytics_vortex_benchmark_with_source_snapshot(
+    request: TraditionalAnalyticsVortexRequest,
+    source_snapshot: &TraditionalVortexSourceSnapshot,
+) -> Result<TraditionalAnalyticsVortexReport> {
     let execution_mode_selection = ShardLoomExecutionModeSelectionReport::from_request(
         ShardLoomExecutionModeSelectionRequest::new(request.requested_execution_mode)
             .with_source_format("vortex")
@@ -6337,27 +6442,13 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         )));
     }
 
-    let fact_vortex_bytes = file_len(&request.fact_vortex, "fact Vortex file")?;
-    let dim_vortex_bytes = file_len(&request.dim_vortex, "dimension Vortex file")?;
-    let cdc_delta_vortex_bytes = request
-        .cdc_delta_vortex
-        .as_ref()
-        .map_or(Ok(0), |path| file_len(path, "CDC delta Vortex file"))?;
-    let fact_vortex_digest = file_digest(&request.fact_vortex, "fact Vortex file")?;
-    let dim_vortex_digest = file_digest(&request.dim_vortex, "dimension Vortex file")?;
-    let cdc_delta_vortex_digest = request
-        .cdc_delta_vortex
-        .as_ref()
-        .map(|path| file_digest(path, "CDC delta Vortex file"))
-        .transpose()?;
-    let source_bytes_read = fact_vortex_bytes
-        .checked_add(dim_vortex_bytes)
-        .and_then(|bytes| bytes.checked_add(cdc_delta_vortex_bytes))
-        .ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "native Vortex traditional analytics source byte count overflow".to_string(),
-            )
-        })?;
+    let fact_vortex_bytes = source_snapshot.fact_vortex_bytes;
+    let dim_vortex_bytes = source_snapshot.dim_vortex_bytes;
+    let cdc_delta_vortex_bytes = source_snapshot.cdc_delta_vortex_bytes;
+    let fact_vortex_digest = source_snapshot.fact_vortex_digest.clone();
+    let dim_vortex_digest = source_snapshot.dim_vortex_digest.clone();
+    let cdc_delta_vortex_digest = source_snapshot.cdc_delta_vortex_digest.clone();
+    let source_bytes_read = source_snapshot.source_bytes_read;
     let scenario_compute_start = std::time::Instant::now();
     let scenario_execution = run_vortex_derived_scenario_from_files(
         request.scenario,
@@ -12647,6 +12738,28 @@ mod tests {
         assert_field_eq(&fields, "typed_envelope_preserved", "true");
         assert_field_eq(&fields, "process_startup_amortization_supported", "true");
         assert_field_eq(&fields, "prepared_artifact_reuse_eligible", "true");
+        assert_field_eq(
+            &fields,
+            "source_metadata_snapshot_status",
+            "per_batch_source_metadata_reused",
+        );
+        assert_field_eq(&fields, "source_metadata_snapshot_reused", "true");
+        assert_field_eq(&fields, "source_metadata_snapshot_reuse_count", "2");
+        assert_field_eq(
+            &fields,
+            "source_metadata_digest_recompute_avoided_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_metadata_snapshot_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "source_metadata_snapshot_external_engine_invoked",
+            "false",
+        );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
         assert_field_eq(&fields, "performance_claim_allowed", "false");
