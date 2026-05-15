@@ -74,10 +74,10 @@ fn assert_matrix_summary_fields(output: &str) {
 }
 
 fn assert_matrix_claim_counts(output: &str) {
-    assert!(output.contains(&field("fixture_certified_count", "2")));
+    assert!(output.contains(&field("fixture_certified_count", "5")));
     assert!(output.contains(&field("executable_uncertified_count", "5")));
     assert!(output.contains(&field("report_only_count", "1")));
-    assert!(output.contains(&field("planned_count", "3")));
+    assert!(output.contains(&field("planned_count", "0")));
     assert!(output.contains(&field("unsupported_count", "2")));
     assert!(output.contains(&field("workload_certified_count", "0")));
     assert!(output.contains(&field("production_certified_count", "0")));
@@ -86,10 +86,10 @@ fn assert_matrix_claim_counts(output: &str) {
     assert!(output.contains(&field("matrix_consuming_views_status", "planned_alignment")));
     assert!(output.contains(&field("all_rows_fallback_attempted_false", "true")));
     assert!(output.contains(&field("all_rows_external_engine_invoked_false", "true")));
-    assert!(output.contains(&field("unadmitted_compute_row_count", "6")));
+    assert!(output.contains(&field("unadmitted_compute_row_count", "3")));
     assert!(output.contains(&field(
         "unadmitted_compute_rows_with_diagnostics_count",
-        "6"
+        "3"
     )));
     assert!(output.contains(&field(
         "unadmitted_compute_rows_missing_diagnostics_count",
@@ -454,7 +454,31 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
     )));
     assert!(output.contains(&field(
         "compute_row_grouped_aggregate_memory_spill_requirement",
-        "hash_group_state_spill_required"
+        "hash_group_state_spill_required_before_broad_claim"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_grouped_aggregate_support_status",
+        "fixture_certified"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_grouped_aggregate_operator_execution_class",
+        "residual_native"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_grouped_aggregate_operator_admission_status",
+        "residual_native_fixture_admitted"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_grouped_aggregate_operator_encoded_native_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_join_operator_execution_class",
+        "residual_native"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_window_row_number_operator_execution_class",
+        "residual_native"
     )));
     assert_native_unsupported_row_fields(&output);
     assert_predicate_dtype_coverage_row_fields(&output);

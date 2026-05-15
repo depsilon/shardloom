@@ -98,6 +98,7 @@ const COMPUTE_ENGINE_MODE_VOCABULARY: &str = "batch,live,hybrid,auto";
 const COMPUTE_EXECUTION_MODE_VOCABULARY: &str = "compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient,auto";
 const COMPUTE_OPERATOR_EXECUTION_CLASS_VOCABULARY: &str =
     "encoded_native,residual_native,materialized_temporary,unsupported";
+const COMPUTE_OPERATOR_ADMISSION_STATUS_VOCABULARY: &str = "encoded_native_fixture_admitted,encoded_native_evidence_incomplete,residual_native_fixture_admitted,residual_native_evidence_incomplete,temporary_materialization_boundary_required,unsupported_or_report_only";
 const NATIVE_VORTEX_ADMISSION_SCHEMA_VERSION: &str = "shardloom.native_vortex_admission.v1";
 const NATIVE_UNSUPPORTED_COVERAGE_SCHEMA_VERSION: &str = "shardloom.native_unsupported_coverage.v1";
 const NATIVE_UNSUPPORTED_COVERAGE_CATEGORY_VOCABULARY: &str = "source,sink,operator,workload";
@@ -115,6 +116,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "fixture_certified",
         engine_mode: "batch",
         provider_kind: "vortex_scan",
+        operator_execution_class: "encoded_native",
         semantic_profile: "ShardLoomNative",
         materialization_decode_requirement: "metadata_or_encoded_count_no_row_materialization",
         memory_spill_requirement: "streaming_constant_memory_no_spill",
@@ -133,6 +135,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "executable_uncertified",
         engine_mode: "batch",
         provider_kind: "shardloom_kernel",
+        operator_execution_class: "encoded_native",
         semantic_profile: "ShardLoomNative",
         materialization_decode_requirement: "selection_vector_no_row_materialization",
         memory_spill_requirement: "bounded_selection_vector_no_spill",
@@ -151,6 +154,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "executable_uncertified",
         engine_mode: "batch",
         provider_kind: "vortex_array_kernel",
+        operator_execution_class: "encoded_native",
         semantic_profile: "ShardLoomNative",
         materialization_decode_requirement: "column_projection_no_row_materialization",
         memory_spill_requirement: "bounded_column_refs_no_spill",
@@ -169,6 +173,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "executable_uncertified",
         engine_mode: "batch",
         provider_kind: "shardloom_kernel",
+        operator_execution_class: "encoded_native",
         semantic_profile: "ShardLoomNative",
         materialization_decode_requirement: "selection_vector_plus_projection_no_row_materialization",
         memory_spill_requirement: "bounded_selection_vector_no_spill",
@@ -187,6 +192,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "fixture_certified",
         engine_mode: "batch",
         provider_kind: "shardloom_kernel",
+        operator_execution_class: "encoded_native",
         semantic_profile: "ShardLoomNative",
         materialization_decode_requirement: "encoded_predicate_no_row_materialization",
         memory_spill_requirement: "bounded_batch_no_spill",
@@ -205,6 +211,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "executable_uncertified",
         engine_mode: "batch",
         provider_kind: "vortex_source",
+        operator_execution_class: "encoded_native",
         semantic_profile: "ShardLoomNative",
         materialization_decode_requirement: "reader_chunk_kernel_input_no_full_decode",
         memory_spill_requirement: "reader_chunk_bounded_no_spill",
@@ -223,6 +230,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "executable_uncertified",
         engine_mode: "batch",
         provider_kind: "compatibility_boundary",
+        operator_execution_class: "residual_native",
         semantic_profile: "compatibility_boundary",
         materialization_decode_requirement: "compatibility_import_to_native_vortex",
         memory_spill_requirement: "bounded_local_import_no_spill_claim",
@@ -241,6 +249,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "unsupported",
         engine_mode: "batch",
         provider_kind: "shardloom_kernel",
+        operator_execution_class: "unsupported",
         semantic_profile: "ShardLoomNative",
         materialization_decode_requirement: "direct_transient_executor_missing",
         memory_spill_requirement: "unsupported_until_transient_executor_exists",
@@ -259,6 +268,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "report_only",
         engine_mode: "batch",
         provider_kind: "vortex_sink",
+        operator_execution_class: "unsupported",
         semantic_profile: "ShardLoomNative",
         materialization_decode_requirement: "sink_requirement_known_before_execution",
         memory_spill_requirement: "write_buffer_policy_required",
@@ -274,55 +284,58 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         id: "grouped_aggregate",
         surface: "group_by_aggregate",
         family: "grouped_aggregates",
-        support_status: "planned",
+        support_status: "fixture_certified",
         engine_mode: "batch",
         provider_kind: "shardloom_kernel",
+        operator_execution_class: "residual_native",
         semantic_profile: "ShardLoomNative",
-        materialization_decode_requirement: "group_state_materialization_policy_required",
-        memory_spill_requirement: "hash_group_state_spill_required",
-        correctness_refs: "semantic_fixture_required",
-        benchmark_refs: "benchmark_row_required",
-        execution_certificate_refs: "execution_certificate_required",
-        native_io_refs: "native_io_certificate_required_for_source_bound_data",
-        unsupported_diagnostic_code: "SL_NOT_IMPLEMENTED",
-        blocker_id: "cg21.workflow.aggregate.operator_unsupported",
-        required_future_evidence: "operator_capability,semantic_fixture,memory_spill_declaration",
+        materialization_decode_requirement: "projected_vortex_scan_with_shardloom_residual_group_state_no_full_table_materialization",
+        memory_spill_requirement: "hash_group_state_spill_required_before_broad_claim",
+        correctness_refs: "traditional_analytics.group_by_aggregation,null_heavy_aggregate,distinct_count",
+        benchmark_refs: "traditional_analytics.prepared_native_fixture_rows",
+        execution_certificate_refs: "traditional_analytics.runtime_execution_certificate",
+        native_io_refs: "traditional_analytics.native_vortex_source_to_native_runtime_result",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar-flow-2e.residual_grouped_aggregate_not_encoded_native",
+        required_future_evidence: "encoded_native_aggregate_certificate,spill_policy_evidence,claim_grade_benchmarks",
     },
     ComputeCapabilityRow {
         id: "join",
         surface: "join",
         family: "joins",
-        support_status: "planned",
+        support_status: "fixture_certified",
         engine_mode: "batch",
         provider_kind: "shardloom_kernel",
+        operator_execution_class: "residual_native",
         semantic_profile: "ShardLoomNative",
-        materialization_decode_requirement: "join_build_probe_materialization_policy_required",
-        memory_spill_requirement: "join_state_spill_required",
-        correctness_refs: "semantic_fixture_required",
-        benchmark_refs: "benchmark_row_required",
-        execution_certificate_refs: "execution_certificate_required",
-        native_io_refs: "native_io_certificate_required_for_source_bound_data",
-        unsupported_diagnostic_code: "SL_NOT_IMPLEMENTED",
-        blocker_id: "cg21.workflow.join.operator_unsupported",
-        required_future_evidence: "join_operator_capability,semantic_fixture,memory_spill_declaration",
+        materialization_decode_requirement: "projected_vortex_scan_with_shardloom_residual_dimension_state_no_full_fact_table_materialization",
+        memory_spill_requirement: "join_state_spill_required_before_broad_claim",
+        correctness_refs: "traditional_analytics.hash_join,join_aggregate",
+        benchmark_refs: "traditional_analytics.prepared_native_fixture_rows",
+        execution_certificate_refs: "traditional_analytics.runtime_execution_certificate",
+        native_io_refs: "traditional_analytics.native_vortex_source_to_native_runtime_result",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar-flow-2e.residual_join_not_encoded_native",
+        required_future_evidence: "encoded_or_spillable_join_certificate,join_null_semantics,claim_grade_benchmarks",
     },
     ComputeCapabilityRow {
         id: "window_row_number",
         surface: "row_number_window",
         family: "window_functions",
-        support_status: "planned",
+        support_status: "fixture_certified",
         engine_mode: "batch",
         provider_kind: "shardloom_kernel",
+        operator_execution_class: "residual_native",
         semantic_profile: "ShardLoomNative",
-        materialization_decode_requirement: "window_frame_materialization_policy_required",
-        memory_spill_requirement: "sort_partition_spill_required",
-        correctness_refs: "semantic_fixture_required",
-        benchmark_refs: "benchmark_row_required",
-        execution_certificate_refs: "execution_certificate_required",
-        native_io_refs: "native_io_certificate_required_for_source_bound_data",
-        unsupported_diagnostic_code: "SL_NOT_IMPLEMENTED",
-        blocker_id: "cg21.workflow.window.operator_unsupported",
-        required_future_evidence: "window_operator_capability,sort_capability,semantic_fixture",
+        materialization_decode_requirement: "projected_vortex_scan_with_shardloom_residual_window_state_no_full_fact_table_materialization",
+        memory_spill_requirement: "sort_partition_spill_required_before_broad_claim",
+        correctness_refs: "traditional_analytics.row_number_window,top_n_per_group",
+        benchmark_refs: "traditional_analytics.prepared_native_fixture_rows",
+        execution_certificate_refs: "traditional_analytics.runtime_execution_certificate",
+        native_io_refs: "traditional_analytics.native_vortex_source_to_native_runtime_result",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar-flow-2e.residual_window_not_encoded_native",
+        required_future_evidence: "encoded_or_spillable_window_certificate,sort_spill_policy,claim_grade_benchmarks",
     },
     ComputeCapabilityRow {
         id: "sql_frontend",
@@ -331,6 +344,7 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         support_status: "unsupported",
         engine_mode: "batch",
         provider_kind: "shardloom_kernel",
+        operator_execution_class: "unsupported",
         semantic_profile: "ShardLoomNative",
         materialization_decode_requirement: "logical_plan_lowering_required",
         memory_spill_requirement: "depends_on_lowered_operator_family",
@@ -1351,6 +1365,7 @@ struct ComputeCapabilityRow {
     support_status: &'static str,
     engine_mode: &'static str,
     provider_kind: &'static str,
+    operator_execution_class: &'static str,
     semantic_profile: &'static str,
     materialization_decode_requirement: &'static str,
     memory_spill_requirement: &'static str,
@@ -1483,6 +1498,11 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
         &mut fields,
         "operator_execution_class_vocabulary",
         COMPUTE_OPERATOR_EXECUTION_CLASS_VOCABULARY,
+    );
+    push_field(
+        &mut fields,
+        "operator_admission_status_vocabulary",
+        COMPUTE_OPERATOR_ADMISSION_STATUS_VOCABULARY,
     );
     push_bool_field(&mut fields, "mode_aware_rows_present", true);
     push_bool_field(
@@ -2367,6 +2387,14 @@ fn append_compute_capability_row_fields(
         &format!("{prefix}_required_future_evidence"),
         row.required_future_evidence,
     );
+    append_compute_claim_and_operator_fields(fields, row, &prefix);
+}
+
+fn append_compute_claim_and_operator_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &ComputeCapabilityRow,
+    prefix: &str,
+) {
     push_field(
         fields,
         &format!("{prefix}_claim_gate_status"),
@@ -2384,8 +2412,18 @@ fn append_compute_capability_row_fields(
     );
     push_field(
         fields,
+        &format!("{prefix}_operator_admission_status"),
+        compute_row_operator_admission_status(row),
+    );
+    push_field(
+        fields,
         &format!("{prefix}_operator_blocker_id"),
         compute_row_operator_blocker_id(row),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_operator_blocker_reason"),
+        compute_row_operator_blocker_reason(row),
     );
     push_bool_field(
         fields,
@@ -2429,21 +2467,25 @@ fn compute_row_vortex_native_claim_allowed(row: &ComputeCapabilityRow) -> bool {
 }
 
 fn compute_row_operator_execution_class(row: &ComputeCapabilityRow) -> &'static str {
-    match row.support_status {
-        "unsupported" | "planned" | "report_only" => "unsupported",
-        _ if row
-            .materialization_decode_requirement
-            .contains("no_row_materialization") =>
-        {
-            "encoded_native"
+    row.operator_execution_class
+}
+
+fn compute_row_operator_admission_status(row: &ComputeCapabilityRow) -> &'static str {
+    match (
+        compute_row_operator_execution_class(row),
+        row.support_status,
+    ) {
+        ("encoded_native", "fixture_certified" | "workload_certified" | "production_certified") => {
+            "encoded_native_fixture_admitted"
         }
-        _ if row
-            .materialization_decode_requirement
-            .contains("materialization") =>
-        {
-            "materialized_temporary"
-        }
-        _ => "residual_native",
+        ("encoded_native", _) => "encoded_native_evidence_incomplete",
+        (
+            "residual_native",
+            "fixture_certified" | "workload_certified" | "production_certified",
+        ) => "residual_native_fixture_admitted",
+        ("residual_native", _) => "residual_native_evidence_incomplete",
+        ("materialized_temporary", _) => "temporary_materialization_boundary_required",
+        _ => "unsupported_or_report_only",
     }
 }
 
@@ -2452,6 +2494,19 @@ fn compute_row_operator_blocker_id(row: &ComputeCapabilityRow) -> &'static str {
         "none"
     } else {
         row.blocker_id
+    }
+}
+
+fn compute_row_operator_blocker_reason(row: &ComputeCapabilityRow) -> &'static str {
+    match compute_row_operator_execution_class(row) {
+        "encoded_native" => "none",
+        "residual_native" => {
+            "scoped ShardLoom-native residual operator evidence exists, but encoded-native and broad runtime claims remain blocked"
+        }
+        "materialized_temporary" => {
+            "path crosses a materialization or decode boundary and cannot satisfy encoded-native operator claims"
+        }
+        _ => "operator is unsupported, planned, or report-only until required evidence lands",
     }
 }
 
