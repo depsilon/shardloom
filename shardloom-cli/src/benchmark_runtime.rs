@@ -542,6 +542,167 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
     ExitCode::SUCCESS
 }
 
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_traditional_analytics_vortex_batch_run(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(scenario_list) = args.next() else {
+        eprintln!(
+            "usage: shardloom traditional-analytics-vortex-batch-run <scenario_csv> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(fact_vortex) = args.next() else {
+        eprintln!(
+            "usage: shardloom traditional-analytics-vortex-batch-run <scenario_csv> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(dim_vortex) = args.next() else {
+        eprintln!(
+            "usage: shardloom traditional-analytics-vortex-batch-run <scenario_csv> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+        );
+        return ExitCode::from(2);
+    };
+    let mut requested_execution_mode = ShardLoomExecutionMode::NativeVortex;
+    let mut workspace_dir: Option<PathBuf> = None;
+    let mut cdc_delta_vortex: Option<PathBuf> = None;
+    let mut write_result_vortex = false;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--cdc-delta-vortex" => {
+                let Some(path) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-batch-run ... --cdc-delta-vortex <path>"
+                    );
+                    return ExitCode::from(2);
+                };
+                cdc_delta_vortex = Some(PathBuf::from(path));
+            }
+            "--workspace" => {
+                let Some(path) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-batch-run ... --workspace <dir>"
+                    );
+                    return ExitCode::from(2);
+                };
+                workspace_dir = Some(PathBuf::from(path));
+            }
+            "--write-result-vortex" => {
+                write_result_vortex = true;
+            }
+            "--execution-mode" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-batch-run ... [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+                    );
+                    return ExitCode::from(2);
+                };
+                match ShardLoomExecutionMode::parse(&value) {
+                    Ok(
+                        ShardLoomExecutionMode::Auto
+                        | ShardLoomExecutionMode::NativeVortex
+                        | ShardLoomExecutionMode::PreparedVortex,
+                    ) => {
+                        requested_execution_mode = ShardLoomExecutionMode::parse(&value)
+                            .expect("execution mode was already parsed");
+                    }
+                    Ok(mode) => {
+                        return emit_error(
+                            "traditional-analytics-vortex-batch-run",
+                            format,
+                            "traditional analytics native Vortex batch run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-vortex-batch-run does not support execution mode {}; fallback execution was not attempted",
+                                mode.as_str()
+                            )),
+                        );
+                    }
+                    Err(error) => {
+                        return emit_error(
+                            "traditional-analytics-vortex-batch-run",
+                            format,
+                            "traditional analytics native Vortex batch run failed",
+                            &error,
+                        );
+                    }
+                }
+            }
+            extra => {
+                return emit_error(
+                    "traditional-analytics-vortex-batch-run",
+                    format,
+                    "traditional analytics native Vortex batch run failed",
+                    &cli_unknown_arg_error("traditional-analytics-vortex-batch-run", extra),
+                );
+            }
+        }
+    }
+
+    let scenarios = match parse_traditional_analytics_scenario_csv(&scenario_list) {
+        Ok(scenarios) => scenarios,
+        Err(error) => {
+            return emit_error(
+                "traditional-analytics-vortex-batch-run",
+                format,
+                "traditional analytics native Vortex batch run failed",
+                &error,
+            );
+        }
+    };
+    let request = shardloom_vortex::TraditionalAnalyticsVortexBatchRequest::new(
+        scenarios,
+        PathBuf::from(fact_vortex),
+        PathBuf::from(dim_vortex),
+    )
+    .with_cdc_delta_vortex(cdc_delta_vortex)
+    .with_requested_execution_mode(requested_execution_mode)
+    .with_result_workspace_dir(workspace_dir)
+    .with_result_vortex_write(write_result_vortex);
+    let report = match shardloom_vortex::run_traditional_analytics_vortex_batch_benchmark(request) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "traditional-analytics-vortex-batch-run",
+                format,
+                "traditional analytics native Vortex batch run failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        "traditional-analytics-vortex-batch-run",
+        format,
+        CommandStatus::Success,
+        "traditional analytics native Vortex batch smoke".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        report.fields(),
+    );
+    ExitCode::SUCCESS
+}
+
+fn parse_traditional_analytics_scenario_csv(
+    value: &str,
+) -> shardloom_core::Result<Vec<shardloom_vortex::TraditionalAnalyticsScenario>> {
+    let mut scenarios = Vec::new();
+    for scenario in value.split(',').map(str::trim) {
+        if scenario.is_empty() {
+            continue;
+        }
+        scenarios.push(shardloom_vortex::TraditionalAnalyticsScenario::parse(
+            scenario,
+        )?);
+    }
+    if scenarios.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "traditional-analytics-vortex-batch-run requires at least one comma-separated scenario; fallback execution was not attempted".to_string(),
+        ));
+    }
+    Ok(scenarios)
+}
+
 pub(crate) fn handle_vortex_count_benchmark(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,

@@ -8,6 +8,11 @@ Scope: `benchmarks/traditional_analytics/run.py` and local ShardLoom comparative
 P7.5.7 keeps the current Python-driven per-scenario CLI runner and makes process overhead explicit
 instead of adding a persistent in-process runner in this slice.
 
+GAR-FLOW-2F adds a narrower runtime surface: `traditional-analytics-vortex-batch-run` can execute
+multiple prepared/native Vortex scenarios in one ShardLoom process while preserving typed evidence
+and no-fallback fields. That command is scoped process reuse only. The default comparative Python
+harness remains per-scenario until a later harness integration slice consumes the batch command.
+
 The benchmark harness now reports these attribution fields where feasible:
 
 ```text
@@ -33,7 +38,7 @@ python_harness_overhead_status
 
 ## Decision
 
-Do not add a persistent runner yet.
+Do not add a persistent daemon or hidden benchmark-only runner yet.
 
 Reasons:
 
@@ -87,11 +92,20 @@ A future persistent runner must:
 - keep unsupported rows deterministic
 - avoid external engine fallback
 
-Until those requirements are met, reports must say:
+Until a row is produced by the explicit scoped batch command or a later harness integration, default
+comparative prepared/native rows must say:
 
 ```text
 persistent_runner_status=process_per_scenario_attributed_not_reduced
 ```
+
+The scoped batch command may instead say:
+
+```text
+persistent_runner_status=single_process_batch_runner_supported
+```
+
+That status does not authorize a daemon, service runtime, hidden fast mode, or performance claim.
 
 ## GAR-FLOW-2C Admission Gate
 
