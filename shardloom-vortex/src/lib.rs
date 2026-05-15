@@ -20,6 +20,7 @@ pub use adapter::{
     VortexAdapterCapability, VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus,
     VortexApiArea, VortexApiInventoryItem, VortexApiSupportStatus, VortexDTypeMappingReport,
     VortexEncodingLayoutMappingReport, VortexEncodingMappingStatus, VortexLayoutMappingStatus,
+    VortexLocalIoCoverageReport, VortexLocalIoCoverageRow, VortexLocalIoLaneStatus,
     VortexMetadataIoMode, VortexMetadataIoStatus, VortexMetadataProbeReport,
     VortexStatisticsMappingReport, VortexStatisticsMappingStatus, VortexTypedMappingStatus,
     can_map_statistics_without_io, empty_vortex_segment_stats_placeholder,

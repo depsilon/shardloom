@@ -306,6 +306,285 @@ impl VortexAdapterCapabilityReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexLocalIoLaneStatus {
+    FeatureGatedRuntime,
+    FixtureSmokeOnly,
+    Blocked,
+}
+
+impl VortexLocalIoLaneStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::FeatureGatedRuntime => "feature_gated_runtime",
+            Self::FixtureSmokeOnly => "fixture_smoke_only",
+            Self::Blocked => "blocked",
+        }
+    }
+
+    #[must_use]
+    pub const fn runtime_available(self) -> bool {
+        matches!(self, Self::FeatureGatedRuntime | Self::FixtureSmokeOnly)
+    }
+
+    #[must_use]
+    pub const fn is_blocked(self) -> bool {
+        matches!(self, Self::Blocked)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexLocalIoCoverageRow {
+    pub lane_id: &'static str,
+    pub io_direction: &'static str,
+    pub support_status: VortexLocalIoLaneStatus,
+    pub user_surface: &'static str,
+    pub feature_gate: &'static str,
+    pub upstream_api_surface: &'static str,
+    pub schema_encoding_scope: &'static str,
+    pub correctness_refs: &'static str,
+    pub benchmark_refs: &'static str,
+    pub execution_certificate_refs: &'static str,
+    pub native_io_certificate_refs: &'static str,
+    pub materialization_decode_refs: &'static str,
+    pub policy_refs: &'static str,
+    pub unsupported_diagnostic_code: &'static str,
+    pub blocker_id: &'static str,
+    pub required_future_evidence: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub runtime_lane_available: bool,
+    pub data_read_lane: bool,
+    pub data_written_lane: bool,
+    pub object_store_io: bool,
+    pub table_catalog_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexLocalIoCoverageRow {
+    #[must_use]
+    pub const fn local_primitive_scan_reader() -> Self {
+        Self {
+            lane_id: "local_vortex_primitive_scan_filter_project",
+            io_direction: "read",
+            support_status: VortexLocalIoLaneStatus::FixtureSmokeOnly,
+            user_surface: "vortex-count,vortex-count-where,vortex-filter,vortex-project,vortex-filter-project,vortex-run",
+            feature_gate: "vortex-local-primitives",
+            upstream_api_surface: "VortexFile::scan,ScanBuilder::with_filter,ScanBuilder::with_projection,ScanBuilder::into_array_iter",
+            schema_encoding_scope: "scoped local primitive fixture columns and reader chunks only",
+            correctness_refs: "local_primitive_scan_fixture_correctness,source_backed_scan_evidence",
+            benchmark_refs: "vortex-count-benchmark.local_fixture_smoke,traditional_analytics.coverage_table",
+            execution_certificate_refs: "certificates/cg16/local-vortex-count/execution.json",
+            native_io_certificate_refs: "certificates/cg19/local-vortex-count/native-io.json",
+            materialization_decode_refs: "native_io_certificate.no_row_read_no_arrow_no_hidden_materialization",
+            policy_refs: "fallback_attempted=false,external_engine_invoked=false",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_GENERALIZED_VORTEX_SOURCE_SPLIT_RUNTIME",
+            blocker_id: "gar0005a.generalized_local_reader",
+            required_future_evidence: "source_split_certificate,field_mask_evidence,predicate_ordering_evidence,split_serialization_evidence,general_schema_encoding_correctness",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "local primitive Vortex scan lanes only; no broad local reader claim",
+            runtime_lane_available: true,
+            data_read_lane: true,
+            data_written_lane: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn native_count_payload_writer() -> Self {
+        Self {
+            lane_id: "native_count_output_payload_write",
+            io_direction: "write",
+            support_status: VortexLocalIoLaneStatus::FeatureGatedRuntime,
+            user_surface: "vortex-native-count-payload-write",
+            feature_gate: "vortex-write",
+            upstream_api_surface: "VortexSessionDefault,SingleThreadRuntime,WriteOptionsSessionExt,PrimitiveArray,Validity,buffer",
+            schema_encoding_scope: "single one-row u64 CountAll result payload only",
+            correctness_refs: "native_count_payload_write_writes_real_vortex_file",
+            benchmark_refs: "not_measured_no_performance_claim",
+            execution_certificate_refs: "VortexNativeOutputPayloadWriteReport",
+            native_io_certificate_refs: "native_vortex_payload_written=true,vortex_file_written=true,upstream_vortex_write_called=true",
+            materialization_decode_refs: "one_scalar_count_result_payload_no_query_materialization_claim",
+            policy_refs: "fallback_execution_allowed=false,object_store_io=false,manifest_committed=false",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_GENERALIZED_VORTEX_PAYLOAD_WRITE",
+            blocker_id: "gar0005a.generalized_local_writer",
+            required_future_evidence: "schema_payload_matrix,encoding_payload_matrix,correctness_fixture,execution_certificate,native_io_certificate,commit_certificate",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "one local native Vortex CountAll payload write only; no generalized writer claim",
+            runtime_lane_available: true,
+            data_read_lane: false,
+            data_written_lane: true,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn broad_local_writer_blocked() -> Self {
+        Self {
+            lane_id: "general_local_schema_encoding_writer",
+            io_direction: "write",
+            support_status: VortexLocalIoLaneStatus::Blocked,
+            user_surface: "vortex-output-plan,vortex-output-payload-plan",
+            feature_gate: "not_enabled",
+            upstream_api_surface: "broader Vortex writer API usage blocked outside the count-payload lane",
+            schema_encoding_scope: "general schemas, nested types, null-heavy payloads, dictionaries, structs, lists, and arbitrary output batches",
+            correctness_refs: "required_before_admission",
+            benchmark_refs: "not_measured_no_performance_claim",
+            execution_certificate_refs: "required_before_admission",
+            native_io_certificate_refs: "required_before_admission",
+            materialization_decode_refs: "required_before_admission",
+            policy_refs: "fallback_attempted=false,external_engine_invoked=false",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_GENERALIZED_VORTEX_PAYLOAD_WRITE",
+            blocker_id: "gar0005a.generalized_local_writer",
+            required_future_evidence: "schema_payload_matrix,encoding_payload_matrix,correctness_fixture,materialization_decode_certificate,native_io_certificate,no_fallback_evidence",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "general local Vortex writer support remains blocked",
+            runtime_lane_available: false,
+            data_read_lane: false,
+            data_written_lane: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn no_external_fallback(self) -> bool {
+        !self.object_store_io
+            && !self.table_catalog_io
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexLocalIoCoverageReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub selected_reader_lane: &'static str,
+    pub selected_writer_lane: &'static str,
+    pub rows: Vec<VortexLocalIoCoverageRow>,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub data_written: bool,
+    pub object_store_io: bool,
+    pub table_catalog_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexLocalIoCoverageReport {
+    #[must_use]
+    pub fn current() -> Self {
+        Self {
+            schema_version: "shardloom.vortex_local_io_coverage.v1",
+            report_id: "gar0005a.local_vortex_io.coverage",
+            gar_id: "GAR-0005-A",
+            selected_reader_lane: "local_vortex_primitive_scan_filter_project",
+            selected_writer_lane: "native_count_output_payload_write",
+            rows: vec![
+                VortexLocalIoCoverageRow::local_primitive_scan_reader(),
+                VortexLocalIoCoverageRow::native_count_payload_writer(),
+                VortexLocalIoCoverageRow::broad_local_writer_blocked(),
+            ],
+            claim_gate_status: "scoped_evidence_only",
+            claim_boundary: "local primitive scan lanes and one native count payload writer only; no object-store, broad schema/encoding writer, table/catalog, lakehouse, SQL/DataFrame, or performance claim",
+            runtime_execution: false,
+            data_read: false,
+            data_written: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.lane_id).collect()
+    }
+
+    #[must_use]
+    pub fn runtime_lane_ids(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.support_status.runtime_available())
+            .map(|row| row.lane_id)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn blocked_lane_ids(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.support_status.is_blocked())
+            .map(|row| row.lane_id)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn runtime_lane_count(&self) -> usize {
+        self.runtime_lane_ids().len()
+    }
+
+    #[must_use]
+    pub fn blocked_lane_count(&self) -> usize {
+        self.blocked_lane_ids().len()
+    }
+
+    #[must_use]
+    pub fn selected_lanes_classified(&self) -> bool {
+        self.rows
+            .iter()
+            .any(|row| row.lane_id == self.selected_reader_lane && row.runtime_lane_available)
+            && self
+                .rows
+                .iter()
+                .any(|row| row.lane_id == self.selected_writer_lane && row.runtime_lane_available)
+    }
+
+    #[must_use]
+    pub fn no_external_fallback(&self) -> bool {
+        !self.object_store_io
+            && !self.table_catalog_io
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && self
+                .rows
+                .iter()
+                .copied()
+                .all(VortexLocalIoCoverageRow::no_external_fallback)
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "local Vortex IO coverage\nschema_version: {}\nreport: {}\nselected reader lane: {}\nselected writer lane: {}\nruntime lane count: {}\nblocked lane count: {}\nclaim gate: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.selected_reader_lane,
+            self.selected_writer_lane,
+            self.runtime_lane_count(),
+            self.blocked_lane_count(),
+            self.claim_gate_status,
+        )
+    }
+}
+
 /// Typed `DType` mapping status for the Vortex adapter boundary.
 ///
 /// This reports adapter capability only and does not perform Vortex IO.
@@ -1066,6 +1345,48 @@ mod tests {
                 && *status == VortexAdapterCapabilityStatus::BlockedOnApiDiscovery
         }));
     }
+
+    #[test]
+    fn local_io_coverage_classifies_reader_and_writer_lanes() {
+        let report = VortexLocalIoCoverageReport::current();
+        assert_eq!(report.gar_id, "GAR-0005-A");
+        assert!(report.selected_lanes_classified());
+        assert_eq!(report.runtime_lane_count(), 2);
+        assert_eq!(report.blocked_lane_count(), 1);
+        assert!(
+            report
+                .runtime_lane_ids()
+                .contains(&"local_vortex_primitive_scan_filter_project")
+        );
+        assert!(
+            report
+                .runtime_lane_ids()
+                .contains(&"native_count_output_payload_write")
+        );
+        assert!(
+            report
+                .blocked_lane_ids()
+                .contains(&"general_local_schema_encoding_writer")
+        );
+        assert!(report.no_external_fallback());
+        assert!(!report.runtime_execution);
+        assert!(!report.data_read);
+        assert!(!report.data_written);
+    }
+
+    #[test]
+    fn local_io_coverage_preserves_claim_boundary() {
+        let report = VortexLocalIoCoverageReport::current();
+        let text = report.to_human_text();
+        assert!(text.contains("gar0005a.local_vortex_io.coverage"));
+        assert!(text.contains("fallback execution: disabled"));
+        assert!(
+            report
+                .claim_boundary
+                .contains("no object-store, broad schema/encoding writer")
+        );
+    }
+
     #[test]
     fn map_dtype_bool_boolean() {
         assert_eq!(map_known_vortex_dtype_name("bool"), LogicalDType::Boolean);

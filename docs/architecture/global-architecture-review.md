@@ -126,15 +126,22 @@ plan before coding.
 ### RFC 0005 - Vortex-Native File IO and Output Contract
 
 - Source: [`docs/rfcs/0005-vortex-native-file-io-output.md`](../rfcs/0005-vortex-native-file-io-output.md)
-- Current read: Vortex is first-class, but broad writer support remains gated.
+- Current read: Vortex is first-class. GAR-0005-A now exposes scoped local reader/writer coverage,
+  but broad writer support remains gated.
 - Evidence: `shardloom-vortex/src/file_io.rs`, `shardloom-vortex/src/metadata_async_boundary.rs`,
   `shardloom-vortex/src/read_planning.rs`, `shardloom-vortex/src/write_intent.rs`,
-  `shardloom-vortex/src/output_payload.rs`, `shardloom-vortex/Cargo.toml`
+  `shardloom-vortex/src/output_payload.rs`, `shardloom-vortex/src/adapter.rs`,
+  `shardloom-cli/src/vortex_planning.rs`, `shardloom-cli/Cargo.toml`,
+  `shardloom-vortex/Cargo.toml`
 - [x] Vortex-native file I/O, metadata-first planning, staged output, and write-intent surfaces
   exist.
 - [x] Feature-gated Vortex write support is explicitly separated from unsupported paths.
+- [x] GAR-0005-A adds `shardloom.vortex_local_io_coverage.v1` through `vortex-api-inventory`,
+  classifying the scoped local primitive scan reader lane, the feature-gated native CountAll output
+  payload writer lane, broad local writer blockers, claim boundaries, and no-fallback/no-external
+  engine fields.
 - [ ] Broad Vortex reader/writer support, object-store Vortex I/O, general schema/encoding writes,
-  and upstream Vortex write integration remain incomplete.
+  table/catalog integration, lakehouse output, and production writer claims remain incomplete.
 
 ### RFC 0006 - Statistics, Pruning, and Metadata-Only Execution
 

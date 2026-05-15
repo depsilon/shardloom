@@ -175,3 +175,57 @@ fn vortex_api_inventory_keeps_segment_extraction_report_effect_free() {
         "false"
     )));
 }
+
+#[test]
+fn vortex_api_inventory_exposes_gar0005a_local_io_coverage() {
+    let output = run_vortex_api_inventory_json();
+
+    assert!(output.contains(&field(
+        "vortex_local_io_schema_version",
+        "shardloom.vortex_local_io_coverage.v1"
+    )));
+    assert!(output.contains(&field(
+        "vortex_local_io_report_id",
+        "gar0005a.local_vortex_io.coverage"
+    )));
+    assert!(output.contains(&field("vortex_local_io_gar_id", "GAR-0005-A")));
+    assert!(output.contains(&field(
+        "vortex_local_io_selected_reader_lane",
+        "local_vortex_primitive_scan_filter_project"
+    )));
+    assert!(output.contains(&field(
+        "vortex_local_io_selected_writer_lane",
+        "native_count_output_payload_write"
+    )));
+    assert!(output.contains(&field("vortex_local_io_runtime_lane_count", "2")));
+    assert!(output.contains(&field("vortex_local_io_blocked_lane_count", "1")));
+    assert!(output.contains(&field(
+        "vortex_local_io_reader_feature_gate",
+        "vortex-local-primitives"
+    )));
+    assert!(output.contains(&field(
+        "vortex_local_io_writer_feature_gate",
+        "vortex-write"
+    )));
+    assert!(output.contains(&field(
+        "vortex_local_io_writer_status",
+        "feature_gated_runtime"
+    )));
+    assert!(output.contains(&field("vortex_local_io_broad_writer_status", "blocked")));
+}
+
+#[test]
+fn vortex_api_inventory_keeps_local_io_inventory_effect_free() {
+    let output = run_vortex_api_inventory_json();
+
+    assert!(output.contains(&field(
+        "vortex_local_io_inventory_runtime_execution",
+        "false"
+    )));
+    assert!(output.contains(&field("vortex_local_io_inventory_data_read", "false")));
+    assert!(output.contains(&field("vortex_local_io_inventory_data_written", "false")));
+    assert!(output.contains(&field("vortex_local_io_object_store_io", "false")));
+    assert!(output.contains(&field("vortex_local_io_table_catalog_io", "false")));
+    assert!(output.contains(&field("vortex_local_io_external_engine_invoked", "false")));
+    assert!(output.contains(&field("vortex_local_io_fallback_attempted", "false")));
+}
