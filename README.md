@@ -1,6 +1,12 @@
 # ShardLoom
 
-Website: [shardloom.io](https://shardloom.io) (domain reserved; public site content pending).
+Website: [shardloom.io](https://shardloom.io) (pre-release, claim-safe static site deployed from
+`website/`).
+
+The website includes rendered snapshots of this README, the compute-engine flow reference, and the
+current prepared/native benchmark evidence. Those pages are documentation and evidence surfaces,
+not performance, Spark replacement, production SQL/DataFrame, object-store, lakehouse, or Foundry
+claims.
 
 ShardLoom is a standalone encoded-columnar execution engine for computing directly over
 Vortex-native layouts, preserving encoded representation where possible, and producing Vortex-native
@@ -131,6 +137,8 @@ Currently wired surfaces include:
   checkpoint writes, retry attempts, cleanup execution, and commit-record writes
 - a local benchmark harness with taxonomy metadata, separate timing and coverage tables,
   reproducibility checks, local optional baselines, and explicit unsupported/blocked rows
+- a static website under `website/` that renders the root README, the compute-engine flow reference,
+  and a claim-safe prepared/native benchmark evidence snapshot for Cloudflare Workers Static Assets
 - Vortex-first architecture docs and guardrails for treating upstream Vortex APIs as native providers
   only when they are policy-admitted and certificate-backed
 

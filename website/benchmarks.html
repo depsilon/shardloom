@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom Benchmark Evidence</title>
+  <meta name="description" content="Claim-safe prepared/native local benchmark evidence for ShardLoom.">
+  <link rel="canonical" href="https://shardloom.io/benchmarks.html">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span>ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="active" href="/benchmarks.html">Benchmarks</a>
+<a class="" href="/compute-engine-flow.html">Compute Flow</a>
+<a class="" href="/readme.html">README</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <section class="doc-hero benchmark-hero">
+      <div class="shell">
+        <p class="eyebrow">Local evidence snapshot</p>
+        <h1>Benchmark Evidence</h1>
+        <p class="lede">Current prepared/native benchmark smoke evidence for ShardLoom. These rows are raw local measurements and evidence fields, not performance, superiority, Spark replacement, production SQL/DataFrame, object-store, lakehouse, or Foundry claims.</p>
+        <div class="metric-grid">
+          <div class="metric"><strong>20</strong><span>ShardLoom timing rows</span></div>
+          <div class="metric"><strong>10</strong><span>source-backed scan rows</span></div>
+          <div class="metric"><strong>1</strong><span>encoded predicate rows</span></div>
+          <div class="metric"><strong>2</strong><span>batch mode smoke rows</span></div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Claim Boundary</h2>
+        <div class="boundary-grid">
+          <article><strong>Allowed interpretation</strong><span>local one-iteration smoke evidence and direct CLI evidence only</span></article>
+          <article><strong>Performance claim</strong><span>not allowed</span></article>
+          <article><strong>Spark replacement claim</strong><span>not allowed</span></article>
+          <article><strong>Production platform claim</strong><span>not allowed</span></article>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Execution Mode Timing</h2>
+        <p class="section-lede">Compatibility import rows, prepared Vortex rows, and native Vortex batch rows are separated. Compatibility rows include ingest/stage/certification work; prepared/native rows start from prepared Vortex artifacts.</p>
+        <div class="table-scroll"><table>
+<thead><tr><th>Scenario</th><th>Engine</th><th>Mode</th><th>Claim gate</th><th>Query runtime ms</th><th>Source read ms</th><th>Compat parse ms</th><th>Import ms</th><th>Vortex write ms</th><th>Vortex reopen ms</th><th>Vortex scan ms</th><th>Operator ms</th><th>Sink ms</th><th>Evidence ms</th><th>Total ms</th><th>Operator class</th><th>Fallback</th><th>External engine</th></tr></thead><tbody>
+<tr><td>csv: selective filter</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>217.4528</td><td>31.642</td><td>31.642</td><td>123.927</td><td>89.603</td><td>4.314</td><td>4.314</td><td>4.314</td><td>8.718</td><td>n/a</td><td>217.4528</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>csv: filter + projection + limit</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>179.9092</td><td>9.109</td><td>9.109</td><td>108.947</td><td>99.083</td><td>4.815</td><td>4.815</td><td>4.815</td><td>9.696</td><td>n/a</td><td>179.9092</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>csv: group by aggregation</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>211.0017</td><td>7.473</td><td>7.473</td><td>99.204</td><td>90.762</td><td>29.092</td><td>29.092</td><td>29.092</td><td>11.263</td><td>n/a</td><td>211.0017</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>csv: hash join</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>198.7691</td><td>10.33</td><td>10.33</td><td>112.47</td><td>100.182</td><td>16.685</td><td>16.685</td><td>16.685</td><td>10.94</td><td>n/a</td><td>198.7691</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>csv: top-N per group</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>230.9509</td><td>11.194</td><td>11.194</td><td>103.232</td><td>90.479</td><td>11.584</td><td>11.584</td><td>11.584</td><td>10.588</td><td>n/a</td><td>230.9509</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>csv: selective filter</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>75.2072</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>2.989</td><td>2.989</td><td>10.49</td><td>n/a</td><td>75.2072</td><td>residual_native</td><td>False</td><td>False</td></tr>
+<tr><td>csv: filter + projection + limit</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>59.6476</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>1.775</td><td>1.775</td><td>10.087</td><td>n/a</td><td>59.6476</td><td>residual_native</td><td>False</td><td>False</td></tr>
+<tr><td>csv: group by aggregation</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>75.9114</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>4.702</td><td>4.702</td><td>11.116</td><td>n/a</td><td>75.9114</td><td>residual_native</td><td>False</td><td>False</td></tr>
+<tr><td>csv: hash join</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>62.3709</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>4.591</td><td>4.591</td><td>11.136</td><td>n/a</td><td>62.3709</td><td>residual_native</td><td>False</td><td>False</td></tr>
+<tr><td>csv: top-N per group</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>71.8401</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>2.904</td><td>2.904</td><td>11.206</td><td>n/a</td><td>71.8401</td><td>residual_native</td><td>False</td><td>False</td></tr>
+<tr><td>csv: clean/cast/filter/write</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>286.8589</td><td>32.761</td><td>32.761</td><td>138.929</td><td>103.759</td><td>9.403</td><td>9.403</td><td>9.403</td><td>11.65</td><td>n/a</td><td>286.8589</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>csv: malformed timestamp / dirty CSV</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>246.3243</td><td>15.313</td><td>15.313</td><td>127.373</td><td>110.783</td><td>11.915</td><td>11.915</td><td>11.915</td><td>10.677</td><td>n/a</td><td>246.3243</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>csv: clean/cast/filter/write</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>90.3358</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>8.285</td><td>8.285</td><td>9.332</td><td>n/a</td><td>90.3358</td><td>residual_native</td><td>False</td><td>False</td></tr>
+<tr><td>csv: malformed timestamp / dirty CSV</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>86.4517</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>5.817</td><td>5.817</td><td>12.093</td><td>n/a</td><td>86.4517</td><td>residual_native</td><td>False</td><td>False</td></tr>
+<tr><td>jsonl: nested JSON field scan</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>240.088</td><td>70.499</td><td>70.499</td><td>146.273</td><td>73.899</td><td>12.371</td><td>12.371</td><td>12.371</td><td>7.144</td><td>n/a</td><td>240.088</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>jsonl: nested JSON field scan</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>59.7508</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>6.088</td><td>6.088</td><td>7.234</td><td>n/a</td><td>59.7508</td><td>residual_native</td><td>False</td><td>False</td></tr>
+<tr><td>csv: null-heavy aggregate</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>256.3304</td><td>36.813</td><td>36.813</td><td>140.796</td><td>101.309</td><td>9.741</td><td>9.741</td><td>9.741</td><td>8.732</td><td>n/a</td><td>256.3304</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>csv: null-heavy aggregate</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>83.5039</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>3.592</td><td>3.592</td><td>8.199</td><td>n/a</td><td>83.5039</td><td>residual_native</td><td>False</td><td>False</td></tr>
+<tr><td>csv: small change over large base</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>307.0752</td><td>34.798</td><td>34.798</td><td>160.088</td><td>122.836</td><td>18.53</td><td>18.53</td><td>18.53</td><td>8.972</td><td>n/a</td><td>307.0752</td><td>materialized_temporary</td><td>False</td><td>False</td></tr>
+<tr><td>csv: small change over large base</td><td>shardloom-prepared-vortex</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>222.3343</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>4.455</td><td>4.455</td><td>10.733</td><td>n/a</td><td>222.3343</td><td>residual_native</td><td>False</td><td>False</td></tr>
+</tbody></table></div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Prepared And Native Batch Smoke</h2>
+        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the single-process batch runner explicit. They are not a persistent daemon or hidden fast mode.</p>
+        <div class="table-scroll"><table>
+<thead><tr><th>Requested mode</th><th>Selected modes</th><th>Runner</th><th>Scenarios</th><th>Scenario compute ms</th><th>Vortex scan ms</th><th>Claim gate</th><th>Fallback</th><th>External engine</th><th>Performance claim</th></tr></thead><tbody>
+<tr><td>prepared_vortex</td><td>prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex</td><td>single_process_prepared_native_batch</td><td>5</td><td>26.337</td><td>26.337</td><td>fixture_smoke_only</td><td>false</td><td>false</td><td>false</td></tr>
+<tr><td>native_vortex</td><td>native_vortex,native_vortex,native_vortex,native_vortex,native_vortex</td><td>single_process_prepared_native_batch</td><td>5</td><td>10.651</td><td>10.651</td><td>fixture_smoke_only</td><td>false</td><td>false</td><td>false</td></tr>
+</tbody></table></div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Encoded Predicate Provider Evidence</h2>
+        <p class="section-lede">Applicable to the selective-filter prepared/native row. The row records admitted filter-column batches and selected-metric selection-vector consumption, but still blocks encoded-native and performance claims.</p>
+        <div class="table-scroll"><table>
+<thead><tr><th>Scenario</th><th>Provider status</th><th>Filter columns</th><th>Encoding summary</th><th>Selection consumed</th><th>Selected rows</th><th>Decoded</th><th>Materialized</th><th>Encoded-native claim</th></tr></thead><tbody>
+<tr><td>csv: selective filter</td><td>reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted</td><td>flag,value</td><td>flag:fastlanes.bitpacked,value:fastlanes.bitpacked</td><td>true</td><td>714</td><td>true</td><td>false</td><td>false</td></tr>
+</tbody></table></div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Source-Backed Scan Evidence</h2>
+        <p class="section-lede">Prepared rows expose Vortex source-backed scan fields and no-fallback evidence instead of relabeling residual-native operators as encoded-native.</p>
+        <div class="table-scroll"><table>
+<thead><tr><th>Scenario</th><th>Provider</th><th>Projected columns</th><th>Rows scanned</th><th>Materialized</th><th>Native I/O</th><th>Claim gate</th><th>Fallback</th><th>External engine</th></tr></thead><tbody>
+<tr><td>csv: selective filter</td><td>vortex_file_projected_scan</td><td>metric</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+<tr><td>csv: filter + projection + limit</td><td>vortex_file_projected_scan</td><td>id,value</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+<tr><td>csv: group by aggregation</td><td>vortex_file_projected_scan</td><td>group_key,metric</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+<tr><td>csv: hash join</td><td>vortex_file_projected_scan</td><td>dim.dim_key,dim.dim_label,fact.dim_key,fact.metric</td><td>11000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+<tr><td>csv: top-N per group</td><td>vortex_file_projected_scan</td><td>group_key,id,metric</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+<tr><td>csv: clean/cast/filter/write</td><td>vortex_file_projected_scan</td><td>raw_event_time,dirty_numeric,dirty_flag</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+<tr><td>csv: malformed timestamp / dirty CSV</td><td>vortex_file_projected_scan</td><td>raw_event_time,dirty_numeric</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+<tr><td>jsonl: nested JSON field scan</td><td>vortex_file_projected_scan</td><td>nested_payload</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+<tr><td>csv: null-heavy aggregate</td><td>vortex_file_projected_scan</td><td>nullable_metric_00</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+<tr><td>csv: small change over large base</td><td>vortex_file_projected_scan</td><td>base.id,base.metric,cdc_delta.id,cdc_delta.op,cdc_delta.value,cdc_delta.metric,cdc_delta.effective_ts</td><td>10030</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+</tbody></table></div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Materialization, Decode, And No-Fallback</h2>
+        <p class="section-lede">These fields make decode/materialization boundaries explicit for prepared rows.</p>
+        <div class="table-scroll"><table>
+<thead><tr><th>Scenario</th><th>Decoded</th><th>Materialized</th><th>Row read</th><th>Arrow converted</th><th>Boundary report</th><th>Native I/O</th><th>Fallback</th><th>External engine</th></tr></thead><tbody>
+<tr><td>csv: selective filter</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+<tr><td>csv: filter + projection + limit</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+<tr><td>csv: group by aggregation</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+<tr><td>csv: hash join</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+<tr><td>csv: top-N per group</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+<tr><td>csv: clean/cast/filter/write</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+<tr><td>csv: malformed timestamp / dirty CSV</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+<tr><td>jsonl: nested JSON field scan</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+<tr><td>csv: null-heavy aggregate</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+<tr><td>csv: small change over large base</td><td>true</td><td>false</td><td>false</td><td>false</td><td>true</td><td>certified</td><td>false</td><td>false</td></tr>
+</tbody></table></div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Table Metadata Smoke</h2>
+        <p class="section-lede">The local table metadata smoke is included only as scoped metadata evidence, not as a lakehouse/catalog runtime benchmark.</p>
+        <div class="table-scroll"><table>
+<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>schema_version</td><td>shardloom.local_table_metadata_read_smoke.v1</td></tr>
+<tr><td>support_status</td><td>runtime_supported</td></tr>
+<tr><td>claim_gate_status</td><td>scoped_local_metadata_smoke_only</td></tr>
+<tr><td>catalog_kind</td><td>local_manifest</td></tr>
+<tr><td>dataset_format</td><td>vortex</td></tr>
+<tr><td>declared_row_count</td><td>8</td></tr>
+<tr><td>partition_count</td><td></td></tr>
+<tr><td>fallback_attempted</td><td>false</td></tr>
+<tr><td>external_engine_invoked</td><td>false</td></tr>
+<tr><td>performance_claim_allowed</td><td>false</td></tr>
+<tr><td>claim_boundary</td><td>one in-memory local manifest-backed metadata summary; no data file read, object-store read, credential resolution, write, CDC/delete execution, lakehouse, SQL/DataFrame, Foundry, production, or performance claim</td></tr>
+</tbody></table></div>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <h2>Evidence Artifacts</h2>
+        <p class="section-lede">The raw smoke artifacts were generated under <code>target\shardloom-benchmark-evidence</code>. The website commits the summarized, claim-safe snapshot in <code>website/assets/data/benchmark-evidence.json</code>.</p>
+        <ul class="artifact-list"><li><code>target\shardloom-benchmark-evidence\prepared_native_core.json</code> - profile <code>narrow_fact_dim</code>, 10000 rows</li>
+<li><code>target\shardloom-benchmark-evidence\prepared_native_dirty_csv.json</code> - profile <code>dirty_csv</code>, 10000 rows</li>
+<li><code>target\shardloom-benchmark-evidence\prepared_native_nested_json.json</code> - profile <code>nested_json</code>, 10000 rows</li>
+<li><code>target\shardloom-benchmark-evidence\prepared_native_null_heavy.json</code> - profile <code>null_heavy</code>, 10000 rows</li>
+<li><code>target\shardloom-benchmark-evidence\prepared_native_cdc_overlay.json</code> - profile <code>cdc_delta_overlay</code>, 10000 rows</li></ul>
+      </div>
+    </section>
+    </main>
+  <footer>
+    <div class="shell">Apache-2.0 project code. ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</div>
+  </footer>
+</body>
+</html>

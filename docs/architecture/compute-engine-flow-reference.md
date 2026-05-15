@@ -33,6 +33,10 @@ The repo-alignment review and completed overhaul mapping live in:
 docs/architecture/compute-engine-flow-overhaul-review.md
 ```
 
+The website renders this file as `website/compute-engine-flow.html` through
+`website/build_static_pages.py`. Keep this Markdown document as the canonical source; the generated
+page is a static publication surface for readers who need the same flow outside GitHub.
+
 ## One-Sentence Vision
 
 ShardLoom should let users run local and planned platform data workflows through explicit execution

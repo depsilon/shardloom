@@ -34,6 +34,27 @@ flow tables and Mermaid node labels, and renders the current access, runtime, ex
 batch/live/hybrid, I/O/downstream, timing, and guardrail summaries. If the fetch fails, the page
 uses embedded claim-safe fallback copy.
 
+## Generated Static Pages
+
+The site also commits static rendered pages so Cloudflare can serve the current repo state without
+running a build step:
+
+- `benchmarks.html`: claim-safe benchmark evidence snapshot generated from local artifacts under
+  `target/shardloom-benchmark-evidence/`.
+- `compute-engine-flow.html`: rendered
+  `docs/architecture/compute-engine-flow-reference.md`.
+- `readme.html`: rendered root `README.md`.
+- `assets/data/benchmark-evidence.json`: normalized benchmark evidence used by `benchmarks.html`.
+
+Regenerate those pages locally after refreshing benchmark evidence or changing the rendered docs:
+
+```powershell
+python website\build_static_pages.py --benchmark-dir target\shardloom-benchmark-evidence
+```
+
+The generator is a standard-library Python helper for maintainers. Cloudflare still serves committed
+static files from `website/`; it does not run the generator during deployment.
+
 ## Content Rules
 
 Website copy must stay claim-safe:
@@ -45,10 +66,16 @@ Website copy must stay claim-safe:
 - Do not claim production SQL or DataFrame runtime support.
 - Do not claim production object-store, lakehouse, or Foundry support.
 - Do not make performance, superiority, or best-default claims.
+- Benchmark pages must preserve `claim_gate_status`, execution-mode separation, materialization and
+  no-fallback evidence, and the boundary that local smoke evidence is not claim-grade performance
+  proof.
 
 ## Files
 
 - `index.html`: main static page.
+- `benchmarks.html`: generated benchmark evidence snapshot.
+- `compute-engine-flow.html`: generated rendered architecture reference.
+- `readme.html`: generated rendered repository README.
 - `404.html`: custom 404 page.
 - `robots.txt`: crawler policy.
 - `sitemap.xml`: production sitemap for `https://shardloom.io/`.
@@ -59,6 +86,9 @@ Website copy must stay claim-safe:
 - `assets/logo/shardloom-logo-trim.png`: trimmed ShardLoom logo asset.
 - `assets/logo/shardloom-favicon.png`: icon/favicon asset.
 - `assets/compute-flow.js`: first-party parser for the canonical compute-engine flow reference.
+- `assets/site.css`: shared CSS for generated static pages.
+- `assets/data/benchmark-evidence.json`: generated benchmark evidence snapshot data.
+- `build_static_pages.py`: local maintainer helper for regenerating the committed static pages.
 
 Do not add a second license file under this directory. Project code remains under the repository
 Apache-2.0 license. ShardLoom names, logos, and icons are brand assets; see `BRAND.md`.
