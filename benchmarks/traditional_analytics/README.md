@@ -324,7 +324,12 @@ means the CLI process wall time is shared across the grouped rows; per-scenario
 `computed_result_sink_write_micros` remain row-level evidence fields. This is a runtime support
 slice for scoped local prepared/native process, source-metadata, dimension-label source-state,
 category/metric source-state reuse, group/category/metric source-state reuse, ranked-metric
-source-state reuse, and dirty-input source-state reuse. Sort/top-k, top-N per group, and
+source-state reuse, selective-filter source-state reuse, and dirty-input source-state reuse.
+Selective-filter plus filter/projection/limit child scenarios share one per-batch filtered
+`id,value,metric` state when both are present and emit
+`source_state_reuse_status=per_batch_selective_filter_state_reused` plus family-specific
+`source_state_selective_filter_*` fields such as
+`source_state_selective_filter_reuse_status`. Sort/top-k, top-N per group, and
 row-number/window child scenarios share one
 per-batch `group_key,id,metric` ranked state when multiple ranked consumers are present and emit
 `source_state_reuse_status=per_batch_ranked_metric_state_reused` plus family-specific

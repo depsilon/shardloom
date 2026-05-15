@@ -900,6 +900,60 @@ impl TraditionalRankedMetricState {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
+struct TraditionalFilteredProjectionRow {
+    id: u64,
+    value: u32,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+struct TraditionalSelectiveFilterState {
+    selected_metric_accum: TraditionalGroupAccum,
+    filtered_projection_rows: Vec<TraditionalFilteredProjectionRow>,
+    stats: TraditionalStreamingScanStats,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalSelectiveFilterState {
+    fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
+        let mut selected_metric_accum = TraditionalGroupAccum::default();
+        let mut filtered_projection_rows = Vec::new();
+        let stats = scan_fact_vortex_projected(
+            fact_vortex,
+            &["id", "value", "metric"],
+            Some(selective_filter_expr()),
+            |fields, chunk_rows| {
+                let ids = primitive_field::<u64>(fields, "id")?;
+                let values = primitive_field::<u32>(fields, "value")?;
+                let metrics = primitive_field::<f64>(fields, "metric")?;
+                if ids.len() != chunk_rows
+                    || values.len() != chunk_rows
+                    || metrics.len() != chunk_rows
+                {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "batch selective filter state Vortex chunk length mismatch: chunk_rows={chunk_rows}, id_len={}, value_len={}, metric_len={}",
+                        ids.len(),
+                        values.len(),
+                        metrics.len()
+                    )));
+                }
+                for ((id, value), metric) in ids.into_iter().zip(values).zip(metrics) {
+                    selected_metric_accum.add(metric);
+                    filtered_projection_rows.push(TraditionalFilteredProjectionRow { id, value });
+                }
+                Ok(())
+            },
+        )?;
+        Ok(Self {
+            selected_metric_accum,
+            filtered_projection_rows,
+            stats,
+        })
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
 struct TraditionalDirtyInputState {
     clean_cast_accum: TraditionalGroupAccum,
     malformed_timestamp_accum: TraditionalGroupAccum,
@@ -1001,6 +1055,8 @@ struct TraditionalVortexBatchSourceState {
     group_category_metric_state_consumer_count: usize,
     ranked_metric_state: Option<TraditionalRankedMetricState>,
     ranked_metric_state_consumer_count: usize,
+    selective_filter_state: Option<TraditionalSelectiveFilterState>,
+    selective_filter_state_consumer_count: usize,
     dirty_input_state: Option<TraditionalDirtyInputState>,
     dirty_input_state_consumer_count: usize,
 }
@@ -1051,6 +1107,15 @@ impl TraditionalVortexBatchSourceState {
         } else {
             None
         };
+        let selective_filter_state_consumer_count = scenarios
+            .iter()
+            .filter(|scenario| selective_filter_state_reuse_candidate(**scenario))
+            .count();
+        let selective_filter_state = if selective_filter_state_consumer_count > 1 {
+            Some(TraditionalSelectiveFilterState::from_path(fact_vortex)?)
+        } else {
+            None
+        };
         let dirty_input_state_consumer_count = scenarios
             .iter()
             .filter(|scenario| dirty_input_state_reuse_candidate(**scenario))
@@ -1070,6 +1135,8 @@ impl TraditionalVortexBatchSourceState {
             group_category_metric_state_consumer_count,
             ranked_metric_state,
             ranked_metric_state_consumer_count,
+            selective_filter_state,
+            selective_filter_state_consumer_count,
             dirty_input_state,
             dirty_input_state_consumer_count,
         })
@@ -1090,6 +1157,10 @@ impl TraditionalVortexBatchSourceState {
 
     fn ranked_metric_state_recompute_avoided_count(&self) -> usize {
         self.ranked_metric_state_consumer_count.saturating_sub(1)
+    }
+
+    fn selective_filter_state_recompute_avoided_count(&self) -> usize {
+        self.selective_filter_state_consumer_count.saturating_sub(1)
     }
 
     fn dirty_input_state_recompute_avoided_count(&self) -> usize {
@@ -1130,6 +1201,15 @@ fn ranked_metric_state_reuse_candidate(scenario: TraditionalAnalyticsScenario) -
         TraditionalAnalyticsScenario::SortAndTopK
             | TraditionalAnalyticsScenario::TopNPerGroup
             | TraditionalAnalyticsScenario::RowNumberWindow
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selective_filter_state_reuse_candidate(scenario: TraditionalAnalyticsScenario) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::SelectiveFilter
+            | TraditionalAnalyticsScenario::FilterProjectionLimit
     )
 }
 
@@ -2778,6 +2858,8 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub group_category_metric_state_recompute_avoided_count: usize,
     pub ranked_metric_state_consumer_count: usize,
     pub ranked_metric_state_recompute_avoided_count: usize,
+    pub selective_filter_state_consumer_count: usize,
+    pub selective_filter_state_recompute_avoided_count: usize,
     pub dirty_input_state_consumer_count: usize,
     pub dirty_input_state_recompute_avoided_count: usize,
     pub total_scenario_compute_micros: u64,
@@ -3011,6 +3093,28 @@ impl TraditionalAnalyticsVortexBatchReport {
                 self.ranked_metric_state_recompute_avoided_count.to_string(),
             ),
             (
+                "source_state_selective_filter_reuse_status".to_string(),
+                self.selective_filter_state_reuse_status().to_string(),
+            ),
+            (
+                "source_state_selective_filter_reused".to_string(),
+                (self.selective_filter_state_recompute_avoided_count > 0).to_string(),
+            ),
+            (
+                "source_state_selective_filter_reuse_scope".to_string(),
+                "selective_filter_state_for_selective_filter_and_filter_projection_limit"
+                    .to_string(),
+            ),
+            (
+                "source_state_selective_filter_reuse_consumer_count".to_string(),
+                self.selective_filter_state_consumer_count.to_string(),
+            ),
+            (
+                "source_state_selective_filter_recompute_avoided_count".to_string(),
+                self.selective_filter_state_recompute_avoided_count
+                    .to_string(),
+            ),
+            (
                 "source_state_dirty_input_reuse_status".to_string(),
                 self.dirty_input_state_reuse_status().to_string(),
             ),
@@ -3142,6 +3246,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             + self.category_metric_state_consumer_count
             + self.group_category_metric_state_consumer_count
             + self.ranked_metric_state_consumer_count
+            + self.selective_filter_state_consumer_count
             + self.dirty_input_state_consumer_count
     }
 
@@ -3150,6 +3255,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             + self.category_metric_state_recompute_avoided_count
             + self.group_category_metric_state_recompute_avoided_count
             + self.ranked_metric_state_recompute_avoided_count
+            + self.selective_filter_state_recompute_avoided_count
             + self.dirty_input_state_recompute_avoided_count
     }
 
@@ -3158,6 +3264,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             + usize::from(self.category_metric_state_consumer_count > 0)
             + usize::from(self.group_category_metric_state_consumer_count > 0)
             + usize::from(self.ranked_metric_state_consumer_count > 0)
+            + usize::from(self.selective_filter_state_consumer_count > 0)
             + usize::from(self.dirty_input_state_consumer_count > 0)
     }
 
@@ -3178,6 +3285,9 @@ impl TraditionalAnalyticsVortexBatchReport {
         }
         if self.ranked_metric_state_consumer_count > 0 {
             scopes.push("ranked_metric_rows_for_sort_top_k_top_n_per_group_and_row_number_window");
+        }
+        if self.selective_filter_state_consumer_count > 0 {
+            scopes.push("selective_filter_state_for_selective_filter_and_filter_projection_limit");
         }
         if self.dirty_input_state_consumer_count > 0 {
             scopes.push(
@@ -3205,6 +3315,9 @@ impl TraditionalAnalyticsVortexBatchReport {
         if self.ranked_metric_state_recompute_avoided_count > 0 {
             reused_statuses.push(self.ranked_metric_state_reuse_status());
         }
+        if self.selective_filter_state_recompute_avoided_count > 0 {
+            reused_statuses.push(self.selective_filter_state_reuse_status());
+        }
         if self.dirty_input_state_recompute_avoided_count > 0 {
             reused_statuses.push(self.dirty_input_state_reuse_status());
         }
@@ -3223,6 +3336,9 @@ impl TraditionalAnalyticsVortexBatchReport {
             }
             [] if self.ranked_metric_state_consumer_count > 0 => {
                 self.ranked_metric_state_reuse_status()
+            }
+            [] if self.selective_filter_state_consumer_count > 0 => {
+                self.selective_filter_state_reuse_status()
             }
             [] if self.dirty_input_state_consumer_count > 0 => {
                 self.dirty_input_state_reuse_status()
@@ -3262,6 +3378,14 @@ impl TraditionalAnalyticsVortexBatchReport {
             0 => "not_applicable_no_ranked_metric_state_consumers",
             1 => "not_prepared_single_consumer_uses_scenario_scan",
             _ => "per_batch_ranked_metric_state_reused",
+        }
+    }
+
+    fn selective_filter_state_reuse_status(&self) -> &'static str {
+        match self.selective_filter_state_consumer_count {
+            0 => "not_applicable_no_selective_filter_state_consumers",
+            1 => "not_prepared_single_consumer_uses_scenario_scan",
+            _ => "per_batch_selective_filter_state_reused",
         }
     }
 
@@ -7027,6 +7151,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     let ranked_metric_state_consumer_count = source_state.ranked_metric_state_consumer_count;
     let ranked_metric_state_recompute_avoided_count =
         source_state.ranked_metric_state_recompute_avoided_count();
+    let selective_filter_state_consumer_count = source_state.selective_filter_state_consumer_count;
+    let selective_filter_state_recompute_avoided_count =
+        source_state.selective_filter_state_recompute_avoided_count();
     let dirty_input_state_consumer_count = source_state.dirty_input_state_consumer_count;
     let dirty_input_state_recompute_avoided_count =
         source_state.dirty_input_state_recompute_avoided_count();
@@ -7108,6 +7235,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         group_category_metric_state_recompute_avoided_count,
         ranked_metric_state_consumer_count,
         ranked_metric_state_recompute_avoided_count,
+        selective_filter_state_consumer_count,
+        selective_filter_state_recompute_avoided_count,
         dirty_input_state_consumer_count,
         dirty_input_state_recompute_avoided_count,
         total_scenario_compute_micros,
@@ -10154,6 +10283,27 @@ fn run_vortex_derived_scenario_from_files_with_batch_source_state(
                 run_streaming_row_number_window_scenario(fact_path, dim_path)
             }
         }
+        TraditionalAnalyticsScenario::SelectiveFilter => {
+            if let Some(selective_state) = source_state.selective_filter_state.as_ref() {
+                run_streaming_selective_filter_scenario_with_selective_filter_state(
+                    fact_path,
+                    dim_path,
+                    selective_state,
+                )
+            } else {
+                run_streaming_selective_filter_scenario(fact_path, dim_path)
+            }
+        }
+        TraditionalAnalyticsScenario::FilterProjectionLimit => {
+            if let Some(selective_state) = source_state.selective_filter_state.as_ref() {
+                run_streaming_filter_projection_limit_scenario_with_selective_filter_state(
+                    dim_path,
+                    selective_state,
+                )
+            } else {
+                run_streaming_filter_projection_limit_scenario(fact_path, dim_path)
+            }
+        }
         TraditionalAnalyticsScenario::CleanCastFilterWrite => {
             if let Some(dirty_state) = source_state.dirty_input_state.as_ref() {
                 run_streaming_clean_cast_filter_write_scenario_with_dirty_input_state(
@@ -11393,6 +11543,45 @@ fn run_streaming_selective_filter_scenario(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_selective_filter_scenario_with_selective_filter_state(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+    selective_state: &TraditionalSelectiveFilterState,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut encoded_predicate_provider = scan_selective_filter_column_batches(fact_path)?;
+    encoded_predicate_provider.selected_metric_aggregation_status =
+        "batch_source_state_metric_aggregation_used".to_string();
+    encoded_predicate_provider.selected_metric_selection_vector_consumed = false;
+    encoded_predicate_provider.selected_metric_source =
+        "per_batch_selective_filter_source_state".to_string();
+    encoded_predicate_provider.selected_metric_row_count =
+        Some(selective_state.selected_metric_accum.row_count);
+    encoded_predicate_provider.selected_metric_sum =
+        Some(selective_state.selected_metric_accum.metric_sum);
+    encoded_predicate_provider.selected_metric_scan_split_count =
+        selective_state.stats.arrays_read_count;
+    encoded_predicate_provider.selected_metric_data_decoded = true;
+    encoded_predicate_provider.selected_metric_data_materialized = false;
+    let result_json = scalar_result_json(
+        selective_state.selected_metric_accum.row_count,
+        selective_state.selected_metric_accum.metric_sum,
+    );
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: selective_state.stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: selective_state.stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming_with_encoded_predicate_provider(
+            selective_state.stats.clone(),
+            encoded_predicate_provider,
+        ),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn scan_selective_filter_metric_by_selection_vectors(
     fact_path: &std::path::Path,
     selection_vectors: &[SelectionVector],
@@ -11718,7 +11907,7 @@ fn run_streaming_filter_projection_limit_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
-    let mut limited_rows = Vec::<(u64, u32)>::new();
+    let mut filtered_projection_rows = Vec::<TraditionalFilteredProjectionRow>::new();
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["id", "value"],
@@ -11734,18 +11923,12 @@ fn run_streaming_filter_projection_limit_scenario(
                 )));
             }
             for (id, value) in ids.into_iter().zip(values) {
-                limited_rows.push((id, value));
+                filtered_projection_rows.push(TraditionalFilteredProjectionRow { id, value });
             }
             Ok(())
         },
     )?;
-    limited_rows.sort_by_key(|(id, _)| *id);
-    limited_rows.truncate(100);
-    let mut accum = TraditionalGroupAccum::default();
-    for (_id, value) in limited_rows {
-        accum.add(f64::from(value));
-    }
-    let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
+    let result_json = filter_projection_limit_result_json(&filtered_projection_rows);
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -11755,6 +11938,37 @@ fn run_streaming_filter_projection_limit_scenario(
         rows_materialized: 1,
         evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_filter_projection_limit_scenario_with_selective_filter_state(
+    dim_path: &std::path::Path,
+    selective_state: &TraditionalSelectiveFilterState,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let result_json =
+        filter_projection_limit_result_json(&selective_state.filtered_projection_rows);
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: selective_state.stats.source_row_count,
+        dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: selective_state.stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(selective_state.stats.clone()),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn filter_projection_limit_result_json(rows: &[TraditionalFilteredProjectionRow]) -> String {
+    let mut limited_rows = rows.to_vec();
+    limited_rows.sort_by_key(|row| row.id);
+    limited_rows.truncate(100);
+    let mut accum = TraditionalGroupAccum::default();
+    for row in limited_rows {
+        accum.add(f64::from(row.value));
+    }
+    scalar_result_json(accum.row_count, accum.metric_sum)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -13863,9 +14077,9 @@ mod tests {
             "per_batch_dimension_label_state_reused",
         );
         assert_field_eq(&fields, "source_state_reused", "true");
-        assert_field_eq(&fields, "source_state_reuse_consumer_count", "3");
+        assert_field_eq(&fields, "source_state_reuse_consumer_count", "4");
         assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
-        assert_field_eq(&fields, "source_state_family_count", "2");
+        assert_field_eq(&fields, "source_state_family_count", "3");
         assert_field_eq(
             &fields,
             "source_state_dimension_label_reuse_status",
@@ -13894,6 +14108,12 @@ mod tests {
             "not_applicable_no_ranked_metric_state_consumers",
         );
         assert_field_eq(&fields, "source_state_ranked_metric_reused", "false");
+        assert_field_eq(
+            &fields,
+            "source_state_selective_filter_reuse_status",
+            "not_prepared_single_consumer_uses_scenario_scan",
+        );
+        assert_field_eq(&fields, "source_state_selective_filter_reused", "false");
         assert_field_eq(
             &fields,
             "source_state_prepare_timing_scope",
@@ -13954,6 +14174,150 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_group-by-aggregation_external_engine_invoked",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_native_vortex_batch_run_reuses_selective_filter_source_state() {
+        let root = traditional_analytics_test_root("prepared-native-selective-filter-state");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_native_vortex_replay_verification(true),
+        )
+        .unwrap();
+
+        let batch_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                    TraditionalAnalyticsScenario::FilterProjectionLimit,
+                ],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+
+        assert_eq!(batch_report.reports.len(), 2);
+        assert!(batch_report.all_native_io_certificates_certified);
+        assert!(
+            batch_report
+                .reports
+                .iter()
+                .all(|report| !report.fallback_execution_allowed)
+        );
+        let selective_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::SelectiveFilter)
+            .unwrap();
+        assert_eq!(
+            selective_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":6.5}"
+        );
+        let filter_projection_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::FilterProjectionLimit)
+            .unwrap();
+        assert_eq!(
+            filter_projection_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":14000.0}"
+        );
+
+        let fields = field_map(batch_report.fields());
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_status",
+            "per_batch_selective_filter_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_reused", "true");
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_scope",
+            "selective_filter_state_for_selective_filter_and_filter_projection_limit",
+        );
+        assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
+        assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
+        assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_field_eq(
+            &fields,
+            "source_state_selective_filter_reuse_status",
+            "per_batch_selective_filter_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_selective_filter_reused", "true");
+        assert_field_eq(
+            &fields,
+            "source_state_selective_filter_reuse_consumer_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_selective_filter_recompute_avoided_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_ranked_metric_reuse_status",
+            "not_applicable_no_ranked_metric_state_consumers",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_dirty_input_reuse_status",
+            "not_applicable_no_dirty_input_state_consumers",
+        );
+        assert_field_eq(&fields, "source_state_fallback_attempted", "false");
+        assert_field_eq(&fields, "source_state_external_engine_invoked", "false");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert_field_eq(&fields, "performance_claim_allowed", "false");
+        assert_field_eq(&fields, "spark_displacement_claim_allowed", "false");
+        assert_field_eq(&fields, "encoded_native_claim_allowed", "false");
+        assert_field_eq(
+            &fields,
+            "scenario_order",
+            "selective-filter,filter---projection---limit",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_source_backed_scan_projected_columns",
+            "id,value,metric",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_source_backed_scan_projected_columns",
+            "id,value,metric",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_encoded_predicate_provider_selected_metric_aggregation_status",
+            "batch_source_state_metric_aggregation_used",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_encoded_predicate_provider_selected_metric_source",
+            "per_batch_selective_filter_source_state",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_operator_execution_class",
+            "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_external_engine_invoked",
             "false",
         );
 
