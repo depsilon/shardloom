@@ -993,6 +993,14 @@ plan before coding.
         encoded-native operator claims, persistent daemon/service runtime, performance claims,
         SQL/DataFrame, object-store/lakehouse, Spark-displacement, and production claims remain
         blocked.
+  - [x] GAR-FLOW-2J reuses one per-batch category/metric grouped state for distinct-count and
+        high-cardinality string-group/distinct child scenarios inside
+        `traditional-analytics-vortex-batch-run`. The batch envelope emits aggregate
+        `source_state_reuse_*` fields plus family-specific `source_state_category_metric_*` fields
+        so shared setup remains visible. This closes scoped category/metric source-state reuse only;
+        generalized row-state reuse, encoded-native operator claims, persistent daemon/service
+        runtime, performance claims, SQL/DataFrame, object-store/lakehouse, Spark-displacement, and
+        production claims remain blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

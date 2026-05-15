@@ -306,16 +306,21 @@ scenarios also share one per-batch dimension-label lookup state when both are pr
 `source_state_reuse_status=per_batch_dimension_label_state_reused`,
 `source_state_reuse_consumer_count`, `source_state_recompute_avoided_count`, and
 `source_state_prepare_micros` with
-`source_state_prepare_timing_scope=batch_shared_pre_scenario`; the shared setup cost is explicit
-batch evidence and is not hidden in per-scenario timings. The Python comparative harness uses this
-command for eligible prepared/native Vortex scenario groups, one batch process per format/iteration,
-and reports `persistent_runner_status=single_process_batch_runner_supported` on those rows. That
-status means the CLI process wall time is shared across the grouped rows; per-scenario
+`source_state_prepare_timing_scope=batch_shared_pre_scenario`. Distinct-count and
+high-cardinality string-group/distinct child scenarios share one per-batch category/metric grouped
+state when both are present and emit
+`source_state_reuse_status=per_batch_category_metric_state_reused` plus family-specific
+`source_state_category_metric_*` fields such as
+`source_state_category_metric_reuse_status`. The shared setup cost is explicit batch evidence and is
+not hidden in per-scenario timings. The Python comparative harness uses this command for eligible
+prepared/native Vortex scenario groups, one batch process per format/iteration, and reports
+`persistent_runner_status=single_process_batch_runner_supported` on those rows. That status means
+the CLI process wall time is shared across the grouped rows; per-scenario
 `scenario_compute_micros`, `vortex_scan_micros`, and optional
 `computed_result_sink_write_micros` remain row-level evidence fields. This is a runtime support
-slice for scoped local prepared/native process, source-metadata, and dimension-label source-state
-reuse. It is not a persistent daemon, hidden fast mode, performance claim, encoded-native claim,
-SQL/DataFrame claim, object-store claim, or Spark-displacement claim.
+slice for scoped local prepared/native process, source-metadata, dimension-label source-state, and
+category/metric source-state reuse. It is not a persistent daemon, hidden fast mode, performance
+claim, encoded-native claim, SQL/DataFrame claim, object-store claim, or Spark-displacement claim.
 
 ### Website Evidence Snapshot
 
