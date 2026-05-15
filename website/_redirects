@@ -1,11 +1,8 @@
 /home /
 /index /
 /index.html /
-/telemetry /benchmarks.html
-/benchmarks /benchmarks.html
+/telemetry /benchmarks
 /field-guide /field-guide/
-/status /status.html
-/flow /compute-engine-flow.html
-/compute-flow /compute-engine-flow.html
-/docs /readme.html
-/readme /readme.html
+/flow /compute-engine-flow
+/compute-flow /compute-engine-flow
+/docs /readme

@@ -28,10 +28,10 @@ Cloudflare setup:
 The root `wrangler.toml` uses Workers Static Assets only. It does not define a Worker script,
 Worker runtime JavaScript, or secrets.
 
-Workers Static Assets is configured with `html_handling = "none"` so committed `*.html` files are
-served directly. The short aliases in `_redirects`, such as `/benchmarks`, `/status`, and `/docs`,
-redirect to those committed HTML files instead of fighting Cloudflare's default extensionless HTML
-redirect behavior.
+Workers Static Assets is configured with explicit `html_handling = "auto-trailing-slash"` so the
+root page, extensionless HTML pages, and directory indexes all follow Cloudflare's canonical HTML
+routing. The short aliases in `_redirects`, such as `/telemetry`, `/flow`, and `/docs`, redirect to
+extensionless canonical pages and must not redirect back to `*.html` files.
 
 The landing page includes a small first-party browser script at `assets/compute-flow.js`. It fetches
 the committed local snapshot at `assets/data/compute-engine-flow-reference.md`, parses the flow
@@ -109,10 +109,10 @@ The public shell uses clear labels with command-deck framing:
 
 - Home: `/`
 - Field Guide: `/field-guide/`
-- Telemetry: `/benchmarks.html`
-- Compute Flow: `/compute-engine-flow.html`
-- Status: `/status.html`
-- Docs: `/readme.html`
+- Telemetry: `/benchmarks`
+- Compute Flow: `/compute-engine-flow`
+- Status: `/status`
+- Docs: `/readme`
 - GitHub: `https://github.com/depsilon/shardloom`
 
 Generated pages inherit this shell from `build_static_pages.py`. Update that helper when changing

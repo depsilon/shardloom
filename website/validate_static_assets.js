@@ -72,8 +72,8 @@ assert(
   'wrangler.toml must serve static assets from [assets] directory = "./website"',
 );
 assert(
-  /\[assets\][\s\S]*html_handling\s*=\s*["']none["']/.test(wranglerToml),
-  'wrangler.toml must set [assets] html_handling = "none" to avoid extensionless/.html redirect loops',
+  /\[assets\][\s\S]*html_handling\s*=\s*["']auto-trailing-slash["']/.test(wranglerToml),
+  'wrangler.toml must set [assets] html_handling = "auto-trailing-slash" so root and directory index routes work',
 );
 assert(
   /\[assets\][\s\S]*not_found_handling\s*=\s*["']404-page["']/.test(wranglerToml),
@@ -85,6 +85,19 @@ const htmlRuntimeFiles = collectFiles(root).filter((relativePath) =>
 );
 const filesToScanForRuntimeRefs = Array.from(
   new Set([...runtimeFiles, ...htmlRuntimeFiles]),
+);
+
+const redirects = read("_redirects")
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => line && !line.startsWith("#"))
+  .map((line) => line.split(/\s+/));
+const htmlRedirectTargets = redirects.filter((parts) => parts[1]?.endsWith(".html"));
+assert(
+  htmlRedirectTargets.length === 0,
+  `_redirects must point aliases at extensionless canonical pages, not .html files: ${htmlRedirectTargets
+    .map((parts) => parts.join(" "))
+    .join(", ")}`,
 );
 
 for (const relativePath of filesToScanForRuntimeRefs) {
@@ -174,6 +187,9 @@ function localFileForPath(sitePath) {
   }
   if (exists(`${relativePath}/index.html`)) {
     return `${relativePath}/index.html`;
+  }
+  if (exists(`${relativePath}.html`)) {
+    return `${relativePath}.html`;
   }
   return relativePath;
 }
