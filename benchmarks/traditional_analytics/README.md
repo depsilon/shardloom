@@ -301,15 +301,21 @@ one ShardLoom process and emits `shardloom.traditional_analytics.vortex_batch.v1
 operator/source/Native I/O fields, and `fallback_attempted=false` /
 `external_engine_invoked=false`. The per-batch source metadata snapshot records fact/dimension/CDC
 Vortex artifact sizes and digests once per command invocation and reuses that evidence for child
-scenario reports instead of recomputing it per scenario. The Python comparative harness uses this
+scenario reports instead of recomputing it per scenario. Hash-join and join-aggregate child
+scenarios also share one per-batch dimension-label lookup state when both are present. That emits
+`source_state_reuse_status=per_batch_dimension_label_state_reused`,
+`source_state_reuse_consumer_count`, `source_state_recompute_avoided_count`, and
+`source_state_prepare_micros` with
+`source_state_prepare_timing_scope=batch_shared_pre_scenario`; the shared setup cost is explicit
+batch evidence and is not hidden in per-scenario timings. The Python comparative harness uses this
 command for eligible prepared/native Vortex scenario groups, one batch process per format/iteration,
 and reports `persistent_runner_status=single_process_batch_runner_supported` on those rows. That
 status means the CLI process wall time is shared across the grouped rows; per-scenario
 `scenario_compute_micros`, `vortex_scan_micros`, and optional
 `computed_result_sink_write_micros` remain row-level evidence fields. This is a runtime support
-slice for scoped local prepared/native process and source-metadata reuse. It is not a persistent
-daemon, hidden fast mode, performance claim, encoded-native claim, SQL/DataFrame claim, object-store
-claim, or Spark-displacement claim.
+slice for scoped local prepared/native process, source-metadata, and dimension-label source-state
+reuse. It is not a persistent daemon, hidden fast mode, performance claim, encoded-native claim,
+SQL/DataFrame claim, object-store claim, or Spark-displacement claim.
 
 ### Website Evidence Snapshot
 

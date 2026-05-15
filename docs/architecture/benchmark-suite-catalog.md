@@ -290,6 +290,16 @@ emits `source_metadata_snapshot_*` fields. This is scoped runtime plumbing for p
 batch evidence, not a public performance, encoded-native, object-store, SQL/DataFrame, production,
 or Spark-displacement claim.
 
+GAR-FLOW-2I adds one scoped prepared/native source-state reuse path inside
+`traditional-analytics-vortex-batch-run`. Hash-join and join-aggregate child scenarios share one
+per-batch dimension-label lookup state when both are present. The batch envelope emits
+`source_state_reuse_status=per_batch_dimension_label_state_reused`,
+`source_state_reuse_consumer_count`, `source_state_recompute_avoided_count`,
+`source_state_prepare_micros`, and
+`source_state_prepare_timing_scope=batch_shared_pre_scenario`. The shared setup timing is reported
+explicitly and is not a hidden fast mode or performance claim; encoded-native operators,
+SQL/DataFrame, object-store/lakehouse, production, and Spark-displacement claims remain blocked.
+
 GAR-FLOW-2D adds `work_avoidance_evidence_schema` to the JSON artifact and Markdown report. The
 schema uses only `measured`, `not_available`, `unsupported`, and `not_applicable` as status values.
 Every ShardLoom benchmark row reports status/value/reason triples for rows avoided, segments

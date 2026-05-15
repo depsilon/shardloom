@@ -985,6 +985,14 @@ plan before coding.
         This closes scoped source-metadata reuse only; row-state reuse, encoded-native operator
         claims, persistent daemon/service runtime, performance claims, SQL/DataFrame,
         object-store/lakehouse, Spark-displacement, and production claims remain blocked.
+  - [x] GAR-FLOW-2I reuses one per-batch dimension-label lookup state for hash-join and
+        join-aggregate child scenarios inside `traditional-analytics-vortex-batch-run`. The batch
+        envelope emits `source_state_reuse_*`, `source_state_prepare_micros`, and
+        `source_state_prepare_timing_scope=batch_shared_pre_scenario` so shared setup remains
+        visible. This closes scoped join-dimension source-state reuse only; broader row-state reuse,
+        encoded-native operator claims, persistent daemon/service runtime, performance claims,
+        SQL/DataFrame, object-store/lakehouse, Spark-displacement, and production claims remain
+        blocked.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

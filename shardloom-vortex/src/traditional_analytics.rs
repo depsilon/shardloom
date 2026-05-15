@@ -743,6 +743,68 @@ impl TraditionalVortexSourceSnapshot {
     }
 }
 
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+struct TraditionalDimensionLabelState {
+    dim_by_key: std::collections::HashMap<u32, String>,
+    stats: TraditionalStreamingScanStats,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDimensionLabelState {
+    fn from_path(dim_vortex: &std::path::Path) -> Result<Self> {
+        let (dim_by_key, stats) = scan_dim_label_state(dim_vortex, "batch dimension label state")?;
+        Ok(Self { dim_by_key, stats })
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+struct TraditionalVortexBatchSourceState {
+    source_snapshot: TraditionalVortexSourceSnapshot,
+    dimension_label_state: Option<TraditionalDimensionLabelState>,
+    dimension_label_state_consumer_count: usize,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalVortexBatchSourceState {
+    fn from_paths(
+        fact_vortex: &std::path::Path,
+        dim_vortex: &std::path::Path,
+        cdc_delta_vortex: Option<&std::path::Path>,
+        scenarios: &[TraditionalAnalyticsScenario],
+    ) -> Result<Self> {
+        let source_snapshot =
+            TraditionalVortexSourceSnapshot::from_paths(fact_vortex, dim_vortex, cdc_delta_vortex)?;
+        let dimension_label_state_consumer_count = scenarios
+            .iter()
+            .filter(|scenario| dimension_label_state_reuse_candidate(**scenario))
+            .count();
+        let dimension_label_state = if dimension_label_state_consumer_count == 0 {
+            None
+        } else {
+            Some(TraditionalDimensionLabelState::from_path(dim_vortex)?)
+        };
+        Ok(Self {
+            source_snapshot,
+            dimension_label_state,
+            dimension_label_state_consumer_count,
+        })
+    }
+
+    fn dimension_label_state_recompute_avoided_count(&self) -> usize {
+        self.dimension_label_state_consumer_count.saturating_sub(1)
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn dimension_label_state_reuse_candidate(scenario: TraditionalAnalyticsScenario) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::HashJoin | TraditionalAnalyticsScenario::JoinAggregate
+    )
+}
+
 /// Report-only Vortex layout/write advisor evidence for a certified local
 /// analytics workflow.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2370,6 +2432,9 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub reports: Vec<TraditionalAnalyticsVortexReport>,
     pub requested_execution_mode: ShardLoomExecutionMode,
     pub result_sink_requested: bool,
+    pub source_state_prepare_micros: u64,
+    pub dimension_label_state_consumer_count: usize,
+    pub dimension_label_state_recompute_avoided_count: usize,
     pub total_scenario_compute_micros: u64,
     pub total_vortex_scan_micros: u64,
     pub total_result_sink_write_micros: Option<u64>,
@@ -2494,6 +2559,47 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "false".to_string(),
             ),
             (
+                "source_state_reuse_status".to_string(),
+                self.source_state_reuse_status().to_string(),
+            ),
+            (
+                "source_state_reused".to_string(),
+                (self.dimension_label_state_consumer_count > 1).to_string(),
+            ),
+            (
+                "source_state_reuse_scope".to_string(),
+                "dimension_label_lookup_for_hash_join_and_join_aggregate".to_string(),
+            ),
+            (
+                "source_state_reuse_consumer_count".to_string(),
+                self.dimension_label_state_consumer_count.to_string(),
+            ),
+            (
+                "source_state_recompute_avoided_count".to_string(),
+                self.dimension_label_state_recompute_avoided_count
+                    .to_string(),
+            ),
+            (
+                "source_state_prepare_micros".to_string(),
+                self.source_state_prepare_micros.to_string(),
+            ),
+            (
+                "source_state_prepare_timing_scope".to_string(),
+                "batch_shared_pre_scenario".to_string(),
+            ),
+            (
+                "source_state_claim_boundary".to_string(),
+                "scoped prepared/native batch source-state reuse only; not a performance, encoded-native, production, SQL/DataFrame, object-store, lakehouse, or Spark-displacement claim".to_string(),
+            ),
+            (
+                "source_state_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "source_state_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
                 "fallback_execution_allowed".to_string(),
                 "false".to_string(),
             ),
@@ -2573,6 +2679,14 @@ impl TraditionalAnalyticsVortexBatchReport {
         self.reports
             .iter()
             .all(|report| !report.fallback_execution_allowed)
+    }
+
+    fn source_state_reuse_status(&self) -> &'static str {
+        match self.dimension_label_state_consumer_count {
+            0 => "not_applicable_no_dimension_label_state_consumers",
+            1 => "per_batch_dimension_label_state_available_single_consumer",
+            _ => "per_batch_dimension_label_state_reused",
+        }
     }
 }
 
@@ -6308,11 +6422,17 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             "traditional-analytics-vortex-batch-run --write-result-vortex requires --workspace for caller-owned result artifact output; fallback execution was not attempted".to_string(),
         ));
     }
-    let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
+    let source_state_prepare_start = std::time::Instant::now();
+    let source_state = TraditionalVortexBatchSourceState::from_paths(
         &fact_vortex,
         &dim_vortex,
         cdc_delta_vortex.as_deref(),
+        &scenarios,
     )?;
+    let source_state_prepare_micros = duration_to_micros(source_state_prepare_start.elapsed());
+    let dimension_label_state_consumer_count = source_state.dimension_label_state_consumer_count;
+    let dimension_label_state_recompute_avoided_count =
+        source_state.dimension_label_state_recompute_avoided_count();
 
     let mut reports = Vec::with_capacity(scenarios.len());
     for (index, scenario) in scenarios.into_iter().enumerate() {
@@ -6333,9 +6453,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         .with_result_workspace_dir(scenario_workspace)
         .with_result_vortex_write(write_result_vortex);
         reports.push(
-            run_traditional_analytics_vortex_benchmark_with_source_snapshot(
+            run_traditional_analytics_vortex_benchmark_with_batch_source_state(
                 child_request,
-                &source_snapshot,
+                &source_state,
             )?,
         );
     }
@@ -6382,6 +6502,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         reports,
         requested_execution_mode,
         result_sink_requested: write_result_vortex,
+        source_state_prepare_micros,
+        dimension_label_state_consumer_count,
+        dimension_label_state_recompute_avoided_count,
         total_scenario_compute_micros,
         total_vortex_scan_micros,
         total_result_sink_write_micros,
@@ -6412,14 +6535,28 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         &request.dim_vortex,
         request.cdc_delta_vortex.as_deref(),
     )?;
-    run_traditional_analytics_vortex_benchmark_with_source_snapshot(request, &source_snapshot)
+    run_traditional_analytics_vortex_benchmark_with_source_context(request, &source_snapshot, None)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[allow(clippy::too_many_lines)]
-fn run_traditional_analytics_vortex_benchmark_with_source_snapshot(
+fn run_traditional_analytics_vortex_benchmark_with_batch_source_state(
+    request: TraditionalAnalyticsVortexRequest,
+    source_state: &TraditionalVortexBatchSourceState,
+) -> Result<TraditionalAnalyticsVortexReport> {
+    run_traditional_analytics_vortex_benchmark_with_source_context(
+        request,
+        &source_state.source_snapshot,
+        Some(source_state),
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn run_traditional_analytics_vortex_benchmark_with_source_context(
     request: TraditionalAnalyticsVortexRequest,
     source_snapshot: &TraditionalVortexSourceSnapshot,
+    batch_source_state: Option<&TraditionalVortexBatchSourceState>,
 ) -> Result<TraditionalAnalyticsVortexReport> {
     let execution_mode_selection = ShardLoomExecutionModeSelectionReport::from_request(
         ShardLoomExecutionModeSelectionRequest::new(request.requested_execution_mode)
@@ -6450,12 +6587,22 @@ fn run_traditional_analytics_vortex_benchmark_with_source_snapshot(
     let cdc_delta_vortex_digest = source_snapshot.cdc_delta_vortex_digest.clone();
     let source_bytes_read = source_snapshot.source_bytes_read;
     let scenario_compute_start = std::time::Instant::now();
-    let scenario_execution = run_vortex_derived_scenario_from_files(
-        request.scenario,
-        &request.fact_vortex,
-        &request.dim_vortex,
-        request.cdc_delta_vortex.as_deref(),
-    )?;
+    let scenario_execution = if let Some(source_state) = batch_source_state {
+        run_vortex_derived_scenario_from_files_with_batch_source_state(
+            request.scenario,
+            &request.fact_vortex,
+            &request.dim_vortex,
+            request.cdc_delta_vortex.as_deref(),
+            source_state,
+        )?
+    } else {
+        run_vortex_derived_scenario_from_files(
+            request.scenario,
+            &request.fact_vortex,
+            &request.dim_vortex,
+            request.cdc_delta_vortex.as_deref(),
+        )?
+    };
     let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
     let materialization_boundary_rows = if scenario_execution.evidence.data_materialized {
         checked_u64_sum(
@@ -9311,6 +9458,33 @@ fn run_vortex_derived_scenario_from_files(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_vortex_derived_scenario_from_files_with_batch_source_state(
+    scenario: TraditionalAnalyticsScenario,
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+    cdc_delta_path: Option<&std::path::Path>,
+    source_state: &TraditionalVortexBatchSourceState,
+) -> Result<TraditionalScenarioExecution> {
+    match scenario {
+        TraditionalAnalyticsScenario::HashJoin => {
+            if let Some(dim_state) = source_state.dimension_label_state.as_ref() {
+                run_streaming_hash_join_scenario_with_dim_state(fact_path, dim_state)
+            } else {
+                run_streaming_hash_join_scenario(fact_path, dim_path)
+            }
+        }
+        TraditionalAnalyticsScenario::JoinAggregate => {
+            if let Some(dim_state) = source_state.dimension_label_state.as_ref() {
+                run_streaming_join_aggregate_scenario_with_dim_state(fact_path, dim_state)
+            } else {
+                run_streaming_join_aggregate_scenario(fact_path, dim_path)
+            }
+        }
+        _ => run_vortex_derived_scenario_from_files(scenario, fact_path, dim_path, cdc_delta_path),
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_vortex_derived_scenario_from_tables(
     scenario: TraditionalAnalyticsScenario,
     fact: &VortexFactTable,
@@ -9352,6 +9526,20 @@ fn run_streaming_hash_join_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let (dim_by_key, dim_stats) = scan_dim_label_state(dim_path, "hash join")?;
+    let dim_state = TraditionalDimensionLabelState {
+        dim_by_key,
+        stats: dim_stats,
+    };
+    run_streaming_hash_join_scenario_with_dim_state(fact_path, &dim_state)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_hash_join_scenario_with_dim_state(
+    fact_path: &std::path::Path,
+    dim_state: &TraditionalDimensionLabelState,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_by_key = &dim_state.dim_by_key;
+    let dim_stats = &dim_state.stats;
     let mut groups = std::collections::BTreeMap::<String, TraditionalGroupAccum>::new();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
@@ -9428,6 +9616,20 @@ fn run_streaming_join_aggregate_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let (dim_by_key, dim_stats) = scan_dim_label_state(dim_path, "join aggregate")?;
+    let dim_state = TraditionalDimensionLabelState {
+        dim_by_key,
+        stats: dim_stats,
+    };
+    run_streaming_join_aggregate_scenario_with_dim_state(fact_path, &dim_state)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_join_aggregate_scenario_with_dim_state(
+    fact_path: &std::path::Path,
+    dim_state: &TraditionalDimensionLabelState,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_by_key = &dim_state.dim_by_key;
+    let dim_stats = &dim_state.stats;
     let mut groups = std::collections::BTreeMap::<(String, String), TraditionalGroupAccum>::new();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
@@ -12680,6 +12882,8 @@ mod tests {
                 vec![
                     TraditionalAnalyticsScenario::SelectiveFilter,
                     TraditionalAnalyticsScenario::GroupByAggregation,
+                    TraditionalAnalyticsScenario::HashJoin,
+                    TraditionalAnalyticsScenario::JoinAggregate,
                 ],
                 import_report.fact_vortex_path.clone(),
                 import_report.dim_vortex_path.clone(),
@@ -12690,7 +12894,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(batch_report.reports.len(), 2);
+        assert_eq!(batch_report.reports.len(), 4);
         assert_eq!(
             batch_report.total_scenario_compute_micros,
             batch_report
@@ -12744,11 +12948,11 @@ mod tests {
             "per_batch_source_metadata_reused",
         );
         assert_field_eq(&fields, "source_metadata_snapshot_reused", "true");
-        assert_field_eq(&fields, "source_metadata_snapshot_reuse_count", "2");
+        assert_field_eq(&fields, "source_metadata_snapshot_reuse_count", "4");
         assert_field_eq(
             &fields,
             "source_metadata_digest_recompute_avoided_count",
-            "1",
+            "3",
         );
         assert_field_eq(
             &fields,
@@ -12760,6 +12964,21 @@ mod tests {
             "source_metadata_snapshot_external_engine_invoked",
             "false",
         );
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_status",
+            "per_batch_dimension_label_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_reused", "true");
+        assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
+        assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
+        assert_field_eq(
+            &fields,
+            "source_state_prepare_timing_scope",
+            "batch_shared_pre_scenario",
+        );
+        assert_field_eq(&fields, "source_state_fallback_attempted", "false");
+        assert_field_eq(&fields, "source_state_external_engine_invoked", "false");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
         assert_field_eq(&fields, "performance_claim_allowed", "false");
@@ -12768,12 +12987,12 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_order",
-            "selective-filter,group-by-aggregation",
+            "selective-filter,group-by-aggregation,hash-join,join---aggregate",
         );
         assert_field_eq(
             &fields,
             "selected_execution_modes",
-            "prepared_vortex,prepared_vortex",
+            "prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex",
         );
         assert_field_eq(
             &fields,
@@ -12783,6 +13002,16 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_group-by-aggregation_operator_execution_class",
+            "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_operator_execution_class",
+            "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_join---aggregate_operator_execution_class",
             "residual_native",
         );
         assert_field_eq(

@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2I prepared/native batch dimension source-state reuse
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close a scoped prepared/native Vortex runtime-plumbing slice by reusing one
+    dimension-label lookup state across hash-join and join-aggregate child scenarios in
+    `traditional-analytics-vortex-batch-run`.
+  - Checklist:
+    - [x] Add an internal `TraditionalVortexBatchSourceState` that combines source metadata with a
+          reusable dimension-label lookup state for eligible batch scenarios.
+    - [x] Route `hash join` and `join + aggregate` batch children through the shared dimension state
+          while preserving per-scenario scan/operator/result-sink evidence.
+    - [x] Emit batch-level `source_state_reuse_*` fields plus
+          `source_state_prepare_micros` and
+          `source_state_prepare_timing_scope=batch_shared_pre_scenario`.
+    - [x] Propagate source-state reuse fields into comparative benchmark rows.
+    - [x] Update compute-flow and benchmark docs so shared setup timing is explicit and cannot be
+          read as a hidden fast mode or public performance claim.
+  - Boundary:
+    - This is scoped runtime plumbing for local prepared/native batch evidence only. It does not
+      add broad row-state reuse, encoded-native operator claims, persistent daemon/service runtime,
+      SQL/DataFrame execution, object-store/lakehouse runtime, Spark displacement, production
+      claims, or performance/superiority claims.
+  - Evidence:
+    - Rust unit tests assert the batch envelope emits source-state reuse fields, keeps per-scenario
+      evidence for the join consumers, and preserves `fallback_attempted=false` /
+      `external_engine_invoked=false`.
+    - Architecture docs record GAR-FLOW-2I as complete while keeping generalized encoded/native
+      operator coverage and broader source-state reuse blocked.
+  - Validation:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics::tests::prepared_native_vortex_batch_run_preserves_evidence_envelope`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `git diff --check`
 - [x] Session label: GAR-FLOW-2H prepared/native batch source metadata reuse
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

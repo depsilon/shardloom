@@ -243,6 +243,9 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"source_metadata_snapshot_status\"",
         "\"source_metadata_snapshot_reused\"",
         "\"source_metadata_digest_recompute_avoided_count\"",
+        "\"source_state_reuse_status\"",
+        "\"source_state_prepare_micros\"",
+        "\"source_state_prepare_timing_scope\"",
         "\"dask_blocksize\"",
         "\"dask_scheduler\"",
         "\"spark_requires_java\"",
@@ -413,6 +416,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("python_harness_overhead_status"));
     assert!(readme.contains("source_metadata_snapshot_status"));
     assert!(readme.contains("per_batch_source_metadata_reused"));
+    assert!(readme.contains("source_state_reuse_status"));
+    assert!(readme.contains("per_batch_dimension_label_state_reused"));
     assert!(readme.contains("hidden benchmark fast mode"));
     assert!(readme.contains("work_avoidance_evidence_schema"));
     assert!(readme.contains("status/value/reason triples"));
@@ -516,6 +521,7 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "persistent_runner_admission_gate",
         "process_startup_attribution",
         "source_metadata_snapshot_status=per_batch_source_metadata_reused",
+        "source_state_reuse_status=per_batch_dimension_label_state_reused",
         "python_harness_overhead_status",
         "work_avoidance_evidence_schema",
         "not_available",
