@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2L prepared/native batch group/category/metric source-state reuse
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+  - Scope: close a fourth scoped prepared/native Vortex runtime-plumbing source-state slice by
+    reusing one per-batch `group_key,category,metric` grouped state across group-by aggregation and
+    multi-key group-by child scenarios in `traditional-analytics-vortex-batch-run`.
+  - Checklist:
+    - [x] Add `TraditionalGroupCategoryMetricState` to the prepared/native batch source-state
+          envelope.
+    - [x] Route eligible group-by aggregation and multi-key group-by batch children through the
+          shared grouped state when both are present.
+    - [x] Emit aggregate and family-specific `source_state_*` evidence fields for dimension-label,
+          category/metric, group/category/metric, and ranked-metric reuse while preserving child
+          typed envelopes.
+    - [x] Propagate group/category/metric source-state reuse fields into comparative benchmark rows.
+    - [x] Keep `operator_execution_class=residual_native`,
+          `operator_encoded_native_claim_allowed=false`, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+  - Evidence/verification:
+    - Focused Rust test:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_reuses_group_category_metric_source_state --lib`.
+    - Existing source-state tests cover no-consumer, category/metric, and ranked-metric evidence
+      envelopes.
+    - Benchmark harness contract test requires `source_state_group_category_metric_*` propagation.
+  - Claim boundary:
+    - This is scoped local prepared/native residual-state runtime plumbing only.
+    - It is not generalized encoded/native operator coverage, a persistent daemon/service runtime, a
+      hidden benchmark fast mode, a performance/superiority claim, a SQL/DataFrame claim, an
+      object-store/lakehouse claim, a Spark-displacement claim, or a production claim.
+
 - [x] Session label: GAR-FLOW-2K prepared/native batch ranked-metric source-state reuse
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
