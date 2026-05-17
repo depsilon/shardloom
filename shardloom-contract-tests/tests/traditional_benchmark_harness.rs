@@ -62,6 +62,14 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"fusion_status\""));
     assert!(script.contains("\"filter_project_limit_fused\""));
     assert!(script.contains("\"fusion_blocker\""));
+    assert!(script.contains("FUSED_PIPELINE_FIELDS"));
+    assert!(script.contains("\"fused_pipeline_schema_version\""));
+    assert!(script.contains("\"fused_pipeline_used\""));
+    assert!(script.contains("\"fused_operator_family\""));
+    assert!(script.contains("\"intermediate_materialization_avoided\""));
+    assert!(script.contains("\"fused_pipeline_rows_selected\""));
+    assert!(script.contains("\"fused_pipeline_rows_output\""));
+    assert!(script.contains("\"fused_pipeline_encoded_native_claim_allowed\""));
     assert!(script.contains("\"materialization_required\""));
     assert!(script.contains("\"decode_required\""));
     assert!(script.contains("\"scan_api_status\""));
@@ -240,6 +248,13 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"stress_lane_included\"",
         "\"shardloom_build_profile\"",
         "\"shardloom_build_time_excluded\"",
+        "\"fused_pipeline_schema_version\"",
+        "\"fused_pipeline_used\"",
+        "\"fused_operator_family\"",
+        "\"intermediate_materialization_avoided\"",
+        "\"fused_pipeline_rows_selected\"",
+        "\"fused_pipeline_rows_output\"",
+        "\"fused_pipeline_encoded_native_claim_allowed\"",
         "\"source_metadata_snapshot_status\"",
         "\"source_metadata_snapshot_reused\"",
         "\"source_metadata_digest_recompute_avoided_count\"",

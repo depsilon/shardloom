@@ -43,6 +43,7 @@ const TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_batch.v1";
 const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
+const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fused_pipeline.v1";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
@@ -1524,6 +1525,7 @@ pub struct TraditionalAnalyticsReport {
     pub streaming_arrays_read_count: usize,
     pub streaming_max_chunk_rows: usize,
     pub streaming_projected_columns: Vec<String>,
+    pub streaming_result_row_count: u64,
     pub data_decoded: bool,
     pub data_materialized: bool,
     pub materialization_boundary_report_emitted: bool,
@@ -2939,6 +2941,7 @@ pub struct TraditionalAnalyticsVortexReport {
     pub streaming_arrays_read_count: usize,
     pub streaming_max_chunk_rows: usize,
     pub streaming_projected_columns: Vec<String>,
+    pub streaming_result_row_count: u64,
     pub streaming_reader_chunk_columns_observed: Vec<String>,
     pub streaming_reader_chunk_dtype_summary: Vec<String>,
     pub streaming_reader_chunk_encoding_summary: Vec<String>,
@@ -3825,6 +3828,7 @@ impl TraditionalAnalyticsVortexReport {
         fields.extend(streaming_execution_fields(self));
         fields.extend(source_backed_scan_evidence_fields(self));
         fields.extend(encoded_predicate_provider_fields(self));
+        fields.extend(fused_pipeline_evidence_fields(self));
         fields.extend(traditional_vortex_provider_admission_fields(
             self.scenario,
             self.execution_mode_selection
@@ -4237,6 +4241,7 @@ trait StreamingExecutionFieldView {
     fn streaming_arrays_read_count(&self) -> usize;
     fn streaming_max_chunk_rows(&self) -> usize;
     fn streaming_projected_columns(&self) -> &[String];
+    fn streaming_result_row_count(&self) -> u64;
 }
 
 impl StreamingExecutionFieldView for TraditionalAnalyticsReport {
@@ -4267,6 +4272,10 @@ impl StreamingExecutionFieldView for TraditionalAnalyticsReport {
     fn streaming_projected_columns(&self) -> &[String] {
         &self.streaming_projected_columns
     }
+
+    fn streaming_result_row_count(&self) -> u64 {
+        self.streaming_result_row_count
+    }
 }
 
 impl StreamingExecutionFieldView for TraditionalAnalyticsVortexReport {
@@ -4296,6 +4305,10 @@ impl StreamingExecutionFieldView for TraditionalAnalyticsVortexReport {
 
     fn streaming_projected_columns(&self) -> &[String] {
         &self.streaming_projected_columns
+    }
+
+    fn streaming_result_row_count(&self) -> u64 {
+        self.streaming_result_row_count
     }
 }
 
@@ -4328,6 +4341,10 @@ fn streaming_execution_fields(report: &impl StreamingExecutionFieldView) -> Vec<
         (
             "streaming_projected_columns".to_string(),
             report.streaming_projected_columns().join(","),
+        ),
+        (
+            "streaming_result_row_count".to_string(),
+            report.streaming_result_row_count().to_string(),
         ),
     ]
 }
@@ -4972,6 +4989,217 @@ fn encoded_predicate_provider_fields(
             "false".to_string(),
         ),
     ]
+}
+
+#[allow(clippy::too_many_lines)]
+fn fused_pipeline_evidence_fields(
+    report: &TraditionalAnalyticsVortexReport,
+) -> Vec<(String, String)> {
+    let filter_project_limit_candidate =
+        report.scenario == TraditionalAnalyticsScenario::FilterProjectionLimit;
+    let filter_project_limit_used = filter_project_limit_candidate
+        && report.streaming_vortex_execution_used
+        && report.streaming_filter_pushdown_applied
+        && report.streaming_projection_pushdown_applied
+        && !report.data_materialized;
+    let selection_vector_metric_candidate =
+        report.scenario == TraditionalAnalyticsScenario::SelectiveFilter;
+    let selection_vector_metric_used = selection_vector_metric_candidate
+        && report.encoded_predicate_provider_selected_metric_selection_vector_consumed
+        && report.encoded_predicate_provider_selected_metric_aggregation_status
+            == "selection_vector_consumed"
+        && !report.encoded_predicate_provider_selected_metric_data_materialized
+        && !report.data_materialized;
+    let fused_pipeline_used = filter_project_limit_used || selection_vector_metric_used;
+    let fused_operator_family = if filter_project_limit_candidate {
+        "filter_projection_limit"
+    } else if selection_vector_metric_candidate {
+        "selection_vector_metric_aggregation"
+    } else {
+        "not_applicable"
+    };
+    let rows_selected = if filter_project_limit_candidate {
+        report.streaming_result_row_count.to_string()
+    } else if selection_vector_metric_candidate {
+        report
+            .encoded_predicate_provider_selected_metric_row_count
+            .map_or_else(|| "none".to_string(), |row_count| row_count.to_string())
+    } else {
+        "not_applicable".to_string()
+    };
+    let rows_output = if filter_project_limit_candidate || selection_vector_metric_candidate {
+        scalar_result_row_count_from_json(&report.result_json).map_or_else(
+            || report.rows_materialized.to_string(),
+            |row_count| row_count.to_string(),
+        )
+    } else {
+        "not_applicable".to_string()
+    };
+    let (blocker_id, blocker_reason) = if fused_pipeline_used {
+        ("none", "fused local prepared/native residual path admitted")
+    } else if filter_project_limit_candidate && report.data_materialized {
+        (
+            "gar-perf-1c.compatibility_import_or_materialized_boundary",
+            "filter/projection/limit fusion is blocked because this row materialized before the prepared/native fused path",
+        )
+    } else if filter_project_limit_candidate {
+        (
+            "gar-perf-1c.filter_projection_limit_pushdown_missing",
+            "filter/projection/limit fusion requires admitted filter and projection pushdown with no intermediate full-table materialization",
+        )
+    } else if selection_vector_metric_candidate {
+        (
+            "gar-perf-1c.selection_vector_metric_aggregation_not_admitted",
+            "selection-vector metric aggregation requires an admitted reader-generated conjunctive selection vector consumed by the ShardLoom-native metric aggregation path",
+        )
+    } else {
+        (
+            "not_applicable",
+            "scenario is outside GAR-PERF-1C fused path scope",
+        )
+    };
+    let data_decoded = if selection_vector_metric_candidate {
+        report.encoded_predicate_provider_selected_metric_data_decoded
+    } else {
+        report.data_decoded
+    };
+    let data_materialized = if selection_vector_metric_candidate {
+        report.encoded_predicate_provider_selected_metric_data_materialized
+    } else {
+        report.data_materialized
+    };
+    let selection_vector_consumed = if selection_vector_metric_candidate {
+        report
+            .encoded_predicate_provider_selected_metric_selection_vector_consumed
+            .to_string()
+    } else {
+        "not_applicable".to_string()
+    };
+    let selection_vector_status = if selection_vector_metric_candidate {
+        report
+            .encoded_predicate_provider_conjunctive_bridge_runtime_status
+            .clone()
+    } else {
+        "not_applicable".to_string()
+    };
+    vec![
+        (
+            "fused_pipeline_schema_version".to_string(),
+            FUSED_PIPELINE_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "fused_pipeline_report_id".to_string(),
+            format!(
+                "gar-perf-1c.fused_pipeline.{}.{}",
+                report
+                    .execution_mode_selection
+                    .selected_execution_mode
+                    .as_str(),
+                report.scenario.as_str().replace(['/', ' ', '+'], "-")
+            ),
+        ),
+        (
+            "fused_pipeline_scope".to_string(),
+            "local_prepared_native_residual_pipeline".to_string(),
+        ),
+        (
+            "fused_pipeline_used".to_string(),
+            fused_pipeline_used.to_string(),
+        ),
+        (
+            "fused_operator_family".to_string(),
+            fused_operator_family.to_string(),
+        ),
+        (
+            "intermediate_materialization_avoided".to_string(),
+            (fused_pipeline_used && !data_materialized).to_string(),
+        ),
+        (
+            "fused_pipeline_rows_scanned".to_string(),
+            report.rows_scanned.to_string(),
+        ),
+        ("fused_pipeline_rows_selected".to_string(), rows_selected),
+        ("fused_pipeline_rows_output".to_string(), rows_output),
+        (
+            "fused_pipeline_filter_columns".to_string(),
+            if filter_project_limit_candidate || selection_vector_metric_candidate {
+                "flag,value"
+            } else {
+                "not_applicable"
+            }
+            .to_string(),
+        ),
+        (
+            "fused_pipeline_projection_columns".to_string(),
+            if report.streaming_projected_columns.is_empty() {
+                "none".to_string()
+            } else {
+                report.streaming_projected_columns.join(",")
+            },
+        ),
+        (
+            "fused_pipeline_selection_vector_consumed".to_string(),
+            selection_vector_consumed,
+        ),
+        (
+            "fused_pipeline_selection_vector_status".to_string(),
+            selection_vector_status,
+        ),
+        (
+            "fused_pipeline_data_decoded".to_string(),
+            data_decoded.to_string(),
+        ),
+        (
+            "fused_pipeline_data_materialized".to_string(),
+            data_materialized.to_string(),
+        ),
+        (
+            "fused_pipeline_operator_execution_class".to_string(),
+            traditional_operator_execution_class(
+                report.streaming_vortex_execution_used,
+                report.data_materialized,
+            )
+            .as_str()
+            .to_string(),
+        ),
+        (
+            "fused_pipeline_encoded_native_claim_allowed".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "fused_pipeline_claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        (
+            "fused_pipeline_blocker_id".to_string(),
+            blocker_id.to_string(),
+        ),
+        (
+            "fused_pipeline_blocker_reason".to_string(),
+            blocker_reason.to_string(),
+        ),
+        (
+            "fused_pipeline_claim_boundary".to_string(),
+            "scoped local prepared/native fused residual evidence only; no encoded-native, SQL/DataFrame, object-store/lakehouse, production, public performance, or Spark-displacement claim".to_string(),
+        ),
+        (
+            "fused_pipeline_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "fused_pipeline_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+    ]
+}
+
+fn scalar_result_row_count_from_json(result_json: &str) -> Option<u64> {
+    let (_, rest) = result_json.split_once("\"row_count\":")?;
+    let digits = rest
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect::<String>();
+    digits.parse().ok()
 }
 
 fn comma_join_or_none(values: &[String]) -> String {
@@ -5938,6 +6166,7 @@ struct TraditionalScenarioExecutionEvidence {
     arrays_read_count: usize,
     max_chunk_rows: usize,
     projected_columns: Vec<String>,
+    result_row_count: u64,
     reader_chunk_columns_observed: Vec<String>,
     reader_chunk_dtype_summary: Vec<String>,
     reader_chunk_encoding_summary: Vec<String>,
@@ -5958,6 +6187,7 @@ impl TraditionalScenarioExecutionEvidence {
             arrays_read_count: 0,
             max_chunk_rows: 0,
             projected_columns: Vec::new(),
+            result_row_count: 0,
             reader_chunk_columns_observed: Vec::new(),
             reader_chunk_dtype_summary: Vec::new(),
             reader_chunk_encoding_summary: Vec::new(),
@@ -5974,6 +6204,7 @@ impl TraditionalScenarioExecutionEvidence {
             arrays_read_count,
             max_chunk_rows,
             projected_columns,
+            result_row_count,
             filter_pushdown_applied,
             projection_pushdown_applied,
             reader_chunk_columns_observed,
@@ -5989,6 +6220,7 @@ impl TraditionalScenarioExecutionEvidence {
             arrays_read_count,
             max_chunk_rows,
             projected_columns,
+            result_row_count,
             reader_chunk_columns_observed,
             reader_chunk_dtype_summary,
             reader_chunk_encoding_summary,
@@ -6701,6 +6933,7 @@ fn run_traditional_analytics_benchmark_enabled(
         streaming_arrays_read_count: scenario_execution.evidence.arrays_read_count,
         streaming_max_chunk_rows: scenario_execution.evidence.max_chunk_rows,
         streaming_projected_columns: scenario_execution.evidence.projected_columns,
+        streaming_result_row_count: scenario_execution.evidence.result_row_count,
         data_decoded: true,
         data_materialized: true,
         materialization_boundary_report_emitted: true,
@@ -7905,6 +8138,7 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         streaming_arrays_read_count: scenario_execution.evidence.arrays_read_count,
         streaming_max_chunk_rows: scenario_execution.evidence.max_chunk_rows,
         streaming_projected_columns: scenario_execution.evidence.projected_columns,
+        streaming_result_row_count: scenario_execution.evidence.result_row_count,
         streaming_reader_chunk_columns_observed: scenario_execution
             .evidence
             .reader_chunk_columns_observed,
@@ -16167,6 +16401,28 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "fused_pipeline_schema_version",
+            "shardloom.traditional_analytics.fused_pipeline.v1",
+        );
+        assert_field_eq(&fields, "fused_pipeline_used", "true");
+        assert_field_eq(
+            &fields,
+            "fused_operator_family",
+            "selection_vector_metric_aggregation",
+        );
+        assert_field_eq(&fields, "intermediate_materialization_avoided", "true");
+        assert_field_eq(&fields, "fused_pipeline_rows_selected", "31");
+        assert_field_eq(&fields, "fused_pipeline_rows_output", "31");
+        assert_field_eq(&fields, "fused_pipeline_selection_vector_consumed", "true");
+        assert_field_eq(
+            &fields,
+            "fused_pipeline_encoded_native_claim_allowed",
+            "false",
+        );
+        assert_field_eq(&fields, "fused_pipeline_fallback_attempted", "false");
+        assert_field_eq(&fields, "fused_pipeline_external_engine_invoked", "false");
+        assert_field_eq(
+            &fields,
             "encoded_predicate_provider_kernel_input_lowering_status",
             "reader_generated_encoded_kernel_inputs_admitted",
         );
@@ -17722,6 +17978,52 @@ mod tests {
                 .get("filter_project_limit_fused")
                 .map(String::as_str),
             Some("true")
+        );
+        assert_eq!(
+            native_fields
+                .get("streaming_result_row_count")
+                .map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            native_fields
+                .get("fused_pipeline_schema_version")
+                .map(String::as_str),
+            Some("shardloom.traditional_analytics.fused_pipeline.v1")
+        );
+        assert_eq!(
+            native_fields.get("fused_pipeline_used").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            native_fields
+                .get("fused_operator_family")
+                .map(String::as_str),
+            Some("filter_projection_limit")
+        );
+        assert_eq!(
+            native_fields
+                .get("intermediate_materialization_avoided")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            native_fields
+                .get("fused_pipeline_rows_selected")
+                .map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            native_fields
+                .get("fused_pipeline_rows_output")
+                .map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            native_fields
+                .get("fused_pipeline_encoded_native_claim_allowed")
+                .map(String::as_str),
+            Some("false")
         );
         assert_eq!(
             native_fields.get("fusion_blocker").map(String::as_str),
