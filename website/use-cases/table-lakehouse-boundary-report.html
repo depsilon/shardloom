@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Table and lakehouse boundary | ShardLoom Use Cases</title>
+  <meta name="description" content="ShardLoom use-case posture for Table and lakehouse boundary.">
+  <link rel="canonical" href="https://shardloom.io/use-cases/table-lakehouse-boundary-report">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="Table and lakehouse boundary | ShardLoom Use Cases">
+  <meta property="og:description" content="ShardLoom use-case posture for Table and lakehouse boundary.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/table-lakehouse-boundary-report">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="" href="/field-guide/">Field Guide</a>
+<a class="active" aria-current="page" href="/use-cases/">Use Cases</a>
+<a class="" href="/benchmarks">Telemetry</a>
+<a class="" href="/compute-engine-flow">Compute Flow</a>
+<a class="" href="/status">Status</a>
+<a class="" href="/readme">Docs</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="doc-hero use-case-hero">
+      <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        <p class="eyebrow">Use Case Atlas</p>
+        <h1>Table and lakehouse boundary</h1>
+        <p class="lede">Table and lakehouse boundary is blocked or unsupported until the listed evidence exists.</p>
+        <span class="claim-badge blocked">blocked</span>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell use-case-layout">
+        <article class="doc-body">
+          <h2>Plain-English Summary</h2>
+          <p>Table and lakehouse boundary is blocked or unsupported until the listed evidence exists.</p>
+          <h2>Status Table</h2>
+          <div class="table-scroll"><table>
+<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Status</td><td>blocked</td></tr>
+<tr><td>Audience</td><td>user asking whether Iceberg, Delta, Hudi, or catalog commits are supported</td></tr>
+<tr><td>Execution mode</td><td>report_only_blocked</td></tr>
+<tr><td>Engine mode</td><td>none</td></tr>
+<tr><td>Platform</td><td>local</td></tr>
+<tr><td>Evidence level</td><td>claim-gate</td></tr>
+<tr><td>Inputs</td><td>iceberg_table, delta_table, hudi_table, catalog_metadata</td></tr>
+<tr><td>Outputs</td><td>table_compatibility_matrix, deterministic_blocker</td></tr>
+</tbody></table></div>
+          <h2>Quick Example</h2><pre><code data-language="powershell">target\debug\shardloom table-compat-plan aggregate --format json</code></pre>
+          <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>Table-format runtime needs metadata, snapshot, delete/tombstone, write, commit, rollback, object-store, and certificate evidence before support can be claimed.</span></div>
+          <h2>Internal Flow</h2>
+          <div class="use-case-flow"><article><strong>Inputs</strong><span>iceberg_table, delta_table, hudi_table, catalog_metadata</span></article><article><strong>Execution mode</strong><span>report_only_blocked</span></article><article><strong>Engine mode</strong><span>none</span></article><article><strong>Outputs</strong><span>table_compatibility_matrix, deterministic_blocker</span></article><article><strong>Evidence</strong><span>table_scan_status, metadata_read_status, delete_tombstone_status, commit_protocol_status, rollback_status, fallback_attempted=false, external_engine_invoked=false, claim_gate_status=not_claim_grade</span></article><article><strong>Claim gate</strong><span>No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim.</span></article></div>
+          <h2>Expected Evidence Fields</h2>
+          <ul><li>table_scan_status</li><li>metadata_read_status</li><li>delete_tombstone_status</li><li>commit_protocol_status</li><li>rollback_status</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li><li>claim_gate_status=not_claim_grade</li></ul>
+          <h2>Expected Output Or Evidence</h2>
+          <p>A report-only table compatibility plan or deterministic unsupported output.</p>
+          <h2>Common Mistakes</h2>
+          <ul><li>mistaking_metadata_smoke_for_table_runtime</li><li>assuming_commit_semantics</li><li>treating_local_files_as_lakehouse_support</li></ul>
+          <h2>Reference Files</h2>
+          <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-compatibility-coverage-scoreboard.md"><code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-input-contract.md"><code>docs/architecture/universal-input-contract.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/README.md"><code>README.md</code></a></li></ul>
+          <h2>Related Use Cases</h2>
+          <div class="related-use-cases"><a class="related-use-case" href="/use-cases/object-store-boundary-report"><span>blocked</span><strong>Object-store and cloud storage boundary</strong></a><a class="related-use-case" href="/use-cases/output-result-sink-and-fanout-boundary"><span>smoke supported</span><strong>Output and fanout boundary</strong></a></div>
+        </article>
+      </div>
+    </section>
+    </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>Independent downstream Vortex-first workflow layer; not an official Vortex project or Vortex-endorsed.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

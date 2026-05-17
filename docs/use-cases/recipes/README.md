@@ -1,0 +1,181 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Use Case Recipes
+
+These recipes are practical entry points for the Use Case Atlas. They are scoped local technical
+preview recipes, not production, performance, SQL/DataFrame, object-store/lakehouse, Foundry
+production, package-publication, or Spark-replacement claims.
+
+## No-Dataset Smoke
+
+- **User goal:** confirm the local CLI and Python wrapper can report status without reading data.
+- **Command:**
+  ```powershell
+  python examples\local-python-smoke\run.py --repo-root .
+  ```
+- **Expected output:** status, smoke, and capabilities JSON.
+- **Evidence fields:** `fallback_attempted=false`, `external_engine_invoked=false`,
+  `protocol_version`, `resolved_cli_path`.
+- **Claim boundary:** no dataset execution and no generated-output claim.
+- **References:** `docs/getting-started/first-10-minutes.md`, `examples/local-python-smoke/README.md`.
+
+## Local CSV Certified Result
+
+- **User goal:** run a small local CSV compatibility-import-certified workload.
+- **Command:**
+  ```powershell
+  python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "selective filter" --dataset-profile tiny_smoke --rows 256 --iterations 3 --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\shardloom-csv-certified-smoke.json --regenerate
+  ```
+- **Expected output:** benchmark JSON with timing, coverage, result-sink, and certificate fields.
+- **Evidence fields:** `execution_mode`, `compatibility_parse_millis`,
+  `compatibility_to_vortex_import_millis`, `vortex_scan_millis`, `claim_gate_status`,
+  `fallback_attempted=false`.
+- **Claim boundary:** certification lane, not pure query speed.
+- **References:** `docs/getting-started/certified-local-workload.md`,
+  `docs/benchmarks/local-taxonomy-benchmark.md`.
+
+## Local Parquet Certified Result
+
+- **User goal:** run the same certification posture over local Parquet fixture input.
+- **Command:**
+  ```powershell
+  python benchmarks\traditional_analytics\run.py --engines shardloom --formats parquet --scenario "selective filter" --dataset-profile tiny_smoke --rows 256 --iterations 3 --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\shardloom-parquet-certified-smoke.json --regenerate
+  ```
+- **Expected output:** local benchmark artifact with separated compatibility-import timing.
+- **Evidence fields:** `source_read_millis`, `vortex_write_millis`, `result_sink_write_millis`,
+  `native_io_certificate_status`, `external_engine_invoked=false`.
+- **Claim boundary:** scoped local proof only; no broad file-format or lakehouse claim.
+- **References:** `docs/benchmarks/local-taxonomy-benchmark.md`.
+
+## Prepared Vortex Batch Run
+
+- **User goal:** inspect the current prepared/native runtime-development lane.
+- **Command:**
+  ```powershell
+  python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\shardloom-prepared-vortex-smoke.json --regenerate
+  ```
+- **Expected output:** prepared Vortex rows separate from compatibility import rows.
+- **Evidence fields:** `source_backed_scan_*`, `source_state_*`,
+  `encoded_predicate_provider_*`, `claim_gate_status`.
+- **Claim boundary:** prepared/native smoke, not performance or encoded-native proof.
+- **References:** `benchmarks/traditional_analytics/README.md`,
+  `docs/architecture/compute-engine-flow-reference.md`.
+
+## Native Vortex Input
+
+- **User goal:** understand where existing Vortex input fits.
+- **Command:** use prepared/native benchmark rows that explicitly label `native_vortex` when
+  admitted by the scenario.
+- **Expected output:** source-backed scan and Native I/O evidence fields.
+- **Evidence fields:** `execution_mode=native_vortex`, `native_io_certificate_status`,
+  `data_decoded`, `data_materialized`, `fallback_attempted=false`.
+- **Claim boundary:** native Vortex input is scoped to admitted rows, not broad runtime support.
+- **References:** `docs/architecture/compute-engine-flow-reference.md`,
+  `docs/architecture/benchmark-suite-catalog.md`.
+
+## Source-Free Generated Reference Table
+
+- **User goal:** create a reference table without an input dataset.
+- **Status:** planned/blocked.
+- **Blocked explanation:** no-input smoke exists, but generated-output execution still needs a
+  `GeneratedSourceCertificate` plus output sink proof.
+- **Expected output:** future generated-source and output evidence.
+- **Evidence fields:** `input_dataset_count=0`, `source_io_performed=false`,
+  `generated_source_created=true`, `generated_source_certificate_status`,
+  `output_native_io_certificate_status`.
+- **Claim boundary:** no current source-free runtime claim.
+- **References:** `docs/foundry/proof-of-use-certification.md`,
+  `docs/architecture/compute-engine-flow-reference.md`.
+
+## Dirty CSV Cleanup
+
+- **User goal:** inspect local malformed timestamp / dirty CSV fixture handling.
+- **Command:**
+  ```powershell
+  python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "malformed timestamp / dirty CSV" --dataset-profile dirty_csv --rows 1000 --iterations 1 --output target\shardloom-dirty-csv-smoke.json --regenerate
+  ```
+- **Expected output:** local fixture evidence and deterministic no-fallback row.
+- **Evidence fields:** `dataset_profile`, `scenario`, `materialization_boundary`,
+  `claim_gate_status`.
+- **Claim boundary:** fixture smoke, not production data-quality runtime.
+- **References:** `benchmarks/traditional_analytics/README.md`.
+
+## Nested JSON Scan
+
+- **User goal:** inspect a local nested JSON field scan fixture.
+- **Command:**
+  ```powershell
+  python benchmarks\traditional_analytics\run.py --engines shardloom --formats jsonl --scenario "nested JSON field scan" --dataset-profile nested_json --rows 1000 --iterations 1 --output target\shardloom-nested-json-smoke.json --regenerate
+  ```
+- **Expected output:** nested fixture evidence with no-fallback fields.
+- **Evidence fields:** `scenario`, `dataset_profile`, `source_metadata_snapshot_status`,
+  `claim_gate_status`.
+- **Claim boundary:** fixture smoke, not broad JSON query runtime.
+- **References:** `benchmarks/traditional_analytics/README.md`.
+
+## CDC Overlay
+
+- **User goal:** inspect deterministic local CDC overlay fixture coverage.
+- **Command:**
+  ```powershell
+  python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "small change over large base" --dataset-profile cdc_delta_overlay --rows 1000 --iterations 1 --output target\shardloom-cdc-overlay-smoke.json --regenerate
+  ```
+- **Expected output:** local base-plus-delta fixture evidence.
+- **Evidence fields:** `cdc_delta_overlay`, `source_state_reuse_hit`, `claim_gate_status`.
+- **Claim boundary:** fixture smoke, not table transaction, lakehouse, or streaming CDC support.
+- **References:** `docs/architecture/benchmark-suite-catalog.md`.
+
+## Output Fanout
+
+- **User goal:** understand local output and planned cross-format fanout.
+- **Status:** result-sink smoke exists; cross-format fanout is planned.
+- **Command:**
+  ```powershell
+  python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1
+  ```
+- **Expected output:** local result-sink proof artifact.
+- **Evidence fields:** `result_sink_write_millis`, `result_replay_verified`,
+  `output_native_io_certificate_status`, `claim_gate_status`.
+- **Claim boundary:** no S3/object-store write or table commit claim.
+- **References:** `docs/architecture/io-reuse-and-fanout-architecture.md`.
+
+## Object-Store Blocked Diagnostic
+
+- **User goal:** ask whether S3/GCS/ADLS runtime I/O is available.
+- **Command:**
+  ```powershell
+  target\debug\shardloom object-store-request-plan --format json
+  ```
+- **Expected output:** report-only or blocked object-store plan.
+- **Evidence fields:** `credential_policy_status`, `network_probe_allowed=false`,
+  `object_store_io=false`, `fallback_attempted=false`.
+- **Claim boundary:** no object-store runtime or lakehouse claim.
+- **References:** `docs/architecture/object-store-request-planner.md`.
+
+## Foundry Dev-Stack Smoke
+
+- **User goal:** inspect the local Foundry-style proof boundary.
+- **Command:**
+  ```powershell
+  python scripts\foundry_proof_of_use.py --rows 64 --iterations 1
+  ```
+- **Expected output:** local proof report with Foundry/external compute fields set false.
+- **Evidence fields:** `foundry_runtime_invoked=false`, `foundry_compute_invoked=false`,
+  `foundry_spark_invoked=false`, `external_engine_invoked=false`.
+- **Claim boundary:** local Foundry-style proof only; no Foundry production or package claim.
+- **References:** `docs/foundry/proof-of-use-certification.md`.
+
+## Benchmark Evidence Interpretation
+
+- **User goal:** read benchmark output without overclaiming speed.
+- **Command:**
+  ```powershell
+  python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1
+  ```
+- **Expected output:** local timing and coverage rows.
+- **Evidence fields:** `execution_mode`, `source_read_millis`, `vortex_prepare_millis`,
+  `operator_compute_millis`, `claim_gate_status`.
+- **Claim boundary:** benchmark evidence, not a leaderboard, performance claim, or superiority
+  claim.
+- **References:** `docs/benchmarks/local-taxonomy-benchmark.md`,
+  `docs/benchmarks/baseline-comparison-boundary.md`.

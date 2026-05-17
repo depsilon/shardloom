@@ -70,6 +70,16 @@ not by compiling every reader by default. Active implementation status for input
 - Compatibility adapter bridge
   - Future adapters must emit source capability, pushdown proof, fidelity loss, materialization
     risk, and native I/O certificate evidence.
+- Reusable SourceState bridge
+  - `GAR-IOREUSE-1A` defines planned `SourceState` as a reusable, format-neutral input preparation
+    artifact for source discovery metadata, schema/dtype metadata, format-specific adapter state,
+    content fingerprinting, and source-state digest evidence.
+  - Required future fields include `source_state_id`, `source_state_digest`, `source_format`,
+    `source_location`, `source_fingerprint_kind`, `schema_digest`, `row_count_known`,
+    `file_count`, `byte_size`, `partition_columns`, `compression`,
+    `source_state_reuse_allowed`, `source_state_reuse_hit`, and `source_state_reuse_reason`.
+  - SourceState reuse is preparation evidence only. It does not imply Vortex-native execution,
+    output support, performance, object-store runtime, or table/lakehouse support.
 - Benchmark-only local compatibility-to-Vortex smoke bridge
   - `vortex-traditional-analytics-benchmark` enables a narrow local benchmark path that parses
     deterministic traditional analytics fixtures in CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro, or

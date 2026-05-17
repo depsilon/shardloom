@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Package, release, and install channel boundary | ShardLoom Use Cases</title>
+  <meta name="description" content="ShardLoom use-case posture for Package, release, and install channel boundary.">
+  <link rel="canonical" href="https://shardloom.io/use-cases/package-channel-readiness-boundary">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="Package, release, and install channel boundary | ShardLoom Use Cases">
+  <meta property="og:description" content="ShardLoom use-case posture for Package, release, and install channel boundary.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/package-channel-readiness-boundary">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="" href="/field-guide/">Field Guide</a>
+<a class="active" aria-current="page" href="/use-cases/">Use Cases</a>
+<a class="" href="/benchmarks">Telemetry</a>
+<a class="" href="/compute-engine-flow">Compute Flow</a>
+<a class="" href="/status">Status</a>
+<a class="" href="/readme">Docs</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="doc-hero use-case-hero">
+      <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        <p class="eyebrow">Use Case Atlas</p>
+        <h1>Package, release, and install channel boundary</h1>
+        <p class="lede">Package, release, and install channel boundary is inspectable as posture or diagnostics, but it is not broad runtime support.</p>
+        <span class="claim-badge report-only">report only</span>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell use-case-layout">
+        <article class="doc-body">
+          <h2>Plain-English Summary</h2>
+          <p>Package, release, and install channel boundary is inspectable as posture or diagnostics, but it is not broad runtime support.</p>
+          <h2>Status Table</h2>
+          <div class="table-scroll"><table>
+<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Status</td><td>report only</td></tr>
+<tr><td>Audience</td><td>user asking how to install ShardLoom today</td></tr>
+<tr><td>Execution mode</td><td>local_release_dry_run</td></tr>
+<tr><td>Engine mode</td><td>batch_status</td></tr>
+<tr><td>Platform</td><td>package-channel</td></tr>
+<tr><td>Evidence level</td><td>capability</td></tr>
+<tr><td>Inputs</td><td>source_checkout</td></tr>
+<tr><td>Outputs</td><td>local_wheel_dry_run_report, install_channel_matrix</td></tr>
+</tbody></table></div>
+          <h2>Quick Example</h2><pre><code data-language="powershell">python scripts\release_dry_run_proof.py --rows 64 --iterations 1</code></pre>
+          <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>Public channels need trusted publishing, provenance, clean install proof, security gates, release approval, and publication-specific evidence.</span></div>
+          <h2>Internal Flow</h2>
+          <div class="use-case-flow"><article><strong>Inputs</strong><span>source_checkout</span></article><article><strong>Execution mode</strong><span>local_release_dry_run</span></article><article><strong>Engine mode</strong><span>batch_status</span></article><article><strong>Outputs</strong><span>local_wheel_dry_run_report, install_channel_matrix</span></article><article><strong>Evidence</strong><span>package_install_mode, clean_env_install_status, cli_binary_resolved, smoke_status, sbom_status, provenance_status, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim.</span></article></div>
+          <h2>Expected Evidence Fields</h2>
+          <ul><li>package_install_mode</li><li>clean_env_install_status</li><li>cli_binary_resolved</li><li>smoke_status</li><li>sbom_status</li><li>provenance_status</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li></ul>
+          <h2>Expected Output Or Evidence</h2>
+          <p>target/release-dry-run-proof/transcript.json records local source artifacts and no-publication status.</p>
+          <h2>Common Mistakes</h2>
+          <ul><li>running_pip_install_shardloom_from_public_registry</li><li>assuming_release_dry_run_published_anything</li><li>installing_external_baselines_as_runtime_dependencies</li></ul>
+          <h2>Reference Files</h2>
+          <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/first-10-minutes.md"><code>docs/getting-started/first-10-minutes.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/install.md"><code>docs/getting-started/install.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/release/hard-release-readiness-gate.md"><code>docs/release/hard-release-readiness-gate.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/adoption-commercial-readiness-friction-reduction.md"><code>docs/architecture/adoption-commercial-readiness-friction-reduction.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/README.md"><code>README.md</code></a></li></ul>
+          <h2>Related Use Cases</h2>
+          <div class="related-use-cases"><a class="related-use-case" href="/use-cases/first-10-minutes-local-smoke"><span>ready local</span><strong>First 10 minutes local smoke</strong></a><a class="related-use-case" href="/use-cases/foundry-local-proof-boundary"><span>smoke supported</span><strong>Foundry-style local proof boundary</strong></a></div>
+        </article>
+      </div>
+    </section>
+    </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>Independent downstream Vortex-first workflow layer; not an official Vortex project or Vortex-endorsed.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

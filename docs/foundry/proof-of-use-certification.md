@@ -44,3 +44,80 @@ local_foundry_style_transform_and_local_vortex_execution_smoke_only
 
 It is not a Foundry production claim, Foundry package publication claim, Foundry virtual-table native
 execution claim, or external compute pushdown claim.
+
+## Generated-Output Boundary
+
+The existing `no_dataset_smoke_performed` field is status/proof smoke only. It does not mean
+ShardLoom generated rows, wrote an output dataset, emitted a `GeneratedSourceCertificate`, or proved a
+source-free generated-output runtime path.
+
+Future Foundry generated-output proof must stay separate from no-dataset smoke:
+
+- `no_dataset_smoke`:
+  - no data execution
+  - no source Native I/O certificate
+  - no generated-source certificate
+  - no output data claim
+- `user_generated_source`:
+  - user Python code creates rows
+  - ShardLoom consumes rows as a generated/literal source only when deterministic generation evidence
+    exists
+  - output evidence is required before any generated-output claim
+- `engine_native_generated_source`:
+  - ShardLoom executes generator nodes such as `range`, `sequence`, `values`, `literal_table`,
+    calendar/date dimension, or deterministic synthetic profile
+  - ShardLoom writes output and emits generated-source and output evidence
+
+Generated-output proof fields should align with the `GAR-GEN-1` contract:
+
+```text
+input_dataset_count=0
+source_io_performed=false
+generated_source_created=true
+generated_source_kind
+generated_source_schema_digest
+generated_source_row_count
+generated_source_plan_digest
+generated_source_seed
+generation_deterministic
+output_io_performed
+output_native_io_certificate_status
+generated_source_certificate_status
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status
+```
+
+S3/object-store boundaries remain blocked for this proof. Foundry generated-output smoke should write
+through Foundry output APIs, not direct S3/object-store paths. This document does not authorize
+credential resolution, network probes, S3 reads, S3 writes, object-store commits, lakehouse output,
+Foundry production claims, package publication, or external engine fallback.
+
+`GAR-IOREUSE-1G` extends this posture with planned output fanout evidence. The intended future smoke
+is:
+
+```text
+no input dataset
+generate deterministic source
+prepare through ShardLoom/Vortex
+write result dataset
+write evidence dataset
+```
+
+Required future fields include:
+
+```text
+input_dataset_count=0
+generated_source_created=true
+generated_source_certificate_status
+output_plan_id
+output_native_io_certificate_status
+foundry_runtime_invoked=false unless real Foundry runtime proof exists
+foundry_spark_invoked=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+No-input smoke and generated-output execution remain separate. A Foundry-style generated-output
+fanout row is not a Foundry production claim, Foundry package publication claim, direct S3/object
+store write claim, or Spark fallback claim.

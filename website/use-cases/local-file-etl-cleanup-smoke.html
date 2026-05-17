@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local file ETL smoke | ShardLoom Use Cases</title>
+  <meta name="description" content="ShardLoom use-case posture for Local file ETL smoke.">
+  <link rel="canonical" href="https://shardloom.io/use-cases/local-file-etl-cleanup-smoke">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="Local file ETL smoke | ShardLoom Use Cases">
+  <meta property="og:description" content="ShardLoom use-case posture for Local file ETL smoke.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/local-file-etl-cleanup-smoke">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="" href="/field-guide/">Field Guide</a>
+<a class="active" aria-current="page" href="/use-cases/">Use Cases</a>
+<a class="" href="/benchmarks">Telemetry</a>
+<a class="" href="/compute-engine-flow">Compute Flow</a>
+<a class="" href="/status">Status</a>
+<a class="" href="/readme">Docs</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="doc-hero use-case-hero">
+      <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        <p class="eyebrow">Use Case Atlas</p>
+        <h1>Local file ETL smoke</h1>
+        <p class="lede">Local file ETL smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+        <span class="claim-badge fixture">smoke supported</span>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell use-case-layout">
+        <article class="doc-body">
+          <h2>Plain-English Summary</h2>
+          <p>Local file ETL smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+          <h2>Status Table</h2>
+          <div class="table-scroll"><table>
+<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Status</td><td>smoke supported</td></tr>
+<tr><td>Audience</td><td>user with local CSV or Parquet data</td></tr>
+<tr><td>Execution mode</td><td>compatibility_import_certified</td></tr>
+<tr><td>Engine mode</td><td>batch</td></tr>
+<tr><td>Platform</td><td>local</td></tr>
+<tr><td>Evidence level</td><td>native-io</td></tr>
+<tr><td>Inputs</td><td>local_csv, local_parquet</td></tr>
+<tr><td>Outputs</td><td>local_vortex_artifact, local_result_sink_evidence</td></tr>
+</tbody></table></div>
+          <h2>Quick Example</h2><pre><code data-language="powershell">python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1</code></pre>
+          
+          <h2>Internal Flow</h2>
+          <div class="use-case-flow"><article><strong>Inputs</strong><span>local_csv, local_parquet</span></article><article><strong>Execution mode</strong><span>compatibility_import_certified</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>local_vortex_artifact, local_result_sink_evidence</span></article><article><strong>Evidence</strong><span>execution_mode, claim_gate_status, native_io_certificate_status, materialization_boundary, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replacement proof.</span></article></div>
+          <h2>Expected Evidence Fields</h2>
+          <ul><li>execution_mode</li><li>claim_gate_status</li><li>native_io_certificate_status</li><li>materialization_boundary</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li></ul>
+          <h2>Expected Output Or Evidence</h2>
+          <p>A target/shardloom-local-vortex-benchmark-smoke.json artifact with timing, coverage, result-sink, and no-fallback fields.</p>
+          <h2>Common Mistakes</h2>
+          <ul><li>reading_compatibility_import_as_pure_query_speed</li><li>expecting_s3_io</li><li>treating_smoke_as_production_etl</li></ul>
+          <h2>Reference Files</h2>
+          <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md"><code>docs/getting-started/examples.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/certified-local-workload.md"><code>docs/getting-started/certified-local-workload.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/local-taxonomy-benchmark.md"><code>docs/benchmarks/local-taxonomy-benchmark.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/examples/local-vortex-benchmark/README.md"><code>examples/local-vortex-benchmark/README.md</code></a></li></ul>
+          <h2>Related Use Cases</h2>
+          <div class="related-use-cases"><a class="related-use-case" href="/use-cases/compatibility-import-certified-local"><span>smoke supported</span><strong>Compatibility import certified local workload</strong></a><a class="related-use-case" href="/use-cases/messy-data-local-fixtures"><span>smoke supported</span><strong>Messy data fixture coverage</strong></a><a class="related-use-case" href="/use-cases/output-result-sink-and-fanout-boundary"><span>smoke supported</span><strong>Output and fanout boundary</strong></a></div>
+        </article>
+      </div>
+    </section>
+    </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>Independent downstream Vortex-first workflow layer; not an official Vortex project or Vortex-endorsed.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

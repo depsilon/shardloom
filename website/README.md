@@ -57,6 +57,8 @@ running a build step:
   client Mermaid runtime or CDN dependency is required.
 - `status.html`: public posture board for supported local smoke, fixture-smoke, report-only,
   blocked, planned, and not-claimed surfaces.
+- `use-cases/index.html` and `use-cases/*.html`: generated non-expert "Can I use this?" atlas from
+  `docs/use-cases/use-case-index.yml`, with filterable status cards and one page per use case.
 - `readme.html`: rendered root `README.md`.
 - `assets/data/benchmark-evidence.json`: normalized benchmark evidence used by `benchmarks.html`.
 - `field-guide/index.html` and `field-guide/*.html`: generated technical dossiers for the public
@@ -109,6 +111,7 @@ The public shell uses clear labels with command-deck framing:
 
 - Home: `/`
 - Field Guide: `/field-guide/`
+- Use Cases: `/use-cases/`
 - Telemetry: `/benchmarks`
 - Compute Flow: `/compute-engine-flow`
 - Status: `/status`
@@ -150,6 +153,9 @@ Website copy must stay claim-safe:
 - `index.html`: main static page.
 - `field-guide/index.html`: generated Field Guide index.
 - `field-guide/*.html`: generated Field Guide concept dossiers.
+- `use-cases/index.html`: generated filterable use-case status matrix.
+- `use-cases/*.html`: generated use-case pages with examples or blockers, expected evidence,
+  common mistakes, references, and related use cases.
 - `benchmarks.html`: generated benchmark evidence snapshot.
 - `compute-engine-flow.html`: generated rendered architecture reference.
 - `status.html`: generated public posture and launch-status board.
@@ -164,6 +170,7 @@ Website copy must stay claim-safe:
 - `assets/logo/shardloom-logo-trim.png`: trimmed ShardLoom logo asset.
 - `assets/logo/shardloom-favicon.png`: icon/favicon asset.
 - `assets/compute-flow.js`: first-party parser for the canonical compute-engine flow reference.
+- `assets/use-cases.js`: first-party filter controller for the generated Use Case Atlas.
 - `assets/site.css`: shared CSS for generated static pages.
 - `assets/data/benchmark-evidence.json`: generated benchmark evidence snapshot data.
 - `assets/data/compute-engine-flow-reference.md`: committed local snapshot parsed by the landing

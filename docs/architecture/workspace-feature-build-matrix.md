@@ -48,3 +48,11 @@ fallback_attempted=false
 
 Feature-disabled execution commands must continue returning deterministic unsupported diagnostics
 instead of reaching for a runtime fallback.
+
+## Optimized Build Profile Follow-Up
+
+`GAR-PERF-2H` is the planned optimized build-profile and PGO benchmark lane. It is separate from the
+current feature/build matrix. Future release-readiness evidence should distinguish portable release
+profiles from benchmark-only profiles such as `release-native-benchmark`, record LTO/PGO/native
+status when benchmark rows use optimized binaries, and keep `target-cpu=native` out of portable
+release artifacts.

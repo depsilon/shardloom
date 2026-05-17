@@ -1,0 +1,297 @@
+# SPDX-License-Identifier: Apache-2.0
+schema_version: 1
+statuses: [ready_local, smoke_supported, report_only, planned, blocked, unsupported]
+capability_families:
+  - id: onboarding_first_10_minutes
+    title: onboarding / first 10 minutes
+  - id: local_file_etl
+    title: local file ETL
+  - id: compatibility_import_certified
+    title: compatibility import certified
+  - id: prepared_native_vortex
+    title: prepared/native Vortex
+  - id: python_wrapper_client
+    title: Python wrapper/client
+  - id: sql_dataframe_report_only
+    title: SQL/DataFrame/report-only surfaces
+  - id: source_free_generated_output
+    title: source-free generated output
+  - id: messy_data_dirty_json_cdc
+    title: messy data / dirty CSV / nested JSON / CDC
+  - id: query_scenario_cookbook
+    title: query scenario cookbook
+  - id: output_and_fanout
+    title: output and fanout
+  - id: object_store_boundaries
+    title: object-store/S3/GCS/ADLS boundaries
+  - id: table_lakehouse_boundaries
+    title: table/lakehouse boundaries
+  - id: foundry_dev_stack_local_proof
+    title: Foundry dev-stack and local proof
+  - id: evidence_audit_claim_gates
+    title: evidence/audit/claim gates
+  - id: benchmark_interpretation
+    title: benchmark interpretation
+  - id: package_release_install_channels
+    title: package/release/install channels
+use_cases:
+  - id: first-10-minutes-local-smoke
+    title: First 10 minutes local smoke
+    capability_family: onboarding_first_10_minutes
+    audience: "new local user or reviewer"
+    status: ready_local
+    execution_mode: no_dataset_smoke
+    engine_mode: batch_status
+    inputs: [none]
+    outputs: [status_report, capabilities_report, smoke_report]
+    evidence_fields: [fallback_attempted=false, external_engine_invoked=false, protocol_version, resolved_cli_path]
+    claim_boundary: "Local source-checkout smoke only; no dataset execution, package-publication, production, SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim."
+    runnable_example: "python examples\\local-python-smoke\\run.py --repo-root ."
+    expected_output_evidence: "Status, smoke, and capabilities JSON with fallback_attempted=false and external_engine_invoked=false."
+    common_mistakes: [expecting_dataset_output, treating_no_dataset_smoke_as_generated_output, assuming_package_publication]
+    references: [README.md, docs/getting-started/first-10-minutes.md, docs/getting-started/examples.md, examples/local-python-smoke/README.md, python/README.md]
+    related_use_cases: [python-wrapper-client-smoke, evidence-audit-claim-gates]
+  - id: local-file-etl-cleanup-smoke
+    title: Local file ETL smoke
+    capability_family: local_file_etl
+    audience: "user with local CSV or Parquet data"
+    status: smoke_supported
+    execution_mode: compatibility_import_certified
+    engine_mode: batch
+    inputs: [local_csv, local_parquet]
+    outputs: [local_vortex_artifact, local_result_sink_evidence]
+    evidence_fields: [execution_mode, claim_gate_status, native_io_certificate_status, materialization_boundary, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replacement proof."
+    runnable_example: "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1"
+    expected_output_evidence: "A target/shardloom-local-vortex-benchmark-smoke.json artifact with timing, coverage, result-sink, and no-fallback fields."
+    common_mistakes: [reading_compatibility_import_as_pure_query_speed, expecting_s3_io, treating_smoke_as_production_etl]
+    references: [docs/getting-started/examples.md, docs/getting-started/certified-local-workload.md, docs/architecture/compute-engine-flow-reference.md, docs/benchmarks/local-taxonomy-benchmark.md, examples/local-vortex-benchmark/README.md]
+    related_use_cases: [compatibility-import-certified-local, messy-data-local-fixtures, output-result-sink-and-fanout-boundary]
+  - id: compatibility-import-certified-local
+    title: Compatibility import certified local workload
+    capability_family: compatibility_import_certified
+    audience: "user who needs local compatibility input imported into a Vortex-backed evidence path"
+    status: smoke_supported
+    execution_mode: compatibility_import_certified
+    engine_mode: batch
+    inputs: [local_csv, local_parquet, local_jsonl_when_scenario_admits_it]
+    outputs: [prepared_vortex_artifact, result_sink_artifact, execution_certificate, native_io_certificate]
+    evidence_fields: [source_read_millis, compatibility_parse_millis, compatibility_to_vortex_import_millis, vortex_write_millis, vortex_reopen_millis, vortex_scan_millis, operator_compute_millis, result_sink_write_millis, evidence_render_millis, total_runtime_millis, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Certification lane evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim."
+    runnable_example: "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv,parquet --scenario \"selective filter\" --dataset-profile tiny_smoke --rows 256 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\\shardloom-local-taxonomy-smoke.json --regenerate"
+    expected_output_evidence: "Benchmark JSON with compatibility import timing separated from Vortex scan/operator/result-sink evidence."
+    common_mistakes: [comparing_import_certification_to_external_engine_query_time, hiding_import_costs, omitting_result_sink_evidence]
+    references: [docs/getting-started/certified-local-workload.md, docs/architecture/compute-engine-flow-reference.md, docs/benchmarks/local-taxonomy-benchmark.md, docs/benchmarks/baseline-comparison-boundary.md, benchmarks/traditional_analytics/README.md]
+    related_use_cases: [prepared-native-vortex-runtime-direction, benchmark-interpretation-evidence-not-leaderboard]
+  - id: prepared-native-vortex-runtime-direction
+    title: Prepared/native Vortex runtime direction
+    capability_family: prepared_native_vortex
+    audience: "user evaluating the current runtime-development lane"
+    status: smoke_supported
+    execution_mode: prepared_vortex/native_vortex
+    engine_mode: batch
+    inputs: [local_prepared_vortex_artifact, benchmark_fixture]
+    outputs: [prepared_native_timing_rows, source_backed_scan_evidence]
+    evidence_fields: [execution_mode, source_backed_scan_used, source_state_reuse_hit, encoded_predicate_provider_status, data_decoded, data_materialized, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Prepared/native smoke and structural evidence only; no broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim."
+    runnable_example: "python benchmarks\\traditional_analytics\\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario \"filter + projection + limit\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-prepared-vortex-smoke.json --regenerate"
+    expected_output_evidence: "Prepared Vortex rows separate from compatibility import rows, with source-backed scan and no-fallback fields where available."
+    common_mistakes: [calling_prepared_vortex_production_ready, treating_encoded_predicate_fields_as_encoded_native_claims, expecting_sql_runtime]
+    references: [docs/architecture/compute-engine-flow-reference.md, docs/benchmarks/local-taxonomy-benchmark.md, benchmarks/traditional_analytics/README.md, docs/architecture/benchmark-suite-catalog.md]
+    related_use_cases: [compatibility-import-certified-local, benchmark-interpretation-evidence-not-leaderboard]
+  - id: python-wrapper-client-smoke
+    title: Python wrapper and client smoke
+    capability_family: python_wrapper_client
+    audience: "Python user who wants import-friendly status and capability checks"
+    status: ready_local
+    execution_mode: no_dataset_smoke
+    engine_mode: batch_status
+    inputs: [none]
+    outputs: [python_capability_view, typed_output_envelope]
+    evidence_fields: [protocol_version, resolved_cli_path, fallback_attempted=false, external_engine_invoked=false, support_status, claim_gate_status]
+    claim_boundary: "Thin Python CLI client only; not a native binding, DataFrame API, SQL runtime, UDF runtime, package-publication proof, or fallback path."
+    runnable_example: "$env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import ShardLoomClient; print(ShardLoomClient.from_repo().status().status)\""
+    expected_output_evidence: "Python can import the package and invoke explicit status/capability commands through the local CLI."
+    common_mistakes: [expecting_import_side_effects, expecting_native_python_execution, treating_capability_view_as_runtime_support]
+    references: [python/README.md, docs/getting-started/first-10-minutes.md, examples/local-python-smoke/README.md, README.md]
+    related_use_cases: [first-10-minutes-local-smoke, sql-dataframe-capability-posture]
+  - id: sql-dataframe-capability-posture
+    title: SQL and DataFrame capability posture
+    capability_family: sql_dataframe_report_only
+    audience: "user asking whether SQL text or DataFrame-style APIs are production-ready"
+    status: report_only
+    execution_mode: report_only
+    engine_mode: none
+    inputs: [sql_text, dataframe_api_request]
+    outputs: [capability_report, deterministic_unsupported_diagnostics]
+    evidence_fields: [support_status=report_only, runtime_execution=false, planner_readiness_non_executing, claim_gate_status=not_claim_grade, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "SQL/DataFrame readiness is inspectable but runtime execution is not broadly supported or production-claimable."
+    runnable_example: "target\\debug\\shardloom capabilities sql --format json"
+    blocked_explanation: "SQL parse/bind/plan/execute and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof."
+    expected_output_evidence: "A capability posture report showing report_only or unsupported rows rather than runtime execution."
+    common_mistakes: [submitting_sql_and_expecting_execution, assuming_dataframe_lazy_api_exists, mistaking_report_only_for_supported]
+    references: [python/README.md, docs/architecture/compute-engine-flow-reference.md, docs/architecture/canonical-terminology.md, README.md]
+    related_use_cases: [python-wrapper-client-smoke, source-free-generated-output-boundary]
+  - id: source-free-generated-output-boundary
+    title: Source-free generated output boundary
+    capability_family: source_free_generated_output
+    audience: "user who wants range, values, calendar, or literal-table output without input data"
+    status: planned
+    execution_mode: planned_generated_source
+    engine_mode: batch
+    inputs: [none, generated_rows, range, values, calendar_dimension]
+    outputs: [planned_local_output_artifact, generated_source_certificate]
+    evidence_fields: [input_dataset_count=0, source_io_performed=false, generated_source_created=true, generated_source_kind, generated_source_schema_digest, generated_source_row_count, output_io_performed, generated_source_certificate_status, output_native_io_certificate_status, fallback_attempted=false, external_engine_invoked=false, claim_gate_status]
+    claim_boundary: "Planned generated-output contract only; no current source-free runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, or package-publication claim."
+    blocked_explanation: "No-input smoke exists, but generated-output execution needs a GeneratedSourceCertificate, deterministic generation evidence, and output sink proof before it can be supported."
+    expected_output_evidence: "Future rows should distinguish no_dataset_smoke from user_generated_source and engine_native_generated_source."
+    common_mistakes: [confusing_no_dataset_smoke_with_generated_output, claiming_source_native_io_without_source_read, writing_to_s3]
+    references: [docs/architecture/compute-engine-flow-reference.md, docs/foundry/proof-of-use-certification.md, python/README.md, docs/architecture/phased-execution-plan.md]
+    related_use_cases: [first-10-minutes-local-smoke, foundry-local-proof-boundary, output-result-sink-and-fanout-boundary]
+  - id: messy-data-local-fixtures
+    title: Messy data fixture coverage
+    capability_family: messy_data_dirty_json_cdc
+    audience: "user with dirty CSV, nested JSON, null-heavy, or CDC-like local fixture needs"
+    status: smoke_supported
+    execution_mode: compatibility_import_certified
+    engine_mode: batch
+    inputs: [dirty_csv_fixture, nested_json_fixture, cdc_delta_overlay_fixture, null_heavy_fixture]
+    outputs: [local_benchmark_artifact, fixture_sidecars, evidence_rows]
+    evidence_fields: [scenario_family, dataset_profile, source_metadata_snapshot_status, source_state_reuse_hit, materialization_boundary, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim."
+    runnable_example: "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv,jsonl --scenario \"malformed timestamp / dirty CSV\" --dataset-profile dirty_csv --rows 1000 --iterations 1 --output target\\shardloom-dirty-csv-smoke.json --regenerate"
+    expected_output_evidence: "Benchmark rows and fixture metadata for the selected messy-data scenario with no fallback."
+    common_mistakes: [treating_fixture_cdc_as_table_commit, expecting_general_json_schema_inference, reading_smoke_as_data_quality_product]
+    references: [benchmarks/traditional_analytics/README.md, docs/architecture/benchmark-suite-catalog.md, docs/benchmarks/local-taxonomy-benchmark.md, docs/getting-started/examples.md]
+    related_use_cases: [query-scenario-cookbook-smoke, benchmark-interpretation-evidence-not-leaderboard]
+  - id: query-scenario-cookbook-smoke
+    title: Query scenario cookbook smoke
+    capability_family: query_scenario_cookbook
+    audience: "user mapping a familiar analytics operation to a ShardLoom smoke scenario"
+    status: smoke_supported
+    execution_mode: compatibility_import_certified
+    engine_mode: batch
+    inputs: [local_benchmark_fixture]
+    outputs: [scenario_timing_rows, correctness_digest, evidence_rows]
+    evidence_fields: [scenario, correctness_digest, execution_mode, operator_compute_millis, data_decoded, data_materialized, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Cookbook scenarios are scoped local evidence; they do not imply broad SQL, DataFrame, optimizer parity, performance, or production analytics support."
+    runnable_example: "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv --scenario \"group by aggregation\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-group-by-smoke.json --regenerate"
+    expected_output_evidence: "A benchmark artifact for one named scenario with no-fallback evidence and correctness/timing rows."
+    common_mistakes: [assuming_all_sql_group_by_shapes_are_supported, ignoring_dataset_profile, using_external_baselines_as_fallback]
+    references: [benchmarks/traditional_analytics/README.md, docs/architecture/benchmark-suite-catalog.md, docs/benchmarks/local-taxonomy-benchmark.md, docs/benchmarks/baseline-comparison-boundary.md]
+    related_use_cases: [local-file-etl-cleanup-smoke, prepared-native-vortex-runtime-direction]
+  - id: output-result-sink-and-fanout-boundary
+    title: Output and fanout boundary
+    capability_family: output_and_fanout
+    audience: "user asking what ShardLoom can write today and what fanout means"
+    status: smoke_supported
+    execution_mode: compatibility_import_certified
+    engine_mode: batch
+    inputs: [local_benchmark_fixture, prepared_vortex_artifact]
+    outputs: [local_result_sink_artifact, output_certificate, planned_multi_format_fanout]
+    evidence_fields: [result_sink_write_millis, result_replay_verified, output_native_io_certificate_status, output_format, output_plan_reuse_hit, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Result-sink smoke is local and scoped; cross-format fanout, S3/object-store write, table commits, and production sink support remain planned or blocked."
+    runnable_example: "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1"
+    expected_output_evidence: "A local result-sink proof artifact and future fanout fields only when admitted by GAR-IOREUSE slices."
+    common_mistakes: [coupling_input_format_to_output_format, treating_local_sink_as_s3_write, assuming_lakehouse_commit]
+    references: [docs/architecture/io-reuse-and-fanout-architecture.md, docs/architecture/compute-engine-flow-reference.md, docs/benchmarks/local-taxonomy-benchmark.md, examples/local-vortex-benchmark/README.md]
+    related_use_cases: [compatibility-import-certified-local, source-free-generated-output-boundary, object-store-boundary-report]
+  - id: object-store-boundary-report
+    title: Object-store and cloud storage boundary
+    capability_family: object_store_boundaries
+    audience: "user asking whether S3, GCS, or ADLS runtime I/O works"
+    status: blocked
+    execution_mode: report_only_blocked
+    engine_mode: none
+    inputs: [s3_uri, gcs_uri, adls_uri]
+    outputs: [object_store_plan, deterministic_blocker]
+    evidence_fields: [credential_policy_status, network_probe_allowed=false, byte_range_read_allowed, object_store_io=false, write_io=false, native_io_certificate_status=blocked, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim."
+    runnable_example: "target\\debug\\shardloom object-store-request-plan --format json"
+    blocked_explanation: "Runtime object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed."
+    expected_output_evidence: "A blocked or report-only object-store plan with no provider probe and no external engine invocation."
+    common_mistakes: [expecting_public_s3_read, assuming_signed_url_support, treating_planner_as_runtime_io]
+    references: [docs/architecture/compute-engine-flow-reference.md, docs/architecture/universal-input-contract.md, docs/architecture/object-store-request-planner.md, docs/architecture/universal-compatibility-coverage-scoreboard.md]
+    related_use_cases: [table-lakehouse-boundary-report, output-result-sink-and-fanout-boundary]
+  - id: table-lakehouse-boundary-report
+    title: Table and lakehouse boundary
+    capability_family: table_lakehouse_boundaries
+    audience: "user asking whether Iceberg, Delta, Hudi, or catalog commits are supported"
+    status: blocked
+    execution_mode: report_only_blocked
+    engine_mode: none
+    inputs: [iceberg_table, delta_table, hudi_table, catalog_metadata]
+    outputs: [table_compatibility_matrix, deterministic_blocker]
+    evidence_fields: [table_scan_status, metadata_read_status, delete_tombstone_status, commit_protocol_status, rollback_status, fallback_attempted=false, external_engine_invoked=false, claim_gate_status=not_claim_grade]
+    claim_boundary: "No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim."
+    runnable_example: "target\\debug\\shardloom table-compat-plan aggregate --format json"
+    blocked_explanation: "Table-format runtime needs metadata, snapshot, delete/tombstone, write, commit, rollback, object-store, and certificate evidence before support can be claimed."
+    expected_output_evidence: "A report-only table compatibility plan or deterministic unsupported output."
+    common_mistakes: [mistaking_metadata_smoke_for_table_runtime, assuming_commit_semantics, treating_local_files_as_lakehouse_support]
+    references: [docs/architecture/compute-engine-flow-reference.md, docs/architecture/universal-compatibility-coverage-scoreboard.md, docs/architecture/universal-input-contract.md, README.md]
+    related_use_cases: [object-store-boundary-report, output-result-sink-and-fanout-boundary]
+  - id: foundry-local-proof-boundary
+    title: Foundry-style local proof boundary
+    capability_family: foundry_dev_stack_local_proof
+    audience: "Foundry-adjacent user who wants to see the local transform shape"
+    status: smoke_supported
+    execution_mode: no_dataset_smoke
+    engine_mode: batch_status
+    inputs: [none, local_style_fixture]
+    outputs: [local_foundry_style_report, certificate_metrics_dataset_output]
+    evidence_fields: [no_dataset_smoke_performed, transform_import_proven, cli_binary_resolved, foundry_runtime_invoked=false, foundry_compute_invoked=false, foundry_spark_invoked=false, fallback_attempted=false, external_engine_invoked=false, public_foundry_claim_allowed=false]
+    claim_boundary: "Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim."
+    runnable_example: "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1"
+    expected_output_evidence: "A local proof report showing Foundry and external compute were not invoked."
+    common_mistakes: [treating_local_style_as_real_foundry_runtime, expecting_foundry_package, writing_directly_to_s3]
+    references: [docs/foundry/proof-of-use-certification.md, docs/foundry/integration-pack-readiness.md, examples/foundry-lightweight-transform/README.md, docs/architecture/compute-engine-flow-reference.md]
+    related_use_cases: [source-free-generated-output-boundary, package-channel-readiness-boundary]
+  - id: evidence-audit-claim-gates
+    title: Evidence, audit, and claim gates
+    capability_family: evidence_audit_claim_gates
+    audience: "reviewer who needs to know what proof a run produced"
+    status: ready_local
+    execution_mode: compatibility_import_certified
+    engine_mode: batch
+    inputs: [local_certified_workload]
+    outputs: [execution_certificate, native_io_certificate, claim_gate_status, result_replay_evidence]
+    evidence_fields: [execution_mode, engine_mode, native_io_certificate_status, materialization_boundary, result_replay_verified, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Audit fields explain scoped local evidence only; missing evidence blocks claims and never permits hidden fallback."
+    runnable_example: "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1"
+    expected_output_evidence: "A local benchmark smoke artifact with certificate, result-sink, materialization, claim gate, and no-fallback fields."
+    common_mistakes: [omitting_claim_gate_status, assuming_missing_evidence_means_supported, ignoring_materialization_boundary]
+    references: [docs/getting-started/certified-local-workload.md, docs/architecture/compute-engine-flow-reference.md, docs/benchmarks/local-taxonomy-benchmark.md, docs/architecture/operational-evidence-policy-hardening.md]
+    related_use_cases: [compatibility-import-certified-local, benchmark-interpretation-evidence-not-leaderboard]
+  - id: benchmark-interpretation-evidence-not-leaderboard
+    title: Benchmark evidence, not leaderboard
+    capability_family: benchmark_interpretation
+    audience: "user comparing local evidence rows without overclaiming performance"
+    status: smoke_supported
+    execution_mode: mixed_by_row
+    engine_mode: batch
+    inputs: [local_benchmark_fixture, optional_external_baselines]
+    outputs: [timing_rows, coverage_rows, claim_boundary_notes]
+    evidence_fields: [engine, execution_mode, source_read_millis, compatibility_parse_millis, vortex_prepare_millis, vortex_scan_millis, operator_compute_millis, result_sink_write_millis, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof."
+    runnable_example: "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1"
+    expected_output_evidence: "Timing rows and coverage rows that keep ShardLoom runtime lanes separate from optional external baselines."
+    common_mistakes: [ranking_external_engines_as_public_claims, comparing_import_costs_to_pure_query_speed, hiding_external_baseline_only_status]
+    references: [docs/benchmarks/local-taxonomy-benchmark.md, docs/benchmarks/baseline-comparison-boundary.md, benchmarks/traditional_analytics/README.md, docs/architecture/benchmark-suite-catalog.md]
+    related_use_cases: [prepared-native-vortex-runtime-direction, compatibility-import-certified-local]
+  - id: package-channel-readiness-boundary
+    title: Package, release, and install channel boundary
+    capability_family: package_release_install_channels
+    audience: "user asking how to install ShardLoom today"
+    status: report_only
+    execution_mode: local_release_dry_run
+    engine_mode: batch_status
+    inputs: [source_checkout]
+    outputs: [local_wheel_dry_run_report, install_channel_matrix]
+    evidence_fields: [package_install_mode, clean_env_install_status, cli_binary_resolved, smoke_status, sbom_status, provenance_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim."
+    runnable_example: "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1"
+    blocked_explanation: "Public channels need trusted publishing, provenance, clean install proof, security gates, release approval, and publication-specific evidence."
+    expected_output_evidence: "target/release-dry-run-proof/transcript.json records local source artifacts and no-publication status."
+    common_mistakes: [running_pip_install_shardloom_from_public_registry, assuming_release_dry_run_published_anything, installing_external_baselines_as_runtime_dependencies]
+    references: [docs/getting-started/first-10-minutes.md, docs/getting-started/install.md, docs/release/hard-release-readiness-gate.md, docs/architecture/adoption-commercial-readiness-friction-reduction.md, README.md]
+    related_use_cases: [first-10-minutes-local-smoke, foundry-local-proof-boundary]

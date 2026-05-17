@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Foundry-style local proof boundary | ShardLoom Use Cases</title>
+  <meta name="description" content="ShardLoom use-case posture for Foundry-style local proof boundary.">
+  <link rel="canonical" href="https://shardloom.io/use-cases/foundry-local-proof-boundary">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="Foundry-style local proof boundary | ShardLoom Use Cases">
+  <meta property="og:description" content="ShardLoom use-case posture for Foundry-style local proof boundary.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/foundry-local-proof-boundary">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="" href="/field-guide/">Field Guide</a>
+<a class="active" aria-current="page" href="/use-cases/">Use Cases</a>
+<a class="" href="/benchmarks">Telemetry</a>
+<a class="" href="/compute-engine-flow">Compute Flow</a>
+<a class="" href="/status">Status</a>
+<a class="" href="/readme">Docs</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="doc-hero use-case-hero">
+      <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        <p class="eyebrow">Use Case Atlas</p>
+        <h1>Foundry-style local proof boundary</h1>
+        <p class="lede">Foundry-style local proof boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+        <span class="claim-badge fixture">smoke supported</span>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell use-case-layout">
+        <article class="doc-body">
+          <h2>Plain-English Summary</h2>
+          <p>Foundry-style local proof boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+          <h2>Status Table</h2>
+          <div class="table-scroll"><table>
+<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Status</td><td>smoke supported</td></tr>
+<tr><td>Audience</td><td>Foundry-adjacent user who wants to see the local transform shape</td></tr>
+<tr><td>Execution mode</td><td>no_dataset_smoke</td></tr>
+<tr><td>Engine mode</td><td>batch_status</td></tr>
+<tr><td>Platform</td><td>foundry-local</td></tr>
+<tr><td>Evidence level</td><td>capability</td></tr>
+<tr><td>Inputs</td><td>none, local_style_fixture</td></tr>
+<tr><td>Outputs</td><td>local_foundry_style_report, certificate_metrics_dataset_output</td></tr>
+</tbody></table></div>
+          <h2>Quick Example</h2><pre><code data-language="powershell">python scripts\foundry_proof_of_use.py --rows 64 --iterations 1</code></pre>
+          
+          <h2>Internal Flow</h2>
+          <div class="use-case-flow"><article><strong>Inputs</strong><span>none, local_style_fixture</span></article><article><strong>Execution mode</strong><span>no_dataset_smoke</span></article><article><strong>Engine mode</strong><span>batch_status</span></article><article><strong>Outputs</strong><span>local_foundry_style_report, certificate_metrics_dataset_output</span></article><article><strong>Evidence</strong><span>no_dataset_smoke_performed, transform_import_proven, cli_binary_resolved, foundry_runtime_invoked=false, foundry_compute_invoked=false, foundry_spark_invoked=false, fallback_attempted=false, external_engine_invoked=false, public_foundry_claim_allowed=false</span></article><article><strong>Claim gate</strong><span>Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.</span></article></div>
+          <h2>Expected Evidence Fields</h2>
+          <ul><li>no_dataset_smoke_performed</li><li>transform_import_proven</li><li>cli_binary_resolved</li><li>foundry_runtime_invoked=false</li><li>foundry_compute_invoked=false</li><li>foundry_spark_invoked=false</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li><li>public_foundry_claim_allowed=false</li></ul>
+          <h2>Expected Output Or Evidence</h2>
+          <p>A local proof report showing Foundry and external compute were not invoked.</p>
+          <h2>Common Mistakes</h2>
+          <ul><li>treating_local_style_as_real_foundry_runtime</li><li>expecting_foundry_package</li><li>writing_directly_to_s3</li></ul>
+          <h2>Reference Files</h2>
+          <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/foundry/proof-of-use-certification.md"><code>docs/foundry/proof-of-use-certification.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/foundry/integration-pack-readiness.md"><code>docs/foundry/integration-pack-readiness.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/examples/foundry-lightweight-transform/README.md"><code>examples/foundry-lightweight-transform/README.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a></li></ul>
+          <h2>Related Use Cases</h2>
+          <div class="related-use-cases"><a class="related-use-case" href="/use-cases/source-free-generated-output-boundary"><span>planned</span><strong>Source-free generated output boundary</strong></a><a class="related-use-case" href="/use-cases/package-channel-readiness-boundary"><span>report only</span><strong>Package, release, and install channel boundary</strong></a></div>
+        </article>
+      </div>
+    </section>
+    </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>Independent downstream Vortex-first workflow layer; not an official Vortex project or Vortex-endorsed.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
