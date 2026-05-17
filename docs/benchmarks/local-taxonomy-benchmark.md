@@ -93,6 +93,16 @@ aggregate scenarios. The benchmark remains local pre-release evidence, not a
 leaderboard, performance claim, superiority claim, production claim, or Spark
 replacement claim.
 
+`GAR-PERF-1B` adds the source-state coverage matrix at
+`docs/architecture/source-state-reuse-coverage-matrix.md` and propagates
+`source_state_coverage_*` fields into prepared/native batch evidence. Those
+fields classify requested scenario rows as `source-state-reused`,
+`source-state-not-needed`, `blocked-with-reason`, or
+`unsupported-with-reason`. The rows also make the current digest boundary
+explicit with `source_state_digest_status=not_emitted_scoped_in_memory_source_state`;
+universal content-addressed `SourceState` digests are deferred to
+`GAR-IOREUSE-1A`.
+
 ## Evidence-Level Runtime Tiering Queue
 
 `GAR-PERF-2A` tracks first-class benchmark evidence levels:

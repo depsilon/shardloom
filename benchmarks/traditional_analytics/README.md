@@ -389,6 +389,17 @@ both are present and emit
 `source_state_reuse_status=per_batch_date_null_metric_state_reused` plus family-specific
 `source_state_date_null_metric_*` fields such as
 `source_state_date_null_metric_reuse_status`; this is scoped residual-native reuse evidence only.
+GAR-PERF-1B adds the complete source-state coverage matrix at
+`docs/architecture/source-state-reuse-coverage-matrix.md`. Batch evidence now also emits
+`source_state_coverage_schema_version`,
+`source_state_coverage_matrix_ref`, `source_state_coverage_status_vocabulary`,
+`source_state_coverage_all_requested_scenarios_classified`, `source_state_coverage_matrix`, and
+per-child `scenario_<slug>_source_state_coverage_*` fields. Coverage statuses are
+`source-state-reused`, `source-state-not-needed`, `blocked-with-reason`, and
+`unsupported-with-reason`. Rows also report
+`source_state_digest_status=not_emitted_scoped_in_memory_source_state` because the current batch
+source states are scoped in-process derived state; universal content-addressed `SourceState`
+digests belong to the GAR-IOREUSE-1A follow-up.
 
 `GAR-PERF-2F` tracks the next step: an explicit in-process `ShardLoomSession` runtime for scoped
 prepared/native local artifacts. Future session-backed rows should expose `session_id`, cache

@@ -41,6 +41,8 @@ const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.encoded_predicate_provider.v4";
 const TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_batch.v1";
+const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.source_state_coverage.v1";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
@@ -3130,6 +3132,56 @@ impl TraditionalAnalyticsVortexBatchReport {
                 self.source_state_reuse_status().to_string(),
             ),
             (
+                "source_state_coverage_schema_version".to_string(),
+                SOURCE_STATE_COVERAGE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "source_state_coverage_matrix_ref".to_string(),
+                "docs/architecture/source-state-reuse-coverage-matrix.md".to_string(),
+            ),
+            (
+                "source_state_coverage_status_vocabulary".to_string(),
+                "source-state-reused,source-state-not-needed,blocked-with-reason,unsupported-with-reason"
+                    .to_string(),
+            ),
+            (
+                "source_state_coverage_all_requested_scenarios_classified".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "source_state_coverage_matrix".to_string(),
+                self.source_state_coverage_matrix(),
+            ),
+            (
+                "source_state_coverage_reused_scenario_count".to_string(),
+                self.source_state_coverage_status_count("source-state-reused")
+                    .to_string(),
+            ),
+            (
+                "source_state_coverage_not_needed_scenario_count".to_string(),
+                self.source_state_coverage_status_count("source-state-not-needed")
+                    .to_string(),
+            ),
+            (
+                "source_state_coverage_blocked_scenario_count".to_string(),
+                self.source_state_coverage_status_count("blocked-with-reason")
+                    .to_string(),
+            ),
+            (
+                "source_state_coverage_unsupported_scenario_count".to_string(),
+                self.source_state_coverage_status_count("unsupported-with-reason")
+                    .to_string(),
+            ),
+            (
+                "source_state_digest_status".to_string(),
+                "not_emitted_scoped_in_memory_source_state".to_string(),
+            ),
+            (
+                "source_state_digest_reason".to_string(),
+                "current source-state families are scoped in-process derived states; universal SourceState digest is planned under GAR-IOREUSE-1A"
+                    .to_string(),
+            ),
+            (
                 "source_state_reused".to_string(),
                 self.source_state_reused().to_string(),
             ),
@@ -3381,7 +3433,28 @@ impl TraditionalAnalyticsVortexBatchReport {
             ),
         ];
         for report in &self.reports {
-            fields.extend(batch_scenario_fields(report));
+            let mut scenario_fields = batch_scenario_fields(report);
+            let prefix = format!("scenario_{}", traditional_scenario_slug(report.scenario));
+            scenario_fields.push((
+                format!("{prefix}_source_state_coverage_status"),
+                self.source_state_coverage_status(report.scenario)
+                    .to_string(),
+            ));
+            scenario_fields.push((
+                format!("{prefix}_source_state_coverage_family"),
+                Self::source_state_coverage_family(report.scenario).to_string(),
+            ));
+            scenario_fields.push((
+                format!("{prefix}_source_state_coverage_reason"),
+                self.source_state_coverage_reason(report.scenario)
+                    .to_string(),
+            ));
+            scenario_fields.push((
+                format!("{prefix}_source_state_coverage_claim_boundary"),
+                "runtime-plumbing coverage classification only; not a performance, encoded-native, production, SQL/DataFrame, object-store, lakehouse, or Spark-displacement claim"
+                    .to_string(),
+            ));
+            fields.extend(scenario_fields);
         }
         fields
     }
@@ -3576,6 +3649,158 @@ impl TraditionalAnalyticsVortexBatchReport {
             0 => "not_applicable_no_date_null_metric_state_consumers",
             1 => "not_prepared_single_consumer_uses_scenario_scan",
             _ => "per_batch_date_null_metric_state_reused",
+        }
+    }
+
+    fn source_state_coverage_matrix(&self) -> String {
+        self.reports
+            .iter()
+            .map(|report| {
+                format!(
+                    "{}:{}:{}",
+                    traditional_scenario_slug(report.scenario),
+                    self.source_state_coverage_status(report.scenario),
+                    Self::source_state_coverage_family(report.scenario)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(";")
+    }
+
+    fn source_state_coverage_status_count(&self, expected: &str) -> usize {
+        self.reports
+            .iter()
+            .filter(|report| self.source_state_coverage_status(report.scenario) == expected)
+            .count()
+    }
+
+    fn source_state_coverage_status(&self, scenario: TraditionalAnalyticsScenario) -> &'static str {
+        match scenario {
+            TraditionalAnalyticsScenario::HashJoin
+            | TraditionalAnalyticsScenario::JoinAggregate => {
+                if self.dimension_label_state_consumer_count > 1 {
+                    "source-state-reused"
+                } else {
+                    "source-state-not-needed"
+                }
+            }
+            TraditionalAnalyticsScenario::DistinctCount
+            | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
+                if self.category_metric_state_consumer_count > 1 {
+                    "source-state-reused"
+                } else {
+                    "source-state-not-needed"
+                }
+            }
+            TraditionalAnalyticsScenario::GroupByAggregation
+            | TraditionalAnalyticsScenario::MultiKeyGroupBy => {
+                if self.group_category_metric_state_consumer_count > 1 {
+                    "source-state-reused"
+                } else {
+                    "source-state-not-needed"
+                }
+            }
+            TraditionalAnalyticsScenario::SortAndTopK
+            | TraditionalAnalyticsScenario::TopNPerGroup
+            | TraditionalAnalyticsScenario::RowNumberWindow => {
+                if self.ranked_metric_state_consumer_count > 1 {
+                    "source-state-reused"
+                } else {
+                    "source-state-not-needed"
+                }
+            }
+            TraditionalAnalyticsScenario::SelectiveFilter
+            | TraditionalAnalyticsScenario::FilterProjectionLimit => {
+                if self.selective_filter_state_consumer_count > 1 {
+                    "source-state-reused"
+                } else {
+                    "source-state-not-needed"
+                }
+            }
+            TraditionalAnalyticsScenario::CleanCastFilterWrite
+            | TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
+                if self.dirty_input_state_consumer_count > 1 {
+                    "source-state-reused"
+                } else {
+                    "source-state-not-needed"
+                }
+            }
+            TraditionalAnalyticsScenario::PartitionPruning
+            | TraditionalAnalyticsScenario::NullHeavyAggregate => {
+                if self.date_null_metric_state_consumer_count > 1 {
+                    "source-state-reused"
+                } else {
+                    "source-state-not-needed"
+                }
+            }
+            TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+            | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => "blocked-with-reason",
+            TraditionalAnalyticsScenario::CsvFileIngest
+            | TraditionalAnalyticsScenario::WideProjection
+            | TraditionalAnalyticsScenario::ManySmallFilesScan
+            | TraditionalAnalyticsScenario::SmallChangeOverLargeBase
+            | TraditionalAnalyticsScenario::NestedJsonFieldScan => "source-state-not-needed",
+        }
+    }
+
+    fn source_state_coverage_family(scenario: TraditionalAnalyticsScenario) -> &'static str {
+        match scenario {
+            TraditionalAnalyticsScenario::HashJoin
+            | TraditionalAnalyticsScenario::JoinAggregate => "dimension_label",
+            TraditionalAnalyticsScenario::DistinctCount
+            | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => "category_metric",
+            TraditionalAnalyticsScenario::GroupByAggregation
+            | TraditionalAnalyticsScenario::MultiKeyGroupBy => "group_category_metric",
+            TraditionalAnalyticsScenario::SortAndTopK
+            | TraditionalAnalyticsScenario::TopNPerGroup
+            | TraditionalAnalyticsScenario::RowNumberWindow => "ranked_metric",
+            TraditionalAnalyticsScenario::SelectiveFilter
+            | TraditionalAnalyticsScenario::FilterProjectionLimit => "selective_filter",
+            TraditionalAnalyticsScenario::CleanCastFilterWrite
+            | TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => "dirty_input",
+            TraditionalAnalyticsScenario::PartitionPruning
+            | TraditionalAnalyticsScenario::NullHeavyAggregate => "date_null_metric",
+            TraditionalAnalyticsScenario::CsvFileIngest => "source_scan",
+            TraditionalAnalyticsScenario::WideProjection => "projection_only",
+            TraditionalAnalyticsScenario::ManySmallFilesScan => "split_fixture",
+            TraditionalAnalyticsScenario::SmallChangeOverLargeBase => "cdc_overlay",
+            TraditionalAnalyticsScenario::NestedJsonFieldScan => "nested_json",
+            TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+            | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => "stress",
+        }
+    }
+
+    fn source_state_coverage_reason(&self, scenario: TraditionalAnalyticsScenario) -> &'static str {
+        match self.source_state_coverage_status(scenario) {
+            "source-state-reused" => {
+                "batch has multiple consumers for this prepared/native source-state family"
+            }
+            "blocked-with-reason" => {
+                "stress scenarios are outside the scoped prepared/native source-state reuse smoke lane"
+            }
+            "unsupported-with-reason" => {
+                "scenario family is not supported by the prepared/native source-state coverage contract"
+            }
+            _ => match scenario {
+                TraditionalAnalyticsScenario::CsvFileIngest => {
+                    "basic ingest/sum row has no reusable derived source-state family in the current batch lane"
+                }
+                TraditionalAnalyticsScenario::WideProjection => {
+                    "projection-only row reads the prepared artifact directly and has no shared derived source-state family"
+                }
+                TraditionalAnalyticsScenario::ManySmallFilesScan => {
+                    "many-file split coverage is prepared into the Vortex artifact before this batch lane"
+                }
+                TraditionalAnalyticsScenario::SmallChangeOverLargeBase => {
+                    "CDC overlay is a single incremental-state workflow in the current batch lane"
+                }
+                TraditionalAnalyticsScenario::NestedJsonFieldScan => {
+                    "nested JSON field scan is a single messy-data workflow in the current batch lane"
+                }
+                _ => {
+                    "batch has only one consumer for this source-state family, so scenario-local scan remains explicit"
+                }
+            },
         }
     }
 }
@@ -14668,6 +14893,53 @@ mod tests {
             &fields,
             "source_state_selective_filter_recompute_avoided_count",
             "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_coverage_schema_version",
+            "shardloom.traditional_analytics.source_state_coverage.v1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_coverage_matrix_ref",
+            "docs/architecture/source-state-reuse-coverage-matrix.md",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_coverage_all_requested_scenarios_classified",
+            "true",
+        );
+        assert_field_eq(&fields, "source_state_coverage_reused_scenario_count", "2");
+        assert_field_eq(
+            &fields,
+            "source_state_coverage_not_needed_scenario_count",
+            "0",
+        );
+        assert_field_eq(&fields, "source_state_coverage_blocked_scenario_count", "0");
+        assert_field_eq(
+            &fields,
+            "source_state_coverage_matrix",
+            "selective-filter:source-state-reused:selective_filter;filter---projection---limit:source-state-reused:selective_filter",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_digest_status",
+            "not_emitted_scoped_in_memory_source_state",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_source_state_coverage_status",
+            "source-state-reused",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_source_state_coverage_family",
+            "selective_filter",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_source_state_coverage_status",
+            "source-state-reused",
         );
         assert_field_eq(
             &fields,

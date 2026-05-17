@@ -436,13 +436,22 @@ residual-native runtime-plumbing evidence for local prepared/native batch rows o
 encoded-native, performance, SQL/DataFrame, object-store/lakehouse, production, or
 Spark-displacement claim.
 
-GAR-PERF-1 is the next prepared/native performance architecture queue. It requires a fresh
-post-source-state-reuse benchmark artifact, complete source-state reuse coverage classification for
-scenario families, a fused filter/project/limit and selection-vector path or deterministic blockers,
-and a report-only Bayesian performance/layout advisor. These are evidence and architecture slices:
-benchmark outputs must remain local pre-release evidence, not leaderboards or public performance
-claims. Compatibility-import rows continue to include ingest/stage/certification work and must not be
-presented as pure query speed.
+GAR-PERF-1A refreshed the local prepared/native benchmark artifact after the source-state reuse
+work. GAR-PERF-1B closes the source-state classification gap with
+`docs/architecture/source-state-reuse-coverage-matrix.md`. Batch rows now emit
+`source_state_coverage_schema_version`,
+`source_state_coverage_matrix_ref`, `source_state_coverage_status_vocabulary`,
+`source_state_coverage_all_requested_scenarios_classified`, `source_state_coverage_matrix`, and
+per-child `scenario_<slug>_source_state_coverage_*` fields. The status vocabulary is
+`source-state-reused`, `source-state-not-needed`, `blocked-with-reason`, and
+`unsupported-with-reason`. The matrix also records
+`source_state_digest_status=not_emitted_scoped_in_memory_source_state` because the current source
+states are scoped in-process derived state; universal content-addressed `SourceState` IDs and
+digests belong to GAR-IOREUSE-1A. Remaining GAR-PERF-1 follow-ups are fused
+filter/project/limit and selection-vector execution plus the report-only Bayesian performance/layout
+advisor. These are evidence and architecture slices: benchmark outputs must remain local
+pre-release evidence, not leaderboards or public performance claims. Compatibility-import rows
+continue to include ingest/stage/certification work and must not be presented as pure query speed.
 
 GAR-FLOW-2D adds `work_avoidance_evidence_schema` to the JSON artifact and Markdown report. The
 schema uses only `measured`, `not_available`, `unsupported`, and `not_applicable` as status values.

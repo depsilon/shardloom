@@ -244,6 +244,12 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"source_metadata_snapshot_reused\"",
         "\"source_metadata_digest_recompute_avoided_count\"",
         "\"source_state_reuse_status\"",
+        "\"source_state_coverage_schema_version\"",
+        "\"source_state_coverage_matrix_ref\"",
+        "\"source_state_coverage_status_vocabulary\"",
+        "\"source_state_coverage_all_requested_scenarios_classified\"",
+        "\"source_state_coverage_matrix\"",
+        "\"source_state_digest_status\"",
         "\"source_state_family_count\"",
         "\"source_state_dimension_label_reuse_status\"",
         "\"source_state_category_metric_reuse_status\"",
@@ -774,6 +780,91 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     assert!(protocol_parity.contains("selected_execution_mode"));
     assert!(protocol_parity.contains("unsupported_diagnostic_code"));
     assert!(protocol_parity.contains("fallback_attempted=false"));
+}
+
+#[test]
+fn source_state_reuse_coverage_matrix_classifies_every_traditional_family() {
+    let matrix = read_workspace_file("docs/architecture/source-state-reuse-coverage-matrix.md");
+    let compute_flow = read_workspace_file("docs/architecture/compute-engine-flow-reference.md");
+    let benchmark_catalog = read_workspace_file("docs/architecture/benchmark-suite-catalog.md");
+    let local_benchmark = read_workspace_file("docs/benchmarks/local-taxonomy-benchmark.md");
+    let readme = read_workspace_file("benchmarks/traditional_analytics/README.md");
+    let rust_source = read_workspace_file("shardloom-vortex/src/traditional_analytics.rs");
+    let website_builder = read_workspace_file("website/build_static_pages.py");
+
+    for required_text in [
+        "source_state_coverage_schema_version",
+        "source_state_coverage_matrix_ref",
+        "source_state_coverage_status_vocabulary",
+        "source_state_coverage_all_requested_scenarios_classified=true",
+        "scenario_<slug>_source_state_coverage_status",
+        "source_state_digest_status=not_emitted_scoped_in_memory_source_state",
+        "source-state-reused",
+        "source-state-not-needed",
+        "blocked-with-reason",
+        "unsupported-with-reason",
+        "csv/file ingest",
+        "selective filter",
+        "filter + projection + limit",
+        "wide projection",
+        "group by aggregation",
+        "multi-key group by",
+        "distinct count",
+        "high-cardinality string group/distinct",
+        "hash join",
+        "join + aggregate",
+        "sort and top-k",
+        "top-N per group",
+        "row number window",
+        "partition pruning",
+        "null-heavy aggregate",
+        "many-small-files scan",
+        "clean/cast/filter/write",
+        "malformed timestamp / dirty CSV",
+        "small change over large base",
+        "nested JSON field scan",
+        "scale stress skewed join aggregation",
+        "scale stress multi-stage etl",
+        "source_state_fallback_attempted=false",
+        "source_state_external_engine_invoked=false",
+        "GAR-IOREUSE-1A",
+    ] {
+        assert!(
+            matrix.contains(required_text),
+            "missing source-state coverage matrix text: {required_text}"
+        );
+    }
+
+    for required_text in [
+        "source_state_coverage_schema_version",
+        "source_state_coverage_matrix_ref",
+        "source_state_coverage_matrix",
+        "source_state_coverage_status_count",
+        "source_state_coverage_status(",
+        "source_state_coverage_family(",
+        "source_state_coverage_reason(",
+        "source-state-reused",
+        "source-state-not-needed",
+        "blocked-with-reason",
+        "unsupported-with-reason",
+        "source_state_digest_status",
+        "not_emitted_scoped_in_memory_source_state",
+    ] {
+        assert!(
+            rust_source.contains(required_text),
+            "missing source-state coverage runtime field text: {required_text}"
+        );
+    }
+
+    for doc in [&compute_flow, &benchmark_catalog, &local_benchmark, &readme] {
+        assert!(doc.contains("docs/architecture/source-state-reuse-coverage-matrix.md"));
+        assert!(doc.contains("source_state_coverage"));
+        assert!(doc.contains("not_emitted_scoped_in_memory_source_state"));
+    }
+
+    assert!(website_builder.contains("source_state_coverage_all_requested_scenarios_classified"));
+    assert!(website_builder.contains("source_state_coverage_reused_scenario_count"));
+    assert!(website_builder.contains("source_state_digest_status"));
 }
 
 fn read_workspace_file(relative: &str) -> String {
