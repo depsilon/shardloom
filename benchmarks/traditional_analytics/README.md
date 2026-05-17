@@ -153,13 +153,17 @@ compatibility-file engine rows. They include the approved local encoded
 counting, and scan-pushdown comparison predicates. The report includes each
 row's timing scope plus filter/projection pushdown fields so in-command
 repeated timings are not mixed up with CLI-process wall-time smoke measurements.
-`GAR-PERF-2I` tracks the next expansion of this lane into a first-class native
-microbenchmark suite for Vortex scan-only, filter predicate-only,
-projection-only, group-by kernel, hash-join kernel, top-k, result-sink write,
-and evidence-render primitives. Missing primitives should appear as
-deterministic skipped/unsupported rows instead of disappearing from the report.
-Those rows are subsystem evidence only, not end-to-end speed claims or public
-rankings.
+The first-class native microbenchmark contract labels every row with
+`benchmark_category=native_microbenchmark`,
+`native_microbenchmark_primitive_family`,
+`native_microbenchmark_support_status`, subsystem, optimization question,
+rows scanned/selected/materialized, no-fallback/no-external-engine fields, and
+a native microbenchmark claim boundary. Implemented smoke rows currently cover
+encoded count, Vortex count/projection/filter-style primitives, local commit
+manifest evidence, and benchmark evidence-rendering cost. Scan-only, group-by
+kernel, hash-join kernel, top-k, and result-sink write rows remain visible as
+deterministic blocked rows until isolated primitives exist. These rows are
+subsystem evidence only, not end-to-end speed claims or public rankings.
 
 The ShardLoom work-avoidance table is based on final row evidence, not only
 plan analysis. The JSON artifact includes `work_avoidance_evidence_schema`

@@ -67,6 +67,105 @@ VORTEX_SEGMENT_EXTRACTION_ADMISSION_REF = (
 VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF = (
     "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1"
 )
+NATIVE_MICROBENCHMARK_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.native_microbenchmark.v1"
+)
+NATIVE_MICROBENCHMARK_CLAIM_BOUNDARY = (
+    "native microbenchmark rows are subsystem optimization evidence only; they are not "
+    "end-to-end performance, superiority, Spark-replacement, production, SQL/DataFrame, "
+    "object-store/lakehouse, Foundry, or package-publication claims"
+)
+NATIVE_MICROBENCHMARK_REQUIRED_FAMILIES: dict[str, dict[str, str]] = {
+    "vortex_scan_only": {
+        "name": "Vortex scan-only primitive",
+        "primitive": "vortex_scan_only",
+        "subsystem": "vortex_scan_source",
+        "optimization_question": (
+            "What is the local Vortex scan/source overhead without operator, sink, or evidence "
+            "rendering work?"
+        ),
+        "support_status": "blocked",
+        "reason": (
+            "no isolated scan-only CLI primitive exists yet; current vortex-run count/projection "
+            "rows are scan-plus-operator proxies"
+        ),
+    },
+    "filter_predicate_only": {
+        "name": "filter predicate only",
+        "primitive": "count-where",
+        "subsystem": "predicate_admission_and_selection",
+        "optimization_question": (
+            "What is the local predicate admission/selection cost without treating it as an "
+            "end-to-end query benchmark?"
+        ),
+        "support_status": "smoke_supported",
+        "reason": "covered by current vortex-run count-where native microbenchmark rows",
+    },
+    "projection_only": {
+        "name": "projection only",
+        "primitive": "project",
+        "subsystem": "projection_pushdown",
+        "optimization_question": (
+            "What is the local projection path cost and materialization/decode posture?"
+        ),
+        "support_status": "smoke_supported",
+        "reason": "covered by the current vortex-run project native microbenchmark row",
+    },
+    "group_by_kernel": {
+        "name": "group-by kernel",
+        "primitive": "group_by_kernel",
+        "subsystem": "group_by_kernel",
+        "optimization_question": (
+            "What is the local group-by kernel cost isolated from source preparation and output?"
+        ),
+        "support_status": "blocked",
+        "reason": "no isolated native group-by kernel microbenchmark primitive exists yet",
+    },
+    "hash_join_kernel": {
+        "name": "hash join kernel",
+        "primitive": "hash_join_kernel",
+        "subsystem": "hash_join_kernel",
+        "optimization_question": (
+            "What is the local hash-join kernel build/probe cost isolated from source preparation "
+            "and output?"
+        ),
+        "support_status": "blocked",
+        "reason": "no isolated native hash-join kernel microbenchmark primitive exists yet",
+    },
+    "top_k": {
+        "name": "top-k kernel",
+        "primitive": "top_k",
+        "subsystem": "top_k_kernel",
+        "optimization_question": (
+            "What is the local top-k selection cost isolated from full scenario execution?"
+        ),
+        "support_status": "blocked",
+        "reason": "no isolated native top-k microbenchmark primitive exists yet",
+    },
+    "result_sink_write": {
+        "name": "result-sink write",
+        "primitive": "result_sink_write",
+        "subsystem": "result_sink_writer",
+        "optimization_question": (
+            "What is the local result-sink write overhead without full scenario compute?"
+        ),
+        "support_status": "blocked",
+        "reason": (
+            "result-sink write evidence exists in full_replay traditional rows, but no isolated "
+            "native result-sink microbenchmark primitive exists yet"
+        ),
+    },
+    "evidence_render": {
+        "name": "evidence render",
+        "primitive": "evidence_render",
+        "subsystem": "benchmark_evidence_renderer",
+        "optimization_question": (
+            "What is the benchmark evidence serialization/rendering cost for native rows?"
+        ),
+        "support_status": "smoke_supported",
+        "reason": "covered by the benchmark harness evidence-render microbenchmark row",
+    },
+}
 MATERIALIZATION_POLICY_REF = (
     "compute-capability-matrix://materialization_policy.v1"
 )
@@ -6282,17 +6381,164 @@ def run_batch(
     ]
 
 
+def native_microbenchmark_spec(primitive_family: str) -> dict[str, str]:
+    return NATIVE_MICROBENCHMARK_REQUIRED_FAMILIES.get(
+        primitive_family,
+        {
+            "name": primitive_family.replace("_", " "),
+            "primitive": primitive_family,
+            "subsystem": "native_microbenchmark",
+            "optimization_question": "What subsystem work is isolated by this native row?",
+            "support_status": "smoke_supported",
+            "reason": "non-required native microbenchmark row",
+        },
+    )
+
+
+def add_native_microbenchmark_contract(
+    row: dict[str, Any],
+    primitive_family: str,
+    *,
+    support_status: str | None = None,
+    unsupported_reason: str | None = None,
+) -> dict[str, Any]:
+    spec = native_microbenchmark_spec(primitive_family)
+    status = str(row.get("status", "unknown"))
+    support = support_status or spec["support_status"]
+    reason = unsupported_reason or row.get("reason") or spec["reason"]
+    row.update(
+        {
+            "native_microbenchmark_schema_version": NATIVE_MICROBENCHMARK_SCHEMA_VERSION,
+            "benchmark_category": "native_microbenchmark",
+            "native_microbenchmark_primitive_family": primitive_family,
+            "native_microbenchmark_subsystem": spec["subsystem"],
+            "native_microbenchmark_optimization_question": spec["optimization_question"],
+            "native_microbenchmark_support_status": support,
+            "native_microbenchmark_claim_boundary": NATIVE_MICROBENCHMARK_CLAIM_BOUNDARY,
+            "external_engine_invoked": "false",
+            "performance_claim_allowed": "false",
+        }
+    )
+    row.setdefault("primitive", spec["primitive"])
+    row.setdefault("claim_gate_status", "not_claim_grade")
+    row.setdefault("fallback_attempted", "false")
+    if status != "success" or support in {"blocked", "unsupported"}:
+        row["unsupported_reason"] = str(reason)
+    else:
+        row.setdefault("unsupported_reason", "none")
+    row.setdefault("rows_scanned", row.get("rows"))
+    row.setdefault("rows_selected", row.get("rows"))
+    if str(row.get("data_materialized", "")).lower() == "true":
+        row.setdefault("rows_materialized", row.get("rows"))
+    else:
+        row.setdefault("rows_materialized", "0")
+    row = add_native_work_avoidance_schema(row)
+    if status != "success" or support in {"blocked", "unsupported"}:
+        for metric in WORK_AVOIDANCE_METRICS:
+            row.update(
+                work_avoidance_metric_field(
+                    metric,
+                    "unsupported",
+                    None,
+                    f"native microbenchmark status is {status}: {reason}",
+                )
+            )
+    return row
+
+
+def native_microbenchmark_blocked_row(
+    primitive_family: str,
+    *,
+    status: str = "blocked",
+    reason: str | None = None,
+    command: list[str] | None = None,
+) -> dict[str, Any]:
+    spec = native_microbenchmark_spec(primitive_family)
+    return native_microbenchmark_error(
+        spec["name"],
+        status,
+        reason or spec["reason"],
+        command=command,
+        primitive_family=primitive_family,
+        primitive=spec["primitive"],
+        support_status=spec["support_status"],
+    )
+
+
+def native_microbenchmark_suite_unavailable_rows(
+    status: str,
+    reason: str,
+) -> list[dict[str, Any]]:
+    return [
+        native_microbenchmark_blocked_row(
+            primitive_family,
+            status=status,
+            reason=reason,
+        )
+        for primitive_family in NATIVE_MICROBENCHMARK_REQUIRED_FAMILIES
+    ]
+
+
+def append_required_native_microbenchmark_blockers(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    covered = {
+        str(row.get("native_microbenchmark_primitive_family"))
+        for row in rows
+        if str(row.get("native_microbenchmark_support_status")) == "smoke_supported"
+    }
+    for primitive_family, spec in NATIVE_MICROBENCHMARK_REQUIRED_FAMILIES.items():
+        if primitive_family not in covered and spec["support_status"] != "smoke_supported":
+            rows.append(native_microbenchmark_blocked_row(primitive_family))
+    return rows
+
+
+def run_native_evidence_render_microbenchmark(
+    rows: list[dict[str, Any]],
+    iterations: int,
+) -> dict[str, Any]:
+    timings: list[float] = []
+    sample_rows = [dict(row) for row in rows]
+    sample_artifact = {"shardloom_native_microbenchmarks": sample_rows}
+    rendered = ""
+    for _ in range(iterations):
+        started = time.perf_counter()
+        json.dumps(sample_artifact, sort_keys=True)
+        rendered = render_shardloom_native_table(sample_artifact)
+        timings.append((time.perf_counter() - started) * 1000.0)
+    return add_native_microbenchmark_contract(
+        {
+            "name": "evidence render",
+            "status": "success",
+            "dataset": "native microbenchmark row set",
+            "primitive": "evidence_render",
+            "rows": str(len(sample_rows)),
+            "iterations": str(iterations),
+            "query_runtime_millis": round(statistics.mean(timings), 4),
+            "timing_scope": "average benchmark harness JSON serialization plus Markdown render",
+            "comparison_status": "not_applicable",
+            "claim_gate_status": "not_claim_grade",
+            "rendered_markdown_bytes": str(len(rendered.encode("utf-8"))),
+            "data_read": "false",
+            "data_decoded": "false",
+            "data_materialized": "false",
+            "row_read": "false",
+            "arrow_converted": "false",
+            "materialization_boundary_reported": "false",
+            "fallback_attempted": "false",
+        },
+        "evidence_render",
+    )
+
+
 def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]]:
     root = workspace_root()
     fixture = root / "shardloom-vortex" / "tests" / "fixtures" / "metadata_footer_u64_20000.vortex"
     if not fixture.exists():
-        return [
-            {
-                "name": "local encoded CountAll",
-                "status": "missing_fixture",
-                "reason": f"Vortex fixture was not found at {fixture}",
-            }
-        ]
+        return native_microbenchmark_suite_unavailable_rows(
+            "missing_fixture",
+            f"Vortex fixture was not found at {fixture}",
+        )
     try:
         binary = build_shardloom_cli(
             root,
@@ -6300,13 +6546,7 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             SHARDLOOM_BUILD_PROFILE,
         )
     except BenchmarkUnsupported as exc:
-        return [
-            {
-                "name": "local encoded CountAll",
-                "status": "build_error",
-                "reason": str(exc),
-            }
-        ]
+        return native_microbenchmark_suite_unavailable_rows("build_error", str(exc))
     env = os.environ.copy()
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
     rows = [
@@ -6319,6 +6559,7 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             iterations,
             "local primitive count",
             "count",
+            "vortex_count_proxy",
         ),
         run_shardloom_vortex_run_microbenchmark(
             root,
@@ -6328,6 +6569,7 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             iterations,
             "local primitive projection",
             "project:value",
+            "projection_only",
         ),
         run_shardloom_vortex_run_microbenchmark(
             root,
@@ -6337,6 +6579,7 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             iterations,
             "local primitive validity count",
             "count-where:is_not_null:value",
+            "filter_predicate_only",
         ),
         run_shardloom_vortex_run_microbenchmark(
             root,
@@ -6346,6 +6589,7 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             iterations,
             "local primitive comparison count",
             "count-where:gte:value:10000",
+            "filter_predicate_only",
         ),
         run_shardloom_vortex_run_microbenchmark(
             root,
@@ -6355,9 +6599,12 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             iterations,
             "local primitive filter projection",
             "filter-project:gte:value:10000|value",
+            "filter_projection",
         ),
         run_shardloom_commit_microbenchmark(root, env, binary, iterations),
     ]
+    rows = append_required_native_microbenchmark_blockers(rows)
+    rows.append(run_native_evidence_render_microbenchmark(rows, iterations))
     return rows
 
 
@@ -6389,6 +6636,8 @@ def run_shardloom_count_microbenchmark(
             completed["stderr"] or completed["stdout"] or "unknown failure",
             command,
             elapsed_ms,
+            primitive_family="encoded_count_all",
+            primitive="count",
         )
     try:
         payload = json.loads(completed["stdout"].splitlines()[0])
@@ -6399,9 +6648,11 @@ def run_shardloom_count_microbenchmark(
             f"{type(exc).__name__}: {exc}",
             command,
             elapsed_ms,
+            primitive_family="encoded_count_all",
+            primitive="count",
         )
     fields = parse_output_fields(payload)
-    return add_native_work_avoidance_schema({
+    return add_native_microbenchmark_contract({
         "name": "local encoded CountAll",
         "status": payload.get("status", "unknown"),
         "dataset": str(fixture),
@@ -6455,7 +6706,7 @@ def run_shardloom_count_microbenchmark(
         "fallback_attempted": fields.get("fallback_attempted"),
         "performance_claim_allowed": fields.get("performance_claim_allowed"),
         "command": command,
-    })
+    }, "encoded_count_all")
 
 
 def run_shardloom_vortex_run_microbenchmark(
@@ -6466,6 +6717,7 @@ def run_shardloom_vortex_run_microbenchmark(
     iterations: int,
     name: str,
     primitive: str,
+    primitive_family: str,
 ) -> dict[str, Any]:
     command = [
         str(binary),
@@ -6491,6 +6743,8 @@ def run_shardloom_vortex_run_microbenchmark(
                 completed["stderr"] or completed["stdout"] or "unknown failure",
                 command,
                 elapsed_ms,
+                primitive_family=primitive_family,
+                primitive=primitive,
             )
         try:
             payload = json.loads(completed["stdout"].splitlines()[0])
@@ -6501,6 +6755,8 @@ def run_shardloom_vortex_run_microbenchmark(
                 f"{type(exc).__name__}: {exc}",
                 command,
                 elapsed_ms,
+                primitive_family=primitive_family,
+                primitive=primitive,
             )
         if payload.get("status") != "success":
             return native_microbenchmark_error(
@@ -6509,9 +6765,11 @@ def run_shardloom_vortex_run_microbenchmark(
                 payload.get("human_text") or "ShardLoom native primitive did not succeed",
                 command,
                 elapsed_ms,
+                primitive_family=primitive_family,
+                primitive=primitive,
             )
     fields = parse_output_fields(payload or {})
-    return add_native_work_avoidance_schema({
+    return add_native_microbenchmark_contract({
         "name": name,
         "status": (payload or {}).get("status", "unknown"),
         "dataset": str(fixture),
@@ -6575,7 +6833,7 @@ def run_shardloom_vortex_run_microbenchmark(
         ).lower(),
         "performance_claim_allowed": "false",
         "command": command,
-    })
+    }, primitive_family)
 
 
 def native_microbenchmark_error(
@@ -6584,6 +6842,10 @@ def native_microbenchmark_error(
     reason: str,
     command: list[str] | None = None,
     elapsed_millis: float | None = None,
+    *,
+    primitive_family: str = "native_microbenchmark",
+    primitive: str | None = None,
+    support_status: str = "unsupported",
 ) -> dict[str, Any]:
     result: dict[str, Any] = {
         "name": name,
@@ -6594,14 +6856,25 @@ def native_microbenchmark_error(
         result["command"] = command
     if elapsed_millis is not None:
         result["elapsed_millis"] = round(elapsed_millis, 4)
+    if primitive is not None:
+        result["primitive"] = primitive
     result.update(
         {
-            "work_avoidance_schema_ref": "gar-flow-2d.work_avoidance_evidence.v1",
-            "work_avoidance_status_vocabulary": ",".join(WORK_AVOIDANCE_STATUS_VOCABULARY),
-            "work_avoidance_claim_allowed": False,
-            "work_avoidance_claim_boundary": (
-                "failed native microbenchmark rows cannot support work-avoidance claims"
-            ),
+            "dataset": "not_executed",
+            "rows": "n/a",
+            "iterations": "0",
+            "query_runtime_millis": None,
+            "timing_scope": "not_executed",
+            "comparison_status": "not_applicable",
+            "claim_gate_status": "not_claim_grade",
+            "data_read": "false",
+            "data_decoded": "false",
+            "data_materialized": "false",
+            "row_read": "false",
+            "arrow_converted": "false",
+            "materialization_boundary_reported": "false",
+            "fallback_attempted": "false",
+            "performance_claim_allowed": "false",
         }
     )
     for metric in WORK_AVOIDANCE_METRICS:
@@ -6613,7 +6886,12 @@ def native_microbenchmark_error(
                 f"native microbenchmark status is {status}: {reason}",
             )
         )
-    return result
+    return add_native_microbenchmark_contract(
+        result,
+        primitive_family,
+        support_status=support_status,
+        unsupported_reason=reason,
+    )
 
 
 def run_shardloom_commit_microbenchmark(
@@ -6663,6 +6941,8 @@ def run_shardloom_commit_microbenchmark(
                     completed["stderr"] or completed["stdout"] or "unknown failure",
                     command,
                     elapsed_ms,
+                    primitive_family="local_commit_manifest",
+                    primitive="local_commit",
                 )
             try:
                 payload = json.loads(completed["stdout"].splitlines()[0])
@@ -6673,6 +6953,8 @@ def run_shardloom_commit_microbenchmark(
                     f"{type(exc).__name__}: {exc}",
                     command,
                     elapsed_ms,
+                    primitive_family="local_commit_manifest",
+                    primitive="local_commit",
                 )
             if payload.get("status") != "success":
                 return native_microbenchmark_error(
@@ -6681,6 +6963,8 @@ def run_shardloom_commit_microbenchmark(
                     payload.get("human_text") or "ShardLoom local commit did not succeed",
                     command,
                     elapsed_ms,
+                    primitive_family="local_commit_manifest",
+                    primitive="local_commit",
                 )
             fields = parse_output_fields(payload)
             bytes_written_value = parse_optional_int(fields.get("bytes_written"))
@@ -6696,7 +6980,7 @@ def run_shardloom_commit_microbenchmark(
     avg_commit_latency_micros = (
         int(round(statistics.mean(commit_latencies))) if commit_latencies else None
     )
-    return add_native_work_avoidance_schema({
+    return add_native_microbenchmark_contract({
         "name": "local commit manifest",
         "status": (payload or {}).get("status", "unknown"),
         "dataset": "synthetic local staged workspace",
@@ -6725,7 +7009,7 @@ def run_shardloom_commit_microbenchmark(
         "fallback_attempted": str((payload or {}).get("fallback", {}).get("attempted", False)).lower(),
         "performance_claim_allowed": "false",
         "command": command_template,
-    })
+    }, "local_commit_manifest")
 
 
 def prepare_shardloom_commit_workspace(workspace: Path, iteration: int) -> None:
@@ -7744,8 +8028,16 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
             [
                 result.get("name", "n/a"),
                 str(result.get("status", "n/a")),
+                str(result.get("benchmark_category", "n/a")),
+                str(result.get("native_microbenchmark_primitive_family", "n/a")),
+                str(result.get("native_microbenchmark_support_status", "n/a")),
                 str(result.get("primitive", "n/a")),
+                str(result.get("native_microbenchmark_subsystem", "n/a")),
+                str(result.get("native_microbenchmark_optimization_question", "n/a")),
                 str(result.get("rows", "n/a")),
+                str(result.get("rows_scanned", "n/a")),
+                str(result.get("rows_selected", "n/a")),
+                str(result.get("rows_materialized", "n/a")),
                 format_metric(result.get("query_runtime_millis"), " ms"),
                 str(result.get("timing_scope", "n/a")),
                 str(result.get("data_decoded", "n/a")),
@@ -7758,37 +8050,28 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
                 str(result.get("native_vortex_admission_provider_kind", "n/a")),
                 str(result.get("native_vortex_admission_claim_boundary", "n/a")),
                 str(result.get("fallback_attempted", "n/a")),
+                str(result.get("external_engine_invoked", "n/a")),
                 str(result.get("claim_gate_status", "n/a")),
+                str(result.get("native_microbenchmark_claim_boundary", "n/a")),
+                str(result.get("unsupported_reason", "none")),
             ]
         )
     if not rows:
-        rows.append(
-            [
-                "not run",
-                "skipped",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-                "n/a",
-            ]
-        )
+        rows.append(["not run", "skipped", *(["n/a"] * 26)])
     return markdown_table(
         [
             "Microbenchmark",
             "Status",
+            "Category",
+            "Family",
+            "Support",
             "Primitive",
+            "Subsystem",
+            "Optimization question",
             "Rows",
+            "Rows scanned",
+            "Rows selected",
+            "Rows materialized",
             "Avg runtime",
             "Timing scope",
             "Decoded",
@@ -7801,7 +8084,10 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
             "Provider",
             "Native claim boundary",
             "Fallback",
+            "External engine",
             "Claim gate",
+            "Microbenchmark claim boundary",
+            "Unsupported reason",
         ],
         rows,
     )

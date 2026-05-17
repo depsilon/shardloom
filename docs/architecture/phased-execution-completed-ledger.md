@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2I native microbenchmark suite
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+  - Scope: add first-class ShardLoom native microbenchmark row contracts for kernel/subsystem
+    optimization visibility without claiming end-to-end performance, superiority, Spark
+    displacement, production readiness, broad SQL/DataFrame support, object-store/lakehouse
+    support, Foundry runtime, package publication, or external fallback.
+  - Checklist:
+    - [x] Add `NATIVE_MICROBENCHMARK_SCHEMA_VERSION` and required family metadata for
+          Vortex scan-only, filter predicate-only, projection-only, group-by kernel, hash-join
+          kernel, top-k, result-sink write, and evidence-render rows.
+    - [x] Label every native row with `benchmark_category=native_microbenchmark`,
+          primitive family, subsystem, optimization question, support status, rows
+          scanned/selected/materialized, unsupported reason, no-fallback/no-external-engine fields,
+          and the microbenchmark claim boundary.
+    - [x] Keep implemented smoke rows for encoded count, Vortex count/projection/filter-style
+          primitives, filter-project, local commit manifest, and evidence rendering.
+    - [x] Emit deterministic blocked rows for scan-only, group-by kernel, hash-join kernel, top-k,
+          and result-sink write until isolated primitives exist.
+    - [x] Update benchmark Markdown rendering so unsupported rows remain visible instead of
+          disappearing from the report.
+    - [x] Remove the active GAR-PERF-2I item from the Planned queue and mark GAR/traceability docs
+          as current evidence.
+  - Evidence/verification:
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness traditional_benchmark_harness_includes_shardloom_native_microbenchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q benchmarks/traditional_analytics website scripts`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - Native smoke via `run_shardloom_native_microbenchmarks(1)` emitted 13 rows covering
+      `encoded_count_all`, `vortex_count_proxy`, `projection_only`, `filter_predicate_only`,
+      `filter_projection`, `local_commit_manifest`, blocked `vortex_scan_only`,
+      blocked `group_by_kernel`, blocked `hash_join_kernel`, blocked `top_k`, blocked
+      `result_sink_write`, and `evidence_render`, all with
+      `external_engine_invoked=false` and `fallback_attempted=false`.
+  - Claim boundary:
+    - The completed slice may claim only subsystem/native microbenchmark row visibility and
+      deterministic blocker coverage for missing isolated primitives.
+    - It does not authorize public performance rankings, superiority claims, Spark replacement,
+      production readiness, SQL/DataFrame runtime, object-store/lakehouse runtime, Foundry runtime,
+      package publication, or broad encoded-native claims.
+  - Fallback boundary:
+    - Every ShardLoom native microbenchmark row, including blocked rows, must keep
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+    - External engines remain baseline-only and are not used for microbenchmark execution or
+      blocker classification.
+
 - [x] Session label: GAR-PERF-2E fused operator pipeline
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
