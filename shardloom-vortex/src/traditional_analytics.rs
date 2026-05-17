@@ -43,6 +43,8 @@ const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.encoded_predicate_provider.v4";
 const TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_batch.v1";
+const TRADITIONAL_PREPARED_NATIVE_SESSION_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_native_session.v1";
 const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
 const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fused_pipeline.v1";
@@ -1300,6 +1302,274 @@ impl TraditionalVortexBatchSourceState {
     fn date_null_metric_state_recompute_avoided_count(&self) -> usize {
         self.date_null_metric_state_consumer_count.saturating_sub(1)
     }
+
+    fn source_state_family_count(&self) -> usize {
+        usize::from(self.dimension_label_state_consumer_count > 0)
+            + usize::from(self.category_metric_state_consumer_count > 0)
+            + usize::from(self.group_category_metric_state_consumer_count > 0)
+            + usize::from(self.ranked_metric_state_consumer_count > 0)
+            + usize::from(self.selective_filter_state_consumer_count > 0)
+            + usize::from(self.dirty_input_state_consumer_count > 0)
+            + usize::from(self.date_null_metric_state_consumer_count > 0)
+    }
+
+    fn source_state_recompute_avoided_count(&self) -> usize {
+        self.dimension_label_state_recompute_avoided_count()
+            + self.category_metric_state_recompute_avoided_count()
+            + self.group_category_metric_state_recompute_avoided_count()
+            + self.ranked_metric_state_recompute_avoided_count()
+            + self.selective_filter_state_recompute_avoided_count()
+            + self.dirty_input_state_recompute_avoided_count()
+            + self.date_null_metric_state_recompute_avoided_count()
+    }
+}
+
+/// Evidence emitted by the scoped prepared/native batch session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraditionalPreparedNativeSessionEvidence {
+    pub session_id: String,
+    pub session_state_scope: String,
+    pub session_open_status: String,
+    pub session_close_status: String,
+    pub session_drop_status: String,
+    pub scenario_count: usize,
+    pub prepared_artifact_registry_entry_count: usize,
+    pub prepared_artifact_cache_hit_count: usize,
+    pub prepared_artifact_cache_miss_count: usize,
+    pub prepared_artifact_reuse_count: usize,
+    pub source_metadata_cache_hit_count: usize,
+    pub source_metadata_cache_miss_count: usize,
+    pub source_state_cache_hit_count: usize,
+    pub source_state_cache_miss_count: usize,
+    pub source_state_reuse_count: usize,
+}
+
+impl TraditionalPreparedNativeSessionEvidence {
+    #[allow(clippy::too_many_lines)]
+    fn fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "session_schema_version".to_string(),
+                TRADITIONAL_PREPARED_NATIVE_SESSION_SCHEMA_VERSION.to_string(),
+            ),
+            ("session_id".to_string(), self.session_id.clone()),
+            (
+                "session_runtime_status".to_string(),
+                "scoped_in_process_prepared_native_session_supported".to_string(),
+            ),
+            (
+                "session_state_scope".to_string(),
+                self.session_state_scope.clone(),
+            ),
+            (
+                "session_owner".to_string(),
+                "caller_owned_cli_invocation".to_string(),
+            ),
+            ("session_open_status".to_string(), self.session_open_status.clone()),
+            (
+                "session_close_status".to_string(),
+                self.session_close_status.clone(),
+            ),
+            ("session_drop_status".to_string(), self.session_drop_status.clone()),
+            (
+                "session_lifecycle_explicit_close_required".to_string(),
+                "true".to_string(),
+            ),
+            ("session_hidden_global_cache".to_string(), "false".to_string()),
+            ("session_daemon_or_service".to_string(), "false".to_string()),
+            (
+                "session_requested_scenario_count".to_string(),
+                self.scenario_count.to_string(),
+            ),
+            (
+                "session_prepared_artifact_registry_status".to_string(),
+                "caller_supplied_local_vortex_artifacts_registered".to_string(),
+            ),
+            (
+                "session_prepared_artifact_registry_entry_count".to_string(),
+                self.prepared_artifact_registry_entry_count.to_string(),
+            ),
+            (
+                "session_prepared_artifact_cache_hit_count".to_string(),
+                self.prepared_artifact_cache_hit_count.to_string(),
+            ),
+            (
+                "session_prepared_artifact_cache_miss_count".to_string(),
+                self.prepared_artifact_cache_miss_count.to_string(),
+            ),
+            (
+                "session_prepared_artifact_reuse_count".to_string(),
+                self.prepared_artifact_reuse_count.to_string(),
+            ),
+            (
+                "session_source_metadata_cache_hit_count".to_string(),
+                self.source_metadata_cache_hit_count.to_string(),
+            ),
+            (
+                "session_source_metadata_cache_miss_count".to_string(),
+                self.source_metadata_cache_miss_count.to_string(),
+            ),
+            (
+                "session_source_state_cache_hit_count".to_string(),
+                self.source_state_cache_hit_count.to_string(),
+            ),
+            (
+                "session_source_state_cache_miss_count".to_string(),
+                self.source_state_cache_miss_count.to_string(),
+            ),
+            (
+                "session_source_state_reuse_count".to_string(),
+                self.source_state_reuse_count.to_string(),
+            ),
+            (
+                "session_schema_cache_status".to_string(),
+                "not_externalized_digest_policy_pending".to_string(),
+            ),
+            (
+                "session_schema_cache_hit_count".to_string(),
+                "not_available".to_string(),
+            ),
+            (
+                "session_schema_cache_miss_count".to_string(),
+                "not_available".to_string(),
+            ),
+            (
+                "session_dictionary_cache_status".to_string(),
+                "not_externalized_digest_policy_pending".to_string(),
+            ),
+            (
+                "session_dictionary_cache_hit_count".to_string(),
+                "not_available".to_string(),
+            ),
+            (
+                "session_dictionary_cache_miss_count".to_string(),
+                "not_available".to_string(),
+            ),
+            (
+                "session_buffer_pool_status".to_string(),
+                "not_enabled_planned_under_GAR-PERF-2G".to_string(),
+            ),
+            ("session_buffer_pool_reuse_count".to_string(), "0".to_string()),
+            (
+                "session_kernel_registry_ref".to_string(),
+                "docs/architecture/compressed-encoded-kernel-registry.md".to_string(),
+            ),
+            (
+                "session_evidence_recorder_ref".to_string(),
+                "shardloom.traditional_analytics.vortex_batch.v1.fields".to_string(),
+            ),
+            (
+                "session_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "session_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "session_claim_gate_status".to_string(),
+                "fixture_smoke_only".to_string(),
+            ),
+            (
+                "session_claim_boundary".to_string(),
+                "scoped in-process prepared/native local-artifact session evidence only; not a daemon, service, hidden global cache, performance claim, production claim, SQL/DataFrame runtime, object-store/lakehouse runtime, Foundry claim, REST surface, package claim, or Spark-displacement claim".to_string(),
+            ),
+        ]
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, PartialEq)]
+struct TraditionalPreparedNativeSession {
+    session_id: String,
+    source_state: TraditionalVortexBatchSourceState,
+    scenario_count: usize,
+    prepared_artifact_registry_entry_count: usize,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalPreparedNativeSession {
+    fn open(
+        fact_vortex: &std::path::Path,
+        dim_vortex: &std::path::Path,
+        cdc_delta_vortex: Option<&std::path::Path>,
+        scenarios: &[TraditionalAnalyticsScenario],
+        requested_execution_mode: ShardLoomExecutionMode,
+    ) -> Result<Self> {
+        let source_state = TraditionalVortexBatchSourceState::from_paths(
+            fact_vortex,
+            dim_vortex,
+            cdc_delta_vortex,
+            scenarios,
+        )?;
+        let session_id = traditional_prepared_native_session_id(
+            &source_state.source_snapshot,
+            scenarios,
+            requested_execution_mode,
+        );
+        Ok(Self {
+            session_id,
+            source_state,
+            scenario_count: scenarios.len(),
+            prepared_artifact_registry_entry_count: 2 + usize::from(cdc_delta_vortex.is_some()),
+        })
+    }
+
+    fn execute(
+        &self,
+        request: TraditionalAnalyticsVortexRequest,
+    ) -> Result<TraditionalAnalyticsVortexReport> {
+        run_traditional_analytics_vortex_benchmark_with_batch_source_state(
+            request,
+            &self.source_state,
+        )
+    }
+
+    fn close(self) -> TraditionalPreparedNativeSessionEvidence {
+        let reusable_scenario_count = self.scenario_count.saturating_sub(1);
+        TraditionalPreparedNativeSessionEvidence {
+            session_id: self.session_id,
+            session_state_scope: "prepared_native_traditional_analytics_local_artifacts"
+                .to_string(),
+            session_open_status: "opened".to_string(),
+            session_close_status: "closed".to_string(),
+            session_drop_status: "explicit_close_completed".to_string(),
+            scenario_count: self.scenario_count,
+            prepared_artifact_registry_entry_count: self.prepared_artifact_registry_entry_count,
+            prepared_artifact_cache_hit_count: reusable_scenario_count,
+            prepared_artifact_cache_miss_count: 1,
+            prepared_artifact_reuse_count: reusable_scenario_count,
+            source_metadata_cache_hit_count: reusable_scenario_count,
+            source_metadata_cache_miss_count: 1,
+            source_state_cache_hit_count: self.source_state.source_state_recompute_avoided_count(),
+            source_state_cache_miss_count: self.source_state.source_state_family_count(),
+            source_state_reuse_count: self.source_state.source_state_recompute_avoided_count(),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_native_session_id(
+    source_snapshot: &TraditionalVortexSourceSnapshot,
+    scenarios: &[TraditionalAnalyticsScenario],
+    requested_execution_mode: ShardLoomExecutionMode,
+) -> String {
+    let mut digest = Fnv1a64::new();
+    digest.update(b"prepared_native_session");
+    digest.update(requested_execution_mode.as_str().as_bytes());
+    digest.update(source_snapshot.fact_vortex_digest.as_bytes());
+    digest.update(source_snapshot.dim_vortex_digest.as_bytes());
+    if let Some(cdc_delta_digest) = source_snapshot.cdc_delta_vortex_digest.as_deref() {
+        digest.update(cdc_delta_digest.as_bytes());
+    }
+    for scenario in scenarios {
+        digest.update(scenario.as_str().as_bytes());
+    }
+    format!(
+        "gar-perf-2f.session.{}.{:016x}",
+        requested_execution_mode.as_str(),
+        digest.finish()
+    )
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -2994,6 +3264,7 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub reports: Vec<TraditionalAnalyticsVortexReport>,
     pub requested_execution_mode: ShardLoomExecutionMode,
     pub result_sink_requested: bool,
+    pub session_evidence: TraditionalPreparedNativeSessionEvidence,
     pub source_state_prepare_micros: u64,
     pub dimension_label_state_consumer_count: usize,
     pub dimension_label_state_recompute_avoided_count: usize,
@@ -3091,6 +3362,9 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "persistent_runner_claim_boundary".to_string(),
                 "scoped single-process batch runner only; not a daemon, service, hidden fast mode, or performance claim".to_string(),
             ),
+        ];
+        fields.extend(self.session_evidence.fields());
+        fields.extend([
             (
                 "prepared_artifact_reuse_eligible".to_string(),
                 "true".to_string(),
@@ -3436,7 +3710,7 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "encoded_native_claim_allowed".to_string(),
                 "false".to_string(),
             ),
-        ];
+        ]);
         for report in &self.reports {
             let mut scenario_fields = batch_scenario_fields(report);
             let prefix = format!("scenario_{}", traditional_scenario_slug(report.scenario));
@@ -8027,36 +8301,50 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             "traditional-analytics-vortex-batch-run --write-result-vortex requires --workspace for caller-owned result artifact output; fallback execution was not attempted".to_string(),
         ));
     }
-    let source_state_prepare_start = std::time::Instant::now();
-    let source_state = TraditionalVortexBatchSourceState::from_paths(
+    let session_open_start = std::time::Instant::now();
+    let session = TraditionalPreparedNativeSession::open(
         &fact_vortex,
         &dim_vortex,
         cdc_delta_vortex.as_deref(),
         &scenarios,
+        requested_execution_mode,
     )?;
-    let source_state_prepare_micros = duration_to_micros(source_state_prepare_start.elapsed());
-    let dimension_label_state_consumer_count = source_state.dimension_label_state_consumer_count;
-    let dimension_label_state_recompute_avoided_count =
-        source_state.dimension_label_state_recompute_avoided_count();
-    let category_metric_state_consumer_count = source_state.category_metric_state_consumer_count;
-    let category_metric_state_recompute_avoided_count =
-        source_state.category_metric_state_recompute_avoided_count();
-    let group_category_metric_state_consumer_count =
-        source_state.group_category_metric_state_consumer_count;
-    let group_category_metric_state_recompute_avoided_count =
-        source_state.group_category_metric_state_recompute_avoided_count();
-    let ranked_metric_state_consumer_count = source_state.ranked_metric_state_consumer_count;
-    let ranked_metric_state_recompute_avoided_count =
-        source_state.ranked_metric_state_recompute_avoided_count();
-    let selective_filter_state_consumer_count = source_state.selective_filter_state_consumer_count;
-    let selective_filter_state_recompute_avoided_count =
-        source_state.selective_filter_state_recompute_avoided_count();
-    let dirty_input_state_consumer_count = source_state.dirty_input_state_consumer_count;
-    let dirty_input_state_recompute_avoided_count =
-        source_state.dirty_input_state_recompute_avoided_count();
-    let date_null_metric_state_consumer_count = source_state.date_null_metric_state_consumer_count;
-    let date_null_metric_state_recompute_avoided_count =
-        source_state.date_null_metric_state_recompute_avoided_count();
+    let source_state_prepare_micros = duration_to_micros(session_open_start.elapsed());
+    let dimension_label_state_consumer_count =
+        session.source_state.dimension_label_state_consumer_count;
+    let dimension_label_state_recompute_avoided_count = session
+        .source_state
+        .dimension_label_state_recompute_avoided_count();
+    let category_metric_state_consumer_count =
+        session.source_state.category_metric_state_consumer_count;
+    let category_metric_state_recompute_avoided_count = session
+        .source_state
+        .category_metric_state_recompute_avoided_count();
+    let group_category_metric_state_consumer_count = session
+        .source_state
+        .group_category_metric_state_consumer_count;
+    let group_category_metric_state_recompute_avoided_count = session
+        .source_state
+        .group_category_metric_state_recompute_avoided_count();
+    let ranked_metric_state_consumer_count =
+        session.source_state.ranked_metric_state_consumer_count;
+    let ranked_metric_state_recompute_avoided_count = session
+        .source_state
+        .ranked_metric_state_recompute_avoided_count();
+    let selective_filter_state_consumer_count =
+        session.source_state.selective_filter_state_consumer_count;
+    let selective_filter_state_recompute_avoided_count = session
+        .source_state
+        .selective_filter_state_recompute_avoided_count();
+    let dirty_input_state_consumer_count = session.source_state.dirty_input_state_consumer_count;
+    let dirty_input_state_recompute_avoided_count = session
+        .source_state
+        .dirty_input_state_recompute_avoided_count();
+    let date_null_metric_state_consumer_count =
+        session.source_state.date_null_metric_state_consumer_count;
+    let date_null_metric_state_recompute_avoided_count = session
+        .source_state
+        .date_null_metric_state_recompute_avoided_count();
 
     let mut reports = Vec::with_capacity(scenarios.len());
     for (index, scenario) in scenarios.into_iter().enumerate() {
@@ -8076,13 +8364,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         .with_requested_execution_mode(requested_execution_mode)
         .with_result_workspace_dir(scenario_workspace)
         .with_result_vortex_write(write_result_vortex);
-        reports.push(
-            run_traditional_analytics_vortex_benchmark_with_batch_source_state(
-                child_request,
-                &source_state,
-            )?,
-        );
+        reports.push(session.execute(child_request)?);
     }
+    let session_evidence = session.close();
 
     let total_scenario_compute_micros = checked_u64_values_sum(
         reports.iter().map(|report| report.scenario_compute_micros),
@@ -8126,6 +8410,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         reports,
         requested_execution_mode,
         result_sink_requested: write_result_vortex,
+        session_evidence,
         source_state_prepare_micros,
         dimension_label_state_consumer_count,
         dimension_label_state_recompute_avoided_count,
@@ -15175,6 +15460,64 @@ mod tests {
             "persistent_runner_status",
             "single_process_batch_runner_supported",
         );
+        assert_field_eq(
+            &fields,
+            "session_schema_version",
+            "shardloom.traditional_analytics.prepared_native_session.v1",
+        );
+        assert!(
+            fields
+                .get("session_id")
+                .is_some_and(|value| value.starts_with("gar-perf-2f.session.prepared_vortex."))
+        );
+        assert_field_eq(
+            &fields,
+            "session_runtime_status",
+            "scoped_in_process_prepared_native_session_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "session_state_scope",
+            "prepared_native_traditional_analytics_local_artifacts",
+        );
+        assert_field_eq(&fields, "session_open_status", "opened");
+        assert_field_eq(&fields, "session_close_status", "closed");
+        assert_field_eq(&fields, "session_drop_status", "explicit_close_completed");
+        assert_field_eq(&fields, "session_hidden_global_cache", "false");
+        assert_field_eq(&fields, "session_daemon_or_service", "false");
+        assert_field_eq(&fields, "session_requested_scenario_count", "4");
+        assert_field_eq(
+            &fields,
+            "session_prepared_artifact_registry_entry_count",
+            "2",
+        );
+        assert_field_eq(&fields, "session_prepared_artifact_cache_hit_count", "3");
+        assert_field_eq(&fields, "session_prepared_artifact_cache_miss_count", "1");
+        assert_field_eq(&fields, "session_prepared_artifact_reuse_count", "3");
+        assert_field_eq(&fields, "session_source_metadata_cache_hit_count", "3");
+        assert_field_eq(&fields, "session_source_metadata_cache_miss_count", "1");
+        assert_field_eq(&fields, "session_source_state_cache_hit_count", "1");
+        assert_field_eq(&fields, "session_source_state_cache_miss_count", "3");
+        assert_field_eq(&fields, "session_source_state_reuse_count", "1");
+        assert_field_eq(
+            &fields,
+            "session_schema_cache_status",
+            "not_externalized_digest_policy_pending",
+        );
+        assert_field_eq(
+            &fields,
+            "session_buffer_pool_status",
+            "not_enabled_planned_under_GAR-PERF-2G",
+        );
+        assert_field_eq(&fields, "session_buffer_pool_reuse_count", "0");
+        assert_field_eq(
+            &fields,
+            "session_kernel_registry_ref",
+            "docs/architecture/compressed-encoded-kernel-registry.md",
+        );
+        assert_field_eq(&fields, "session_fallback_attempted", "false");
+        assert_field_eq(&fields, "session_external_engine_invoked", "false");
+        assert_field_eq(&fields, "session_claim_gate_status", "fixture_smoke_only");
         assert_field_eq(&fields, "typed_envelope_preserved", "true");
         assert_field_eq(&fields, "process_startup_amortization_supported", "true");
         assert_field_eq(&fields, "prepared_artifact_reuse_eligible", "true");
@@ -15392,6 +15735,25 @@ mod tests {
             "source_state_reuse_status",
             "per_batch_selective_filter_state_reused",
         );
+        assert_field_eq(
+            &fields,
+            "session_schema_version",
+            "shardloom.traditional_analytics.prepared_native_session.v1",
+        );
+        assert!(
+            fields
+                .get("session_id")
+                .is_some_and(|value| value.starts_with("gar-perf-2f.session.prepared_vortex."))
+        );
+        assert_field_eq(&fields, "session_requested_scenario_count", "2");
+        assert_field_eq(&fields, "session_prepared_artifact_cache_hit_count", "1");
+        assert_field_eq(&fields, "session_prepared_artifact_reuse_count", "1");
+        assert_field_eq(&fields, "session_source_metadata_cache_hit_count", "1");
+        assert_field_eq(&fields, "session_source_state_cache_hit_count", "1");
+        assert_field_eq(&fields, "session_source_state_cache_miss_count", "1");
+        assert_field_eq(&fields, "session_source_state_reuse_count", "1");
+        assert_field_eq(&fields, "session_fallback_attempted", "false");
+        assert_field_eq(&fields, "session_external_engine_invoked", "false");
         assert_field_eq(&fields, "source_state_reused", "true");
         assert_field_eq(
             &fields,

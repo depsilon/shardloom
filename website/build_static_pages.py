@@ -1799,6 +1799,27 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                     "source_state_date_null_metric_reuse_status"
                 ),
                 "source_state_claim_boundary": fields.get("source_state_claim_boundary"),
+                "session_schema_version": fields.get("session_schema_version"),
+                "session_id": fields.get("session_id"),
+                "session_runtime_status": fields.get("session_runtime_status"),
+                "session_state_scope": fields.get("session_state_scope"),
+                "session_close_status": fields.get("session_close_status"),
+                "session_prepared_artifact_reuse_count": fields.get(
+                    "session_prepared_artifact_reuse_count"
+                ),
+                "session_source_metadata_cache_hit_count": fields.get(
+                    "session_source_metadata_cache_hit_count"
+                ),
+                "session_source_state_reuse_count": fields.get(
+                    "session_source_state_reuse_count"
+                ),
+                "session_hidden_global_cache": fields.get("session_hidden_global_cache"),
+                "session_daemon_or_service": fields.get("session_daemon_or_service"),
+                "session_fallback_attempted": fields.get("session_fallback_attempted"),
+                "session_external_engine_invoked": fields.get(
+                    "session_external_engine_invoked"
+                ),
+                "session_claim_gate_status": fields.get("session_claim_gate_status"),
                 "claim_gate_status": fields.get("claim_gate_status"),
                 "fallback_attempted": fields.get("fallback_attempted"),
                 "external_engine_invoked": fields.get("external_engine_invoked"),
@@ -2213,7 +2234,7 @@ def mode_comparison_visual(
         (
             "prepared_vortex batch smoke total/compute",
             f"{batch_row_value(batch_rows, 'prepared_vortex', 'total_scenario_compute_millis')} ms",
-            "single-process batch runner structural smoke evidence",
+            "scoped session-backed batch runner structural smoke evidence",
         ),
         (
             "native_vortex batch smoke total/compute",
@@ -2334,6 +2355,13 @@ def benchmark_page(summary: dict[str, Any]) -> str:
             "Requested mode",
             "Selected modes",
             "Runner",
+            "Session",
+            "Session close",
+            "Artifact reuse",
+            "Metadata hits",
+            "State reuse",
+            "Hidden global",
+            "Daemon/service",
             "Scenarios",
             "Scenario compute ms",
             "Vortex scan ms",
@@ -2359,6 +2387,13 @@ def benchmark_page(summary: dict[str, Any]) -> str:
                 row["requested_execution_mode"],
                 row["selected_execution_modes"],
                 row["runner_kind"],
+                value_at(row, "session_runtime_status"),
+                value_at(row, "session_close_status"),
+                value_at(row, "session_prepared_artifact_reuse_count"),
+                value_at(row, "session_source_metadata_cache_hit_count"),
+                value_at(row, "session_source_state_reuse_count"),
+                value_at(row, "session_hidden_global_cache"),
+                value_at(row, "session_daemon_or_service"),
                 row["scenario_count"],
                 row["total_scenario_compute_millis"],
                 row["total_vortex_scan_millis"],
@@ -2861,7 +2896,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         <div>
           <p class="eyebrow">Maturity posture</p>
           <h2>Optimization Maturity</h2>
-          <p class="section-lede">Current state is beta/pre-optimization. Compatibility import is still expensive, prepared/native is improving, and the single-process batch runner is a structural unlock for the next runtime work.</p>
+          <p class="section-lede">Current state is beta/pre-optimization. Compatibility import is still expensive, prepared/native is improving, and the scoped in-process session-backed batch runner is a structural unlock for the next runtime work.</p>
           <ul class="check-list">
             <li>encoded/native/fused operator work remains future optimization.</li>
             <li>prepared/native Vortex is the main optimization direction.</li>
@@ -2907,7 +2942,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     <section id="batch">
       <div class="shell">
         <h2>Prepared And Native Batch Smoke</h2>
-        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the single-process batch runner explicit. They show source metadata, source-state reuse, and the GAR-PERF-1B coverage classification separately from scenario compute and scan timing. They are not a persistent daemon, hidden fast mode, or performance claim.</p>
+        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the scoped in-process session explicit. They show prepared-artifact registry reuse, source metadata, source-state reuse, and the GAR-PERF-1B coverage classification separately from scenario compute and scan timing. They are not a persistent daemon, hidden fast mode, or performance claim.</p>
         {batch_table}
       </div>
     </section>

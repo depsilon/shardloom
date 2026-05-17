@@ -84,7 +84,7 @@ reopen, scan, and evidence costs; they must not be presented as pure query
 speed.
 
 The current website artifact preserves `source_metadata_snapshot_*`,
-`source_state_*`, `execution_mode`, `claim_gate_status`,
+`source_state_*`, `session_*`, `execution_mode`, `claim_gate_status`,
 materialization/decode, Native I/O, `fallback_attempted=false`, and
 `external_engine_invoked=false` evidence. The expanded direct batch smoke rows
 also expose multi-family source-state reuse, including selective-filter reuse
@@ -337,25 +337,39 @@ SQL/DataFrame claim.
 
 ## In-Process Session Runtime Queue
 
-`GAR-PERF-2F` tracks the planned in-process `ShardLoomSession` runtime. The existing scoped
-prepared/native batch runner proves one-process scenario execution and selected source-state reuse,
-but a general reusable local session is not yet exposed.
+`GAR-PERF-2F` now has a scoped in-process session-backed prepared/native batch lane. The existing
+`traditional-analytics-vortex-batch-run` command opens a caller-owned local session over supplied
+Vortex artifacts, executes the requested scenarios without respawning the CLI, emits
+session/cache/lifecycle evidence, and closes the session before returning the typed envelope. A
+general reusable public local session API is still not exposed.
 
-The planned session row fields include:
+Current session row fields include:
 
 ```text
+session_schema_version
 session_id
-cache_hit/miss
-source_state_reuse_count
-prepared_artifact_reuse_count
+session_runtime_status
+session_state_scope
+session_open_status
 session_close_status
-fallback_attempted=false
-external_engine_invoked=false
-claim_gate_status
+session_prepared_artifact_cache_hit_count
+session_prepared_artifact_cache_miss_count
+session_prepared_artifact_reuse_count
+session_source_metadata_cache_hit_count
+session_source_metadata_cache_miss_count
+session_source_state_cache_hit_count
+session_source_state_cache_miss_count
+session_source_state_reuse_count
+session_hidden_global_cache=false
+session_daemon_or_service=false
+session_fallback_attempted=false
+session_external_engine_invoked=false
+session_claim_gate_status=fixture_smoke_only
 ```
 
 The session queue exists to reduce redundant local setup and make reuse visible. It is not a daemon,
-remote server, hidden fast mode, or benchmark claim.
+remote server, hidden fast mode, SQL/DataFrame runtime, object-store/lakehouse runtime, production
+claim, or performance claim.
 
 ## Allocation And Buffer-Pool Optimization Queue
 

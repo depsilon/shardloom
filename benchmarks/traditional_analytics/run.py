@@ -181,6 +181,44 @@ BATCH_RUNNER_ADMISSION_FIELDS = (
     "source_state_dirty_input_reuse_status",
     "source_state_date_null_metric_reuse_status",
 )
+SESSION_RUNTIME_FIELDS = (
+    "session_schema_version",
+    "session_id",
+    "session_runtime_status",
+    "session_state_scope",
+    "session_owner",
+    "session_open_status",
+    "session_close_status",
+    "session_drop_status",
+    "session_lifecycle_explicit_close_required",
+    "session_hidden_global_cache",
+    "session_daemon_or_service",
+    "session_requested_scenario_count",
+    "session_prepared_artifact_registry_status",
+    "session_prepared_artifact_registry_entry_count",
+    "session_prepared_artifact_cache_hit_count",
+    "session_prepared_artifact_cache_miss_count",
+    "session_prepared_artifact_reuse_count",
+    "session_source_metadata_cache_hit_count",
+    "session_source_metadata_cache_miss_count",
+    "session_source_state_cache_hit_count",
+    "session_source_state_cache_miss_count",
+    "session_source_state_reuse_count",
+    "session_schema_cache_status",
+    "session_schema_cache_hit_count",
+    "session_schema_cache_miss_count",
+    "session_dictionary_cache_status",
+    "session_dictionary_cache_hit_count",
+    "session_dictionary_cache_miss_count",
+    "session_buffer_pool_status",
+    "session_buffer_pool_reuse_count",
+    "session_kernel_registry_ref",
+    "session_evidence_recorder_ref",
+    "session_fallback_attempted",
+    "session_external_engine_invoked",
+    "session_claim_gate_status",
+    "session_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -4433,6 +4471,24 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 raise RuntimeError("ShardLoom batch row must explain shared batch overhead")
             if metrics.get("batch_process_wall_shared") is not True:
                 raise RuntimeError("ShardLoom batch row must mark shared process wall timing")
+            missing_session_fields = [
+                field for field in SESSION_RUNTIME_FIELDS if field not in metrics
+            ]
+            if missing_session_fields:
+                raise RuntimeError(
+                    "ShardLoom batch row omitted session runtime fields: "
+                    + ", ".join(missing_session_fields)
+                )
+            if metrics.get("session_hidden_global_cache") is not False:
+                raise RuntimeError("ShardLoom session rows must forbid hidden global cache")
+            if metrics.get("session_daemon_or_service") is not False:
+                raise RuntimeError("ShardLoom session rows must not imply daemon/service runtime")
+            if metrics.get("session_fallback_attempted") is not False:
+                raise RuntimeError("ShardLoom session rows cannot report fallback attempts")
+            if metrics.get("session_external_engine_invoked") is not False:
+                raise RuntimeError(
+                    "ShardLoom session rows cannot report external engine execution"
+                )
         else:
             if persistent_runner_status != PERSISTENT_RUNNER_STATUS:
                 raise RuntimeError("ShardLoom row hid or altered persistent runner status")
@@ -5628,6 +5684,20 @@ def successful_result_from_iterations(
         )
         for field in BATCH_RUNNER_ADMISSION_FIELDS:
             metrics.setdefault(field, evidence.get(field))
+        for field in SESSION_RUNTIME_FIELDS:
+            value = evidence.get(field)
+            if field.endswith("_count") or field.endswith("_entry_count"):
+                metrics.setdefault(field, parse_optional_int(value))
+            elif field in (
+                "session_lifecycle_explicit_close_required",
+                "session_hidden_global_cache",
+                "session_daemon_or_service",
+                "session_fallback_attempted",
+                "session_external_engine_invoked",
+            ):
+                metrics.setdefault(field, parse_optional_bool(value))
+            else:
+                metrics.setdefault(field, value)
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -6461,7 +6531,8 @@ def persistent_runner_admission_gate() -> dict[str, Any]:
         "performance_claim_allowed": False,
         "claim_gate_status": "not_claim_grade",
         "row_fields": list(PERSISTENT_RUNNER_ADMISSION_FIELDS)
-        + list(BATCH_RUNNER_ADMISSION_FIELDS),
+        + list(BATCH_RUNNER_ADMISSION_FIELDS)
+        + list(SESSION_RUNTIME_FIELDS),
         "must_preserve": [
             "shardloom.output.v2 typed envelopes per run",
             "execution-mode selection fields",

@@ -16,8 +16,8 @@ performance claim.
 
 ShardLoom already records resource and stage timing evidence in benchmark rows, and the scoped
 prepared/native batch runner can reuse selected source metadata and source-state structures inside
-one process. `GAR-PERF-2F` plans a caller-owned `ShardLoomSession` with explicit session state,
-including a future buffer pool.
+one process. `GAR-PERF-2F` now emits caller-owned scoped session evidence for prepared/native local
+artifacts, with buffer-pool status explicitly reported as `not_enabled_planned_under_GAR-PERF-2G`.
 
 What is not yet claimable:
 

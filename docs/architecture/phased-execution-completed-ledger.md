@@ -16,6 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2F in-process ShardLoom session runtime
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `website/build_static_pages.py`
+    - `docs/architecture/in-process-session-runtime.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add scoped in-process prepared/native session-backed runtime evidence around the
+    existing `traditional-analytics-vortex-batch-run` path without exposing a broad public
+    `ShardLoomSession` API or hidden global cache.
+  - Checklist:
+    - [x] Add a local internal session wrapper that opens over caller-supplied prepared/native
+          Vortex artifacts, owns the existing source metadata/source-state reuse state, runs the
+          requested scenarios, and closes explicitly before emitting the typed envelope.
+    - [x] Emit `session_schema_version`, `session_id`, `session_runtime_status`,
+          `session_state_scope`, open/close/drop lifecycle status, prepared-artifact registry/cache
+          counts, source-metadata cache counts, and source-state cache/reuse counts.
+    - [x] Keep schema/dictionary caches explicit as
+          `not_externalized_digest_policy_pending` and buffer-pool reuse explicit as
+          `not_enabled_planned_under_GAR-PERF-2G`.
+    - [x] Propagate session fields through the Python benchmark contract and website batch-smoke
+          rendering.
+    - [x] Update compute-flow, benchmark catalog, benchmark docs, persistent-runner notes, and
+          terminology docs with claim-safe interpretation.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch_run_preserves_evidence_envelope --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch_run_reuses_selective_filter_source_state --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+  - Claim boundary:
+    - This is scoped local prepared/native session evidence for the batch command only.
+    - It is not a public Python session API, daemon, service, remote server, hidden global cache,
+      SQL/DataFrame runtime, object-store/lakehouse runtime, Foundry claim, production claim,
+      package-publication claim, performance claim, superiority claim, or Spark-displacement claim.
+  - Fallback boundary:
+    - `session_fallback_attempted=false` and `session_external_engine_invoked=false` are required.
+    - External engines remain baseline-only and are not used for session execution or reuse.
+
 - [x] Session label: GAR-PERF-2C Vortex Scan API pushdown completion
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

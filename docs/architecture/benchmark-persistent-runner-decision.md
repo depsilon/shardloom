@@ -109,13 +109,13 @@ That status does not authorize a daemon, service runtime, hidden fast mode, or p
 
 ## GAR-PERF-2F Session Runtime Follow-Up
 
-`GAR-PERF-2F` is the planned bridge from this scoped batch runner to an explicit in-process
-`ShardLoomSession`. The session target is caller-owned and local-artifact-scoped, not a daemon or
-remote service. It should expose `session_id`, prepared-artifact cache hit/miss counts,
-source-metadata/source-state cache hit/miss counts, source-state reuse count, prepared-artifact reuse
-count, close/drop status, `fallback_attempted=false`, and `external_engine_invoked=false`.
+`GAR-PERF-2F` now has a scoped bridge from this batch runner to explicit in-process session evidence.
+The session target is caller-owned and local-artifact-scoped, not a daemon or remote service. Batch
+rows expose `session_id`, prepared-artifact cache hit/miss counts, source-metadata/source-state
+cache hit/miss counts, source-state reuse count, prepared-artifact reuse count, close/drop status,
+`session_fallback_attempted=false`, and `session_external_engine_invoked=false`.
 
-The session follow-up must preserve the same typed envelope, execution-mode, evidence-level,
+Future session follow-up work must preserve the same typed envelope, execution-mode, evidence-level,
 Native I/O, materialization/decode, result-sink, deterministic unsupported, and no-fallback fields
 required by this persistent-runner decision.
 
