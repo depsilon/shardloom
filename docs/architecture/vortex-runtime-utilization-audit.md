@@ -112,10 +112,10 @@ Vortex-first provider check:
   preserved.
 ```
 
-`GAR-PERF-2F` is the planned follow-through from report-only `ShardLoomSessionModelReport` to a
-scoped in-process `ShardLoomSession` runtime for local prepared/native artifacts. That future slice
-must keep registries explicit, preserve no hidden globals, expose session/cache lifecycle evidence,
-and avoid daemon/service or remote-server claims.
+`GAR-PERF-2F` now has scoped follow-through from report-only `ShardLoomSessionModelReport` to
+in-process prepared/native session evidence for local artifacts. The current slice keeps registries
+explicit, preserves no hidden globals, exposes session/cache lifecycle evidence, and avoids
+daemon/service, remote-server, public Python API, production, or performance claims.
 
 `GAR-PERF-2B` is the planned evidence-aware logical optimizer pass. It should place optimizer rule
 registry and trace evidence before Vortex Scan pushdown, encoded-kernel, or fused-pipeline promotion

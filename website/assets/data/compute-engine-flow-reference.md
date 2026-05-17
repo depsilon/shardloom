@@ -110,7 +110,7 @@ or claim.
 | Vortex Scan pushdown | Prepared/native rows expose scoped `source_backed_scan_*` evidence, but filter/projection/limit pushdown is not complete or uniformly classified across every scenario family. | GAR-PERF-2C maps each prepared/native family to Vortex Scan filter/projection/limit evidence or a deterministic blocker, including filter-only versus output column read sets. | Pushdown evidence is source/provider-boundary evidence only. It is not an encoded-native operator claim, broad Source/Split runtime claim, SQL/DataFrame claim, object-store/lakehouse claim, or performance claim. |
 | Compressed/encoded kernel registry | Scoped selective-filter encoded-predicate provider evidence exists, but encoded-native operator coverage is not broad and encoding/operator support is not yet a uniform registry. | GAR-PERF-2D adds a registry for bitpacked filter, sequence predicates, dictionary equality/group-by, constant array count/filter, sorted min/max pruning, and FSST/dictionary string equality where available. | Registry admission is not encoded-native support. Rows must keep canonicalization, decode, materialization, validity, no-fallback, and claim-gate evidence visible. |
 | Fused operator pipeline | GAR-PERF-1C prepared/native rows now emit scoped `fused_pipeline_*` evidence for filter/projection/limit and selective-filter selection-vector metric aggregation. Broader cross-family fusion remains incomplete. | GAR-PERF-2E adds fused local prepared/native residual pipelines for filter/aggregate, filter/group-by, top-k/projection, and uniform correctness-digest parity or deterministic blockers. | Fusion evidence is scoped residual-native runtime evidence only. It is not an encoded-native operator claim, broad SQL/DataFrame claim, object-store/lakehouse claim, production claim, or public performance claim. |
-| In-process session runtime | `ShardLoomSessionModelReport` exists as report-only explicit session/registry posture, and the scoped prepared/native batch runner reuses selected source metadata/source-state inside one process. A general reusable `ShardLoomSession` runtime is not formalized. | GAR-PERF-2F adds a scoped in-process `ShardLoomSession` design and possible local prepared/native implementation with prepared artifact registry, source metadata cache, source-state cache, schema/dictionary cache, buffer pool, kernel registry, and evidence recorder. | Session support is local, caller-owned, and explicit-close only. It is not a daemon/service, remote server, hidden global cache, production claim, or performance/superiority claim. |
+| In-process session runtime | `ShardLoomSessionModelReport` exists as report-only explicit session/registry posture, and `traditional-analytics-vortex-batch-run` now emits scoped session-backed prepared/native local-artifact evidence. A general public `ShardLoomSession` API is not exposed. | Continue hardening the scoped session row fields, then promote only evidence-backed caller-owned APIs. Broader schema/dictionary cache, buffer-pool, kernel registry, and Python session surfaces remain gated. | Session support is local, caller-owned, and explicit-close only. It is not a daemon/service, remote server, hidden global cache, public Python session API, production claim, or performance/superiority claim. |
 | Allocation and buffer-pool optimization | Resource metrics exist in benchmark posture, but no global allocation profiling or buffer-pool optimization pass is claimable across prepared/native runtime paths. | GAR-PERF-2G adds allocation profiling and scoped buffer-reuse planning for result buffers, temporary vectors, hash tables, dictionary/string state, and source-state arrays. | Allocation and buffer-pool evidence is resource-profile evidence only. Buffer reuse must be opt-in or scoped, preserve correctness/evidence parity, prohibit unsafe lifetime shortcuts, and avoid performance or memory-efficiency claims. |
 | Optimized build profiles and PGO | The benchmark harness records `shardloom_build_profile`, but no formal `release-lto`, `release-pgo`, or `release-native-benchmark` lane is established. | GAR-PERF-2H adds explicit optimized build-profile planning, PGO workflow evidence, and host-native benchmark-only boundaries. | Build-profile evidence is compiler/config evidence only. `target-cpu=native` is benchmark-only, portable release artifacts stay portable, and optimized builds do not create performance or release claims. |
 | Native microbenchmarks | The traditional analytics harness has an optional ShardLoom native microbenchmark lane for current count/projection/filter-style primitives, but older artifacts can show native rows as skipped and coverage is not yet complete for group-by, hash join, top-k, result-sink write, or evidence-render primitives. | GAR-PERF-2I expands native microbenchmark rows for kernel/subsystem optimization visibility. | Native microbenchmarks are subsystem evidence only. They are not end-to-end performance, superiority, Spark-replacement, SQL/DataFrame, object-store/lakehouse, Foundry, or production claims. |
@@ -1173,23 +1173,28 @@ unfused ShardLoom-native path. Unsafe or unsupported fusion must be a determinis
 evidence does not imply encoded-native operator execution, broad operator coverage, SQL/DataFrame
 runtime, object-store/lakehouse support, production readiness, or public performance.
 
-`GAR-PERF-2F` is the planned in-process `ShardLoomSession` runtime layer. It connects the existing
-report-only `ShardLoomSessionModelReport` and scoped prepared/native batch runner into a caller-owned
-local session for prepared/native artifacts. A session may carry:
+`GAR-PERF-2F` now has a scoped in-process session-backed prepared/native batch lane. The existing
+`traditional-analytics-vortex-batch-run` command opens an explicit caller-owned local session for
+the supplied prepared/native Vortex artifacts, executes the requested scenarios through that
+session, and closes it before emitting evidence. This is the first runtime-supported session slice;
+the broader public `ShardLoomSession` API remains planned. The scoped session carries:
 
 - prepared artifact registry.
 - source metadata cache.
 - source-state cache.
-- schema cache.
-- dictionary cache.
-- buffer pool.
-- kernel registry.
+- schema cache status (`not_externalized_digest_policy_pending`).
+- dictionary cache status (`not_externalized_digest_policy_pending`).
+- buffer pool status (`not_enabled_planned_under_GAR-PERF-2G`).
+- kernel registry reference.
 - evidence recorder.
 
 Session-backed rows must expose `session_id`, cache hit/miss fields, source-state reuse count,
-prepared-artifact reuse count, close/drop status, `fallback_attempted=false`, and
-`external_engine_invoked=false`. Session support is not a daemon, service, remote server, hidden
-global cache, production claim, or performance claim.
+prepared-artifact reuse count, close/drop status, `session_hidden_global_cache=false`,
+`session_daemon_or_service=false`, `session_fallback_attempted=false`, and
+`session_external_engine_invoked=false`. This support is local-artifact-only and does not imply a
+daemon, service, remote server, hidden global cache, public Python session API, production claim,
+SQL/DataFrame runtime, object-store/lakehouse runtime, Foundry claim, package claim, or performance
+claim.
 
 `GAR-IOREUSE-1` is the planned reusable I/O state and cross-format output fanout layer. It expands
 scenario-local source-state reuse into a general, decoupled path:

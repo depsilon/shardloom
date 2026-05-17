@@ -971,9 +971,9 @@ plan before coding.
   should report optimizer trace IDs, rule statuses, before/after plan digests, rewrite safety, and
   evidence-preservation fields without implying broad lazy optimizer, SQL/DataFrame, or performance
   claims.
-- [ ] `GAR-PERF-2C` adds the planned Vortex Scan API pushdown completion pass. Every prepared/native
-  scenario family should report filter/projection/limit pushdown evidence or a deterministic blocker,
-  including filter-only versus output column distinction, without treating pushdown evidence as an
+- [x] `GAR-PERF-2C` adds the Vortex Scan API pushdown completion pass. Prepared/native scenario
+  families report filter/projection/limit pushdown evidence or a deterministic blocker, including
+  filter-only versus output column distinction, without treating pushdown evidence as an
   encoded-native operator claim.
 - [ ] `GAR-PERF-2D` adds the planned compressed/encoded kernel registry. Initial
   encoding/operator pairs include bitpacked boolean/integer filter, sequence equality/range
@@ -985,10 +985,10 @@ plan before coding.
   fused local prepared/native residual pipeline with correctness digest parity or emit a
   deterministic blocker. Fusion evidence must not be treated as encoded-native execution or public
   performance proof.
-- [ ] `GAR-PERF-2F` adds the planned in-process `ShardLoomSession` runtime slice. It should connect
-  report-only `ShardLoomSessionModelReport`, scoped prepared/native batch runner evidence, and
-  source-state reuse into a caller-owned local session with explicit close/drop lifecycle,
-  cache-hit/miss evidence, and no daemon/server claim.
+- [x] `GAR-PERF-2F` adds the scoped in-process session runtime slice for prepared/native local
+  artifacts. It connects report-only `ShardLoomSessionModelReport`, scoped prepared/native batch
+  runner evidence, and source-state reuse into caller-owned local session evidence with explicit
+  close/drop lifecycle, cache-hit/miss evidence, and no daemon/server claim.
 - [ ] `GAR-PERF-2G` adds the planned allocation and buffer-pool optimization pass. It should add
   allocation profiling and scoped buffer-reuse evidence for result buffers, temporary vectors, hash
   tables, dictionary/string state, and source-state arrays while keeping reuse opt-in or scoped,
@@ -1060,10 +1060,10 @@ plan before coding.
   projection, limit, aggregate, group-by, and top-k families. It must preserve Vortex/source-backed
   provider evidence, ShardLoom-native residual ownership, correctness digest parity with an unfused
   path, and no-fallback/no-external-engine fields.
-- [ ] `GAR-PERF-2F` adds the planned in-process `ShardLoomSession` runtime follow-through from
-  report-only `ShardLoomSessionModelReport`. It must keep registries/session state explicit, local,
-  caller-owned, and no-fallback, and it must not imply a daemon, service, remote server, hidden
-  global cache, or production runtime claim.
+- [x] `GAR-PERF-2F` adds the scoped in-process session runtime follow-through from report-only
+  `ShardLoomSessionModelReport` for prepared/native local artifacts. It keeps registries/session
+  state explicit, local, caller-owned, and no-fallback, and it does not imply a daemon, service,
+  remote server, hidden global cache, or production runtime claim.
 - [ ] `GAR-PERF-2G` adds allocation and buffer-pool optimization follow-through for prepared/native
   local runtime paths. It must report allocation profile status, scoped buffer-pool status,
   buffer-reuse counts, peak RSS status where measurable, correctness digest, evidence regression
@@ -1232,10 +1232,10 @@ plan before coding.
   pipelines as scoped prepared/native runtime evidence with row counts, intermediate materialization
   avoidance, correctness digest parity, and no-fallback status, not as broad SQL/DataFrame,
   encoded-native, or public performance claims.
-- [ ] `GAR-PERF-2F` adds in-process `ShardLoomSession` follow-through. The flow must keep session
-  state scoped and explicit, report `session_id`, cache hit/miss fields, source-state/prepared
-  artifact reuse counts, close/drop status, and no-fallback/no-external-engine fields, and must not
-  imply a daemon, service, remote server, or hidden global cache.
+- [x] `GAR-PERF-2F` adds scoped in-process session follow-through. The flow keeps session state
+  scoped and explicit, reports `session_id`, cache hit/miss fields, source-state/prepared artifact
+  reuse counts, close/drop status, and no-fallback/no-external-engine fields, and does not imply a
+  daemon, service, remote server, or hidden global cache.
 - [ ] `GAR-PERF-2G` adds allocation and buffer-pool optimization follow-through. The flow must keep
   resource evidence separate from performance claims, report allocation profile and buffer reuse
   fields where measurable, preserve correctness/evidence parity, and prohibit hidden global pools or

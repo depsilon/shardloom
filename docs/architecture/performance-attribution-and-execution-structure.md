@@ -413,11 +413,11 @@ object-store/lakehouse runtime evidence, production readiness, or performance/su
 
 ## In-Process Session Runtime
 
-`GAR-PERF-2F` adds the planned in-process `ShardLoomSession` runtime. The session layer should make
-prepared/native reuse explicit across multiple local scenario executions without turning process
-reuse into a hidden fast mode.
+`GAR-PERF-2F` adds the scoped in-process session-backed prepared/native batch lane. The session layer
+makes prepared/native reuse explicit across multiple local scenario executions without turning
+process reuse into a hidden fast mode.
 
-Planned session state:
+Scoped session state:
 
 ```text
 prepared_artifact_registry
@@ -425,15 +425,16 @@ source_metadata_cache
 source_state_cache
 schema_cache
 dictionary_cache
-buffer_pool
-kernel_registry
+buffer_pool status
+kernel_registry reference
 evidence_recorder
 ```
 
 Every session-backed row should expose `session_id`, cache hit/miss fields, source-state reuse
-count, prepared-artifact reuse count, close/drop status, `fallback_attempted=false`,
-`external_engine_invoked=false`, and `claim_gate_status`. Session state must be scoped,
-caller-owned, and explicitly closed.
+count, prepared-artifact reuse count, close/drop status, `session_hidden_global_cache=false`,
+`session_daemon_or_service=false`, `session_fallback_attempted=false`,
+`session_external_engine_invoked=false`, and `session_claim_gate_status`. Session state must be
+scoped, caller-owned, and explicitly closed.
 
 The session layer is not a daemon, service runtime, remote API, hidden global cache, or performance
 claim. It must preserve typed envelopes, execution-mode fields, evidence-level fields, Native I/O

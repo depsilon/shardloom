@@ -232,12 +232,14 @@ emit `fused_pipeline_*` fields, row counts, materialization/decode status, `not_
 `fused_pipeline_encoded_native_claim_allowed=false`. Broader cross-family fused pipeline coverage
 and fused/unfused correctness digest parity remain under `GAR-PERF-2E`.
 
-`GAR-PERF-2F` adds the planned in-process `ShardLoomSession` runtime layer. It should turn scoped
-prepared/native batch-runner reuse into explicit caller-owned session evidence, not hidden global
-state. Future session-backed rows should expose `session_id`, cache hit/miss fields, source-state
-reuse count, prepared-artifact reuse count, close/drop status, `fallback_attempted=false`,
-`external_engine_invoked=false`, and `claim_gate_status`. A session row does not authorize a daemon,
-remote server, hidden fast mode, or performance claim.
+`GAR-PERF-2F` adds the scoped in-process session-backed prepared/native batch lane. The
+`traditional-analytics-vortex-batch-run` rows now expose `session_id`, explicit open/close/drop
+status, prepared-artifact registry/cache counts, source-metadata cache counts, source-state reuse
+counts, `session_hidden_global_cache=false`, `session_daemon_or_service=false`,
+`session_fallback_attempted=false`, `session_external_engine_invoked=false`, and
+`session_claim_gate_status=fixture_smoke_only`. This is local-artifact-only session evidence. It
+does not authorize a public Python session API, daemon, remote server, hidden fast mode, SQL/DataFrame
+runtime, object-store/lakehouse runtime, production claim, or performance claim.
 
 `GAR-PERF-2G` adds the planned allocation and buffer-pool optimization contract. Future benchmark
 rows or memory/resource reports should expose allocation profile status/scope, allocation count and

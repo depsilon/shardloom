@@ -146,11 +146,11 @@ Supporting docs:
     requirements only. Runtime fusion, benchmark row schema changes, differential correctness tests,
     and claim-grade use must remain represented by `GAR-PERF-2E` or later evidence-bearing slices.
 - `docs/architecture/in-process-session-runtime.md`
-  - Role: report-only GAR-PERF-2F reference for the planned in-process `ShardLoomSession` runtime
-    over prepared/native local artifacts.
-  - Status rule: describes session state, cache, lifecycle, CLI/Python evidence, and no-fallback
-    rules only. Runtime implementation, Python client exposure, benchmark row schema changes, and
-    claim-grade use must remain represented by `GAR-PERF-2F` or later evidence-bearing slices.
+  - Role: GAR-PERF-2F reference for scoped in-process session-backed prepared/native local-artifact
+    runtime evidence and future public `ShardLoomSession` boundaries.
+  - Status rule: scoped CLI batch runtime evidence is complete and recorded in the ledger. Python
+    client exposure, broader public session APIs, buffer-pool ownership, and claim-grade use must
+    remain represented by later evidence-bearing slices.
 - `docs/architecture/io-reuse-and-fanout-architecture.md`
   - Role: report-only GAR-IOREUSE-1 reference for universal source-state reuse, decoupled
     Vortex-prepared-state reuse, output-plan reuse, cross-format local fanout, cache invalidation,
@@ -815,98 +815,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
       unfused ShardLoom-native reference path, materialization/decode evidence, and no-fallback
       diagnostics.
 
-- [ ] GAR-PERF-2F in-process ShardLoom session runtime
-  - Source:
-    - prepared/native batch runner.
-    - source-state reuse work.
-    - `ShardLoomSessionModelReport` in `shardloom-core/src/session.rs`.
-    - `docs/architecture/in-process-session-runtime.md`.
-    - `docs/architecture/benchmark-persistent-runner-decision.md`.
-    - `docs/architecture/compute-engine-flow-reference.md`.
-  - Current state:
-    - `traditional-analytics-vortex-batch-run` exists for scoped traditional analytics and can reuse
-      prepared local Vortex artifacts, source metadata snapshots, and selected source-state families
-      inside one process.
-    - `ShardLoomSessionModelReport` exists as a report-only explicit session/registry posture with
-      runtime execution disabled and hidden globals disallowed.
-    - A general reusable `ShardLoomSession` runtime is not formalized or exposed to Python.
-  - Next slice outcome:
-    - Add a `ShardLoomSession` design and, if safe, a scoped implementation for prepared/native
-      local artifacts.
-    - Keep the scope in-process, caller-owned, explicit-close, and local-artifact-only.
-    - Preserve typed envelopes and per-run evidence for each scenario executed through the session.
-  - User-visible surface:
-    - CLI batch command.
-    - Python client typed session/capability view if surfaced.
-    - benchmark rows with session/cache evidence.
-    - compute-flow and benchmark docs.
-  - Session state:
-    - prepared artifact registry.
-    - source metadata cache.
-    - source-state cache.
-    - schema cache.
-    - dictionary cache.
-    - buffer pool.
-    - kernel registry.
-    - evidence recorder.
-  - Implementation scope:
-    - core session contract and lifecycle state if runtime implementation is safe.
-    - prepared/native local artifact registry and reuse counters.
-    - benchmark batch command session fields.
-    - Python client typed view only after CLI/evidence fields stabilize.
-    - docs and contract tests.
-  - Evidence required:
-    - `session_id`.
-    - cache hit/miss fields for prepared artifacts, source metadata, source-state, schema,
-      dictionary, and buffers where applicable.
-    - `source_state_reuse_count`.
-    - `prepared_artifact_reuse_count`.
-    - session close/drop status.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-    - `claim_gate_status`.
-  - Acceptance:
-    - Multiple scoped prepared/native scenario executions do not respawn the CLI or re-open /
-      reprepare unnecessary state when a session owns the reusable state.
-    - Session state remains scoped, caller-owned, and explicitly closed.
-    - Session rows preserve execution mode, evidence level, Native I/O refs, materialization/decode
-      boundaries, result-sink evidence when requested, and no-fallback fields.
-    - Unsupported or incompatible state reuse emits deterministic diagnostics rather than falling
-      back or silently recomputing.
-  - Verification:
-    - batch smoke.
-    - Python client smoke if surfaced.
-    - benchmark row contract tests for session/cache fields.
-    - session close/drop lifecycle test if runtime implementation lands.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `python -m compileall -q benchmarks/traditional_analytics python/src python/tests`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - no daemon/service.
-    - no remote server claim.
-    - no REST listener.
-    - no hidden global cache.
-    - no object-store/lakehouse runtime.
-    - no SQL/DataFrame runtime expansion.
-    - no performance/superiority claim.
-  - Claim boundary:
-    - `ShardLoomSession` evidence can show local in-process reuse and reduced redundant setup only.
-      It does not authorize performance, superiority, Spark-displacement, production,
-      SQL/DataFrame, object-store/lakehouse, Foundry, REST, package, or remote-runtime claims.
-  - Fallback boundary:
-    - `fallback_attempted=false` and `external_engine_invoked=false` are required for every
-      session-backed run.
-  - Ledger rule:
-    - When complete, move the detailed completed session to
-      `docs/architecture/phased-execution-completed-ledger.md` with batch smoke, Python smoke if
-      applicable, lifecycle tests, and benchmark session-field evidence refs.
-  - Dependencies/blockers:
-    - stable typed envelope, prepared/native batch command, source-state reuse counters, explicit
-      session lifecycle, cache invalidation/digest policy, Python typed result model, and
-      no-fallback policy tests.
-
 - [ ] GAR-PERF-2G allocation and buffer-pool optimization
   - Source:
     - resource metrics.
@@ -919,9 +827,10 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     - No global allocation or buffer-pool optimization pass is claimable.
     - Prepared/native benchmark rows expose stage timing and selected resource evidence, but they
       do not yet expose a uniform allocation profile or scoped buffer-reuse contract.
-    - `GAR-PERF-2F` plans a caller-owned `ShardLoomSession` that may later own a buffer pool, but
-      buffer ownership, reuse families, release behavior, and memory/resource report fields remain
-      planned.
+    - `GAR-PERF-2F` now emits scoped caller-owned session evidence for prepared/native local
+      artifacts, with buffer-pool status explicitly reported as
+      `not_enabled_planned_under_GAR-PERF-2G`; buffer ownership, reuse families, release behavior,
+      and memory/resource report fields remain planned.
   - Next slice outcome:
     - Add allocation profiling and scoped buffer reuse planning for prepared/native local runtime
       paths.

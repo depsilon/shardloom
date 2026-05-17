@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This document is the report-only architecture reference for `GAR-PERF-2F`. It defines the planned
-path from scoped prepared/native batch execution and report-only `ShardLoomSessionModelReport`
-vocabulary to an explicit in-process `ShardLoomSession` runtime.
+This document records the scoped runtime slice for `GAR-PERF-2F`. It defines the path from scoped
+prepared/native batch execution and report-only `ShardLoomSessionModelReport` vocabulary to an
+explicit in-process `ShardLoomSession` runtime.
 
 The target is not a daemon, service, scheduler, or remote server. The target is a caller-owned,
 explicitly closed local session that can reuse prepared/native local artifacts across multiple
@@ -16,15 +16,16 @@ ShardLoom already has two relevant pieces:
 
 - `ShardLoomSessionModelReport` in `shardloom-core/src/session.rs`, which records explicit
   session/registry posture and keeps runtime execution disabled.
-- `traditional-analytics-vortex-batch-run`, which runs scoped prepared/native traditional analytics
-  scenarios in one process and reuses selected source metadata/source-state families.
+- `traditional-analytics-vortex-batch-run`, which now opens a scoped in-process prepared/native
+  local-artifact session, runs requested traditional analytics scenarios through that session, emits
+  session/cache/lifecycle evidence, and closes the session before returning the typed envelope.
 
-Those are useful foundations, but they are not yet a general reusable session runtime. Current
-session posture remains either report-only or scoped to the benchmark batch command.
+This is not yet a general reusable public session API. Current runtime support remains scoped to the
+prepared/native traditional analytics batch command.
 
 ## Planned `ShardLoomSession`
 
-A future scoped `ShardLoomSession` should own explicit local state:
+The scoped prepared/native session owns explicit local state:
 
 ```text
 session_id
@@ -38,8 +39,11 @@ kernel_registry
 evidence_recorder
 ```
 
-All state is caller-owned and must be explicitly closed or dropped. Session state must not become a
-hidden process global.
+The first supported slice externalizes prepared-artifact, source-metadata, and source-state reuse
+evidence. Schema and dictionary caches are reported as
+`not_externalized_digest_policy_pending`; the buffer pool is reported as
+`not_enabled_planned_under_GAR-PERF-2G`. All state is caller-owned and explicitly closed. Session
+state must not become a hidden process global.
 
 ## Evidence Fields
 
@@ -48,7 +52,12 @@ Every session-backed run should expose:
 ```text
 session_id
 session_state_scope
+session_runtime_status
+session_open_status
 session_close_status
+session_drop_status
+session_hidden_global_cache=false
+session_daemon_or_service=false
 prepared_artifact_cache_hit
 prepared_artifact_cache_miss
 prepared_artifact_reuse_count
@@ -62,9 +71,9 @@ dictionary_cache_hit
 buffer_pool_reuse_count
 kernel_registry_ref
 evidence_recorder_ref
-fallback_attempted=false
-external_engine_invoked=false
-claim_gate_status
+session_fallback_attempted=false
+session_external_engine_invoked=false
+session_claim_gate_status
 ```
 
 Unknown or not-applicable fields should be explicit instead of omitted.
@@ -106,11 +115,12 @@ implied by a session API.
 ## Acceptance
 
 - The design distinguishes report-only `ShardLoomSessionModelReport`, scoped batch runner evidence,
-  and future `ShardLoomSession` runtime support.
+  scoped session-backed prepared/native runtime support, and future public `ShardLoomSession` API
+  support.
 - Session-backed rows expose `session_id`, cache hit/miss counts, source-state reuse counts,
-  prepared-artifact reuse counts, and no-fallback/no-external-engine evidence.
-- Multiple scoped prepared/native scenarios can execute without respawning the CLI or re-opening /
-  re-preparing unnecessary state once implementation lands.
+  prepared-artifact reuse counts, close/drop status, and no-fallback/no-external-engine evidence.
+- Multiple scoped prepared/native scenarios execute without respawning the CLI or re-opening /
+  re-preparing unnecessary session state inside the batch command.
 - Session state is explicitly closed, scoped, and never hidden global state.
 
 ## Verification Plan

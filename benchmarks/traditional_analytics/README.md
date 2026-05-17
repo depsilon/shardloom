@@ -409,11 +409,14 @@ per-child `scenario_<slug>_source_state_coverage_*` fields. Coverage statuses ar
 source states are scoped in-process derived state; universal content-addressed `SourceState`
 digests belong to the GAR-IOREUSE-1A follow-up.
 
-`GAR-PERF-2F` tracks the next step: an explicit in-process `ShardLoomSession` runtime for scoped
-prepared/native local artifacts. Future session-backed rows should expose `session_id`, cache
-hit/miss fields, source-state reuse count, prepared-artifact reuse count, close/drop status,
-`fallback_attempted=false`, and `external_engine_invoked=false`. The session remains caller-owned
-and local; it is not a daemon, remote server, hidden global cache, or performance claim.
+`GAR-PERF-2F` adds a scoped in-process session-backed prepared/native batch lane for local artifacts.
+Batch rows now expose `session_id`, explicit open/close/drop status, prepared-artifact
+registry/cache counts, source-metadata cache counts, source-state cache/reuse counts,
+`session_hidden_global_cache=false`, `session_daemon_or_service=false`,
+`session_fallback_attempted=false`, `session_external_engine_invoked=false`, and
+`session_claim_gate_status=fixture_smoke_only`. The session remains caller-owned and local; it is
+not a public Python session API, daemon, remote server, hidden global cache, SQL/DataFrame runtime,
+object-store/lakehouse runtime, production claim, or performance claim.
 
 `GAR-PERF-2G` tracks the allocation profiling and scoped buffer-pool optimization follow-up. Future
 rows or memory/resource reports should classify result buffers, temporary vectors, hash tables,
