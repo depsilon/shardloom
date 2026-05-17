@@ -2,9 +2,10 @@
 
 ## Purpose
 
-This document is the report-only architecture reference for `GAR-PERF-2E`. It defines the planned
-fused local prepared/native operator pipeline layer for benchmark scenario families that can avoid
-intermediate full-table materialization.
+This document is the architecture reference for the scoped `GAR-PERF-2E` fused local
+prepared/native operator pipeline evidence. It defines how benchmark scenario families report
+runtime work avoidance, correctness-digest parity, and deterministic blockers without claiming a
+broad optimizer or encoded-native execution engine.
 
 The target is practical runtime work avoidance, not a broad SQL/DataFrame runtime, not an
 encoded-native operator claim, and not a public performance claim.
@@ -12,20 +13,31 @@ encoded-native operator claim, and not a public performance claim.
 ## Current State
 
 Prepared/native rows increasingly use residual-native ShardLoom operator paths over projected local
-Vortex scans. `GAR-PERF-1C` adds a scoped `fused_pipeline_*` evidence block for the current
-filter/projection/limit row and the selective-filter selection-vector metric aggregation row. Those
-rows report `fused_pipeline_used`, `fused_operator_family`,
-`intermediate_materialization_avoided`, row counts, materialization/decode status, claim gate, and
-no-fallback fields while keeping `fused_pipeline_encoded_native_claim_allowed=false`.
+Vortex scans. `GAR-PERF-2E` extends the existing `fused_pipeline_*` block so rows now report family
+coverage, deterministic blockers, correctness digest parity fields, materialization/decode status,
+claim gate, and no-fallback fields while keeping
+`fused_pipeline_encoded_native_claim_allowed=false`.
 
-The current state is not a broad fused pipeline contract. Fusion is not uniform across scenario
-families, correctness comparison to unfused paths is not a general gate, and the broader
-`GAR-PERF-2E` family still owns filter/group-by, filter/aggregate, top-k/projection, and uniform
-correctness-digest parity.
+Current scoped executed families:
 
-## Planned Pipeline Families
+```text
+filter + projection + limit -> fused_operator_family=filter_projection_limit
+filter + aggregate -> fused_operator_family=filter_aggregate
+top-k with projection -> fused_operator_family=top_k_projection
+```
 
-`GAR-PERF-2E` should implement or deterministically block fused local prepared/native pipelines for:
+Current deterministic blocker:
+
+```text
+filter + group-by -> gar-perf-2e.filter_group_by_filter_absent
+```
+
+The filter/group-by blocker is intentional: current grouped rows have projection pushdown and
+residual grouping, but no scoped grouped scenario with an admitted filter predicate.
+
+## Pipeline Families
+
+`GAR-PERF-2E` implements or deterministically blocks fused local prepared/native pipelines for:
 
 ```text
 filter + projection + limit
@@ -40,20 +52,35 @@ is admitted.
 
 ## Required Evidence Contract
 
-Every fused or blocked candidate row should expose:
+Every fused or blocked candidate row exposes:
 
 ```text
+fused_pipeline_schema_version
+fused_pipeline_report_id
+fused_pipeline_scope
+fused_pipeline_planned_family_count
+fused_pipeline_family_statuses
 fused_pipeline_used
 fused_operator_family
 intermediate_materialization_avoided
-rows_scanned
-rows_selected
-rows_output
-unfused_correctness_digest
-fused_correctness_digest
-correctness_digest_match
-data_materialized
-data_decoded
+fused_pipeline_rows_scanned
+fused_pipeline_rows_selected
+fused_pipeline_rows_output
+fused_pipeline_filter_columns
+fused_pipeline_projection_columns
+fused_pipeline_selection_vector_consumed
+fused_pipeline_selection_vector_status
+fused_pipeline_correctness_digest_status
+fused_pipeline_unfused_correctness_digest
+fused_pipeline_fused_correctness_digest
+fused_pipeline_correctness_digest_match
+fused_pipeline_unfused_reference_status
+fused_pipeline_data_materialized
+fused_pipeline_data_decoded
+fused_pipeline_operator_execution_class
+fused_pipeline_blocker_id
+fused_pipeline_blocker_reason
+fused_pipeline_claim_boundary
 fallback_attempted=false
 external_engine_invoked=false
 claim_gate_status
@@ -70,9 +97,12 @@ claim_gate_status=not_claim_grade
 
 ## Correctness Gate
 
-Fusion must be semantics-preserving before any runtime row is promoted. The implementation gate
-should compare fused output against an unfused ShardLoom-native path for the same prepared/native
-artifact, scenario, projection, predicate, grouping, limit, and ordering semantics.
+Fusion must be semantics-preserving before any runtime row is promoted. Current rows emit matching
+canonical result digests for the fused result and its unfused-reference slot with
+`fused_pipeline_unfused_reference_status=canonical_result_digest_reference_only`; focused tests also
+compare prepared/native result JSON against the compatibility/materialized reference for the same
+scenario fixtures. A future claim-grade promotion would need a separate independent unfused runtime
+re-execution or stronger certificate.
 
 The fused path may not rely on Spark, DataFusion, DuckDB, Polars, Velox, pandas, or another engine
 for execution or residual evaluation. External engines may remain comparison baselines or test
@@ -112,11 +142,14 @@ attribution and work-avoidance signals, but they must not be interpreted as:
 
 ## Verification Plan
 
-Future implementation should include:
+Current verification includes:
 
 ```text
-differential correctness tests for fused versus unfused paths
-benchmark smoke before and after fusion
+cargo test -p shardloom-vortex selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns --features vortex-traditional-analytics-benchmark
+cargo test -p shardloom-vortex enabled_filter_projection_limit_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark
+cargo test -p shardloom-vortex enabled_sort_top_k_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark
+cargo test -p shardloom-vortex enabled_top_n_per_group_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark
+cargo test -p shardloom-vortex enabled_group_by_aggregation_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark
 traditional benchmark row contract tests
 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
 cargo test -p shardloom-contract-tests --test release_readiness_metadata
