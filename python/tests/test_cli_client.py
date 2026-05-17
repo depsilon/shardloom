@@ -152,6 +152,63 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.lifecycle["fields"][0]["value"], "report_only")
         self.assertEqual(result.capability_snapshot["fields"][0]["value"], "status")
 
+    def test_capability_view_no_runtime_and_no_fallback_require_explicit_fields(self) -> None:
+        def capability_envelope(fields: list[dict[str, str]]) -> OutputEnvelope:
+            return OutputEnvelope.from_json({
+                "schema_version": "shardloom.output.v2",
+                "command": "capabilities",
+                "status": "success",
+                "summary": "ok",
+                "human_text": "ok",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": fields,
+            })
+
+        envelope = capability_envelope(
+            [
+                {"key": "scope", "value": "python"},
+                {"key": "runtime_execution", "value": "false"},
+                {"key": "fallback_attempted", "value": "false"},
+                {"key": "fallback_execution_allowed", "value": "false"},
+            ]
+        )
+        view = CapabilityView(scope="python", envelope=envelope)
+
+        self.assertFalse(view.runtime_execution)
+        self.assertFalse(view.fallback_attempted)
+        self.assertFalse(view.fallback_allowed)
+        self.assertFalse(view.no_runtime)
+        self.assertFalse(view.no_fallback)
+
+        explicit = capability_envelope(
+            [
+                {"key": "scope", "value": "workflow"},
+                {"key": "runtime_execution", "value": "false"},
+                {"key": "fallback_attempted", "value": "false"},
+                {"key": "fallback_execution_allowed", "value": "false"},
+                {"key": "no_runtime", "value": "true"},
+                {"key": "no_fallback", "value": "true"},
+            ]
+        )
+        explicit_view = CapabilityView(scope="workflow", envelope=explicit)
+
+        self.assertTrue(explicit_view.no_runtime)
+        self.assertTrue(explicit_view.no_fallback)
+
     def test_execution_result_view_preserves_artifact_rich_slots(self) -> None:
         envelope = OutputEnvelope.from_json(
             {
@@ -848,6 +905,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "catalog_io", "value": "false"},
                             {"key": "fallback_attempted", "value": "false"},
                             {"key": "external_engine_invoked", "value": "false"},
+                            {"key": "no_fallback", "value": "true"},
                         ])
                     if scope == "adapters":
                         fields.append({"key": "adapter_certification_required", "value": "true"})

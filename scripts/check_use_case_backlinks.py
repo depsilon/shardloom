@@ -12,10 +12,6 @@ from pathlib import Path
 from check_use_case_index import INDEX_PATH, REPO_ROOT, load_index, validate_index
 
 
-BACKLINKS = REPO_ROOT / "docs" / "use-cases" / "reference-backlinks.md"
-GENERATED = REPO_ROOT / "docs" / "use-cases" / "generated"
-
-
 def values(use_case: dict[str, object], field: str) -> list[str]:
     value = use_case.get(field)
     if isinstance(value, list):
@@ -38,16 +34,23 @@ def main() -> int:
     index_path = args.index if args.index.is_absolute() else repo_root / args.index
     data = load_index(index_path)
     blockers = validate_index(data, repo_root)
+    backlinks = repo_root / "docs" / "use-cases" / "reference-backlinks.md"
+    generated = repo_root / "docs" / "use-cases" / "generated"
 
-    backlink_text = BACKLINKS.read_text(encoding="utf-8") if BACKLINKS.exists() else ""
+    backlink_text = backlinks.read_text(encoding="utf-8") if backlinks.exists() else ""
     if not backlink_text:
         blockers.append("missing docs/use-cases/reference-backlinks.md")
 
     for use_case in data.get("use_cases", []):
         if not isinstance(use_case, dict):
             continue
-        use_case_id = str(use_case["id"])
-        page = GENERATED / f"{use_case_id}.md"
+        use_case_id_value = use_case.get("id")
+        if not use_case_id_value:
+            title = use_case.get("title", "<untitled>")
+            blockers.append(f"use case is missing id: {title}")
+            continue
+        use_case_id = str(use_case_id_value)
+        page = generated / f"{use_case_id}.md"
         if not page.exists():
             blockers.append(f"missing generated use-case page: {page.relative_to(repo_root).as_posix()}")
             continue

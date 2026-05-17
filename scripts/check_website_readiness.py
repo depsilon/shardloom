@@ -67,6 +67,7 @@ CLAIM_PHRASES = [
     r"\bShardLoom is better\b",
     r"\bSpark replacement\b",
     r"\bproduction ready\b",
+    r"\bproduction-ready\b",
     r"\bPolars cannot\b",
     r"\bDuckDB cannot\b",
     r"\bDataFusion cannot\b",

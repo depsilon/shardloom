@@ -4,7 +4,7 @@
 
 ## Quick Answer
 
-- **Audience:** user asking whether SQL text or DataFrame-style APIs are production-ready
+- **Audience:** user asking whether SQL text or DataFrame-style APIs have production support
 - **Status:** `report_only`
 - **Execution mode:** `report_only`
 - **Engine mode:** `none`

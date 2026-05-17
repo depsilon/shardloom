@@ -700,16 +700,13 @@ class CapabilityView:
     def no_runtime(self) -> bool:
         """Whether this view declares no runtime execution."""
 
-        return (
-            self.envelope.field_bool("no_runtime", False) is True
-            or not self.runtime_execution
-        )
+        return self.envelope.field_bool("no_runtime", False) is True
 
     @property
     def no_fallback(self) -> bool:
         """Whether this view declares no fallback execution."""
 
-        return not self.fallback_attempted and not self.fallback_allowed
+        return self.envelope.field_bool("no_fallback", False) is True
 
     @property
     def no_effects(self) -> bool:
