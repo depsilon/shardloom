@@ -561,11 +561,11 @@ Foundry claims.
 
 ## Native Microbenchmark Rows
 
-`GAR-PERF-2I` adds planned native microbenchmark suite expansion. These rows measure one primitive or
-subsystem boundary at a time and must stay separate from compatibility-import, prepared/native
+`GAR-PERF-2I` adds first-class native microbenchmark suite rows. These rows measure one primitive or
+subsystem boundary at a time and stay separate from compatibility-import, prepared/native
 end-to-end, and external baseline rows.
 
-Planned primitives:
+Required families:
 
 ```text
 Vortex scan only
@@ -578,9 +578,11 @@ result-sink write
 evidence render
 ```
 
-Each row should expose the benchmark category, primitive, rows, decode/materialization status,
-fallback status, external-engine status, and claim gate. Missing primitives should produce
-deterministic skipped or unsupported rows so optimization gaps remain visible.
+Each row exposes the benchmark category, primitive family, subsystem, optimization question, support
+status, rows scanned/selected/materialized where available, decode/materialization status, fallback
+status, external-engine status, claim gate, and deterministic unsupported reason when a primitive is
+not implemented. Missing isolated primitives produce deterministic blocked rows so optimization gaps
+remain visible.
 
 Native microbenchmark rows answer "which subsystem needs optimization?" They do not answer "is
 ShardLoom faster end to end?" and they do not authorize performance, superiority, Spark-displacement,

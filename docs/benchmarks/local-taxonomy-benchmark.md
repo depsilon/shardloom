@@ -470,28 +470,30 @@ Planned build lanes are `release-lto`, `release-pgo`, and `release-native-benchm
 PGO rows must record the training workload and profile artifact refs. These rows are build/config
 evidence only and are not public performance rankings.
 
-## Native Microbenchmark Suite Queue
+## Native Microbenchmark Suite
 
-`GAR-PERF-2I` tracks the next native microbenchmark expansion. Older artifacts may show native
-microbenchmark rows as skipped, and current coverage does not fully isolate every kernel family
-needed for optimization planning.
+Native microbenchmark rows are separate from traditional end-to-end rows,
+compatibility-import rows, prepared/native batch rows, and external baseline
+rows. Older artifacts may show native microbenchmarks as skipped; current
+artifacts emit first-class subsystem rows or deterministic blockers for every
+required microbenchmark family.
 
-The planned suite should add implemented or deterministic skipped/unsupported rows for:
+The suite covers or explicitly blocks:
 
-```text
-Vortex scan only
-filter predicate only
-projection only
-group-by kernel
-hash join kernel
-top-k
-result-sink write
-evidence render
-```
+- Vortex scan only: deterministic blocker until an isolated scan-only primitive exists.
+- filter predicate only: smoke-supported through current `vortex-run count-where` rows.
+- projection only: smoke-supported through current `vortex-run project` rows.
+- group-by kernel: deterministic blocker until an isolated native kernel primitive exists.
+- hash join kernel: deterministic blocker until an isolated native kernel primitive exists.
+- top-k: deterministic blocker until an isolated native top-k primitive exists.
+- result-sink write: deterministic blocker until an isolated result-sink write primitive exists.
+- evidence render: smoke-supported through benchmark harness JSON/Markdown rendering rows.
 
-Rows must be labeled as `benchmark_category=native_microbenchmark` and should expose primitive,
-rows, decoded/materialized status, timing scope, `fallback_attempted=false`,
-`external_engine_invoked=false`, and `claim_gate_status`.
+Rows are labeled as `benchmark_category=native_microbenchmark` and expose
+primitive family, subsystem, optimization question, support status, rows
+scanned/selected/materialized where available, decoded/materialized status,
+timing scope, `fallback_attempted=false`, `external_engine_invoked=false`,
+`claim_gate_status`, and a deterministic unsupported reason when unavailable.
 
 These rows identify which subsystem needs optimization. They are not end-to-end performance claims,
 not public rankings, not Spark-replacement evidence, and not production SQL/DataFrame,

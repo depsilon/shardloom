@@ -259,14 +259,15 @@ reproducibility status, portable-release-artifact status, benchmark-only-build s
 digest, no-fallback fields, and claim gate. `target-cpu=native` is benchmark-only, and optimized
 profile rows must not be rendered as performance claims.
 
-`GAR-PERF-2I` adds the next native microbenchmark suite expansion. Native microbenchmark rows must
-stay separate from traditional compatibility-file rows, prepared/native end-to-end rows, and
-external baseline rows. The planned row families are Vortex scan-only, filter predicate-only,
-projection-only, group-by kernel, hash-join kernel, top-k, result-sink write, and evidence-render.
-Each row should expose `benchmark_category=native_microbenchmark`, primitive, row counts,
-decode/materialization status, `fallback_attempted=false`, `external_engine_invoked=false`, and
-`claim_gate_status`. Unsupported primitives should emit deterministic skipped/unsupported rows
-rather than disappear from the report.
+`GAR-PERF-2I` adds first-class native microbenchmark suite rows. Native microbenchmark rows stay
+separate from traditional compatibility-file rows, prepared/native end-to-end rows, and external
+baseline rows. The row families are Vortex scan-only, filter predicate-only, projection-only,
+group-by kernel, hash-join kernel, top-k, result-sink write, and evidence-render. Implemented
+families emit smoke-supported subsystem evidence; missing isolated primitives emit deterministic
+blocked rows rather than disappearing from the report. Each row exposes
+`benchmark_category=native_microbenchmark`, primitive family, subsystem, optimization question,
+support status, row counts, decode/materialization status, `fallback_attempted=false`,
+`external_engine_invoked=false`, `claim_gate_status`, and an unsupported reason where applicable.
 
 `GAR-IOREUSE-1` adds the planned I/O reuse and cross-format fanout benchmark bundle. Future rows
 should use the stable path `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan ->

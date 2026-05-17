@@ -1004,7 +1004,7 @@ plan before coding.
   `release-lto`, `release-pgo`, and `release-native-benchmark` posture, keep `target-cpu=native`
   benchmark-only, record build profile/LTO/PGO/native status in benchmark artifacts, and keep
   performance claims blocked until claim-grade gates pass.
-- [ ] `GAR-PERF-2I` adds the planned native microbenchmark suite expansion for Vortex scan-only,
+- [x] `GAR-PERF-2I` adds the native microbenchmark suite expansion for Vortex scan-only,
   filter predicate-only, projection-only, group-by kernel, hash-join kernel, top-k, result-sink
   write, and evidence-render primitives. These rows must remain subsystem evidence, not end-to-end
   benchmark claims, and skipped/unsupported primitives must be visible deterministic rows.
@@ -1253,7 +1253,7 @@ plan before coding.
 - [ ] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark follow-through. The flow must
   keep build profile, LTO, PGO, target triple, target CPU posture, benchmark-only native artifacts,
   release portability, correctness digest, no-fallback fields, and claim gate visible.
-- [ ] `GAR-PERF-2I` adds native microbenchmark suite follow-through. The flow must keep kernel-level
+- [x] `GAR-PERF-2I` adds native microbenchmark suite follow-through. The flow keeps kernel-level
   native microbenchmark rows distinct from compatibility-import, prepared/native end-to-end, and
   external baseline rows, and must not let microbenchmark timing imply public performance,
   superiority, production, SQL/DataFrame, object-store/lakehouse, Foundry, or Spark-replacement
