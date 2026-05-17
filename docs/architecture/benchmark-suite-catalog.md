@@ -206,10 +206,11 @@ boundary preservation, cardinality estimation status, correctness smoke refs, no
 and claim gate. Optimizer trace refs are explainability evidence only unless an applied rewrite has
 correctness smoke and evidence-preserving before/after digests.
 
-`GAR-PERF-2C` adds the planned Vortex Scan API pushdown completion contract. Future prepared/native
-rows should classify filter, projection, and limit/slice pushdown separately, name filter-only
-columns and output columns, preserve materialization/decode fields, and emit deterministic blockers
-for unsupported expressions. This is scan/source-boundary evidence only; it must not be rendered as
+`GAR-PERF-2C` adds the Vortex Scan API pushdown completion contract. Prepared/native rows classify
+filter, projection, and limit/slice pushdown separately, name filter-only columns and output
+columns, preserve materialization/decode fields, and emit deterministic blockers for unsupported
+dimensions. Current limit/slice pushdown remains blocked for order-sensitive or grouped residual
+limit-like scenarios. This is scan/source-boundary evidence only; it must not be rendered as
 encoded-native operator execution or public performance proof.
 
 `GAR-PERF-2D` adds the planned compressed/encoded kernel registry contract. Future benchmark and

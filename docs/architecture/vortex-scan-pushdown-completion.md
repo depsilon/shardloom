@@ -18,9 +18,11 @@ roles, projected columns, provider scope, Native I/O status, materialization bou
 executor, no-fallback status, and claim gate. Several scenario families already avoid full
 fact-table materialization through projected scans and ShardLoom-native residual state.
 
-Pushdown is still not complete as a uniform contract across every scenario family. Some rows expose
-filter/projection pushdown evidence; others need explicit field coverage or blockers for filter,
-projection, and limit/slice behavior.
+`GAR-PERF-2C` adds a stable `scan_pushdown_*` contract to each prepared/native source-backed row.
+The row now reports filter, projection, and limit/slice dimensions independently, distinguishes
+filter-only columns from scan output columns, and emits deterministic blockers when a dimension is
+not admitted. Limit/slice pushdown remains blocked in the current local prepared/native runtime
+because the covered limit-like scenarios require order-sensitive or grouped residual semantics.
 
 ## Required Pushdown Contract
 
@@ -43,6 +45,33 @@ claim_gate_status
 Existing `source_backed_scan_*` fields may remain the outer evidence envelope, but pushdown-specific
 fields should be stable enough for benchmark rows, compute-flow documentation, and capability
 matrix/status views.
+
+Implemented field names:
+
+```text
+scan_pushdown_schema_version
+scan_pushdown_report_id
+scan_pushdown_status
+scan_filter_required
+scan_projection_required
+scan_limit_required
+scan_filter_pushed_down
+scan_projection_pushed_down
+scan_limit_pushed_down
+scan_filter_pushdown_status
+scan_projection_pushdown_status
+scan_limit_pushdown_status
+scan_filter_columns_read
+scan_output_columns_read
+scan_filter_only_columns_read
+scan_data_materialized
+scan_data_decoded
+scan_pushdown_blocker_id
+scan_pushdown_blocker_reason
+scan_pushdown_claim_gate_status
+scan_pushdown_fallback_attempted
+scan_pushdown_external_engine_invoked
+```
 
 ## Capability Matrix Projection
 

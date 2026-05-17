@@ -1555,7 +1555,16 @@ Optimization priorities:
 
 Current scoped progress: `filter + projection + limit` has a prepared/native
 residual-native fused scan path. It uses Vortex scan filter/projection pushdown
-and bounded top-N state to avoid full fact-table materialization. `group by
+and bounded top-N state to avoid full fact-table materialization. `GAR-PERF-2C`
+adds a `scan_pushdown_*` contract to each prepared/native source-backed row so
+filter, projection, and limit/slice dimensions are reported separately with
+`scan_filter_columns_read`, `scan_output_columns_read`,
+`scan_filter_only_columns_read`, deterministic blocker IDs, and
+`scan_pushdown_fallback_attempted=false` /
+`scan_pushdown_external_engine_invoked=false`. Limit/slice pushdown remains
+blocked for current limit-like scenarios because those rows require
+order-sensitive or grouped residual state; this is explicit pushdown evidence,
+not an encoded-native or performance claim. `group by
 aggregation` now also has a prepared/native residual-native scan path using
 projection pushdown over `group_key`/`metric` and ShardLoom-native grouped
 state. `multi-key group by` extends that path to composite `group_key`/`category`

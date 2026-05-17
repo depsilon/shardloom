@@ -136,30 +136,35 @@ workload-scoped gate explicitly approves otherwise.
 
 ## Vortex Scan Pushdown Completion Queue
 
-`GAR-PERF-2C` tracks the planned completion pass for prepared/native Vortex Scan API pushdown. The
-current benchmark rows expose scoped `source_backed_scan_*` evidence, but every prepared/native
-scenario family still needs an explicit filter/projection/limit pushdown status or deterministic
+`GAR-PERF-2C` adds an explicit completion contract for prepared/native Vortex Scan API pushdown.
+Benchmark rows now expose scoped `source_backed_scan_*` evidence plus `scan_pushdown_*` fields so
+every prepared/native scenario family has a filter/projection/limit status or deterministic
 blocker.
 
-Future benchmark rows should expose:
+Benchmark rows expose:
 
 ```text
+scan_pushdown_status
 scan_filter_pushed_down
 scan_projection_pushed_down
 scan_limit_pushed_down
-filter_columns_read
-output_columns_read
+scan_filter_columns_read
+scan_output_columns_read
+scan_filter_only_columns_read
 data_materialized
 data_decoded
-unsupported_pushdown_reason
-fallback_attempted=false
-external_engine_invoked=false
-claim_gate_status
+scan_pushdown_blocker_id
+scan_pushdown_blocker_reason
+scan_pushdown_fallback_attempted=false
+scan_pushdown_external_engine_invoked=false
+scan_pushdown_claim_gate_status=not_claim_grade
 ```
 
 The row contract must distinguish filter-only columns from output columns. Pushdown evidence is
 source/provider-boundary evidence only; it is not an encoded-native operator claim, generalized
 Source/Split runtime claim, object-store/lakehouse claim, SQL/DataFrame claim, or performance claim.
+Current limit/slice pushdown fields are explicit blockers for order-sensitive or grouped residual
+limit-like scenarios rather than hidden fallbacks.
 
 ## Evidence-Aware Logical Optimizer Queue
 

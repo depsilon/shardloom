@@ -116,6 +116,25 @@ FUSED_PIPELINE_FIELDS = (
     "fused_pipeline_fallback_attempted",
     "fused_pipeline_external_engine_invoked",
 )
+SCAN_PUSHDOWN_FIELDS = (
+    "scan_pushdown_schema_version",
+    "scan_pushdown_status",
+    "scan_filter_pushed_down",
+    "scan_projection_pushed_down",
+    "scan_limit_pushed_down",
+    "scan_filter_pushdown_status",
+    "scan_projection_pushdown_status",
+    "scan_limit_pushdown_status",
+    "scan_filter_columns_read",
+    "scan_output_columns_read",
+    "scan_filter_only_columns_read",
+    "scan_data_materialized",
+    "scan_data_decoded",
+    "scan_pushdown_blocker_id",
+    "scan_pushdown_claim_gate_status",
+    "scan_pushdown_fallback_attempted",
+    "scan_pushdown_external_engine_invoked",
+)
 PERSISTENT_RUNNER_STATUS = "process_per_scenario_attributed_not_reduced"
 BATCH_RUNNER_STATUS = "single_process_batch_runner_supported"
 BATCH_PROCESS_STARTUP_ATTRIBUTION = "single_process_batch_cli_wall_shared_across_scenarios"
@@ -4291,6 +4310,15 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "benchmark row omitted fused pipeline fields: "
             + ", ".join(missing_fused_pipeline_fields)
         )
+    missing_scan_pushdown_fields = [
+        field for field in SCAN_PUSHDOWN_FIELDS if field not in metrics
+    ]
+    if missing_scan_pushdown_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted scan pushdown fields: "
+            + ", ".join(missing_scan_pushdown_fields)
+        )
     missing_persistent_runner_fields = [
         field for field in PERSISTENT_RUNNER_ADMISSION_FIELDS if field not in metrics
     ]
@@ -4375,6 +4403,16 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         and metrics.get("fused_pipeline_external_engine_invoked") is True
     ):
         raise RuntimeError("fused pipeline evidence cannot report external engine execution")
+    if (
+        is_shardloom_engine(str(result.get("engine") or ""))
+        and metrics.get("scan_pushdown_fallback_attempted") is True
+    ):
+        raise RuntimeError("scan pushdown evidence cannot report fallback attempts")
+    if (
+        is_shardloom_engine(str(result.get("engine") or ""))
+        and metrics.get("scan_pushdown_external_engine_invoked") is True
+    ):
+        raise RuntimeError("scan pushdown evidence cannot report external engine execution")
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
         and result.get("status") == "success"
@@ -5224,6 +5262,23 @@ def failed_result(
         "fused_pipeline_claim_gate_status": "not_executed",
         "fused_pipeline_fallback_attempted": False,
         "fused_pipeline_external_engine_invoked": False,
+        "scan_pushdown_schema_version": "not_executed",
+        "scan_pushdown_status": "not_executed",
+        "scan_filter_pushed_down": False,
+        "scan_projection_pushed_down": False,
+        "scan_limit_pushed_down": False,
+        "scan_filter_pushdown_status": "not_executed",
+        "scan_projection_pushdown_status": "not_executed",
+        "scan_limit_pushdown_status": "not_executed",
+        "scan_filter_columns_read": "none",
+        "scan_output_columns_read": "none",
+        "scan_filter_only_columns_read": "none",
+        "scan_data_materialized": None,
+        "scan_data_decoded": None,
+        "scan_pushdown_blocker_id": "not_executed",
+        "scan_pushdown_claim_gate_status": "not_executed",
+        "scan_pushdown_fallback_attempted": False,
+        "scan_pushdown_external_engine_invoked": False,
         "materialization_required": None,
         "decode_required": None,
         "scan_api_status": "not_executed",
@@ -5500,6 +5555,49 @@ def successful_result_from_iterations(
         ),
         "fused_pipeline_external_engine_invoked": (
             parse_optional_bool(evidence.get("fused_pipeline_external_engine_invoked")) is True
+        ),
+        "scan_pushdown_schema_version": evidence.get(
+            "scan_pushdown_schema_version", "not_reported"
+        ),
+        "scan_pushdown_status": evidence.get("scan_pushdown_status", "not_reported"),
+        "scan_filter_pushed_down": (
+            parse_optional_bool(evidence.get("scan_filter_pushed_down")) is True
+        ),
+        "scan_projection_pushed_down": (
+            parse_optional_bool(evidence.get("scan_projection_pushed_down")) is True
+        ),
+        "scan_limit_pushed_down": (
+            parse_optional_bool(evidence.get("scan_limit_pushed_down")) is True
+        ),
+        "scan_filter_pushdown_status": evidence.get(
+            "scan_filter_pushdown_status", "not_reported"
+        ),
+        "scan_projection_pushdown_status": evidence.get(
+            "scan_projection_pushdown_status", "not_reported"
+        ),
+        "scan_limit_pushdown_status": evidence.get(
+            "scan_limit_pushdown_status", "not_reported"
+        ),
+        "scan_filter_columns_read": evidence.get("scan_filter_columns_read", "none"),
+        "scan_output_columns_read": evidence.get("scan_output_columns_read", "none"),
+        "scan_filter_only_columns_read": evidence.get(
+            "scan_filter_only_columns_read", "none"
+        ),
+        "scan_data_materialized": parse_optional_bool(
+            evidence.get("scan_data_materialized")
+        ),
+        "scan_data_decoded": parse_optional_bool(evidence.get("scan_data_decoded")),
+        "scan_pushdown_blocker_id": evidence.get(
+            "scan_pushdown_blocker_id", "not_reported"
+        ),
+        "scan_pushdown_claim_gate_status": evidence.get(
+            "scan_pushdown_claim_gate_status", "not_reported"
+        ),
+        "scan_pushdown_fallback_attempted": (
+            parse_optional_bool(evidence.get("scan_pushdown_fallback_attempted")) is True
+        ),
+        "scan_pushdown_external_engine_invoked": (
+            parse_optional_bool(evidence.get("scan_pushdown_external_engine_invoked")) is True
         ),
         "materialization_required": parse_optional_bool(
             evidence.get("data_materialized")
@@ -6305,6 +6403,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "stage_timing_fields": list(STAGE_TIMING_CONTRACT_FIELDS),
         "operator_blocker_matrix_fields": list(OPERATOR_BLOCKER_MATRIX_FIELDS),
         "fused_pipeline_fields": list(FUSED_PIPELINE_FIELDS),
+        "scan_pushdown_fields": list(SCAN_PUSHDOWN_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
             "compatibility_import_certified": (
@@ -6625,6 +6724,7 @@ def render_execution_mode_attribution_contract(artifact: dict[str, Any]) -> str:
         ["Stage timing fields", ", ".join(contract["stage_timing_fields"])],
         ["Operator blocker fields", ", ".join(contract["operator_blocker_matrix_fields"])],
         ["Fused pipeline fields", ", ".join(contract["fused_pipeline_fields"])],
+        ["Scan pushdown fields", ", ".join(contract["scan_pushdown_fields"])],
         ["Unknown stage values", str(contract["unknown_stage_value_policy"])],
         ["Claim boundary", str(contract["claim_boundary"])],
         ["Operator claim boundary", str(contract["operator_claim_boundary"])],
