@@ -64,12 +64,28 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"fusion_blocker\""));
     assert!(script.contains("FUSED_PIPELINE_FIELDS"));
     assert!(script.contains("\"fused_pipeline_schema_version\""));
+    assert!(script.contains("\"fused_pipeline_report_id\""));
+    assert!(script.contains("\"fused_pipeline_scope\""));
+    assert!(script.contains("\"fused_pipeline_planned_family_count\""));
+    assert!(script.contains("\"fused_pipeline_family_statuses\""));
     assert!(script.contains("\"fused_pipeline_used\""));
     assert!(script.contains("\"fused_operator_family\""));
     assert!(script.contains("\"intermediate_materialization_avoided\""));
+    assert!(script.contains("\"fused_pipeline_rows_scanned\""));
     assert!(script.contains("\"fused_pipeline_rows_selected\""));
     assert!(script.contains("\"fused_pipeline_rows_output\""));
+    assert!(script.contains("\"fused_pipeline_filter_columns\""));
+    assert!(script.contains("\"fused_pipeline_projection_columns\""));
+    assert!(script.contains("\"fused_pipeline_correctness_digest_status\""));
+    assert!(script.contains("\"fused_pipeline_unfused_correctness_digest\""));
+    assert!(script.contains("\"fused_pipeline_fused_correctness_digest\""));
+    assert!(script.contains("\"fused_pipeline_correctness_digest_match\""));
+    assert!(script.contains("\"fused_pipeline_unfused_reference_status\""));
+    assert!(script.contains("\"fused_pipeline_operator_execution_class\""));
     assert!(script.contains("\"fused_pipeline_encoded_native_claim_allowed\""));
+    assert!(script.contains("\"fused_pipeline_blocker_id\""));
+    assert!(script.contains("\"fused_pipeline_blocker_reason\""));
+    assert!(script.contains("\"fused_pipeline_claim_boundary\""));
     assert!(script.contains("COMPRESSED_KERNEL_REGISTRY_FIELDS"));
     assert!(script.contains("\"compressed_kernel_registry_schema_version\""));
     assert!(script.contains("\"compressed_kernel_registry_pair_ids\""));
@@ -326,12 +342,22 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"shardloom_build_profile\"",
         "\"shardloom_build_time_excluded\"",
         "\"fused_pipeline_schema_version\"",
+        "\"fused_pipeline_report_id\"",
+        "\"fused_pipeline_scope\"",
+        "\"fused_pipeline_family_statuses\"",
         "\"fused_pipeline_used\"",
         "\"fused_operator_family\"",
         "\"intermediate_materialization_avoided\"",
+        "\"fused_pipeline_rows_scanned\"",
         "\"fused_pipeline_rows_selected\"",
         "\"fused_pipeline_rows_output\"",
+        "\"fused_pipeline_correctness_digest_status\"",
+        "\"fused_pipeline_unfused_correctness_digest\"",
+        "\"fused_pipeline_fused_correctness_digest\"",
+        "\"fused_pipeline_correctness_digest_match\"",
         "\"fused_pipeline_encoded_native_claim_allowed\"",
+        "\"fused_pipeline_blocker_id\"",
+        "\"fused_pipeline_blocker_reason\"",
         "\"compressed_kernel_registry_schema_version\"",
         "\"compressed_kernel_registry_pair_ids\"",
         "\"compressed_kernel_registry_pair_statuses\"",

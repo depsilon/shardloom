@@ -140,10 +140,11 @@ Supporting docs:
     operator coverage, capability-matrix promotion, and claim-grade use must remain represented by
     later evidence-bearing slices.
 - `docs/architecture/fused-operator-pipeline.md`
-  - Role: report-only GAR-PERF-2E reference for fused local prepared/native operator pipelines.
-  - Status rule: defines fused-pipeline evidence, correctness, materialization, and blocker
-    requirements only. Runtime fusion, benchmark row schema changes, differential correctness tests,
-    and claim-grade use must remain represented by `GAR-PERF-2E` or later evidence-bearing slices.
+  - Role: GAR-PERF-2E reference for scoped fused local prepared/native operator-pipeline evidence.
+  - Status rule: scoped filter/projection/limit, filter/aggregate, and top-k/projection evidence is
+    complete with deterministic filter/group-by blockers. Stronger independent unfused runtime
+    certificates, broader families, encoded-native promotion, and claim-grade use must remain
+    represented by later evidence-bearing slices.
 - `docs/architecture/in-process-session-runtime.md`
   - Role: GAR-PERF-2F reference for scoped in-process session-backed prepared/native local-artifact
     runtime evidence and future public `ShardLoomSession` boundaries.
@@ -544,95 +545,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     - stable Plan IR digesting, explain output envelope, optimizer registry schema,
       materialization/decode evidence, semantic-profile safety, correctness smoke fixtures,
       benchmark row schema, and no-fallback tests.
-
-- [ ] GAR-PERF-2E fused operator pipeline
-  - Source:
-    - benchmark scenario catalog.
-    - prepared/native batch runner.
-    - current residual-native prepared/native operator paths.
-    - `docs/architecture/fused-operator-pipeline.md`.
-    - `docs/architecture/performance-attribution-and-execution-structure.md`.
-    - `benchmarks/traditional_analytics/run.py`.
-  - Current state:
-    - Operators are increasingly residual-native, and several prepared/native rows avoid full
-      fact-table materialization through projected local Vortex scans and ShardLoom-native state.
-    - The benchmark harness has narrow fusion vocabulary such as `filter_project_limit_fused`.
-    - Fusion is not yet a stable cross-family pipeline contract with correctness digest parity,
-      row-count evidence, and uniform benchmark fields.
-  - Next slice outcome:
-    - Implement or deterministically block fused local prepared/native pipelines for:
-      - filter + projection + limit.
-      - filter + aggregate.
-      - filter + group-by.
-      - top-k with projection.
-    - Keep the fused path local, prepared/native, no-fallback, and evidence-bearing.
-  - User-visible surface:
-    - benchmark rows.
-    - timing attribution.
-    - work-avoidance evidence.
-    - compute-flow and benchmark docs.
-    - website benchmark interpretation after artifact refresh.
-  - Implementation scope:
-    - prepared/native scenario execution paths.
-    - fused pipeline admission and deterministic blockers.
-    - fused/unfused correctness digest comparison.
-    - benchmark row schema and Markdown renderer.
-    - traditional analytics smoke commands and contract tests.
-  - Evidence required:
-    - `fused_pipeline_used`.
-    - `fused_operator_family`.
-    - `intermediate_materialization_avoided`.
-    - `rows_scanned`.
-    - `rows_selected`.
-    - `rows_output`.
-    - `unfused_correctness_digest`.
-    - `fused_correctness_digest`.
-    - `correctness_digest_match`.
-    - `data_materialized`.
-    - `data_decoded`.
-    - deterministic unsupported/blocker reason where fusion is unavailable.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-    - `claim_gate_status`.
-  - Acceptance:
-    - No intermediate full-table materialization occurs when fusion applies.
-    - Pipeline output has an identical correctness digest to the unfused ShardLoom-native path.
-    - Every planned pipeline family is implemented with evidence or blocked with a deterministic
-      reason.
-    - Benchmark rows distinguish fused residual-native pipelines from encoded-native operator
-      execution.
-    - Unsupported or unsafe fusion paths are blocked, not delegated to another engine.
-  - Verification:
-    - differential correctness tests for fused versus unfused paths.
-    - benchmark smoke before and after fusion.
-    - traditional benchmark row contract tests if row fields change.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `python -m compileall -q benchmarks/traditional_analytics`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - no broad SQL/DataFrame runtime claim.
-    - no encoded-native operator claim unless later end-to-end representation evidence proves it.
-    - no object-store/lakehouse runtime.
-    - no production or performance/superiority claim.
-    - no external engine fallback.
-  - Claim boundary:
-    - Fused pipeline rows may claim only scoped local prepared/native residual-native fusion where
-      correctness digest parity and materialization evidence exist.
-    - Fusion evidence does not imply broad operator coverage, encoded-native execution, SQL/DataFrame
-      runtime, object-store/lakehouse runtime, production readiness, or public performance claims.
-  - Fallback boundary:
-    - `fallback_attempted=false` and `external_engine_invoked=false` are required for every fused,
-      blocked, or unsupported row.
-  - Ledger rule:
-    - When complete, move the detailed completed session to
-      `docs/architecture/phased-execution-completed-ledger.md` with differential correctness tests,
-      benchmark smoke artifacts, row-schema evidence, and deterministic blocker examples.
-  - Dependencies/blockers:
-    - stable prepared/native scenario row schema, source-backed scan fields, row-count evidence,
-      unfused ShardLoom-native reference path, materialization/decode evidence, and no-fallback
-      diagnostics.
 
 - [ ] GAR-PERF-2H optimized build profiles and PGO benchmark lane
   - Source:

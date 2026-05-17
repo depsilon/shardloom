@@ -148,12 +148,14 @@ rows separate `kernel_admitted` from `kernel_executed`, record
 canonicalization/decode/materialization boundaries, preserve validity semantics, and keep
 `encoded_native_claim_allowed=false` until end-to-end evidence passes.
 
-`GAR-PERF-2E` is the planned fused operator pipeline pass. It should combine admitted prepared/native
-source-backed scan boundaries with ShardLoom-native residual operators for filter/projection/limit,
-filter/aggregate, filter/group-by, and top-k/projection families. A fused row must prove correctness
-digest parity with the unfused ShardLoom-native path and expose row counts plus materialization
-avoidance evidence. Fusion remains residual-native unless later representation-state certificates
-prove encoded-native execution.
+`GAR-PERF-2E` adds scoped fused operator pipeline evidence. Current rows combine admitted
+prepared/native source-backed scan boundaries with ShardLoom-native residual operators for
+filter/projection/limit, filter/aggregate through selective-filter selection vectors, and
+top-k/projection families. Filter/group-by remains a deterministic blocker until a filtered grouped
+scenario exists. Fused rows expose family statuses, row counts, materialization/decode posture,
+correctness digest parity fields, no-fallback/no-external-engine fields, and
+`fused_pipeline_encoded_native_claim_allowed=false`. Fusion remains residual-native unless later
+representation-state certificates prove encoded-native execution.
 
 `GAR-PERF-2G` adds scoped allocation/resource-profile evidence and buffer-pool blocker reporting for
 prepared/native allocation families such as result buffers, temporary vectors, hash tables,

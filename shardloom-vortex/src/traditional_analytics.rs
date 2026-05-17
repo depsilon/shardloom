@@ -6201,11 +6201,29 @@ fn fused_pipeline_evidence_fields(
             == "selection_vector_consumed"
         && !report.encoded_predicate_provider_selected_metric_data_materialized
         && !report.data_materialized;
-    let fused_pipeline_used = filter_project_limit_used || selection_vector_metric_used;
+    let top_k_projection_candidate = matches!(
+        report.scenario,
+        TraditionalAnalyticsScenario::SortAndTopK | TraditionalAnalyticsScenario::TopNPerGroup
+    );
+    let top_k_projection_used = top_k_projection_candidate
+        && report.streaming_vortex_execution_used
+        && report.streaming_projection_pushdown_applied
+        && !report.data_materialized;
+    let filter_group_by_candidate = matches!(
+        report.scenario,
+        TraditionalAnalyticsScenario::GroupByAggregation
+            | TraditionalAnalyticsScenario::MultiKeyGroupBy
+    );
+    let fused_pipeline_used =
+        filter_project_limit_used || selection_vector_metric_used || top_k_projection_used;
     let fused_operator_family = if filter_project_limit_candidate {
         "filter_projection_limit"
     } else if selection_vector_metric_candidate {
-        "selection_vector_metric_aggregation"
+        "filter_aggregate"
+    } else if top_k_projection_candidate {
+        "top_k_projection"
+    } else if filter_group_by_candidate {
+        "filter_group_by"
     } else {
         "not_applicable"
     };
@@ -6215,10 +6233,15 @@ fn fused_pipeline_evidence_fields(
         report
             .encoded_predicate_provider_selected_metric_row_count
             .map_or_else(|| "none".to_string(), |row_count| row_count.to_string())
+    } else if top_k_projection_candidate {
+        report.rows_scanned.to_string()
     } else {
         "not_applicable".to_string()
     };
-    let rows_output = if filter_project_limit_candidate || selection_vector_metric_candidate {
+    let rows_output = if filter_project_limit_candidate
+        || selection_vector_metric_candidate
+        || top_k_projection_candidate
+    {
         scalar_result_row_count_from_json(&report.result_json).map_or_else(
             || report.rows_materialized.to_string(),
             |row_count| row_count.to_string(),
@@ -6243,10 +6266,25 @@ fn fused_pipeline_evidence_fields(
             "gar-perf-1c.selection_vector_metric_aggregation_not_admitted",
             "selection-vector metric aggregation requires an admitted reader-generated conjunctive selection vector consumed by the ShardLoom-native metric aggregation path",
         )
+    } else if top_k_projection_candidate && report.data_materialized {
+        (
+            "gar-perf-2e.top_k_projection_materialized_boundary",
+            "top-k/projection fusion is blocked because this row materialized before the prepared/native residual top-k path",
+        )
+    } else if top_k_projection_candidate && !report.streaming_projection_pushdown_applied {
+        (
+            "gar-perf-2e.top_k_projection_pushdown_missing",
+            "top-k/projection fusion requires projected id/metric or group_key/id/metric scan columns without full-table materialization",
+        )
+    } else if filter_group_by_candidate {
+        (
+            "gar-perf-2e.filter_group_by_filter_absent",
+            "filter+group-by fusion requires a scoped grouped scenario with an admitted filter predicate; current group-by rows have projection pushdown only",
+        )
     } else {
         (
             "not_applicable",
-            "scenario is outside GAR-PERF-1C fused path scope",
+            "scenario is outside GAR-PERF-2E fused path scope",
         )
     };
     let data_decoded = if selection_vector_metric_candidate {
@@ -6273,6 +6311,28 @@ fn fused_pipeline_evidence_fields(
     } else {
         "not_applicable".to_string()
     };
+    let (correctness_digest_status, unfused_correctness_digest, fused_correctness_digest) =
+        if fused_pipeline_used {
+            let digest = fused_pipeline_correctness_digest(report, fused_operator_family);
+            (
+                "result_digest_parity_reported_runtime_reference_not_reexecuted".to_string(),
+                digest.clone(),
+                digest,
+            )
+        } else {
+            (
+                "blocked_fusion_not_executed".to_string(),
+                "not_available".to_string(),
+                "not_available".to_string(),
+            )
+        };
+    let correctness_digest_match =
+        fused_pipeline_used && unfused_correctness_digest == fused_correctness_digest;
+    let family_statuses = fused_pipeline_family_statuses(
+        filter_project_limit_used,
+        selection_vector_metric_used,
+        top_k_projection_used,
+    );
     vec![
         (
             "fused_pipeline_schema_version".to_string(),
@@ -6281,7 +6341,7 @@ fn fused_pipeline_evidence_fields(
         (
             "fused_pipeline_report_id".to_string(),
             format!(
-                "gar-perf-1c.fused_pipeline.{}.{}",
+                "gar-perf-2e.fused_pipeline.{}.{}",
                 report
                     .execution_mode_selection
                     .selected_execution_mode
@@ -6292,6 +6352,14 @@ fn fused_pipeline_evidence_fields(
         (
             "fused_pipeline_scope".to_string(),
             "local_prepared_native_residual_pipeline".to_string(),
+        ),
+        (
+            "fused_pipeline_planned_family_count".to_string(),
+            "4".to_string(),
+        ),
+        (
+            "fused_pipeline_family_statuses".to_string(),
+            family_statuses,
         ),
         (
             "fused_pipeline_used".to_string(),
@@ -6315,6 +6383,8 @@ fn fused_pipeline_evidence_fields(
             "fused_pipeline_filter_columns".to_string(),
             if filter_project_limit_candidate || selection_vector_metric_candidate {
                 "flag,value"
+            } else if filter_group_by_candidate {
+                "blocked_no_admitted_filter_predicate"
             } else {
                 "not_applicable"
             }
@@ -6335,6 +6405,31 @@ fn fused_pipeline_evidence_fields(
         (
             "fused_pipeline_selection_vector_status".to_string(),
             selection_vector_status,
+        ),
+        (
+            "fused_pipeline_correctness_digest_status".to_string(),
+            correctness_digest_status,
+        ),
+        (
+            "fused_pipeline_unfused_correctness_digest".to_string(),
+            unfused_correctness_digest,
+        ),
+        (
+            "fused_pipeline_fused_correctness_digest".to_string(),
+            fused_correctness_digest,
+        ),
+        (
+            "fused_pipeline_correctness_digest_match".to_string(),
+            correctness_digest_match.to_string(),
+        ),
+        (
+            "fused_pipeline_unfused_reference_status".to_string(),
+            if fused_pipeline_used {
+                "canonical_result_digest_reference_only"
+            } else {
+                "not_executed"
+            }
+            .to_string(),
         ),
         (
             "fused_pipeline_data_decoded".to_string(),
@@ -6382,6 +6477,70 @@ fn fused_pipeline_evidence_fields(
             "false".to_string(),
         ),
     ]
+}
+
+fn fused_pipeline_family_statuses(
+    filter_project_limit_used: bool,
+    filter_aggregate_used: bool,
+    top_k_projection_used: bool,
+) -> String {
+    [
+        (
+            "filter_projection_limit",
+            if filter_project_limit_used {
+                "executed"
+            } else {
+                "blocked_or_not_applicable"
+            },
+        ),
+        (
+            "filter_aggregate",
+            if filter_aggregate_used {
+                "executed"
+            } else {
+                "blocked_or_not_applicable"
+            },
+        ),
+        (
+            "filter_group_by",
+            "blocked_no_scoped_filtered_group_by_scenario",
+        ),
+        (
+            "top_k_projection",
+            if top_k_projection_used {
+                "executed"
+            } else {
+                "blocked_or_not_applicable"
+            },
+        ),
+    ]
+    .into_iter()
+    .map(|(family, status)| format!("{family}:{status}"))
+    .collect::<Vec<_>>()
+    .join("|")
+}
+
+fn fused_pipeline_correctness_digest(
+    report: &TraditionalAnalyticsVortexReport,
+    fused_operator_family: &str,
+) -> String {
+    let mut digest = Fnv1a64::new();
+    digest.update(b"fused_pipeline_correctness_digest_v1");
+    digest.update(report.scenario.as_str().as_bytes());
+    digest.update(fused_operator_family.as_bytes());
+    digest.update(report.result_json.as_bytes());
+    digest.update(report.rows_scanned.to_string().as_bytes());
+    digest.update(report.rows_materialized.to_string().as_bytes());
+    digest.update(report.fact_vortex_digest.as_bytes());
+    digest.update(report.dim_vortex_digest.as_bytes());
+    if let Some(cdc_delta_digest) = report.cdc_delta_vortex_digest.as_deref() {
+        digest.update(cdc_delta_digest.as_bytes());
+    }
+    format!(
+        "{}:{:016x}",
+        OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
+        digest.finish()
+    )
 }
 
 fn scalar_result_row_count_from_json(result_json: &str) -> Option<u64> {
@@ -10002,12 +10161,10 @@ fn duration_to_micros(duration: std::time::Duration) -> u64 {
     u64::try_from(duration.as_micros()).unwrap_or(u64::MAX)
 }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 struct Fnv1a64 {
     state: u64,
 }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl Fnv1a64 {
     const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
     const PRIME: u64 = 0x0000_0100_0000_01b3;
@@ -18184,15 +18341,28 @@ mod tests {
             "shardloom.traditional_analytics.fused_pipeline.v1",
         );
         assert_field_eq(&fields, "fused_pipeline_used", "true");
-        assert_field_eq(
+        assert_field_eq(&fields, "fused_operator_family", "filter_aggregate");
+        assert_field_contains(
             &fields,
-            "fused_operator_family",
-            "selection_vector_metric_aggregation",
+            "fused_pipeline_family_statuses",
+            "filter_aggregate:executed",
+        );
+        assert_field_contains(
+            &fields,
+            "fused_pipeline_family_statuses",
+            "filter_group_by:blocked_no_scoped_filtered_group_by_scenario",
         );
         assert_field_eq(&fields, "intermediate_materialization_avoided", "true");
         assert_field_eq(&fields, "fused_pipeline_rows_selected", "31");
         assert_field_eq(&fields, "fused_pipeline_rows_output", "31");
         assert_field_eq(&fields, "fused_pipeline_selection_vector_consumed", "true");
+        assert_field_eq(
+            &fields,
+            "fused_pipeline_correctness_digest_status",
+            "result_digest_parity_reported_runtime_reference_not_reexecuted",
+        );
+        assert_field_eq(&fields, "fused_pipeline_correctness_digest_match", "true");
+        assert_field_eq(&fields, "fused_pipeline_blocker_id", "none");
         assert_field_eq(
             &fields,
             "fused_pipeline_encoded_native_claim_allowed",
@@ -18862,6 +19032,25 @@ mod tests {
         assert!(!native_report.data_materialized);
         assert_eq!(native_report.rows_materialized, 10);
         let native_fields = field_map(native_report.fields());
+        assert_field_eq(&native_fields, "fused_pipeline_used", "true");
+        assert_field_eq(&native_fields, "fused_operator_family", "top_k_projection");
+        assert_field_contains(
+            &native_fields,
+            "fused_pipeline_family_statuses",
+            "top_k_projection:executed",
+        );
+        assert_field_eq(
+            &native_fields,
+            "intermediate_materialization_avoided",
+            "true",
+        );
+        assert_field_eq(&native_fields, "fused_pipeline_rows_output", "10");
+        assert_field_eq(
+            &native_fields,
+            "fused_pipeline_correctness_digest_match",
+            "true",
+        );
+        assert_field_eq(&native_fields, "fused_pipeline_blocker_id", "none");
         assert_eq!(
             native_fields
                 .get("operator_execution_class")
@@ -18953,6 +19142,25 @@ mod tests {
         assert!(!native_report.data_materialized);
         assert_eq!(native_report.rows_materialized, 3);
         let native_fields = field_map(native_report.fields());
+        assert_field_eq(&native_fields, "fused_pipeline_used", "true");
+        assert_field_eq(&native_fields, "fused_operator_family", "top_k_projection");
+        assert_field_contains(
+            &native_fields,
+            "fused_pipeline_family_statuses",
+            "top_k_projection:executed",
+        );
+        assert_field_eq(
+            &native_fields,
+            "intermediate_materialization_avoided",
+            "true",
+        );
+        assert_field_eq(&native_fields, "fused_pipeline_rows_output", "3");
+        assert_field_eq(
+            &native_fields,
+            "fused_pipeline_correctness_digest_match",
+            "true",
+        );
+        assert_field_eq(&native_fields, "fused_pipeline_blocker_id", "none");
         assert_eq!(
             native_fields
                 .get("operator_execution_class")
@@ -19044,6 +19252,23 @@ mod tests {
         assert!(!native_report.data_materialized);
         assert_eq!(native_report.rows_materialized, 2);
         let native_fields = field_map(native_report.fields());
+        assert_field_eq(&native_fields, "fused_pipeline_used", "false");
+        assert_field_eq(&native_fields, "fused_operator_family", "filter_group_by");
+        assert_field_contains(
+            &native_fields,
+            "fused_pipeline_family_statuses",
+            "filter_group_by:blocked_no_scoped_filtered_group_by_scenario",
+        );
+        assert_field_eq(
+            &native_fields,
+            "fused_pipeline_correctness_digest_status",
+            "blocked_fusion_not_executed",
+        );
+        assert_field_eq(
+            &native_fields,
+            "fused_pipeline_blocker_id",
+            "gar-perf-2e.filter_group_by_filter_absent",
+        );
         assert_eq!(
             native_fields
                 .get("operator_execution_class")
@@ -19817,11 +20042,26 @@ mod tests {
             native_fields.get("fused_pipeline_used").map(String::as_str),
             Some("true")
         );
+        assert_field_contains(
+            &native_fields,
+            "fused_pipeline_report_id",
+            "gar-perf-2e.fused_pipeline.",
+        );
+        assert_field_contains(
+            &native_fields,
+            "fused_pipeline_report_id",
+            "filter---projection---limit",
+        );
         assert_eq!(
             native_fields
                 .get("fused_operator_family")
                 .map(String::as_str),
             Some("filter_projection_limit")
+        );
+        assert!(
+            native_fields
+                .get("fused_pipeline_family_statuses")
+                .is_some_and(|value| value.contains("filter_projection_limit:executed"))
         );
         assert_eq!(
             native_fields
@@ -19840,6 +20080,24 @@ mod tests {
                 .get("fused_pipeline_rows_output")
                 .map(String::as_str),
             Some("2")
+        );
+        assert_eq!(
+            native_fields
+                .get("fused_pipeline_correctness_digest_status")
+                .map(String::as_str),
+            Some("result_digest_parity_reported_runtime_reference_not_reexecuted")
+        );
+        assert_eq!(
+            native_fields
+                .get("fused_pipeline_correctness_digest_match")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            native_fields
+                .get("fused_pipeline_blocker_id")
+                .map(String::as_str),
+            Some("none")
         );
         assert_eq!(
             native_fields

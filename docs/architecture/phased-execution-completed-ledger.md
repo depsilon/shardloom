@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2E fused operator pipeline
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/fused-operator-pipeline.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/vortex-runtime-utilization-audit.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `benchmarks/traditional_analytics/README.md`
+  - Scope: add scoped fused local prepared/native residual-pipeline evidence for selected
+    traditional-analytics families without claiming encoded-native operator execution, broad
+    SQL/DataFrame runtime, object-store/lakehouse support, production readiness, public
+    performance, or Spark displacement.
+  - Checklist:
+    - [x] Emit expanded `fused_pipeline_*` evidence from prepared/native rows, including family
+          statuses, row counts, filter/projection columns, selection-vector posture,
+          materialization/decode posture, deterministic blocker fields, and claim boundaries.
+    - [x] Execute scoped fused evidence for `filter_projection_limit`, `filter_aggregate` through
+          selective-filter selection vectors, and `top_k_projection`.
+    - [x] Keep `filter_group_by` visible as
+          `gar-perf-2e.filter_group_by_filter_absent` until a scoped filtered grouped scenario
+          exists.
+    - [x] Add fused/unfused correctness digest parity fields with
+          `fused_pipeline_unfused_reference_status=canonical_result_digest_reference_only`; stronger
+          independent unfused runtime certificates remain future claim-grade work.
+    - [x] Preserve `fused_pipeline_encoded_native_claim_allowed=false`,
+          `fused_pipeline_claim_gate_status=not_claim_grade`,
+          `fused_pipeline_fallback_attempted=false`, and
+          `fused_pipeline_external_engine_invoked=false`.
+    - [x] Propagate fused pipeline fields through the Python benchmark contract, attribution
+          validation, and contract tests.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex enabled_filter_projection_limit_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex enabled_sort_top_k_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex enabled_top_n_per_group_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex enabled_group_by_aggregation_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `cargo fmt --all -- --check`
+  - Claim boundary:
+    - The completed slice may claim only scoped fused residual-native evidence for the listed
+      prepared/native local fixture families and deterministic blocker visibility for filtered
+      group-by.
+    - It does not authorize encoded-native operator coverage, generalized fusion, performance or
+      superiority claims, SQL/DataFrame runtime, object-store/lakehouse runtime, Foundry runtime,
+      production readiness, package publication, or Spark replacement.
+  - Fallback boundary:
+    - `fused_pipeline_fallback_attempted=false` and
+      `fused_pipeline_external_engine_invoked=false` are required.
+    - External engines remain baseline-only and are not used for fusion admission, execution, or
+      blocker classification.
+
 - [x] Session label: GAR-PERF-2D compressed/encoded kernel registry
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

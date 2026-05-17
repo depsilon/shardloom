@@ -108,8 +108,12 @@ filter/projection/limit row and selective-filter selection-vector metric aggrega
 benchmark harness now carries `fused_pipeline_*` fields, including `fused_pipeline_used`,
 `fused_operator_family`, `intermediate_materialization_avoided`,
 `fused_pipeline_rows_selected`, `fused_pipeline_rows_output`,
-`fused_pipeline_data_decoded`, `fused_pipeline_data_materialized`,
-`fused_pipeline_claim_gate_status`, `fused_pipeline_fallback_attempted=false`, and
+`fused_pipeline_correctness_digest_status`,
+`fused_pipeline_unfused_correctness_digest`, `fused_pipeline_fused_correctness_digest`,
+`fused_pipeline_correctness_digest_match`, `fused_pipeline_data_decoded`,
+`fused_pipeline_data_materialized`, `fused_pipeline_blocker_id`,
+`fused_pipeline_blocker_reason`, `fused_pipeline_claim_gate_status`,
+`fused_pipeline_fallback_attempted=false`, and
 `fused_pipeline_external_engine_invoked=false`. These rows are scoped residual-native runtime
 evidence only; `fused_pipeline_encoded_native_claim_allowed=false` remains required until later
 end-to-end encoded-native certificates exist.
@@ -313,36 +317,41 @@ Unsupported encodings remain deterministic blockers, and
 `compressed_kernel_registry_encoded_native_claim_allowed=false` remains required until a future
 end-to-end encoded-native certificate exists.
 
-## Fused Operator Pipeline Queue
+## Fused Operator Pipeline Evidence
 
-`GAR-PERF-2E` tracks the planned fused local prepared/native pipeline layer. The benchmark currently
-has scoped residual-native paths and narrow fusion vocabulary, but it does not yet have a stable
-cross-family fused-pipeline evidence contract.
+`GAR-PERF-2E` adds the scoped fused local prepared/native pipeline evidence layer. The benchmark
+now classifies the planned family set and reports executed or blocked posture without creating an
+encoded-native or performance claim.
 
-Future benchmark rows should expose:
+Benchmark rows expose:
 
 ```text
+fused_pipeline_schema_version
+fused_pipeline_family_statuses
 fused_pipeline_used
 fused_operator_family
 intermediate_materialization_avoided
-rows_scanned
-rows_selected
-rows_output
-unfused_correctness_digest
-fused_correctness_digest
-correctness_digest_match
-data_materialized
-data_decoded
+fused_pipeline_rows_scanned
+fused_pipeline_rows_selected
+fused_pipeline_rows_output
+fused_pipeline_correctness_digest_status
+fused_pipeline_unfused_correctness_digest
+fused_pipeline_fused_correctness_digest
+fused_pipeline_correctness_digest_match
+fused_pipeline_data_materialized
+fused_pipeline_data_decoded
+fused_pipeline_blocker_id
+fused_pipeline_blocker_reason
 fallback_attempted=false
 external_engine_invoked=false
 claim_gate_status
 ```
 
-The first planned families are filter + projection + limit, filter + aggregate, filter + group-by,
-and top-k with projection. A fused row should have an identical correctness digest to the unfused
-ShardLoom-native path. Unsupported fusion paths should be deterministic blockers, not fallback
-execution. Fusion rows are local pre-release evidence and not a performance ranking or broad
-SQL/DataFrame claim.
+Current executed families are filter + projection + limit, filter + aggregate through the
+selection-vector metric path, and top-k with projection. Filter + group-by is explicitly blocked as
+`gar-perf-2e.filter_group_by_filter_absent` until a scoped filtered grouped scenario exists.
+Unsupported fusion paths are deterministic blockers, not fallback execution. Fusion rows are local
+pre-release evidence and not a performance ranking or broad SQL/DataFrame claim.
 
 ## In-Process Session Runtime Queue
 

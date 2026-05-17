@@ -382,7 +382,7 @@ boundaries, certificates, and no-fallback evidence.
 
 ## Fused Operator Pipelines
 
-`GAR-PERF-2E` adds planned fused local prepared/native pipelines for:
+`GAR-PERF-2E` adds scoped fused local prepared/native residual pipelines for:
 
 ```text
 filter + projection + limit
@@ -391,7 +391,7 @@ filter + group-by
 top-k with projection
 ```
 
-Fused pipeline rows should report:
+Current fused pipeline rows report:
 
 ```text
 fused_pipeline_used
@@ -409,6 +409,12 @@ fallback_attempted=false
 external_engine_invoked=false
 claim_gate_status
 ```
+
+The scoped executed families are filter + projection + limit, filter + aggregate through
+selective-filter selection vectors, and top-k with projection. Filter + group-by is a deterministic
+blocker until a filtered grouped scenario exists. These rows remain residual-native evidence with
+`fused_pipeline_encoded_native_claim_allowed=false`; they do not authorize encoded-native,
+performance, broad SQL/DataFrame, object-store/lakehouse, or production claims.
 
 Fusion is valid only when the fused path avoids intermediate full-table materialization and produces
 the same correctness digest as the unfused ShardLoom-native path. Unsupported fusion remains an

@@ -985,11 +985,13 @@ plan before coding.
   pruning, and FSST/dictionary string equality where available. Current selective-filter rows admit
   observed bitpacked and sequence filter inputs, keep other initial pairs blocked or not available,
   and preserve `encoded_native_claim_allowed=false`.
-- [ ] `GAR-PERF-2E` adds the planned fused operator pipeline pass. Filter + projection + limit,
-  filter + aggregate, filter + group-by, and top-k with projection should either run through a
-  fused local prepared/native residual pipeline with correctness digest parity or emit a
-  deterministic blocker. Fusion evidence must not be treated as encoded-native execution or public
-  performance proof.
+- [x] `GAR-PERF-2E` adds scoped fused operator pipeline evidence. Prepared/native rows now execute
+  scoped residual-native fusion evidence for filter + projection + limit, filter + aggregate via
+  selective-filter selection vectors, and top-k with projection; filter + group-by remains a
+  deterministic blocker until a scoped filtered grouped scenario exists. Fusion evidence reports
+  family statuses, row counts, materialization/decode posture, correctness digest parity fields,
+  no-fallback/no-external-engine fields, and `encoded_native_claim_allowed=false`, and must not be
+  treated as encoded-native execution or public performance proof.
 - [x] `GAR-PERF-2F` adds the scoped in-process session runtime slice for prepared/native local
   artifacts. It connects report-only `ShardLoomSessionModelReport`, scoped prepared/native batch
   runner evidence, and source-state reuse into caller-owned local session evidence with explicit
@@ -1061,10 +1063,12 @@ plan before coding.
   selective-filter Vortex array encodings. It classifies initial encoding/operator pairs as
   admitted/executed, blocked, unsupported, or not available while preserving canonicalization,
   decode, materialization, validity, no-fallback, and encoded-native claim-gate evidence.
-- [ ] `GAR-PERF-2E` adds fused local prepared/native operator pipelines for admitted filter,
-  projection, limit, aggregate, group-by, and top-k families. It must preserve Vortex/source-backed
-  provider evidence, ShardLoom-native residual ownership, correctness digest parity with an unfused
-  path, and no-fallback/no-external-engine fields.
+- [x] `GAR-PERF-2E` adds scoped fused local prepared/native operator-pipeline evidence for admitted
+  filter/projection/limit, filter/aggregate, and top-k/projection families, with filter/group-by
+  blocked deterministically until a scoped filtered grouped scenario exists. It preserves
+  Vortex/source-backed provider evidence, ShardLoom-native residual ownership, correctness digest
+  parity fields, and no-fallback/no-external-engine fields without promoting encoded-native or
+  performance claims.
 - [x] `GAR-PERF-2F` adds the scoped in-process session runtime follow-through from report-only
   `ShardLoomSessionModelReport` for prepared/native local artifacts. It keeps registries/session
   state explicit, local, caller-owned, and no-fallback, and it does not imply a daemon, service,
@@ -1234,10 +1238,10 @@ plan before coding.
   encoding ID, operator family, admission/execution, canonicalization, decode, materialization,
   validity, no-fallback, and claim-gate evidence visible without treating registry admission as
   encoded-native support.
-- [ ] `GAR-PERF-2E` adds fused operator pipeline follow-through. The flow must show fused residual
-  pipelines as scoped prepared/native runtime evidence with row counts, intermediate materialization
-  avoidance, correctness digest parity, and no-fallback status, not as broad SQL/DataFrame,
-  encoded-native, or public performance claims.
+- [x] `GAR-PERF-2E` adds fused operator pipeline follow-through. The flow shows fused residual
+  pipelines as scoped prepared/native runtime evidence with family statuses, row counts,
+  intermediate materialization avoidance, correctness digest parity fields, deterministic blockers,
+  and no-fallback status, not as broad SQL/DataFrame, encoded-native, or public performance claims.
 - [x] `GAR-PERF-2F` adds scoped in-process session follow-through. The flow keeps session state
   scoped and explicit, reports `session_id`, cache hit/miss fields, source-state/prepared artifact
   reuse counts, close/drop status, and no-fallback/no-external-engine fields, and does not imply a

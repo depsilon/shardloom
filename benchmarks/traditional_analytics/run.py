@@ -103,16 +103,33 @@ OPERATOR_BLOCKER_MATRIX_FIELDS = (
 )
 FUSED_PIPELINE_FIELDS = (
     "fused_pipeline_schema_version",
+    "fused_pipeline_report_id",
+    "fused_pipeline_scope",
+    "fused_pipeline_planned_family_count",
+    "fused_pipeline_family_statuses",
     "fused_pipeline_used",
     "fused_operator_family",
     "intermediate_materialization_avoided",
     "fused_pipeline_rows_scanned",
     "fused_pipeline_rows_selected",
     "fused_pipeline_rows_output",
+    "fused_pipeline_filter_columns",
+    "fused_pipeline_projection_columns",
+    "fused_pipeline_selection_vector_consumed",
+    "fused_pipeline_selection_vector_status",
+    "fused_pipeline_correctness_digest_status",
+    "fused_pipeline_unfused_correctness_digest",
+    "fused_pipeline_fused_correctness_digest",
+    "fused_pipeline_correctness_digest_match",
+    "fused_pipeline_unfused_reference_status",
     "fused_pipeline_data_decoded",
     "fused_pipeline_data_materialized",
+    "fused_pipeline_operator_execution_class",
     "fused_pipeline_encoded_native_claim_allowed",
     "fused_pipeline_claim_gate_status",
+    "fused_pipeline_blocker_id",
+    "fused_pipeline_blocker_reason",
+    "fused_pipeline_claim_boundary",
     "fused_pipeline_fallback_attempted",
     "fused_pipeline_external_engine_invoked",
 )
@@ -4594,6 +4611,18 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         raise RuntimeError("fused pipeline evidence cannot report external engine execution")
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
+        and metrics.get("fused_pipeline_used") is True
+        and metrics.get("fused_pipeline_correctness_digest_match") is not True
+    ):
+        raise RuntimeError("fused pipeline rows must report matching correctness digests")
+    if (
+        is_shardloom_engine(str(result.get("engine") or ""))
+        and metrics.get("fused_pipeline_used") is True
+        and metrics.get("fused_pipeline_blocker_id") not in (None, "none")
+    ):
+        raise RuntimeError("fused pipeline rows cannot carry an active blocker")
+    if (
+        is_shardloom_engine(str(result.get("engine") or ""))
         and metrics.get("compressed_kernel_registry_encoded_native_claim_allowed") is True
     ):
         raise RuntimeError(
@@ -5528,16 +5557,33 @@ def failed_result(
         "filter_project_limit_fused": False,
         "fusion_blocker": "not_executed",
         "fused_pipeline_schema_version": "not_executed",
+        "fused_pipeline_report_id": "not_executed",
+        "fused_pipeline_scope": "not_executed",
+        "fused_pipeline_planned_family_count": 4,
+        "fused_pipeline_family_statuses": "not_executed",
         "fused_pipeline_used": False,
         "fused_operator_family": "not_executed",
         "intermediate_materialization_avoided": False,
         "fused_pipeline_rows_scanned": None,
         "fused_pipeline_rows_selected": None,
         "fused_pipeline_rows_output": None,
+        "fused_pipeline_filter_columns": "not_executed",
+        "fused_pipeline_projection_columns": "not_executed",
+        "fused_pipeline_selection_vector_consumed": "not_executed",
+        "fused_pipeline_selection_vector_status": "not_executed",
+        "fused_pipeline_correctness_digest_status": "not_executed",
+        "fused_pipeline_unfused_correctness_digest": "not_available",
+        "fused_pipeline_fused_correctness_digest": "not_available",
+        "fused_pipeline_correctness_digest_match": False,
+        "fused_pipeline_unfused_reference_status": "not_executed",
         "fused_pipeline_data_decoded": None,
         "fused_pipeline_data_materialized": None,
+        "fused_pipeline_operator_execution_class": "not_executed",
         "fused_pipeline_encoded_native_claim_allowed": False,
         "fused_pipeline_claim_gate_status": "not_executed",
+        "fused_pipeline_blocker_id": "not_executed",
+        "fused_pipeline_blocker_reason": "not_executed",
+        "fused_pipeline_claim_boundary": "not_executed",
         "fused_pipeline_fallback_attempted": False,
         "fused_pipeline_external_engine_invoked": False,
         "scan_pushdown_schema_version": "not_executed",
@@ -5799,6 +5845,18 @@ def successful_result_from_iterations(
         "fused_pipeline_schema_version": evidence.get(
             "fused_pipeline_schema_version", "not_reported"
         ),
+        "fused_pipeline_report_id": evidence.get(
+            "fused_pipeline_report_id", "not_reported"
+        ),
+        "fused_pipeline_scope": evidence.get(
+            "fused_pipeline_scope", "not_reported"
+        ),
+        "fused_pipeline_planned_family_count": parse_optional_int(
+            evidence.get("fused_pipeline_planned_family_count")
+        ),
+        "fused_pipeline_family_statuses": evidence.get(
+            "fused_pipeline_family_statuses", "not_reported"
+        ),
         "fused_pipeline_used": (
             parse_optional_bool(evidence.get("fused_pipeline_used")) is True
         ),
@@ -5815,11 +5873,42 @@ def successful_result_from_iterations(
         "fused_pipeline_rows_output": parse_optional_int(
             evidence.get("fused_pipeline_rows_output")
         ),
+        "fused_pipeline_filter_columns": evidence.get(
+            "fused_pipeline_filter_columns", "not_reported"
+        ),
+        "fused_pipeline_projection_columns": evidence.get(
+            "fused_pipeline_projection_columns", "not_reported"
+        ),
+        "fused_pipeline_selection_vector_consumed": evidence.get(
+            "fused_pipeline_selection_vector_consumed", "not_reported"
+        ),
+        "fused_pipeline_selection_vector_status": evidence.get(
+            "fused_pipeline_selection_vector_status", "not_reported"
+        ),
+        "fused_pipeline_correctness_digest_status": evidence.get(
+            "fused_pipeline_correctness_digest_status", "not_reported"
+        ),
+        "fused_pipeline_unfused_correctness_digest": evidence.get(
+            "fused_pipeline_unfused_correctness_digest", "not_reported"
+        ),
+        "fused_pipeline_fused_correctness_digest": evidence.get(
+            "fused_pipeline_fused_correctness_digest", "not_reported"
+        ),
+        "fused_pipeline_correctness_digest_match": (
+            parse_optional_bool(evidence.get("fused_pipeline_correctness_digest_match"))
+            is True
+        ),
+        "fused_pipeline_unfused_reference_status": evidence.get(
+            "fused_pipeline_unfused_reference_status", "not_reported"
+        ),
         "fused_pipeline_data_decoded": parse_optional_bool(
             evidence.get("fused_pipeline_data_decoded")
         ),
         "fused_pipeline_data_materialized": parse_optional_bool(
             evidence.get("fused_pipeline_data_materialized")
+        ),
+        "fused_pipeline_operator_execution_class": evidence.get(
+            "fused_pipeline_operator_execution_class", "not_reported"
         ),
         "fused_pipeline_encoded_native_claim_allowed": (
             parse_optional_bool(evidence.get("fused_pipeline_encoded_native_claim_allowed"))
@@ -5827,6 +5916,15 @@ def successful_result_from_iterations(
         ),
         "fused_pipeline_claim_gate_status": evidence.get(
             "fused_pipeline_claim_gate_status", "not_reported"
+        ),
+        "fused_pipeline_blocker_id": evidence.get(
+            "fused_pipeline_blocker_id", "not_reported"
+        ),
+        "fused_pipeline_blocker_reason": evidence.get(
+            "fused_pipeline_blocker_reason", "not_reported"
+        ),
+        "fused_pipeline_claim_boundary": evidence.get(
+            "fused_pipeline_claim_boundary", "not_reported"
         ),
         "fused_pipeline_fallback_attempted": (
             parse_optional_bool(evidence.get("fused_pipeline_fallback_attempted")) is True

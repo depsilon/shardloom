@@ -221,18 +221,16 @@ canonicalization, decode, materialization, selection-vector behavior, validity s
 unsupported reasons, encoded-native claim status, no-fallback status, and a claim gate.
 Unsupported encoding/operator pairs are visible deterministic blockers or not-available rows.
 
-`GAR-PERF-2E` adds the planned fused operator pipeline contract. Future prepared/native rows should
-expose `fused_pipeline_used`, `fused_operator_family`,
-`intermediate_materialization_avoided`, `rows_scanned`, `rows_selected`, `rows_output`, fused and
-unfused correctness digests, materialization/decode fields, no-fallback status, and a claim gate.
-Fusion rows are local residual-native runtime evidence only unless later end-to-end
-representation-state certificates prove encoded-native execution.
-
-`GAR-PERF-1C` now supplies the scoped first slice of that contract for prepared/native
-filter/projection/limit and selective-filter selection-vector metric aggregation rows. These rows
-emit `fused_pipeline_*` fields, row counts, materialization/decode status, `not_claim_grade`, and
-`fused_pipeline_encoded_native_claim_allowed=false`. Broader cross-family fused pipeline coverage
-and fused/unfused correctness digest parity remain under `GAR-PERF-2E`.
+`GAR-PERF-2E` adds the scoped fused operator pipeline contract. Prepared/native rows now expose
+`fused_pipeline_used`, `fused_operator_family`, `fused_pipeline_family_statuses`,
+`intermediate_materialization_avoided`, `rows_scanned`, `rows_selected`, `rows_output`,
+filter/projection columns, selection-vector posture, fused and unfused correctness digest fields,
+materialization/decode fields, no-fallback status, deterministic blocker fields, and a claim gate.
+Executed scoped families are filter/projection/limit, filter/aggregate through selective-filter
+selection vectors, and top-k/projection. Filter/group-by remains blocked with
+`gar-perf-2e.filter_group_by_filter_absent` until a filtered grouped scenario exists. Fusion rows are
+local residual-native runtime evidence only unless later end-to-end representation-state
+certificates prove encoded-native execution.
 
 `GAR-PERF-2F` adds the scoped in-process session-backed prepared/native batch lane. The
 `traditional-analytics-vortex-batch-run` rows now expose `session_id`, explicit open/close/drop
