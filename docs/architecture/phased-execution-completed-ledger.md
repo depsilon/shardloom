@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-1B source-state reuse coverage matrix
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `website/build_static_pages.py`
+    - `docs/architecture/source-state-reuse-coverage-matrix.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: close the prepared/native source-state inventory slice by making source-state coverage
+    explicit, machine-readable, and test-covered for traditional analytics batch scenarios.
+  - Checklist:
+    - [x] Add `docs/architecture/source-state-reuse-coverage-matrix.md` with every traditional
+          analytics scenario family classified as `source-state-reused`,
+          `source-state-not-needed`, `blocked-with-reason`, or `unsupported-with-reason`.
+    - [x] Emit `source_state_coverage_*` batch evidence, including a matrix ref, status
+          vocabulary, per-child scenario coverage fields, and coverage counts.
+    - [x] Preserve the digest boundary with
+          `source_state_digest_status=not_emitted_scoped_in_memory_source_state` until the
+          universal `SourceState` digest work in GAR-IOREUSE-1A.
+    - [x] Propagate the new fields through the Python benchmark harness and website benchmark
+          generator.
+    - [x] Update benchmark catalog, compute-flow, and local benchmark docs with the coverage
+          contract and claim boundary.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch_run_reuses_selective_filter_source_state --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q benchmarks/traditional_analytics website scripts`
+    - `python website\build_static_pages.py --benchmark-dir target\shardloom-benchmark-evidence --comparative-dashboard C:\Users\djhei\Projects\spark-retire\docs\shardloom-current-benchmark-dashboard.html`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is source-state runtime-plumbing and coverage evidence only.
+    - It is not a performance, encoded-native, SQL/DataFrame, production, object-store/lakehouse,
+      Foundry, package-publication, best-default, or Spark-displacement claim.
+  - Fallback boundary:
+    - Source-state coverage reports `source_state_fallback_attempted=false` and
+      `source_state_external_engine_invoked=false`.
+    - ShardLoom execution rows retain `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: GAR-PERF-1A prepared/native benchmark evidence refresh
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

@@ -1603,6 +1603,28 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                     "source_metadata_digest_recompute_avoided_count"
                 ),
                 "source_state_reuse_status": fields.get("source_state_reuse_status"),
+                "source_state_coverage_schema_version": fields.get(
+                    "source_state_coverage_schema_version"
+                ),
+                "source_state_coverage_matrix_ref": fields.get(
+                    "source_state_coverage_matrix_ref"
+                ),
+                "source_state_coverage_all_requested_scenarios_classified": fields.get(
+                    "source_state_coverage_all_requested_scenarios_classified"
+                ),
+                "source_state_coverage_matrix": fields.get(
+                    "source_state_coverage_matrix"
+                ),
+                "source_state_coverage_reused_scenario_count": fields.get(
+                    "source_state_coverage_reused_scenario_count"
+                ),
+                "source_state_coverage_not_needed_scenario_count": fields.get(
+                    "source_state_coverage_not_needed_scenario_count"
+                ),
+                "source_state_coverage_blocked_scenario_count": fields.get(
+                    "source_state_coverage_blocked_scenario_count"
+                ),
+                "source_state_digest_status": fields.get("source_state_digest_status"),
                 "source_state_reused": fields.get("source_state_reused"),
                 "source_state_family_count": fields.get("source_state_family_count"),
                 "source_state_reuse_consumer_count": fields.get(
@@ -2164,6 +2186,11 @@ def benchmark_page(summary: dict[str, Any]) -> str:
             "Result sink ms",
             "Source metadata",
             "Source-state reuse",
+            "Coverage classified",
+            "Coverage reused",
+            "Coverage not-needed",
+            "Coverage blocked",
+            "State digest",
             "Families",
             "Source-state prep ms",
             "Selective-filter reuse",
@@ -2184,6 +2211,11 @@ def benchmark_page(summary: dict[str, Any]) -> str:
                 row["total_result_sink_write_millis"],
                 value_at(row, "source_metadata_snapshot_status"),
                 value_at(row, "source_state_reuse_status"),
+                value_at(row, "source_state_coverage_all_requested_scenarios_classified"),
+                value_at(row, "source_state_coverage_reused_scenario_count"),
+                value_at(row, "source_state_coverage_not_needed_scenario_count"),
+                value_at(row, "source_state_coverage_blocked_scenario_count"),
+                value_at(row, "source_state_digest_status"),
                 value_at(row, "source_state_family_count"),
                 value_at(row, "source_state_prepare_millis"),
                 value_at(row, "source_state_selective_filter_reuse_status"),
@@ -2670,7 +2702,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     <section id="batch">
       <div class="shell">
         <h2>Prepared And Native Batch Smoke</h2>
-        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the single-process batch runner explicit. They show source metadata and source-state reuse separately from scenario compute and scan timing. They are not a persistent daemon, hidden fast mode, or performance claim.</p>
+        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the single-process batch runner explicit. They show source metadata, source-state reuse, and the GAR-PERF-1B coverage classification separately from scenario compute and scan timing. They are not a persistent daemon, hidden fast mode, or performance claim.</p>
         {batch_table}
       </div>
     </section>
