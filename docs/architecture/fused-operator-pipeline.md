@@ -12,12 +12,16 @@ encoded-native operator claim, and not a public performance claim.
 ## Current State
 
 Prepared/native rows increasingly use residual-native ShardLoom operator paths over projected local
-Vortex scans. Some scoped rows already avoid full fact-table materialization, and the benchmark
-harness has narrow fields such as `filter_project_limit_fused`.
+Vortex scans. `GAR-PERF-1C` adds a scoped `fused_pipeline_*` evidence block for the current
+filter/projection/limit row and the selective-filter selection-vector metric aggregation row. Those
+rows report `fused_pipeline_used`, `fused_operator_family`,
+`intermediate_materialization_avoided`, row counts, materialization/decode status, claim gate, and
+no-fallback fields while keeping `fused_pipeline_encoded_native_claim_allowed=false`.
 
 The current state is not a broad fused pipeline contract. Fusion is not uniform across scenario
-families, correctness comparison to unfused paths is not a general gate, and benchmark rows do not
-yet expose a stable cross-family fused-pipeline evidence schema.
+families, correctness comparison to unfused paths is not a general gate, and the broader
+`GAR-PERF-2E` family still owns filter/group-by, filter/aggregate, top-k/projection, and uniform
+correctness-digest parity.
 
 ## Planned Pipeline Families
 

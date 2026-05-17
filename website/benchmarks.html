@@ -55,6 +55,7 @@
           <div class="metric"><strong>20</strong><span>ShardLoom timing rows</span></div>
           <div class="metric"><strong>10</strong><span>source-backed scan rows</span></div>
           <div class="metric"><strong>1</strong><span>encoded predicate rows</span></div>
+          <div class="metric"><strong>14</strong><span>fused pipeline rows</span></div>
           <div class="metric"><strong>2</strong><span>batch mode smoke rows</span></div>
         </div>
       </div>
@@ -148,7 +149,7 @@
             <p>The single-process prepared/native runner is visible as smoke evidence, not a hidden fast mode.</p>
           </article>
         </div>
-        <div class="freshness-grid"><p class="freshness-label"><strong>Comparative dashboard</strong> Source: <code>spark-retire/docs/shardloom-current-benchmark-dashboard.html</code> - 2026-05-14T01:58:30.687800+00:00 from local smoke results over 10000 fact rows.</p><p class="freshness-label"><strong>Prepared/native batch smoke</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_vortex_batch.json and native_vortex_batch.json</code> - batch runner PR #634; source files do not carry generated_at_utc</p><p class="freshness-label"><strong>Encoded predicate evidence</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_native_core.json</code> - 2026-05-17T18:37:39.881612+00:00</p><p class="freshness-label"><strong>Source-backed scan evidence</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_native_cdc_overlay.json and 4 related artifact(s)</code> - 2026-05-17T18:37:49.134329+00:00</p></div>
+        <div class="freshness-grid"><p class="freshness-label"><strong>Comparative dashboard</strong> Source: <code>spark-retire/docs/shardloom-current-benchmark-dashboard.html</code> - 2026-05-14T01:58:30.687800+00:00 from local smoke results over 10000 fact rows.</p><p class="freshness-label"><strong>Prepared/native batch smoke</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_vortex_batch.json and native_vortex_batch.json</code> - batch runner PR #634; source files do not carry generated_at_utc</p><p class="freshness-label"><strong>Encoded predicate evidence</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_native_core.json</code> - 2026-05-17T18:37:39.881612+00:00</p><p class="freshness-label"><strong>Source-backed scan evidence</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_native_cdc_overlay.json and 4 related artifact(s)</code> - 2026-05-17T18:37:49.134329+00:00</p><p class="freshness-label"><strong>Fused pipeline evidence</strong> Source: <code>target/shardloom-benchmark-evidence/native_vortex_batch.json and 1 related artifact(s)</code> - 2026-05-17T18:37:49.134329+00:00</p></div>
       </div>
     </section>
     <section id="why-raw-speed">
@@ -283,7 +284,7 @@
       <div class="shell">
         <h2>Local Timing Context</h2>
         <p class="section-lede">The mode view keeps compatibility certification, Vortex-oriented, prepared Vortex, and batch smoke lanes separated. These numbers are local context for attribution before optimization, not a leaderboard.</p>
-        <div class="mode-comparison-grid"><article class="mode-comparison-card"><span>compatibility_import_certified geomean</span><strong>120.15 ms</strong><p>certification lane with import, write/reopen, scan, sink, and evidence work</p></article><article class="mode-comparison-card"><span>shardloom-vortex geomean</span><strong>31.00 ms</strong><p>Vortex-oriented local lane from the comparative dashboard snapshot</p></article><article class="mode-comparison-card"><span>shardloom-prepared-vortex geomean</span><strong>30.23 ms</strong><p>prepared-artifact lane and current runtime-development direction</p></article><article class="mode-comparison-card"><span>prepared_vortex batch smoke total/compute</span><strong>6.162 ms</strong><p>single-process batch runner structural smoke evidence</p></article><article class="mode-comparison-card"><span>native_vortex batch smoke total/compute</span><strong>8.364 ms</strong><p>native Vortex batch runner structural smoke evidence</p></article></div>
+        <div class="mode-comparison-grid"><article class="mode-comparison-card"><span>compatibility_import_certified geomean</span><strong>120.15 ms</strong><p>certification lane with import, write/reopen, scan, sink, and evidence work</p></article><article class="mode-comparison-card"><span>shardloom-vortex geomean</span><strong>31.00 ms</strong><p>Vortex-oriented local lane from the comparative dashboard snapshot</p></article><article class="mode-comparison-card"><span>shardloom-prepared-vortex geomean</span><strong>30.23 ms</strong><p>prepared-artifact lane and current runtime-development direction</p></article><article class="mode-comparison-card"><span>prepared_vortex batch smoke total/compute</span><strong>7.107 ms</strong><p>single-process batch runner structural smoke evidence</p></article><article class="mode-comparison-card"><span>native_vortex batch smoke total/compute</span><strong>5.252 ms</strong><p>native Vortex batch runner structural smoke evidence</p></article></div>
         <h3>Representative timing decomposition</h3>
         <p class="section-lede">The decomposition highlights why compatibility import totals should not be read as pure query speed: parse/import, Vortex write, scan, operator, sink, and evidence work are separate fields.</p>
         <div class="table-scroll"><table>
@@ -384,8 +385,8 @@
         <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the single-process batch runner explicit. They show source metadata, source-state reuse, and the GAR-PERF-1B coverage classification separately from scenario compute and scan timing. They are not a persistent daemon, hidden fast mode, or performance claim.</p>
         <div class="table-scroll"><table>
 <thead><tr><th>Requested mode</th><th>Selected modes</th><th>Runner</th><th>Scenarios</th><th>Scenario compute ms</th><th>Vortex scan ms</th><th>Result sink ms</th><th>Source metadata</th><th>Source-state reuse</th><th>Coverage classified</th><th>Coverage reused</th><th>Coverage not-needed</th><th>Coverage blocked</th><th>State digest</th><th>Families</th><th>Source-state prep ms</th><th>Selective-filter reuse</th><th>Date/null reuse</th><th>Claim gate</th><th>Fallback</th><th>External engine</th><th>Performance claim</th></tr></thead><tbody>
-<tr><td>prepared_vortex</td><td>prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex</td><td>single_process_prepared_native_batch</td><td>7</td><td>6.162</td><td>6.162</td><td>47.092</td><td>per_batch_source_metadata_reused</td><td>per_batch_multi_family_source_state_reused</td><td>true</td><td>4</td><td>3</td><td>0</td><td>not_emitted_scoped_in_memory_source_state</td><td>5</td><td>6.77</td><td>per_batch_selective_filter_state_reused</td><td>per_batch_date_null_metric_state_reused</td><td>fixture_smoke_only</td><td>false</td><td>false</td><td>false</td></tr>
-<tr><td>native_vortex</td><td>native_vortex,native_vortex,native_vortex,native_vortex,native_vortex,native_vortex,native_vortex</td><td>single_process_prepared_native_batch</td><td>7</td><td>8.364</td><td>8.364</td><td>51.725</td><td>per_batch_source_metadata_reused</td><td>per_batch_multi_family_source_state_reused</td><td>true</td><td>4</td><td>3</td><td>0</td><td>not_emitted_scoped_in_memory_source_state</td><td>5</td><td>8.428</td><td>per_batch_selective_filter_state_reused</td><td>per_batch_date_null_metric_state_reused</td><td>fixture_smoke_only</td><td>false</td><td>false</td><td>false</td></tr>
+<tr><td>prepared_vortex</td><td>prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex,prepared_vortex</td><td>single_process_prepared_native_batch</td><td>7</td><td>7.107</td><td>7.107</td><td>52.69</td><td>per_batch_source_metadata_reused</td><td>per_batch_multi_family_source_state_reused</td><td>true</td><td>4</td><td>3</td><td>0</td><td>not_emitted_scoped_in_memory_source_state</td><td>5</td><td>9.342</td><td>per_batch_selective_filter_state_reused</td><td>per_batch_date_null_metric_state_reused</td><td>fixture_smoke_only</td><td>false</td><td>false</td><td>false</td></tr>
+<tr><td>native_vortex</td><td>native_vortex,native_vortex,native_vortex,native_vortex,native_vortex,native_vortex,native_vortex</td><td>single_process_prepared_native_batch</td><td>7</td><td>5.252</td><td>5.252</td><td>44.142</td><td>per_batch_source_metadata_reused</td><td>per_batch_multi_family_source_state_reused</td><td>true</td><td>4</td><td>3</td><td>0</td><td>not_emitted_scoped_in_memory_source_state</td><td>5</td><td>8.49</td><td>per_batch_selective_filter_state_reused</td><td>per_batch_date_null_metric_state_reused</td><td>fixture_smoke_only</td><td>false</td><td>false</td><td>false</td></tr>
 </tbody></table></div>
       </div>
     </section>
@@ -419,6 +420,29 @@
 <tr><td>jsonl: nested JSON field scan</td><td>vortex_file_projected_scan</td><td>nested_payload</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
 <tr><td>csv: null-heavy aggregate</td><td>vortex_file_projected_scan</td><td>nullable_metric_00</td><td>10000</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
 <tr><td>csv: small change over large base</td><td>vortex_file_projected_scan</td><td>base.id,base.metric,cdc_delta.id,cdc_delta.op,cdc_delta.value,cdc_delta.metric,cdc_delta.effective_ts</td><td>10030</td><td>false</td><td>certified</td><td>not_claim_grade</td><td>false</td><td>false</td></tr>
+</tbody></table></div></details>
+      </div>
+    </section>
+    <section id="fused-pipeline">
+      <div class="shell">
+        <h2>Fused Pipeline Evidence</h2>
+        <p class="section-lede">GAR-PERF-1C rows show scoped residual-native work avoidance for prepared/native filter/projection/limit and selection-vector metric aggregation paths. They are not encoded-native or performance claims.</p>
+        <details class="raw-data-drawer"><summary>Raw fused pipeline table</summary><div class="table-scroll"><table>
+<thead><tr><th>Scenario</th><th>Used</th><th>Family</th><th>Rows selected</th><th>Rows output</th><th>Materialization avoided</th><th>Decoded</th><th>Materialized</th><th>Claim gate</th><th>Encoded-native claim</th></tr></thead><tbody>
+<tr><td>filter + projection + limit</td><td>true</td><td>filter_projection_limit</td><td>714</td><td>100</td><td>true</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>group by aggregation</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>hash join</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>null-heavy aggregate</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>partition pruning</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>selective filter</td><td>false</td><td>selection_vector_metric_aggregation</td><td>714</td><td>714</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>top-N per group</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>filter + projection + limit</td><td>true</td><td>filter_projection_limit</td><td>714</td><td>100</td><td>true</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>group by aggregation</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>hash join</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>null-heavy aggregate</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>partition pruning</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>selective filter</td><td>false</td><td>selection_vector_metric_aggregation</td><td>714</td><td>714</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
+<tr><td>top-N per group</td><td>false</td><td>not_applicable</td><td>not_applicable</td><td>not_applicable</td><td>false</td><td>true</td><td>false</td><td>not_claim_grade</td><td>false</td></tr>
 </tbody></table></div></details>
       </div>
     </section>

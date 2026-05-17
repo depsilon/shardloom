@@ -103,6 +103,17 @@ explicit with `source_state_digest_status=not_emitted_scoped_in_memory_source_st
 universal content-addressed `SourceState` digests are deferred to
 `GAR-IOREUSE-1A`.
 
+`GAR-PERF-1C` adds scoped fused-pipeline evidence for the current prepared/native
+filter/projection/limit row and selective-filter selection-vector metric aggregation row. The
+benchmark harness now carries `fused_pipeline_*` fields, including `fused_pipeline_used`,
+`fused_operator_family`, `intermediate_materialization_avoided`,
+`fused_pipeline_rows_selected`, `fused_pipeline_rows_output`,
+`fused_pipeline_data_decoded`, `fused_pipeline_data_materialized`,
+`fused_pipeline_claim_gate_status`, `fused_pipeline_fallback_attempted=false`, and
+`fused_pipeline_external_engine_invoked=false`. These rows are scoped residual-native runtime
+evidence only; `fused_pipeline_encoded_native_claim_allowed=false` remains required until later
+end-to-end encoded-native certificates exist.
+
 ## Evidence-Level Runtime Tiering Queue
 
 `GAR-PERF-2A` tracks first-class benchmark evidence levels:

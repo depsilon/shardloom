@@ -309,6 +309,13 @@ should report `fused_pipeline_used`, `fused_operator_family`,
 materialization/decode status, and no-fallback fields for filter/projection/limit,
 filter/aggregate, filter/group-by, and top-k/projection families. Fusion remains residual-native
 unless later representation evidence proves encoded-native execution.
+`GAR-PERF-1C` adds the first scoped runtime evidence for that direction. Prepared/native
+filter/projection/limit and selective-filter selection-vector metric aggregation rows now emit
+`fused_pipeline_*` fields such as `fused_pipeline_used`, `fused_operator_family`,
+`fused_pipeline_rows_selected`, `fused_pipeline_rows_output`,
+`intermediate_materialization_avoided`, `fused_pipeline_data_decoded`,
+`fused_pipeline_data_materialized`, and no-fallback fields. These fields are residual-native runtime
+evidence only; `fused_pipeline_encoded_native_claim_allowed=false` remains required.
 For `selective filter`, prepared/native rows also emit `encoded_predicate_provider_*` fields. When
 the scoped filter-column probe observes the admitted local encodings, those fields now report
 `encoded_predicate_provider_status=reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted`,

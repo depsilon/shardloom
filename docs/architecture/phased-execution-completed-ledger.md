@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-1C fused filter/project/limit and selection-vector execution path
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `website/build_static_pages.py`
+    - `docs/architecture/fused-operator-pipeline.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add scoped prepared/native fused residual evidence for filter/projection/limit and
+    selective-filter selection-vector metric aggregation without making encoded-native or
+    performance claims.
+  - Checklist:
+    - [x] Emit `fused_pipeline_*` fields from prepared/native Vortex rows, including
+          `fused_pipeline_used`, `fused_operator_family`, `intermediate_materialization_avoided`,
+          row counts, decode/materialization fields, claim gate, and no-fallback fields.
+    - [x] Preserve `fused_pipeline_encoded_native_claim_allowed=false` for residual-native fused
+          paths.
+    - [x] Add `streaming_result_row_count` evidence so filter/projection/limit rows can report
+          selected row counts separately from result materialization.
+    - [x] Propagate fused pipeline fields through the Python benchmark contract and website
+          benchmark renderer.
+    - [x] Update compute-flow, benchmark catalog, local benchmark docs, and fused-operator pipeline
+          docs with claim-safe boundaries.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex enabled_filter_projection_limit_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q benchmarks/traditional_analytics website scripts`
+  - Claim boundary:
+    - This is scoped local prepared/native residual runtime evidence only.
+    - It is not an encoded-native, performance, superiority, Spark-displacement, SQL/DataFrame,
+      object-store/lakehouse, Foundry, production, or package-publication claim.
+  - Fallback boundary:
+    - `fused_pipeline_fallback_attempted=false` and
+      `fused_pipeline_external_engine_invoked=false` are required.
+    - External engines remain baseline-only and are not used for residual execution.
+
 - [x] Session label: GAR-PERF-1B source-state reuse coverage matrix
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

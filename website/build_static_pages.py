@@ -1388,6 +1388,49 @@ def output_fields(payload: dict[str, Any]) -> dict[str, str]:
     return fields
 
 
+def batch_fused_pipeline_rows(
+    benchmark_dir: Path, artifact_name: str, fields: dict[str, str]
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    suffix = "_fused_pipeline_schema_version"
+    for key in sorted(fields):
+        if not key.startswith("scenario_") or not key.endswith(suffix):
+            continue
+        prefix = key[: -len(suffix)]
+        rows.append(
+            {
+                "file": repo_relative_path(benchmark_dir / artifact_name),
+                "generated_at_utc": "",
+                "scenario": fields.get(
+                    f"{prefix}_name", prefix.removeprefix("scenario_")
+                ),
+                "used": fields.get(f"{prefix}_fused_pipeline_used"),
+                "family": fields.get(f"{prefix}_fused_operator_family"),
+                "rows_scanned": fields.get(f"{prefix}_fused_pipeline_rows_scanned"),
+                "rows_selected": fields.get(f"{prefix}_fused_pipeline_rows_selected"),
+                "rows_output": fields.get(f"{prefix}_fused_pipeline_rows_output"),
+                "materialization_avoided": fields.get(
+                    f"{prefix}_intermediate_materialization_avoided"
+                ),
+                "data_decoded": fields.get(f"{prefix}_fused_pipeline_data_decoded"),
+                "data_materialized": fields.get(
+                    f"{prefix}_fused_pipeline_data_materialized"
+                ),
+                "claim_gate": fields.get(f"{prefix}_fused_pipeline_claim_gate_status"),
+                "encoded_native_claim": fields.get(
+                    f"{prefix}_fused_pipeline_encoded_native_claim_allowed"
+                ),
+                "fallback_attempted": fields.get(
+                    f"{prefix}_fused_pipeline_fallback_attempted"
+                ),
+                "external_engine_invoked": fields.get(
+                    f"{prefix}_fused_pipeline_external_engine_invoked"
+                ),
+            }
+        )
+    return rows
+
+
 def value_at(mapping: dict[str, Any], key: str) -> Any:
     value = mapping.get(key)
     return "n/a" if value is None else value
@@ -1417,6 +1460,7 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     provider_rows: list[dict[str, Any]] = []
     source_rows: list[dict[str, Any]] = []
+    fused_rows: list[dict[str, Any]] = []
     materialization_rows: list[dict[str, Any]] = []
     artifacts: list[dict[str, Any]] = []
 
@@ -1550,6 +1594,38 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                         ),
                     }
                 )
+            if evidence.get("fused_pipeline_schema_version"):
+                fused_rows.append(
+                    {
+                        "file": repo_relative_path(path),
+                        "generated_at_utc": artifact.get("generated_at_utc"),
+                        "scenario": result.get("scenario_name"),
+                        "used": evidence.get("fused_pipeline_used"),
+                        "family": evidence.get("fused_operator_family"),
+                        "rows_scanned": evidence.get("fused_pipeline_rows_scanned"),
+                        "rows_selected": evidence.get("fused_pipeline_rows_selected"),
+                        "rows_output": evidence.get("fused_pipeline_rows_output"),
+                        "materialization_avoided": evidence.get(
+                            "intermediate_materialization_avoided"
+                        ),
+                        "data_decoded": evidence.get("fused_pipeline_data_decoded"),
+                        "data_materialized": evidence.get(
+                            "fused_pipeline_data_materialized"
+                        ),
+                        "claim_gate": evidence.get(
+                            "fused_pipeline_claim_gate_status"
+                        ),
+                        "encoded_native_claim": evidence.get(
+                            "fused_pipeline_encoded_native_claim_allowed"
+                        ),
+                        "fallback_attempted": evidence.get(
+                            "fused_pipeline_fallback_attempted"
+                        ),
+                        "external_engine_invoked": evidence.get(
+                            "fused_pipeline_external_engine_invoked"
+                        ),
+                    }
+                )
             if result.get("engine") == "shardloom-prepared-vortex":
                 materialization_rows.append(
                     {
@@ -1573,6 +1649,7 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
     for name in ("prepared_vortex_batch.json", "native_vortex_batch.json"):
         payload = load_json(benchmark_dir / name)
         fields = output_fields(payload)
+        fused_rows.extend(batch_fused_pipeline_rows(benchmark_dir, name, fields))
         batch_rows.append(
             {
                 "file": repo_relative_path(benchmark_dir / name),
@@ -1679,6 +1756,7 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
         "batch_rows": batch_rows,
         "encoded_predicate_provider_rows": provider_rows,
         "source_backed_scan_rows": source_rows,
+        "fused_pipeline_rows": fused_rows,
         "materialization_rows": materialization_rows,
         "table_metadata_smoke": table_metadata,
         "claim_boundary": {
@@ -2282,6 +2360,35 @@ def benchmark_page(summary: dict[str, Any]) -> str:
             for row in summary["source_backed_scan_rows"]
         ],
     )
+    fused_table = html_table(
+        [
+            "Scenario",
+            "Used",
+            "Family",
+            "Rows selected",
+            "Rows output",
+            "Materialization avoided",
+            "Decoded",
+            "Materialized",
+            "Claim gate",
+            "Encoded-native claim",
+        ],
+        [
+            [
+                row["scenario"],
+                row["used"],
+                row["family"],
+                row["rows_selected"],
+                row["rows_output"],
+                row["materialization_avoided"],
+                row["data_decoded"],
+                row["data_materialized"],
+                row["claim_gate"],
+                row["encoded_native_claim"],
+            ]
+            for row in summary["fused_pipeline_rows"]
+        ],
+    )
     materialization_table = html_table(
         [
             "Scenario",
@@ -2317,8 +2424,12 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     source_generated_at = (
         latest_generated_at(summary["source_backed_scan_rows"]) or latest_artifact_at
     )
+    fused_generated_at = (
+        latest_generated_at(summary["fused_pipeline_rows"]) or latest_artifact_at
+    )
     encoded_source = compact_source_list(summary["encoded_predicate_provider_rows"])
     source_scan_source = compact_source_list(summary["source_backed_scan_rows"])
+    fused_source = compact_source_list(summary["fused_pipeline_rows"])
     batch_source = (
         "target/shardloom-benchmark-evidence/prepared_vortex_batch.json and "
         "native_vortex_batch.json"
@@ -2349,6 +2460,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         )
         + freshness_note("Encoded predicate evidence", encoded_source, encoded_generated_at)
         + freshness_note("Source-backed scan evidence", source_scan_source, source_generated_at)
+        + freshness_note("Fused pipeline evidence", fused_source, fused_generated_at)
         + "</div>"
     )
     user_layer_table = html_table(
@@ -2538,6 +2650,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
           <div class="metric"><strong>{len(rows)}</strong><span>ShardLoom timing rows</span></div>
           <div class="metric"><strong>{len(summary['source_backed_scan_rows'])}</strong><span>source-backed scan rows</span></div>
           <div class="metric"><strong>{len(summary['encoded_predicate_provider_rows'])}</strong><span>encoded predicate rows</span></div>
+          <div class="metric"><strong>{len(summary['fused_pipeline_rows'])}</strong><span>fused pipeline rows</span></div>
           <div class="metric"><strong>{len(summary['batch_rows'])}</strong><span>batch mode smoke rows</span></div>
         </div>
       </div>
@@ -2722,6 +2835,13 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         <h2>Source-Backed Scan Evidence</h2>
         <p class="section-lede">Prepared rows expose Vortex source-backed scan fields and no-fallback evidence instead of relabeling residual-native operators as encoded-native.</p>
         {details_block('Raw source-backed scan table', source_table)}
+      </div>
+    </section>
+    <section id="fused-pipeline">
+      <div class="shell">
+        <h2>Fused Pipeline Evidence</h2>
+        <p class="section-lede">GAR-PERF-1C rows show scoped residual-native work avoidance for prepared/native filter/projection/limit and selection-vector metric aggregation paths. They are not encoded-native or performance claims.</p>
+        {details_block('Raw fused pipeline table', fused_table)}
       </div>
     </section>
     <section id="materialization">

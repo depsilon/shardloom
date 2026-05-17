@@ -225,6 +225,12 @@ unfused correctness digests, materialization/decode fields, no-fallback status, 
 Fusion rows are local residual-native runtime evidence only unless later end-to-end
 representation-state certificates prove encoded-native execution.
 
+`GAR-PERF-1C` now supplies the scoped first slice of that contract for prepared/native
+filter/projection/limit and selective-filter selection-vector metric aggregation rows. These rows
+emit `fused_pipeline_*` fields, row counts, materialization/decode status, `not_claim_grade`, and
+`fused_pipeline_encoded_native_claim_allowed=false`. Broader cross-family fused pipeline coverage
+and fused/unfused correctness digest parity remain under `GAR-PERF-2E`.
+
 `GAR-PERF-2F` adds the planned in-process `ShardLoomSession` runtime layer. It should turn scoped
 prepared/native batch-runner reuse into explicit caller-owned session evidence, not hidden global
 state. Future session-backed rows should expose `session_id`, cache hit/miss fields, source-state
