@@ -408,10 +408,11 @@ R5.4.5 outcome:
   blocked, or unsupported for filter, projection, and limit/slice independently. Filter-only columns
   and output-column read sets must remain visible, and pushdown evidence must not be promoted to an
   encoded-native operator claim without later certificates.
-- `GAR-PERF-2D` carries the future compressed/encoded kernel registry. Capability rows should
-  classify encoding/operator pairs independently, keep `kernel_admitted`, `kernel_executed`,
-  `canonicalization_required`, `decoded`, `materialized`, and `encoded_native_claim_allowed`
-  visible, and block unsupported encodings deterministically without fallback.
+- `GAR-PERF-2D` carries the scoped compressed/encoded kernel registry evidence. Capability and
+  benchmark rows should classify encoding/operator pairs independently, keep `kernel_admitted`,
+  `kernel_executed`, `canonicalization_required`, `decoded`, `materialized`, and
+  `encoded_native_claim_allowed` visible, and block unsupported encodings deterministically without
+  fallback.
 - `GAR-PERF-2B` carries the future evidence-aware logical optimizer. Capability rows should
   classify optimizer rules as admitted, applied, blocked, unsupported, not applicable, or report-only
   with before/after plan digests, rewrite safety, evidence-preservation, materialization-boundary,

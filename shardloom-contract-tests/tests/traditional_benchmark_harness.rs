@@ -70,6 +70,19 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"fused_pipeline_rows_selected\""));
     assert!(script.contains("\"fused_pipeline_rows_output\""));
     assert!(script.contains("\"fused_pipeline_encoded_native_claim_allowed\""));
+    assert!(script.contains("COMPRESSED_KERNEL_REGISTRY_FIELDS"));
+    assert!(script.contains("\"compressed_kernel_registry_schema_version\""));
+    assert!(script.contains("\"compressed_kernel_registry_pair_ids\""));
+    assert!(script.contains("\"compressed_kernel_registry_pair_statuses\""));
+    assert!(script.contains("\"compressed_kernel_registry_encoding_ids\""));
+    assert!(script.contains("\"compressed_kernel_registry_kernel_admitted\""));
+    assert!(script.contains("\"compressed_kernel_registry_kernel_executed\""));
+    assert!(script.contains("\"compressed_kernel_registry_decoded\""));
+    assert!(script.contains("\"compressed_kernel_registry_materialized\""));
+    assert!(script.contains("\"compressed_kernel_registry_selection_vector_emitted\""));
+    assert!(script.contains("\"compressed_kernel_registry_encoded_native_claim_allowed\""));
+    assert!(script.contains("\"compressed_kernel_registry_fallback_attempted\""));
+    assert!(script.contains("\"compressed_kernel_registry_external_engine_invoked\""));
     assert!(script.contains("SCAN_PUSHDOWN_FIELDS"));
     assert!(script.contains("\"scan_pushdown_schema_version\""));
     assert!(script.contains("\"scan_pushdown_status\""));
@@ -319,6 +332,13 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"fused_pipeline_rows_selected\"",
         "\"fused_pipeline_rows_output\"",
         "\"fused_pipeline_encoded_native_claim_allowed\"",
+        "\"compressed_kernel_registry_schema_version\"",
+        "\"compressed_kernel_registry_pair_ids\"",
+        "\"compressed_kernel_registry_pair_statuses\"",
+        "\"compressed_kernel_registry_kernel_admitted\"",
+        "\"compressed_kernel_registry_encoded_native_claim_allowed\"",
+        "\"compressed_kernel_registry_fallback_attempted\"",
+        "\"compressed_kernel_registry_external_engine_invoked\"",
         "\"scan_pushdown_schema_version\"",
         "\"scan_pushdown_status\"",
         "\"scan_filter_pushed_down\"",

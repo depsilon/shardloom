@@ -276,37 +276,42 @@ sink as supported without replay/evidence proof, and it must not present reuse o
 public performance, superiority, production, object-store/lakehouse, Foundry, SQL/DataFrame, or
 Spark-replacement claims.
 
-## Compressed/Encoded Kernel Registry Queue
+## Compressed/Encoded Kernel Registry Evidence
 
-`GAR-PERF-2D` tracks the planned compressed/encoded kernel registry. The benchmark currently has
-scoped selective-filter encoded-predicate evidence, but encoded-native operator coverage is not
-broad and encoding/operator support is not yet a stable matrix.
+`GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence to selective-filter
+prepared/native rows. The registry makes encoding/operator support visible without turning the row
+into an encoded-native operator claim. Current non-empty selective-filter fixtures admit and execute
+the observed `flag:fastlanes.bitpacked` and `value:vortex.sequence` reader-generated filter inputs;
+dictionary, constant, sorted/min-max, and FSST/string rows remain deterministic blockers or
+not-available rows.
 
-Future benchmark rows should expose:
+Benchmark rows expose:
 
 ```text
-encoding_id
-logical_dtype
-physical_encoding
-operator_family
-kernel_admitted
-kernel_executed
-canonicalization_required
-decoded
-materialized
-selection_vector_emitted
-validity_semantics
-encoded_native_claim_allowed
-fallback_attempted=false
-external_engine_invoked=false
-claim_gate_status
+compressed_kernel_registry_schema_version
+compressed_kernel_registry_pair_ids
+compressed_kernel_registry_pair_statuses
+compressed_kernel_registry_encoding_ids
+compressed_kernel_registry_logical_dtypes
+compressed_kernel_registry_physical_encodings
+compressed_kernel_registry_operator_families
+compressed_kernel_registry_kernel_admitted
+compressed_kernel_registry_kernel_executed
+compressed_kernel_registry_canonicalization_required
+compressed_kernel_registry_decoded
+compressed_kernel_registry_materialized
+compressed_kernel_registry_selection_vector_emitted
+compressed_kernel_registry_validity_semantics
+compressed_kernel_registry_unsupported_kernel_reasons
+compressed_kernel_registry_encoded_native_claim_allowed
+compressed_kernel_registry_claim_gate_status
+compressed_kernel_registry_fallback_attempted=false
+compressed_kernel_registry_external_engine_invoked=false
 ```
 
-Initial registry rows should cover bitpacked boolean/integer filter, sequence equality/range
-predicate, dictionary equality/group-by, constant array count/filter, sorted min/max range pruning,
-and FSST/dictionary string equality where available. Unsupported encodings should be deterministic
-blockers, and `encoded_native_claim_allowed=false` remains the default until end-to-end evidence
-passes.
+Unsupported encodings remain deterministic blockers, and
+`compressed_kernel_registry_encoded_native_claim_allowed=false` remains required until a future
+end-to-end encoded-native certificate exists.
 
 ## Fused Operator Pipeline Queue
 

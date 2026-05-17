@@ -338,7 +338,7 @@ Spark-replacement, package, or release claims.
 
 ## Compressed Encoded Kernel Registry
 
-`GAR-PERF-2D` adds planned compressed/encoded kernel registry rows for:
+`GAR-PERF-2D` adds scoped compressed/encoded kernel registry rows for:
 
 ```text
 bitpacked boolean/integer filter
@@ -349,25 +349,31 @@ sorted min/max range pruning
 FSST/dictionary string equality if available
 ```
 
-Each row should expose:
+Selective-filter prepared/native rows now expose:
 
 ```text
-encoding_id
-logical_dtype
-physical_encoding
-operator_family
-kernel_admitted
-kernel_executed
-canonicalization_required
-decoded
-materialized
-selection_vector_emitted
-validity_semantics
-encoded_native_claim_allowed
-fallback_attempted=false
-external_engine_invoked=false
-claim_gate_status
+compressed_kernel_registry_pair_ids
+compressed_kernel_registry_pair_statuses
+compressed_kernel_registry_encoding_ids
+compressed_kernel_registry_logical_dtypes
+compressed_kernel_registry_physical_encodings
+compressed_kernel_registry_operator_families
+compressed_kernel_registry_kernel_admitted
+compressed_kernel_registry_kernel_executed
+compressed_kernel_registry_canonicalization_required
+compressed_kernel_registry_decoded
+compressed_kernel_registry_materialized
+compressed_kernel_registry_selection_vector_emitted
+compressed_kernel_registry_validity_semantics
+compressed_kernel_registry_encoded_native_claim_allowed=false
+compressed_kernel_registry_fallback_attempted=false
+compressed_kernel_registry_external_engine_invoked=false
+compressed_kernel_registry_claim_gate_status=not_claim_grade
 ```
+
+The current implemented surface admits only the observed non-empty selective-filter bitpacked and
+sequence filter inputs as reader-generated selection-vector inputs. Other initial registry pairs
+remain deterministic blockers or not available, and no row authorizes an encoded-native claim.
 
 Kernel admission and execution must stay separate from encoded-native claim permission. Unsupported
 encodings should produce deterministic blockers. `encoded_native_claim_allowed=false` remains the

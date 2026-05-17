@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2D compressed/encoded kernel registry
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/compressed-encoded-kernel-registry.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add scoped compressed/encoded kernel registry evidence to selective-filter
+    prepared/native rows without claiming broad encoded-native operator coverage, SQL/DataFrame
+    runtime, object-store/lakehouse support, performance, production readiness, or Spark
+    displacement.
+  - Checklist:
+    - [x] Emit `compressed_kernel_registry_schema_version` and aggregate registry fields beside
+          existing selective-filter `encoded_predicate_provider_*` evidence.
+    - [x] Classify the six initial encoding/operator pairs:
+          `bitpacked_boolean_integer_filter`, `sequence_equality_range_predicate`,
+          `dictionary_equality_group_by`, `constant_array_count_filter`,
+          `sorted_min_max_range_pruning`, and `fsst_dictionary_string_equality`.
+    - [x] Admit and execute the observed non-empty selective-filter `flag:fastlanes.bitpacked` and
+          `value:vortex.sequence` reader-generated filter inputs, intersect their selection vectors,
+          and keep selected metric aggregation residual-native.
+    - [x] Keep dictionary, constant, sorted/min-max, and FSST/string rows visible as deterministic
+          blockers or not-available rows until later evidence-bearing slices implement them.
+    - [x] Preserve `compressed_kernel_registry_encoded_native_claim_allowed=false`,
+          `compressed_kernel_registry_claim_gate_status=not_claim_grade`,
+          `compressed_kernel_registry_fallback_attempted=false`, and
+          `compressed_kernel_registry_external_engine_invoked=false`.
+    - [x] Propagate registry fields through the Python benchmark contract, Markdown attribution
+          renderer, and traditional benchmark contract tests.
+    - [x] Remove the active GAR-PERF-2D item from the Planned queue and keep follow-up encoded-native
+          expansion under later evidence-bearing slices.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex selective_filter_selection_vector_metric_aggregation_handles_empty_selection --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `cargo fmt --all -- --check`
+  - Claim boundary:
+    - The completed slice may claim only scoped registry evidence for selective-filter
+      prepared/native rows and deterministic blocker/not-available classification for the initial
+      registry pairs.
+    - It does not authorize broad encoded-native operator coverage, generalized compressed
+      execution, performance or superiority claims, SQL/DataFrame runtime, object-store/lakehouse
+      runtime, Foundry runtime, production readiness, package publication, or Spark replacement.
+  - Fallback boundary:
+    - `compressed_kernel_registry_fallback_attempted=false` and
+      `compressed_kernel_registry_external_engine_invoked=false` are required.
+    - External engines remain baseline-only and are not used for registry admission, execution, or
+      blocker classification.
+
 - [x] Session label: GAR-PERF-2A evidence-level runtime tiering
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

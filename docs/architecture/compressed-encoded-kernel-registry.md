@@ -2,9 +2,10 @@
 
 ## Purpose
 
-This document is the report-only architecture reference for `GAR-PERF-2D`. It defines the planned
-compressed/encoded kernel registry for encoding-specific operator support over Vortex arrays and
-ShardLoom-owned encoded kernel paths.
+This document is the architecture reference for the scoped `GAR-PERF-2D` compressed/encoded kernel
+registry evidence now emitted by selective-filter prepared/native rows. It defines the current
+encoding/operator registry surface over Vortex array facts and ShardLoom-owned encoded kernel
+admission paths.
 
 The purpose is to turn scoped encoded-predicate evidence into an explicit registry of admitted,
 blocked, and unsupported encoding/operator pairs. The registry is not itself an encoded-native
@@ -12,19 +13,21 @@ operator claim.
 
 ## Current State
 
-Selective-filter encoded-predicate provider evidence exists for scoped local paths. Current evidence
-can identify real reader chunks such as `fastlanes.bitpacked` and `vortex.sequence`, lower admitted
-filter-column inputs, intersect selection vectors, and keep the selected metric aggregation
-residual-native.
+Selective-filter prepared/native rows now emit a `compressed_kernel_registry_*` aggregate contract
+beside the `encoded_predicate_provider_*` fields. When the scoped filter-column probe observes real
+reader chunks such as `flag:fastlanes.bitpacked` and `value:vortex.sequence`, ShardLoom lowers those
+filter-column inputs, intersects their selection vectors, and records the bitpacked and sequence
+pairs as admitted/executed reader-generated filter inputs. Selected metric aggregation remains
+residual-native and does not become an encoded-native claim.
 
-Encoded-native operator coverage is not broad. Existing constant, dictionary, run-end, selective
-predicate, and kernel-registry history provides useful foundations, but the repo still needs a
-single planned registry that classifies encoding/operator pairs with stable evidence fields and
-claim boundaries.
+The registry is intentionally narrow. Encoded-native operator coverage is not broad. Dictionary
+group-by, constant array count/filter, sorted min/max pruning, and FSST/dictionary string equality
+are visible deterministic blockers or not-available rows until future slices add correctness,
+materialization/decode, and certificate evidence.
 
 ## Initial Registry Rows
 
-`GAR-PERF-2D` should start with these encoding/operator pairs:
+`GAR-PERF-2D` classifies these initial encoding/operator pairs:
 
 ```text
 bitpacked boolean/integer filter
@@ -39,14 +42,27 @@ Each pair should be classified independently. Support for one encoding/operator 
 support for another pair, another DType, another nullability shape, another layout, or another
 scenario family.
 
+Current selective-filter non-empty fixtures classify the first two rows as scoped
+reader-generated encoded filter inputs:
+
+```text
+bitpacked_boolean_integer_filter -> executed_selection_vector_filter_input
+sequence_equality_range_predicate -> executed_selection_vector_range_input
+```
+
+Empty-selection fixtures still emit the registry, but admitted/executed counts remain zero because
+no selected row path consumes an encoded kernel input for metric evidence.
+
 ## Vortex-First Provider Check
 
 - Subject area: compressed/encoded kernel registry for Vortex array encodings.
 - Upstream Vortex concepts checked: DType, Array, Encoding, Layout, Statistics, Validity,
   dictionary/constant/sorted/sequence/FSST-like encodings, and compressed-array execution/provider
   surfaces.
-- Decision: wrap Vortex encoding/layout facts in a ShardLoom registry and admit kernels only when
-  ShardLoom can provide correctness, materialization/decode, no-fallback, and claim-gate evidence.
+- Decision: wrap Vortex encoding/layout facts in ShardLoom registry evidence and admit scoped
+  reader-generated inputs only when ShardLoom can provide materialization/decode, no-fallback, and
+  claim-gate evidence. Broader encoded-native promotion still requires future correctness and
+  certificate evidence.
 - ShardLoom surface: benchmark rows, capability matrix rows, compute-flow docs, and future
   execution certificate refs.
 - Residual handling: unsupported encodings are deterministic blockers or residual-native paths, not
@@ -56,7 +72,42 @@ scenario family.
 
 ## Required Evidence Contract
 
-Every registry row should expose:
+Benchmark rows expose an aggregate registry contract:
+
+```text
+compressed_kernel_registry_schema_version
+compressed_kernel_registry_report_id
+compressed_kernel_registry_scope
+compressed_kernel_registry_current_surface
+compressed_kernel_registry_vortex_first_decision
+compressed_kernel_registry_initial_pair_count
+compressed_kernel_registry_pairs_classified
+compressed_kernel_registry_pair_ids
+compressed_kernel_registry_pair_statuses
+compressed_kernel_registry_encoding_ids
+compressed_kernel_registry_logical_dtypes
+compressed_kernel_registry_physical_encodings
+compressed_kernel_registry_operator_families
+compressed_kernel_registry_kernel_admitted
+compressed_kernel_registry_kernel_executed
+compressed_kernel_registry_canonicalization_required
+compressed_kernel_registry_decoded
+compressed_kernel_registry_materialized
+compressed_kernel_registry_selection_vector_emitted
+compressed_kernel_registry_validity_semantics
+compressed_kernel_registry_unsupported_kernel_reasons
+compressed_kernel_registry_encoded_native_claim_allowed
+compressed_kernel_registry_admitted_pair_count
+compressed_kernel_registry_executed_pair_count
+compressed_kernel_registry_blocked_pair_count
+compressed_kernel_registry_not_available_pair_count
+compressed_kernel_registry_claim_gate_status
+compressed_kernel_registry_claim_boundary
+compressed_kernel_registry_fallback_attempted
+compressed_kernel_registry_external_engine_invoked
+```
+
+The row-level vocabulary inside those aggregate fields includes:
 
 ```text
 encoding_id
@@ -103,6 +154,15 @@ permit an encoded-native operator claim until the full path proves:
 - `fallback_attempted=false`.
 - `external_engine_invoked=false`.
 
+Current rows keep:
+
+```text
+compressed_kernel_registry_encoded_native_claim_allowed=false
+compressed_kernel_registry_claim_gate_status=not_claim_grade
+compressed_kernel_registry_fallback_attempted=false
+compressed_kernel_registry_external_engine_invoked=false
+```
+
 ## Non-Goals
 
 - No broad SQL/DataFrame runtime.
@@ -114,7 +174,7 @@ permit an encoded-native operator claim until the full path proves:
 
 ## Acceptance
 
-- Initial encoding/operator pairs are represented as admitted, blocked, unsupported, or not
+- Initial encoding/operator pairs are represented as admitted/executed, blocked, unsupported, or not
   available with deterministic reasons.
 - Unsupported encodings block deterministically.
 - `encoded_native_claim_allowed=false` remains the default until end-to-end evidence passes.
@@ -123,14 +183,23 @@ permit an encoded-native operator claim until the full path proves:
 
 ## Verification Plan
 
-Future implementation should include:
+Current verification includes:
 
 ```text
-unit tests per encoding/operator pair
-null/empty/all-null/high-cardinality cases where relevant
-decoded-reference correctness comparison
-selective filter benchmark smoke
-group-by benchmark smoke
+cargo test -p shardloom-vortex selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns --features vortex-traditional-analytics-benchmark
+cargo test -p shardloom-vortex selective_filter_selection_vector_metric_aggregation_handles_empty_selection --features vortex-traditional-analytics-benchmark
+cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+python -m compileall -q benchmarks/traditional_analytics
+cargo fmt --all -- --check
+```
+
+Broader follow-up verification for future kernel expansion should include:
+
+```text
+unit tests per new encoding/operator pair
+null/all-null/high-cardinality cases where relevant
+decoded-reference correctness comparison before encoded-native promotion
+selective filter and group-by benchmark smoke
 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
 cargo test -p shardloom-contract-tests --test release_readiness_metadata
 python -m compileall -q benchmarks/traditional_analytics

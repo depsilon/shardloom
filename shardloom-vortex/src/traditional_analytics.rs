@@ -41,6 +41,8 @@ const SCAN_PUSHDOWN_CONTRACT_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.scan_pushdown_contract.v1";
 const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.encoded_predicate_provider.v4";
+const COMPRESSED_KERNEL_REGISTRY_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.compressed_kernel_registry.v1";
 const TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_batch.v1";
 const TRADITIONAL_PREPARED_NATIVE_SESSION_SCHEMA_VERSION: &str =
@@ -4376,6 +4378,7 @@ impl TraditionalAnalyticsVortexReport {
         fields.extend(streaming_execution_fields(self));
         fields.extend(source_backed_scan_evidence_fields(self));
         fields.extend(encoded_predicate_provider_fields(self));
+        fields.extend(compressed_encoded_kernel_registry_fields(self));
         fields.extend(fused_pipeline_evidence_fields(self));
         fields.extend(traditional_vortex_provider_admission_fields(
             self.scenario,
@@ -5789,6 +5792,391 @@ fn encoded_predicate_provider_fields(
         ),
         (
             "encoded_predicate_provider_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+    ]
+}
+
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "registry rows mirror evidence booleans that must be emitted independently"
+)]
+struct TraditionalCompressedKernelRegistryRow {
+    pair_id: &'static str,
+    encoding_id: &'static str,
+    logical_dtype: &'static str,
+    physical_encoding: &'static str,
+    operator_family: &'static str,
+    status: &'static str,
+    kernel_admitted: bool,
+    kernel_executed: bool,
+    canonicalization_required: bool,
+    decoded: bool,
+    materialized: bool,
+    selection_vector_emitted: bool,
+    validity_semantics: &'static str,
+    unsupported_kernel_reason: &'static str,
+}
+
+fn registry_value_rows(
+    rows: &[TraditionalCompressedKernelRegistryRow],
+    value: impl Fn(&TraditionalCompressedKernelRegistryRow) -> String,
+) -> String {
+    rows.iter().map(value).collect::<Vec<_>>().join("|")
+}
+
+fn registry_static_rows(
+    rows: &[TraditionalCompressedKernelRegistryRow],
+    value: impl Fn(&TraditionalCompressedKernelRegistryRow) -> &'static str,
+) -> String {
+    rows.iter().map(value).collect::<Vec<_>>().join("|")
+}
+
+fn observed_probe_encoding(report: &TraditionalAnalyticsVortexReport, expected: &str) -> bool {
+    report
+        .encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary
+        .iter()
+        .any(|summary| summary == expected)
+}
+
+#[allow(clippy::too_many_lines)]
+fn compressed_encoded_kernel_registry_rows(
+    report: &TraditionalAnalyticsVortexReport,
+) -> Vec<TraditionalCompressedKernelRegistryRow> {
+    let selective_filter = report.scenario == TraditionalAnalyticsScenario::SelectiveFilter;
+    let bridge_intersected = report.encoded_predicate_provider_conjunctive_bridge_runtime_status
+        == "intersected_selection_vectors"
+        && report.encoded_predicate_provider_filter_column_batches_consumed
+        && report.encoded_predicate_provider_selection_vector_intersection_certified;
+    let bitpacked_observed = observed_probe_encoding(report, "flag:fastlanes.bitpacked");
+    let sequence_observed = observed_probe_encoding(report, "value:vortex.sequence");
+    let admitted_reader_generated_filter_inputs = selective_filter
+        && bridge_intersected
+        && report.encoded_predicate_provider_kernel_input_count >= 2
+        && bitpacked_observed
+        && sequence_observed;
+
+    let (
+        bitpacked_status,
+        bitpacked_admitted,
+        bitpacked_executed,
+        bitpacked_selection,
+        bitpacked_reason,
+    ) = if admitted_reader_generated_filter_inputs {
+        (
+            "executed_selection_vector_filter_input",
+            true,
+            true,
+            true,
+            "none",
+        )
+    } else if selective_filter && bitpacked_observed {
+        (
+            "blocked_before_selection_vector_intersection",
+            false,
+            false,
+            false,
+            "reader_generated_bitpacked_kernel_input_not_certified",
+        )
+    } else if selective_filter {
+        (
+            "blocked_missing_bitpacked_filter_column",
+            false,
+            false,
+            false,
+            "selective_filter_bitpacked_column_not_observed",
+        )
+    } else {
+        (
+            "not_applicable_no_selective_filter_candidate",
+            false,
+            false,
+            false,
+            "scenario_has_no_bitpacked_filter_candidate",
+        )
+    };
+    let (
+        sequence_status,
+        sequence_admitted,
+        sequence_executed,
+        sequence_selection,
+        sequence_reason,
+    ) = if admitted_reader_generated_filter_inputs {
+        (
+            "executed_selection_vector_range_input",
+            true,
+            true,
+            true,
+            "none",
+        )
+    } else if selective_filter && sequence_observed {
+        (
+            "blocked_before_selection_vector_intersection",
+            false,
+            false,
+            false,
+            "reader_generated_sequence_kernel_input_not_certified",
+        )
+    } else if selective_filter {
+        (
+            "blocked_missing_sequence_filter_column",
+            false,
+            false,
+            false,
+            "selective_filter_sequence_column_not_observed",
+        )
+    } else {
+        (
+            "not_applicable_no_selective_filter_candidate",
+            false,
+            false,
+            false,
+            "scenario_has_no_sequence_filter_candidate",
+        )
+    };
+
+    vec![
+        TraditionalCompressedKernelRegistryRow {
+            pair_id: "bitpacked_boolean_integer_filter",
+            encoding_id: "fastlanes.bitpacked",
+            logical_dtype: "bool",
+            physical_encoding: "flag:fastlanes.bitpacked",
+            operator_family: "filter_predicate",
+            status: bitpacked_status,
+            kernel_admitted: bitpacked_admitted,
+            kernel_executed: bitpacked_executed,
+            canonicalization_required: false,
+            decoded: false,
+            materialized: false,
+            selection_vector_emitted: bitpacked_selection,
+            validity_semantics: "fixture_validity_no_nulls_observed",
+            unsupported_kernel_reason: bitpacked_reason,
+        },
+        TraditionalCompressedKernelRegistryRow {
+            pair_id: "sequence_equality_range_predicate",
+            encoding_id: "vortex.sequence",
+            logical_dtype: "integer",
+            physical_encoding: "value:vortex.sequence",
+            operator_family: "range_predicate",
+            status: sequence_status,
+            kernel_admitted: sequence_admitted,
+            kernel_executed: sequence_executed,
+            canonicalization_required: false,
+            decoded: false,
+            materialized: false,
+            selection_vector_emitted: sequence_selection,
+            validity_semantics: "fixture_validity_no_nulls_observed",
+            unsupported_kernel_reason: sequence_reason,
+        },
+        TraditionalCompressedKernelRegistryRow {
+            pair_id: "dictionary_equality_group_by",
+            encoding_id: "vortex.dictionary",
+            logical_dtype: "string_or_low_cardinality",
+            physical_encoding: "dictionary_codes_and_values",
+            operator_family: "equality_group_by",
+            status: "blocked_dictionary_group_by_contract_pending",
+            kernel_admitted: false,
+            kernel_executed: false,
+            canonicalization_required: false,
+            decoded: false,
+            materialized: false,
+            selection_vector_emitted: false,
+            validity_semantics: "requires_dictionary_validity_fixture",
+            unsupported_kernel_reason: "dictionary_group_by_kernel_contract_pending",
+        },
+        TraditionalCompressedKernelRegistryRow {
+            pair_id: "constant_array_count_filter",
+            encoding_id: "vortex.constant",
+            logical_dtype: "any_scalar",
+            physical_encoding: "constant_array",
+            operator_family: "count_filter",
+            status: "blocked_constant_array_kernel_contract_pending",
+            kernel_admitted: false,
+            kernel_executed: false,
+            canonicalization_required: false,
+            decoded: false,
+            materialized: false,
+            selection_vector_emitted: false,
+            validity_semantics: "requires_constant_validity_fixture",
+            unsupported_kernel_reason: "constant_array_count_filter_contract_pending",
+        },
+        TraditionalCompressedKernelRegistryRow {
+            pair_id: "sorted_min_max_range_pruning",
+            encoding_id: "vortex.sorted_statistics",
+            logical_dtype: "ordered_scalar",
+            physical_encoding: "sorted_or_min_max_statistics",
+            operator_family: "metadata_range_pruning",
+            status: "blocked_sorted_min_max_pruning_contract_pending",
+            kernel_admitted: false,
+            kernel_executed: false,
+            canonicalization_required: false,
+            decoded: false,
+            materialized: false,
+            selection_vector_emitted: false,
+            validity_semantics: "requires_sorted_validity_and_bounds_fixture",
+            unsupported_kernel_reason: "sorted_min_max_range_pruning_contract_pending",
+        },
+        TraditionalCompressedKernelRegistryRow {
+            pair_id: "fsst_dictionary_string_equality",
+            encoding_id: "fsst_or_dictionary_string",
+            logical_dtype: "utf8",
+            physical_encoding: "fsst_or_dictionary_string",
+            operator_family: "string_equality",
+            status: "not_available_fixture_not_present",
+            kernel_admitted: false,
+            kernel_executed: false,
+            canonicalization_required: false,
+            decoded: false,
+            materialized: false,
+            selection_vector_emitted: false,
+            validity_semantics: "requires_string_encoding_validity_fixture",
+            unsupported_kernel_reason: "fsst_or_dictionary_string_fixture_not_available",
+        },
+    ]
+}
+
+#[allow(clippy::too_many_lines)]
+fn compressed_encoded_kernel_registry_fields(
+    report: &TraditionalAnalyticsVortexReport,
+) -> Vec<(String, String)> {
+    let rows = compressed_encoded_kernel_registry_rows(report);
+    let scenario_slug = report.scenario.as_str().replace(['/', ' ', '+'], "-");
+    let admitted_pair_count = rows.iter().filter(|row| row.kernel_admitted).count();
+    let executed_pair_count = rows.iter().filter(|row| row.kernel_executed).count();
+    let blocked_pair_count = rows
+        .iter()
+        .filter(|row| row.status.starts_with("blocked"))
+        .count();
+    let not_available_pair_count = rows
+        .iter()
+        .filter(|row| row.status.starts_with("not_available"))
+        .count();
+    vec![
+        (
+            "compressed_kernel_registry_schema_version".to_string(),
+            COMPRESSED_KERNEL_REGISTRY_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "compressed_kernel_registry_report_id".to_string(),
+            format!(
+                "gar-perf-2d.compressed_kernel_registry.{}.{}",
+                report
+                    .execution_mode_selection
+                    .selected_execution_mode
+                    .as_str(),
+                scenario_slug
+            ),
+        ),
+        (
+            "compressed_kernel_registry_scope".to_string(),
+            "local_prepared_native_vortex_reader_generated_registry".to_string(),
+        ),
+        (
+            "compressed_kernel_registry_current_surface".to_string(),
+            "wrap_vortex_concept_with_shardloom_evidence_rows".to_string(),
+        ),
+        (
+            "compressed_kernel_registry_vortex_first_decision".to_string(),
+            "wrap_vortex_concept".to_string(),
+        ),
+        (
+            "compressed_kernel_registry_initial_pair_count".to_string(),
+            rows.len().to_string(),
+        ),
+        (
+            "compressed_kernel_registry_pairs_classified".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "compressed_kernel_registry_pair_ids".to_string(),
+            registry_static_rows(&rows, |row| row.pair_id),
+        ),
+        (
+            "compressed_kernel_registry_pair_statuses".to_string(),
+            registry_static_rows(&rows, |row| row.status),
+        ),
+        (
+            "compressed_kernel_registry_encoding_ids".to_string(),
+            registry_static_rows(&rows, |row| row.encoding_id),
+        ),
+        (
+            "compressed_kernel_registry_logical_dtypes".to_string(),
+            registry_static_rows(&rows, |row| row.logical_dtype),
+        ),
+        (
+            "compressed_kernel_registry_physical_encodings".to_string(),
+            registry_static_rows(&rows, |row| row.physical_encoding),
+        ),
+        (
+            "compressed_kernel_registry_operator_families".to_string(),
+            registry_static_rows(&rows, |row| row.operator_family),
+        ),
+        (
+            "compressed_kernel_registry_kernel_admitted".to_string(),
+            registry_value_rows(&rows, |row| row.kernel_admitted.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_kernel_executed".to_string(),
+            registry_value_rows(&rows, |row| row.kernel_executed.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_canonicalization_required".to_string(),
+            registry_value_rows(&rows, |row| row.canonicalization_required.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_decoded".to_string(),
+            registry_value_rows(&rows, |row| row.decoded.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_materialized".to_string(),
+            registry_value_rows(&rows, |row| row.materialized.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_selection_vector_emitted".to_string(),
+            registry_value_rows(&rows, |row| row.selection_vector_emitted.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_validity_semantics".to_string(),
+            registry_static_rows(&rows, |row| row.validity_semantics),
+        ),
+        (
+            "compressed_kernel_registry_unsupported_kernel_reasons".to_string(),
+            registry_static_rows(&rows, |row| row.unsupported_kernel_reason),
+        ),
+            (
+                "compressed_kernel_registry_encoded_native_claim_allowed".to_string(),
+                false.to_string(),
+            ),
+        (
+            "compressed_kernel_registry_admitted_pair_count".to_string(),
+            admitted_pair_count.to_string(),
+        ),
+        (
+            "compressed_kernel_registry_executed_pair_count".to_string(),
+            executed_pair_count.to_string(),
+        ),
+        (
+            "compressed_kernel_registry_blocked_pair_count".to_string(),
+            blocked_pair_count.to_string(),
+        ),
+        (
+            "compressed_kernel_registry_not_available_pair_count".to_string(),
+            not_available_pair_count.to_string(),
+        ),
+        (
+            "compressed_kernel_registry_claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        (
+            "compressed_kernel_registry_claim_boundary".to_string(),
+            "scoped local prepared/native compressed-kernel registry evidence only; admitted bitpacked/sequence rows classify reader-generated selection-vector inputs, not a broad encoded-native operator, SQL/DataFrame, object-store/lakehouse, production, performance, or Spark-displacement claim".to_string(),
+        ),
+        (
+            "compressed_kernel_registry_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "compressed_kernel_registry_external_engine_invoked".to_string(),
             "false".to_string(),
         ),
     ]
@@ -15330,6 +15718,20 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn assert_field_contains(
+        fields: &std::collections::HashMap<String, String>,
+        name: &str,
+        expected: &str,
+    ) {
+        assert!(
+            fields
+                .get(name)
+                .is_some_and(|value| value.contains(expected)),
+            "{name} should contain {expected}"
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn assert_scan_pushdown_no_fallback(fields: &std::collections::HashMap<String, String>) {
         assert_field_eq(
             fields,
@@ -17648,6 +18050,136 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "compressed_kernel_registry_schema_version",
+            "shardloom.traditional_analytics.compressed_kernel_registry.v1",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_scope",
+            "local_prepared_native_vortex_reader_generated_registry",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_current_surface",
+            "wrap_vortex_concept_with_shardloom_evidence_rows",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_initial_pair_count",
+            "6",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_pairs_classified",
+            "true",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_pair_ids",
+            "bitpacked_boolean_integer_filter",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_pair_ids",
+            "sequence_equality_range_predicate",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_pair_ids",
+            "dictionary_equality_group_by",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_pair_statuses",
+            "executed_selection_vector_filter_input",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_pair_statuses",
+            "executed_selection_vector_range_input",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_pair_statuses",
+            "blocked_dictionary_group_by_contract_pending",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_encoding_ids",
+            "fastlanes.bitpacked|vortex.sequence|vortex.dictionary|vortex.constant|vortex.sorted_statistics|fsst_or_dictionary_string",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_kernel_admitted",
+            "true|true|false|false|false|false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_kernel_executed",
+            "true|true|false|false|false|false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_selection_vector_emitted",
+            "true|true|false|false|false|false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_decoded",
+            "false|false|false|false|false|false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_materialized",
+            "false|false|false|false|false|false",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_unsupported_kernel_reasons",
+            "dictionary_group_by_kernel_contract_pending",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_admitted_pair_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_executed_pair_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_blocked_pair_count",
+            "3",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_not_available_pair_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_encoded_native_claim_allowed",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_claim_gate_status",
+            "not_claim_grade",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
             "fused_pipeline_schema_version",
             "shardloom.traditional_analytics.fused_pipeline.v1",
         );
@@ -17773,6 +18305,41 @@ mod tests {
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_schema_version",
+            "shardloom.traditional_analytics.compressed_kernel_registry.v1",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_initial_pair_count",
+            "6",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_admitted_pair_count",
+            "0",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_executed_pair_count",
+            "0",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_encoded_native_claim_allowed",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_external_engine_invoked",
             "false",
         );
 
