@@ -1377,7 +1377,15 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def output_fields(payload: dict[str, Any]) -> dict[str, str]:
-    return {row["key"]: row["value"] for row in payload.get("fields", [])}
+    fields: dict[str, str] = {}
+    for group in (
+        (payload.get("result") or {}).get("fields", []),
+        payload.get("fields", []),
+    ):
+        for row in group:
+            if isinstance(row, dict) and "key" in row:
+                fields[str(row["key"])] = str(row.get("value"))
+    return fields
 
 
 def value_at(mapping: dict[str, Any], key: str) -> Any:
@@ -1389,6 +1397,13 @@ def rounded(value: Any) -> Any:
     if isinstance(value, float):
         return round(value, 4)
     return value
+
+
+def micros_field_to_millis(fields: dict[str, str], key: str) -> float:
+    try:
+        return round(float(fields.get(key, "0")) / 1000.0, 4)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
@@ -1447,6 +1462,18 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                 "evidence_render_millis": rounded(metrics.get("evidence_render_millis")),
                 "total_runtime_millis": rounded(metrics.get("total_runtime_millis")),
                 "operator_execution_class": result.get("operator_execution_class"),
+                "source_metadata_snapshot_status": evidence.get(
+                    "source_metadata_snapshot_status"
+                ),
+                "source_metadata_snapshot_reused": evidence.get(
+                    "source_metadata_snapshot_reused"
+                ),
+                "source_state_reuse_status": evidence.get("source_state_reuse_status"),
+                "source_state_family_count": evidence.get("source_state_family_count"),
+                "source_state_prepare_micros": evidence.get("source_state_prepare_micros"),
+                "source_state_date_null_metric_reuse_status": evidence.get(
+                    "source_state_date_null_metric_reuse_status"
+                ),
                 "native_io_certificate_status": evidence.get(
                     "native_io_certificate_status"
                 ),
@@ -1553,14 +1580,50 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                 "selected_execution_modes": fields.get("selected_execution_modes"),
                 "runner_kind": fields.get("runner_kind"),
                 "scenario_count": fields.get("scenario_count"),
-                "total_scenario_compute_millis": round(
-                    float(fields.get("total_scenario_compute_micros", "0")) / 1000.0,
-                    4,
+                "scenario_order": fields.get("scenario_order"),
+                "total_scenario_compute_millis": micros_field_to_millis(
+                    fields, "total_scenario_compute_micros"
                 ),
-                "total_vortex_scan_millis": round(
-                    float(fields.get("total_vortex_scan_micros", "0")) / 1000.0,
-                    4,
+                "total_vortex_scan_millis": micros_field_to_millis(
+                    fields, "total_vortex_scan_micros"
                 ),
+                "total_result_sink_write_millis": micros_field_to_millis(
+                    fields, "total_result_sink_write_micros"
+                ),
+                "source_metadata_snapshot_status": fields.get(
+                    "source_metadata_snapshot_status"
+                ),
+                "source_metadata_snapshot_reused": fields.get(
+                    "source_metadata_snapshot_reused"
+                ),
+                "source_metadata_snapshot_reuse_count": fields.get(
+                    "source_metadata_snapshot_reuse_count"
+                ),
+                "source_metadata_digest_recompute_avoided_count": fields.get(
+                    "source_metadata_digest_recompute_avoided_count"
+                ),
+                "source_state_reuse_status": fields.get("source_state_reuse_status"),
+                "source_state_reused": fields.get("source_state_reused"),
+                "source_state_family_count": fields.get("source_state_family_count"),
+                "source_state_reuse_consumer_count": fields.get(
+                    "source_state_reuse_consumer_count"
+                ),
+                "source_state_recompute_avoided_count": fields.get(
+                    "source_state_recompute_avoided_count"
+                ),
+                "source_state_prepare_millis": micros_field_to_millis(
+                    fields, "source_state_prepare_micros"
+                ),
+                "source_state_prepare_timing_scope": fields.get(
+                    "source_state_prepare_timing_scope"
+                ),
+                "source_state_selective_filter_reuse_status": fields.get(
+                    "source_state_selective_filter_reuse_status"
+                ),
+                "source_state_date_null_metric_reuse_status": fields.get(
+                    "source_state_date_null_metric_reuse_status"
+                ),
+                "source_state_claim_boundary": fields.get("source_state_claim_boundary"),
                 "claim_gate_status": fields.get("claim_gate_status"),
                 "fallback_attempted": fields.get("fallback_attempted"),
                 "external_engine_invoked": fields.get("external_engine_invoked"),
@@ -1650,6 +1713,7 @@ def benchmark_available_lanes(summary: dict[str, Any]) -> list[str]:
             lanes.add("shardloom-prepared-vortex")
         if "native_vortex" in selected:
             lanes.add("shardloom-vortex")
+            lanes.add("native-vortex")
     return sorted(lanes)
 
 
@@ -2056,6 +2120,9 @@ def benchmark_page(summary: dict[str, Any]) -> str:
             "Evidence ms",
             "Total ms",
             "Operator class",
+            "Source metadata",
+            "Source-state reuse",
+            "Source-state families",
             "Fallback",
             "External engine",
         ],
@@ -2077,6 +2144,9 @@ def benchmark_page(summary: dict[str, Any]) -> str:
                 value_at(row, "evidence_render_millis"),
                 value_at(row, "total_runtime_millis"),
                 row["operator_execution_class"],
+                value_at(row, "source_metadata_snapshot_status"),
+                value_at(row, "source_state_reuse_status"),
+                value_at(row, "source_state_family_count"),
                 row["fallback_attempted"],
                 row["external_engine_invoked"],
             ]
@@ -2091,6 +2161,13 @@ def benchmark_page(summary: dict[str, Any]) -> str:
             "Scenarios",
             "Scenario compute ms",
             "Vortex scan ms",
+            "Result sink ms",
+            "Source metadata",
+            "Source-state reuse",
+            "Families",
+            "Source-state prep ms",
+            "Selective-filter reuse",
+            "Date/null reuse",
             "Claim gate",
             "Fallback",
             "External engine",
@@ -2104,6 +2181,13 @@ def benchmark_page(summary: dict[str, Any]) -> str:
                 row["scenario_count"],
                 row["total_scenario_compute_millis"],
                 row["total_vortex_scan_millis"],
+                row["total_result_sink_write_millis"],
+                value_at(row, "source_metadata_snapshot_status"),
+                value_at(row, "source_state_reuse_status"),
+                value_at(row, "source_state_family_count"),
+                value_at(row, "source_state_prepare_millis"),
+                value_at(row, "source_state_selective_filter_reuse_status"),
+                value_at(row, "source_state_date_null_metric_reuse_status"),
                 row["claim_gate_status"],
                 row["fallback_attempted"],
                 row["external_engine_invoked"],
@@ -2586,7 +2670,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     <section id="batch">
       <div class="shell">
         <h2>Prepared And Native Batch Smoke</h2>
-        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the single-process batch runner explicit. They are not a persistent daemon or hidden fast mode.</p>
+        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the single-process batch runner explicit. They show source metadata and source-state reuse separately from scenario compute and scan timing. They are not a persistent daemon, hidden fast mode, or performance claim.</p>
         {batch_table}
       </div>
     </section>

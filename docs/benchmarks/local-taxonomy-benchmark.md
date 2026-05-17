@@ -74,20 +74,24 @@ local optional baselines. It keeps managed platforms out, enables ShardLoom
 result-sink proof, includes taxonomy extras when no explicit scenario is
 provided, and rejects fewer than three iterations.
 
-## Prepared/Native Refresh Queue
+## Prepared/Native Evidence Snapshot
 
-`GAR-PERF-1A` tracks the next prepared/native benchmark refresh after the latest
-batch runner and source-state reuse work. That refresh must keep
+`GAR-PERF-1A` refreshed the committed website benchmark snapshot after the
+prepared/native batch runner and source-state reuse work. The snapshot keeps
 `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, and
 batch-runner rows separated. Compatibility-import rows include import, write,
 reopen, scan, and evidence costs; they must not be presented as pure query
 speed.
 
-Fresh artifacts should preserve `source_metadata_snapshot_*`, `source_state_*`,
-`execution_mode`, `claim_gate_status`, materialization/decode, Native I/O,
-`fallback_attempted=false`, and `external_engine_invoked=false` evidence. The
-benchmark remains local pre-release evidence, not a leaderboard, performance
-claim, superiority claim, production claim, or Spark replacement claim.
+The current website artifact preserves `source_metadata_snapshot_*`,
+`source_state_*`, `execution_mode`, `claim_gate_status`,
+materialization/decode, Native I/O, `fallback_attempted=false`, and
+`external_engine_invoked=false` evidence. The expanded direct batch smoke rows
+also expose multi-family source-state reuse, including selective-filter reuse
+and the date/null metric reuse signal for partition-pruning plus null-heavy
+aggregate scenarios. The benchmark remains local pre-release evidence, not a
+leaderboard, performance claim, superiority claim, production claim, or Spark
+replacement claim.
 
 ## Evidence-Level Runtime Tiering Queue
 

@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-1A prepared/native benchmark evidence refresh
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `website/build_static_pages.py`
+    - `website/benchmarks.html`
+    - `website/assets/data/benchmark-evidence.json`
+    - `website/assets/benchmarks/latest/manifest.json`
+    - `website/assets/benchmarks/latest/benchmark-results.json`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: refresh the local prepared/native benchmark evidence after source-state reuse and make
+    source metadata/source-state fields visible in the committed website benchmark artifact.
+  - Checklist:
+    - [x] Regenerate focused local smoke artifacts under `target/shardloom-benchmark-evidence/`
+          for core prepared/native scenarios, dirty CSV, nested JSON, null-heavy aggregate, CDC
+          overlay, direct prepared/native batch rows, and local table metadata smoke.
+    - [x] Preserve separate `compatibility_import_certified`, `prepared_vortex`, `native_vortex`,
+          and direct batch-runner evidence lanes.
+    - [x] Propagate `source_metadata_snapshot_*` and `source_state_*` evidence from the benchmark
+          harness into row metrics and the static website artifact.
+    - [x] Expand the direct batch smoke rows to show multi-family source-state reuse, including
+          selective-filter reuse and date/null metric reuse for partition-pruning plus null-heavy
+          aggregate scenarios.
+    - [x] Keep benchmark framing as local evidence, not a leaderboard, performance claim,
+          superiority claim, production claim, or Spark-displacement claim.
+  - Evidence/verification:
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom,shardloom-prepared-vortex --formats csv --scenario 'selective filter' --scenario 'filter + projection + limit' --scenario 'group by aggregation' --scenario 'hash join' --scenario 'top-N per group' --dataset-profile narrow_fact_dim --rows 10000 --iterations 1 --shardloom-build-profile release --shardloom-result-sink --skip-shardloom-native --data-dir target\benchmark-data\prepared-native-core --output target\shardloom-benchmark-evidence\prepared_native_core.json --markdown-output target\shardloom-benchmark-evidence\prepared_native_core.md --regenerate`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom,shardloom-prepared-vortex --formats csv --scenario 'clean/cast/filter/write' --scenario 'malformed timestamp / dirty CSV' --dataset-profile dirty_csv --rows 10000 --iterations 1 --shardloom-build-profile release --shardloom-result-sink --skip-shardloom-native --data-dir target\benchmark-data\prepared-native-dirty-csv --output target\shardloom-benchmark-evidence\prepared_native_dirty_csv.json --markdown-output target\shardloom-benchmark-evidence\prepared_native_dirty_csv.md --regenerate`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom,shardloom-prepared-vortex --formats jsonl --scenario 'nested JSON field scan' --dataset-profile nested_json --rows 10000 --iterations 1 --shardloom-build-profile release --shardloom-result-sink --skip-shardloom-native --data-dir target\benchmark-data\prepared-native-nested-json --output target\shardloom-benchmark-evidence\prepared_native_nested_json.json --markdown-output target\shardloom-benchmark-evidence\prepared_native_nested_json.md --regenerate`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom,shardloom-prepared-vortex --formats csv --scenario 'null-heavy aggregate' --dataset-profile null_heavy --rows 10000 --iterations 1 --shardloom-build-profile release --shardloom-result-sink --skip-shardloom-native --data-dir target\benchmark-data\prepared-native-null-heavy --output target\shardloom-benchmark-evidence\prepared_native_null_heavy.json --markdown-output target\shardloom-benchmark-evidence\prepared_native_null_heavy.md --regenerate`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom,shardloom-prepared-vortex --formats csv --scenario 'small change over large base' --dataset-profile cdc_delta_overlay --rows 10000 --iterations 1 --shardloom-build-profile release --shardloom-result-sink --skip-shardloom-native --data-dir target\benchmark-data\prepared-native-cdc-overlay --output target\shardloom-benchmark-evidence\prepared_native_cdc_overlay.json --markdown-output target\shardloom-benchmark-evidence\prepared_native_cdc_overlay.md --regenerate`
+    - `python website\build_static_pages.py --benchmark-dir target\shardloom-benchmark-evidence --comparative-dashboard C:\Users\djhei\Projects\spark-retire\docs\shardloom-current-benchmark-dashboard.html`
+  - Claim boundary:
+    - This is a local smoke benchmark evidence refresh only.
+    - It is not a performance, superiority, Spark-displacement, production, SQL/DataFrame,
+      object-store/lakehouse, Foundry, package-publication, or best-default claim.
+  - Fallback boundary:
+    - ShardLoom rows retain `fallback_attempted=false` and `external_engine_invoked=false`.
+    - External engines remain baseline context only and are not fallback execution.
+
 - [x] Session label: GAR-FLOW-2O prepared/native date/null metric source-state reuse
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

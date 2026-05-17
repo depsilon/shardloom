@@ -5375,6 +5375,8 @@ def successful_result_from_iterations(
                 ),
             }
         )
+        for field in BATCH_RUNNER_ADMISSION_FIELDS:
+            metrics.setdefault(field, evidence.get(field))
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,

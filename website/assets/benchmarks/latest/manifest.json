@@ -6,6 +6,7 @@
   },
   "artifact_status": "complete",
   "available_lanes": [
+    "native-vortex",
     "shardloom",
     "shardloom-prepared-vortex",
     "shardloom-vortex"
@@ -25,21 +26,20 @@
     "shardloom-vortex",
     "native-vortex"
   ],
-  "generated_at_utc": "2026-05-15T07:06:07.720206+00:00",
+  "generated_at_utc": "2026-05-17T18:37:49.134329+00:00",
   "lane_availability_reasons": {
-    "native-vortex": "not present in current committed smoke artifact; run the full benchmark publishing workflow before treating this as full-local evidence",
+    "native-vortex": "available in committed website benchmark artifact",
     "shardloom": "available in committed website benchmark artifact",
     "shardloom-prepared-vortex": "available in committed website benchmark artifact",
     "shardloom-vortex": "available in committed website benchmark artifact"
   },
   "lane_versions": {
+    "native-vortex": "from committed artifact",
     "shardloom": "from committed artifact",
     "shardloom-prepared-vortex": "from committed artifact",
     "shardloom-vortex": "from committed artifact"
   },
-  "missing_lanes": [
-    "native-vortex"
-  ],
+  "missing_lanes": [],
   "missing_required_lanes": [],
   "performance_claim_allowed": false,
   "schema_version": "shardloom.website_benchmark_manifest.v1",
