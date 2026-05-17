@@ -66,6 +66,13 @@ profile, coverage, adapter-certification, correctness, benchmark, execution-cert
 workload, materialization, effect-policy, governance, protocol-parity, and no-fallback evidence
 exists.
 
+Source-free generated-output workflows are tracked separately by `GAR-GEN-1`. The capability model
+must distinguish `no_dataset_smoke` from future `user_generated_source` and
+`engine_native_generated_source` rows so Python, SQL, and DataFrame-style affordances can advertise
+planned `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`, SQL literal `SELECT`, SQL
+`VALUES`, and local write posture without claiming broad SQL/DataFrame runtime or object-store
+write support.
+
 The gate is report-only. It performs no SQL parsing/execution, DataFrame runtime work, UDF/plugin
 execution, OCR/transcription/embedding/LLM calls, adapter runtime work, external API calls, catalog
 probes, object-store I/O, writes, external engine invocation, or fallback execution.
@@ -75,6 +82,7 @@ probes, object-store I/O, writes, external engine invocation, or fallback execut
 - No SQL parser implementation.
 - No SQL execution implementation.
 - No DataFrame API implementation.
+- No source-free generated-output runtime implementation.
 - No Python wrapper implementation.
 - No adapter runtime implementation.
 - No unstructured media runtime implementation.
@@ -395,6 +403,30 @@ R5.4.5 outcome:
   certificate evidence to adapter certification.
 - External source pushdown is explicitly proof-backed source behavior, not hidden fallback
   execution.
+- `GAR-PERF-2C` carries the future Vortex Scan pushdown completion matrix. Capability rows should
+  classify prepared/native scenario families as pushdown-supported, partially supported, not needed,
+  blocked, or unsupported for filter, projection, and limit/slice independently. Filter-only columns
+  and output-column read sets must remain visible, and pushdown evidence must not be promoted to an
+  encoded-native operator claim without later certificates.
+- `GAR-PERF-2D` carries the future compressed/encoded kernel registry. Capability rows should
+  classify encoding/operator pairs independently, keep `kernel_admitted`, `kernel_executed`,
+  `canonicalization_required`, `decoded`, `materialized`, and `encoded_native_claim_allowed`
+  visible, and block unsupported encodings deterministically without fallback.
+- `GAR-PERF-2B` carries the future evidence-aware logical optimizer. Capability rows should
+  classify optimizer rules as admitted, applied, blocked, unsupported, not applicable, or report-only
+  with before/after plan digests, rewrite safety, evidence-preservation, materialization-boundary,
+  no-fallback, and claim-gate fields.
+- `GAR-PERF-2G` carries the future allocation and buffer-pool optimization contract. Capability
+  rows should classify allocation profiling and buffer reuse as supported, scoped, not measurable,
+  blocked, unsupported, or not needed per buffer family, while keeping correctness/evidence parity,
+  `unsafe_lifetime_shortcut_used=false`, no-fallback status, and claim gates visible.
+- `GAR-IOREUSE-1` carries the future reusable I/O state and cross-format fanout contract.
+  Capability rows should classify SourceState, VortexPreparedState, OutputPlan, cache
+  invalidation, reuse levels, and local fanout as supported, report-only, blocked, unsupported, or
+  not needed per source/output family. SourceState reuse is preparation evidence only,
+  VortexPreparedState reuse is preparation artifact evidence only, and OutputPlan reuse is sink
+  planning evidence only; none of them upgrades claim status or implies object-store/lakehouse,
+  Foundry, SQL/DataFrame, production, or performance support.
 - No adapter runtime, object-store IO, file-format dependency, catalog dependency, execution
   behavior, or fallback behavior is added.
 

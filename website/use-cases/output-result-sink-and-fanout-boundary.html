@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Output and fanout boundary | ShardLoom Use Cases</title>
+  <meta name="description" content="ShardLoom use-case posture for Output and fanout boundary.">
+  <link rel="canonical" href="https://shardloom.io/use-cases/output-result-sink-and-fanout-boundary">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="Output and fanout boundary | ShardLoom Use Cases">
+  <meta property="og:description" content="ShardLoom use-case posture for Output and fanout boundary.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/output-result-sink-and-fanout-boundary">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="" href="/field-guide/">Field Guide</a>
+<a class="active" aria-current="page" href="/use-cases/">Use Cases</a>
+<a class="" href="/benchmarks">Telemetry</a>
+<a class="" href="/compute-engine-flow">Compute Flow</a>
+<a class="" href="/status">Status</a>
+<a class="" href="/readme">Docs</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="doc-hero use-case-hero">
+      <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        <p class="eyebrow">Use Case Atlas</p>
+        <h1>Output and fanout boundary</h1>
+        <p class="lede">Output and fanout boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+        <span class="claim-badge fixture">smoke supported</span>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell use-case-layout">
+        <article class="doc-body">
+          <h2>Plain-English Summary</h2>
+          <p>Output and fanout boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+          <h2>Status Table</h2>
+          <div class="table-scroll"><table>
+<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Status</td><td>smoke supported</td></tr>
+<tr><td>Audience</td><td>user asking what ShardLoom can write today and what fanout means</td></tr>
+<tr><td>Execution mode</td><td>compatibility_import_certified</td></tr>
+<tr><td>Engine mode</td><td>batch</td></tr>
+<tr><td>Platform</td><td>local</td></tr>
+<tr><td>Evidence level</td><td>result-sink</td></tr>
+<tr><td>Inputs</td><td>local_benchmark_fixture, prepared_vortex_artifact</td></tr>
+<tr><td>Outputs</td><td>local_result_sink_artifact, output_certificate, planned_multi_format_fanout</td></tr>
+</tbody></table></div>
+          <h2>Quick Example</h2><pre><code data-language="powershell">python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1</code></pre>
+          
+          <h2>Internal Flow</h2>
+          <div class="use-case-flow"><article><strong>Inputs</strong><span>local_benchmark_fixture, prepared_vortex_artifact</span></article><article><strong>Execution mode</strong><span>compatibility_import_certified</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>local_result_sink_artifact, output_certificate, planned_multi_format_fanout</span></article><article><strong>Evidence</strong><span>result_sink_write_millis, result_replay_verified, output_native_io_certificate_status, output_format, output_plan_reuse_hit, claim_gate_status, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>Result-sink smoke is local and scoped; cross-format fanout, S3/object-store write, table commits, and production sink support remain planned or blocked.</span></article></div>
+          <h2>Expected Evidence Fields</h2>
+          <ul><li>result_sink_write_millis</li><li>result_replay_verified</li><li>output_native_io_certificate_status</li><li>output_format</li><li>output_plan_reuse_hit</li><li>claim_gate_status</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li></ul>
+          <h2>Expected Output Or Evidence</h2>
+          <p>A local result-sink proof artifact and future fanout fields only when admitted by GAR-IOREUSE slices.</p>
+          <h2>Common Mistakes</h2>
+          <ul><li>coupling_input_format_to_output_format</li><li>treating_local_sink_as_s3_write</li><li>assuming_lakehouse_commit</li></ul>
+          <h2>Reference Files</h2>
+          <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/io-reuse-and-fanout-architecture.md"><code>docs/architecture/io-reuse-and-fanout-architecture.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/local-taxonomy-benchmark.md"><code>docs/benchmarks/local-taxonomy-benchmark.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/examples/local-vortex-benchmark/README.md"><code>examples/local-vortex-benchmark/README.md</code></a></li></ul>
+          <h2>Related Use Cases</h2>
+          <div class="related-use-cases"><a class="related-use-case" href="/use-cases/compatibility-import-certified-local"><span>smoke supported</span><strong>Compatibility import certified local workload</strong></a><a class="related-use-case" href="/use-cases/source-free-generated-output-boundary"><span>planned</span><strong>Source-free generated output boundary</strong></a><a class="related-use-case" href="/use-cases/object-store-boundary-report"><span>blocked</span><strong>Object-store and cloud storage boundary</strong></a></div>
+        </article>
+      </div>
+    </section>
+    </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>Independent downstream Vortex-first workflow layer; not an official Vortex project or Vortex-endorsed.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

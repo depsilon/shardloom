@@ -99,7 +99,21 @@ or claim.
 | Layer | Current repo state | Planned updates | Claim boundary |
 | --- | --- | --- | --- |
 | User access | CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces and thin adapters are report-only or planned. | Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope. | No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. |
+| Adoption and commercial readiness | Source-local dry-run proof, first-10-minutes docs, website/status, and public-preview posture exist, but public package publication and channel readiness are incomplete. | GAR-COMMERCIAL-1 turns local proof, package channels, buyer-facing status, evidence export, Foundry starter, and recipes into claim-safe adoption surfaces. | Adoption surfaces reduce evaluation friction only; they do not authorize production, package release, performance, Spark-replacement, SQL/DataFrame, object-store/lakehouse, or Foundry claims. |
+| Universal compatibility coverage | `docs/architecture/universal-compatibility-coverage-scoreboard.md` now provides a report-only map for local files, Vortex, generated/source-free outputs, Python rows/DataFrame, SQL literals/VALUES, databases, warehouses, object stores, table formats, REST/Flight/ADBC, and Foundry. | GAR-COMPAT-1 promotes the map into typed website/status and Python capability surfaces while preserving blocked/report-only rows. | Compatibility coverage is a capability map, not a production, performance, Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, or package-readiness claim. |
+| I/O reuse and cross-format fanout | Prepared/native rows reuse selected source metadata and scenario-family source-state, but source discovery, schema/dtype inference, parse planning, Vortex preparation, output planning, and sink artifact evidence are not yet modeled as a universal reusable path across input and output formats. | GAR-IOREUSE-1 defines `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`, benchmark families for `io_reuse_and_fanout`, `source_state_reuse`, `prepared_state_reuse`, `output_plan_reuse`, `cross_format_output`, and `generated_source_output`, plus cache invalidation and evidence-safe reuse levels. | Input and output formats remain decoupled. Reuse/fanout evidence is not Vortex-native execution by itself, not output support by itself, not a performance claim, and not object-store/lakehouse or Foundry production support. |
+| Source-free generated output | No-input smoke/capability behavior exists, and benchmark synthetic fixtures exist, but ShardLoom does not yet expose a first-class generated-output runtime for user rows or engine-native generator nodes. SQL/DataFrame/query-builder posture is report-only. | GAR-GEN-1 adds the planned `GeneratedSourceCertificate` contract, separates `no_dataset_smoke` from generated-output execution, and stages future Python, SQL, and DataFrame-style generated-source APIs. | No source Native I/O certificate is claimed when no source dataset is read. Local generated output needs generated-source evidence plus output sink evidence. S3/object-store and Foundry generated-output runtime remain report-only/gated. |
+| Evidence exports and confidence | Evidence artifacts, protocol parity rows, and internal timing fields exist. OpenLineage and OpenTelemetry posture is report-only; Bayesian confidence is not implemented. | GAR-NOVEL-1 defines report-only OpenLineage facets, OpenTelemetry span mapping, and Bayesian claim-confidence fields, all opt-in and no-network by default. | Export and confidence surfaces cannot upgrade runtime support, production readiness, performance, or claim status. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
+| Runtime evidence level | Full certificate and result-sink proof paths exist for scoped workflows, but `minimal_runtime`, `certified`, and `full_replay` are not yet first-class envelope/benchmark fields. | GAR-PERF-2A adds evidence-level runtime tiering so benchmark rows and API views can distinguish proof overhead from execution mode. | Every evidence level must keep `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status` visible. `minimal_runtime` is `not_claim_grade` unless a future scoped gate approves otherwise. |
+| Evidence-aware logical optimizer | Execution modes, Plan IR, explain/estimate diagnostics, and report-only adaptive optimizer/memory planning exist, but no general optimizer rule registry or rewrite trace is claimable. | GAR-PERF-2B adds an optimizer rule registry and report-only optimizer trace for predicate/projection/slice pushdown, common subplan/source-state reuse, expression simplification, constant folding, type coercion, join ordering, and cardinality estimation. | Optimizer trace evidence must preserve before/after plan digests, rewrite safety, evidence, materialization, no-fallback, and claim gates. It is not Polars/DataFusion parity, broad SQL/DataFrame runtime, or performance evidence. |
+| Vortex Scan pushdown | Prepared/native rows expose scoped `source_backed_scan_*` evidence, but filter/projection/limit pushdown is not complete or uniformly classified across every scenario family. | GAR-PERF-2C maps each prepared/native family to Vortex Scan filter/projection/limit evidence or a deterministic blocker, including filter-only versus output column read sets. | Pushdown evidence is source/provider-boundary evidence only. It is not an encoded-native operator claim, broad Source/Split runtime claim, SQL/DataFrame claim, object-store/lakehouse claim, or performance claim. |
+| Compressed/encoded kernel registry | Scoped selective-filter encoded-predicate provider evidence exists, but encoded-native operator coverage is not broad and encoding/operator support is not yet a uniform registry. | GAR-PERF-2D adds a registry for bitpacked filter, sequence predicates, dictionary equality/group-by, constant array count/filter, sorted min/max pruning, and FSST/dictionary string equality where available. | Registry admission is not encoded-native support. Rows must keep canonicalization, decode, materialization, validity, no-fallback, and claim-gate evidence visible. |
+| Fused operator pipeline | Prepared/native rows increasingly use residual-native state over projected Vortex scans, and narrow fields such as `filter_project_limit_fused` exist, but broad fused pipeline evidence is not yet uniform. | GAR-PERF-2E adds fused local prepared/native residual pipelines for filter/projection/limit, filter/aggregate, filter/group-by, and top-k/projection families with correctness digest parity or deterministic blockers. | Fusion evidence is scoped residual-native runtime evidence only. It is not an encoded-native operator claim, broad SQL/DataFrame claim, object-store/lakehouse claim, production claim, or public performance claim. |
+| In-process session runtime | `ShardLoomSessionModelReport` exists as report-only explicit session/registry posture, and the scoped prepared/native batch runner reuses selected source metadata/source-state inside one process. A general reusable `ShardLoomSession` runtime is not formalized. | GAR-PERF-2F adds a scoped in-process `ShardLoomSession` design and possible local prepared/native implementation with prepared artifact registry, source metadata cache, source-state cache, schema/dictionary cache, buffer pool, kernel registry, and evidence recorder. | Session support is local, caller-owned, and explicit-close only. It is not a daemon/service, remote server, hidden global cache, production claim, or performance/superiority claim. |
+| Allocation and buffer-pool optimization | Resource metrics exist in benchmark posture, but no global allocation profiling or buffer-pool optimization pass is claimable across prepared/native runtime paths. | GAR-PERF-2G adds allocation profiling and scoped buffer-reuse planning for result buffers, temporary vectors, hash tables, dictionary/string state, and source-state arrays. | Allocation and buffer-pool evidence is resource-profile evidence only. Buffer reuse must be opt-in or scoped, preserve correctness/evidence parity, prohibit unsafe lifetime shortcuts, and avoid performance or memory-efficiency claims. |
+| Optimized build profiles and PGO | The benchmark harness records `shardloom_build_profile`, but no formal `release-lto`, `release-pgo`, or `release-native-benchmark` lane is established. | GAR-PERF-2H adds explicit optimized build-profile planning, PGO workflow evidence, and host-native benchmark-only boundaries. | Build-profile evidence is compiler/config evidence only. `target-cpu=native` is benchmark-only, portable release artifacts stay portable, and optimized builds do not create performance or release claims. |
+| Native microbenchmarks | The traditional analytics harness has an optional ShardLoom native microbenchmark lane for current count/projection/filter-style primitives, but older artifacts can show native rows as skipped and coverage is not yet complete for group-by, hash join, top-k, result-sink write, or evidence-render primitives. | GAR-PERF-2I expands native microbenchmark rows for kernel/subsystem optimization visibility. | Native microbenchmarks are subsystem evidence only. They are not end-to-end performance, superiority, Spark-replacement, SQL/DataFrame, object-store/lakehouse, Foundry, or production claims. |
 | Prepared/native batch runtime | Scoped local paths for selective filter, wide projection, filter/project/limit, grouped aggregates, joins, distinct count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, top-N, row-number, high-cardinality string group/distinct, and partition-pruning/date-range scans avoid full fact-table materialization in prepared/native rows. Prepared/native rows now emit explicit `source_backed_scan_*` evidence for local source roles, projected columns, residual executor, Native I/O certificate status, materialization boundary, and no-fallback status. `traditional-analytics-vortex-batch-run` also reuses one per-batch Vortex source metadata snapshot for caller-supplied fact/dim/CDC artifacts and emits `source_metadata_snapshot_*` evidence so repeated child scenarios do not recompute artifact size/digest metadata. Hash-join and join-aggregate child scenarios share one per-batch dimension-label lookup state when both are present; distinct-count and high-cardinality string-group/distinct child scenarios share one per-batch category/metric grouped state when both are present; group-by aggregation and multi-key group-by child scenarios share one per-batch group/category/metric grouped state when both are present; sort/top-k, top-N per group, and row-number/window child scenarios share one per-batch ranked-metric state when multiple ranked consumers are present; selective-filter and filter/projection/limit child scenarios share one per-batch filtered `id,value,metric` state when both are present; clean/cast/filter/write and malformed timestamp / dirty CSV child scenarios share one per-batch dirty-input cleanup state when both are present. The batch envelope emits aggregate and family-specific `source_state_*` fields plus `source_state_prepare_micros` evidence so shared setup cost is visible. `compute-capability-matrix` aligns grouped aggregate, join, and row-number/window with that scoped residual-native fixture evidence while keeping `operator_encoded_native_claim_allowed=false`. Selective-filter rows also emit `encoded_predicate_provider_*` v4 fields, record projected reader chunks, separately capture real `flag,value` reader chunks without decode/materialization, lower observed `flag:fastlanes.bitpacked` and `value:vortex.sequence` chunks into admitted reader-generated encoded kernel inputs, intersect their selection vectors, and consume the admitted selection vector for scoped metric `row_count`/`metric_sum` evidence through `encoded_predicate_provider_selected_metric_*` fields. Batch selective-filter reuse may instead report `batch_source_state_metric_aggregation_used` to show that the metric aggregate came from the shared filtered state, not an encoded-native operator. CPU specialization reports record side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work is generalized encoded/native operator coverage, broader metric aggregation certificates, broader batch source-state reuse beyond these scoped families, and claim-grade correctness/benchmark gates. | These paths are residual-native unless evidence says otherwise; source metadata and dimension-label/category-metric/group-category-metric/ranked-metric/selective-filter/dirty-input source-state reuse are runtime plumbing evidence only, not a performance, encoded-native, SQL/DataFrame, production, distributed sort, SIMD-dispatch, object-store pruning, layout/statistics pruning, broad CDC/table transaction, or broad performance claim. |
 | Batch engine mode | Bounded/snapshot local Vortex analytics are the practical execution foundation. | Broader operator/source/sink coverage plus correctness and benchmark claim gates. | Batch support is scoped to evidence-backed workloads. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. | Fixture evidence only; no production live claim. |
@@ -195,6 +209,7 @@ flowchart TD
     subgraph REQUEST_PHASE["1. Request binding"]
         REQUEST["Typed request<br/>query / workload / downstream intent"]
         SOURCE["Source descriptors<br/>format / schema / URI / pushdown"]
+        GENERATED_SOURCE["Generated source declaration<br/>range / values / literal rows / calendar"]
         OUTPUT_INTENT["Output intent<br/>result / Vortex artifact / export / platform ref"]
     end
 
@@ -217,18 +232,21 @@ flowchart TD
     subgraph OUTPUT_PHASE["4. Output and evidence"]
         RESULT["Result stream / scalar / result ref"]
         SINK["Sink and materialization boundary"]
+        GENERATED_CERT["GeneratedSourceCertificate<br/>when input_dataset_count=0 and generated rows exist"]
         EVIDENCE["Evidence bundle<br/>certificates / diagnostics / benchmark rows / traces"]
         CLAIM["Claim gate<br/>claim_grade / fixture_smoke_only / not_claim_grade"]
         ENVELOPE["Typed output envelope"]
     end
 
     REQUEST --> SOURCE
+    REQUEST --> GENERATED_SOURCE
     REQUEST --> OUTPUT_INTENT
     SOURCE --> POLICY --> CAPABILITY --> SEMANTICS --> MODE --> ENGINE
+    GENERATED_SOURCE --> POLICY
     OUTPUT_INTENT --> MODE
     ENGINE --> BOUNDARY --> PLAN --> ADMISSION
     ADMISSION -->|"unsupported"| DIAGNOSTIC --> EVIDENCE
-    ADMISSION -->|"supported"| EXECUTE --> RESULT --> SINK --> EVIDENCE
+    ADMISSION -->|"supported"| EXECUTE --> RESULT --> SINK --> GENERATED_CERT --> EVIDENCE
     EVIDENCE --> CLAIM --> ENVELOPE
 ```
 
@@ -394,7 +412,20 @@ flowchart LR
     subgraph CLAIMS["Evidence and claims"]
         TIMING["Benchmark timing ledger"]
         BASELINE["External baseline/oracle<br/>comparison only"]
+        MICROBENCH["Native microbenchmark rows<br/>subsystem evidence only"]
+        EVIDENCE_LEVEL["Evidence level<br/>minimal_runtime / certified / full_replay"]
+        OPTIMIZER_TRACE["Optimizer trace<br/>rule registry + plan digests"]
+        SCAN_PUSHDOWN["Vortex Scan pushdown evidence<br/>filter / projection / limit"]
+        ENCODED_KERNEL["Encoded kernel registry<br/>encoding/operator admission"]
+        FUSED_PIPELINE["Fused residual pipeline evidence<br/>row counts + correctness parity"]
+        SESSION["ShardLoomSession evidence<br/>session/cache lifecycle"]
+        IO_REUSE["I/O reuse + fanout evidence<br/>SourceState / PreparedState / OutputPlan"]
+        RESOURCE_PROFILE["Allocation / buffer-pool evidence<br/>resource metrics + correctness"]
+        BUILD_PROFILE["Build profile evidence<br/>LTO / PGO / native benchmark"]
         EVIDENCE["Evidence bundle<br/>correctness / Native I/O / materialization / policy"]
+        LINEAGE["OpenLineage facets<br/>report-only / opt-in"]
+        TELEMETRY["OpenTelemetry spans<br/>report-only / opt-in"]
+        CONFIDENCE["Bayesian confidence<br/>advisory only"]
         CLAIM["Claim gate"]
         ENVELOPE["Typed output envelope"]
     end
@@ -412,8 +443,22 @@ flowchart LR
     RESULT --> TABLE_COMMIT --> EVIDENCE
     RESULT --> OBJECT_WRITE --> EVIDENCE
     RESULT --> REST_EVENT --> EVIDENCE
-    EXECUTE --> TIMING --> EVIDENCE
+    EXECUTE --> SESSION --> TIMING --> EVIDENCE_LEVEL --> EVIDENCE
+    EXECUTE --> OPTIMIZER_TRACE --> TIMING
+    EXECUTE --> SCAN_PUSHDOWN --> TIMING
+    EXECUTE --> ENCODED_KERNEL --> TIMING
+    EXECUTE --> FUSED_PIPELINE --> TIMING
+    EXECUTE --> IO_REUSE --> TIMING
+    IO_REUSE --> VORTEX_SINK
+    IO_REUSE --> COMPAT_EXPORT
+    EXECUTE --> RESOURCE_PROFILE --> TIMING
+    EXECUTE --> BUILD_PROFILE --> TIMING
+    EXECUTE --> MICROBENCH --> EVIDENCE
     BASELINE -.-> EVIDENCE
+    EVIDENCE --> LINEAGE
+    EVIDENCE --> TELEMETRY
+    TIMING --> CONFIDENCE
+    CONFIDENCE --> CLAIM
     EVIDENCE --> CLAIM --> ENVELOPE
 
     ENVELOPE --> CLI_RESULT["CLI access result"]
@@ -438,6 +483,16 @@ End-to-end contract:
   usage before execution.
 - CLI access is the current canonical user and automation entrypoint. Wrappers and planned adapters
   must preserve the typed protocol instead of creating independent execution semantics.
+- OpenLineage and OpenTelemetry surfaces are planned/report-only and opt-in. They map ShardLoom
+  evidence into external observability/lineage shapes; they do not emit network events, configure
+  exporters, invoke backends, or authorize runtime support by default.
+- Bayesian confidence is advisory. It can identify uncertainty and block performance/release claims,
+  but it cannot upgrade `claim_gate_status` without the existing correctness, benchmark,
+  execution-certificate, Native I/O, materialization, policy, and no-fallback evidence.
+- Evidence level is independent from execution mode and engine mode. `minimal_runtime`,
+  `certified`, and `full_replay` describe proof depth, not hidden execution semantics. Every level
+  must keep `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`
+  visible.
 - SQL/DataFrame access currently exposes a report-only planner-readiness matrix through
   `capabilities sql`, `capabilities dataframe`, and Python `CapabilityView` accessors. It names
   SQL parse/bind/plan/execute and DataFrame lazy-plan/expression/join/aggregate/window readiness
@@ -453,6 +508,86 @@ End-to-end contract:
   execution mode, fallback engine, or unverified sink.
 - Public claims are allowed only after the claim gate sees the required correctness, benchmark,
   execution-certificate, Native I/O, materialization/decode, policy, and no-fallback evidence.
+
+## Source-Free Generated Output
+
+Source-free generated output is a planned first-class flow for requests that create output without
+reading an input dataset. It is distinct from no-input smoke and from benchmark fixture generation.
+
+The governing GAR item is `GAR-GEN-1 source-free generated-output execution and
+GeneratedSourceCertificate`.
+
+### Case Split
+
+| Case | Meaning | Current posture | Evidence boundary |
+| --- | --- | --- | --- |
+| `no_dataset_smoke` | Status, capability, or proof command runs with no input dataset and no output data execution. | Existing smoke/proof behavior. | No source Native I/O certificate, no generated rows, no output data claim. |
+| `user_generated_source` | User Python code creates rows, then ShardLoom consumes those rows as a generated/literal source. | Planned. | Deterministic claim only when row creation, schema digest, row count, plan digest, sink evidence, and no-fallback evidence exist. |
+| `engine_native_generated_source` | ShardLoom plan contains generator nodes such as `range`, `sequence`, `values`, `literal_table`, calendar/date dimension generation, or a deterministic synthetic profile. | Planned. | ShardLoom-native generator execution must emit generated-source, output, materialization, and no-fallback evidence. |
+
+### Planned API Shape
+
+Python and future adapter surfaces should converge on one generated-source contract:
+
+```python
+ctx.range(0, 1000).with_column(...).write(...)
+ctx.from_rows([...]).write(...)
+ctx.literal_table(...).write(...)
+ctx.calendar(...).write(...)
+```
+
+SQL posture should eventually classify:
+
+```sql
+SELECT 1 AS value;
+VALUES (1, 'alpha'), (2, 'beta');
+```
+
+as source-free literal/projection forms when a SQL parser, binder, planner, generator runtime, and
+output sink have evidence. Until then, SQL literal `SELECT`, SQL `VALUES`, source-free projection,
+and optional `generate_series`/`range` vocabulary stay report-only capability rows.
+
+DataFrame-style builder methods should classify source-free builders and local writes without
+implying broad DataFrame runtime. A future DataFrame method matrix row may be runtime-supported only
+for the exact generated-source and local-output slice that has evidence.
+
+### Required Generated-Source Evidence Fields
+
+Future generated-output runtime must report at least:
+
+```text
+input_dataset_count=0
+source_io_performed=false
+generated_source_created=true
+generated_source_kind
+generated_source_schema_digest
+generated_source_row_count
+generated_source_plan_digest
+generated_source_seed
+generation_deterministic
+output_io_performed
+output_native_io_certificate_status
+generated_source_certificate_status
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status
+```
+
+No source Native I/O certificate is claimed when no source dataset was read. Output evidence still
+matters: generated output is not claimable unless the sink path reports what was written, where it was
+written, which materialization/decode boundaries applied, and whether a Native I/O output certificate
+exists.
+
+### S3, Object-Store, And Foundry Boundary
+
+S3 and object-store generated-output paths remain report-only/gated until a later object-store phase
+adds credential, network, write, commit, retry, and certificate evidence. `GAR-GEN-1` does not allow
+credential resolution, network probing, S3 reads, S3 writes, object-store commits, lakehouse writes,
+or object-store performance claims.
+
+Foundry generated-output smoke is a separate future proof target. It should write through Foundry
+output APIs, not direct S3/object-store paths, and it must not imply Foundry production support,
+Foundry certification, or third-party platform endorsement.
 
 ## Execution Modes And Engine Modes
 
@@ -920,6 +1055,232 @@ typed envelopes, execution-mode evidence, Native I/O refs, operator blocker
 fields, materialization/decode boundaries, result-sink replay evidence,
 deterministic unsupported diagnostics, and no-fallback fields per run.
 
+`GAR-PERF-1` is the planned prepared/native performance architecture layer. It separates four
+follow-ups:
+
+- `GAR-PERF-1A`: refresh local prepared/native benchmark evidence after source-state reuse, keeping
+  benchmark output framed as evidence rather than a leaderboard.
+- `GAR-PERF-1B`: inventory source-state reuse coverage for every traditional analytics scenario
+  family as reused, not needed, blocked, or unsupported.
+- `GAR-PERF-1C`: implement or deterministically block a fused filter/project/limit plus
+  selection-vector metric path without overclaiming encoded-native execution.
+- `GAR-PERF-1D`: define a report-only Bayesian performance and layout advisor that never silently
+  changes mode or upgrades claim status.
+
+Those slices may improve attribution and local runtime evidence, but they do not authorize
+performance, superiority, Spark-displacement, production, SQL/DataFrame, object-store/lakehouse, or
+encoded-native claims without workload-scoped evidence and claim gates.
+
+`GAR-PERF-2A` is the planned evidence-level runtime tiering layer. It separates proof depth from
+execution mode:
+
+- `minimal_runtime`: runtime/development rows with required no-fallback policy fields and no heavy
+  result-sink replay unless requested; default `claim_gate_status=not_claim_grade`.
+- `certified`: normal certificate-bearing execution for scoped local evidence.
+- `full_replay`: certified evidence plus result-sink write/reopen/replay proof.
+
+Evidence level must appear beside `execution_mode`, not replace it. This lets benchmark readers see
+proof overhead without treating evidence-light rows as public performance rankings or claim-grade
+evidence.
+
+`GAR-PERF-2B` is the planned evidence-aware logical optimizer layer. It adds an optimizer rule
+registry and report-only optimizer trace over ShardLoom Plan IR. The first rule families are:
+
+- predicate pushdown.
+- projection pushdown.
+- slice/limit pushdown.
+- common subplan/source-state reuse.
+- expression simplification.
+- constant folding.
+- type coercion.
+- join ordering.
+- cardinality estimation.
+
+Optimizer trace rows should expose optimizer trace ID, registry version, phase, rule ID/family,
+admitted/applied/blocked/unsupported/not-applicable/report-only status, before/after plan digests,
+rewrite safety, `evidence_preserved=true`, `no_fallback_preserved=true`,
+`claim_boundary_preserved=true`, materialization boundary preservation, source-state reuse
+admission, cardinality estimates and estimation status, correctness smoke ref, no-fallback status,
+and a claim gate. An applied rewrite must preserve semantic, evidence, materialization/decode, and
+claim boundaries and must never call Polars, DataFusion, DuckDB, Spark, or another external engine
+as optimizer or execution fallback.
+
+Optimizer trace evidence is explainability and rewrite-safety evidence only. It does not authorize
+broad SQL/DataFrame runtime, Polars/DataFusion parity, performance, superiority,
+Spark-displacement, production, object-store/lakehouse, Foundry, package, or release claims.
+
+`GAR-PERF-2C` is the planned Vortex Scan API pushdown completion layer. It promotes existing
+`source_backed_scan_*` evidence into a complete per-scenario-family pushdown/blocker contract for:
+
+- filter pushdown.
+- projection pushdown.
+- limit/slice pushdown.
+- filter-only column read sets.
+- output column read sets.
+- materialization/decode boundaries.
+
+Every prepared/native scenario family should either map its filter/projection/limit intent into the
+Vortex Scan/source-backed boundary or emit a deterministic blocker. Filter-only columns may be read
+to evaluate predicates, but they must not appear in output streams unless requested. Unsupported
+expressions remain ShardLoom-native residual work or deterministic blockers; they must not be routed
+through Spark, DataFusion, DuckDB, Polars, Velox, or another external engine. Scan pushdown evidence
+does not imply encoded-native operator execution, generalized Source/Split runtime, object-store or
+table scans, SQL/DataFrame execution, production readiness, or public performance.
+
+`GAR-PERF-2D` is the planned compressed/encoded kernel registry layer. It turns scoped
+encoded-predicate evidence into explicit encoding/operator registry rows for:
+
+- bitpacked boolean/integer filter.
+- sequence equality/range predicate.
+- dictionary equality/group-by.
+- constant array count/filter.
+- sorted min/max range pruning.
+- FSST/dictionary string equality where available.
+
+Registry rows must expose `encoding_id`, logical dtype, physical encoding, operator family,
+`kernel_admitted`, `kernel_executed`, `canonicalization_required`, `decoded`, `materialized`,
+selection-vector behavior, validity semantics, `encoded_native_claim_allowed`, no-fallback status,
+and a claim gate. Unsupported encodings must be deterministic blockers. Registry admission alone is
+not encoded-native operator support; encoded-native claims remain blocked until the full path proves
+correctness, representation state, materialization/decode boundaries, certificates, and no-fallback
+evidence.
+
+`GAR-PERF-2E` is the planned fused operator pipeline layer. It turns selected prepared/native
+residual-native paths into explicit fused pipeline evidence for:
+
+- filter + projection + limit.
+- filter + aggregate.
+- filter + group-by.
+- top-k with projection.
+
+Fused rows must expose `fused_pipeline_used`, `fused_operator_family`,
+`intermediate_materialization_avoided`, `rows_scanned`, `rows_selected`, `rows_output`, fused and
+unfused correctness digests, materialization/decode status, no-fallback status, and a claim gate.
+Fusion applies only when a ShardLoom-native fused path produces the same correctness digest as the
+unfused ShardLoom-native path. Unsafe or unsupported fusion must be a deterministic blocker. Fusion
+evidence does not imply encoded-native operator execution, broad operator coverage, SQL/DataFrame
+runtime, object-store/lakehouse support, production readiness, or public performance.
+
+`GAR-PERF-2F` is the planned in-process `ShardLoomSession` runtime layer. It connects the existing
+report-only `ShardLoomSessionModelReport` and scoped prepared/native batch runner into a caller-owned
+local session for prepared/native artifacts. A session may carry:
+
+- prepared artifact registry.
+- source metadata cache.
+- source-state cache.
+- schema cache.
+- dictionary cache.
+- buffer pool.
+- kernel registry.
+- evidence recorder.
+
+Session-backed rows must expose `session_id`, cache hit/miss fields, source-state reuse count,
+prepared-artifact reuse count, close/drop status, `fallback_attempted=false`, and
+`external_engine_invoked=false`. Session support is not a daemon, service, remote server, hidden
+global cache, production claim, or performance claim.
+
+`GAR-IOREUSE-1` is the planned reusable I/O state and cross-format output fanout layer. It expands
+scenario-local source-state reuse into a general, decoupled path:
+
+```text
+InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact
+```
+
+The path means input format and output format do not need to match. Source discovery,
+schema/dtype inference, parse/decode planning, Vortex preparation, operator source-state, output
+planning, and sink artifacts are separate evidence layers. SourceState preparation evidence does
+not imply Vortex-native execution; VortexPreparedState evidence does not imply output support; and
+OutputPlan evidence does not imply object-store or table commit support.
+
+The planned benchmark families are:
+
+- `io_reuse_and_fanout`.
+- `source_state_reuse`.
+- `prepared_state_reuse`.
+- `output_plan_reuse`.
+- `cross_format_output`.
+- `generated_source_output`.
+
+Planned fanout cases include CSV input -> Parquet + JSONL + Vortex outputs, Parquet input -> CSV +
+Vortex outputs, JSONL input -> Parquet + Vortex outputs, generated source -> CSV + Parquet +
+Vortex outputs, and prepared Vortex -> multiple output formats. Rows should expose
+`source_discovery_millis`, `schema_inference_millis`, `source_parse_millis`,
+`vortex_prepare_millis`, `operator_compute_millis`, `output_plan_millis`,
+`output_write_millis`, `output_replay_millis`, `total_runtime_millis`,
+`source_state_reuse_hit`, `prepared_state_reuse_hit`, `output_plan_reuse_hit`,
+`fanout_output_count`, `fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status`.
+
+Reuse must be fingerprinted and invalidated when source content, schema, plan, output plan, policy,
+or relevant version state changes. Object-store ETag/version handling is planned but not a runtime
+claim. Cache keys and evidence must not contain secrets or credentials.
+
+I/O reuse and fanout evidence is workflow/plumbing evidence only. It does not authorize public
+performance, superiority, Spark-displacement, production, SQL/DataFrame, object-store/lakehouse,
+Foundry production, package, or release claims.
+
+`GAR-PERF-2G` is the planned allocation and buffer-pool optimization layer. It adds resource-profile
+evidence around prepared/native local runtime paths before any buffer-reuse optimization is promoted.
+The first scope covers:
+
+- result buffers.
+- temporary vectors.
+- hash tables.
+- dictionary/string state.
+- source-state arrays.
+
+Rows should expose `allocation_profile_status`, allocation profile scope, `allocation_count` and
+`allocation_bytes` where measurable, `buffer_pool_enabled`, buffer-pool scope, buffer-reuse count
+and family, `peak_rss_delta` where measurable, source/output/correctness digests where available,
+`evidence_regression_status`, `unsafe_lifetime_shortcut_used=false`, no-fallback status, and a
+claim gate. `not_available` for allocation counts, allocation bytes, or peak RSS means unknown/not
+measured, not zero. Buffer reuse must be opt-in or scoped to an explicit run/session, preserve
+correctness and evidence parity with a no-reuse path, and emit deterministic blockers when ownership,
+lifecycle, schema, encoding, nullability, or ordering boundaries are unsafe.
+
+Allocation and buffer-pool evidence is resource-profile visibility only. It does not authorize a
+performance, memory-efficiency, production, SQL/DataFrame, object-store/lakehouse, Foundry, remote
+runtime, package, or Spark-replacement claim.
+
+`GAR-PERF-2H` is the planned optimized build-profile and PGO benchmark lane. It adds compiler/build
+evidence around local benchmark binaries before optimized builds are used for interpretation. The
+planned lanes are:
+
+- `release-lto` for a portable optimized local artifact lane.
+- `release-pgo` for a reproducible PGO benchmark experiment.
+- `release-native-benchmark` for host-local benchmark exploration only.
+
+Rows should expose `build_profile`, build-profile kind, `rustc_version`, `cargo_version`,
+`target_triple`, target CPU policy, `target_cpu_native_enabled`, LTO status/mode, codegen units, PGO
+status, profile-generate/profile-use status, PGO artifact and training workload refs,
+build-reproducibility status, portable-release-artifact status, benchmark-only-build status,
+correctness digest, no-fallback status, and a claim gate. The default release build remains the
+portable release baseline. `target-cpu=native` must stay benchmark-only and cannot be used as a
+portable release/publication artifact. PGO requires a reproducible instrumented-build, training-run,
+`llvm-profdata` merge, and profile-use rebuild flow.
+
+Optimized build-profile evidence is compiler/config evidence only. It does not authorize a
+performance, superiority, production, package/public-release, SQL/DataFrame, object-store/lakehouse,
+Foundry, or Spark-replacement claim.
+
+`GAR-PERF-2I` is the planned native microbenchmark suite expansion. It keeps kernel/subsystem rows
+separate from end-to-end benchmark rows and compatibility-import rows. The suite should cover or
+deterministically skip:
+
+- Vortex scan only.
+- filter predicate only.
+- projection only.
+- group-by kernel.
+- hash join kernel.
+- top-k.
+- result-sink write.
+- evidence render.
+
+Native microbenchmark rows identify optimization opportunities only. They must report primitive,
+row counts, decode/materialization status, `fallback_attempted=false`, `external_engine_invoked=false`,
+and `claim_gate_status`, but they do not authorize performance, superiority, Spark-displacement,
+production, SQL/DataFrame, object-store/lakehouse, Foundry, or package claims.
+
 The artifact also carries `work_avoidance_evidence_schema`. ShardLoom rows must
 report `measured`, `not_available`, `unsupported`, or `not_applicable` status
 for rows avoided, segments pruned, bytes avoided, encoded-vector reuse, and
@@ -1069,6 +1430,15 @@ Benchmark coverage rows can point to this matrix through
 `native_io_source_sink_coverage_ref`. That ref explains source/sink support posture; it does not
 turn benchmark timing into object-store, table/catalog, streaming, external-adapter, or production
 runtime evidence.
+
+`GAR-COMPAT-1` adds the broader universal compatibility coverage scoreboard. That scoreboard is the
+human-readable map for local compatibility files, Vortex, generated/source-free outputs, Python rows
+and DataFrame-style builders, SQL literals/VALUES, databases and warehouses, object stores, table
+formats, REST/Flight/ADBC, and Foundry. It separates plan/report coverage from runtime coverage
+using `runtime-supported`, `smoke-supported`, `report-only`, `blocked`, and `not-planned` rows. No
+S3/GCS/ADLS, table/lakehouse format, database/warehouse connector, REST/Flight/ADBC bridge, Foundry
+integration, broad SQL/DataFrame surface, or generated-output API is runtime-supported merely
+because it appears in the scoreboard.
 
 GAR-0042A adds a second Source/Split-specific admission reference:
 `vortex_source_split_admission_ref`. That ref points to the `vortex-api-inventory` proof for the
@@ -1322,11 +1692,18 @@ Also classify the workload by engine mode when batch/live/hybrid semantics are i
 - hybrid
 - auto
 
+Classify requested proof depth by evidence level when benchmark, result-sink, certificate, or API
+evidence behavior changes:
+
+- minimal_runtime
+- certified
+- full_replay
+
 Do not create a hidden global fast-mode toggle. Every row/output must report
 requested_execution_mode, selected_execution_mode, mode_selection_reason, Vortex-native claim
-status, compatibility import status, materialization/decode status, certificates,
-fallback_attempted=false, and external_engine_invoked=false. Engine-fabric rows must additionally
-report requested_engine_mode, selected_engine_mode, allowed/rejected modes, boundedness,
+status, compatibility import status, evidence_level, materialization/decode status, certificates,
+fallback_attempted=false, external_engine_invoked=false, and claim_gate_status. Engine-fabric rows
+must additionally report requested_engine_mode, selected_engine_mode, allowed/rejected modes, boundedness,
 update_mode, output_mode, runtime_execution, data_read, and write_io.
 
 Optimize toward prepared_vortex and native_vortex for performance comparisons. Preserve

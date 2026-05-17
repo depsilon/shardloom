@@ -107,6 +107,25 @@ persistent_runner_status=single_process_batch_runner_supported
 
 That status does not authorize a daemon, service runtime, hidden fast mode, or performance claim.
 
+## GAR-PERF-2F Session Runtime Follow-Up
+
+`GAR-PERF-2F` is the planned bridge from this scoped batch runner to an explicit in-process
+`ShardLoomSession`. The session target is caller-owned and local-artifact-scoped, not a daemon or
+remote service. It should expose `session_id`, prepared-artifact cache hit/miss counts,
+source-metadata/source-state cache hit/miss counts, source-state reuse count, prepared-artifact reuse
+count, close/drop status, `fallback_attempted=false`, and `external_engine_invoked=false`.
+
+The session follow-up must preserve the same typed envelope, execution-mode, evidence-level,
+Native I/O, materialization/decode, result-sink, deterministic unsupported, and no-fallback fields
+required by this persistent-runner decision.
+
+`GAR-PERF-2G` is the paired allocation/buffer-pool follow-up. Any future buffer pool must remain
+scoped to the explicit run/session lifecycle rather than this benchmark decision becoming a hidden
+persistent global cache. Rows should report allocation profile status, buffer-pool enabled/scope,
+buffer-reuse count, correctness digest, evidence-regression status,
+`unsafe_lifetime_shortcut_used=false`, `fallback_attempted=false`, and
+`external_engine_invoked=false`.
+
 ## GAR-FLOW-2C Admission Gate
 
 The benchmark report now emits a report-only `persistent_runner_admission_gate`

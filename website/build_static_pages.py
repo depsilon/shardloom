@@ -11,6 +11,7 @@ import argparse
 import html
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,13 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 WEBSITE = ROOT / "website"
 DATA_DIR = WEBSITE / "assets" / "data"
+DOC_USE_CASES = ROOT / "docs" / "use-cases"
+USE_CASE_PAGES = WEBSITE / "use-cases"
+sys.path.insert(0, str(ROOT / "scripts"))
+from check_use_case_index import load_index  # noqa: E402
+
+
+SITE_LASTMOD = "2026-05-17"
 
 
 def esc(value: Any) -> str:
@@ -309,6 +317,7 @@ def site_nav(active: str) -> str:
     nav = [
         ("Home", "/", "home"),
         ("Field Guide", "/field-guide/", "field-guide"),
+        ("Use Cases", "/use-cases/", "use-cases"),
         ("Telemetry", "/benchmarks", "telemetry"),
         ("Compute Flow", "/compute-engine-flow", "flow"),
         ("Status", "/status", "status"),
@@ -371,6 +380,7 @@ def page(
         "telemetry": "benchmarks",
         "flow": "compute-engine-flow",
         "status": "status",
+        "use-cases": "use-cases/",
         "docs": "readme",
     }
     canonical_path = canonical_path_override
@@ -918,6 +928,405 @@ def field_guide_concept_page(
         "field-guide",
         f"field-guide/{concept['slug']}",
     )
+
+
+def value_list(values: Any) -> list[str]:
+    if isinstance(values, list):
+        return [str(value) for value in values]
+    if values is None:
+        return []
+    return [str(values)]
+
+
+def status_label(status: str) -> str:
+    return status.replace("_", " ")
+
+
+def status_class(status: str) -> str:
+    classes = {
+        "ready_local": "supported",
+        "smoke_supported": "fixture",
+        "report_only": "report-only",
+        "planned": "planned",
+        "blocked": "blocked",
+        "unsupported": "blocked",
+    }
+    return classes.get(status, "report-only")
+
+
+def list_markup(values: list[str]) -> str:
+    if not values:
+        return "<span>none</span>"
+    return "<ul>" + "".join(f"<li>{inline_markdown(value)}</li>" for value in values) + "</ul>"
+
+
+def inline_csv(values: list[str]) -> str:
+    return ", ".join(values) if values else "none"
+
+
+def platform_for_use_case(use_case: dict[str, Any]) -> str:
+    text = " ".join(
+        value_list(use_case.get("inputs"))
+        + value_list(use_case.get("outputs"))
+        + value_list(use_case.get("references"))
+        + [str(use_case.get("title", ""))]
+    ).lower()
+    if "foundry" in text:
+        return "foundry-local"
+    if "s3" in text or "object-store" in text or "gcs" in text or "adls" in text:
+        return "cloud-boundary"
+    if "package" in text or "release" in text:
+        return "package-channel"
+    return "local"
+
+
+def evidence_level_for_use_case(use_case: dict[str, Any]) -> str:
+    fields = " ".join(value_list(use_case.get("evidence_fields"))).lower()
+    if "generated_source" in fields:
+        return "generated-source"
+    if "result_sink" in fields or "result_replay" in fields:
+        return "result-sink"
+    if "native_io" in fields:
+        return "native-io"
+    if "benchmark" in fields or "millis" in fields:
+        return "benchmark"
+    if "claim_gate" in fields:
+        return "claim-gate"
+    return "capability"
+
+
+def use_case_plain_summary(use_case: dict[str, Any]) -> str:
+    status = str(use_case.get("status", "unknown"))
+    title = str(use_case.get("title", "Use case"))
+    if status in {"ready_local", "smoke_supported"}:
+        return f"{title} has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary."
+    if status == "report_only":
+        return f"{title} is inspectable as posture or diagnostics, but it is not broad runtime support."
+    if status == "planned":
+        return f"{title} is planned. The blocker and evidence requirements are part of the current public posture."
+    return f"{title} is blocked or unsupported until the listed evidence exists."
+
+
+def render_use_case_status_table(use_case: dict[str, Any]) -> str:
+    rows = [
+        ("Status", status_label(str(use_case.get("status", "")))),
+        ("Audience", str(use_case.get("audience", ""))),
+        ("Execution mode", str(use_case.get("execution_mode", ""))),
+        ("Engine mode", str(use_case.get("engine_mode", ""))),
+        ("Platform", platform_for_use_case(use_case)),
+        ("Evidence level", evidence_level_for_use_case(use_case)),
+        ("Inputs", inline_csv(value_list(use_case.get("inputs")))),
+        ("Outputs", inline_csv(value_list(use_case.get("outputs")))),
+    ]
+    return html_table(["Field", "Value"], rows)
+
+
+def render_reference_links(references: list[str]) -> str:
+    items = []
+    for reference in references:
+        href = normalize_link(reference)
+        items.append(f'<li><a href="{esc(href)}"><code>{esc(reference)}</code></a></li>')
+    return "<ul>" + "".join(items) + "</ul>"
+
+
+def use_case_markdown(use_case: dict[str, Any]) -> str:
+    references = value_list(use_case.get("references"))
+    lines = [
+        "<!-- SPDX-License-Identifier: Apache-2.0 -->",
+        "",
+        f"# {use_case['title']}",
+        "",
+        "## Quick Answer",
+        "",
+        f"- **Audience:** {use_case['audience']}",
+        f"- **Status:** `{use_case['status']}`",
+        f"- **Execution mode:** `{use_case['execution_mode']}`",
+        f"- **Engine mode:** `{use_case['engine_mode']}`",
+        f"- **Claim boundary:** {use_case['claim_boundary']}",
+        "",
+        "## Can ShardLoom Do This?",
+        "",
+        use_case_plain_summary(use_case),
+        "",
+    ]
+    if use_case.get("runnable_example"):
+        lines.extend(
+            [
+                "## How To Try It",
+                "",
+                "```powershell",
+                str(use_case["runnable_example"]),
+                "```",
+                "",
+            ]
+        )
+    if use_case.get("blocked_explanation"):
+        lines.extend(["## Blocker", "", str(use_case["blocked_explanation"]), ""])
+    lines.extend(
+        [
+            "## Internal Flow",
+            "",
+            f"`{inline_csv(value_list(use_case.get('inputs')))} -> {use_case['execution_mode']} -> {use_case['engine_mode']} -> {inline_csv(value_list(use_case.get('outputs')))} -> evidence -> claim gate`",
+            "",
+            "## Evidence You Should See",
+            "",
+        ]
+    )
+    lines.extend(f"- `{field}`" for field in value_list(use_case.get("evidence_fields")))
+    lines.extend(
+        [
+            "",
+            "## Expected Output Or Evidence",
+            "",
+            str(use_case["expected_output_evidence"]),
+            "",
+            "## Common Mistakes",
+            "",
+        ]
+    )
+    lines.extend(f"- `{mistake}`" for mistake in value_list(use_case.get("common_mistakes")))
+    lines.extend(["", "## Reference Files", ""])
+    lines.extend(f"- `{reference}`" for reference in references)
+    lines.extend(["", "## Related Use Cases", ""])
+    lines.extend(f"- `{related}`" for related in value_list(use_case.get("related_use_cases")))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def use_case_page(use_case: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> str:
+    use_case_id = str(use_case["id"])
+    status = str(use_case["status"])
+    related = [
+        by_id[related_id]
+        for related_id in value_list(use_case.get("related_use_cases"))
+        if related_id in by_id
+    ]
+    related_cards = "".join(
+        f'<a class="related-use-case" href="/use-cases/{esc(related_case["id"])}">'
+        f'<span>{esc(status_label(str(related_case["status"])))}</span>'
+        f'<strong>{esc(related_case["title"])}</strong></a>'
+        for related_case in related
+    )
+    quick_example = ""
+    if use_case.get("runnable_example"):
+        quick_example = (
+            "<h2>Quick Example</h2>"
+            f'<pre><code data-language="powershell">{esc(use_case["runnable_example"])}</code></pre>'
+        )
+    blocker = ""
+    if use_case.get("blocked_explanation"):
+        blocker = (
+            '<div class="notice-panel use-case-blocker">'
+            "<strong>Current blocker.</strong>"
+            f"<span>{inline_markdown(str(use_case['blocked_explanation']))}</span>"
+            "</div>"
+        )
+    flow_steps = [
+        ("Inputs", inline_csv(value_list(use_case.get("inputs")))),
+        ("Execution mode", str(use_case.get("execution_mode", ""))),
+        ("Engine mode", str(use_case.get("engine_mode", ""))),
+        ("Outputs", inline_csv(value_list(use_case.get("outputs")))),
+        ("Evidence", inline_csv(value_list(use_case.get("evidence_fields")))),
+        ("Claim gate", str(use_case.get("claim_boundary", ""))),
+    ]
+    flow_html = "".join(
+        f"<article><strong>{esc(label)}</strong><span>{inline_markdown(value)}</span></article>"
+        for label, value in flow_steps
+    )
+    body = f"""
+    <section class="doc-hero use-case-hero">
+      <div class="shell">
+        {page_header_logo()}
+        <p class="eyebrow">Use Case Atlas</p>
+        <h1>{esc(use_case["title"])}</h1>
+        <p class="lede">{esc(use_case_plain_summary(use_case))}</p>
+        <span class="claim-badge {status_class(status)}">{esc(status_label(status))}</span>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell use-case-layout">
+        <article class="doc-body">
+          <h2>Plain-English Summary</h2>
+          <p>{esc(use_case_plain_summary(use_case))}</p>
+          <h2>Status Table</h2>
+          {render_use_case_status_table(use_case)}
+          {quick_example}
+          {blocker}
+          <h2>Internal Flow</h2>
+          <div class="use-case-flow">{flow_html}</div>
+          <h2>Expected Evidence Fields</h2>
+          {list_markup(value_list(use_case.get("evidence_fields")))}
+          <h2>Expected Output Or Evidence</h2>
+          <p>{inline_markdown(str(use_case["expected_output_evidence"]))}</p>
+          <h2>Common Mistakes</h2>
+          {list_markup(value_list(use_case.get("common_mistakes")))}
+          <h2>Reference Files</h2>
+          {render_reference_links(value_list(use_case.get("references")))}
+          <h2>Related Use Cases</h2>
+          <div class="related-use-cases">{related_cards}</div>
+        </article>
+      </div>
+    </section>
+    """
+    return page(
+        f"{use_case['title']} | ShardLoom Use Cases",
+        f"ShardLoom use-case posture for {use_case['title']}.",
+        body,
+        "use-cases",
+        canonical_path_override=f"use-cases/{use_case_id}",
+    )
+
+
+def use_cases_index_page(use_cases: list[dict[str, Any]]) -> str:
+    statuses = sorted({str(use_case["status"]) for use_case in use_cases})
+    execution_modes = sorted({str(use_case["execution_mode"]) for use_case in use_cases})
+    input_types = sorted({value for use_case in use_cases for value in value_list(use_case.get("inputs"))})
+    output_types = sorted({value for use_case in use_cases for value in value_list(use_case.get("outputs"))})
+    evidence_levels = sorted({evidence_level_for_use_case(use_case) for use_case in use_cases})
+    platforms = sorted({platform_for_use_case(use_case) for use_case in use_cases})
+
+    def select(name: str, label: str, values: list[str]) -> str:
+        options = ['<option value="">All</option>'] + [
+            f'<option value="{esc(value)}">{esc(status_label(value))}</option>' for value in values
+        ]
+        return (
+            f'<label><span>{esc(label)}</span><select data-use-case-filter="{esc(name)}">'
+            + "".join(options)
+            + "</select></label>"
+        )
+
+    cards = []
+    for use_case in use_cases:
+        status = str(use_case["status"])
+        cards.append(
+            f'<article class="use-case-card" data-status="{esc(status)}" '
+            f'data-inputs="{esc(" ".join(value_list(use_case.get("inputs"))))}" '
+            f'data-outputs="{esc(" ".join(value_list(use_case.get("outputs"))))}" '
+            f'data-execution-mode="{esc(str(use_case["execution_mode"]))}" '
+            f'data-evidence-level="{esc(evidence_level_for_use_case(use_case))}" '
+            f'data-platform="{esc(platform_for_use_case(use_case))}">'
+            f'<span class="claim-badge {status_class(status)}">{esc(status_label(status))}</span>'
+            f'<h3><a href="/use-cases/{esc(use_case["id"])}">{esc(use_case["title"])}</a></h3>'
+            f'<p>{esc(use_case_plain_summary(use_case))}</p>'
+            f'<dl><dt>Execution</dt><dd><code>{esc(use_case["execution_mode"])}</code></dd>'
+            f'<dt>Engine</dt><dd><code>{esc(use_case["engine_mode"])}</code></dd>'
+            f'<dt>Evidence</dt><dd>{esc(evidence_level_for_use_case(use_case))}</dd></dl>'
+            "</article>"
+        )
+
+    body = f"""
+    <section class="doc-hero use-case-hero">
+      <div class="shell">
+        {page_header_logo()}
+        <p class="eyebrow">Can I use this?</p>
+        <h1>ShardLoom Use Case Atlas.</h1>
+        <p class="lede">A non-expert map for what ShardLoom can do locally today, what is smoke-supported, what is report-only, and what remains planned or blocked. This is a technical-preview status surface, not a production or performance claim.</p>
+      </div>
+    </section>
+    <section class="use-case-filter-section">
+      <div class="shell">
+        <form class="use-case-filters" data-use-case-filters>
+          {select("status", "Status", statuses)}
+          {select("input", "Input type", input_types)}
+          {select("output", "Output type", output_types)}
+          {select("execution", "Execution mode", execution_modes)}
+          {select("evidence", "Evidence level", evidence_levels)}
+          {select("platform", "Platform", platforms)}
+          <button type="reset">Reset</button>
+        </form>
+        <p class="use-case-filter-count" data-use-case-count>{len(use_cases)} use cases shown</p>
+      </div>
+    </section>
+    <section>
+      <div class="shell">
+        <div class="use-case-grid" data-use-case-grid>{"".join(cards)}</div>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell">
+        <h2>Claim Boundary</h2>
+        <div class="boundary-grid">
+          <article><strong>No performance or superiority claim</strong><span>Rows describe posture and evidence, not a ranking.</span></article>
+          <article><strong>No production SQL/DataFrame claim</strong><span>Report-only language stays visible where runtime support is absent.</span></article>
+          <article><strong>No object-store/lakehouse/Foundry production claim</strong><span>Blocked and planned cards stay visible instead of being hidden.</span></article>
+          <article><strong>No hidden fallback</strong><span>External engines are baseline context only and never ShardLoom fallback execution.</span></article>
+        </div>
+      </div>
+    </section>
+    <script src="/assets/use-cases.js" defer></script>
+    """
+    return page(
+        "ShardLoom Use Case Atlas",
+        "Non-expert use-case status matrix for ShardLoom technical-preview capabilities.",
+        body,
+        "use-cases",
+        canonical_path_override="use-cases/",
+    )
+
+
+def write_use_case_pages() -> list[dict[str, Any]]:
+    data = load_index(DOC_USE_CASES / "use-case-index.yml")
+    use_cases = data["use_cases"]
+    by_id = {str(use_case["id"]): use_case for use_case in use_cases}
+    generated_docs = DOC_USE_CASES / "generated"
+    generated_docs.mkdir(parents=True, exist_ok=True)
+    USE_CASE_PAGES.mkdir(parents=True, exist_ok=True)
+    for use_case in use_cases:
+        use_case_id = str(use_case["id"])
+        (generated_docs / f"{use_case_id}.md").write_text(
+            use_case_markdown(use_case),
+            encoding="utf-8",
+        )
+        (USE_CASE_PAGES / f"{use_case_id}.html").write_text(
+            use_case_page(use_case, by_id),
+            encoding="utf-8",
+        )
+    (USE_CASE_PAGES / "index.html").write_text(
+        use_cases_index_page(use_cases),
+        encoding="utf-8",
+    )
+    return use_cases
+
+
+def write_sitemap(use_cases: list[dict[str, Any]]) -> None:
+    paths = [
+        ("", "1.0"),
+        ("benchmarks", "0.8"),
+        ("field-guide/", "0.8"),
+        ("use-cases/", "0.9"),
+        ("status", "0.8"),
+        ("field-guide/no-fallback", "0.6"),
+        ("field-guide/execution-modes", "0.6"),
+        ("field-guide/compatibility-import-certified", "0.6"),
+        ("field-guide/prepared-vortex", "0.6"),
+        ("field-guide/native-vortex", "0.6"),
+        ("field-guide/native-io-certificate", "0.6"),
+        ("field-guide/materialization-boundary", "0.6"),
+        ("field-guide/claim-gates", "0.6"),
+        ("field-guide/benchmark-telemetry", "0.6"),
+        ("field-guide/unsupported-diagnostics", "0.6"),
+        ("compute-engine-flow", "0.8"),
+        ("readme", "0.7"),
+    ]
+    paths.extend((f"use-cases/{use_case['id']}", "0.6") for use_case in use_cases)
+    urls = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ]
+    for path, priority in paths:
+        loc = "https://shardloom.io/" + path
+        urls.extend(
+            [
+                "  <url>",
+                f"    <loc>{esc(loc)}</loc>",
+                f"    <lastmod>{SITE_LASTMOD}</lastmod>",
+                "    <changefreq>weekly</changefreq>",
+                f"    <priority>{priority}</priority>",
+                "  </url>",
+            ]
+        )
+    urls.append("</urlset>")
+    (WEBSITE / "sitemap.xml").write_text("\n".join(urls) + "\n", encoding="utf-8")
 
 
 def write_field_guide_pages() -> None:
@@ -2072,6 +2481,8 @@ def main() -> int:
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     write_field_guide_pages()
+    use_cases = write_use_case_pages()
+    write_sitemap(use_cases)
     (WEBSITE / "readme.html").write_text(
         doc_page(
             ROOT / "README.md",

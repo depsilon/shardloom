@@ -16,6 +16,25 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P8.7 completed website phase-plan compaction
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: remove the completed P8.7 website/public-readiness reference block from the active
+    Planned queue now that P8.7A through P8.7I are recorded as detailed completed sessions in this
+    ledger.
+  - Checklist:
+    - [x] Keep the phase plan focused on unfinished GAR carry-forward and release/readiness work.
+    - [x] Preserve P8.7 provenance in the completed ledger without leaving completed website work in
+          the active queue.
+    - [x] Leave the plan ready for new architecture and GAR intake entries.
+  - Boundary:
+    - Documentation compaction only. This does not change website assets, runtime behavior,
+      benchmark evidence, release state, package publication, execution support claims, or fallback
+      policy.
+  - Validation:
+    - `git diff --check`
+
 - [x] Session label: GAR-FLOW-2N prepared/native batch selective-filter source-state reuse
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

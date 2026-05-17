@@ -26,6 +26,7 @@
       <nav class="nav-links" aria-label="Primary">
         <a class="" href="/">Home</a>
 <a class="" href="/field-guide/">Field Guide</a>
+<a class="" href="/use-cases/">Use Cases</a>
 <a class="" href="/benchmarks">Telemetry</a>
 <a class="" href="/compute-engine-flow">Compute Flow</a>
 <a class="" href="/status">Status</a>
@@ -59,7 +60,7 @@
           <h2 id="shardloom">ShardLoom</h2>
 <p>Website: <a href="https://shardloom.io">shardloom.io</a> (pre-release, claim-safe static site deployed from <code>website/</code>).</p>
 <p>Public technical-preview posture: ShardLoom is a pre-release, Vortex-first, no-fallback local compute engine foundation with evidence-certified local execution slices. It is an independent downstream workflow layer over Vortex-native data, not an official Vortex project and not Vortex-endorsed. It does not claim production platform readiness, public performance superiority, Apache Spark substitution, production SQL/DataFrame support, production object-store/lakehouse support, production Foundry support, package publication readiness, or Foundry vendor endorsement.</p>
-<p>The website includes rendered snapshots of this README, the compute-engine flow reference, and the current prepared/native benchmark evidence. Those pages are documentation and evidence surfaces, not performance, Apache Spark substitute, production SQL/DataFrame, object-store, lakehouse, or Foundry claims.</p>
+<p>The website includes rendered snapshots of this README, the compute-engine flow reference, the Use Case Atlas, and the current prepared/native benchmark evidence. Those pages are documentation and evidence surfaces, not performance, Apache Spark substitute, production SQL/DataFrame, object-store, lakehouse, or Foundry claims.</p>
 <p>ShardLoom is a standalone encoded-columnar execution engine for computing directly over Vortex-native layouts, preserving encoded representation where possible, and producing Vortex-native or lakehouse-compatible outputs without delegating execution to Spark, DataFusion, DuckDB, Polars, Velox, or another fallback engine.</p>
 <p>&quot;Standalone&quot; means standalone from external query-engine fallback, not isolated from Vortex itself. ShardLoom may use upstream Vortex array, compute, scan, source, and sink APIs as native execution providers when they are admitted through ShardLoom policy and reported through ShardLoom certificates. That is distinct from delegating unsupported work to DataFusion, DuckDB, Spark, Polars, Velox, or Vortex query-engine integrations.</p>
 <p>Longer term, ShardLoom is being shaped into a certified data execution fabric: a Vortex-native engine with user-friendly Python, SQL, DataFrame, ETL, adapter, live/hybrid, and remote API surfaces that all preserve the same no-fallback evidence model.</p>
@@ -115,6 +116,7 @@
 <li>Vortex-first architecture docs and guardrails for treating upstream Vortex APIs as native providers only when they are policy-admitted and certificate-backed</li>
 </ul>
 <p>Some broad surfaces are intentionally report-only or unsupported in this pre-release repository. See the phase plan and completed ledger for exact implementation status.</p>
+<p>For a non-expert &quot;Can ShardLoom do my thing?&quot; map, start with <a href="https://github.com/depsilon/shardloom/blob/main/docs/use-cases/README.md"><code>docs/use-cases/README.md</code></a> or the website Use Case Atlas at <a href="https://shardloom.io/use-cases/">shardloom.io/use-cases</a>.</p>
 <h3 id="modes-at-a-glance">Modes At A Glance</h3>
 <p>ShardLoom currently uses two separate mode vocabularies:</p>
 <div class="table-scroll"><table>

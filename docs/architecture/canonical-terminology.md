@@ -32,7 +32,8 @@ Concept groups:
   `ExecutionState`.
 - **I/O, representation, and translation**: `native_vortex_input`, `native_vortex_output`,
   `compatibility_output`, `foreign_encoded`, `universal native I/O envelope`, `native work
-  envelope`, `native I/O certificate`.
+  envelope`, `native I/O certificate`, `universal compatibility coverage scoreboard`,
+  `source-free generated output`, `GeneratedSourceCertificate`.
 - **Materialization and fidelity**: `MaterializationPolicy`, `MaterializationRequirement`,
   `MaterializationBoundary`, `FidelityLevel`, `VortexOutputFidelity`, `metadata_loss`,
   `fidelity_loss`.
@@ -49,7 +50,7 @@ Concept groups:
 - **Evidence, policy, and protocol parity**: `evidence artifact envelope`, `evidence artifact
   safety`, `ShardLoom execution policy`, `query lifecycle contract`, `protocol surface parity
   report`, `benchmark constitution`, `standards dependency decision`, `Rust performance profile
-  evidence`.
+  evidence`, `Bayesian claim-confidence report`, `enterprise evidence export pack`.
 - **Vortex provider and compatibility**: `Vortex-native execution provider`, `execution provider
   kind`, `Vortex compute provider report`, `Vortex compatibility matrix`, `Vortex Scan compatibility
   report`, `composite pushdown capability matrix`, `Vortex integration boundary report`, `I/O
@@ -65,6 +66,8 @@ Concept groups:
 - **Remote API surfaces**: `REST control plane`, `event plane`, `data plane`, `result delivery
   policy`, `problem details`, `OpenAPI contract`, `AsyncAPI contract`, `CloudEvents envelope`,
   `OpenTelemetry export`, `OpenLineage facet`, `MCP agent API`.
+- **Adoption and release channels**: `one-command local proof`, `package channel readiness matrix`,
+  `buyer-facing compatibility scorecard`, `workflow recipe`.
 - **Foundry integration pack**: `shardloom-foundry`, `FoundryExecutionContext`,
   `FoundryDatasetTransactionReport`, `FoundryDatasetSource`, `FoundryDatasetSink`,
   `FoundryVirtualTableRef`, `FoundryExternalComputeBoundaryReport`, `FoundryDataHealthBridge`,
@@ -340,6 +343,21 @@ candidates.
   with residual, conservative, unsupported, unsafe rejected).
 - **native I/O certificate**: structured evidence object capturing source/sink capability,
   transitions, materialization boundaries, and no-fallback status.
+- **universal compatibility coverage scoreboard**: report-only compatibility map that classifies
+  source, sink, adapter, and generated-output surfaces as `runtime-supported`, `smoke-supported`,
+  `report-only`, `blocked`, or `not-planned`. It separates plan/report coverage from runtime
+  coverage for local files, Vortex, generated/source-free output, Python/DataFrame, SQL, databases,
+  object stores, table formats, REST/Flight/ADBC, and Foundry. It is not a production, performance,
+  Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, or package-readiness claim.
+- **source-free generated output**: a planned execution flow where ShardLoom writes output without
+  reading an input dataset. It is distinct from no-dataset smoke and benchmark fixture generation.
+  It requires `input_dataset_count=0`, `source_io_performed=false`, generated-source evidence,
+  output sink evidence, and no-fallback evidence before any output data claim is allowed.
+- **GeneratedSourceCertificate**: planned certificate evidence for user-created rows or
+  ShardLoom-native generator nodes. It records the generated source kind, schema digest, row count,
+  plan digest, optional seed, deterministic status, and claim gate. It does not replace output
+  Native I/O evidence, and no source Native I/O certificate is claimed when no source dataset was
+  read.
 - **Vortex-native execution provider**: upstream Vortex array, compute, scan, source, or sink API,
   or ShardLoom-owned Vortex-aware kernel, admitted through ShardLoom policy and reported through
   ShardLoom certificates. It is native execution, not fallback, only when the provider boundary,
@@ -364,6 +382,67 @@ candidates.
 - **Vortex Scan compatibility report**: evidence aligning ShardLoom Native I/O envelopes with Vortex
   Source/Sink/Split concepts, including projection/filter/limit status, split estimates, sink
   requirements, residuals, and native I/O certificate refs.
+- **Vortex Scan pushdown completion**: planned evidence lane that classifies prepared/native
+  scenario families by filter, projection, and limit/slice pushdown support or deterministic
+  blockers. It is Scan/source-boundary evidence, not an encoded-native operator, SQL/DataFrame,
+  object-store/lakehouse, production, or performance claim.
+- **evidence-aware logical optimizer**: planned ShardLoom optimizer layer that records optimizer
+  rule registry decisions, before/after plan digests, rewrite safety, evidence preservation,
+  no-fallback status, and claim gates before any rewrite is treated as supported.
+- **optimizer rule registry**: planned versioned set of optimizer rule families such as predicate
+  pushdown, projection pushdown, slice/limit pushdown, common subplan/source-state reuse,
+  expression simplification, constant folding, type coercion, join ordering, and cardinality
+  estimation. Registry presence is not runtime support by itself.
+- **optimizer trace**: explain/benchmark evidence artifact listing optimizer rule status as
+  admitted, applied, blocked, unsupported, not applicable, or report-only with before/after plan
+  digests and rewrite safety fields.
+- **SourceState**: planned format-neutral reusable input-preparation artifact for source discovery,
+  schema/dtype metadata, adapter state, content fingerprinting, and source-state digest evidence.
+  SourceState is preparation evidence only; it is not Vortex-native execution or output support.
+- **VortexPreparedState**: planned reusable Vortex preparation artifact that bridges supported
+  inputs to supported execution/output paths through prepared artifact refs, digests,
+  layout/encoding/statistics summaries, and preparation timing evidence.
+- **OutputPlan**: planned reusable sink/write preparation artifact for output schema,
+  partitioning, compression, encoding, write mode, replay proof, and output Native I/O certificate
+  status. OutputPlan support does not imply object-store write, table/lakehouse commit, or
+  production sink support.
+- **cross-format fanout**: planned local workflow pattern where one source/prepared state can write
+  multiple local output formats. Input and output formats do not need to match, and fanout rows are
+  evidence/workflow coverage, not speed rankings.
+- **filter-only column**: a column read for predicate evaluation but not requested in the result
+  stream. Pushdown evidence must keep filter-only columns separate from output columns.
+- **output column read set**: the columns read to produce the requested output stream after
+  projection. It must be explicit when claiming projection pushdown or work avoidance.
+- **compressed/encoded kernel registry**: planned matrix of encoding/operator pairs that records
+  logical dtype, physical encoding, kernel admission, kernel execution, canonicalization, decode,
+  materialization, selection-vector behavior, validity semantics, no-fallback status, and claim
+  gates. Registry admission is not encoded-native support by itself.
+- **encoding/operator pair**: a scoped combination of physical encoding and operation family such
+  as bitpacked filter, sequence equality/range predicate, dictionary equality/group-by, constant
+  count/filter, sorted min/max pruning, or FSST/dictionary string equality.
+- **kernel admitted**: evidence that a kernel is allowed for a specific encoding/operator pair under
+  ShardLoom policy. Admission does not prove execution or encoded-native claim eligibility.
+- **kernel executed**: evidence that an admitted kernel actually ran for a scoped row. Execution
+  still requires correctness, materialization/decode, no-fallback, and claim-gate evidence before
+  any encoded-native claim is allowed.
+- **fused operator pipeline**: planned prepared/native residual-native execution path that combines
+  adjacent operations such as filter + projection + limit, filter + aggregate, filter + group-by, or
+  top-k + projection without intermediate full-table materialization. It requires fused/unfused
+  correctness digest parity and no-fallback evidence before support can be claimed.
+- **intermediate materialization avoided**: benchmark/evidence field indicating that an admitted
+  fused pipeline avoided materializing a full intermediate table between adjacent operators. It is
+  work-avoidance evidence, not a performance or encoded-native claim by itself.
+- **allocation profile**: planned resource evidence describing which prepared/native runtime family
+  allocated memory, whether allocation counts/bytes were measurable, the profile scope, and the
+  claim gate. `not_available` allocation values mean unknown/not measured, not zero.
+- **buffer-pool optimization**: planned scoped or opt-in reuse of ShardLoom-owned buffers for a
+  declared run/session and buffer family. It must preserve correctness/evidence parity and cannot be
+  hidden global state, a performance claim, or a memory-efficiency claim by itself.
+- **buffer reuse count**: evidence field counting admitted buffer reuses for a specific buffer
+  family and scope. It is useful for resource attribution, not for public speed ranking.
+- **unsafe lifetime shortcut**: prohibited optimization pattern where lifetime, ownership, schema,
+  dtype, encoding, nullability, or ordering guarantees are weakened to avoid allocation. Future
+  allocation/buffer-pool rows must keep `unsafe_lifetime_shortcut_used=false`.
 - **composite pushdown capability matrix**: capability evidence for combinations such as filter +
   projection, filter + limit, ordered limit, reverse scan, top-N, and zone-pruned filter with
   residual predicate, tracked separately from individual primitive support.
@@ -400,6 +479,16 @@ candidates.
 - **Rust performance profile evidence**: compiler/build/profile evidence for performance claims,
   including Rust version, target triple, target CPU, optimization/LTO/codegen settings, allocator,
   SIMD flags, PGO/BOLT status, binary size, benchmark refs, and correctness refs.
+- **optimized build profile lane**: planned build/benchmark evidence lane that records the Cargo
+  profile and rustc codegen posture used for a ShardLoom benchmark binary, such as `release-lto`,
+  `release-pgo`, or `release-native-benchmark`. It is build/config evidence, not a performance
+  claim.
+- **PGO benchmark lane**: planned profile-guided optimization workflow that records instrumented
+  build, training workload, `.profraw`/`.profdata` merge, profile-use rebuild, correctness, and
+  claim-gate evidence. PGO evidence cannot upgrade claim status by itself.
+- **native benchmark build**: host-local benchmark binary built with host-specific codegen such as
+  `target-cpu=native`. It is not portable release evidence and cannot satisfy package/public-release
+  gates.
 - **data/ETL coverage entry**: per-capability evidence row for an ETL family such as ingestion,
   schema contracts, cleaning/quality, transformation, enrichment, incremental state, write/export,
   or pipeline operations.
@@ -504,9 +593,56 @@ candidates.
   payloads.
 - **CloudEvents envelope**: standardized event metadata wrapper for progress, state, certificate,
   lineage, and live/hybrid events.
-- **OpenTelemetry export**: trace, metric, and log export path that maps ShardLoom query, operator,
-  source, sink, certificate, and fallback fields into telemetry.
-- **OpenLineage facet**: lineage extension carrying ShardLoom execution-certificate, native-I/O,
-  materialization, representation-state, and no-fallback evidence.
+- **OpenTelemetry export**: opt-in trace, metric, and log export path that maps ShardLoom query,
+  operator, source, sink, certificate, and fallback fields into telemetry. Report-only OTel posture
+  does not configure a network exporter, add a backend integration, or imply production runtime
+  support.
+- **OpenLineage facet**: opt-in lineage extension carrying ShardLoom execution-mode,
+  execution-certificate, native-I/O, materialization, generated-source, Vortex-artifact,
+  claim-gate, and no-fallback evidence. Report-only facet mapping does not emit lineage events or
+  imply backend integration.
+- **Bayesian claim-confidence report**: advisory benchmark/claim evidence surface that records a
+  posterior runtime distribution, credible interval, probability of regression, minimum iterations
+  for claim-grade consideration, and uncertainty reason. It may block claims when uncertainty is
+  high, but it cannot upgrade claim status alone.
+- **evidence level**: explicit proof-depth field reported independently from execution mode and
+  engine mode. Planned values are `minimal_runtime`, `certified`, and `full_replay`; every value
+  must preserve no-fallback and no-external-engine evidence.
+- **minimal runtime evidence level**: evidence-light runtime/development level that may omit heavy
+  result-sink replay unless requested. It must report policy fields and remains
+  `not_claim_grade` unless a future scoped gate explicitly approves otherwise.
+- **certified evidence level**: normal certificate-bearing evidence level for scoped local
+  execution. It emits the selected execution mode's certificate, Native I/O, materialization/decode,
+  source/sink, no-fallback, and claim-gate evidence before any claim-grade decision.
+- **full replay evidence level**: replay-heavy evidence level that includes result-sink
+  write/reopen/replay proof and replay certificate refs in addition to certified evidence.
+- **ShardLoomSession**: planned caller-owned in-process session runtime that can carry scoped local
+  prepared artifacts, source metadata, source-state, schema, dictionary, buffer, kernel registry,
+  and evidence-recorder state across multiple prepared/native executions. It is not a daemon,
+  service, remote server, hidden global cache, or external-engine fallback.
+- **session-backed benchmark row**: benchmark row emitted from a scoped `ShardLoomSession` or batch
+  session path, with `session_id`, cache hit/miss fields, source-state reuse count, prepared
+  artifact reuse count, close/drop status, and no-fallback/no-external-engine evidence.
+- **native microbenchmark row**: benchmark artifact row for one ShardLoom-native primitive or
+  subsystem, such as scan-only, filter predicate-only, projection-only, group-by, hash join, top-k,
+  result-sink write, or evidence render. It is subsystem optimization evidence only and must not be
+  treated as an end-to-end performance, superiority, Spark-replacement, SQL/DataFrame,
+  object-store/lakehouse, Foundry, or production claim.
+- **enterprise evidence export pack**: opt-in, local-first bundle of ShardLoom JSON evidence,
+  OpenLineage facet payloads, OpenTelemetry span/metric payloads, and optional Markdown summary.
+  It must apply redaction/retention policy and must not make network calls by default.
 - **MCP agent API**: agent-facing surface over the same control-plane semantics, defaulting to safe
   discovery, validate, explain, estimate, and certify actions rather than unrestricted execution.
+- **one-command local proof**: adoption path that installs or locally builds ShardLoom, runs smoke
+  checks, exercises an admitted generated-source posture or deterministic blocker, runs a tiny
+  prepared/native example, and shows evidence/claim fields without requiring architecture-doc
+  reading. It is not a public package release claim.
+- **package channel readiness matrix**: release-readiness map for GitHub pre-release, TestPyPI,
+  PyPI, Homebrew, Scoop, winget, conda-forge, GHCR, and future crates.io public API crates. A row is
+  ready only with channel-specific install, uninstall, clean-install, smoke, SBOM/checksum,
+  provenance, and rollback/yank evidence.
+- **buyer-facing compatibility scorecard**: public status surface that lets users distinguish
+  supported, smoke-supported, report-only, blocked, planned, and not-planned ShardLoom surfaces
+  without inferring maturity from architecture docs.
+- **workflow recipe**: user-facing, claim-safe example that includes goal, code/command, expected
+  output, evidence fields, claim boundary, and no-fallback/no-external-engine posture.

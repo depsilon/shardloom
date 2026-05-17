@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Source-free generated output boundary | ShardLoom Use Cases</title>
+  <meta name="description" content="ShardLoom use-case posture for Source-free generated output boundary.">
+  <link rel="canonical" href="https://shardloom.io/use-cases/source-free-generated-output-boundary">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="Source-free generated output boundary | ShardLoom Use Cases">
+  <meta property="og:description" content="ShardLoom use-case posture for Source-free generated output boundary.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/source-free-generated-output-boundary">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="" href="/field-guide/">Field Guide</a>
+<a class="active" aria-current="page" href="/use-cases/">Use Cases</a>
+<a class="" href="/benchmarks">Telemetry</a>
+<a class="" href="/compute-engine-flow">Compute Flow</a>
+<a class="" href="/status">Status</a>
+<a class="" href="/readme">Docs</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="doc-hero use-case-hero">
+      <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        <p class="eyebrow">Use Case Atlas</p>
+        <h1>Source-free generated output boundary</h1>
+        <p class="lede">Source-free generated output boundary is planned. The blocker and evidence requirements are part of the current public posture.</p>
+        <span class="claim-badge planned">planned</span>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell use-case-layout">
+        <article class="doc-body">
+          <h2>Plain-English Summary</h2>
+          <p>Source-free generated output boundary is planned. The blocker and evidence requirements are part of the current public posture.</p>
+          <h2>Status Table</h2>
+          <div class="table-scroll"><table>
+<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Status</td><td>planned</td></tr>
+<tr><td>Audience</td><td>user who wants range, values, calendar, or literal-table output without input data</td></tr>
+<tr><td>Execution mode</td><td>planned_generated_source</td></tr>
+<tr><td>Engine mode</td><td>batch</td></tr>
+<tr><td>Platform</td><td>foundry-local</td></tr>
+<tr><td>Evidence level</td><td>generated-source</td></tr>
+<tr><td>Inputs</td><td>none, generated_rows, range, values, calendar_dimension</td></tr>
+<tr><td>Outputs</td><td>planned_local_output_artifact, generated_source_certificate</td></tr>
+</tbody></table></div>
+          
+          <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>No-input smoke exists, but generated-output execution needs a GeneratedSourceCertificate, deterministic generation evidence, and output sink proof before it can be supported.</span></div>
+          <h2>Internal Flow</h2>
+          <div class="use-case-flow"><article><strong>Inputs</strong><span>none, generated_rows, range, values, calendar_dimension</span></article><article><strong>Execution mode</strong><span>planned_generated_source</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>planned_local_output_artifact, generated_source_certificate</span></article><article><strong>Evidence</strong><span>input_dataset_count=0, source_io_performed=false, generated_source_created=true, generated_source_kind, generated_source_schema_digest, generated_source_row_count, output_io_performed, generated_source_certificate_status, output_native_io_certificate_status, fallback_attempted=false, external_engine_invoked=false, claim_gate_status</span></article><article><strong>Claim gate</strong><span>Planned generated-output contract only; no current source-free runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, or package-publication claim.</span></article></div>
+          <h2>Expected Evidence Fields</h2>
+          <ul><li>input_dataset_count=0</li><li>source_io_performed=false</li><li>generated_source_created=true</li><li>generated_source_kind</li><li>generated_source_schema_digest</li><li>generated_source_row_count</li><li>output_io_performed</li><li>generated_source_certificate_status</li><li>output_native_io_certificate_status</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li><li>claim_gate_status</li></ul>
+          <h2>Expected Output Or Evidence</h2>
+          <p>Future rows should distinguish no_dataset_smoke from user_generated_source and engine_native_generated_source.</p>
+          <h2>Common Mistakes</h2>
+          <ul><li>confusing_no_dataset_smoke_with_generated_output</li><li>claiming_source_native_io_without_source_read</li><li>writing_to_s3</li></ul>
+          <h2>Reference Files</h2>
+          <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/foundry/proof-of-use-certification.md"><code>docs/foundry/proof-of-use-certification.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/python/README.md"><code>python/README.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-plan.md"><code>docs/architecture/phased-execution-plan.md</code></a></li></ul>
+          <h2>Related Use Cases</h2>
+          <div class="related-use-cases"><a class="related-use-case" href="/use-cases/first-10-minutes-local-smoke"><span>ready local</span><strong>First 10 minutes local smoke</strong></a><a class="related-use-case" href="/use-cases/foundry-local-proof-boundary"><span>smoke supported</span><strong>Foundry-style local proof boundary</strong></a><a class="related-use-case" href="/use-cases/output-result-sink-and-fanout-boundary"><span>smoke supported</span><strong>Output and fanout boundary</strong></a></div>
+        </article>
+      </div>
+    </section>
+    </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>Independent downstream Vortex-first workflow layer; not an official Vortex project or Vortex-endorsed.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

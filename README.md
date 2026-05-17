@@ -10,10 +10,10 @@ Vortex-endorsed. It does not claim production platform readiness, public perform
 Apache Spark substitution, production SQL/DataFrame support, production object-store/lakehouse
 support, production Foundry support, package publication readiness, or Foundry vendor endorsement.
 
-The website includes rendered snapshots of this README, the compute-engine flow reference, and the
-current prepared/native benchmark evidence. Those pages are documentation and evidence surfaces,
-not performance, Apache Spark substitute, production SQL/DataFrame, object-store, lakehouse, or
-Foundry claims.
+The website includes rendered snapshots of this README, the compute-engine flow reference, the Use
+Case Atlas, and the current prepared/native benchmark evidence. Those pages are documentation and
+evidence surfaces, not performance, Apache Spark substitute, production SQL/DataFrame, object-store,
+lakehouse, or Foundry claims.
 
 ShardLoom is a standalone encoded-columnar execution engine for computing directly over
 Vortex-native layouts, preserving encoded representation where possible, and producing Vortex-native
@@ -151,6 +151,10 @@ Currently wired surfaces include:
 
 Some broad surfaces are intentionally report-only or unsupported in this pre-release repository. See
 the phase plan and completed ledger for exact implementation status.
+
+For a non-expert "Can ShardLoom do my thing?" map, start with
+[`docs/use-cases/README.md`](docs/use-cases/README.md) or the website Use Case Atlas at
+[shardloom.io/use-cases](https://shardloom.io/use-cases/).
 
 ## Modes At A Glance
 

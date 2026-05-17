@@ -153,6 +153,13 @@ compatibility-file engine rows. They include the approved local encoded
 counting, and scan-pushdown comparison predicates. The report includes each
 row's timing scope plus filter/projection pushdown fields so in-command
 repeated timings are not mixed up with CLI-process wall-time smoke measurements.
+`GAR-PERF-2I` tracks the next expansion of this lane into a first-class native
+microbenchmark suite for Vortex scan-only, filter predicate-only,
+projection-only, group-by kernel, hash-join kernel, top-k, result-sink write,
+and evidence-render primitives. Missing primitives should appear as
+deterministic skipped/unsupported rows instead of disappearing from the report.
+Those rows are subsystem evidence only, not end-to-end speed claims or public
+rankings.
 
 The ShardLoom work-avoidance table is based on final row evidence, not only
 plan analysis. The JSON artifact includes `work_avoidance_evidence_schema`
@@ -266,6 +273,42 @@ projected columns, pushdown flags, Native I/O certificate status, materializatio
 residual executor, claim gate, and `fallback_attempted=false` /
 `external_engine_invoked=false`. This makes benchmark rows easier to interpret without relabeling
 residual-native work as encoded-native or claim-grade performance evidence.
+`GAR-PERF-2C` tracks the follow-up that makes this pushdown evidence uniform across every
+prepared/native scenario family. Future rows should separately report filter, projection, and
+limit/slice pushdown, distinguish filter-only columns from output columns, and emit deterministic
+blockers when expressions cannot be lowered safely into the Vortex Scan/source-backed boundary.
+Those fields remain source/provider evidence only; they do not create an encoded-native operator,
+SQL/DataFrame, object-store/lakehouse, production, or performance claim.
+`GAR-PERF-2B` tracks the evidence-aware logical optimizer follow-up. Future benchmark rows may link
+to optimizer trace IDs and rule statuses for predicate/projection/slice pushdown, common
+subplan/source-state reuse, expression simplification, constant folding, type coercion, join
+ordering, and cardinality estimation. Optimizer traces should report before/after plan digests,
+rewrite safety, `evidence_preserved=true`, no-fallback fields, correctness smoke refs for applied
+rewrites, and claim gates. They are explainability evidence only, not lazy optimizer parity,
+SQL/DataFrame runtime, or performance proof.
+`GAR-IOREUSE-1` tracks the I/O reuse and cross-format fanout benchmark follow-up. Future rows should
+model the workflow as `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan ->
+OutputPlan -> SinkArtifact`, not as matching input/output formats. Planned families are
+`io_reuse_and_fanout`, `source_state_reuse`, `prepared_state_reuse`, `output_plan_reuse`,
+`cross_format_output`, and `generated_source_output`. Planned fanout cases include CSV input ->
+Parquet + JSONL + Vortex outputs, Parquet input -> CSV + Vortex outputs, JSONL input -> Parquet +
+Vortex outputs, generated source -> CSV + Parquet + Vortex outputs, and prepared Vortex -> multiple
+output formats. Rows must expose source discovery, schema inference, parse, Vortex preparation,
+operator compute, output plan, output write, output replay, total runtime, source/prepared/output
+reuse hits, fanout output count, no-fallback/no-external-engine fields, and claim gate status.
+These rows are local workflow/evidence rows, not a performance leaderboard.
+`GAR-PERF-2D` tracks the compressed/encoded kernel registry follow-up. Future rows should classify
+encoding/operator pairs such as bitpacked filter, sequence predicate, dictionary equality/group-by,
+constant count/filter, sorted min/max pruning, and FSST/dictionary string equality where available.
+Rows should report `encoding_id`, `kernel_admitted`, `kernel_executed`,
+`canonicalization_required`, `decoded`, `materialized`, and
+`encoded_native_claim_allowed`; unsupported encodings remain deterministic blockers.
+`GAR-PERF-2E` tracks the broader fused operator pipeline follow-up. Future prepared/native rows
+should report `fused_pipeline_used`, `fused_operator_family`,
+`intermediate_materialization_avoided`, row counts, fused/unfused correctness digests,
+materialization/decode status, and no-fallback fields for filter/projection/limit,
+filter/aggregate, filter/group-by, and top-k/projection families. Fusion remains residual-native
+unless later representation evidence proves encoded-native execution.
 For `selective filter`, prepared/native rows also emit `encoded_predicate_provider_*` fields. When
 the scoped filter-column probe observes the admitted local encodings, those fields now report
 `encoded_predicate_provider_status=reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted`,
@@ -340,6 +383,29 @@ Clean/cast/filter/write and malformed timestamp / dirty CSV child scenarios shar
 `source_state_dirty_input_*` fields such as `source_state_dirty_input_reuse_status`. It is not a
 persistent daemon, hidden fast mode, performance claim, encoded-native claim, SQL/DataFrame claim,
 object-store claim, or Spark-displacement claim.
+
+`GAR-PERF-2F` tracks the next step: an explicit in-process `ShardLoomSession` runtime for scoped
+prepared/native local artifacts. Future session-backed rows should expose `session_id`, cache
+hit/miss fields, source-state reuse count, prepared-artifact reuse count, close/drop status,
+`fallback_attempted=false`, and `external_engine_invoked=false`. The session remains caller-owned
+and local; it is not a daemon, remote server, hidden global cache, or performance claim.
+
+`GAR-PERF-2G` tracks the allocation profiling and scoped buffer-pool optimization follow-up. Future
+rows or memory/resource reports should classify result buffers, temporary vectors, hash tables,
+dictionary/string state, and source-state arrays with allocation profile status, allocation counts
+or bytes where measurable, buffer-pool enabled/scope, buffer-reuse count/family, peak RSS status,
+correctness digest, evidence-regression status, `unsafe_lifetime_shortcut_used=false`,
+`fallback_attempted=false`, and `external_engine_invoked=false`. Buffer reuse must be opt-in or
+scoped to a run/session, preserve correctness and evidence parity with a no-reuse path, and remain
+resource-profile evidence only rather than a speed or memory-efficiency claim.
+
+`GAR-PERF-2H` tracks optimized build profiles and the PGO benchmark lane. The harness already records
+`shardloom_build_profile`; future rows should also record build-profile kind, rustc/cargo versions,
+target triple, target CPU policy, `target_cpu_native_enabled`, LTO status/mode, codegen units, PGO
+status, PGO artifact/training workload refs, build reproducibility status, portable release artifact
+status, benchmark-only build status, correctness digest, and claim gate. Planned lanes are
+`release-lto`, `release-pgo`, and `release-native-benchmark`. `target-cpu=native` is benchmark-only,
+not a portable release setting, and optimized build rows are not public performance claims.
 
 ### Website Evidence Snapshot
 

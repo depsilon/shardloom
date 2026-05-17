@@ -123,6 +123,18 @@ surface over existing `OutputEnvelope` fields and diagnostics. Unsupported or
 report-only scopes remain unsupported or report-only, and
 `fallback_attempted=false` / `external_engine_invoked=false` stay visible.
 
+`ShardLoomSession` is planned as `GAR-PERF-2F`, not current Python runtime support. The future
+surface should expose a caller-owned in-process local session over prepared/native artifacts with
+`session_id`, cache hit/miss fields, source-state reuse counts, prepared-artifact reuse counts,
+explicit close/drop status, and no-fallback/no-external-engine evidence. It must not imply a daemon,
+remote server, hidden global cache, DataFrame/SQL runtime, object-store/lakehouse runtime, or
+performance claim.
+
+Allocation profiling and scoped buffer-pool optimization are planned as `GAR-PERF-2G`, not current
+Python runtime support. Any future Python-visible buffer reuse must stay opt-in or explicitly
+scoped to a run/session and preserve correctness, evidence, no-fallback, and no-external-engine
+fields.
+
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
 batch path when allowed; `live` selects the CG-22 in-memory fixture path for
 bounded/unbounded change streams; `hybrid` selects the CG-22 declared Vortex-base
@@ -296,6 +308,17 @@ transformations. `plan()`, `explain()`, `estimate()`, `certify()`, and
 not read input files, infer schemas, materialize rows, probe object stores,
 write output, or invoke fallback engines.
 
+Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A
+future Python `explain()` trace should expose optimizer rule status, before/after plan digests,
+rewrite safety, evidence preservation, no-fallback fields, and claim gates without implying broad
+SQL/DataFrame execution or Polars/DataFusion optimizer parity.
+
+Reusable I/O state and cross-format fanout are planned as `GAR-IOREUSE-1`, not current Python
+runtime support. Future Python capability/write views may expose `SourceState`,
+`VortexPreparedState`, `OutputPlan`, cache invalidation, reuse levels, and fanout evidence, but
+input and output formats remain decoupled and reuse evidence will not imply performance,
+production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
+
 Unsupported workflow affordances are explicit report surfaces too. These calls
 are meant to make familiar pandas/Arrow/DataFrame/notebook methods discoverable
 without pretending they execute yet:
@@ -377,6 +400,39 @@ upgrade DataFrame/notebook support to claim-grade status. Current lazy source,
 declarations; joins, aggregations, windows, writes, schema/data-quality helpers,
 materialization, and notebook display remain deterministic unsupported
 diagnostic surfaces unless later evidence-backed slices promote them.
+
+Source-free generated-output APIs are also planned capability rows, not current
+runtime support. The future contract is tracked as `GAR-GEN-1` and separates
+three cases:
+
+- `no_dataset_smoke`: status/capability/proof smoke only; no generated rows, no
+  source Native I/O certificate, and no output data claim.
+- `user_generated_source`: future user Python rows consumed as a
+  generated/literal source only when deterministic generation evidence exists.
+- `engine_native_generated_source`: future ShardLoom generator nodes such as
+  `range`, `sequence`, `values`, `literal_table`, calendar/date dimensions, or
+  deterministic synthetic profiles.
+
+The intended Python shape is:
+
+```python
+ctx.range(0, 1000).with_column(...).write(...)
+ctx.from_rows([...]).write(...)
+ctx.literal_table(...).write(...)
+ctx.calendar(...).write(...)
+```
+
+These calls are not runtime-supported yet. When they become supported, generated
+output must report `input_dataset_count=0`, `source_io_performed=false`,
+`generated_source_created=true`, `generated_source_kind`,
+`generated_source_schema_digest`, `generated_source_row_count`,
+`generated_source_plan_digest`, optional `generated_source_seed`,
+`generation_deterministic`, `output_io_performed`,
+`output_native_io_certificate_status`, `generated_source_certificate_status`,
+`fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status`. S3/object-store writes remain report-only/gated, and
+Foundry generated-output smoke must go through Foundry output APIs rather than
+direct S3 paths.
 
 The client also exposes the P7 claim gate closeout report:
 

@@ -16,12 +16,14 @@ const runtimeFiles = [
   "benchmarks.html",
   "compute-engine-flow.html",
   "status.html",
+  "use-cases/index.html",
   "readme.html",
   "_headers",
   "_redirects",
   "robots.txt",
   "sitemap.xml",
   "assets/compute-flow.js",
+  "assets/use-cases.js",
   "assets/site.css",
 ];
 const blockedGitHubRawHost = "raw." + "githubusercontent.com";
@@ -110,6 +112,12 @@ for (const relativePath of filesToScanForRuntimeRefs) {
   );
 }
 
+const useCasesJs = read("assets/use-cases.js");
+assert(
+  !useCasesJs.includes(blockedGitHubRawHost),
+  "use-cases.js must not depend on GitHub raw runtime fetches",
+);
+
 const computeFlowJs = read("assets/compute-flow.js");
 assert(
   !computeFlowJs.includes('cache: "no-store"'),
@@ -126,12 +134,7 @@ assert(
   "The home hero must use the trimmed ShardLoom logo asset",
 );
 
-for (const headerLogoFile of [
-  "benchmarks.html",
-  "compute-engine-flow.html",
-  "status.html",
-  "readme.html",
-]) {
+for (const headerLogoFile of htmlRuntimeFiles.filter((relativePath) => !["404.html", "index.html"].includes(relativePath))) {
   const source = read(headerLogoFile);
   assert(
     /<img class="brand-icon" src="\/assets\/logo\/shardloom-favicon\.png"/.test(source),

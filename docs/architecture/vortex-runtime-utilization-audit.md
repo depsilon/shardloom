@@ -112,6 +112,64 @@ Vortex-first provider check:
   preserved.
 ```
 
+`GAR-PERF-2F` is the planned follow-through from report-only `ShardLoomSessionModelReport` to a
+scoped in-process `ShardLoomSession` runtime for local prepared/native artifacts. That future slice
+must keep registries explicit, preserve no hidden globals, expose session/cache lifecycle evidence,
+and avoid daemon/service or remote-server claims.
+
+`GAR-PERF-2B` is the planned evidence-aware logical optimizer pass. It should place optimizer rule
+registry and trace evidence before Vortex Scan pushdown, encoded-kernel, or fused-pipeline promotion
+so every rewrite records admitted/applied/blocked/unsupported status, before/after plan digests,
+rewrite safety, materialization boundaries, `evidence_preserved=true`, `fallback_attempted=false`,
+and `external_engine_invoked=false`. Optimizer traces do not prove Vortex-native provider coverage or
+public performance.
+
+`GAR-IOREUSE-1` is the planned reusable I/O state and cross-format fanout follow-through. It should
+check Vortex Source/Sink/Split, file I/O, prepared artifact, and output concepts before introducing
+parallel ShardLoom abstractions. The planned path is `InputAdapter -> SourceState ->
+VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`, with input and output formats
+decoupled. SourceState, VortexPreparedState, OutputPlan, cache invalidation, and fanout benchmark
+rows must preserve Native I/O, materialization/decode, output metadata, no-fallback, and claim-gate
+evidence. Object-store runtime and table/lakehouse commits remain blocked unless separately
+admitted.
+
+`GAR-PERF-2C` is the planned Vortex Scan API pushdown completion pass. It turns existing
+source-backed scan evidence into a complete per-scenario-family filter/projection/limit
+pushdown-or-blocker matrix with filter-only and output-column read sets. It must preserve
+materialization/decode evidence, `fallback_attempted=false`, `external_engine_invoked=false`, and an
+explicit claim gate. Pushdown evidence remains Scan/source-boundary evidence only; it is not an
+encoded-native operator claim, generalized Source/Split runtime claim, object-store/lakehouse claim,
+SQL/DataFrame claim, or public performance claim.
+
+`GAR-PERF-2D` is the planned compressed/encoded kernel registry pass. It should wrap Vortex
+encoding/layout facts in ShardLoom kernel admission rows for bitpacked, sequence, dictionary,
+constant, sorted/statistics, and FSST/dictionary string cases where available. Registry rows must
+separate `kernel_admitted` from `kernel_executed`, record canonicalization/decode/materialization
+boundaries, preserve validity semantics, and keep `encoded_native_claim_allowed=false` until
+end-to-end evidence passes.
+
+`GAR-PERF-2E` is the planned fused operator pipeline pass. It should combine admitted prepared/native
+source-backed scan boundaries with ShardLoom-native residual operators for filter/projection/limit,
+filter/aggregate, filter/group-by, and top-k/projection families. A fused row must prove correctness
+digest parity with the unfused ShardLoom-native path and expose row counts plus materialization
+avoidance evidence. Fusion remains residual-native unless later representation-state certificates
+prove encoded-native execution.
+
+`GAR-PERF-2G` is the planned allocation and buffer-pool optimization pass. It should profile
+prepared/native allocation families such as result buffers, temporary vectors, hash tables,
+dictionary/string state, and source-state arrays, then admit only scoped or opt-in buffer reuse with
+clear ownership/lifecycle, correctness digest parity, evidence-regression status, no unsafe lifetime
+shortcuts, `fallback_attempted=false`, and `external_engine_invoked=false`. Buffer reuse evidence is
+resource-profile evidence only; it is not a Vortex encoded-native, performance, memory-efficiency,
+daemon/session, object-store/lakehouse, or production claim.
+
+`GAR-PERF-2H` is the planned optimized build-profile and PGO benchmark lane. It should keep
+`release-lto`, `release-pgo`, and `release-native-benchmark` evidence separate from Vortex provider
+evidence, record rustc/cargo versions, target triple, target CPU policy, LTO/PGO/native status,
+correctness digest, no-fallback fields, and claim gate, and keep `target-cpu=native`
+benchmark-only. Build-profile evidence does not prove Vortex-native operator coverage or public
+performance.
+
 ## Layout Device Managed Boundary Matrix
 
 GAR-0042B adds `VortexLayoutDeviceManagedBoundaryMatrix` as a report-only claim boundary. It has four

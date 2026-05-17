@@ -193,6 +193,87 @@ writing a report, so downstream readers can rely on field presence rather than
 inferring timing scope from prose. If `requested_execution_mode=auto`, the row
 must still preserve the selected mode and reason.
 
+`GAR-PERF-2A` adds the next evidence-level row contract. Future rows should expose
+`evidence_level=minimal_runtime|certified|full_replay` beside `execution_mode` so readers can
+separate proof overhead from runtime path. `minimal_runtime` must still preserve
+`fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`, and it must
+remain `not_claim_grade` unless a later scoped gate explicitly approves otherwise.
+
+`GAR-PERF-2B` adds the planned evidence-aware logical optimizer contract. Future benchmark rows
+should be able to reference optimizer traces with optimizer trace ID, registry version, rule
+ID/family/status, before/after plan digests, rewrite safety, evidence preservation, materialization
+boundary preservation, cardinality estimation status, correctness smoke refs, no-fallback fields,
+and claim gate. Optimizer trace refs are explainability evidence only unless an applied rewrite has
+correctness smoke and evidence-preserving before/after digests.
+
+`GAR-PERF-2C` adds the planned Vortex Scan API pushdown completion contract. Future prepared/native
+rows should classify filter, projection, and limit/slice pushdown separately, name filter-only
+columns and output columns, preserve materialization/decode fields, and emit deterministic blockers
+for unsupported expressions. This is scan/source-boundary evidence only; it must not be rendered as
+encoded-native operator execution or public performance proof.
+
+`GAR-PERF-2D` adds the planned compressed/encoded kernel registry contract. Future benchmark and
+capability rows should expose `encoding_id`, logical dtype, physical encoding, operator family,
+`kernel_admitted`, `kernel_executed`, `canonicalization_required`, `decoded`, `materialized`,
+selection-vector behavior, validity semantics, `encoded_native_claim_allowed`, no-fallback status,
+and a claim gate. Unsupported encoding/operator pairs should be visible deterministic blockers.
+
+`GAR-PERF-2E` adds the planned fused operator pipeline contract. Future prepared/native rows should
+expose `fused_pipeline_used`, `fused_operator_family`,
+`intermediate_materialization_avoided`, `rows_scanned`, `rows_selected`, `rows_output`, fused and
+unfused correctness digests, materialization/decode fields, no-fallback status, and a claim gate.
+Fusion rows are local residual-native runtime evidence only unless later end-to-end
+representation-state certificates prove encoded-native execution.
+
+`GAR-PERF-2F` adds the planned in-process `ShardLoomSession` runtime layer. It should turn scoped
+prepared/native batch-runner reuse into explicit caller-owned session evidence, not hidden global
+state. Future session-backed rows should expose `session_id`, cache hit/miss fields, source-state
+reuse count, prepared-artifact reuse count, close/drop status, `fallback_attempted=false`,
+`external_engine_invoked=false`, and `claim_gate_status`. A session row does not authorize a daemon,
+remote server, hidden fast mode, or performance claim.
+
+`GAR-PERF-2G` adds the planned allocation and buffer-pool optimization contract. Future benchmark
+rows or memory/resource reports should expose allocation profile status/scope, allocation count and
+bytes where measurable, buffer-pool enabled/scope, buffer-reuse count/family, peak RSS delta where
+measurable, correctness digest, evidence-regression status, `unsafe_lifetime_shortcut_used=false`,
+`fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`. Buffer reuse
+must be opt-in or scoped to an explicit run/session and must not be rendered as speed or
+memory-efficiency proof.
+
+`GAR-PERF-2H` adds the planned optimized build-profile and PGO benchmark lane. Future benchmark rows
+should expand the existing `shardloom_build_profile` fairness field with `build_profile_kind`,
+rustc/cargo version, target triple, target CPU policy, `target_cpu_native_enabled`, LTO status/mode,
+codegen units, PGO status, profile-generate/profile-use status, PGO artifact/training refs, build
+reproducibility status, portable-release-artifact status, benchmark-only-build status, correctness
+digest, no-fallback fields, and claim gate. `target-cpu=native` is benchmark-only, and optimized
+profile rows must not be rendered as performance claims.
+
+`GAR-PERF-2I` adds the next native microbenchmark suite expansion. Native microbenchmark rows must
+stay separate from traditional compatibility-file rows, prepared/native end-to-end rows, and
+external baseline rows. The planned row families are Vortex scan-only, filter predicate-only,
+projection-only, group-by kernel, hash-join kernel, top-k, result-sink write, and evidence-render.
+Each row should expose `benchmark_category=native_microbenchmark`, primitive, row counts,
+decode/materialization status, `fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status`. Unsupported primitives should emit deterministic skipped/unsupported rows
+rather than disappear from the report.
+
+`GAR-IOREUSE-1` adds the planned I/O reuse and cross-format fanout benchmark bundle. Future rows
+should use the stable path `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan ->
+OutputPlan -> SinkArtifact` and must not couple input and output formats. Planned benchmark
+families are `io_reuse_and_fanout`, `source_state_reuse`, `prepared_state_reuse`,
+`output_plan_reuse`, `cross_format_output`, and `generated_source_output`. Planned fanout cases
+include CSV input -> Parquet + JSONL + Vortex outputs, Parquet input -> CSV + Vortex outputs,
+JSONL input -> Parquet + Vortex outputs, generated source -> CSV + Parquet + Vortex outputs, and
+prepared Vortex -> multiple output formats.
+
+Required future fanout metrics are `source_discovery_millis`, `schema_inference_millis`,
+`source_parse_millis`, `vortex_prepare_millis`, `operator_compute_millis`, `output_plan_millis`,
+`output_write_millis`, `output_replay_millis`, `total_runtime_millis`,
+`source_state_reuse_hit`, `prepared_state_reuse_hit`, `output_plan_reuse_hit`,
+`fanout_output_count`, `fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status`. Rows must separate one-shot speed from reuse/fanout timing and cannot mark any
+sink supported without output replay/evidence proof.
+
 `runtime-report --format json` now mirrors this timing vocabulary as the
 GAR-0018-A report-only runtime-introspection schema. That command is an
 interpretation aid for local benchmark rows only: it reports the stage-timing
@@ -354,6 +435,14 @@ envelope can emit `source_state_reuse_status=per_batch_selective_filter_state_re
 residual-native runtime-plumbing evidence for local prepared/native batch rows only; it is not an
 encoded-native, performance, SQL/DataFrame, object-store/lakehouse, production, or
 Spark-displacement claim.
+
+GAR-PERF-1 is the next prepared/native performance architecture queue. It requires a fresh
+post-source-state-reuse benchmark artifact, complete source-state reuse coverage classification for
+scenario families, a fused filter/project/limit and selection-vector path or deterministic blockers,
+and a report-only Bayesian performance/layout advisor. These are evidence and architecture slices:
+benchmark outputs must remain local pre-release evidence, not leaderboards or public performance
+claims. Compatibility-import rows continue to include ingest/stage/certification work and must not be
+presented as pure query speed.
 
 GAR-FLOW-2D adds `work_avoidance_evidence_schema` to the JSON artifact and Markdown report. The
 schema uses only `measured`, `not_available`, `unsupported`, and `not_applicable` as status values.
