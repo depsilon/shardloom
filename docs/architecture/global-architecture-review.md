@@ -718,10 +718,11 @@ plan before coding.
   `evidence_level=minimal_runtime|certified|full_replay` contract that keeps no-fallback and
   no-external-engine fields visible in every level, prevents `minimal_runtime` rows from becoming
   claim-grade by accident, and separates evidence overhead from execution-mode timing.
-- [ ] `GAR-PERF-2G` adds planned allocation and buffer-pool optimization evidence. The next work is
-  a scoped resource-profile contract with allocation counts/bytes where measurable, buffer-pool
-  status, buffer-reuse counts, peak RSS status, correctness digest, evidence-regression status, and
-  no unsafe lifetime shortcuts.
+- [x] `GAR-PERF-2G` adds scoped allocation/resource-profile and buffer-pool blocker evidence.
+  Session-backed prepared/native batch rows now report allocation profile status/scope, allocation
+  count/byte/peak-RSS `not_available` statuses, `buffer_pool_enabled=false`,
+  `buffer_reuse_count=0`, deterministic reuse blockers, correctness/evidence posture, no unsafe
+  lifetime shortcuts, and no-fallback/no-external-engine fields.
 - [ ] `GAR-IOREUSE-1` adds planned I/O reuse and cross-format fanout evidence. The next work is a
   reusable source/prepared/output planning contract with layer fingerprints, invalidation reasons,
   evidence-safe reuse levels, benchmark timing fields, and no-fallback/no-external-engine evidence
@@ -989,10 +990,10 @@ plan before coding.
   artifacts. It connects report-only `ShardLoomSessionModelReport`, scoped prepared/native batch
   runner evidence, and source-state reuse into caller-owned local session evidence with explicit
   close/drop lifecycle, cache-hit/miss evidence, and no daemon/server claim.
-- [ ] `GAR-PERF-2G` adds the planned allocation and buffer-pool optimization pass. It should add
-  allocation profiling and scoped buffer-reuse evidence for result buffers, temporary vectors, hash
-  tables, dictionary/string state, and source-state arrays while keeping reuse opt-in or scoped,
-  correctness/evidence parity explicit, and unsafe lifetime shortcuts prohibited.
+- [x] `GAR-PERF-2G` adds the scoped allocation and buffer-pool blocker evidence pass. It reports
+  allocation/resource posture for result buffers, temporary vectors, hash tables,
+  dictionary/string state, and source-state arrays while keeping reuse disabled, correctness/evidence
+  posture explicit, and unsafe lifetime shortcuts prohibited.
 - [ ] `GAR-PERF-2H` adds the planned optimized build-profile and PGO benchmark lane. It should define
   `release-lto`, `release-pgo`, and `release-native-benchmark` posture, keep `target-cpu=native`
   benchmark-only, record build profile/LTO/PGO/native status in benchmark artifacts, and keep
@@ -1064,10 +1065,10 @@ plan before coding.
   `ShardLoomSessionModelReport` for prepared/native local artifacts. It keeps registries/session
   state explicit, local, caller-owned, and no-fallback, and it does not imply a daemon, service,
   remote server, hidden global cache, or production runtime claim.
-- [ ] `GAR-PERF-2G` adds allocation and buffer-pool optimization follow-through for prepared/native
-  local runtime paths. It must report allocation profile status, scoped buffer-pool status,
-  buffer-reuse counts, peak RSS status where measurable, correctness digest, evidence regression
-  status, no unsafe lifetime shortcuts, and no-fallback/no-external-engine fields.
+- [x] `GAR-PERF-2G` adds allocation and buffer-pool optimization follow-through for prepared/native
+  local runtime paths. It reports allocation profile status, scoped buffer-pool status,
+  buffer-reuse count/blocker, peak RSS `not_available` status, correctness/evidence-regression
+  posture, no unsafe lifetime shortcuts, and no-fallback/no-external-engine fields.
 - [ ] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark follow-through. It must keep
   Cargo custom profiles, rustc PGO flags, host-native codegen, benchmark evidence, and release
   portability boundaries explicit so optimized builds do not become hidden performance or release
@@ -1236,9 +1237,9 @@ plan before coding.
   scoped and explicit, reports `session_id`, cache hit/miss fields, source-state/prepared artifact
   reuse counts, close/drop status, and no-fallback/no-external-engine fields, and does not imply a
   daemon, service, remote server, or hidden global cache.
-- [ ] `GAR-PERF-2G` adds allocation and buffer-pool optimization follow-through. The flow must keep
-  resource evidence separate from performance claims, report allocation profile and buffer reuse
-  fields where measurable, preserve correctness/evidence parity, and prohibit hidden global pools or
+- [x] `GAR-PERF-2G` adds allocation and buffer-pool optimization follow-through. The flow keeps
+  resource evidence separate from performance claims, reports allocation profile and disabled buffer
+  reuse/blocker fields, preserves correctness/evidence posture, and prohibits hidden global pools or
   unsafe lifetime shortcuts.
 - [ ] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark follow-through. The flow must
   keep build profile, LTO, PGO, target triple, target CPU posture, benchmark-only native artifacts,

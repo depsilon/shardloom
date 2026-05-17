@@ -155,13 +155,14 @@ digest parity with the unfused ShardLoom-native path and expose row counts plus 
 avoidance evidence. Fusion remains residual-native unless later representation-state certificates
 prove encoded-native execution.
 
-`GAR-PERF-2G` is the planned allocation and buffer-pool optimization pass. It should profile
+`GAR-PERF-2G` adds scoped allocation/resource-profile evidence and buffer-pool blocker reporting for
 prepared/native allocation families such as result buffers, temporary vectors, hash tables,
-dictionary/string state, and source-state arrays, then admit only scoped or opt-in buffer reuse with
-clear ownership/lifecycle, correctness digest parity, evidence-regression status, no unsafe lifetime
-shortcuts, `fallback_attempted=false`, and `external_engine_invoked=false`. Buffer reuse evidence is
-resource-profile evidence only; it is not a Vortex encoded-native, performance, memory-efficiency,
-daemon/session, object-store/lakehouse, or production claim.
+dictionary/string state, and source-state arrays. Current rows report allocation counts/bytes and
+peak RSS as `not_available`, `buffer_pool_enabled=false`, `buffer_reuse_count=0`, deterministic
+reuse blockers, no unsafe lifetime shortcuts, `allocation_fallback_attempted=false`, and
+`allocation_external_engine_invoked=false`. Buffer reuse evidence is resource-profile evidence only;
+it is not a Vortex encoded-native, performance, memory-efficiency, daemon/session,
+object-store/lakehouse, or production claim.
 
 `GAR-PERF-2H` is the planned optimized build-profile and PGO benchmark lane. It should keep
 `release-lto`, `release-pgo`, and `release-native-benchmark` evidence separate from Vortex provider

@@ -1820,6 +1820,31 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                     "session_external_engine_invoked"
                 ),
                 "session_claim_gate_status": fields.get("session_claim_gate_status"),
+                "allocation_profile_schema_version": fields.get(
+                    "allocation_profile_schema_version"
+                ),
+                "allocation_profile_status": fields.get("allocation_profile_status"),
+                "allocation_profile_scope": fields.get("allocation_profile_scope"),
+                "allocation_profile_family_status": fields.get(
+                    "allocation_profile_family_status"
+                ),
+                "allocation_count": fields.get("allocation_count"),
+                "allocation_count_status": fields.get("allocation_count_status"),
+                "allocation_bytes": fields.get("allocation_bytes"),
+                "allocation_bytes_status": fields.get("allocation_bytes_status"),
+                "buffer_pool_enabled": fields.get("buffer_pool_enabled"),
+                "buffer_pool_scope": fields.get("buffer_pool_scope"),
+                "buffer_reuse_count": fields.get("buffer_reuse_count"),
+                "buffer_reuse_family": fields.get("buffer_reuse_family"),
+                "buffer_reuse_blocker": fields.get("buffer_reuse_blocker"),
+                "peak_rss_delta": fields.get("peak_rss_delta"),
+                "peak_rss_delta_status": fields.get("peak_rss_delta_status"),
+                "unsafe_lifetime_shortcut_used": fields.get(
+                    "unsafe_lifetime_shortcut_used"
+                ),
+                "allocation_claim_gate_status": fields.get(
+                    "allocation_claim_gate_status"
+                ),
                 "claim_gate_status": fields.get("claim_gate_status"),
                 "fallback_attempted": fields.get("fallback_attempted"),
                 "external_engine_invoked": fields.get("external_engine_invoked"),
@@ -2377,6 +2402,15 @@ def benchmark_page(summary: dict[str, Any]) -> str:
             "Source-state prep ms",
             "Selective-filter reuse",
             "Date/null reuse",
+            "Allocation profile",
+            "Allocation count",
+            "Allocation bytes",
+            "Buffer pool",
+            "Buffer reuse",
+            "Buffer blocker",
+            "Peak RSS delta",
+            "Unsafe shortcut",
+            "Allocation claim gate",
             "Claim gate",
             "Fallback",
             "External engine",
@@ -2409,6 +2443,15 @@ def benchmark_page(summary: dict[str, Any]) -> str:
                 value_at(row, "source_state_prepare_millis"),
                 value_at(row, "source_state_selective_filter_reuse_status"),
                 value_at(row, "source_state_date_null_metric_reuse_status"),
+                value_at(row, "allocation_profile_status"),
+                value_at(row, "allocation_count"),
+                value_at(row, "allocation_bytes"),
+                value_at(row, "buffer_pool_enabled"),
+                value_at(row, "buffer_reuse_count"),
+                value_at(row, "buffer_reuse_blocker"),
+                value_at(row, "peak_rss_delta"),
+                value_at(row, "unsafe_lifetime_shortcut_used"),
+                value_at(row, "allocation_claim_gate_status"),
                 row["claim_gate_status"],
                 row["fallback_attempted"],
                 row["external_engine_invoked"],
@@ -2942,7 +2985,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     <section id="batch">
       <div class="shell">
         <h2>Prepared And Native Batch Smoke</h2>
-        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the scoped in-process session explicit. They show prepared-artifact registry reuse, source metadata, source-state reuse, and the GAR-PERF-1B coverage classification separately from scenario compute and scan timing. They are not a persistent daemon, hidden fast mode, or performance claim.</p>
+        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the scoped in-process session explicit. They show prepared-artifact registry reuse, source metadata, source-state reuse, allocation/resource-profile posture, and the GAR-PERF-1B coverage classification separately from scenario compute and scan timing. The allocation fields are visibility and blocker evidence: the buffer pool is disabled, allocation counts and peak RSS are not measured yet, and the rows are not a persistent daemon, hidden fast mode, memory-efficiency claim, or performance claim.</p>
         {batch_table}
       </div>
     </section>

@@ -373,21 +373,28 @@ claim, or performance claim.
 
 ## Allocation And Buffer-Pool Optimization Queue
 
-`GAR-PERF-2G` tracks the planned allocation profiling and scoped buffer-reuse layer. Current
-benchmark rows should not imply that a global allocation or buffer-pool optimization pass exists.
+`GAR-PERF-2G` now emits a scoped allocation/resource-profile evidence slice on the
+session-backed prepared/native batch lane. Current benchmark rows should not imply that a global
+allocation or buffer-pool optimization pass exists.
 
-Future benchmark rows or memory/resource reports should expose:
+Batch rows and future memory/resource reports should expose:
 
 ```text
 allocation_profile_status
 allocation_profile_scope
 allocation_count
+allocation_count_status
 allocation_bytes
+allocation_bytes_status
 buffer_pool_enabled
 buffer_pool_scope
 buffer_reuse_count
 buffer_reuse_family
+buffer_reuse_blocker
 peak_rss_delta
+peak_rss_delta_status
+source_state_digest
+output_digest
 correctness_digest
 evidence_regression_status
 unsafe_lifetime_shortcut_used=false
@@ -398,8 +405,10 @@ claim_gate_status
 
 The first planned families are result buffers, temporary vectors, hash tables, dictionary/string
 state, and source-state arrays. Buffer reuse must be opt-in or scoped to an explicit run/session and
-must preserve correctness and evidence parity with the no-reuse path. `not_available` for
-allocation counts or peak RSS means unknown/not measured, not zero.
+must preserve correctness and evidence parity with the no-reuse path. The current slice reports
+allocation counts, allocation bytes, and peak RSS as `not_available`; that means unknown/not
+measured, not zero. It also reports `buffer_pool_enabled=false`, `buffer_reuse_count=0`, and a
+deterministic buffer-reuse blocker until safe reuse exists.
 
 These rows are resource-profile evidence only. They are not speed, memory-efficiency, production,
 SQL/DataFrame, object-store/lakehouse, Foundry, or Spark-replacement claims.

@@ -45,6 +45,8 @@ const TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_batch.v1";
 const TRADITIONAL_PREPARED_NATIVE_SESSION_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_native_session.v1";
+const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.allocation_buffer_pool.v1";
 const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
 const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fused_pipeline.v1";
@@ -1447,9 +1449,96 @@ impl TraditionalPreparedNativeSessionEvidence {
             ),
             (
                 "session_buffer_pool_status".to_string(),
-                "not_enabled_planned_under_GAR-PERF-2G".to_string(),
+                "scoped_buffer_pool_disabled_with_reported_blocker".to_string(),
             ),
             ("session_buffer_pool_reuse_count".to_string(), "0".to_string()),
+            (
+                "allocation_profile_schema_version".to_string(),
+                TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "allocation_profile_status".to_string(),
+                "scoped_session_resource_profile_reported".to_string(),
+            ),
+            (
+                "allocation_profile_scope".to_string(),
+                "prepared_native_traditional_analytics_local_artifacts_session".to_string(),
+            ),
+            (
+                "allocation_profile_family_status".to_string(),
+                "result_buffers:not_measured;temporary_vectors:not_measured;hash_tables:not_measured;dictionary_string_state:not_measured;source_state_arrays:scoped_reuse_count_reported".to_string(),
+            ),
+            (
+                "allocation_count".to_string(),
+                "not_available".to_string(),
+            ),
+            (
+                "allocation_count_status".to_string(),
+                "not_available_without_allocator_instrumentation".to_string(),
+            ),
+            (
+                "allocation_bytes".to_string(),
+                "not_available".to_string(),
+            ),
+            (
+                "allocation_bytes_status".to_string(),
+                "not_available_without_allocator_instrumentation".to_string(),
+            ),
+            ("buffer_pool_enabled".to_string(), "false".to_string()),
+            (
+                "buffer_pool_scope".to_string(),
+                "scoped_session_disabled".to_string(),
+            ),
+            ("buffer_reuse_count".to_string(), "0".to_string()),
+            (
+                "buffer_reuse_family".to_string(),
+                "none_buffer_pool_disabled".to_string(),
+            ),
+            (
+                "buffer_reuse_blocker".to_string(),
+                "buffer_pool_contract_pending_no_safe_reuse_enabled".to_string(),
+            ),
+            ("peak_rss_delta".to_string(), "not_available".to_string()),
+            (
+                "peak_rss_delta_status".to_string(),
+                "not_available_without_platform_sampler".to_string(),
+            ),
+            (
+                "source_state_digest".to_string(),
+                "not_emitted_scoped_in_memory_source_state".to_string(),
+            ),
+            (
+                "output_digest".to_string(),
+                "per_scenario_output_digest_only_not_session_aggregated".to_string(),
+            ),
+            (
+                "correctness_digest".to_string(),
+                "per_scenario_correctness_digest_preserved".to_string(),
+            ),
+            (
+                "evidence_regression_status".to_string(),
+                "no_regression_session_resource_fields_only".to_string(),
+            ),
+            (
+                "unsafe_lifetime_shortcut_used".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "allocation_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "allocation_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "allocation_claim_gate_status".to_string(),
+                "fixture_smoke_only".to_string(),
+            ),
+            (
+                "allocation_claim_boundary".to_string(),
+                "scoped local resource-profile visibility only; allocation counts and peak RSS are not measured, buffer pool is disabled, and no performance or memory-efficiency claim is allowed".to_string(),
+            ),
             (
                 "session_kernel_registry_ref".to_string(),
                 "docs/architecture/compressed-encoded-kernel-registry.md".to_string(),
@@ -15507,9 +15596,42 @@ mod tests {
         assert_field_eq(
             &fields,
             "session_buffer_pool_status",
-            "not_enabled_planned_under_GAR-PERF-2G",
+            "scoped_buffer_pool_disabled_with_reported_blocker",
         );
         assert_field_eq(&fields, "session_buffer_pool_reuse_count", "0");
+        assert_field_eq(
+            &fields,
+            "allocation_profile_schema_version",
+            TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "allocation_profile_status",
+            "scoped_session_resource_profile_reported",
+        );
+        assert_field_eq(&fields, "allocation_count", "not_available");
+        assert_field_eq(
+            &fields,
+            "allocation_count_status",
+            "not_available_without_allocator_instrumentation",
+        );
+        assert_field_eq(&fields, "allocation_bytes", "not_available");
+        assert_field_eq(&fields, "buffer_pool_enabled", "false");
+        assert_field_eq(&fields, "buffer_reuse_count", "0");
+        assert_field_eq(
+            &fields,
+            "buffer_reuse_blocker",
+            "buffer_pool_contract_pending_no_safe_reuse_enabled",
+        );
+        assert_field_eq(&fields, "peak_rss_delta", "not_available");
+        assert_field_eq(&fields, "unsafe_lifetime_shortcut_used", "false");
+        assert_field_eq(&fields, "allocation_fallback_attempted", "false");
+        assert_field_eq(&fields, "allocation_external_engine_invoked", "false");
+        assert_field_eq(
+            &fields,
+            "allocation_claim_gate_status",
+            "fixture_smoke_only",
+        );
         assert_field_eq(
             &fields,
             "session_kernel_registry_ref",
