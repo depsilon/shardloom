@@ -16,6 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-2O prepared/native date/null metric source-state reuse
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: close the next prepared/native source-state follow-through by reusing one per-batch
+    date/null metric state for `partition pruning` and `null-heavy aggregate` child scenarios in
+    `traditional-analytics-vortex-batch-run`.
+  - Checklist:
+    - [x] Add `TraditionalDateNullMetricState` over `event_date`, `metric`, and
+          `nullable_metric_00` for eligible prepared/native batches.
+    - [x] Route partition-pruning and null-heavy aggregate batch children through that shared state
+          when both consumers are present.
+    - [x] Emit aggregate and family-specific `source_state_date_null_metric_*` evidence fields.
+    - [x] Preserve child typed envelopes, source-backed scan evidence, Native I/O certificate
+          evidence, materialization/decode fields, and no-fallback policy fields.
+    - [x] Keep `operator_execution_class=residual_native`,
+          `encoded_native_claim_allowed=false`, `performance_claim_allowed=false`,
+          `spark_displacement_claim_allowed=false`, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch_run_reuses_date_null_metric_source_state --features vortex-traditional-analytics-benchmark --lib`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo fmt --all -- --check`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+  - Claim boundary:
+    - This is scoped local prepared/native residual-native source-state reuse evidence only.
+    - It is not a performance, encoded-native, SQL/DataFrame, production, object-store/lakehouse,
+      broad CDC/table transaction, package-publication, or Spark-displacement claim.
+  - Fallback boundary:
+    - No fallback engine is admitted or invoked.
+    - External engines remain baselines only.
+
 - [x] Session label: GAR-BENCH-PUB-1 benchmark publishing manifest and completeness workflow
   - Primary files:
     - `benchmarks/traditional_analytics/benchmark_registry.py`

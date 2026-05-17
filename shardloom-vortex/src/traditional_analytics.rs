@@ -1085,6 +1085,78 @@ impl TraditionalDirtyInputState {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
+struct TraditionalDateNullMetricState {
+    partition_pruning_accum: TraditionalGroupAccum,
+    null_heavy_accum: TraditionalGroupAccum,
+    stats: TraditionalStreamingScanStats,
+    saw_event_date: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDateNullMetricState {
+    fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
+        let mut partition_pruning_accum = TraditionalGroupAccum::default();
+        let mut null_heavy_accum = TraditionalGroupAccum::default();
+        let mut saw_event_date = false;
+        let stats = scan_fact_vortex_projected(
+            fact_vortex,
+            &["event_date", "metric", "nullable_metric_00"],
+            None,
+            |fields, chunk_rows| {
+                let event_dates = utf8_field(fields, "event_date")?;
+                let metrics = primitive_field::<f64>(fields, "metric")?;
+                let nullable_metrics = utf8_field(fields, "nullable_metric_00")?;
+                if event_dates.len() != chunk_rows
+                    || metrics.len() != chunk_rows
+                    || nullable_metrics.len() != chunk_rows
+                {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "batch date/null metric state Vortex chunk length mismatch: chunk_rows={chunk_rows}, event_date_len={}, metric_len={}, nullable_metric_00_len={}",
+                        event_dates.len(),
+                        metrics.len(),
+                        nullable_metrics.len()
+                    )));
+                }
+                for ((event_date, metric), nullable_metric) in
+                    event_dates.into_iter().zip(metrics).zip(nullable_metrics)
+                {
+                    saw_event_date |= !event_date.is_empty();
+                    if partition_pruning_date_range_contains(&event_date) {
+                        partition_pruning_accum.add(metric);
+                    }
+                    if nullable_metric.is_empty() {
+                        continue;
+                    }
+                    let parsed_metric = nullable_metric.parse::<f64>().map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "failed to parse nullable_metric_00 in batch date/null metric state: {error}"
+                        ))
+                    })?;
+                    null_heavy_accum.add(parsed_metric);
+                }
+                Ok(())
+            },
+        )?;
+        Ok(Self {
+            partition_pruning_accum,
+            null_heavy_accum,
+            stats,
+            saw_event_date,
+        })
+    }
+
+    fn ensure_partition_pruning_supported(&self) -> Result<()> {
+        if !self.saw_event_date {
+            return Err(ShardLoomError::InvalidOperation(
+                "partition pruning requires an event_date fixture column".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
 struct TraditionalVortexBatchSourceState {
     source_snapshot: TraditionalVortexSourceSnapshot,
     dimension_label_state: Option<TraditionalDimensionLabelState>,
@@ -1099,6 +1171,8 @@ struct TraditionalVortexBatchSourceState {
     selective_filter_state_consumer_count: usize,
     dirty_input_state: Option<TraditionalDirtyInputState>,
     dirty_input_state_consumer_count: usize,
+    date_null_metric_state: Option<TraditionalDateNullMetricState>,
+    date_null_metric_state_consumer_count: usize,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -1165,6 +1239,15 @@ impl TraditionalVortexBatchSourceState {
         } else {
             None
         };
+        let date_null_metric_state_consumer_count = scenarios
+            .iter()
+            .filter(|scenario| date_null_metric_state_reuse_candidate(**scenario))
+            .count();
+        let date_null_metric_state = if date_null_metric_state_consumer_count > 1 {
+            Some(TraditionalDateNullMetricState::from_path(fact_vortex)?)
+        } else {
+            None
+        };
         Ok(Self {
             source_snapshot,
             dimension_label_state,
@@ -1179,6 +1262,8 @@ impl TraditionalVortexBatchSourceState {
             selective_filter_state_consumer_count,
             dirty_input_state,
             dirty_input_state_consumer_count,
+            date_null_metric_state,
+            date_null_metric_state_consumer_count,
         })
     }
 
@@ -1205,6 +1290,10 @@ impl TraditionalVortexBatchSourceState {
 
     fn dirty_input_state_recompute_avoided_count(&self) -> usize {
         self.dirty_input_state_consumer_count.saturating_sub(1)
+    }
+
+    fn date_null_metric_state_recompute_avoided_count(&self) -> usize {
+        self.date_null_metric_state_consumer_count.saturating_sub(1)
     }
 }
 
@@ -1259,6 +1348,15 @@ fn dirty_input_state_reuse_candidate(scenario: TraditionalAnalyticsScenario) -> 
         scenario,
         TraditionalAnalyticsScenario::CleanCastFilterWrite
             | TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn date_null_metric_state_reuse_candidate(scenario: TraditionalAnalyticsScenario) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::PartitionPruning
+            | TraditionalAnalyticsScenario::NullHeavyAggregate
     )
 }
 
@@ -2902,6 +3000,8 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub selective_filter_state_recompute_avoided_count: usize,
     pub dirty_input_state_consumer_count: usize,
     pub dirty_input_state_recompute_avoided_count: usize,
+    pub date_null_metric_state_consumer_count: usize,
+    pub date_null_metric_state_recompute_avoided_count: usize,
     pub total_scenario_compute_micros: u64,
     pub total_vortex_scan_micros: u64,
     pub total_result_sink_write_micros: Option<u64>,
@@ -3176,6 +3276,28 @@ impl TraditionalAnalyticsVortexBatchReport {
                 self.dirty_input_state_recompute_avoided_count.to_string(),
             ),
             (
+                "source_state_date_null_metric_reuse_status".to_string(),
+                self.date_null_metric_state_reuse_status().to_string(),
+            ),
+            (
+                "source_state_date_null_metric_reused".to_string(),
+                (self.date_null_metric_state_recompute_avoided_count > 0).to_string(),
+            ),
+            (
+                "source_state_date_null_metric_reuse_scope".to_string(),
+                "date_null_metric_state_for_partition_pruning_and_null_heavy_aggregate"
+                    .to_string(),
+            ),
+            (
+                "source_state_date_null_metric_reuse_consumer_count".to_string(),
+                self.date_null_metric_state_consumer_count.to_string(),
+            ),
+            (
+                "source_state_date_null_metric_recompute_avoided_count".to_string(),
+                self.date_null_metric_state_recompute_avoided_count
+                    .to_string(),
+            ),
+            (
                 "source_state_prepare_micros".to_string(),
                 self.source_state_prepare_micros.to_string(),
             ),
@@ -3288,6 +3410,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             + self.ranked_metric_state_consumer_count
             + self.selective_filter_state_consumer_count
             + self.dirty_input_state_consumer_count
+            + self.date_null_metric_state_consumer_count
     }
 
     fn source_state_recompute_avoided_count(&self) -> usize {
@@ -3297,6 +3420,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             + self.ranked_metric_state_recompute_avoided_count
             + self.selective_filter_state_recompute_avoided_count
             + self.dirty_input_state_recompute_avoided_count
+            + self.date_null_metric_state_recompute_avoided_count
     }
 
     fn source_state_family_count(&self) -> usize {
@@ -3306,6 +3430,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             + usize::from(self.ranked_metric_state_consumer_count > 0)
             + usize::from(self.selective_filter_state_consumer_count > 0)
             + usize::from(self.dirty_input_state_consumer_count > 0)
+            + usize::from(self.date_null_metric_state_consumer_count > 0)
     }
 
     fn source_state_reuse_scope(&self) -> String {
@@ -3334,6 +3459,9 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "dirty_input_state_for_clean_cast_filter_write_and_malformed_timestamp_dirty_csv",
             );
         }
+        if self.date_null_metric_state_consumer_count > 0 {
+            scopes.push("date_null_metric_state_for_partition_pruning_and_null_heavy_aggregate");
+        }
         if scopes.is_empty() {
             "not_applicable_no_source_state_consumers".to_string()
         } else {
@@ -3361,6 +3489,9 @@ impl TraditionalAnalyticsVortexBatchReport {
         if self.dirty_input_state_recompute_avoided_count > 0 {
             reused_statuses.push(self.dirty_input_state_reuse_status());
         }
+        if self.date_null_metric_state_recompute_avoided_count > 0 {
+            reused_statuses.push(self.date_null_metric_state_reuse_status());
+        }
         match reused_statuses.as_slice() {
             [] if self.source_state_family_count() > 1 => {
                 "per_batch_multi_family_source_state_available_single_consumers"
@@ -3382,6 +3513,9 @@ impl TraditionalAnalyticsVortexBatchReport {
             }
             [] if self.dirty_input_state_consumer_count > 0 => {
                 self.dirty_input_state_reuse_status()
+            }
+            [] if self.date_null_metric_state_consumer_count > 0 => {
+                self.date_null_metric_state_reuse_status()
             }
             [] => "not_applicable_no_source_state_consumers",
             [status] => status,
@@ -3434,6 +3568,14 @@ impl TraditionalAnalyticsVortexBatchReport {
             0 => "not_applicable_no_dirty_input_state_consumers",
             1 => "not_prepared_single_consumer_uses_scenario_scan",
             _ => "per_batch_dirty_input_state_reused",
+        }
+    }
+
+    fn date_null_metric_state_reuse_status(&self) -> &'static str {
+        match self.date_null_metric_state_consumer_count {
+            0 => "not_applicable_no_date_null_metric_state_consumers",
+            1 => "not_prepared_single_consumer_uses_scenario_scan",
+            _ => "per_batch_date_null_metric_state_reused",
         }
     }
 }
@@ -7197,6 +7339,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     let dirty_input_state_consumer_count = source_state.dirty_input_state_consumer_count;
     let dirty_input_state_recompute_avoided_count =
         source_state.dirty_input_state_recompute_avoided_count();
+    let date_null_metric_state_consumer_count = source_state.date_null_metric_state_consumer_count;
+    let date_null_metric_state_recompute_avoided_count =
+        source_state.date_null_metric_state_recompute_avoided_count();
 
     let mut reports = Vec::with_capacity(scenarios.len());
     for (index, scenario) in scenarios.into_iter().enumerate() {
@@ -7279,6 +7424,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         selective_filter_state_recompute_avoided_count,
         dirty_input_state_consumer_count,
         dirty_input_state_recompute_avoided_count,
+        date_null_metric_state_consumer_count,
+        date_null_metric_state_recompute_avoided_count,
         total_scenario_compute_micros,
         total_vortex_scan_micros,
         total_result_sink_write_micros,
@@ -10292,6 +10439,11 @@ fn run_vortex_derived_scenario_from_files_with_batch_source_state(
     {
         return Ok(execution);
     }
+    if let Some(execution) =
+        run_date_null_metric_batch_source_state_scenario(scenario, dim_path, source_state)?
+    {
+        return Ok(execution);
+    }
     run_vortex_derived_scenario_from_files(scenario, fact_path, dim_path, cdc_delta_path)
 }
 
@@ -10453,6 +10605,50 @@ fn run_dirty_input_batch_source_state_scenario(
                 dirty_state,
             )?
         }
+        _ => return Ok(None),
+    };
+    Ok(Some(execution))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_date_null_metric_batch_source_state_scenario(
+    scenario: TraditionalAnalyticsScenario,
+    dim_path: &std::path::Path,
+    source_state: &TraditionalVortexBatchSourceState,
+) -> Result<Option<TraditionalScenarioExecution>> {
+    let Some(date_null_state) = source_state.date_null_metric_state.as_ref() else {
+        return Ok(None);
+    };
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let stats = date_null_state.stats.clone();
+    let execution = match scenario {
+        TraditionalAnalyticsScenario::PartitionPruning => {
+            date_null_state.ensure_partition_pruning_supported()?;
+            TraditionalScenarioExecution {
+                result_json: scalar_result_json(
+                    date_null_state.partition_pruning_accum.row_count,
+                    date_null_state.partition_pruning_accum.metric_sum,
+                ),
+                fact_rows: stats.source_row_count,
+                dim_rows,
+                cdc_delta_rows: 0,
+                rows_scanned: stats.source_row_count,
+                rows_materialized: 1,
+                evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+            }
+        }
+        TraditionalAnalyticsScenario::NullHeavyAggregate => TraditionalScenarioExecution {
+            result_json: scalar_result_json(
+                date_null_state.null_heavy_accum.row_count,
+                date_null_state.null_heavy_accum.metric_sum,
+            ),
+            fact_rows: stats.source_row_count,
+            dim_rows,
+            cdc_delta_rows: 0,
+            rows_scanned: stats.source_row_count,
+            rows_materialized: 1,
+            evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+        },
         _ => return Ok(None),
     };
     Ok(Some(execution))
@@ -15079,6 +15275,135 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_malformed-timestamp---dirty-CSV_external_engine_invoked",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_native_vortex_batch_run_reuses_date_null_metric_source_state() {
+        let root = traditional_analytics_test_root("prepared-native-date-null-metric-state");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_native_vortex_replay_verification(true),
+        )
+        .unwrap();
+
+        let batch_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::PartitionPruning,
+                    TraditionalAnalyticsScenario::NullHeavyAggregate,
+                ],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+
+        assert_eq!(batch_report.reports.len(), 2);
+        assert!(batch_report.all_native_io_certificates_certified);
+        assert!(
+            batch_report
+                .reports
+                .iter()
+                .all(|report| !report.fallback_execution_allowed)
+        );
+        let partition_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::PartitionPruning)
+            .unwrap();
+        assert_eq!(
+            partition_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":6.5}"
+        );
+        let null_report = batch_report
+            .reports
+            .iter()
+            .find(|report| report.scenario == TraditionalAnalyticsScenario::NullHeavyAggregate)
+            .unwrap();
+        assert_eq!(
+            null_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":5.0}"
+        );
+
+        let fields = field_map(batch_report.fields());
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_status",
+            "per_batch_date_null_metric_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_reused", "true");
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_scope",
+            "date_null_metric_state_for_partition_pruning_and_null_heavy_aggregate",
+        );
+        assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
+        assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
+        assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_field_eq(
+            &fields,
+            "source_state_date_null_metric_reuse_status",
+            "per_batch_date_null_metric_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_date_null_metric_reused", "true");
+        assert_field_eq(
+            &fields,
+            "source_state_date_null_metric_reuse_consumer_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_date_null_metric_recompute_avoided_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_dirty_input_reuse_status",
+            "not_applicable_no_dirty_input_state_consumers",
+        );
+        assert_field_eq(&fields, "source_state_fallback_attempted", "false");
+        assert_field_eq(&fields, "source_state_external_engine_invoked", "false");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert_field_eq(&fields, "performance_claim_allowed", "false");
+        assert_field_eq(&fields, "spark_displacement_claim_allowed", "false");
+        assert_field_eq(&fields, "encoded_native_claim_allowed", "false");
+        assert_field_eq(
+            &fields,
+            "scenario_order",
+            "partition-pruning,null-heavy-aggregate",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_partition-pruning_source_backed_scan_projected_columns",
+            "event_date,metric,nullable_metric_00",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_null-heavy-aggregate_source_backed_scan_projected_columns",
+            "event_date,metric,nullable_metric_00",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_partition-pruning_operator_execution_class",
+            "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_null-heavy-aggregate_external_engine_invoked",
             "false",
         );
 
