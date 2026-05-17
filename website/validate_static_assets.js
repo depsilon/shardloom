@@ -6,6 +6,8 @@ const repoRoot = path.resolve(root, "..");
 const requiredFiles = [
   "assets/compute-flow.js",
   "assets/data/compute-engine-flow-reference.md",
+  "assets/benchmarks/latest/manifest.json",
+  "assets/benchmarks/latest/benchmark-results.json",
   "index.html",
   "status.html",
 ];
@@ -25,6 +27,8 @@ const runtimeFiles = [
   "assets/compute-flow.js",
   "assets/use-cases.js",
   "assets/site.css",
+  "assets/benchmarks/latest/manifest.json",
+  "assets/benchmarks/latest/benchmark-results.json",
 ];
 const blockedGitHubRawHost = "raw." + "githubusercontent.com";
 
@@ -134,6 +138,28 @@ assert(
   !computeFlowJs.includes('cache: "no-store"'),
   "compute-flow.js must not bypass the short static cache for the local markdown snapshot",
 );
+
+const benchmarkManifest = JSON.parse(read("assets/benchmarks/latest/manifest.json"));
+assert(
+  benchmarkManifest.schema_version === "shardloom.website_benchmark_manifest.v1",
+  "benchmark manifest must use shardloom.website_benchmark_manifest.v1",
+);
+assert(
+  benchmarkManifest.performance_claim_allowed === false,
+  "benchmark manifest must keep performance_claim_allowed=false",
+);
+assert(
+  Array.isArray(benchmarkManifest.expected_lanes) &&
+    Array.isArray(benchmarkManifest.available_lanes) &&
+    Array.isArray(benchmarkManifest.missing_lanes),
+  "benchmark manifest must expose expected_lanes, available_lanes, and missing_lanes",
+);
+if (benchmarkManifest.artifact_paths?.json) {
+  assert(
+    fs.existsSync(path.join(repoRoot, benchmarkManifest.artifact_paths.json)),
+    `benchmark manifest artifact_paths.json must exist: ${benchmarkManifest.artifact_paths.json}`,
+  );
+}
 
 const indexHtml = read("index.html");
 assert(

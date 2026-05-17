@@ -59,6 +59,8 @@ EXPECTED_ASSETS = [
     "assets/compute-flow.js",
     "assets/data/compute-engine-flow-reference.md",
     "assets/data/benchmark-evidence.json",
+    "assets/benchmarks/latest/manifest.json",
+    "assets/benchmarks/latest/benchmark-results.json",
 ]
 RUNTIME_SUFFIXES = (".html", ".js", ".css", ".xml", ".txt")
 RUNTIME_NAMES = {"_headers", "_redirects"}
@@ -274,6 +276,24 @@ def main() -> int:
 
         if not (website / "assets" / "data" / "compute-engine-flow-reference.md").exists():
             blockers.append("missing local compute-flow reference snapshot")
+
+        manifest_path = website / "assets" / "benchmarks" / "latest" / "manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                blockers.append(f"benchmark manifest is not valid JSON: {exc}")
+            else:
+                if manifest.get("performance_claim_allowed") is not False:
+                    blockers.append("benchmark manifest must keep performance_claim_allowed=false")
+                if not manifest.get("expected_lanes"):
+                    blockers.append("benchmark manifest must list expected_lanes")
+                if "available_lanes" not in manifest or "missing_lanes" not in manifest:
+                    blockers.append("benchmark manifest must list available_lanes and missing_lanes")
+                artifact_paths = manifest.get("artifact_paths") or {}
+                artifact_json = artifact_paths.get("json")
+                if artifact_json and not (repo_root / artifact_json).exists():
+                    blockers.append(f"benchmark manifest artifact_paths.json does not exist: {artifact_json}")
 
     report: dict[str, Any] = {
         "schema_version": "shardloom.website_readiness.v1",

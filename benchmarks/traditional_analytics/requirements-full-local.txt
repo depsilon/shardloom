@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# Full local CPU benchmark profile dependencies.
+#
+# These packages are benchmark tooling only. They are not ShardLoom runtime
+# dependencies and must never be used as fallback execution for unsupported
+# ShardLoom plans.
+-r requirements.txt

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Optional extended local benchmark profile dependencies.
+#
+# Install this only for local benchmark artifact generation. Website rendering
+# consumes committed artifacts and does not need these packages.
+-r requirements-full-local.txt
+clickhouse-connect
+daft
+ibis-framework
+pyarrow
+ray[data]

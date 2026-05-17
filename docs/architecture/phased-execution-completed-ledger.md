@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-BENCH-PUB-1 benchmark publishing manifest and completeness workflow
+  - Primary files:
+    - `benchmarks/traditional_analytics/benchmark_registry.py`
+    - `benchmarks/traditional_analytics/requirements-full-local.txt`
+    - `benchmarks/traditional_analytics/requirements-extended-local.txt`
+    - `benchmarks/traditional_analytics/requirements-gpu-optional.txt`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/benchmarks/static-benchmark-publishing-runbook.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `scripts/check_benchmark_environment.py`
+    - `scripts/check_benchmark_artifact_completeness.py`
+    - `scripts/check_website_readiness.py`
+    - `website/build_static_pages.py`
+    - `website/benchmarks.html`
+    - `website/assets/data/benchmark-evidence.json`
+    - `website/assets/benchmarks/latest/manifest.json`
+    - `website/assets/benchmarks/latest/benchmark-results.json`
+    - `website/validate_static_assets.js`
+  - Scope: close the benchmark publishing scaffolding slices GAR-BENCH-PUB-1A, 1B, 1C, 1E, 1F,
+    1G, and 1H by separating benchmark execution artifacts from website rendering artifacts.
+  - Checklist:
+    - [x] Add a machine-readable benchmark lane/profile registry with ShardLoom, core local, Spark,
+          extended, GPU, object-store, and I/O-reuse profile vocabulary.
+    - [x] Add a benchmark environment preflight script that reports expected lanes, available
+          lanes, missing lanes, versions/reasons, environment fingerprint, and
+          `performance_claim_allowed=false`.
+    - [x] Add static website benchmark manifest ingestion and committed latest artifacts under
+          `website/assets/benchmarks/latest/`.
+    - [x] Add a benchmark artifact completeness checker that fails silently missing required lanes,
+          missing availability reasons, missing artifact paths, missing ShardLoom no-fallback
+          fields, and missing external-baseline markers.
+    - [x] Update the benchmark page to render artifact profile, completeness, expected lanes,
+          available lanes, missing lanes, and lane reasons from the manifest.
+    - [x] Add the static benchmark publishing runbook and benchmark requirements files.
+    - [x] Leave GAR-BENCH-PUB-1D open for actual expanded competitor lane adapters and smoke
+          coverage beyond the registry vocabulary.
+  - Evidence/verification:
+    - `python scripts/check_benchmark_environment.py --profile smoke`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `python website/build_static_pages.py --benchmark-manifest website/assets/benchmarks/latest/manifest.json`
+    - `python -m compileall -q scripts benchmarks/traditional_analytics website`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - This is benchmark publication integrity and static artifact provenance only.
+    - It does not create performance/superiority, Spark-displacement, production SQL/DataFrame,
+      object-store/lakehouse/Foundry, package-publication, GPU, object-store, or full-local
+      benchmark claims.
+  - Fallback boundary:
+    - External engines remain `external_baseline_only`.
+    - ShardLoom rows must preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: P8.7 completed website phase-plan compaction
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`

@@ -59,8 +59,29 @@
         </div>
       </div>
     </section>
+    <section id="artifact-profile">
+      <div class="shell">
+        <p class="eyebrow">Publishing artifact</p>
+        <h2>Artifact Completeness And Lane Availability</h2>
+        <p class="section-lede">This panel prevents missing competitor libraries from silently removing lanes from the public page. Full-local artifacts must list expected, available, and missing lanes before they can be interpreted as full-local benchmark evidence.</p>
+
+        <div class="notice-panel benchmark-manifest-panel">
+          <strong>Published artifact profile: <code>smoke</code></strong>
+          <span>Artifact status: <code>complete</code>. The website renders committed benchmark artifacts; it does not import pandas, Polars, DuckDB, Spark, DataFusion, Dask, or Java at page-render time.</span>
+        </div>
+        <details class="raw-data-drawer manifest-drawer"><summary>Benchmark lane availability from manifest</summary><div class="table-scroll"><table>
+<thead><tr><th>Expected lane</th><th>Status</th><th>Profile policy</th><th>Version / reason</th></tr></thead><tbody>
+<tr><td>shardloom</td><td>available</td><td>required</td><td>available in committed website benchmark artifact</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>available</td><td>optional</td><td>available in committed website benchmark artifact</td></tr>
+<tr><td>shardloom-vortex</td><td>available</td><td>optional</td><td>available in committed website benchmark artifact</td></tr>
+<tr><td>native-vortex</td><td>missing</td><td>optional</td><td>not present in current committed smoke artifact; run the full benchmark publishing workflow before treating this as full-local evidence</td></tr>
+</tbody></table></div></details>
+
+      </div>
+    </section>
     <nav class="page-subnav" aria-label="Benchmark evidence sections">
       <div class="shell">
+        <a href="#artifact-profile">Artifact profile</a>
         <a href="#takeaways">Key takeaways</a>
         <a href="#why-raw-speed">Raw speed axis</a>
         <a href="#user-layer">User layer</a>
@@ -426,17 +447,17 @@
         <p class="section-lede">The local table metadata smoke is included only as scoped metadata evidence, not as a lakehouse/catalog runtime benchmark.</p>
         <div class="table-scroll"><table>
 <thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
-<tr><td>schema_version</td><td>shardloom.local_table_metadata_read_smoke.v1</td></tr>
-<tr><td>support_status</td><td>runtime_supported</td></tr>
-<tr><td>claim_gate_status</td><td>scoped_local_metadata_smoke_only</td></tr>
 <tr><td>catalog_kind</td><td>local_manifest</td></tr>
+<tr><td>claim_boundary</td><td>one in-memory local manifest-backed metadata summary; no data file read, object-store read, credential resolution, write, CDC/delete execution, lakehouse, SQL/DataFrame, Foundry, production, or performance claim</td></tr>
+<tr><td>claim_gate_status</td><td>scoped_local_metadata_smoke_only</td></tr>
 <tr><td>dataset_format</td><td>vortex</td></tr>
 <tr><td>declared_row_count</td><td>8</td></tr>
-<tr><td>partition_count</td><td></td></tr>
-<tr><td>fallback_attempted</td><td>false</td></tr>
 <tr><td>external_engine_invoked</td><td>false</td></tr>
+<tr><td>fallback_attempted</td><td>false</td></tr>
+<tr><td>partition_count</td><td></td></tr>
 <tr><td>performance_claim_allowed</td><td>false</td></tr>
-<tr><td>claim_boundary</td><td>one in-memory local manifest-backed metadata summary; no data file read, object-store read, credential resolution, write, CDC/delete execution, lakehouse, SQL/DataFrame, Foundry, production, or performance claim</td></tr>
+<tr><td>schema_version</td><td>shardloom.local_table_metadata_read_smoke.v1</td></tr>
+<tr><td>support_status</td><td>runtime_supported</td></tr>
 </tbody></table></div>
       </div>
     </section>

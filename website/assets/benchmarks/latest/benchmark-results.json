@@ -79,53 +79,6 @@
       "total_vortex_scan_millis": 10.651
     }
   ],
-  "benchmark_manifest": {
-    "artifact_paths": {
-      "html": null,
-      "json": "website/assets/benchmarks/latest/benchmark-results.json",
-      "markdown": null
-    },
-    "artifact_status": "complete",
-    "available_lanes": [
-      "shardloom",
-      "shardloom-prepared-vortex",
-      "shardloom-vortex"
-    ],
-    "benchmark_git_sha": null,
-    "benchmark_profile": "smoke",
-    "claim_boundary": "local_smoke_not_claim_grade",
-    "environment": {
-      "cpu_count": 8,
-      "platform": "Windows-10-10.0.26220-SP0",
-      "python": "3.11.4",
-      "website_generator": "website/build_static_pages.py"
-    },
-    "expected_lanes": [
-      "shardloom",
-      "shardloom-prepared-vortex",
-      "shardloom-vortex",
-      "native-vortex"
-    ],
-    "generated_at_utc": "2026-05-15T07:06:07.720206+00:00",
-    "lane_availability_reasons": {
-      "native-vortex": "not present in current committed smoke artifact; run the full benchmark publishing workflow before treating this as full-local evidence",
-      "shardloom": "available in committed website benchmark artifact",
-      "shardloom-prepared-vortex": "available in committed website benchmark artifact",
-      "shardloom-vortex": "available in committed website benchmark artifact"
-    },
-    "lane_versions": {
-      "shardloom": "from committed artifact",
-      "shardloom-prepared-vortex": "from committed artifact",
-      "shardloom-vortex": "from committed artifact"
-    },
-    "missing_lanes": [
-      "native-vortex"
-    ],
-    "missing_required_lanes": [],
-    "performance_claim_allowed": false,
-    "schema_version": "shardloom.website_benchmark_manifest.v1",
-    "shardloom_git_sha": null
-  },
   "claim_boundary": {
     "performance_claim_allowed": false,
     "production_object_store_lakehouse_foundry_claim_allowed": false,

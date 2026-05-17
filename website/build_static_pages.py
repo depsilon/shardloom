@@ -10,8 +10,11 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
+import platform
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -19,9 +22,17 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 WEBSITE = ROOT / "website"
 DATA_DIR = WEBSITE / "assets" / "data"
+BENCHMARK_LATEST_DIR = WEBSITE / "assets" / "benchmarks" / "latest"
 DOC_USE_CASES = ROOT / "docs" / "use-cases"
 USE_CASE_PAGES = WEBSITE / "use-cases"
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
+from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
+    MANIFEST_SCHEMA_VERSION,
+    PROFILES,
+    expected_lanes_for_profile,
+    lane_required_for_profile,
+)
 from check_use_case_index import load_index  # noqa: E402
 
 
@@ -58,6 +69,21 @@ def display_path(path: Path) -> str:
         return repo_relative_path(path)
     except OSError:
         return path.name
+
+
+def load_json_file(path: Path) -> Any:
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def resolve_artifact_path(path_text: str, manifest_path: Path) -> Path:
+    path = Path(path_text)
+    if path.is_absolute():
+        return path
+    root_candidate = ROOT / path
+    if root_candidate.exists():
+        return root_candidate
+    return manifest_path.parent / path
 
 
 def inline_markdown(value: str) -> str:
@@ -1612,6 +1638,145 @@ def latest_artifact_generated_at(summary: dict[str, Any]) -> str:
     return latest_generated_at(summary.get("artifacts", []))
 
 
+def benchmark_available_lanes(summary: dict[str, Any]) -> list[str]:
+    lanes = {
+        str(row.get("engine"))
+        for row in summary.get("rows", [])
+        if row.get("engine")
+    }
+    for row in summary.get("batch_rows", []):
+        selected = str(row.get("selected_execution_modes") or "")
+        if "prepared_vortex" in selected:
+            lanes.add("shardloom-prepared-vortex")
+        if "native_vortex" in selected:
+            lanes.add("shardloom-vortex")
+    return sorted(lanes)
+
+
+def benchmark_environment_snapshot() -> dict[str, Any]:
+    return {
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "cpu_count": os.cpu_count(),
+        "website_generator": "website/build_static_pages.py",
+    }
+
+
+def benchmark_manifest_from_summary(
+    summary: dict[str, Any],
+    results_path: Path,
+    profile_name: str = "smoke",
+) -> dict[str, Any]:
+    available = benchmark_available_lanes(summary)
+    expected = list(expected_lanes_for_profile(profile_name))
+    missing = [lane for lane in expected if lane not in available]
+    missing_required = [
+        lane
+        for lane in missing
+        if lane_required_for_profile(profile_name, lane)
+    ]
+    reasons = {
+        lane: "available in committed website benchmark artifact"
+        for lane in available
+    }
+    for lane in missing:
+        reasons[lane] = (
+            "not present in current committed smoke artifact; run the full benchmark "
+            "publishing workflow before treating this as full-local evidence"
+        )
+    generated_at = latest_artifact_generated_at(summary) or datetime.now(timezone.utc).isoformat()
+    return {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "generated_at_utc": generated_at,
+        "benchmark_profile": profile_name,
+        "benchmark_git_sha": None,
+        "shardloom_git_sha": None,
+        "artifact_status": "incomplete" if missing_required else "complete",
+        "expected_lanes": expected,
+        "available_lanes": available,
+        "missing_lanes": missing,
+        "missing_required_lanes": missing_required,
+        "lane_versions": {lane: "from committed artifact" for lane in available},
+        "lane_availability_reasons": reasons,
+        "environment": benchmark_environment_snapshot(),
+        "claim_boundary": PROFILES[profile_name].claim_boundary,
+        "performance_claim_allowed": False,
+        "artifact_paths": {
+            "json": repo_relative_path(results_path),
+            "markdown": None,
+            "html": None,
+        },
+    }
+
+
+def write_latest_benchmark_artifacts(summary: dict[str, Any]) -> dict[str, Any]:
+    BENCHMARK_LATEST_DIR.mkdir(parents=True, exist_ok=True)
+    results_path = BENCHMARK_LATEST_DIR / "benchmark-results.json"
+    results_path.write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    manifest = benchmark_manifest_from_summary(summary, results_path)
+    manifest_path = BENCHMARK_LATEST_DIR / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def load_benchmark_summary_from_manifest(manifest_path: Path) -> dict[str, Any]:
+    manifest = load_json_file(manifest_path)
+    if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION:
+        raise ValueError(
+            "benchmark manifest schema_version must be "
+            f"{MANIFEST_SCHEMA_VERSION}, got {manifest.get('schema_version')}"
+        )
+    artifact_paths = manifest.get("artifact_paths") or {}
+    json_ref = artifact_paths.get("json")
+    if not json_ref:
+        raise ValueError("benchmark manifest artifact_paths.json is required")
+    summary_path = resolve_artifact_path(str(json_ref), manifest_path)
+    summary = load_json_file(summary_path)
+    if not isinstance(summary, dict):
+        raise ValueError("benchmark artifact JSON must contain an object")
+    summary["benchmark_manifest"] = manifest
+    return summary
+
+
+def benchmark_manifest_panel(summary: dict[str, Any]) -> str:
+    manifest = summary.get("benchmark_manifest") or {}
+    if not manifest:
+        return ""
+    expected = manifest.get("expected_lanes") or []
+    available = set(manifest.get("available_lanes") or [])
+    missing = set(manifest.get("missing_lanes") or [])
+    reasons = manifest.get("lane_availability_reasons") or {}
+    lane_rows = []
+    for lane in expected:
+        if lane in available:
+            status = "available"
+        elif lane in missing:
+            status = "missing"
+        else:
+            status = "unreported"
+        lane_rows.append(
+            [
+                lane,
+                status,
+                "required" if lane_required_for_profile(manifest["benchmark_profile"], lane) else "optional",
+                reasons.get(lane, ""),
+            ]
+        )
+    return f"""
+        <div class="notice-panel benchmark-manifest-panel">
+          <strong>Published artifact profile: <code>{esc(manifest.get('benchmark_profile'))}</code></strong>
+          <span>Artifact status: <code>{esc(manifest.get('artifact_status', 'unknown'))}</code>. The website renders committed benchmark artifacts; it does not import pandas, Polars, DuckDB, Spark, DataFusion, Dask, or Java at page-render time.</span>
+        </div>
+        {details_block('Benchmark lane availability from manifest', html_table(['Expected lane', 'Status', 'Profile policy', 'Version / reason'], lane_rows), 'raw-data-drawer manifest-drawer')}
+    """
+
+
 def strip_html_fragment(fragment: str) -> str:
     text = html.unescape(fragment)
     width_match = re.search(r"width:\s*([0-9.]+%)", text)
@@ -2149,6 +2314,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     mode_visual = mode_comparison_visual(
         summary.get("comparative_dashboard"), summary["batch_rows"]
     )
+    manifest_panel = benchmark_manifest_panel(summary)
     timing_decomposition = representative_timing_decomposition(rows)
     metadata = summary["table_metadata_smoke"]
     artifact_list = "\n".join(
@@ -2260,8 +2426,17 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         </div>
       </div>
     </section>
+    <section id="artifact-profile">
+      <div class="shell">
+        <p class="eyebrow">Publishing artifact</p>
+        <h2>Artifact Completeness And Lane Availability</h2>
+        <p class="section-lede">This panel prevents missing competitor libraries from silently removing lanes from the public page. Full-local artifacts must list expected, available, and missing lanes before they can be interpreted as full-local benchmark evidence.</p>
+        {manifest_panel}
+      </div>
+    </section>
     <nav class="page-subnav" aria-label="Benchmark evidence sections">
       <div class="shell">
+        <a href="#artifact-profile">Artifact profile</a>
         <a href="#takeaways">Key takeaways</a>
         <a href="#why-raw-speed">Raw speed axis</a>
         <a href="#user-layer">User layer</a>
@@ -2477,6 +2652,12 @@ def main() -> int:
         default=None,
         help="Optional local comparative benchmark dashboard HTML to summarize.",
     )
+    parser.add_argument(
+        "--benchmark-manifest",
+        type=Path,
+        default=None,
+        help="Optional committed benchmark manifest to render instead of regenerating summary data.",
+    )
     args = parser.parse_args()
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -2500,14 +2681,18 @@ def main() -> int:
         encoding="utf-8",
     )
     (WEBSITE / "status.html").write_text(status_page(), encoding="utf-8")
-    summary = benchmark_summary(args.benchmark_dir)
-    comparative_dashboard = args.comparative_dashboard
-    if comparative_dashboard is None:
-        candidate = ROOT.parent / "spark-retire" / "docs" / "shardloom-current-benchmark-dashboard.html"
-        if candidate.exists():
-            comparative_dashboard = candidate
-    if comparative_dashboard and comparative_dashboard.exists():
-        summary["comparative_dashboard"] = comparative_dashboard_summary(comparative_dashboard)
+    if args.benchmark_manifest is not None:
+        summary = load_benchmark_summary_from_manifest(args.benchmark_manifest)
+    else:
+        summary = benchmark_summary(args.benchmark_dir)
+        comparative_dashboard = args.comparative_dashboard
+        if comparative_dashboard is None:
+            candidate = ROOT.parent / "spark-retire" / "docs" / "shardloom-current-benchmark-dashboard.html"
+            if candidate.exists():
+                comparative_dashboard = candidate
+        if comparative_dashboard and comparative_dashboard.exists():
+            summary["comparative_dashboard"] = comparative_dashboard_summary(comparative_dashboard)
+        summary["benchmark_manifest"] = write_latest_benchmark_artifacts(summary)
     (DATA_DIR / "benchmark-evidence.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

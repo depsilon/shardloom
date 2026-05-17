@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Optional GPU benchmark profile dependencies.
+#
+# cuDF/RAPIDS installation is platform- and CUDA-version-specific. Prefer the
+# official RAPIDS installation selector for the target machine, then run the
+# benchmark preflight with `--profile gpu_optional`.
+#
+# Do not install this profile in CI or Cloudflare website publishing.
