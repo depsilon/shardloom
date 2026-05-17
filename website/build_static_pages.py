@@ -1431,6 +1431,57 @@ def batch_fused_pipeline_rows(
     return rows
 
 
+def batch_source_backed_scan_rows(
+    benchmark_dir: Path, artifact_name: str, fields: dict[str, str]
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    suffix = "_source_backed_scan_evidence_schema_version"
+    for key in sorted(fields):
+        if not key.startswith("scenario_") or not key.endswith(suffix):
+            continue
+        prefix = key[: -len(suffix)]
+        rows.append(
+            {
+                "file": repo_relative_path(benchmark_dir / artifact_name),
+                "generated_at_utc": "",
+                "scenario": fields.get(
+                    f"{prefix}_name", prefix.removeprefix("scenario_")
+                ),
+                "provider": fields.get(f"{prefix}_source_backed_scan_provider_kind"),
+                "projected_columns": fields.get(
+                    f"{prefix}_source_backed_scan_projected_columns"
+                ),
+                "pushdown_status": fields.get(f"{prefix}_scan_pushdown_status"),
+                "scan_filter": fields.get(f"{prefix}_scan_filter_pushed_down"),
+                "scan_projection": fields.get(f"{prefix}_scan_projection_pushed_down"),
+                "scan_limit": fields.get(f"{prefix}_scan_limit_pushed_down"),
+                "filter_columns": fields.get(f"{prefix}_scan_filter_columns_read"),
+                "output_columns": fields.get(f"{prefix}_scan_output_columns_read"),
+                "filter_only_columns": fields.get(
+                    f"{prefix}_scan_filter_only_columns_read"
+                ),
+                "pushdown_blocker": fields.get(f"{prefix}_scan_pushdown_blocker_id"),
+                "rows_scanned": fields.get(f"{prefix}_source_backed_scan_rows_scanned"),
+                "data_materialized": fields.get(
+                    f"{prefix}_source_backed_scan_data_materialized"
+                ),
+                "native_io": fields.get(
+                    f"{prefix}_source_backed_scan_native_io_certificate_status"
+                ),
+                "claim_gate": fields.get(
+                    f"{prefix}_source_backed_scan_claim_gate_status"
+                ),
+                "fallback_attempted": fields.get(
+                    f"{prefix}_source_backed_scan_fallback_attempted"
+                ),
+                "external_engine_invoked": fields.get(
+                    f"{prefix}_source_backed_scan_external_engine_invoked"
+                ),
+            }
+        )
+    return rows
+
+
 def value_at(mapping: dict[str, Any], key: str) -> Any:
     value = mapping.get(key)
     return "n/a" if value is None else value
@@ -1578,6 +1629,30 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                         "projected_columns": evidence.get(
                             "source_backed_scan_projected_columns"
                         ),
+                        "pushdown_status": evidence.get(
+                            "scan_pushdown_status", "not_reported_older_artifact"
+                        ),
+                        "scan_filter": evidence.get(
+                            "scan_filter_pushed_down", "not_reported"
+                        ),
+                        "scan_projection": evidence.get(
+                            "scan_projection_pushed_down", "not_reported"
+                        ),
+                        "scan_limit": evidence.get(
+                            "scan_limit_pushed_down", "not_reported"
+                        ),
+                        "filter_columns": evidence.get(
+                            "scan_filter_columns_read", "not_reported"
+                        ),
+                        "output_columns": evidence.get(
+                            "scan_output_columns_read", "not_reported"
+                        ),
+                        "filter_only_columns": evidence.get(
+                            "scan_filter_only_columns_read", "not_reported"
+                        ),
+                        "pushdown_blocker": evidence.get(
+                            "scan_pushdown_blocker_id", "not_reported"
+                        ),
                         "rows_scanned": evidence.get("source_backed_scan_rows_scanned"),
                         "data_materialized": evidence.get(
                             "source_backed_scan_data_materialized"
@@ -1649,6 +1724,7 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
     for name in ("prepared_vortex_batch.json", "native_vortex_batch.json"):
         payload = load_json(benchmark_dir / name)
         fields = output_fields(payload)
+        source_rows.extend(batch_source_backed_scan_rows(benchmark_dir, name, fields))
         fused_rows.extend(batch_fused_pipeline_rows(benchmark_dir, name, fields))
         batch_rows.append(
             {
@@ -2338,6 +2414,14 @@ def benchmark_page(summary: dict[str, Any]) -> str:
             "Scenario",
             "Provider",
             "Projected columns",
+            "Pushdown status",
+            "Filter",
+            "Projection",
+            "Limit",
+            "Filter columns",
+            "Output columns",
+            "Filter-only columns",
+            "Blocker",
             "Rows scanned",
             "Materialized",
             "Native I/O",
@@ -2350,6 +2434,14 @@ def benchmark_page(summary: dict[str, Any]) -> str:
                 row["scenario"],
                 row["provider"],
                 row["projected_columns"],
+                row["pushdown_status"],
+                row["scan_filter"],
+                row["scan_projection"],
+                row["scan_limit"],
+                row["filter_columns"],
+                row["output_columns"],
+                row["filter_only_columns"],
+                row["pushdown_blocker"],
                 row["rows_scanned"],
                 row["data_materialized"],
                 row["native_io"],

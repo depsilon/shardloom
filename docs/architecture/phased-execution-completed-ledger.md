@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2C Vortex Scan API pushdown completion
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `website/build_static_pages.py`
+    - `docs/architecture/vortex-scan-pushdown-completion.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add a uniform prepared/native `scan_pushdown_*` contract for scoped local Vortex
+    Scan/source-backed rows without turning pushdown evidence into encoded-native or performance
+    claims.
+  - Checklist:
+    - [x] Emit `scan_filter_pushed_down`, `scan_projection_pushed_down`, and
+          `scan_limit_pushed_down` for every prepared/native source-backed row.
+    - [x] Distinguish `scan_filter_columns_read`, `scan_output_columns_read`, and
+          `scan_filter_only_columns_read`.
+    - [x] Emit deterministic blocker IDs/reasons when filter, projection, or limit/slice pushdown
+          is unavailable.
+    - [x] Keep current limit-like rows blocked for scan limit/slice pushdown where residual
+          order-sensitive or grouped semantics are required.
+    - [x] Propagate scan pushdown fields through the Python benchmark contract and website
+          source-backed scan table.
+    - [x] Update compute-flow, benchmark catalog, local benchmark docs, and scan-pushdown reference
+          docs with claim-safe interpretation.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex enabled_filter_projection_limit_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch_run_reuses_selective_filter_source_state --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+  - Claim boundary:
+    - This is scoped local Vortex Scan/source-backed pushdown evidence only.
+    - It is not an encoded-native, generalized Source/Split, performance, superiority,
+      Spark-displacement, SQL/DataFrame, object-store/lakehouse, Foundry, production, or
+      package-publication claim.
+  - Fallback boundary:
+    - `scan_pushdown_fallback_attempted=false` and
+      `scan_pushdown_external_engine_invoked=false` are required.
+    - External engines remain baseline-only and are not used for pushdown or residual execution.
+
 - [x] Session label: GAR-PERF-1C fused filter/project/limit and selection-vector execution path
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

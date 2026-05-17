@@ -273,10 +273,11 @@ projected columns, pushdown flags, Native I/O certificate status, materializatio
 residual executor, claim gate, and `fallback_attempted=false` /
 `external_engine_invoked=false`. This makes benchmark rows easier to interpret without relabeling
 residual-native work as encoded-native or claim-grade performance evidence.
-`GAR-PERF-2C` tracks the follow-up that makes this pushdown evidence uniform across every
-prepared/native scenario family. Future rows should separately report filter, projection, and
-limit/slice pushdown, distinguish filter-only columns from output columns, and emit deterministic
-blockers when expressions cannot be lowered safely into the Vortex Scan/source-backed boundary.
+`GAR-PERF-2C` adds the uniform `scan_pushdown_*` contract across prepared/native scenario families.
+Rows now separately report filter, projection, and limit/slice pushdown, distinguish filter-only
+columns from output columns, and emit deterministic blockers when expressions cannot be lowered
+safely into the Vortex Scan/source-backed boundary. Current limit/slice pushdown remains blocked for
+order-sensitive or grouped residual limit-like scenarios.
 Those fields remain source/provider evidence only; they do not create an encoded-native operator,
 SQL/DataFrame, object-store/lakehouse, production, or performance claim.
 `GAR-PERF-2B` tracks the evidence-aware logical optimizer follow-up. Future benchmark rows may link

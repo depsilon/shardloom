@@ -37,6 +37,8 @@ const MAX_EXACT_F64_INTEGER: u64 = 9_007_199_254_740_992;
 const LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID: &str = "local_vortex_analytics_v1";
 const SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_backed_scan_evidence.v1";
+const SCAN_PUSHDOWN_CONTRACT_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.scan_pushdown_contract.v1";
 const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.encoded_predicate_provider.v4";
 const TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION: &str =
@@ -4380,7 +4382,7 @@ fn source_backed_scan_evidence_fields(
     let source_roles =
         source_backed_scan_source_roles(report.scenario, &report.streaming_projected_columns);
     let (source_refs, source_digests) = source_backed_scan_sources(report, &source_roles);
-    vec![
+    let mut fields = vec![
         (
             "source_backed_scan_evidence_schema_version".to_string(),
             SOURCE_BACKED_SCAN_EVIDENCE_SCHEMA_VERSION.to_string(),
@@ -4493,7 +4495,262 @@ fn source_backed_scan_evidence_fields(
             "source_backed_scan_external_engine_invoked".to_string(),
             "false".to_string(),
         ),
+    ];
+    fields.extend(scan_pushdown_contract_fields(report));
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn scan_pushdown_contract_fields(
+    report: &TraditionalAnalyticsVortexReport,
+) -> Vec<(String, String)> {
+    let filter_columns = scan_pushdown_filter_columns(report.scenario);
+    let filter_required = !filter_columns.is_empty();
+    let projection_required = !report.streaming_projected_columns.is_empty();
+    let limit_required = scan_pushdown_limit_required(report.scenario);
+    let scan_admitted = report.streaming_vortex_execution_used;
+
+    let reader_generated_filter_provider_used = report.scenario
+        == TraditionalAnalyticsScenario::SelectiveFilter
+        && report.encoded_predicate_provider_filter_column_batches_consumed;
+    let filter_pushed_down = scan_admitted
+        && filter_required
+        && (report.streaming_filter_pushdown_applied || reader_generated_filter_provider_used);
+    let projection_pushed_down =
+        scan_admitted && projection_required && report.streaming_projection_pushdown_applied;
+    let limit_pushed_down = false;
+
+    let filter_status = scan_pushdown_dimension_status(
+        scan_admitted,
+        filter_required,
+        filter_pushed_down,
+        "filter",
+    );
+    let projection_status = scan_pushdown_dimension_status(
+        scan_admitted,
+        projection_required,
+        projection_pushed_down,
+        "projection",
+    );
+    let limit_status = if !scan_admitted {
+        "unsupported_no_vortex_scan"
+    } else if limit_required {
+        "blocked_no_scan_limit_admission"
+    } else {
+        "not_needed"
+    };
+
+    let mut blocker_ids = Vec::new();
+    let mut blocker_reasons = Vec::new();
+    if !scan_admitted {
+        blocker_ids.push("gar-perf-2c.vortex_scan_not_admitted");
+        blocker_reasons.push("scenario did not run through the local Vortex scan/source boundary");
+    }
+    if scan_admitted && filter_required && !filter_pushed_down {
+        blocker_ids.push("gar-perf-2c.filter_pushdown_not_lowered");
+        blocker_reasons
+            .push("filter intent exists but was not admitted into the Vortex Scan request");
+    }
+    if scan_admitted && projection_required && !projection_pushed_down {
+        blocker_ids.push("gar-perf-2c.projection_pushdown_not_lowered");
+        blocker_reasons
+            .push("projection intent exists but was not admitted into the Vortex Scan request");
+    }
+    if scan_admitted && limit_required && !limit_pushed_down {
+        blocker_ids.push("gar-perf-2c.limit_pushdown_not_admitted");
+        blocker_reasons.push(scan_pushdown_limit_blocker_reason(report.scenario));
+    }
+
+    let any_pushdown = filter_pushed_down || projection_pushed_down || limit_pushed_down;
+    let pushdown_status = if !scan_admitted {
+        "scan_pushdown_unsupported"
+    } else if blocker_ids.is_empty() && any_pushdown {
+        "scan_pushdown_supported"
+    } else if blocker_ids.is_empty() {
+        "scan_pushdown_not_needed"
+    } else if any_pushdown {
+        "scan_pushdown_partially_supported"
+    } else {
+        "scan_pushdown_blocked"
+    };
+
+    let output_columns = report.streaming_projected_columns.clone();
+    let filter_only_columns = filter_columns
+        .iter()
+        .filter(|column| !column_list_contains(&output_columns, column))
+        .map(|column| (*column).to_string())
+        .collect::<Vec<_>>();
+    vec![
+        (
+            "scan_pushdown_schema_version".to_string(),
+            SCAN_PUSHDOWN_CONTRACT_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "scan_pushdown_report_id".to_string(),
+            format!(
+                "gar-perf-2c.scan_pushdown.{}.{}",
+                report
+                    .execution_mode_selection
+                    .selected_execution_mode
+                    .as_str(),
+                report.scenario.as_str().replace(['/', ' ', '+'], "-")
+            ),
+        ),
+        ("scan_pushdown_status".to_string(), pushdown_status.to_string()),
+        (
+            "scan_filter_required".to_string(),
+            filter_required.to_string(),
+        ),
+        (
+            "scan_projection_required".to_string(),
+            projection_required.to_string(),
+        ),
+        (
+            "scan_limit_required".to_string(),
+            limit_required.to_string(),
+        ),
+        (
+            "scan_filter_pushed_down".to_string(),
+            filter_pushed_down.to_string(),
+        ),
+        (
+            "scan_projection_pushed_down".to_string(),
+            projection_pushed_down.to_string(),
+        ),
+        (
+            "scan_limit_pushed_down".to_string(),
+            limit_pushed_down.to_string(),
+        ),
+        (
+            "scan_filter_pushdown_status".to_string(),
+            filter_status.to_string(),
+        ),
+        (
+            "scan_projection_pushdown_status".to_string(),
+            projection_status.to_string(),
+        ),
+        (
+            "scan_limit_pushdown_status".to_string(),
+            limit_status.to_string(),
+        ),
+        (
+            "scan_filter_columns_read".to_string(),
+            join_static_columns_or_none(&filter_columns),
+        ),
+        (
+            "scan_output_columns_read".to_string(),
+            comma_join_or_none(&output_columns),
+        ),
+        (
+            "scan_filter_only_columns_read".to_string(),
+            comma_join_or_none(&filter_only_columns),
+        ),
+        (
+            "scan_data_materialized".to_string(),
+            report.data_materialized.to_string(),
+        ),
+        (
+            "scan_data_decoded".to_string(),
+            report.data_decoded.to_string(),
+        ),
+        (
+            "scan_pushdown_blocker_id".to_string(),
+            if blocker_ids.is_empty() {
+                "none".to_string()
+            } else {
+                blocker_ids.join(";")
+            },
+        ),
+        (
+            "scan_pushdown_blocker_reason".to_string(),
+            if blocker_reasons.is_empty() {
+                "none".to_string()
+            } else {
+                blocker_reasons.join("; ")
+            },
+        ),
+        (
+            "scan_pushdown_claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        (
+            "scan_pushdown_claim_boundary".to_string(),
+            "scoped local Vortex Scan/source-backed pushdown evidence only; no encoded-native, SQL/DataFrame, object-store/lakehouse, production, performance, or Spark-displacement claim".to_string(),
+        ),
+        (
+            "scan_pushdown_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "scan_pushdown_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
     ]
+}
+
+fn scan_pushdown_dimension_status(
+    scan_admitted: bool,
+    required: bool,
+    pushed_down: bool,
+    dimension: &str,
+) -> &'static str {
+    match (scan_admitted, required, pushed_down) {
+        (false, _, _) => "unsupported_no_vortex_scan",
+        (true, false, _) => "not_needed",
+        (true, true, true) => "pushed_down",
+        (true, true, false) if dimension == "filter" => "blocked_filter_not_lowered",
+        (true, true, false) => "blocked_projection_not_lowered",
+    }
+}
+
+fn scan_pushdown_filter_columns(scenario: TraditionalAnalyticsScenario) -> Vec<&'static str> {
+    match scenario {
+        TraditionalAnalyticsScenario::SelectiveFilter
+        | TraditionalAnalyticsScenario::FilterProjectionLimit => vec!["flag", "value"],
+        TraditionalAnalyticsScenario::JoinAggregate => vec!["fact.value"],
+        TraditionalAnalyticsScenario::PartitionPruning => vec!["event_date"],
+        TraditionalAnalyticsScenario::CleanCastFilterWrite => vec!["dirty_flag", "dirty_numeric"],
+        TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => vec!["raw_event_time"],
+        _ => Vec::new(),
+    }
+}
+
+fn scan_pushdown_limit_required(scenario: TraditionalAnalyticsScenario) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::FilterProjectionLimit
+            | TraditionalAnalyticsScenario::SortAndTopK
+            | TraditionalAnalyticsScenario::TopNPerGroup
+            | TraditionalAnalyticsScenario::RowNumberWindow
+    )
+}
+
+fn scan_pushdown_limit_blocker_reason(scenario: TraditionalAnalyticsScenario) -> &'static str {
+    match scenario {
+        TraditionalAnalyticsScenario::FilterProjectionLimit => {
+            "filter/projection/limit currently keeps the limit in ShardLoom residual logic because the scan limit is order-sensitive"
+        }
+        TraditionalAnalyticsScenario::SortAndTopK => {
+            "top-k requires ordered heap semantics and is not a source-order Vortex Scan limit"
+        }
+        TraditionalAnalyticsScenario::TopNPerGroup
+        | TraditionalAnalyticsScenario::RowNumberWindow => {
+            "per-group/window limits require grouped or ordered residual state and are not Vortex Scan limit pushdown"
+        }
+        _ => "scenario has no limit/slice pushdown requirement",
+    }
+}
+
+fn column_list_contains(columns: &[String], expected: &str) -> bool {
+    columns.iter().any(|column| column == expected)
+}
+
+fn join_static_columns_or_none(columns: &[&'static str]) -> String {
+    if columns.is_empty() {
+        "none".to_string()
+    } else {
+        columns.join(",")
+    }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -14484,6 +14741,18 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn assert_scan_pushdown_no_fallback(fields: &std::collections::HashMap<String, String>) {
+        assert_field_eq(
+            fields,
+            "scan_pushdown_schema_version",
+            SCAN_PUSHDOWN_CONTRACT_SCHEMA_VERSION,
+        );
+        assert_field_eq(fields, "scan_pushdown_claim_gate_status", "not_claim_grade");
+        assert_field_eq(fields, "scan_pushdown_fallback_attempted", "false");
+        assert_field_eq(fields, "scan_pushdown_external_engine_invoked", "false");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn assert_streaming_selective_filter_import_report(report: &TraditionalAnalyticsReport) {
         assert!(report.streaming_vortex_execution_used);
         assert!(report.full_table_materialization_avoided);
@@ -15023,6 +15292,26 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_join---aggregate_scan_pushdown_status",
+            "scan_pushdown_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_join---aggregate_scan_filter_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_join---aggregate_scan_filter_columns_read",
+            "fact.value",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_join---aggregate_scan_filter_only_columns_read",
+            "fact.value",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_selective-filter_result_sink_claim_gate_status",
             "result_sink_replay_certified",
         );
@@ -15204,8 +15493,63 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_selective-filter_scan_pushdown_status",
+            "scan_pushdown_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_scan_filter_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_scan_filter_columns_read",
+            "flag,value",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_scan_output_columns_read",
+            "id,value,metric",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_scan_filter_only_columns_read",
+            "flag",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_filter---projection---limit_source_backed_scan_projected_columns",
             "id,value,metric",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_pushdown_status",
+            "scan_pushdown_partially_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_limit_pushdown_status",
+            "blocked_no_scan_limit_admission",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_filter_only_columns_read",
+            "flag",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_pushdown_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_pushdown_external_engine_invoked",
+            "false",
         );
         assert_field_eq(
             &fields,
@@ -16421,6 +16765,14 @@ mod tests {
         );
         assert_field_eq(&fields, "fused_pipeline_fallback_attempted", "false");
         assert_field_eq(&fields, "fused_pipeline_external_engine_invoked", "false");
+        assert_scan_pushdown_no_fallback(&fields);
+        assert_field_eq(&fields, "scan_pushdown_status", "scan_pushdown_supported");
+        assert_field_eq(&fields, "scan_filter_pushed_down", "true");
+        assert_field_eq(&fields, "scan_projection_pushed_down", "true");
+        assert_field_eq(&fields, "scan_limit_pushed_down", "false");
+        assert_field_eq(&fields, "scan_filter_columns_read", "flag,value");
+        assert_field_eq(&fields, "scan_output_columns_read", "metric");
+        assert_field_eq(&fields, "scan_filter_only_columns_read", "flag,value");
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_kernel_input_lowering_status",
@@ -18024,6 +18376,55 @@ mod tests {
                 .get("fused_pipeline_encoded_native_claim_allowed")
                 .map(String::as_str),
             Some("false")
+        );
+        assert_scan_pushdown_no_fallback(&native_fields);
+        assert_eq!(
+            native_fields
+                .get("scan_pushdown_status")
+                .map(String::as_str),
+            Some("scan_pushdown_partially_supported")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_filter_pushed_down")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_projection_pushed_down")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_limit_pushed_down")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_limit_pushdown_status")
+                .map(String::as_str),
+            Some("blocked_no_scan_limit_admission")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_filter_columns_read")
+                .map(String::as_str),
+            Some("flag,value")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_output_columns_read")
+                .map(String::as_str),
+            Some("id,value")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_filter_only_columns_read")
+                .map(String::as_str),
+            Some("flag")
         );
         assert_eq!(
             native_fields.get("fusion_blocker").map(String::as_str),
