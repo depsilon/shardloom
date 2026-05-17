@@ -118,7 +118,7 @@ use_cases:
   - id: sql-dataframe-capability-posture
     title: SQL and DataFrame capability posture
     capability_family: sql_dataframe_report_only
-    audience: "user asking whether SQL text or DataFrame-style APIs are production-ready"
+    audience: "user asking whether SQL text or DataFrame-style APIs have production support"
     status: report_only
     execution_mode: report_only
     engine_mode: none

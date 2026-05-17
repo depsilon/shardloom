@@ -68,6 +68,17 @@ for (const relativePath of requiredFiles) {
   assert(exists(relativePath), `Missing required website file: ${relativePath}`);
 }
 
+const canonicalComputeFlow = readFromRepoRoot(
+  "docs/architecture/compute-engine-flow-reference.md",
+).replace(/\r\n/g, "\n");
+const websiteComputeFlowSnapshot = read(
+  "assets/data/compute-engine-flow-reference.md",
+).replace(/\r\n/g, "\n");
+assert(
+  websiteComputeFlowSnapshot === canonicalComputeFlow,
+  "website/assets/data/compute-engine-flow-reference.md must match docs/architecture/compute-engine-flow-reference.md",
+);
+
 const wranglerToml = readFromRepoRoot("wrangler.toml");
 assert(
   /\[assets\][\s\S]*directory\s*=\s*["']\.\/website["']/.test(wranglerToml),

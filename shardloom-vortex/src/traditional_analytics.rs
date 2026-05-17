@@ -906,6 +906,30 @@ struct TraditionalFilteredProjectionRow {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TraditionalFilteredProjectionLimitCandidate {
+    id: u64,
+    sequence: u64,
+    value: u32,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl PartialOrd for TraditionalFilteredProjectionLimitCandidate {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl Ord for TraditionalFilteredProjectionLimitCandidate {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.id
+            .cmp(&other.id)
+            .then_with(|| self.sequence.cmp(&other.sequence))
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalSelectiveFilterState {
     selected_metric_accum: TraditionalGroupAccum,
@@ -917,7 +941,9 @@ struct TraditionalSelectiveFilterState {
 impl TraditionalSelectiveFilterState {
     fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
         let mut selected_metric_accum = TraditionalGroupAccum::default();
-        let mut filtered_projection_rows = Vec::new();
+        let mut filtered_projection_limit_rows =
+            std::collections::BinaryHeap::<TraditionalFilteredProjectionLimitCandidate>::new();
+        let mut filtered_projection_sequence = 0_u64;
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["id", "value", "metric"],
@@ -939,14 +965,28 @@ impl TraditionalSelectiveFilterState {
                 }
                 for ((id, value), metric) in ids.into_iter().zip(values).zip(metrics) {
                     selected_metric_accum.add(metric);
-                    filtered_projection_rows.push(TraditionalFilteredProjectionRow { id, value });
+                    push_filter_projection_limit_candidate(
+                        &mut filtered_projection_limit_rows,
+                        filtered_projection_sequence,
+                        id,
+                        value,
+                    );
+                    filtered_projection_sequence =
+                        filtered_projection_sequence.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "filter + projection + limit row sequence overflowed u64"
+                                    .to_string(),
+                            )
+                        })?;
                 }
                 Ok(())
             },
         )?;
         Ok(Self {
             selected_metric_accum,
-            filtered_projection_rows,
+            filtered_projection_rows: filter_projection_limit_rows_from_heap(
+                filtered_projection_limit_rows,
+            ),
             stats,
         })
     }
@@ -7264,6 +7304,26 @@ fn checked_u64_values_sum(values: impl IntoIterator<Item = u64>, context: &str) 
 fn run_traditional_analytics_vortex_benchmark_enabled(
     request: TraditionalAnalyticsVortexRequest,
 ) -> Result<TraditionalAnalyticsVortexReport> {
+    let execution_mode_selection = ShardLoomExecutionModeSelectionReport::from_request(
+        ShardLoomExecutionModeSelectionRequest::new(request.requested_execution_mode)
+            .with_source_format("vortex")
+            .with_workload_constitution(LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID)
+            .with_source_already_vortex(true)
+            .with_prepared_artifact_available(true)
+            .with_prepared_artifact_reuse_requested(
+                request.requested_execution_mode == ShardLoomExecutionMode::PreparedVortex,
+            )
+            .with_result_sink_requested(request.write_result_vortex)
+            .with_native_vortex_provider_available(true),
+    );
+    if !execution_mode_selection.mode_supported {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "traditional analytics execution mode {} is unsupported for native Vortex input: {}; required future evidence: {}; fallback execution was not attempted",
+            execution_mode_selection.requested_execution_mode.as_str(),
+            execution_mode_selection.unsupported_diagnostic_code,
+            execution_mode_selection.required_future_evidence
+        )));
+    }
     let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
         &request.fact_vortex,
         &request.dim_vortex,
@@ -10199,133 +10259,203 @@ fn run_vortex_derived_scenario_from_files_with_batch_source_state(
     cdc_delta_path: Option<&std::path::Path>,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<TraditionalScenarioExecution> {
-    match scenario {
+    if let Some(execution) =
+        run_dimension_label_batch_source_state_scenario(scenario, fact_path, source_state)?
+    {
+        return Ok(execution);
+    }
+    if let Some(execution) =
+        run_category_metric_batch_source_state_scenario(scenario, dim_path, source_state)?
+    {
+        return Ok(execution);
+    }
+    if let Some(execution) =
+        run_group_category_batch_source_state_scenario(scenario, dim_path, source_state)?
+    {
+        return Ok(execution);
+    }
+    if let Some(execution) =
+        run_ranked_metric_batch_source_state_scenario(scenario, dim_path, source_state)?
+    {
+        return Ok(execution);
+    }
+    if let Some(execution) = run_selective_filter_batch_source_state_scenario(
+        scenario,
+        fact_path,
+        dim_path,
+        source_state,
+    )? {
+        return Ok(execution);
+    }
+    if let Some(execution) =
+        run_dirty_input_batch_source_state_scenario(scenario, dim_path, source_state)?
+    {
+        return Ok(execution);
+    }
+    run_vortex_derived_scenario_from_files(scenario, fact_path, dim_path, cdc_delta_path)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_dimension_label_batch_source_state_scenario(
+    scenario: TraditionalAnalyticsScenario,
+    fact_path: &std::path::Path,
+    source_state: &TraditionalVortexBatchSourceState,
+) -> Result<Option<TraditionalScenarioExecution>> {
+    let Some(dim_state) = source_state.dimension_label_state.as_ref() else {
+        return Ok(None);
+    };
+    let execution = match scenario {
         TraditionalAnalyticsScenario::HashJoin => {
-            if let Some(dim_state) = source_state.dimension_label_state.as_ref() {
-                run_streaming_hash_join_scenario_with_dim_state(fact_path, dim_state)
-            } else {
-                run_streaming_hash_join_scenario(fact_path, dim_path)
-            }
+            run_streaming_hash_join_scenario_with_dim_state(fact_path, dim_state)?
         }
         TraditionalAnalyticsScenario::JoinAggregate => {
-            if let Some(dim_state) = source_state.dimension_label_state.as_ref() {
-                run_streaming_join_aggregate_scenario_with_dim_state(fact_path, dim_state)
-            } else {
-                run_streaming_join_aggregate_scenario(fact_path, dim_path)
-            }
+            run_streaming_join_aggregate_scenario_with_dim_state(fact_path, dim_state)?
         }
+        _ => return Ok(None),
+    };
+    Ok(Some(execution))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_category_metric_batch_source_state_scenario(
+    scenario: TraditionalAnalyticsScenario,
+    dim_path: &std::path::Path,
+    source_state: &TraditionalVortexBatchSourceState,
+) -> Result<Option<TraditionalScenarioExecution>> {
+    let Some(category_state) = source_state.category_metric_state.as_ref() else {
+        return Ok(None);
+    };
+    let execution = match scenario {
         TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
-            if let Some(category_state) = source_state.category_metric_state.as_ref() {
-                run_streaming_string_group_distinct_scenario_with_category_metric_state(
-                    dim_path,
-                    category_state,
-                )
-            } else {
-                run_streaming_string_group_distinct_scenario(fact_path, dim_path)
-            }
+            run_streaming_string_group_distinct_scenario_with_category_metric_state(
+                dim_path,
+                category_state,
+            )?
         }
         TraditionalAnalyticsScenario::DistinctCount => {
-            if let Some(category_state) = source_state.category_metric_state.as_ref() {
-                run_streaming_distinct_count_scenario_with_category_metric_state(
-                    dim_path,
-                    category_state,
-                )
-            } else {
-                run_streaming_distinct_count_scenario(fact_path, dim_path)
-            }
+            run_streaming_distinct_count_scenario_with_category_metric_state(
+                dim_path,
+                category_state,
+            )?
         }
+        _ => return Ok(None),
+    };
+    Ok(Some(execution))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_group_category_batch_source_state_scenario(
+    scenario: TraditionalAnalyticsScenario,
+    dim_path: &std::path::Path,
+    source_state: &TraditionalVortexBatchSourceState,
+) -> Result<Option<TraditionalScenarioExecution>> {
+    let Some(group_state) = source_state.group_category_metric_state.as_ref() else {
+        return Ok(None);
+    };
+    let execution = match scenario {
         TraditionalAnalyticsScenario::GroupByAggregation => {
-            if let Some(group_state) = source_state.group_category_metric_state.as_ref() {
-                run_streaming_group_by_aggregation_scenario_with_group_category_metric_state(
-                    dim_path,
-                    group_state,
-                )
-            } else {
-                run_streaming_group_by_aggregation_scenario(fact_path, dim_path)
-            }
+            run_streaming_group_by_aggregation_scenario_with_group_category_metric_state(
+                dim_path,
+                group_state,
+            )?
         }
         TraditionalAnalyticsScenario::MultiKeyGroupBy => {
-            if let Some(group_state) = source_state.group_category_metric_state.as_ref() {
-                run_streaming_multi_key_group_by_scenario_with_group_category_metric_state(
-                    dim_path,
-                    group_state,
-                )
-            } else {
-                run_streaming_multi_key_group_by_scenario(fact_path, dim_path)
-            }
+            run_streaming_multi_key_group_by_scenario_with_group_category_metric_state(
+                dim_path,
+                group_state,
+            )?
         }
+        _ => return Ok(None),
+    };
+    Ok(Some(execution))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_ranked_metric_batch_source_state_scenario(
+    scenario: TraditionalAnalyticsScenario,
+    dim_path: &std::path::Path,
+    source_state: &TraditionalVortexBatchSourceState,
+) -> Result<Option<TraditionalScenarioExecution>> {
+    let Some(ranked_state) = source_state.ranked_metric_state.as_ref() else {
+        return Ok(None);
+    };
+    let execution = match scenario {
         TraditionalAnalyticsScenario::SortAndTopK => {
-            if let Some(ranked_state) = source_state.ranked_metric_state.as_ref() {
-                run_streaming_sort_top_k_scenario_with_ranked_metric_state(dim_path, ranked_state)
-            } else {
-                run_streaming_sort_top_k_scenario(fact_path, dim_path)
-            }
+            run_streaming_sort_top_k_scenario_with_ranked_metric_state(dim_path, ranked_state)?
         }
         TraditionalAnalyticsScenario::TopNPerGroup => {
-            if let Some(ranked_state) = source_state.ranked_metric_state.as_ref() {
-                run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
-                    dim_path,
-                    ranked_state,
-                    3,
-                )
-            } else {
-                run_streaming_top_n_per_group_scenario(fact_path, dim_path)
-            }
+            run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
+                dim_path,
+                ranked_state,
+                3,
+            )?
         }
         TraditionalAnalyticsScenario::RowNumberWindow => {
-            if let Some(ranked_state) = source_state.ranked_metric_state.as_ref() {
-                run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
-                    dim_path,
-                    ranked_state,
-                    1,
-                )
-            } else {
-                run_streaming_row_number_window_scenario(fact_path, dim_path)
-            }
+            run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
+                dim_path,
+                ranked_state,
+                1,
+            )?
         }
+        _ => return Ok(None),
+    };
+    Ok(Some(execution))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_selective_filter_batch_source_state_scenario(
+    scenario: TraditionalAnalyticsScenario,
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+    source_state: &TraditionalVortexBatchSourceState,
+) -> Result<Option<TraditionalScenarioExecution>> {
+    let Some(selective_state) = source_state.selective_filter_state.as_ref() else {
+        return Ok(None);
+    };
+    let execution = match scenario {
         TraditionalAnalyticsScenario::SelectiveFilter => {
-            if let Some(selective_state) = source_state.selective_filter_state.as_ref() {
-                run_streaming_selective_filter_scenario_with_selective_filter_state(
-                    fact_path,
-                    dim_path,
-                    selective_state,
-                )
-            } else {
-                run_streaming_selective_filter_scenario(fact_path, dim_path)
-            }
+            run_streaming_selective_filter_scenario_with_selective_filter_state(
+                fact_path,
+                dim_path,
+                selective_state,
+            )?
         }
         TraditionalAnalyticsScenario::FilterProjectionLimit => {
-            if let Some(selective_state) = source_state.selective_filter_state.as_ref() {
-                run_streaming_filter_projection_limit_scenario_with_selective_filter_state(
-                    dim_path,
-                    selective_state,
-                )
-            } else {
-                run_streaming_filter_projection_limit_scenario(fact_path, dim_path)
-            }
+            run_streaming_filter_projection_limit_scenario_with_selective_filter_state(
+                dim_path,
+                selective_state,
+            )?
         }
+        _ => return Ok(None),
+    };
+    Ok(Some(execution))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_dirty_input_batch_source_state_scenario(
+    scenario: TraditionalAnalyticsScenario,
+    dim_path: &std::path::Path,
+    source_state: &TraditionalVortexBatchSourceState,
+) -> Result<Option<TraditionalScenarioExecution>> {
+    let Some(dirty_state) = source_state.dirty_input_state.as_ref() else {
+        return Ok(None);
+    };
+    let execution = match scenario {
         TraditionalAnalyticsScenario::CleanCastFilterWrite => {
-            if let Some(dirty_state) = source_state.dirty_input_state.as_ref() {
-                run_streaming_clean_cast_filter_write_scenario_with_dirty_input_state(
-                    dim_path,
-                    dirty_state,
-                )
-            } else {
-                run_streaming_clean_cast_filter_write_scenario(fact_path, dim_path)
-            }
+            run_streaming_clean_cast_filter_write_scenario_with_dirty_input_state(
+                dim_path,
+                dirty_state,
+            )?
         }
         TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
-            if let Some(dirty_state) = source_state.dirty_input_state.as_ref() {
-                run_streaming_malformed_timestamp_dirty_csv_scenario_with_dirty_input_state(
-                    dim_path,
-                    dirty_state,
-                )
-            } else {
-                run_streaming_malformed_timestamp_dirty_csv_scenario(fact_path, dim_path)
-            }
+            run_streaming_malformed_timestamp_dirty_csv_scenario_with_dirty_input_state(
+                dim_path,
+                dirty_state,
+            )?
         }
-        _ => run_vortex_derived_scenario_from_files(scenario, fact_path, dim_path, cdc_delta_path),
-    }
+        _ => return Ok(None),
+    };
+    Ok(Some(execution))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -10629,7 +10759,14 @@ fn run_streaming_sort_top_k_scenario_with_ranked_metric_state(
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = ranked_state.stats.clone();
-    let mut rows = ranked_state.rows.clone();
+    let mut top_rows = std::collections::BinaryHeap::<GlobalTopKCandidate>::new();
+    for row in &ranked_state.rows {
+        top_rows.push(GlobalTopKCandidate::new(row.id, row.metric));
+        if top_rows.len() > 10 {
+            let _ = top_rows.pop();
+        }
+    }
+    let mut rows = top_rows.into_vec();
     rows.sort_by(|left, right| {
         right
             .metric
@@ -10638,7 +10775,6 @@ fn run_streaming_sort_top_k_scenario_with_ranked_metric_state(
     });
     let result_rows = rows
         .into_iter()
-        .take(10)
         .map(|row| (row.id, row.metric))
         .collect::<Vec<_>>();
     let result_json = top_rows_json(&result_rows);
@@ -10724,26 +10860,22 @@ fn run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = ranked_state.stats.clone();
-    let mut rows = ranked_state.rows.clone();
-    rows.sort_by(|left, right| {
-        left.group_key
-            .cmp(&right.group_key)
-            .then_with(|| right.metric.total_cmp(&left.metric))
-            .then_with(|| left.id.cmp(&right.id))
-    });
+    let mut top_by_group = std::collections::BTreeMap::<u32, Vec<(u64, f64)>>::new();
+    for row in &ranked_state.rows {
+        let rows = top_by_group.entry(row.group_key).or_default();
+        rows.push((row.id, row.metric));
+        rows.sort_by(|left, right| {
+            right
+                .1
+                .total_cmp(&left.1)
+                .then_with(|| left.0.cmp(&right.0))
+        });
+        rows.truncate(max_rank);
+    }
     let mut ranked = Vec::new();
-    let mut current_group = None;
-    let mut rank = 0_u64;
-    let max_rank = usize_to_u64(max_rank)?;
-    for row in rows {
-        if current_group == Some(row.group_key) {
-            rank += 1;
-        } else {
-            current_group = Some(row.group_key);
-            rank = 1;
-        }
-        if rank <= max_rank {
-            ranked.push((row.group_key, row.id, row.metric, rank));
+    for (group_key, rows) in top_by_group {
+        for (index, (id, metric)) in rows.into_iter().enumerate() {
+            ranked.push((group_key, id, metric, usize_to_u64(index + 1)?));
         }
     }
     let result_json = rank_rows_json(ranked);
@@ -10825,6 +10957,11 @@ fn run_streaming_partition_pruning_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    if !fact_vortex_has_non_empty_event_date(fact_path)? {
+        return Err(ShardLoomError::InvalidOperation(
+            "partition pruning requires an event_date fixture column".to_string(),
+        ));
+    }
     let mut accum = TraditionalGroupAccum::default();
     let stats = scan_fact_vortex_projected(
         fact_path,
@@ -10862,6 +10999,28 @@ fn run_streaming_partition_pruning_scenario(
         rows_materialized: 1,
         evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fact_vortex_has_non_empty_event_date(fact_path: &std::path::Path) -> Result<bool> {
+    let mut has_non_empty_event_date = false;
+    scan_fact_vortex_projected(fact_path, &["event_date"], None, |fields, chunk_rows| {
+        if !fields.contains_key("event_date") {
+            return Err(ShardLoomError::InvalidOperation(
+                "partition pruning requires an event_date fixture column".to_string(),
+            ));
+        }
+        let event_dates = utf8_field(fields, "event_date")?;
+        if event_dates.len() != chunk_rows {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "partition pruning event_date validation chunk length mismatch: chunk_rows={chunk_rows}, event_date_len={}",
+                event_dates.len()
+            )));
+        }
+        has_non_empty_event_date |= event_dates.iter().any(|event_date| !event_date.is_empty());
+        Ok(())
+    })?;
+    Ok(has_non_empty_event_date)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -11907,7 +12066,9 @@ fn run_streaming_filter_projection_limit_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
-    let mut filtered_projection_rows = Vec::<TraditionalFilteredProjectionRow>::new();
+    let mut filtered_projection_limit_rows =
+        std::collections::BinaryHeap::<TraditionalFilteredProjectionLimitCandidate>::new();
+    let mut filtered_projection_sequence = 0_u64;
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["id", "value"],
@@ -11923,11 +12084,24 @@ fn run_streaming_filter_projection_limit_scenario(
                 )));
             }
             for (id, value) in ids.into_iter().zip(values) {
-                filtered_projection_rows.push(TraditionalFilteredProjectionRow { id, value });
+                push_filter_projection_limit_candidate(
+                    &mut filtered_projection_limit_rows,
+                    filtered_projection_sequence,
+                    id,
+                    value,
+                );
+                filtered_projection_sequence =
+                    filtered_projection_sequence.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "filter + projection + limit row sequence overflowed u64".to_string(),
+                        )
+                    })?;
             }
             Ok(())
         },
     )?;
+    let filtered_projection_rows =
+        filter_projection_limit_rows_from_heap(filtered_projection_limit_rows);
     let result_json = filter_projection_limit_result_json(&filtered_projection_rows);
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -11938,6 +12112,37 @@ fn run_streaming_filter_projection_limit_scenario(
         rows_materialized: 1,
         evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn push_filter_projection_limit_candidate(
+    rows: &mut std::collections::BinaryHeap<TraditionalFilteredProjectionLimitCandidate>,
+    sequence: u64,
+    id: u64,
+    value: u32,
+) {
+    rows.push(TraditionalFilteredProjectionLimitCandidate {
+        id,
+        sequence,
+        value,
+    });
+    if rows.len() > 100 {
+        let _ = rows.pop();
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn filter_projection_limit_rows_from_heap(
+    rows: std::collections::BinaryHeap<TraditionalFilteredProjectionLimitCandidate>,
+) -> Vec<TraditionalFilteredProjectionRow> {
+    let mut rows = rows.into_vec();
+    rows.sort_by_key(|row| (row.id, row.sequence));
+    rows.into_iter()
+        .map(|row| TraditionalFilteredProjectionRow {
+            id: row.id,
+            value: row.value,
+        })
+        .collect()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]

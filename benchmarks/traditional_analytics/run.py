@@ -7535,6 +7535,19 @@ def main() -> int:
                         # boundary, not a runtime fallback. Keep a deterministic report by
                         # running the existing single-scenario CLI path explicitly.
                         pass
+                    except RuntimeError as exc:
+                        for scenario in runnable_scenarios:
+                            result = failed_result(
+                                engine,
+                                scenario,
+                                data_format,
+                                "execution_error",
+                                f"{type(exc).__name__}: {exc}",
+                                paths,
+                                args.iterations,
+                            )
+                            record_result(result)
+                        continue
                 for scenario in runnable_scenarios:
                     result = run_one(runner, paths, scenario, data_format, args.iterations)
                     record_result(result)

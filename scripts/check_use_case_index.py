@@ -48,6 +48,7 @@ FORBIDDEN_CLAIM_PATTERNS = [
         r"\bShardLoom is faster\b",
         r"\bShardLoom is better\b",
         r"\bproduction ready\b",
+        r"\bproduction-ready\b",
         r"\bShardLoom (?:is|as) (?:a )?Spark replacement\b",
         r"\bPolars cannot\b",
         r"\bDuckDB cannot\b",
