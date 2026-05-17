@@ -3578,6 +3578,513 @@ claim-safe and keep `ready_local`, `smoke_supported`, `report_only`, `planned`, 
   - Ledger rule:
     - Move website matrix completion to the completed ledger with website readiness output.
 
+#### GAR-WEB-ATLAS-1 - Modal-Style Field Guide And Use Case Atlas
+
+Source:
+- Current ShardLoom website under `website/`, including homepage, Field Guide, benchmark telemetry,
+  compute-flow, status, rendered README, local assets, and static validation.
+- `docs/use-cases/README.md`, `docs/use-cases/use-case-index.yml`,
+  `docs/use-cases/generated/`, and `docs/use-cases/field-guide/`.
+- `docs/architecture/compute-engine-flow-reference.md`.
+- `docs/benchmarks/local-taxonomy-benchmark.md` and
+  `docs/benchmarks/baseline-comparison-boundary.md`.
+- Modal GPU Glossary structural reference: category table of contents, atomic glossary entries,
+  dense concept navigation, and contributor/source posture.
+- Pagefind static-search docs for backend-free static search over built HTML.
+- Astro/Starlight/content-collection docs for the later framework migration decision gate.
+
+Goal:
+Turn `shardloom.io` into a dense, searchable, source-linked technical atlas for auditable compute:
+concept-first like a technical glossary, workflow-first like a use-case atlas, and still aligned to
+ShardLoom's original retro-future command-deck / field-guide identity.
+
+Technique transfer:
+- Use glossary information architecture patterns: category table of contents, atomic entries,
+  reading paths, crosslinked technical dossiers, source references, and search.
+- Do not copy Modal text, CSS, layout code, imagery, typography, brand identity, or trade dress.
+- Do not copy Fallout, Bethesda, Pip-Boy, Vault-Tec, Vortex, Palantir, Apache, or other third-party
+  brand assets or trade dress.
+
+Runtime boundary:
+Website and atlas work must not change ShardLoom runtime behavior, benchmark data, package
+publication state, execution claims, fallback policy, or release gates.
+
+- [ ] GAR-WEB-ATLAS-1A Field Guide taxonomy expansion
+  - Source:
+    - `website/field-guide/index.html`.
+    - `website/build_static_pages.py`.
+    - `docs/use-cases/field-guide/README.md`.
+    - `docs/architecture/canonical-terminology.md`.
+    - Modal GPU Glossary category/table-of-contents structure.
+  - Current state:
+    - The website has a useful Field Guide index and retro-future visual components.
+    - The current Field Guide is still too small and card-oriented to behave like a full technical
+      atlas.
+  - Next slice outcome:
+    - Add a complete ShardLoom Field Guide taxonomy with category groups and at least 50 planned or
+      initial entries.
+  - User-visible surface:
+    - `/field-guide/`, website navigation, sitemap, status/readme cross-links, and future search
+      indexing.
+  - Implementation scope:
+    - Add `website/content/field-guide-index.yml` or the existing equivalent content source.
+    - Regenerate `website/field-guide/index.html`.
+    - Preserve existing dossier links and ShardLoom visual identity.
+  - Evidence required:
+    - taxonomy refs: every entry has title, slug, category, summary, status, related terms, related
+      use cases, and exact reference files.
+    - claim refs: entries preserve technical-preview support posture.
+    - source refs: Modal is used only as an information-architecture reference, not copied design.
+  - Acceptance:
+    - Field Guide index is organized by category, not only as a flat card grid.
+    - Required categories exist: Start Here, Execution Modes, Engine Modes, Vortex Runtime,
+      Evidence And Claims, Benchmark Telemetry, User Workflows, I/O And Output, Platform
+      Boundaries, Performance Architecture, and Release And Trust.
+    - Existing Field Guide URLs still resolve.
+    - No unsupported path is described as runtime-supported.
+  - Verification:
+    - `python website/build_static_pages.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Non-goals:
+    - No Pagefind integration, Astro migration, runtime behavior, benchmark recomputation, package
+      publication, or new support claim.
+  - Claim boundary:
+    - Taxonomy entries are navigation and explanation only; they cannot upgrade any support or
+      claim status.
+  - Fallback boundary:
+    - Entries must preserve no-fallback/no-external-engine language and must not point unsupported
+      work to external engines as fallback.
+  - Dependencies/blockers:
+    - Current Field Guide generator shape, canonical terminology freshness, and use-case ids.
+  - Ledger rule:
+    - Move completed taxonomy expansion to the completed ledger with website readiness output.
+
+- [ ] GAR-WEB-ATLAS-1B Field Guide dossier page template
+  - Source:
+    - GAR-WEB-ATLAS-1A.
+    - Existing website Field Guide pages.
+    - `docs/use-cases/templates/use-case-template.md`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+  - Current state:
+    - Field Guide concepts exist, but the per-term page structure is not yet a full reusable dossier
+      system.
+  - Next slice outcome:
+    - Add one reusable dossier template for generated or hand-authored Field Guide terms.
+  - User-visible surface:
+    - `/field-guide/<slug>`, related use-case pages, search results, and reference links.
+  - Implementation scope:
+    - Add or update the Field Guide dossier template, content schema, generated static pages, and
+      website readiness validation.
+  - Evidence required:
+    - template refs: every dossier renders plain-English meaning, why it matters, how ShardLoom uses
+      it, current support, evidence fields, what it does not claim, related use cases, related
+      concepts, and reference files.
+    - status refs: every dossier has explicit support posture and claim boundary.
+    - source refs: references use exact repo paths.
+  - Acceptance:
+    - Every dossier can be understood by a non-expert without reading an RFC first.
+    - Every dossier has exact reference files and related concepts.
+    - Every claim-sensitive dossier states what ShardLoom does not claim.
+    - Generated pages remain deterministic.
+  - Verification:
+    - `python website/build_static_pages.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Non-goals:
+    - No runtime behavior, package publication, benchmark recomputation, Pagefind integration, or
+      framework migration.
+  - Claim boundary:
+    - Dossiers explain current posture and cannot create performance, production, Spark-replacement,
+      SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claims.
+  - Fallback boundary:
+    - Dossiers must keep external engines as baselines/oracles only and never fallback execution.
+  - Dependencies/blockers:
+    - GAR-WEB-ATLAS-1A taxonomy and stable reference-file paths.
+  - Ledger rule:
+    - Move completed template work to the completed ledger with generated-page validation output.
+
+- [ ] GAR-WEB-ATLAS-1C Field Guide category TOC and reading paths
+  - Source:
+    - GAR-WEB-ATLAS-1A and GAR-WEB-ATLAS-1B.
+    - Current `website/field-guide/index.html`.
+    - Modal GPU Glossary dense category TOC pattern.
+  - Current state:
+    - Field Guide navigation is useful but still reads more like a project-site card grid than a
+      glossary table of contents.
+  - Next slice outcome:
+    - Add a dense category TOC and reading-path entrypoints above the raw card grid.
+  - User-visible surface:
+    - `/field-guide/`, homepage Field Guide preview, status/use-case cross-links, and mobile
+      navigation.
+  - Implementation scope:
+    - Field Guide index template/content, CSS for compact glossary rows, category anchors, and
+      reading-path cards or rows.
+  - Evidence required:
+    - navigation refs: every category anchor resolves.
+    - reading-path refs: each path links to relevant dossiers and use cases.
+    - claim refs: reading paths preserve support-status language.
+  - Acceptance:
+    - Users can jump directly to each concept category before scrolling through cards.
+    - Required reading paths exist: New to ShardLoom; run a local workflow; understand benchmarks;
+      understand Vortex-native paths; use Python/SQL/DataFrame; know what is blocked; and
+      Foundry/platform context.
+    - Mobile remains readable and does not hide blocked/report-only states.
+  - Verification:
+    - `python website/build_static_pages.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Non-goals:
+    - No search backend, external framework, benchmark data changes, runtime changes, or new
+      capability claims.
+  - Claim boundary:
+    - Reading paths are educational navigation only and must not imply production support.
+  - Fallback boundary:
+    - Reading paths must not route blocked work through external engines or external services.
+  - Dependencies/blockers:
+    - Field Guide taxonomy and use-case page availability.
+  - Ledger rule:
+    - Move completed TOC/reading-path work to the completed ledger with website readiness output.
+
+- [ ] GAR-WEB-ATLAS-1D static Field Guide search with Pagefind
+  - Source:
+    - Pagefind docs.
+    - `website/field-guide/`, `website/use-cases/`, `website/status.html`,
+      `website/benchmarks.html`, and `website/compute-engine-flow.html`.
+    - `wrangler.toml` static asset deployment.
+  - Current state:
+    - The site has static pages and validation, but no first-class search across concepts, use
+      cases, evidence fields, and status rows.
+  - Next slice outcome:
+    - Add a static search lane, preferably Pagefind, after static HTML generation.
+  - User-visible surface:
+    - Search box on `/field-guide/`, optional global search trigger, search result pages/assets, and
+      Cloudflare static assets.
+  - Implementation scope:
+    - Build script integration, committed or generated search assets as policy decides, CSP/header
+      validation, local asset checks, and search UI styling.
+  - Evidence required:
+    - search refs: index covers Field Guide, Use Cases, Status, Benchmarks, and Compute Flow.
+    - asset refs: search bundle/assets are local static assets.
+    - policy refs: no runtime GitHub fetch or external search SaaS.
+  - Acceptance:
+    - Search works without backend infrastructure.
+    - Results include concepts, use cases, evidence fields, references, and status labels.
+    - Filtering by category or status is included when feasible; otherwise the blocker is explicit.
+    - No network dependency is introduced at page-render time.
+  - Verification:
+    - `python website/build_static_pages.py`
+    - Pagefind indexing command selected by the implementation.
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Non-goals:
+    - No server-side search, external search service, Astro migration, runtime code, benchmark
+      recomputation, or package publication.
+  - Claim boundary:
+    - Search discoverability does not imply support or claim grade for indexed terms.
+  - Fallback boundary:
+    - Search results must preserve blocked/report-only labels and must not hide no-fallback
+      boundaries.
+  - Dependencies/blockers:
+    - Field Guide and Use Case generated pages, dependency/license review for adding Pagefind, and
+      deployment asset policy.
+  - Ledger rule:
+    - Move completed search integration to the completed ledger with indexing and website readiness
+      output.
+
+- [ ] GAR-WEB-ATLAS-1E Use Case Atlas integration
+  - Source:
+    - GAR-DOCS-1A through GAR-DOCS-1H.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/use-cases/generated/`.
+    - `website/use-cases/`.
+  - Current state:
+    - The Use Case Atlas exists in docs and generated pages, but the website Field Guide is not yet
+      the primary cross-linked entrypoint into those workflows.
+  - Next slice outcome:
+    - Connect Field Guide terms and use-case pages bidirectionally.
+  - User-visible surface:
+    - `/field-guide/`, `/field-guide/<slug>`, `/use-cases/`, `/use-cases/<id>`, `/status`, and
+      website navigation.
+  - Implementation scope:
+    - Term-to-use-case links, use-case-to-term links, generated page metadata, index cards, sitemap,
+      and readiness checks.
+  - Evidence required:
+    - backlink refs: every use case links to relevant terms and every relevant term links back to
+      use cases.
+    - status refs: ready/smoke/report-only/planned/blocked/unsupported remain distinct.
+    - reference refs: all pages cite exact source docs.
+  - Acceptance:
+    - Required use-case categories are represented: onboarding, local file ETL, prepared/native
+      Vortex, Python wrapper, SQL/DataFrame/report-only, source-free generated output, messy data,
+      output/fanout, object-store/lakehouse boundaries, Foundry, benchmark interpretation, and
+      package/release.
+    - Blocked and report-only use cases remain visible.
+    - Crosslinks are deterministic and validated.
+  - Verification:
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `python website/build_static_pages.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Non-goals:
+    - No runtime behavior, website framework migration, package publication, benchmark
+      recomputation, or capability promotion.
+  - Claim boundary:
+    - Crosslinking improves navigation only and cannot change use-case support status.
+  - Fallback boundary:
+    - Use-case and term pages must keep fallback/external-engine fields explicit where relevant.
+  - Dependencies/blockers:
+    - Stable use-case ids, generated use-case page shape, and Field Guide taxonomy.
+  - Ledger rule:
+    - Move completed integration to the completed ledger with use-case and website validation output.
+
+- [ ] GAR-WEB-ATLAS-1F Can-I-use-this status matrix
+  - Source:
+    - GAR-DOCS-1H.
+    - `website/status.html`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`.
+  - Current state:
+    - Website status exists, but non-experts still need a compact matrix for capability, status,
+      input, output, execution mode, evidence level, platform, and references.
+  - Next slice outcome:
+    - Add or refine a filterable public status matrix that answers "Can I use ShardLoom for X?"
+      without requiring phase-plan reading.
+  - User-visible surface:
+    - `/status`, `/use-cases/`, homepage status links, and Field Guide related-status links.
+  - Implementation scope:
+    - Static data snapshot or generated table, filters, status chips, reference links, blocked-path
+      visibility, sitemap, and readiness validation.
+  - Evidence required:
+    - status refs: every matrix row maps to a use-case id or scoreboard row.
+    - blocker refs: planned/blocked/report-only rows explain missing evidence.
+    - reference refs: every row links exact source docs.
+    - policy refs: no unsupported row is described as runtime-supported.
+  - Acceptance:
+    - Users can filter by status, input type, output type, execution mode, evidence level, and
+      platform.
+    - S3/object-store, lakehouse/table, Foundry, SQL/DataFrame, package/release, and benchmark
+      claim boundaries are explicit.
+    - Blocked and report-only states are visible rather than hidden.
+  - Verification:
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python website/build_static_pages.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Non-goals:
+    - No runtime support expansion, object-store runtime, lakehouse/table commit, Foundry runtime,
+      package publication, benchmark rerun, or production claim.
+  - Claim boundary:
+    - The matrix is a public technical-preview posture guide, not a support, production, or
+      performance guarantee.
+  - Fallback boundary:
+    - Matrix rows must preserve `fallback_attempted=false` and `external_engine_invoked=false`
+      semantics where applicable and must not represent external baselines as ShardLoom execution.
+  - Dependencies/blockers:
+    - Stable use-case index, compatibility scoreboard freshness, and website filter implementation.
+  - Ledger rule:
+    - Move completed status-matrix work to the completed ledger with website readiness output.
+
+- [ ] GAR-WEB-ATLAS-1G source-linked reference and citation blocks
+  - Source:
+    - GAR-DOCS-1G.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/use-cases/reference-backlinks.md`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/benchmarks/baseline-comparison-boundary.md`.
+  - Current state:
+    - Use cases and docs include references, but the website atlas does not yet render systematic
+      citation blocks for every dossier and workflow page.
+  - Next slice outcome:
+    - Add source-linked citation blocks to every Field Guide dossier and use-case page.
+  - User-visible surface:
+    - `/field-guide/<slug>`, `/use-cases/<id>`, `/status`, and rendered docs/readme pages.
+  - Implementation scope:
+    - Citation data model, generated reference blocks, "what this proves" labels, backlink checks,
+      and stale-reference validation.
+  - Evidence required:
+    - citation refs: every cited source is an exact repo path or approved external documentation
+      reference.
+    - proof refs: each citation states what posture or definition it supports.
+    - claim refs: citations do not create support status by themselves.
+  - Acceptance:
+    - Every dossier and use-case page has a `Reference files` block.
+    - Reference blocks explain what the source proves.
+    - No page uses vague "see docs" references.
+    - Missing local references fail validation.
+  - Verification:
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `python website/build_static_pages.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Non-goals:
+    - No runtime behavior, external docs service, package publication, benchmark rerun, or support
+      status promotion.
+  - Claim boundary:
+    - Citations provide provenance only; claim status still comes from evidence gates and support
+      posture fields.
+  - Fallback boundary:
+    - Citation text must preserve external-baseline-only and no-fallback policy language.
+  - Dependencies/blockers:
+    - Dossier template, use-case generated pages, and backlink strategy.
+  - Ledger rule:
+    - Move completed citation work to the completed ledger with validation output.
+
+- [ ] GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate
+  - Source:
+    - Current Python static generator and vanilla HTML/CSS/JS website.
+    - Astro content collections documentation.
+    - Astro Starlight documentation.
+    - Page count and generated-page maintenance experience from GAR-WEB-ATLAS-1A through
+      GAR-WEB-ATLAS-1G.
+  - Current state:
+    - The existing static generator works and should remain the short-term path.
+    - A larger Field Guide/Use Case Atlas may eventually need schema-backed content collections,
+      MDX, integrated docs navigation, and search.
+  - Next slice outcome:
+    - Add a report-only migration decision doc comparing the current generator, Astro custom site,
+      and Astro Starlight.
+  - User-visible surface:
+    - Docs/architecture decision record only; no website runtime change in this slice.
+  - Implementation scope:
+    - Add `docs/architecture/website-atlas-framework-decision.md` or equivalent report-only doc,
+      with criteria, risks, migration blockers, and recommendation.
+  - Evidence required:
+    - decision refs: page count, content schema needs, search needs, design flexibility, Cloudflare
+      deployment compatibility, contributor workflow, dependency/license review, and maintenance
+      cost.
+    - source refs: Pagefind, Astro, and Starlight references are cited as candidate tooling only.
+  - Acceptance:
+    - The decision doc recommends one path for the next phase and explains why.
+    - The default short-term recommendation remains current generator unless evidence justifies a
+      migration.
+    - Any migration remains blocked until explicitly approved by a later implementation slice.
+  - Verification:
+    - `python scripts/check_website_readiness.py` if website docs are linked.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Non-goals:
+    - No Astro/Starlight migration, dependency addition, runtime code, benchmark data change,
+      package publication, or production claim.
+  - Claim boundary:
+    - Framework choice does not imply product maturity, performance, or support readiness.
+  - Fallback boundary:
+    - Website framework decisions must not alter no-fallback runtime policy or introduce runtime
+      external fetches.
+  - Dependencies/blockers:
+    - Page count and content-model evidence from earlier atlas slices.
+  - Ledger rule:
+    - Move completed decision gate to the completed ledger with the recommendation and validation
+      output.
+
+- [ ] GAR-WEB-ATLAS-1I visual density and readability refinement
+  - Source:
+    - `website/assets/site.css`.
+    - Current Field Guide, benchmark, status, and use-case pages.
+    - GAR-WEB-ATLAS-1A through GAR-WEB-ATLAS-1G.
+  - Current state:
+    - The site has strong command-deck/retro-future tokens and components.
+    - Dense glossary/list views are not yet fully optimized for 80+ entries and crosslinks.
+  - Next slice outcome:
+    - Refine the visual system for high-density glossary and status browsing while preserving
+      readability and original ShardLoom identity.
+  - User-visible surface:
+    - All website pages, especially `/field-guide/`, `/use-cases/`, `/status`, `/benchmarks`, and
+      `/compute-engine-flow`.
+  - Implementation scope:
+    - CSS components for category TOC band, compact term row, dossier card, status chip, reference
+      badge, related-concepts rail, sticky in-page TOC, and raw-data drawers.
+  - Evidence required:
+    - accessibility refs: contrast, keyboard navigation, readable mobile type, reduced-motion support
+      if motion exists.
+    - claim refs: visual hierarchy does not hide blocked/report-only status.
+    - brand refs: original ShardLoom logo/visual tokens are used without third-party trade-dress
+      copying.
+  - Acceptance:
+    - Field Guide can show 80+ entries without becoming overwhelming.
+    - Header sizes and cards remain proportionate on desktop and mobile.
+    - Blocked/report-only/planned states are visible.
+    - No Modal/Fallout/Bethesda/third-party visual copying is introduced.
+  - Verification:
+    - `python website/build_static_pages.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - browser/manual visual smoke where feasible.
+    - `git diff --check`
+  - Non-goals:
+    - No external CSS framework, runtime behavior, benchmark recomputation, package publication, or
+      capability promotion.
+  - Claim boundary:
+    - Visual polish cannot imply production readiness, performance, Spark replacement, SQL/DataFrame
+      runtime, object-store/lakehouse runtime, Foundry production support, or package publication.
+  - Fallback boundary:
+    - Visual labels and badges must preserve no-fallback/no-external-engine semantics.
+  - Dependencies/blockers:
+    - Expanded taxonomy, dossier pages, use-case integration, and status matrix shape.
+  - Ledger rule:
+    - Move completed visual refinement to the completed ledger with website readiness and visual
+      smoke notes.
+
+- [ ] GAR-WEB-ATLAS-1J Field Guide / Use Case public-readiness gate
+  - Source:
+    - `scripts/check_website_readiness.py`.
+    - `website/validate_static_assets.js`.
+    - GAR-WEB-ATLAS-1A through GAR-WEB-ATLAS-1I.
+    - Public technical-preview readiness docs.
+  - Current state:
+    - Website readiness checks exist for assets, local compute-flow snapshot, no raw GitHub fetches,
+      metadata, and forbidden claims.
+    - Atlas-specific dossier/use-case quality gates are not yet complete.
+  - Next slice outcome:
+    - Extend public-readiness validation for Field Guide and Use Case Atlas pages.
+  - User-visible surface:
+    - Public site quality, CI/checks, generated pages, status matrix, sitemap, and deployment safety.
+  - Implementation scope:
+    - Website readiness script, static asset validator, optional use-case/field-guide validators,
+      generated metadata checks, and public-post readiness docs.
+  - Evidence required:
+    - metadata refs: every generated page has title, description, canonical URL, OG metadata, and
+      local assets.
+    - content refs: every dossier has status, references, claim boundary, and related concepts.
+    - use-case refs: every use case has a runnable example or blocker explanation.
+    - policy refs: no runtime `raw.githubusercontent.com` fetch, no forbidden claim phrases, no
+      unsupported production claims, and no copied third-party brand/trade-dress references.
+  - Acceptance:
+    - Readiness fails when generated atlas pages omit required metadata, references, status,
+      claim-boundary, or blocker/example content.
+    - Readiness fails on runtime GitHub fetches or forbidden public claims.
+    - Readiness covers Field Guide, Use Cases, Status, Benchmarks, Compute Flow, and rendered README.
+  - Verification:
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Non-goals:
+    - No runtime behavior, package publication, benchmark recomputation, external SEO service,
+      network crawl, or framework migration.
+  - Claim boundary:
+    - Public-readiness means technical-preview-safe website posture, not release-launch,
+      production, performance, or support readiness.
+  - Fallback boundary:
+    - Readiness checks must preserve no-fallback/no-external-engine policy and fail closed when
+      wording blurs external baselines with ShardLoom execution.
+  - Dependencies/blockers:
+    - Expanded Field Guide and Use Case generated pages from earlier atlas slices.
+  - Ledger rule:
+    - Move completed readiness-gate work to the completed ledger with validator output.
+
 - [ ] GAR-0010-B DataFrame/notebook and package surface readiness report
   - Source: RFC 0010; RFC 0024; RFC 0032.
   - Current state: package dry-run docs exist; mature DataFrame/notebook surfaces and publication are
