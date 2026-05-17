@@ -120,10 +120,13 @@ Currently wired surfaces include:
   generalized encoded aggregation has correctness, certificate, benchmark, and no-fallback evidence
 - a scoped `traditional-analytics-vortex-batch-run` command that runs multiple prepared/native
   Vortex scenarios in one ShardLoom process while preserving per-scenario typed evidence,
-  Native I/O/operator blocker fields, and `fallback_attempted=false` /
-  `external_engine_invoked=false`; this is process reuse for local prepared/native evidence, not a
-  persistent service, hidden fast mode, performance claim, SQL/DataFrame claim, object-store claim,
-  or Apache Spark substitute claim
+  Native I/O/operator blocker fields, explicit
+  `evidence_level=minimal_runtime|certified|full_replay`, and `fallback_attempted=false` /
+  `external_engine_invoked=false`; `minimal_runtime` remains `not_claim_grade`, `certified` emits
+  normal certificates without replay by default, and `full_replay` requires result-sink replay
+  proof. This is process reuse and proof-depth attribution for local prepared/native evidence, not
+  a persistent service, hidden fast mode, performance claim, SQL/DataFrame claim, object-store
+  claim, or Apache Spark substitute claim
 - batch/live/hybrid engine-mode contracts through `engine-selection-plan`,
   `engine-capability-matrix`, `live-change-contract-plan`, Python context helpers, and scoped
   in-memory `live-fixture-run` / `hybrid-overlay-run` fixture reports

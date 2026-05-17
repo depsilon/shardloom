@@ -113,12 +113,11 @@ Supporting docs:
   - Status rule: these files record completed alignment decisions only; current compute-flow follow-up
     is represented by the GAR flow items in this Planned queue.
 - `docs/architecture/runtime-evidence-level-tiering.md`
-  - Role: report-only GAR-PERF-2A reference for evidence-level runtime tiering across
+  - Role: GAR-PERF-2A reference for evidence-level runtime tiering across
     `minimal_runtime`, `certified`, and `full_replay`.
-  - Status rule: defines evidence-level vocabulary only. Execution envelope schema, benchmark row
-    schema, CLI/Python capability surfacing, website benchmark interpretation, and runtime behavior
-    must remain represented by `GAR-PERF-2A` or later evidence-bearing slices before
-    implementation.
+  - Status rule: the scoped `traditional-analytics-vortex-batch-run` path now emits first-class
+    evidence-level fields. Future Python/API capability views and broader execution envelopes must
+    remain represented by later evidence-bearing slices before broader support can be claimed.
 - `docs/architecture/evidence-aware-logical-optimizer.md`
   - Role: report-only GAR-PERF-2B reference for optimizer rule registry and optimizer trace
     planning.
@@ -427,89 +426,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     - stable benchmark evidence schema, resource sizing fields, and claim-gate policy.
 
 #### GAR-PERF-2 - Evidence-Level Runtime Tiering
-
-- [ ] GAR-PERF-2A evidence-level runtime tiering
-  - Source:
-    - benchmark evidence overhead.
-    - `docs/architecture/compute-engine-flow-reference.md`.
-    - `docs/architecture/runtime-evidence-level-tiering.md`.
-    - `docs/architecture/performance-attribution-and-execution-structure.md`.
-    - `docs/benchmarks/local-taxonomy-benchmark.md`.
-    - result-sink replay evidence and Native I/O certificate rows.
-  - Current state:
-    - ShardLoom has full evidence and result-sink proof paths for scoped local workflows.
-    - Benchmark rows separate execution modes and stage timing, but evidence-cost intent is not yet
-      a first-class `evidence_level` contract.
-    - Non-evidence/evidence-light runtime paths are not formalized; any future runtime-light path
-      could be misread as a hidden fast mode or claim-grade benchmark row.
-  - Next slice outcome:
-    - Add explicit evidence levels:
-      - `minimal_runtime`
-      - `certified`
-      - `full_replay`
-    - Preserve no-fallback and no-external-engine evidence in every level.
-    - Add deterministic claim-gate rules so `minimal_runtime` cannot become claim-grade by
-      accident.
-  - User-visible surface:
-    - CLI benchmark rows.
-    - Python capability view.
-    - website benchmark explanation.
-    - typed execution envelope and future REST/API protocol parity surfaces.
-  - Implementation scope:
-    - execution envelope schema.
-    - benchmark row schema.
-    - benchmark harness contract tests.
-    - Python typed accessors/capability view if the field is exposed there.
-    - website benchmark generator/explanation.
-    - docs and readiness metadata.
-  - Evidence required:
-    - `execution_mode`.
-    - `evidence_level`.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-    - `source_state_digest` if available.
-    - `output_digest` if available.
-    - `claim_gate_status`.
-    - result-sink replay refs for `full_replay`.
-    - certificate refs for `certified` and `full_replay`.
-  - Acceptance:
-    - `minimal_runtime` omits heavy result-sink replay unless requested.
-    - `certified` emits normal certificates for the selected execution mode.
-    - `full_replay` emits result-sink replay proof.
-    - `minimal_runtime` rows cannot become claim-grade by accident.
-    - Every row still exposes no-fallback and no-external-engine fields.
-    - Evidence level is reported separately from execution mode and engine mode.
-  - Verification:
-    - contract tests for all three evidence levels.
-    - benchmark smoke for `minimal_runtime` versus `full_replay`.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - no hidden fast mode.
-    - no fallback engine.
-    - no performance/superiority claim.
-    - no Spark replacement claim.
-    - no production claim.
-    - no SQL/DataFrame, object-store/lakehouse, or Foundry runtime expansion.
-  - Claim boundary:
-    - `evidence_level=minimal_runtime` means `claim_gate_status=not_claim_grade` unless a later
-      explicit workload-scoped gate approves otherwise.
-    - Evidence-level tiering explains proof overhead and runtime-development modes; it does not
-      authorize performance, superiority, Spark-displacement, production, SQL/DataFrame,
-      object-store/lakehouse, Foundry, or package claims.
-  - Fallback boundary:
-    - `fallback_attempted=false` and `external_engine_invoked=false` are required for every
-      evidence level.
-  - Ledger rule:
-    - When complete, move the detailed completed session to
-      `docs/architecture/phased-execution-completed-ledger.md` with tests, benchmark smoke
-      artifacts, and website/readiness evidence refs.
-  - Dependencies/blockers:
-    - stable execution envelope schema, benchmark row schema, result-sink replay evidence, Native
-      I/O certificate refs, Python capability-view surfacing, website benchmark generator, and
-      claim-gate policy.
 
 - [ ] GAR-PERF-2B evidence-aware logical optimizer
   - Source:
@@ -1619,9 +1535,9 @@ The benchmark bundle vocabulary is `io_reuse_and_fanout`, `source_state_reuse`,
     - RFC 0029 certificates and state reuse.
     - RFC 0039 typed command/result envelope.
   - Current state:
-    - Evidence-level runtime tiering is planned under `GAR-PERF-2A`, but reuse levels are not yet
-      first-class fields across source state, prepared state, operator source-state, output plan,
-      and sink artifacts.
+    - Scoped evidence-level runtime tiering exists for `traditional-analytics-vortex-batch-run`
+      under `GAR-PERF-2A`, but reuse levels are not yet first-class fields across source state,
+      prepared state, operator source-state, output plan, and sink artifacts.
     - Minimal evidence or reuse-hit rows must not accidentally become claim-grade.
   - Next slice outcome:
     - Define evidence-safe reuse levels for each layer:

@@ -714,10 +714,11 @@ plan before coding.
   probability of regression, minimum iterations for claim-grade consideration, and uncertainty
   reason. Bayesian output may block release/performance claims when uncertainty is high, but it
   cannot upgrade claim status alone.
-- [ ] `GAR-PERF-2A` adds planned evidence-level runtime tiering. The next work is an explicit
-  `evidence_level=minimal_runtime|certified|full_replay` contract that keeps no-fallback and
-  no-external-engine fields visible in every level, prevents `minimal_runtime` rows from becoming
-  claim-grade by accident, and separates evidence overhead from execution-mode timing.
+- [x] `GAR-PERF-2A` adds scoped evidence-level runtime tiering for
+  `traditional-analytics-vortex-batch-run`. Prepared/native batch rows now emit
+  `evidence_level=minimal_runtime|certified|full_replay`, keep no-fallback and no-external-engine
+  fields visible in every level, prevent `minimal_runtime` rows from becoming claim-grade by
+  accident, and separate evidence overhead from execution-mode timing.
 - [x] `GAR-PERF-2G` adds scoped allocation/resource-profile and buffer-pool blocker evidence.
   Session-backed prepared/native batch rows now report allocation profile status/scope, allocation
   count/byte/peak-RSS `not_available` statuses, `buffer_pool_enabled=false`,
@@ -947,9 +948,10 @@ plan before coding.
 - [x] Typed output v2, renderer, lifecycle taxonomy, command-family routing, and Python typed
   models exist.
 - [x] Tests lock typed envelope compatibility for current command families.
-- [ ] `GAR-PERF-2A` adds a planned typed-envelope and benchmark-row field for
-  `evidence_level=minimal_runtime|certified|full_replay` so callers can distinguish proof level from
-  execution mode and engine mode without inferring claim status from prose.
+- [x] `GAR-PERF-2A` adds typed-envelope and benchmark-row fields for
+  `evidence_level=minimal_runtime|certified|full_replay` on the scoped prepared/native batch
+  runner, so callers can distinguish proof level from execution mode and engine mode without
+  inferring claim status from prose.
 - [ ] Legacy flat `fields` mirror, remaining command-family result migration, some golden fixtures,
   Foundry boundary fixture, and additional physical handler splits remain incomplete.
 
@@ -965,9 +967,10 @@ plan before coding.
 - [x] Local taxonomy, dataset profiles, coverage rows, benchmark constitution metadata, and
   baseline-only labeling exist.
 - [x] Benchmark docs prevent external baseline rows from satisfying ShardLoom-native claims.
-- [ ] `GAR-PERF-2A` adds planned evidence-level rows for `minimal_runtime`, `certified`, and
-  `full_replay`. This should let benchmark readers compare evidence overhead without turning
-  evidence-light runtime rows into public speed rankings or claim-grade benchmark proof.
+- [x] `GAR-PERF-2A` adds evidence-level rows for `minimal_runtime`, `certified`, and
+  `full_replay` in the scoped prepared/native batch runner. This lets benchmark readers compare
+  evidence overhead without turning evidence-light runtime rows into public speed rankings or
+  claim-grade benchmark proof.
 - [ ] `GAR-PERF-2B` adds the planned evidence-aware logical optimizer. Benchmark and explain rows
   should report optimizer trace IDs, rule statuses, before/after plan digests, rewrite safety, and
   evidence-preservation fields without implying broad lazy optimizer, SQL/DataFrame, or performance
@@ -1214,10 +1217,11 @@ plan before coding.
   performance/layout advisor. These items are evidence/architecture/runtime-plumbing follow-ups and
   do not authorize public performance, superiority, Spark-displacement, production, SQL/DataFrame,
   object-store/lakehouse, or encoded-native claims.
-- [ ] `GAR-PERF-2A` adds evidence-level runtime tiering across `minimal_runtime`, `certified`, and
-  `full_replay`. The flow must show evidence level as independent from execution mode and engine
-  mode, keep `fallback_attempted=false` and `external_engine_invoked=false` visible in every level,
-  and treat `minimal_runtime` as `not_claim_grade` unless a later scoped gate approves otherwise.
+- [x] `GAR-PERF-2A` adds evidence-level runtime tiering across `minimal_runtime`, `certified`, and
+  `full_replay` for the scoped prepared/native batch runner. The flow shows evidence level as
+  independent from execution mode and engine mode, keeps `fallback_attempted=false` and
+  `external_engine_invoked=false` visible in every level, and treats `minimal_runtime` as
+  `not_claim_grade` unless a later scoped gate approves otherwise.
 - [ ] `GAR-PERF-2B` adds evidence-aware logical optimizer follow-through. The flow must keep
   optimizer rule registry, admitted/applied/blocked/unsupported status, before/after plan digests,
   rewrite safety, evidence preservation, no-fallback fields, and claim gates visible without

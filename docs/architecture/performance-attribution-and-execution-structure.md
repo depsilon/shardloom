@@ -193,7 +193,8 @@ claim_gate_status
 
 ## Evidence Levels
 
-`GAR-PERF-2A` adds planned evidence-level tiering beside the execution-mode fields:
+`GAR-PERF-2A` adds scoped evidence-level tiering beside the execution-mode fields for the
+prepared/native batch runner:
 
 ```text
 minimal_runtime
@@ -201,12 +202,12 @@ certified
 full_replay
 ```
 
-Evidence level describes proof depth, not a different execution semantics. `minimal_runtime` may
-omit heavy result-sink replay unless requested, but it must still preserve `execution_mode`,
-`evidence_level`, `fallback_attempted=false`, `external_engine_invoked=false`, available
-source/output digests, and `claim_gate_status=not_claim_grade` unless a future scoped gate approves
-otherwise. `certified` carries normal certificate evidence. `full_replay` carries result-sink replay
-proof in addition to certificate evidence.
+Evidence level describes proof depth, not different execution semantics. `minimal_runtime` omits
+result-sink replay in the scoped batch runner and preserves `execution_mode`, `evidence_level`,
+`fallback_attempted=false`, `external_engine_invoked=false`, available source/output digest status,
+and `claim_gate_status=not_claim_grade`. `certified` carries normal certificate evidence without
+replay by default. `full_replay` carries result-sink replay proof in addition to certificate
+evidence and requires a caller-owned result workspace.
 
 Do not use evidence levels as a hidden fast-mode toggle, fallback policy, public speed ranking, or
 performance/superiority claim.
