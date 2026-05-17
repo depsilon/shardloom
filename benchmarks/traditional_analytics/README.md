@@ -425,6 +425,16 @@ evidence render, and total runtime; `encoded_predicate_provider_*` rows where ap
 claim-safe evidence surface only. It must not be read as performance proof, Spark replacement proof,
 or production SQL/DataFrame/object-store/lakehouse/Foundry support.
 
+The website also commits a benchmark publishing manifest under
+`website/assets/benchmarks/latest/manifest.json` plus the corresponding
+`website/assets/benchmarks/latest/benchmark-results.json`. The manifest records the selected
+profile, expected lanes, available lanes, missing lanes, lane versions/reasons, environment
+fingerprint, artifact paths, and `performance_claim_allowed=false`. Website rendering consumes this
+committed artifact; it must not rediscover competitor availability from the environment that builds
+or deploys the static site. Use `scripts/check_benchmark_environment.py` before producing a full
+artifact and `scripts/check_benchmark_artifact_completeness.py` before publishing it. The runbook is
+`docs/benchmarks/static-benchmark-publishing-runbook.md`.
+
 `filter + projection + limit` now reports a scoped residual-native fused scan path for prepared/native
 rows when filter/projection pushdown runs without full-table materialization. `group by aggregation`
 now reports a scoped residual-native grouped scan path when projection pushdown over
