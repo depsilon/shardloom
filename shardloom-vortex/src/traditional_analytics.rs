@@ -47,6 +47,8 @@ const TRADITIONAL_PREPARED_NATIVE_SESSION_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_native_session.v1";
 const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.allocation_buffer_pool.v1";
+const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.runtime_evidence_level.v1";
 const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
 const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fused_pipeline.v1";
@@ -54,6 +56,94 @@ const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
     "result(scenario:utf8,result_json:utf8,rows_materialized:u64,workload_constitution_id:utf8)";
+
+/// Runtime evidence level requested by the scoped prepared/native batch runner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraditionalRuntimeEvidenceLevel {
+    MinimalRuntime,
+    Certified,
+    FullReplay,
+}
+
+impl TraditionalRuntimeEvidenceLevel {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MinimalRuntime => "minimal_runtime",
+            Self::Certified => "certified",
+            Self::FullReplay => "full_replay",
+        }
+    }
+
+    /// # Errors
+    /// Returns an error when the evidence-level label is not recognized.
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "minimal_runtime" | "minimal-runtime" => Ok(Self::MinimalRuntime),
+            "certified" => Ok(Self::Certified),
+            "full_replay" | "full-replay" => Ok(Self::FullReplay),
+            other => Err(ShardLoomError::InvalidOperation(format!(
+                "unknown traditional analytics evidence level {other}; expected minimal_runtime, certified, or full_replay; fallback execution was not attempted"
+            ))),
+        }
+    }
+
+    #[must_use]
+    pub const fn claim_gate_status(self) -> &'static str {
+        match self {
+            Self::MinimalRuntime => "not_claim_grade",
+            Self::Certified | Self::FullReplay => "fixture_smoke_only",
+        }
+    }
+
+    #[must_use]
+    pub const fn result_sink_replay_required(self) -> bool {
+        matches!(self, Self::FullReplay)
+    }
+
+    #[must_use]
+    pub const fn native_io_certificate_required(self) -> bool {
+        !matches!(self, Self::MinimalRuntime)
+    }
+
+    #[must_use]
+    pub const fn certificate_refs(self) -> &'static str {
+        match self {
+            Self::MinimalRuntime => "not_required_for_minimal_runtime",
+            Self::Certified => {
+                "execution_certificate_status,native_io_certificate_status,source_backed_scan_evidence_status,materialization_decode_evidence_present"
+            }
+            Self::FullReplay => {
+                "execution_certificate_status,native_io_certificate_status,source_backed_scan_evidence_status,materialization_decode_evidence_present,computed_result_sink_native_io_certificate_status,result_sink_claim_gate_status"
+            }
+        }
+    }
+
+    #[must_use]
+    pub const fn result_sink_replay_refs(self) -> &'static str {
+        match self {
+            Self::FullReplay => {
+                "computed_result_sink_requested,computed_result_sink_written,computed_result_sink_replay_verified,computed_result_sink_write_micros"
+            }
+            Self::MinimalRuntime | Self::Certified => "not_requested",
+        }
+    }
+
+    #[must_use]
+    pub const fn claim_boundary(self) -> &'static str {
+        match self {
+            Self::MinimalRuntime => {
+                "runtime-development evidence level only; result-sink replay is omitted, claim_gate_status=not_claim_grade, and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, or Spark-displacement claim is allowed"
+            }
+            Self::Certified => {
+                "certificate-bearing local prepared/native batch evidence only; no result-sink replay proof by default and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, or Spark-displacement claim is allowed"
+            }
+            Self::FullReplay => {
+                "certificate-bearing local prepared/native batch evidence plus result-sink replay proof; still fixture-smoke evidence only and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, or Spark-displacement claim is allowed"
+            }
+        }
+    }
+}
 
 /// Benchmark scenarios used by the local traditional analytics harness.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -654,6 +744,7 @@ pub struct TraditionalAnalyticsVortexBatchRequest {
     pub dim_vortex: PathBuf,
     pub cdc_delta_vortex: Option<PathBuf>,
     pub requested_execution_mode: ShardLoomExecutionMode,
+    pub requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
     pub result_workspace_dir: Option<PathBuf>,
     pub write_result_vortex: bool,
 }
@@ -671,6 +762,7 @@ impl TraditionalAnalyticsVortexBatchRequest {
             dim_vortex,
             cdc_delta_vortex: None,
             requested_execution_mode: ShardLoomExecutionMode::NativeVortex,
+            requested_evidence_level: None,
             result_workspace_dir: None,
             write_result_vortex: false,
         }
@@ -679,6 +771,12 @@ impl TraditionalAnalyticsVortexBatchRequest {
     #[must_use]
     pub const fn with_requested_execution_mode(mut self, value: ShardLoomExecutionMode) -> Self {
         self.requested_execution_mode = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_evidence_level(mut self, value: TraditionalRuntimeEvidenceLevel) -> Self {
+        self.requested_evidence_level = Some(value);
         self
     }
 
@@ -3352,6 +3450,8 @@ pub struct TraditionalAnalyticsVortexReport {
 pub struct TraditionalAnalyticsVortexBatchReport {
     pub reports: Vec<TraditionalAnalyticsVortexReport>,
     pub requested_execution_mode: ShardLoomExecutionMode,
+    pub requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
+    pub selected_evidence_level: TraditionalRuntimeEvidenceLevel,
     pub result_sink_requested: bool,
     pub session_evidence: TraditionalPreparedNativeSessionEvidence,
     pub source_state_prepare_micros: u64,
@@ -3416,7 +3516,9 @@ impl TraditionalAnalyticsVortexBatchReport {
             ("support_status".to_string(), "runtime_supported".to_string()),
             (
                 "claim_gate_status".to_string(),
-                "fixture_smoke_only".to_string(),
+                self.selected_evidence_level
+                    .claim_gate_status()
+                    .to_string(),
             ),
             (
                 "claim_boundary".to_string(),
@@ -3429,6 +3531,87 @@ impl TraditionalAnalyticsVortexBatchReport {
             (
                 "selected_execution_modes".to_string(),
                 selected_modes.join(","),
+            ),
+            (
+                "runtime_evidence_level_schema_version".to_string(),
+                TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "requested_evidence_level".to_string(),
+                self.requested_evidence_level
+                    .map_or_else(|| "auto".to_string(), |level| level.as_str().to_string()),
+            ),
+            (
+                "selected_evidence_level".to_string(),
+                self.selected_evidence_level.as_str().to_string(),
+            ),
+            (
+                "evidence_level".to_string(),
+                self.selected_evidence_level.as_str().to_string(),
+            ),
+            (
+                "evidence_level_supported_levels".to_string(),
+                "minimal_runtime,certified,full_replay".to_string(),
+            ),
+            (
+                "evidence_level_claim_gate_status".to_string(),
+                self.selected_evidence_level
+                    .claim_gate_status()
+                    .to_string(),
+            ),
+            (
+                "evidence_level_result_sink_replay_required".to_string(),
+                self.selected_evidence_level
+                    .result_sink_replay_required()
+                    .to_string(),
+            ),
+            (
+                "evidence_level_result_sink_replay_requested".to_string(),
+                self.result_sink_requested.to_string(),
+            ),
+            (
+                "evidence_level_result_sink_replay_verified".to_string(),
+                self.all_result_sink_replays_verified.to_string(),
+            ),
+            (
+                "evidence_level_native_io_certificate_required".to_string(),
+                self.selected_evidence_level
+                    .native_io_certificate_required()
+                    .to_string(),
+            ),
+            (
+                "evidence_level_certificate_refs".to_string(),
+                self.selected_evidence_level.certificate_refs().to_string(),
+            ),
+            (
+                "evidence_level_result_sink_replay_refs".to_string(),
+                self.selected_evidence_level
+                    .result_sink_replay_refs()
+                    .to_string(),
+            ),
+            (
+                "evidence_level_source_state_digest".to_string(),
+                "not_emitted_scoped_in_memory_source_state".to_string(),
+            ),
+            (
+                "evidence_level_output_digest".to_string(),
+                if self.result_sink_requested {
+                    "per_scenario_result_sink_digest".to_string()
+                } else {
+                    "not_requested".to_string()
+                },
+            ),
+            (
+                "evidence_level_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "evidence_level_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "evidence_level_claim_boundary".to_string(),
+                self.selected_evidence_level.claim_boundary().to_string(),
             ),
             (
                 "scenario_count".to_string(),
@@ -8377,9 +8560,12 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         dim_vortex,
         cdc_delta_vortex,
         requested_execution_mode,
+        requested_evidence_level,
         result_workspace_dir,
         write_result_vortex,
     } = request;
+    let selected_evidence_level =
+        selected_batch_evidence_level(requested_evidence_level, write_result_vortex)?;
     if scenarios.is_empty() {
         return Err(ShardLoomError::InvalidOperation(
             "traditional analytics native Vortex batch run requires at least one scenario; fallback execution was not attempted".to_string(),
@@ -8498,6 +8684,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     Ok(TraditionalAnalyticsVortexBatchReport {
         reports,
         requested_execution_mode,
+        requested_evidence_level,
+        selected_evidence_level,
         result_sink_requested: write_result_vortex,
         session_evidence,
         source_state_prepare_micros,
@@ -8524,6 +8712,33 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         all_result_sink_replays_verified,
         diagnostics,
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selected_batch_evidence_level(
+    requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
+    write_result_vortex: bool,
+) -> Result<TraditionalRuntimeEvidenceLevel> {
+    match (requested_evidence_level, write_result_vortex) {
+        (Some(TraditionalRuntimeEvidenceLevel::FullReplay), false) => {
+            Err(ShardLoomError::InvalidOperation(
+                "traditional-analytics-vortex-batch-run evidence_level=full_replay requires --write-result-vortex and --workspace so replay proof is explicit; fallback execution was not attempted".to_string(),
+            ))
+        }
+        (Some(TraditionalRuntimeEvidenceLevel::MinimalRuntime), true) => {
+            Err(ShardLoomError::InvalidOperation(
+                "traditional-analytics-vortex-batch-run evidence_level=minimal_runtime cannot be combined with --write-result-vortex because result-sink replay is intentionally omitted; fallback execution was not attempted".to_string(),
+            ))
+        }
+        (Some(TraditionalRuntimeEvidenceLevel::Certified), true) => {
+            Err(ShardLoomError::InvalidOperation(
+                "traditional-analytics-vortex-batch-run explicit evidence_level=certified cannot be combined with --write-result-vortex; use evidence_level=full_replay for result-sink replay proof; fallback execution was not attempted".to_string(),
+            ))
+        }
+        (Some(level), _) => Ok(level),
+        (None, true) => Ok(TraditionalRuntimeEvidenceLevel::FullReplay),
+        (None, false) => Ok(TraditionalRuntimeEvidenceLevel::Certified),
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -15520,6 +15735,11 @@ mod tests {
         assert!(batch_report.total_result_sink_write_micros.is_some());
         assert!(batch_report.all_native_io_certificates_certified);
         assert!(batch_report.all_result_sink_replays_verified);
+        assert_eq!(batch_report.requested_evidence_level, None);
+        assert_eq!(
+            batch_report.selected_evidence_level,
+            TraditionalRuntimeEvidenceLevel::FullReplay
+        );
         assert!(
             batch_report
                 .reports
@@ -15537,6 +15757,46 @@ mod tests {
             "schema_version",
             "shardloom.traditional_analytics.vortex_batch.v1",
         );
+        assert_field_eq(
+            &fields,
+            "runtime_evidence_level_schema_version",
+            TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION,
+        );
+        assert_field_eq(&fields, "requested_evidence_level", "auto");
+        assert_field_eq(&fields, "selected_evidence_level", "full_replay");
+        assert_field_eq(&fields, "evidence_level", "full_replay");
+        assert_field_eq(
+            &fields,
+            "evidence_level_supported_levels",
+            "minimal_runtime,certified,full_replay",
+        );
+        assert_field_eq(
+            &fields,
+            "evidence_level_claim_gate_status",
+            "fixture_smoke_only",
+        );
+        assert_field_eq(
+            &fields,
+            "evidence_level_result_sink_replay_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "evidence_level_result_sink_replay_requested",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "evidence_level_result_sink_replay_verified",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "evidence_level_native_io_certificate_required",
+            "true",
+        );
+        assert_field_eq(&fields, "evidence_level_fallback_attempted", "false");
+        assert_field_eq(&fields, "evidence_level_external_engine_invoked", "false");
         assert_field_eq(
             &fields,
             "runner_kind",
@@ -15789,6 +16049,165 @@ mod tests {
             &fields,
             "scenario_group-by-aggregation_external_engine_invoked",
             "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_native_vortex_batch_run_reports_minimal_and_certified_evidence_levels() {
+        let root = traditional_analytics_test_root("prepared-native-batch-evidence-levels");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_native_vortex_replay_verification(true),
+        )
+        .unwrap();
+
+        let certified_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![TraditionalAnalyticsScenario::SelectiveFilter],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        assert_eq!(
+            certified_report.selected_evidence_level,
+            TraditionalRuntimeEvidenceLevel::Certified
+        );
+        assert!(!certified_report.result_sink_requested);
+        assert!(certified_report.total_result_sink_write_micros.is_none());
+        let certified_fields = field_map(certified_report.fields());
+        assert_field_eq(&certified_fields, "claim_gate_status", "fixture_smoke_only");
+        assert_field_eq(&certified_fields, "requested_evidence_level", "certified");
+        assert_field_eq(&certified_fields, "selected_evidence_level", "certified");
+        assert_field_eq(&certified_fields, "evidence_level", "certified");
+        assert_field_eq(
+            &certified_fields,
+            "evidence_level_result_sink_replay_required",
+            "false",
+        );
+        assert_field_eq(
+            &certified_fields,
+            "evidence_level_result_sink_replay_requested",
+            "false",
+        );
+        assert_field_eq(
+            &certified_fields,
+            "evidence_level_certificate_refs",
+            "execution_certificate_status,native_io_certificate_status,source_backed_scan_evidence_status,materialization_decode_evidence_present",
+        );
+        assert_field_eq(
+            &certified_fields,
+            "evidence_level_output_digest",
+            "not_requested",
+        );
+        assert_field_eq(
+            &certified_fields,
+            "evidence_level_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &certified_fields,
+            "evidence_level_external_engine_invoked",
+            "false",
+        );
+
+        let minimal_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![TraditionalAnalyticsScenario::SelectiveFilter],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::MinimalRuntime),
+        )
+        .unwrap();
+        assert_eq!(
+            minimal_report.selected_evidence_level,
+            TraditionalRuntimeEvidenceLevel::MinimalRuntime
+        );
+        assert!(!minimal_report.result_sink_requested);
+        assert!(minimal_report.total_result_sink_write_micros.is_none());
+        let minimal_fields = field_map(minimal_report.fields());
+        assert_field_eq(&minimal_fields, "claim_gate_status", "not_claim_grade");
+        assert_field_eq(
+            &minimal_fields,
+            "requested_evidence_level",
+            "minimal_runtime",
+        );
+        assert_field_eq(
+            &minimal_fields,
+            "selected_evidence_level",
+            "minimal_runtime",
+        );
+        assert_field_eq(&minimal_fields, "evidence_level", "minimal_runtime");
+        assert_field_eq(
+            &minimal_fields,
+            "evidence_level_claim_gate_status",
+            "not_claim_grade",
+        );
+        assert_field_eq(
+            &minimal_fields,
+            "evidence_level_native_io_certificate_required",
+            "false",
+        );
+        assert_field_eq(
+            &minimal_fields,
+            "evidence_level_result_sink_replay_required",
+            "false",
+        );
+        assert_field_eq(
+            &minimal_fields,
+            "evidence_level_result_sink_replay_requested",
+            "false",
+        );
+        assert_field_eq(
+            &minimal_fields,
+            "evidence_level_result_sink_replay_verified",
+            "false",
+        );
+        assert_field_eq(
+            &minimal_fields,
+            "evidence_level_certificate_refs",
+            "not_required_for_minimal_runtime",
+        );
+        assert_field_eq(&minimal_fields, "result_sink_requested", "false");
+        assert_field_eq(&minimal_fields, "all_result_sink_replays_verified", "false");
+        assert_field_eq(
+            &minimal_fields,
+            "evidence_level_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &minimal_fields,
+            "evidence_level_external_engine_invoked",
+            "false",
+        );
+
+        let full_replay_error = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![TraditionalAnalyticsScenario::SelectiveFilter],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::FullReplay),
+        )
+        .unwrap_err();
+        assert!(
+            full_replay_error
+                .to_string()
+                .contains("evidence_level=full_replay requires --write-result-vortex")
         );
 
         let _ = std::fs::remove_dir_all(root);

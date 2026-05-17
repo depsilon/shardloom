@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This document is the report-only architecture reference for `GAR-PERF-2A`. It formalizes
-evidence-level runtime tiering so ShardLoom can measure and explain different evidence costs without
-creating a hidden fast mode or weakening no-fallback policy.
+This document is the architecture reference for `GAR-PERF-2A`. It formalizes evidence-level runtime
+tiering so ShardLoom can measure and explain different evidence costs without creating a hidden fast
+mode or weakening no-fallback policy.
 
 The goal is to separate runtime/evidence intent from execution mode:
 
@@ -13,7 +13,9 @@ execution_mode = how the data path runs
 evidence_level = how much proof the caller requested and received
 ```
 
-Every evidence level must continue to report no-fallback and no-external-engine status.
+Every evidence level must continue to report no-fallback and no-external-engine status. The first
+runtime-supported slice is scoped to `traditional-analytics-vortex-batch-run` over local
+prepared/native Vortex artifacts.
 
 ## Evidence Levels
 
@@ -24,8 +26,8 @@ Every evidence level must continue to report no-fallback and no-external-engine 
 | `full_replay` | Result-sink proof and replay-heavy certification workflows. | All `certified` evidence plus result-sink write/reopen/replay proof and replay certificate refs. | Claim-grade only for the scoped replay-certified workload. |
 
 `minimal_runtime` is not a hidden fast mode. It is an explicit, visible evidence level that trades
-away heavy result-sink replay evidence unless requested. It must not silently omit policy fields or
-be promoted into public benchmark/performance claims.
+away result-sink replay evidence. It must not silently omit policy fields or be promoted into public
+benchmark/performance claims.
 
 ## Required Fields
 
@@ -60,9 +62,11 @@ Unknown or unavailable evidence should be reported explicitly as `not_available`
 
 ## Runtime Rules
 
-- `minimal_runtime` may omit heavy result-sink replay unless the caller explicitly requests replay.
+- `minimal_runtime` omits result-sink replay in the scoped batch runner and cannot be combined with
+  `--write-result-vortex`.
 - `certified` emits the normal certificate surfaces for the selected execution mode.
-- `full_replay` emits result-sink replay proof and keeps write/replay timing visible.
+- `full_replay` emits result-sink replay proof, keeps write/replay timing visible, and requires
+  `--write-result-vortex` plus a caller-owned workspace.
 - Every level preserves `fallback_attempted=false` and `external_engine_invoked=false`.
 - `auto` execution-mode selection must still report the selected mode and reason.
 - Evidence level never changes execution semantics by itself.
@@ -74,6 +78,28 @@ Unknown or unavailable evidence should be reported explicitly as `not_available`
 Benchmark artifacts should make evidence level visible beside execution mode. A `minimal_runtime`
 row can help isolate runtime development overhead, but it is not claim-grade by default and must not
 be presented as a public speed ranking.
+
+The scoped prepared/native batch row schema now includes:
+
+```text
+runtime_evidence_level_schema_version
+requested_evidence_level
+selected_evidence_level
+evidence_level
+evidence_level_supported_levels
+evidence_level_claim_gate_status
+evidence_level_result_sink_replay_required
+evidence_level_result_sink_replay_requested
+evidence_level_result_sink_replay_verified
+evidence_level_native_io_certificate_required
+evidence_level_certificate_refs
+evidence_level_result_sink_replay_refs
+evidence_level_source_state_digest
+evidence_level_output_digest
+evidence_level_fallback_attempted=false
+evidence_level_external_engine_invoked=false
+evidence_level_claim_boundary
+```
 
 Comparisons should remain scoped:
 
@@ -114,15 +140,16 @@ The user should be able to tell:
 
 - No hidden global fast mode.
 - No fallback engine.
-- No runtime behavior change in this report-only document.
-- No benchmark recomputation.
+- No broad runtime evidence-level support beyond the scoped prepared/native batch runner until later
+  slices add evidence.
 - No performance, superiority, Spark-replacement, production, SQL/DataFrame, object-store/lakehouse,
   or Foundry claim.
 - No package publication.
 
 ## Acceptance
 
-- `minimal_runtime`, `certified`, and `full_replay` are documented as distinct evidence levels.
+- `minimal_runtime`, `certified`, and `full_replay` are documented and emitted as distinct evidence
+  levels for the scoped prepared/native batch runner.
 - No-fallback and no-external-engine fields remain required for every level.
 - `minimal_runtime` is explicitly `not_claim_grade` unless a future scoped gate says otherwise.
 - `full_replay` is the only level that requires result-sink replay proof by default.

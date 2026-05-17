@@ -348,9 +348,10 @@ comma-separated list of prepared/native scenarios against the same prepared `.vo
 one ShardLoom process and emits `shardloom.traditional_analytics.vortex_batch.v1` fields, including
 `runner_kind=single_process_prepared_native_batch`,
 `typed_envelope_preserved=true`, `process_startup_amortization_supported=true`,
-`source_metadata_snapshot_status=per_batch_source_metadata_reused`, per-scenario
-operator/source/Native I/O fields, and `fallback_attempted=false` /
-`external_engine_invoked=false`. The per-batch source metadata snapshot records fact/dimension/CDC
+`source_metadata_snapshot_status=per_batch_source_metadata_reused`,
+`evidence_level=minimal_runtime|certified|full_replay`, per-scenario operator/source/Native I/O
+fields, and `fallback_attempted=false` / `external_engine_invoked=false`. The per-batch source
+metadata snapshot records fact/dimension/CDC
 Vortex artifact sizes and digests once per command invocation and reuses that evidence for child
 scenario reports instead of recomputing it per scenario. Hash-join and join-aggregate child
 scenarios also share one per-batch dimension-label lookup state when both are present. That emits
@@ -377,6 +378,9 @@ slice for scoped local prepared/native process, source-metadata, dimension-label
 category/metric source-state reuse, group/category/metric source-state reuse, ranked-metric
 source-state reuse, selective-filter source-state reuse, dirty-input source-state reuse, and
 date/null metric source-state reuse.
+Evidence-level fields separate proof depth from execution mode: `minimal_runtime` omits
+result-sink replay and stays `not_claim_grade`, `certified` emits normal certificates without replay
+by default, and `full_replay` requires result-sink replay proof through `--write-result-vortex`.
 Selective-filter plus filter/projection/limit child scenarios share one per-batch filtered
 `id,value,metric` state when both are present and emit
 `source_state_reuse_status=per_batch_selective_filter_state_reused` plus family-specific

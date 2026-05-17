@@ -245,6 +245,25 @@ ALLOCATION_RESOURCE_PROFILE_FIELDS = (
     "allocation_claim_gate_status",
     "allocation_claim_boundary",
 )
+RUNTIME_EVIDENCE_LEVEL_FIELDS = (
+    "runtime_evidence_level_schema_version",
+    "requested_evidence_level",
+    "selected_evidence_level",
+    "evidence_level",
+    "evidence_level_supported_levels",
+    "evidence_level_claim_gate_status",
+    "evidence_level_result_sink_replay_required",
+    "evidence_level_result_sink_replay_requested",
+    "evidence_level_result_sink_replay_verified",
+    "evidence_level_native_io_certificate_required",
+    "evidence_level_certificate_refs",
+    "evidence_level_result_sink_replay_refs",
+    "evidence_level_source_state_digest",
+    "evidence_level_output_digest",
+    "evidence_level_fallback_attempted",
+    "evidence_level_external_engine_invoked",
+    "evidence_level_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -720,6 +739,12 @@ def parse_args() -> argparse.Namespace:
         help="For shardloom rows, also write and replay the computed result as a native Vortex result artifact.",
     )
     parser.add_argument(
+        "--shardloom-evidence-level",
+        choices=("minimal_runtime", "certified", "full_replay"),
+        default=None,
+        help="Evidence depth for prepared/native batch rows. Defaults to certified, or full_replay when --shardloom-result-sink is enabled.",
+    )
+    parser.add_argument(
         "--require-all-engines",
         action="store_true",
         help="Return nonzero after writing artifacts if any selected engine dependency is missing.",
@@ -777,6 +802,16 @@ def parse_args() -> argparse.Namespace:
         args.shardloom_result_sink = True
         if not explicit_skip_native:
             args.skip_shardloom_native = True
+    if args.shardloom_evidence_level is None:
+        args.shardloom_evidence_level = (
+            "full_replay" if args.shardloom_result_sink else "certified"
+        )
+    elif args.shardloom_evidence_level == "full_replay":
+        args.shardloom_result_sink = True
+    elif args.shardloom_result_sink:
+        parser.error(
+            "--shardloom-result-sink requires --shardloom-evidence-level full_replay"
+        )
     if args.scenario:
         args.scenario_list = tuple(args.scenario)
     else:
@@ -2364,6 +2399,55 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "source_state_claim_boundary": batch_fields.get(
                     "source_state_claim_boundary", "unknown"
                 ),
+                "runtime_evidence_level_schema_version": batch_fields.get(
+                    "runtime_evidence_level_schema_version", "unknown"
+                ),
+                "requested_evidence_level": batch_fields.get(
+                    "requested_evidence_level", "unknown"
+                ),
+                "selected_evidence_level": batch_fields.get(
+                    "selected_evidence_level", "unknown"
+                ),
+                "evidence_level": batch_fields.get("evidence_level", "unknown"),
+                "evidence_level_supported_levels": batch_fields.get(
+                    "evidence_level_supported_levels", "unknown"
+                ),
+                "evidence_level_claim_gate_status": batch_fields.get(
+                    "evidence_level_claim_gate_status", "unknown"
+                ),
+                "evidence_level_result_sink_replay_required": batch_fields.get(
+                    "evidence_level_result_sink_replay_required", "unknown"
+                ),
+                "evidence_level_result_sink_replay_requested": batch_fields.get(
+                    "evidence_level_result_sink_replay_requested", "unknown"
+                ),
+                "evidence_level_result_sink_replay_verified": batch_fields.get(
+                    "evidence_level_result_sink_replay_verified", "unknown"
+                ),
+                "evidence_level_native_io_certificate_required": batch_fields.get(
+                    "evidence_level_native_io_certificate_required", "unknown"
+                ),
+                "evidence_level_certificate_refs": batch_fields.get(
+                    "evidence_level_certificate_refs", "unknown"
+                ),
+                "evidence_level_result_sink_replay_refs": batch_fields.get(
+                    "evidence_level_result_sink_replay_refs", "unknown"
+                ),
+                "evidence_level_source_state_digest": batch_fields.get(
+                    "evidence_level_source_state_digest", "unknown"
+                ),
+                "evidence_level_output_digest": batch_fields.get(
+                    "evidence_level_output_digest", "unknown"
+                ),
+                "evidence_level_fallback_attempted": batch_fields.get(
+                    "evidence_level_fallback_attempted", "unknown"
+                ),
+                "evidence_level_external_engine_invoked": batch_fields.get(
+                    "evidence_level_external_engine_invoked", "unknown"
+                ),
+                "evidence_level_claim_boundary": batch_fields.get(
+                    "evidence_level_claim_boundary", "unknown"
+                ),
                 "batch_scenario_count": batch_fields.get("scenario_count", "unknown"),
                 "batch_scenario_order": batch_fields.get("scenario_order", ""),
                 "batch_total_scenario_compute_micros": batch_fields.get(
@@ -2403,6 +2487,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             str(prepared["dim"]),
             "--execution-mode",
             "prepared_vortex",
+            "--evidence-level",
+            args.shardloom_evidence_level,
             "--format",
             "json",
         ]
@@ -4533,6 +4619,40 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 raise RuntimeError(
                     "ShardLoom allocation rows cannot report external engine execution"
                 )
+            missing_evidence_level_fields = [
+                field for field in RUNTIME_EVIDENCE_LEVEL_FIELDS if field not in metrics
+            ]
+            if missing_evidence_level_fields:
+                raise RuntimeError(
+                    "ShardLoom batch row omitted runtime evidence-level fields: "
+                    + ", ".join(missing_evidence_level_fields)
+                )
+            if metrics.get("evidence_level") not in (
+                "minimal_runtime",
+                "certified",
+                "full_replay",
+            ):
+                raise RuntimeError("ShardLoom batch row reported unknown evidence_level")
+            if metrics.get("evidence_level_fallback_attempted") is not False:
+                raise RuntimeError("ShardLoom evidence-level rows cannot report fallback attempts")
+            if metrics.get("evidence_level_external_engine_invoked") is not False:
+                raise RuntimeError(
+                    "ShardLoom evidence-level rows cannot report external engine execution"
+                )
+            if (
+                metrics.get("evidence_level") == "minimal_runtime"
+                and metrics.get("claim_gate_status") != "not_claim_grade"
+            ):
+                raise RuntimeError(
+                    "ShardLoom minimal_runtime rows must remain not_claim_grade"
+                )
+            if (
+                metrics.get("evidence_level") == "full_replay"
+                and metrics.get("evidence_level_result_sink_replay_verified") is not True
+            ):
+                raise RuntimeError(
+                    "ShardLoom full_replay rows must verify result-sink replay"
+                )
         else:
             if persistent_runner_status != PERSISTENT_RUNNER_STATUS:
                 raise RuntimeError("ShardLoom row hid or altered persistent runner status")
@@ -5755,6 +5875,19 @@ def successful_result_from_iterations(
                 metrics.setdefault(field, parse_optional_bool(value))
             else:
                 metrics.setdefault(field, value)
+        for field in RUNTIME_EVIDENCE_LEVEL_FIELDS:
+            value = evidence.get(field)
+            if field in (
+                "evidence_level_result_sink_replay_required",
+                "evidence_level_result_sink_replay_requested",
+                "evidence_level_result_sink_replay_verified",
+                "evidence_level_native_io_certificate_required",
+                "evidence_level_fallback_attempted",
+                "evidence_level_external_engine_invoked",
+            ):
+                metrics.setdefault(field, parse_optional_bool(value))
+            else:
+                metrics.setdefault(field, value)
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -6483,6 +6616,7 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "shardloom_build_time_excluded": True,
         "shardloom_feature_gate": "vortex-traditional-analytics-benchmark",
         "shardloom_result_sink_enabled": args.shardloom_result_sink,
+        "shardloom_evidence_level": args.shardloom_evidence_level,
         "claim_readiness_rerun_profile": args.claim_readiness_rerun,
         "claim_grade_min_iterations": MIN_CLAIM_GRADE_ITERATIONS,
         "dask_blocksize": args.dask_blocksize,
@@ -6590,11 +6724,13 @@ def persistent_runner_admission_gate() -> dict[str, Any]:
         "row_fields": list(PERSISTENT_RUNNER_ADMISSION_FIELDS)
         + list(BATCH_RUNNER_ADMISSION_FIELDS)
         + list(SESSION_RUNTIME_FIELDS)
-        + list(ALLOCATION_RESOURCE_PROFILE_FIELDS),
+        + list(ALLOCATION_RESOURCE_PROFILE_FIELDS)
+        + list(RUNTIME_EVIDENCE_LEVEL_FIELDS),
         "must_preserve": [
             "shardloom.output.v2 typed envelopes per run",
             "execution-mode selection fields",
             "Native I/O certificate refs and inline artifacts",
+            "runtime evidence-level fields",
             "operator blocker matrix fields",
             "materialization/decode boundary fields",
             "result-sink replay evidence when result sinks are enabled",

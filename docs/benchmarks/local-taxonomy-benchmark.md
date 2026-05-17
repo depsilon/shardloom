@@ -116,7 +116,8 @@ end-to-end encoded-native certificates exist.
 
 ## Evidence-Level Runtime Tiering Queue
 
-`GAR-PERF-2A` tracks first-class benchmark evidence levels:
+`GAR-PERF-2A` adds first-class benchmark evidence levels to the scoped prepared/native batch
+runner:
 
 ```text
 minimal_runtime
@@ -124,15 +125,18 @@ certified
 full_replay
 ```
 
-The goal is to let benchmark readers see proof overhead without creating a hidden fast mode.
-`minimal_runtime` may omit heavy result-sink replay unless requested, but it must still report
-`execution_mode`, `evidence_level`, `fallback_attempted=false`, `external_engine_invoked=false`,
-`claim_gate_status`, and available source/output digests. `certified` emits normal certificate
-evidence. `full_replay` emits result-sink replay proof.
+The goal is to let benchmark readers see proof overhead without creating a hidden fast mode. Batch
+rows now report `runtime_evidence_level_schema_version`, `requested_evidence_level`,
+`selected_evidence_level`, `evidence_level`, `evidence_level_claim_gate_status`,
+`evidence_level_result_sink_replay_required`, `evidence_level_result_sink_replay_verified`,
+`evidence_level_certificate_refs`, `evidence_level_source_state_digest`,
+`evidence_level_output_digest`, `evidence_level_fallback_attempted=false`, and
+`evidence_level_external_engine_invoked=false`.
 
-Until implementation lands, benchmark rows should not imply an evidence-light runtime tier exists.
-After it lands, `evidence_level=minimal_runtime` remains `not_claim_grade` unless a later
-workload-scoped gate explicitly approves otherwise.
+`minimal_runtime` omits result-sink replay and remains `claim_gate_status=not_claim_grade`.
+`certified` emits normal certificate evidence without replay by default. `full_replay` requires
+result-sink replay proof. None of these levels create a performance, superiority, production,
+SQL/DataFrame, object-store/lakehouse, Foundry, package, or Spark-displacement claim.
 
 ## Vortex Scan Pushdown Completion Queue
 

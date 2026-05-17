@@ -118,6 +118,26 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"allocation_external_engine_invoked\""));
     assert!(script.contains("\"allocation_claim_gate_status\""));
     assert!(script.contains("\"allocation_claim_boundary\""));
+    assert!(script.contains("RUNTIME_EVIDENCE_LEVEL_FIELDS"));
+    assert!(script.contains("\"runtime_evidence_level_schema_version\""));
+    assert!(script.contains("\"requested_evidence_level\""));
+    assert!(script.contains("\"selected_evidence_level\""));
+    assert!(script.contains("\"evidence_level\""));
+    assert!(script.contains("\"evidence_level_supported_levels\""));
+    assert!(script.contains("\"evidence_level_claim_gate_status\""));
+    assert!(script.contains("\"evidence_level_result_sink_replay_required\""));
+    assert!(script.contains("\"evidence_level_result_sink_replay_requested\""));
+    assert!(script.contains("\"evidence_level_result_sink_replay_verified\""));
+    assert!(script.contains("\"evidence_level_native_io_certificate_required\""));
+    assert!(script.contains("\"evidence_level_certificate_refs\""));
+    assert!(script.contains("\"evidence_level_result_sink_replay_refs\""));
+    assert!(script.contains("\"evidence_level_source_state_digest\""));
+    assert!(script.contains("\"evidence_level_output_digest\""));
+    assert!(script.contains("\"evidence_level_fallback_attempted\""));
+    assert!(script.contains("\"evidence_level_external_engine_invoked\""));
+    assert!(script.contains("\"evidence_level_claim_boundary\""));
+    assert!(script.contains("--shardloom-evidence-level"));
+    assert!(script.contains("--evidence-level"));
     assert!(script.contains("\"reproducible_benchmark_row\""));
     assert!(script.contains("\"correctness_digest_stable\""));
     assert!(script.contains("MIN_CLAIM_GRADE_ITERATIONS = 3"));
@@ -327,6 +347,12 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"source_state_date_null_metric_reuse_status\"",
         "\"source_state_prepare_micros\"",
         "\"source_state_prepare_timing_scope\"",
+        "\"runtime_evidence_level_schema_version\"",
+        "\"evidence_level\"",
+        "\"evidence_level_result_sink_replay_required\"",
+        "\"evidence_level_result_sink_replay_verified\"",
+        "\"evidence_level_fallback_attempted\"",
+        "\"evidence_level_external_engine_invoked\"",
         "\"dask_blocksize\"",
         "\"dask_scheduler\"",
         "\"spark_requires_java\"",

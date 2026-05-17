@@ -1743,6 +1743,39 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                 "total_result_sink_write_millis": micros_field_to_millis(
                     fields, "total_result_sink_write_micros"
                 ),
+                "runtime_evidence_level_schema_version": fields.get(
+                    "runtime_evidence_level_schema_version"
+                ),
+                "requested_evidence_level": fields.get("requested_evidence_level"),
+                "selected_evidence_level": fields.get("selected_evidence_level"),
+                "evidence_level": fields.get("evidence_level"),
+                "evidence_level_supported_levels": fields.get(
+                    "evidence_level_supported_levels"
+                ),
+                "evidence_level_claim_gate_status": fields.get(
+                    "evidence_level_claim_gate_status"
+                ),
+                "evidence_level_result_sink_replay_required": fields.get(
+                    "evidence_level_result_sink_replay_required"
+                ),
+                "evidence_level_result_sink_replay_requested": fields.get(
+                    "evidence_level_result_sink_replay_requested"
+                ),
+                "evidence_level_result_sink_replay_verified": fields.get(
+                    "evidence_level_result_sink_replay_verified"
+                ),
+                "evidence_level_native_io_certificate_required": fields.get(
+                    "evidence_level_native_io_certificate_required"
+                ),
+                "evidence_level_source_state_digest": fields.get(
+                    "evidence_level_source_state_digest"
+                ),
+                "evidence_level_output_digest": fields.get(
+                    "evidence_level_output_digest"
+                ),
+                "evidence_level_claim_boundary": fields.get(
+                    "evidence_level_claim_boundary"
+                ),
                 "source_metadata_snapshot_status": fields.get(
                     "source_metadata_snapshot_status"
                 ),
@@ -2380,6 +2413,12 @@ def benchmark_page(summary: dict[str, Any]) -> str:
             "Requested mode",
             "Selected modes",
             "Runner",
+            "Evidence level",
+            "Requested evidence",
+            "Evidence gate",
+            "Replay required",
+            "Replay verified",
+            "Output digest",
             "Session",
             "Session close",
             "Artifact reuse",
@@ -2421,6 +2460,12 @@ def benchmark_page(summary: dict[str, Any]) -> str:
                 row["requested_execution_mode"],
                 row["selected_execution_modes"],
                 row["runner_kind"],
+                value_at(row, "evidence_level"),
+                value_at(row, "requested_evidence_level"),
+                value_at(row, "evidence_level_claim_gate_status"),
+                value_at(row, "evidence_level_result_sink_replay_required"),
+                value_at(row, "evidence_level_result_sink_replay_verified"),
+                value_at(row, "evidence_level_output_digest"),
                 value_at(row, "session_runtime_status"),
                 value_at(row, "session_close_status"),
                 value_at(row, "session_prepared_artifact_reuse_count"),
@@ -2985,7 +3030,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     <section id="batch">
       <div class="shell">
         <h2>Prepared And Native Batch Smoke</h2>
-        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the scoped in-process session explicit. They show prepared-artifact registry reuse, source metadata, source-state reuse, allocation/resource-profile posture, and the GAR-PERF-1B coverage classification separately from scenario compute and scan timing. The allocation fields are visibility and blocker evidence: the buffer pool is disabled, allocation counts and peak RSS are not measured yet, and the rows are not a persistent daemon, hidden fast mode, memory-efficiency claim, or performance claim.</p>
+        <p class="section-lede">Direct CLI smoke rows from `traditional-analytics-vortex-batch-run` keep the scoped in-process session explicit. They now expose evidence level beside execution mode: <code>minimal_runtime</code> is runtime-development evidence and stays <code>not_claim_grade</code>, <code>certified</code> carries normal certificates without replay by default, and <code>full_replay</code> requires result-sink replay proof. They also show prepared-artifact registry reuse, source metadata, source-state reuse, allocation/resource-profile posture, and the GAR-PERF-1B coverage classification separately from scenario compute and scan timing. The allocation fields are visibility and blocker evidence: the buffer pool is disabled, allocation counts and peak RSS are not measured yet, and the rows are not a persistent daemon, hidden fast mode, memory-efficiency claim, or performance claim.</p>
         {batch_table}
       </div>
     </section>

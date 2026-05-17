@@ -105,7 +105,7 @@ or claim.
 | Source-free generated output | No-input smoke/capability behavior exists, and benchmark synthetic fixtures exist, but ShardLoom does not yet expose a first-class generated-output runtime for user rows or engine-native generator nodes. SQL/DataFrame/query-builder posture is report-only. | GAR-GEN-1 adds the planned `GeneratedSourceCertificate` contract, separates `no_dataset_smoke` from generated-output execution, and stages future Python, SQL, and DataFrame-style generated-source APIs. | No source Native I/O certificate is claimed when no source dataset is read. Local generated output needs generated-source evidence plus output sink evidence. S3/object-store and Foundry generated-output runtime remain report-only/gated. |
 | Evidence exports and confidence | Evidence artifacts, protocol parity rows, and internal timing fields exist. OpenLineage and OpenTelemetry posture is report-only; Bayesian confidence is not implemented. | GAR-NOVEL-1 defines report-only OpenLineage facets, OpenTelemetry span mapping, and Bayesian claim-confidence fields, all opt-in and no-network by default. | Export and confidence surfaces cannot upgrade runtime support, production readiness, performance, or claim status. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
-| Runtime evidence level | Full certificate and result-sink proof paths exist for scoped workflows, but `minimal_runtime`, `certified`, and `full_replay` are not yet first-class envelope/benchmark fields. | GAR-PERF-2A adds evidence-level runtime tiering so benchmark rows and API views can distinguish proof overhead from execution mode. | Every evidence level must keep `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status` visible. `minimal_runtime` is `not_claim_grade` unless a future scoped gate approves otherwise. |
+| Runtime evidence level | `traditional-analytics-vortex-batch-run` now emits first-class `evidence_level=minimal_runtime|certified|full_replay` fields beside execution mode for scoped prepared/native local artifacts. `minimal_runtime` blocks result-sink replay and reports `claim_gate_status=not_claim_grade`; `certified` emits normal certificate-bearing evidence without replay by default; `full_replay` requires result-sink replay proof. | Continue propagating the contract into future Python/API capability views and broader execution envelopes only where evidence exists. Later slices can add runtime-light benchmark lanes and policy views without hidden fast modes. | Every evidence level keeps `fallback_attempted=false`, `external_engine_invoked=false`, source/output digest status, and claim boundaries visible. Evidence level explains proof depth; it is not execution mode, performance evidence, SQL/DataFrame support, object-store/lakehouse support, Foundry support, or production readiness. |
 | Evidence-aware logical optimizer | Execution modes, Plan IR, explain/estimate diagnostics, and report-only adaptive optimizer/memory planning exist, but no general optimizer rule registry or rewrite trace is claimable. | GAR-PERF-2B adds an optimizer rule registry and report-only optimizer trace for predicate/projection/slice pushdown, common subplan/source-state reuse, expression simplification, constant folding, type coercion, join ordering, and cardinality estimation. | Optimizer trace evidence must preserve before/after plan digests, rewrite safety, evidence, materialization, no-fallback, and claim gates. It is not Polars/DataFusion parity, broad SQL/DataFrame runtime, or performance evidence. |
 | Vortex Scan pushdown | Prepared/native rows expose scoped `source_backed_scan_*` evidence, but filter/projection/limit pushdown is not complete or uniformly classified across every scenario family. | GAR-PERF-2C maps each prepared/native family to Vortex Scan filter/projection/limit evidence or a deterministic blocker, including filter-only versus output column read sets. | Pushdown evidence is source/provider-boundary evidence only. It is not an encoded-native operator claim, broad Source/Split runtime claim, SQL/DataFrame claim, object-store/lakehouse claim, or performance claim. |
 | Compressed/encoded kernel registry | Scoped selective-filter encoded-predicate provider evidence exists, but encoded-native operator coverage is not broad and encoding/operator support is not yet a uniform registry. | GAR-PERF-2D adds a registry for bitpacked filter, sequence predicates, dictionary equality/group-by, constant array count/filter, sorted min/max pruning, and FSST/dictionary string equality where available. | Registry admission is not encoded-native support. Rows must keep canonicalization, decode, materialization, validity, no-fallback, and claim-gate evidence visible. |
@@ -1083,17 +1083,25 @@ Those slices may improve attribution and local runtime evidence, but they do not
 performance, superiority, Spark-displacement, production, SQL/DataFrame, object-store/lakehouse, or
 encoded-native claims without workload-scoped evidence and claim gates.
 
-`GAR-PERF-2A` is the planned evidence-level runtime tiering layer. It separates proof depth from
-execution mode:
+`GAR-PERF-2A` adds the first runtime evidence-level tiering layer to the scoped
+`traditional-analytics-vortex-batch-run` path. It separates proof depth from execution mode:
 
-- `minimal_runtime`: runtime/development rows with required no-fallback policy fields and no heavy
-  result-sink replay unless requested; default `claim_gate_status=not_claim_grade`.
-- `certified`: normal certificate-bearing execution for scoped local evidence.
-- `full_replay`: certified evidence plus result-sink write/reopen/replay proof.
+- `minimal_runtime`: runtime/development rows with required no-fallback policy fields and no
+  result-sink replay; `claim_gate_status=not_claim_grade`.
+- `certified`: normal certificate-bearing execution for scoped local evidence, without
+  result-sink replay by default.
+- `full_replay`: certified evidence plus result-sink write/reopen/replay proof; this level
+  requires `--write-result-vortex` and a caller-owned workspace.
 
-Evidence level must appear beside `execution_mode`, not replace it. This lets benchmark readers see
-proof overhead without treating evidence-light rows as public performance rankings or claim-grade
-evidence.
+Evidence level appears beside `execution_mode`, not in place of it. Batch rows emit
+`runtime_evidence_level_schema_version`, `requested_evidence_level`, `selected_evidence_level`,
+`evidence_level`, `evidence_level_claim_gate_status`,
+`evidence_level_result_sink_replay_required`,
+`evidence_level_result_sink_replay_verified`, `evidence_level_certificate_refs`,
+`evidence_level_source_state_digest`, `evidence_level_output_digest`,
+`evidence_level_fallback_attempted=false`, `evidence_level_external_engine_invoked=false`, and an
+explicit claim boundary. This lets benchmark readers see proof overhead without treating
+evidence-light rows as public performance rankings or claim-grade evidence.
 
 `GAR-PERF-2B` is the planned evidence-aware logical optimizer layer. It adds an optimizer rule
 registry and report-only optimizer trace over ShardLoom Plan IR. The first rule families are:

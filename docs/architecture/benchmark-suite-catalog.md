@@ -193,11 +193,12 @@ writing a report, so downstream readers can rely on field presence rather than
 inferring timing scope from prose. If `requested_execution_mode=auto`, the row
 must still preserve the selected mode and reason.
 
-`GAR-PERF-2A` adds the next evidence-level row contract. Future rows should expose
+`GAR-PERF-2A` adds the scoped prepared/native batch evidence-level row contract. Batch rows expose
 `evidence_level=minimal_runtime|certified|full_replay` beside `execution_mode` so readers can
-separate proof overhead from runtime path. `minimal_runtime` must still preserve
-`fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`, and it must
-remain `not_claim_grade` unless a later scoped gate explicitly approves otherwise.
+separate proof overhead from runtime path. `minimal_runtime` preserves `fallback_attempted=false`,
+`external_engine_invoked=false`, and `claim_gate_status=not_claim_grade`; `certified` emits normal
+certificates without replay by default; `full_replay` requires result-sink replay proof. Future
+Python, API, and broader benchmark rows should reuse the same contract only where evidence exists.
 
 `GAR-PERF-2B` adds the planned evidence-aware logical optimizer contract. Future benchmark rows
 should be able to reference optimizer traces with optimizer trace ID, registry version, rule

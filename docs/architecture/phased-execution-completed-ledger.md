@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2A evidence-level runtime tiering
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `website/build_static_pages.py`
+    - `docs/architecture/runtime-evidence-level-tiering.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add first-class runtime evidence-level tiering to the scoped
+    `traditional-analytics-vortex-batch-run` prepared/native local-artifact path without creating a
+    hidden fast mode, fallback engine, or performance claim.
+  - Checklist:
+    - [x] Add `TraditionalRuntimeEvidenceLevel` with `minimal_runtime`, `certified`, and
+          `full_replay` vocabulary.
+    - [x] Add request/report fields for requested and selected evidence level, including
+          `runtime_evidence_level_schema_version`, `evidence_level`,
+          `evidence_level_claim_gate_status`, replay requirements, certificate refs, source/output
+          digest status, no-fallback fields, and claim boundary.
+    - [x] Add CLI `--evidence-level minimal_runtime|certified|full_replay`; omitted evidence level
+          selects `certified`, or `full_replay` when result-sink replay is requested.
+    - [x] Block invalid combinations deterministically: `minimal_runtime` cannot request
+          result-sink replay, and `full_replay` requires `--write-result-vortex` plus a workspace.
+    - [x] Propagate evidence-level fields through the Python benchmark contract and website
+          prepared/native batch table.
+    - [x] Keep `minimal_runtime` at `claim_gate_status=not_claim_grade` and preserve
+          `fallback_attempted=false` / `external_engine_invoked=false` for every level.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch_run_reports_minimal_and_certified_evidence_levels --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch_run_preserves_evidence_envelope --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+  - Claim boundary:
+    - Evidence-level tiering explains proof depth for scoped local prepared/native batch evidence.
+    - `minimal_runtime` is runtime-development evidence only and remains `not_claim_grade`.
+    - This does not create a performance, superiority, production, SQL/DataFrame, object-store,
+      lakehouse, Foundry, package-publication, or Spark-displacement claim.
+  - Fallback boundary:
+    - `evidence_level_fallback_attempted=false` and
+      `evidence_level_external_engine_invoked=false` are required.
+    - External engines remain baseline-only and are not used for evidence-level behavior.
+
 - [x] Session label: GAR-PERF-2G allocation/resource profile and buffer-pool blocker evidence
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
