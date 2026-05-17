@@ -133,12 +133,12 @@ Supporting docs:
     pushdown, capability matrix projection, and benchmark row schema changes must remain
     represented by `GAR-PERF-2C` or later evidence-bearing slices.
 - `docs/architecture/compressed-encoded-kernel-registry.md`
-  - Role: report-only GAR-PERF-2D reference for encoding-specific compressed/encoded kernel
-    registry planning.
-  - Status rule: defines registry rows, kernel admission evidence, deterministic blockers,
-    materialization/decode boundaries, and claim gates only. Runtime kernel execution, benchmark row
-    schema changes, capability matrix surfacing, and encoded-native claim promotion must remain
-    represented by `GAR-PERF-2D` or later evidence-bearing slices.
+  - Role: GAR-PERF-2D reference for scoped compressed/encoded kernel registry evidence over
+    selective-filter prepared/native rows.
+  - Status rule: scoped bitpacked and sequence reader-generated encoded inputs now emit registry
+    evidence with deterministic blockers for the remaining initial pairs. Broader encoded-native
+    operator coverage, capability-matrix promotion, and claim-grade use must remain represented by
+    later evidence-bearing slices.
 - `docs/architecture/fused-operator-pipeline.md`
   - Role: report-only GAR-PERF-2E reference for fused local prepared/native operator pipelines.
   - Status rule: defines fused-pipeline evidence, correctness, materialization, and blocker
@@ -544,103 +544,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     - stable Plan IR digesting, explain output envelope, optimizer registry schema,
       materialization/decode evidence, semantic-profile safety, correctness smoke fixtures,
       benchmark row schema, and no-fallback tests.
-
-- [ ] GAR-PERF-2D compressed/encoded kernel registry
-  - Source:
-    - Vortex array encodings and layout model.
-    - encoded predicate provider work.
-    - current selective-filter encoded predicate evidence.
-    - `docs/architecture/compressed-encoded-kernel-registry.md`.
-    - `docs/architecture/vortex-runtime-utilization-audit.md`.
-    - `docs/architecture/performance-attribution-and-execution-structure.md`.
-    - `benchmarks/traditional_analytics/run.py`.
-  - Current state:
-    - Selective-filter encoded-predicate evidence exists for scoped local paths.
-    - Current evidence can report admitted filter-column encodings and selection-vector bridge
-      status, while keeping metric aggregation residual-native.
-    - Encoded-native operator coverage is not broad, and current registry-like history does not
-      provide a uniform benchmark/capability contract for encoding-specific operators.
-  - Next slice outcome:
-    - Add a compressed/encoded kernel registry for encoding-specific operator support.
-    - Classify each initial encoding/operator pair as admitted, executed, blocked, unsupported, or
-      not available with deterministic evidence.
-    - Keep `encoded_native_claim_allowed=false` unless end-to-end evidence passes.
-  - User-visible surface:
-    - benchmark evidence.
-    - capability matrix / `compute-capability-matrix` posture.
-    - compute-flow docs.
-    - website benchmark and compute-flow interpretation after artifact refresh.
-  - Initial encoding/operator pairs:
-    - bitpacked boolean/integer filter.
-    - sequence equality/range predicate.
-    - dictionary equality/group-by.
-    - constant array count/filter.
-    - sorted min/max range pruning.
-    - FSST/dictionary string equality if available.
-  - Implementation scope:
-    - encoded/compressed kernel registry structs or report rows.
-    - kernel admission and deterministic blockers.
-    - encoding/operator capability matrix rows.
-    - benchmark row schema and Markdown renderer if fields change.
-    - unit tests per encoding/operator pair.
-  - Evidence required:
-    - `encoding_id`.
-    - `logical_dtype`.
-    - `physical_encoding`.
-    - `operator_family`.
-    - `kernel_admitted`.
-    - `kernel_executed`.
-    - `canonicalization_required`.
-    - `decoded`.
-    - `materialized`.
-    - `selection_vector_emitted`.
-    - `validity_semantics`.
-    - deterministic unsupported/blocker reason where the kernel is unavailable.
-    - `encoded_native_claim_allowed`.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-    - `claim_gate_status`.
-  - Acceptance:
-    - Unsupported encodings block deterministically.
-    - Encoded-native claim remains false until end-to-end evidence passes.
-    - Initial encoding/operator pairs are visible in benchmark/capability evidence as admitted,
-      executed, blocked, unsupported, or not available.
-    - Rows distinguish canonicalization, decode, materialization, and selection-vector behavior.
-    - Registry admission does not silently promote residual-native paths to encoded-native support.
-  - Verification:
-    - unit tests per encoding/operator pair.
-    - null, empty, all-null, and high-cardinality cases where relevant.
-    - decoded-reference correctness comparison.
-    - benchmark smoke for selective filter and group-by.
-    - traditional benchmark row contract tests if row fields change.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `python -m compileall -q benchmarks/traditional_analytics`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - no broad SQL/DataFrame runtime claim.
-    - no broad encoded-native operator coverage claim.
-    - no object-store/lakehouse runtime.
-    - no production or performance/superiority claim.
-    - no external engine fallback.
-  - Claim boundary:
-    - Kernel-registry rows may claim only scoped encoding/operator admission or execution where the
-      row carries correctness, materialization/decode, no-fallback, and claim-gate evidence.
-    - Registry admission does not imply broad encoded-native operator coverage, SQL/DataFrame
-      runtime, object-store/lakehouse runtime, production readiness, or public performance claims.
-  - Fallback boundary:
-    - `fallback_attempted=false` and `external_engine_invoked=false` are required for every admitted,
-      executed, blocked, unsupported, or not-available row.
-  - Ledger rule:
-    - When complete, move the detailed completed session to
-      `docs/architecture/phased-execution-completed-ledger.md` with unit test refs, selective filter
-      and group-by benchmark smoke artifacts, capability matrix evidence, and deterministic blocker
-      examples.
-  - Dependencies/blockers:
-    - Vortex-first provider check, stable encoding identifiers, validity/null semantics,
-      selection-vector evidence, decoded-reference correctness fixtures, materialization/decode
-      policy, and no-fallback diagnostics.
 
 - [ ] GAR-PERF-2E fused operator pipeline
   - Source:

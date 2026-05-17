@@ -979,11 +979,12 @@ plan before coding.
   families report filter/projection/limit pushdown evidence or a deterministic blocker, including
   filter-only versus output column distinction, without treating pushdown evidence as an
   encoded-native operator claim.
-- [ ] `GAR-PERF-2D` adds the planned compressed/encoded kernel registry. Initial
+- [x] `GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence. Initial
   encoding/operator pairs include bitpacked boolean/integer filter, sequence equality/range
   predicate, dictionary equality/group-by, constant array count/filter, sorted min/max range
-  pruning, and FSST/dictionary string equality where available. Registry admission must not become
-  an encoded-native claim without end-to-end evidence.
+  pruning, and FSST/dictionary string equality where available. Current selective-filter rows admit
+  observed bitpacked and sequence filter inputs, keep other initial pairs blocked or not available,
+  and preserve `encoded_native_claim_allowed=false`.
 - [ ] `GAR-PERF-2E` adds the planned fused operator pipeline pass. Filter + projection + limit,
   filter + aggregate, filter + group-by, and top-k with projection should either run through a
   fused local prepared/native residual pipeline with correctness digest parity or emit a
@@ -1056,10 +1057,10 @@ plan before coding.
   families. It should map supported filter/projection/limit intent into source-backed scan evidence,
   keep unsupported expressions deterministic blockers, and preserve no-fallback/no-external-engine
   fields.
-- [ ] `GAR-PERF-2D` adds compressed/encoded kernel registry follow-through across Vortex array
-  encodings. It should classify encoding/operator pairs as admitted, executed, blocked, unsupported,
-  or not available while preserving canonicalization, decode, materialization, validity,
-  no-fallback, and encoded-native claim-gate evidence.
+- [x] `GAR-PERF-2D` adds compressed/encoded kernel registry follow-through across scoped
+  selective-filter Vortex array encodings. It classifies initial encoding/operator pairs as
+  admitted/executed, blocked, unsupported, or not available while preserving canonicalization,
+  decode, materialization, validity, no-fallback, and encoded-native claim-gate evidence.
 - [ ] `GAR-PERF-2E` adds fused local prepared/native operator pipelines for admitted filter,
   projection, limit, aggregate, group-by, and top-k families. It must preserve Vortex/source-backed
   provider evidence, ShardLoom-native residual ownership, correctness digest parity with an unfused
@@ -1229,7 +1230,7 @@ plan before coding.
 - [ ] `GAR-PERF-2C` adds Vortex Scan API pushdown completion. The flow must keep scan filter,
   projection, and limit pushdown evidence independent from encoded-native operator claims, and every
   prepared/native scenario family must report pushed-down fields or deterministic blockers.
-- [ ] `GAR-PERF-2D` adds compressed/encoded kernel registry follow-through. The flow must keep
+- [x] `GAR-PERF-2D` adds compressed/encoded kernel registry follow-through. The flow keeps
   encoding ID, operator family, admission/execution, canonicalization, decode, materialization,
   validity, no-fallback, and claim-gate evidence visible without treating registry admission as
   encoded-native support.

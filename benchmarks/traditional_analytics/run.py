@@ -116,6 +116,36 @@ FUSED_PIPELINE_FIELDS = (
     "fused_pipeline_fallback_attempted",
     "fused_pipeline_external_engine_invoked",
 )
+COMPRESSED_KERNEL_REGISTRY_FIELDS = (
+    "compressed_kernel_registry_schema_version",
+    "compressed_kernel_registry_scope",
+    "compressed_kernel_registry_current_surface",
+    "compressed_kernel_registry_vortex_first_decision",
+    "compressed_kernel_registry_initial_pair_count",
+    "compressed_kernel_registry_pairs_classified",
+    "compressed_kernel_registry_pair_ids",
+    "compressed_kernel_registry_pair_statuses",
+    "compressed_kernel_registry_encoding_ids",
+    "compressed_kernel_registry_logical_dtypes",
+    "compressed_kernel_registry_physical_encodings",
+    "compressed_kernel_registry_operator_families",
+    "compressed_kernel_registry_kernel_admitted",
+    "compressed_kernel_registry_kernel_executed",
+    "compressed_kernel_registry_canonicalization_required",
+    "compressed_kernel_registry_decoded",
+    "compressed_kernel_registry_materialized",
+    "compressed_kernel_registry_selection_vector_emitted",
+    "compressed_kernel_registry_validity_semantics",
+    "compressed_kernel_registry_unsupported_kernel_reasons",
+    "compressed_kernel_registry_encoded_native_claim_allowed",
+    "compressed_kernel_registry_admitted_pair_count",
+    "compressed_kernel_registry_executed_pair_count",
+    "compressed_kernel_registry_blocked_pair_count",
+    "compressed_kernel_registry_not_available_pair_count",
+    "compressed_kernel_registry_claim_gate_status",
+    "compressed_kernel_registry_fallback_attempted",
+    "compressed_kernel_registry_external_engine_invoked",
+)
 SCAN_PUSHDOWN_FIELDS = (
     "scan_pushdown_schema_version",
     "scan_pushdown_status",
@@ -4460,6 +4490,15 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "benchmark row omitted fused pipeline fields: "
             + ", ".join(missing_fused_pipeline_fields)
         )
+    missing_compressed_kernel_registry_fields = [
+        field for field in COMPRESSED_KERNEL_REGISTRY_FIELDS if field not in metrics
+    ]
+    if missing_compressed_kernel_registry_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted compressed kernel registry fields: "
+            + ", ".join(missing_compressed_kernel_registry_fields)
+        )
     missing_scan_pushdown_fields = [
         field for field in SCAN_PUSHDOWN_FIELDS if field not in metrics
     ]
@@ -4553,6 +4592,25 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         and metrics.get("fused_pipeline_external_engine_invoked") is True
     ):
         raise RuntimeError("fused pipeline evidence cannot report external engine execution")
+    if (
+        is_shardloom_engine(str(result.get("engine") or ""))
+        and metrics.get("compressed_kernel_registry_encoded_native_claim_allowed") is True
+    ):
+        raise RuntimeError(
+            "compressed kernel registry evidence cannot upgrade encoded-native claims"
+        )
+    if (
+        is_shardloom_engine(str(result.get("engine") or ""))
+        and metrics.get("compressed_kernel_registry_fallback_attempted") is True
+    ):
+        raise RuntimeError("compressed kernel registry evidence cannot report fallback attempts")
+    if (
+        is_shardloom_engine(str(result.get("engine") or ""))
+        and metrics.get("compressed_kernel_registry_external_engine_invoked") is True
+    ):
+        raise RuntimeError(
+            "compressed kernel registry evidence cannot report external engine execution"
+        )
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
         and metrics.get("scan_pushdown_fallback_attempted") is True
@@ -5776,6 +5834,98 @@ def successful_result_from_iterations(
         "fused_pipeline_external_engine_invoked": (
             parse_optional_bool(evidence.get("fused_pipeline_external_engine_invoked")) is True
         ),
+        "compressed_kernel_registry_schema_version": evidence.get(
+            "compressed_kernel_registry_schema_version", "not_reported"
+        ),
+        "compressed_kernel_registry_scope": evidence.get(
+            "compressed_kernel_registry_scope", "not_reported"
+        ),
+        "compressed_kernel_registry_current_surface": evidence.get(
+            "compressed_kernel_registry_current_surface", "not_reported"
+        ),
+        "compressed_kernel_registry_vortex_first_decision": evidence.get(
+            "compressed_kernel_registry_vortex_first_decision", "not_reported"
+        ),
+        "compressed_kernel_registry_initial_pair_count": parse_optional_int(
+            evidence.get("compressed_kernel_registry_initial_pair_count")
+        ),
+        "compressed_kernel_registry_pairs_classified": (
+            parse_optional_bool(evidence.get("compressed_kernel_registry_pairs_classified"))
+            is True
+        ),
+        "compressed_kernel_registry_pair_ids": evidence.get(
+            "compressed_kernel_registry_pair_ids", "none"
+        ),
+        "compressed_kernel_registry_pair_statuses": evidence.get(
+            "compressed_kernel_registry_pair_statuses", "none"
+        ),
+        "compressed_kernel_registry_encoding_ids": evidence.get(
+            "compressed_kernel_registry_encoding_ids", "none"
+        ),
+        "compressed_kernel_registry_logical_dtypes": evidence.get(
+            "compressed_kernel_registry_logical_dtypes", "none"
+        ),
+        "compressed_kernel_registry_physical_encodings": evidence.get(
+            "compressed_kernel_registry_physical_encodings", "none"
+        ),
+        "compressed_kernel_registry_operator_families": evidence.get(
+            "compressed_kernel_registry_operator_families", "none"
+        ),
+        "compressed_kernel_registry_kernel_admitted": evidence.get(
+            "compressed_kernel_registry_kernel_admitted", "none"
+        ),
+        "compressed_kernel_registry_kernel_executed": evidence.get(
+            "compressed_kernel_registry_kernel_executed", "none"
+        ),
+        "compressed_kernel_registry_canonicalization_required": evidence.get(
+            "compressed_kernel_registry_canonicalization_required", "none"
+        ),
+        "compressed_kernel_registry_decoded": evidence.get(
+            "compressed_kernel_registry_decoded", "none"
+        ),
+        "compressed_kernel_registry_materialized": evidence.get(
+            "compressed_kernel_registry_materialized", "none"
+        ),
+        "compressed_kernel_registry_selection_vector_emitted": evidence.get(
+            "compressed_kernel_registry_selection_vector_emitted", "none"
+        ),
+        "compressed_kernel_registry_validity_semantics": evidence.get(
+            "compressed_kernel_registry_validity_semantics", "none"
+        ),
+        "compressed_kernel_registry_unsupported_kernel_reasons": evidence.get(
+            "compressed_kernel_registry_unsupported_kernel_reasons", "none"
+        ),
+        "compressed_kernel_registry_encoded_native_claim_allowed": (
+            parse_optional_bool(
+                evidence.get("compressed_kernel_registry_encoded_native_claim_allowed")
+            )
+            is True
+        ),
+        "compressed_kernel_registry_admitted_pair_count": parse_optional_int(
+            evidence.get("compressed_kernel_registry_admitted_pair_count")
+        ),
+        "compressed_kernel_registry_executed_pair_count": parse_optional_int(
+            evidence.get("compressed_kernel_registry_executed_pair_count")
+        ),
+        "compressed_kernel_registry_blocked_pair_count": parse_optional_int(
+            evidence.get("compressed_kernel_registry_blocked_pair_count")
+        ),
+        "compressed_kernel_registry_not_available_pair_count": parse_optional_int(
+            evidence.get("compressed_kernel_registry_not_available_pair_count")
+        ),
+        "compressed_kernel_registry_claim_gate_status": evidence.get(
+            "compressed_kernel_registry_claim_gate_status", "not_reported"
+        ),
+        "compressed_kernel_registry_fallback_attempted": (
+            parse_optional_bool(evidence.get("compressed_kernel_registry_fallback_attempted"))
+            is True
+        ),
+        "compressed_kernel_registry_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get("compressed_kernel_registry_external_engine_invoked")
+            )
+            is True
+        ),
         "scan_pushdown_schema_version": evidence.get(
             "scan_pushdown_schema_version", "not_reported"
         ),
@@ -6664,6 +6814,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "stage_timing_fields": list(STAGE_TIMING_CONTRACT_FIELDS),
         "operator_blocker_matrix_fields": list(OPERATOR_BLOCKER_MATRIX_FIELDS),
         "fused_pipeline_fields": list(FUSED_PIPELINE_FIELDS),
+        "compressed_kernel_registry_fields": list(COMPRESSED_KERNEL_REGISTRY_FIELDS),
         "scan_pushdown_fields": list(SCAN_PUSHDOWN_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
@@ -6989,6 +7140,10 @@ def render_execution_mode_attribution_contract(artifact: dict[str, Any]) -> str:
         ["Stage timing fields", ", ".join(contract["stage_timing_fields"])],
         ["Operator blocker fields", ", ".join(contract["operator_blocker_matrix_fields"])],
         ["Fused pipeline fields", ", ".join(contract["fused_pipeline_fields"])],
+        [
+            "Compressed kernel registry fields",
+            ", ".join(contract["compressed_kernel_registry_fields"]),
+        ],
         ["Scan pushdown fields", ", ".join(contract["scan_pushdown_fields"])],
         ["Unknown stage values", str(contract["unknown_stage_value_policy"])],
         ["Claim boundary", str(contract["claim_boundary"])],

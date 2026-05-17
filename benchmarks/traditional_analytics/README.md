@@ -298,12 +298,17 @@ output formats. Rows must expose source discovery, schema inference, parse, Vort
 operator compute, output plan, output write, output replay, total runtime, source/prepared/output
 reuse hits, fanout output count, no-fallback/no-external-engine fields, and claim gate status.
 These rows are local workflow/evidence rows, not a performance leaderboard.
-`GAR-PERF-2D` tracks the compressed/encoded kernel registry follow-up. Future rows should classify
-encoding/operator pairs such as bitpacked filter, sequence predicate, dictionary equality/group-by,
-constant count/filter, sorted min/max pruning, and FSST/dictionary string equality where available.
-Rows should report `encoding_id`, `kernel_admitted`, `kernel_executed`,
-`canonicalization_required`, `decoded`, `materialized`, and
-`encoded_native_claim_allowed`; unsupported encodings remain deterministic blockers.
+`GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence for selective-filter
+prepared/native rows. Current rows classify bitpacked filter, sequence predicate, dictionary
+equality/group-by, constant count/filter, sorted min/max pruning, and FSST/dictionary string
+equality where available. Non-empty selective-filter rows admit the observed
+`flag:fastlanes.bitpacked` and `value:vortex.sequence` reader-generated filter inputs; the other
+initial rows remain deterministic blockers or not available. Rows report
+`compressed_kernel_registry_pair_ids`, `compressed_kernel_registry_pair_statuses`,
+`compressed_kernel_registry_kernel_admitted`, `compressed_kernel_registry_kernel_executed`,
+`compressed_kernel_registry_canonicalization_required`, `compressed_kernel_registry_decoded`,
+`compressed_kernel_registry_materialized`, and
+`compressed_kernel_registry_encoded_native_claim_allowed=false`.
 `GAR-PERF-2E` tracks the broader fused operator pipeline follow-up. Future prepared/native rows
 should report `fused_pipeline_used`, `fused_operator_family`,
 `intermediate_materialization_avoided`, row counts, fused/unfused correctness digests,
