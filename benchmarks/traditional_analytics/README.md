@@ -367,7 +367,8 @@ means the CLI process wall time is shared across the grouped rows; per-scenario
 `computed_result_sink_write_micros` remain row-level evidence fields. This is a runtime support
 slice for scoped local prepared/native process, source-metadata, dimension-label source-state,
 category/metric source-state reuse, group/category/metric source-state reuse, ranked-metric
-source-state reuse, selective-filter source-state reuse, and dirty-input source-state reuse.
+source-state reuse, selective-filter source-state reuse, dirty-input source-state reuse, and
+date/null metric source-state reuse.
 Selective-filter plus filter/projection/limit child scenarios share one per-batch filtered
 `id,value,metric` state when both are present and emit
 `source_state_reuse_status=per_batch_selective_filter_state_reused` plus family-specific
@@ -382,7 +383,12 @@ Clean/cast/filter/write and malformed timestamp / dirty CSV child scenarios shar
 `source_state_reuse_status=per_batch_dirty_input_state_reused` plus family-specific
 `source_state_dirty_input_*` fields such as `source_state_dirty_input_reuse_status`. It is not a
 persistent daemon, hidden fast mode, performance claim, encoded-native claim, SQL/DataFrame claim,
-object-store claim, or Spark-displacement claim.
+object-store claim, or Spark-displacement claim. Partition-pruning plus null-heavy aggregate child
+scenarios share one per-batch `event_date,metric,nullable_metric_00` date/null metric state when
+both are present and emit
+`source_state_reuse_status=per_batch_date_null_metric_state_reused` plus family-specific
+`source_state_date_null_metric_*` fields such as
+`source_state_date_null_metric_reuse_status`; this is scoped residual-native reuse evidence only.
 
 `GAR-PERF-2F` tracks the next step: an explicit in-process `ShardLoomSession` runtime for scoped
 prepared/native local artifacts. Future session-backed rows should expose `session_id`, cache
