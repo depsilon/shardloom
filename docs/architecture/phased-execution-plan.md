@@ -162,12 +162,12 @@ Supporting docs:
     and claim-grade use must remain represented by `GAR-IOREUSE-1*` or later evidence-bearing
     slices.
 - `docs/architecture/allocation-buffer-pool-optimization.md`
-  - Role: report-only GAR-PERF-2G reference for allocation profiling and scoped buffer-pool
-    optimization across prepared/native local runtime paths.
-  - Status rule: defines allocation/resource fields, buffer-reuse families, safety rules, and
-    claim boundaries only. Runtime buffer pools, allocator hooks, benchmark row schema changes,
-    memory/resource reports, and claim-grade use must remain represented by `GAR-PERF-2G` or later
-    evidence-bearing slices.
+  - Role: GAR-PERF-2G reference for scoped allocation/resource-profile evidence and buffer-pool
+    blocker semantics across prepared/native local runtime paths.
+  - Status rule: current session-backed batch rows emit allocation/resource fields and deterministic
+    blockers. Runtime buffer pools, allocator hooks, safe reuse implementation, memory-efficiency
+    claims, and claim-grade use remain unclaimed until represented by later evidence-bearing
+    slices.
 - `docs/architecture/optimized-build-profiles-pgo-benchmark-lane.md`
   - Role: report-only GAR-PERF-2H reference for optimized Cargo build profiles and a reproducible
     PGO/native benchmark lane.
@@ -814,109 +814,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     - stable prepared/native scenario row schema, source-backed scan fields, row-count evidence,
       unfused ShardLoom-native reference path, materialization/decode evidence, and no-fallback
       diagnostics.
-
-- [ ] GAR-PERF-2G allocation and buffer-pool optimization
-  - Source:
-    - resource metrics.
-    - prepared/native runtime work.
-    - `docs/architecture/allocation-buffer-pool-optimization.md`.
-    - `docs/architecture/in-process-session-runtime.md`.
-    - `docs/architecture/performance-attribution-and-execution-structure.md`.
-    - `benchmarks/traditional_analytics/README.md`.
-  - Current state:
-    - No global allocation or buffer-pool optimization pass is claimable.
-    - Prepared/native benchmark rows expose stage timing and selected resource evidence, but they
-      do not yet expose a uniform allocation profile or scoped buffer-reuse contract.
-    - `GAR-PERF-2F` now emits scoped caller-owned session evidence for prepared/native local
-      artifacts, with buffer-pool status explicitly reported as
-      `not_enabled_planned_under_GAR-PERF-2G`; buffer ownership, reuse families, release behavior,
-      and memory/resource report fields remain planned.
-  - Next slice outcome:
-    - Add allocation profiling and scoped buffer reuse planning for prepared/native local runtime
-      paths.
-    - Classify result buffers, temporary vectors, hash tables, dictionary/string state, and
-      source-state arrays as measurable, not measurable, reusable, blocked, unsupported, or not
-      needed.
-    - Add deterministic blockers where allocation counting or safe reuse cannot yet be supported.
-  - User-visible surface:
-    - benchmark resource/evidence rows.
-    - memory/resource report.
-    - CLI batch/session evidence if surfaced.
-    - Python typed capability view if surfaced after CLI fields stabilize.
-    - compute-flow, benchmark, and website benchmark interpretation after artifact refresh.
-  - Implementation scope:
-    - result buffers.
-    - temporary vectors.
-    - hash tables.
-    - dictionary/string state.
-    - source-state arrays.
-    - benchmark row schema and Markdown renderer if fields change.
-    - memory/resource report schema.
-    - session/batch lifecycle evidence if runtime implementation is safe.
-  - Evidence required:
-    - `allocation_profile_status`.
-    - `allocation_profile_scope`.
-    - `allocation_count` if measurable.
-    - `allocation_bytes` if measurable.
-    - `buffer_pool_enabled`.
-    - `buffer_pool_scope`.
-    - `buffer_reuse_count`.
-    - `buffer_reuse_family`.
-    - `peak_rss_delta` if measurable.
-    - `source_state_digest` if available.
-    - `output_digest` if available.
-    - `correctness_digest`.
-    - `evidence_regression_status`.
-    - `unsafe_lifetime_shortcut_used=false`.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-    - `claim_gate_status`.
-  - Acceptance:
-    - Buffer reuse is opt-in or scoped to an explicit run/session.
-    - No correctness digest regression versus the non-reuse path.
-    - No certificate, materialization/decode, output digest, or no-fallback evidence regression.
-    - No unsafe lifetime shortcuts are used to avoid allocations.
-    - Non-measurable allocation counts or peak RSS fields are reported as `not_available`, not
-      silently treated as zero.
-    - Unsupported or incompatible reuse emits deterministic blockers rather than fallback
-      execution or hidden recomputation.
-  - Verification:
-    - focused unit tests for ownership, reset, reuse, and release behavior.
-    - differential correctness tests against a no-reuse path.
-    - benchmark smoke for allocation/resource fields.
-    - memory/resource report.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `python -m compileall -q benchmarks/traditional_analytics python/src python/tests`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - no global allocator replacement.
-    - no hidden process-wide buffer pool.
-    - no daemon/service or remote runtime.
-    - no unsafe lifetime shortcuts.
-    - no spill implementation in this slice.
-    - no SQL/DataFrame runtime expansion.
-    - no object-store/lakehouse or Foundry runtime.
-    - no performance/superiority claim.
-  - Claim boundary:
-    - Allocation/buffer-pool evidence may claim only scoped local resource-profile visibility and
-      explicitly reported buffer reuse for a specific prepared/native run or session.
-    - It does not authorize performance, memory-efficiency, superiority, Spark-displacement,
-      production, SQL/DataFrame, object-store/lakehouse, Foundry, REST, package, or remote-runtime
-      claims.
-  - Fallback boundary:
-    - `fallback_attempted=false` and `external_engine_invoked=false` are required for every
-      allocation-profiled, buffer-reuse, blocked, unsupported, or not-measurable row.
-  - Ledger rule:
-    - When complete, move the detailed completed session to
-      `docs/architecture/phased-execution-completed-ledger.md` with unit tests, differential
-      correctness refs, benchmark smoke artifacts, memory/resource report refs, and deterministic
-      blocker examples.
-  - Dependencies/blockers:
-    - stable session/batch lifecycle, resource metric collection, benchmark row schema, source-state
-      digests, output/correctness digest parity, memory report schema, platform-specific peak RSS
-      measurement policy, and no-fallback tests.
 
 - [ ] GAR-PERF-2H optimized build profiles and PGO benchmark lane
   - Source:

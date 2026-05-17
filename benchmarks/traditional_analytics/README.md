@@ -418,14 +418,15 @@ registry/cache counts, source-metadata cache counts, source-state cache/reuse co
 not a public Python session API, daemon, remote server, hidden global cache, SQL/DataFrame runtime,
 object-store/lakehouse runtime, production claim, or performance claim.
 
-`GAR-PERF-2G` tracks the allocation profiling and scoped buffer-pool optimization follow-up. Future
-rows or memory/resource reports should classify result buffers, temporary vectors, hash tables,
-dictionary/string state, and source-state arrays with allocation profile status, allocation counts
-or bytes where measurable, buffer-pool enabled/scope, buffer-reuse count/family, peak RSS status,
-correctness digest, evidence-regression status, `unsafe_lifetime_shortcut_used=false`,
-`fallback_attempted=false`, and `external_engine_invoked=false`. Buffer reuse must be opt-in or
-scoped to a run/session, preserve correctness and evidence parity with a no-reuse path, and remain
-resource-profile evidence only rather than a speed or memory-efficiency claim.
+`GAR-PERF-2G` adds a scoped allocation/resource-profile evidence slice to the session-backed
+prepared/native batch rows. The harness now propagates allocation profile status/scope, family
+classification, allocation count/byte status, buffer-pool status/scope, buffer-reuse count/family
+and blocker, peak RSS status, correctness/evidence-regression posture,
+`unsafe_lifetime_shortcut_used=false`, `allocation_fallback_attempted=false`, and
+`allocation_external_engine_invoked=false`. The current row values intentionally report
+`allocation_count=not_available`, `allocation_bytes=not_available`, `peak_rss_delta=not_available`,
+`buffer_pool_enabled=false`, and `buffer_reuse_count=0` until safe measurement and reuse exist.
+This is resource-profile visibility only, not a speed or memory-efficiency claim.
 
 `GAR-PERF-2H` tracks optimized build profiles and the PGO benchmark lane. The harness already records
 `shardloom_build_profile`; future rows should also record build-profile kind, rustc/cargo versions,

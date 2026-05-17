@@ -41,9 +41,9 @@ evidence_recorder
 
 The first supported slice externalizes prepared-artifact, source-metadata, and source-state reuse
 evidence. Schema and dictionary caches are reported as
-`not_externalized_digest_policy_pending`; the buffer pool is reported as
-`not_enabled_planned_under_GAR-PERF-2G`. All state is caller-owned and explicitly closed. Session
-state must not become a hidden process global.
+`not_externalized_digest_policy_pending`; the buffer pool is reported as disabled through
+`scoped_buffer_pool_disabled_with_reported_blocker`. All state is caller-owned and explicitly
+closed. Session state must not become a hidden process global.
 
 ## Evidence Fields
 

@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2G allocation/resource profile and buffer-pool blocker evidence
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `website/build_static_pages.py`
+    - `docs/architecture/allocation-buffer-pool-optimization.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: add scoped allocation/resource-profile evidence to the existing session-backed
+    prepared/native batch lane without enabling a runtime buffer pool, allocator hook, hidden fast
+    mode, unsafe lifetime shortcut, or performance/memory-efficiency claim.
+  - Checklist:
+    - [x] Emit `allocation_profile_schema_version`, `allocation_profile_status`,
+          `allocation_profile_scope`, and allocation family classification for prepared/native
+          batch session rows.
+    - [x] Report `allocation_count=not_available`, `allocation_bytes=not_available`, and
+          `peak_rss_delta=not_available` with explicit status fields so unknown measurements are
+          not treated as zero.
+    - [x] Report `buffer_pool_enabled=false`, `buffer_reuse_count=0`,
+          `buffer_reuse_family=none_buffer_pool_disabled`, and a deterministic blocker for safe
+          reuse not being enabled.
+    - [x] Preserve correctness/evidence posture, `unsafe_lifetime_shortcut_used=false`,
+          `allocation_fallback_attempted=false`, `allocation_external_engine_invoked=false`, and
+          `allocation_claim_gate_status=fixture_smoke_only`.
+    - [x] Propagate allocation/resource fields through the Python benchmark contract, Markdown
+          renderers, website benchmark summary, and docs.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch_run_preserves_evidence_envelope --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+  - Claim boundary:
+    - This is scoped local resource-profile visibility and deterministic blocker evidence only.
+    - It does not claim measured allocation counts, measured allocation bytes, measured peak RSS,
+      buffer reuse, memory efficiency, performance, superiority, production readiness,
+      SQL/DataFrame runtime, object-store/lakehouse runtime, Foundry runtime, package publication,
+      or Spark displacement.
+  - Fallback boundary:
+    - `allocation_fallback_attempted=false` and `allocation_external_engine_invoked=false` are
+      required.
+    - External engines remain baseline-only and are not used for allocation/resource behavior.
+
 - [x] Session label: GAR-PERF-2F in-process ShardLoom session runtime
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
@@ -40,7 +86,8 @@ phase plan first.
           counts, source-metadata cache counts, and source-state cache/reuse counts.
     - [x] Keep schema/dictionary caches explicit as
           `not_externalized_digest_policy_pending` and buffer-pool reuse explicit as
-          `not_enabled_planned_under_GAR-PERF-2G`.
+          `not_enabled_planned_under_GAR-PERF-2G` at the time of that session. GAR-PERF-2G later
+          replaced that placeholder with `scoped_buffer_pool_disabled_with_reported_blocker`.
     - [x] Propagate session fields through the Python benchmark contract and website batch-smoke
           rendering.
     - [x] Update compute-flow, benchmark catalog, benchmark docs, persistent-runner notes, and

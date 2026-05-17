@@ -219,6 +219,32 @@ SESSION_RUNTIME_FIELDS = (
     "session_claim_gate_status",
     "session_claim_boundary",
 )
+ALLOCATION_RESOURCE_PROFILE_FIELDS = (
+    "allocation_profile_schema_version",
+    "allocation_profile_status",
+    "allocation_profile_scope",
+    "allocation_profile_family_status",
+    "allocation_count",
+    "allocation_count_status",
+    "allocation_bytes",
+    "allocation_bytes_status",
+    "buffer_pool_enabled",
+    "buffer_pool_scope",
+    "buffer_reuse_count",
+    "buffer_reuse_family",
+    "buffer_reuse_blocker",
+    "peak_rss_delta",
+    "peak_rss_delta_status",
+    "source_state_digest",
+    "output_digest",
+    "correctness_digest",
+    "evidence_regression_status",
+    "unsafe_lifetime_shortcut_used",
+    "allocation_fallback_attempted",
+    "allocation_external_engine_invoked",
+    "allocation_claim_gate_status",
+    "allocation_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -4489,6 +4515,24 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 raise RuntimeError(
                     "ShardLoom session rows cannot report external engine execution"
                 )
+            missing_allocation_fields = [
+                field for field in ALLOCATION_RESOURCE_PROFILE_FIELDS if field not in metrics
+            ]
+            if missing_allocation_fields:
+                raise RuntimeError(
+                    "ShardLoom batch row omitted allocation/resource profile fields: "
+                    + ", ".join(missing_allocation_fields)
+                )
+            if metrics.get("buffer_pool_enabled") is not False:
+                raise RuntimeError("ShardLoom allocation rows must not hide a buffer pool")
+            if metrics.get("unsafe_lifetime_shortcut_used") is not False:
+                raise RuntimeError("ShardLoom allocation rows cannot use unsafe lifetime shortcuts")
+            if metrics.get("allocation_fallback_attempted") is not False:
+                raise RuntimeError("ShardLoom allocation rows cannot report fallback attempts")
+            if metrics.get("allocation_external_engine_invoked") is not False:
+                raise RuntimeError(
+                    "ShardLoom allocation rows cannot report external engine execution"
+                )
         else:
             if persistent_runner_status != PERSISTENT_RUNNER_STATUS:
                 raise RuntimeError("ShardLoom row hid or altered persistent runner status")
@@ -5698,6 +5742,19 @@ def successful_result_from_iterations(
                 metrics.setdefault(field, parse_optional_bool(value))
             else:
                 metrics.setdefault(field, value)
+        for field in ALLOCATION_RESOURCE_PROFILE_FIELDS:
+            value = evidence.get(field)
+            if field in ("allocation_count", "buffer_reuse_count"):
+                metrics.setdefault(field, parse_optional_int(value))
+            elif field in (
+                "buffer_pool_enabled",
+                "unsafe_lifetime_shortcut_used",
+                "allocation_fallback_attempted",
+                "allocation_external_engine_invoked",
+            ):
+                metrics.setdefault(field, parse_optional_bool(value))
+            else:
+                metrics.setdefault(field, value)
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -6532,7 +6589,8 @@ def persistent_runner_admission_gate() -> dict[str, Any]:
         "claim_gate_status": "not_claim_grade",
         "row_fields": list(PERSISTENT_RUNNER_ADMISSION_FIELDS)
         + list(BATCH_RUNNER_ADMISSION_FIELDS)
-        + list(SESSION_RUNTIME_FIELDS),
+        + list(SESSION_RUNTIME_FIELDS)
+        + list(ALLOCATION_RESOURCE_PROFILE_FIELDS),
         "must_preserve": [
             "shardloom.output.v2 typed envelopes per run",
             "execution-mode selection fields",
@@ -7102,6 +7160,21 @@ def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
                 format_bytes(metrics.get("bytes_read")),
                 format_bytes(metrics.get("bytes_written")),
                 format_bytes(metrics.get("computed_result_sink_bytes")),
+                str(metrics.get("allocation_profile_status", "n/a")),
+                str(metrics.get("allocation_profile_scope", "n/a")),
+                str(metrics.get("allocation_count", "n/a")),
+                str(metrics.get("allocation_count_status", "n/a")),
+                str(metrics.get("allocation_bytes", "n/a")),
+                str(metrics.get("allocation_bytes_status", "n/a")),
+                str(metrics.get("buffer_pool_enabled", "n/a")),
+                str(metrics.get("buffer_pool_scope", "n/a")),
+                str(metrics.get("buffer_reuse_count", "n/a")),
+                str(metrics.get("buffer_reuse_family", "n/a")),
+                str(metrics.get("buffer_reuse_blocker", "n/a")),
+                str(metrics.get("peak_rss_delta", "n/a")),
+                str(metrics.get("peak_rss_delta_status", "n/a")),
+                str(metrics.get("evidence_regression_status", "n/a")),
+                str(metrics.get("unsafe_lifetime_shortcut_used", "n/a")),
                 format_metric(metrics.get("rows_scanned")),
                 format_metric(metrics.get("rows_materialized")),
             ]
@@ -7128,6 +7201,21 @@ def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
             "Bytes read",
             "Bytes written",
             "Result bytes",
+            "Allocation profile",
+            "Allocation scope",
+            "Allocation count",
+            "Allocation count status",
+            "Allocation bytes",
+            "Allocation bytes status",
+            "Buffer pool",
+            "Buffer scope",
+            "Buffer reuse count",
+            "Buffer reuse family",
+            "Buffer blocker",
+            "Peak RSS delta",
+            "Peak RSS status",
+            "Evidence regression",
+            "Unsafe shortcut",
             "Rows scanned",
             "Rows materialized",
         ],
@@ -7164,6 +7252,14 @@ def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
                 str(evidence.get("target_partition_count", "n/a")),
                 str(evidence.get("materialization_boundary_rows", "n/a")),
                 format_bytes(parse_optional_int(evidence.get("source_bytes_read"))),
+                str(evidence.get("allocation_profile_status", "n/a")),
+                str(evidence.get("allocation_profile_family_status", "n/a")),
+                str(evidence.get("buffer_pool_enabled", "n/a")),
+                str(evidence.get("buffer_reuse_count", "n/a")),
+                str(evidence.get("buffer_reuse_blocker", "n/a")),
+                str(evidence.get("peak_rss_delta", "n/a")),
+                str(evidence.get("unsafe_lifetime_shortcut_used", "n/a")),
+                str(evidence.get("allocation_claim_gate_status", "n/a")),
             ]
         )
     if not rows:
@@ -7171,6 +7267,14 @@ def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
             [
                 "not run",
                 "missing",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
                 "n/a",
                 "n/a",
                 "n/a",
@@ -7213,6 +7317,14 @@ def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
             "Target parts",
             "Boundary rows",
             "Source bytes",
+            "Allocation profile",
+            "Allocation families",
+            "Buffer pool",
+            "Buffer reuse",
+            "Buffer blocker",
+            "Peak RSS delta",
+            "Unsafe shortcut",
+            "Allocation claim gate",
         ],
         rows,
     )

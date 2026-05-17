@@ -241,12 +241,14 @@ counts, `session_hidden_global_cache=false`, `session_daemon_or_service=false`,
 does not authorize a public Python session API, daemon, remote server, hidden fast mode, SQL/DataFrame
 runtime, object-store/lakehouse runtime, production claim, or performance claim.
 
-`GAR-PERF-2G` adds the planned allocation and buffer-pool optimization contract. Future benchmark
-rows or memory/resource reports should expose allocation profile status/scope, allocation count and
-bytes where measurable, buffer-pool enabled/scope, buffer-reuse count/family, peak RSS delta where
-measurable, correctness digest, evidence-regression status, `unsafe_lifetime_shortcut_used=false`,
-`fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`. Buffer reuse
-must be opt-in or scoped to an explicit run/session and must not be rendered as speed or
+`GAR-PERF-2G` adds the scoped allocation/resource-profile evidence contract for the prepared/native
+batch lane. Current rows expose allocation profile status/scope, family classification, allocation
+count/byte status, buffer-pool enabled/scope, buffer-reuse count/family and blocker, peak RSS
+status, correctness/evidence-regression posture, `unsafe_lifetime_shortcut_used=false`,
+`allocation_fallback_attempted=false`, `allocation_external_engine_invoked=false`, and
+`allocation_claim_gate_status`. The current slice reports allocation counts, allocation bytes, and
+peak RSS as `not_available`, keeps `buffer_pool_enabled=false`, and keeps reuse count at `0` until
+safe measurement and reuse are implemented. Buffer evidence must not be rendered as speed or
 memory-efficiency proof.
 
 `GAR-PERF-2H` adds the planned optimized build-profile and PGO benchmark lane. Future benchmark rows

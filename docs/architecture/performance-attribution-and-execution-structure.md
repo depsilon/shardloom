@@ -443,8 +443,9 @@ unsupported diagnostics.
 
 ## Allocation And Buffer-Pool Optimization
 
-`GAR-PERF-2G` adds the planned allocation profiling and scoped buffer-reuse layer. It should make
-resource behavior visible without turning reuse into a hidden fast mode or public performance claim.
+`GAR-PERF-2G` adds a scoped allocation/resource-profile evidence layer to the prepared/native batch
+lane. It makes resource posture visible without turning reuse into a hidden fast mode or public
+performance claim.
 
 Planned allocation families:
 
@@ -462,26 +463,33 @@ Rows or memory/resource reports should expose:
 allocation_profile_status
 allocation_profile_scope
 allocation_count
+allocation_count_status
 allocation_bytes
+allocation_bytes_status
 buffer_pool_enabled
 buffer_pool_scope
 buffer_reuse_count
 buffer_reuse_family
+buffer_reuse_blocker
 peak_rss_delta
+peak_rss_delta_status
 source_state_digest
 output_digest
 correctness_digest
 evidence_regression_status
 unsafe_lifetime_shortcut_used=false
-fallback_attempted=false
-external_engine_invoked=false
-claim_gate_status
+allocation_fallback_attempted=false
+allocation_external_engine_invoked=false
+allocation_claim_gate_status
 ```
 
 Buffer reuse is admissible only when it is opt-in or scoped to an explicit run/session, has a clear
 owner/lifecycle, preserves correctness and evidence parity with the no-reuse path, and avoids unsafe
 lifetime shortcuts. Allocation counts, allocation bytes, and peak RSS may be `not_available` until
 measurement is stable; that status means unknown/not measured, not zero.
+
+The current implementation slice reports `buffer_pool_enabled=false`, `buffer_reuse_count=0`, and a
+deterministic buffer-reuse blocker. It does not measure allocation counts/bytes or peak RSS yet.
 
 Allocation and buffer-pool rows are resource-profile evidence. They do not authorize performance,
 memory-efficiency, Spark-displacement, production, SQL/DataFrame, object-store/lakehouse, Foundry,
