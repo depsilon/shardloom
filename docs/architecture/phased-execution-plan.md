@@ -451,69 +451,9 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-GAR-SCALE-1A through GAR-SCALE-1E are complete and recorded in the completed ledger. The active
-follow-through begins with the distributed execution report-only protocol; all non-local scale
+GAR-SCALE-1A through GAR-SCALE-1F are complete and recorded in the completed ledger. The active
+follow-through begins with scale benchmark profiles and synthetic scale evidence; all non-local scale
 classes remain blocked or report-only until later slices attach runtime evidence.
-
-- [ ] GAR-SCALE-1F distributed execution report-only protocol
-  - Source:
-    - RFC 0017 fault tolerance/cancellation/recovery.
-    - RFC 0034 three-engine certified data execution fabric.
-    - RFC 0035 REST/event/remote API surface.
-    - SplitManifest and shuffle/repartition contracts.
-  - Current state:
-    - ShardLoom is local/in-process.
-    - No daemon, service, coordinator, remote worker, or cluster runtime is claimable.
-    - Remote/distributed vocabulary exists in docs but lacks a scale evidence protocol.
-  - Next slice outcome:
-    - Add a report-only protocol for coordinator, worker, task lease, split execution, retry, and
-      result-fragment merge without implementing remote workers.
-  - User-visible surface:
-    - Architecture docs, capability/status rows, future CLI explain/status output, and website/status.
-  - Implementation scope:
-    - Report-only distributed protocol doc/schema, deterministic blockers, and claim-gate language.
-      No network listener, scheduler, daemon, worker process, or remote execution.
-  - Evidence required:
-    - `coordinator_invoked`
-    - `worker_count`
-    - `remote_worker_invoked`
-    - `task_lease_id`
-    - `task_attempt_id`
-    - `split_id`
-    - `worker_input_ref`
-    - `worker_output_ref`
-    - `worker_retry_count`
-    - `worker_failure_class`
-    - `result_fragment_digest`
-    - `merge_digest`
-    - `distributed_claim_status=report_only`
-    - `fallback_attempted=false`
-    - `external_engine_invoked=false`
-    - `claim_gate_status`
-  - Acceptance:
-    - Distributed runtime remains report-only.
-    - Remote workers are not confused with external fallback engines.
-    - The same no-fallback, evidence, retry, idempotency, and claim-gate model applies to the future
-      distributed protocol.
-  - Verification:
-    - Release-readiness metadata tests or docs contract checks.
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `git diff --check`
-  - Non-goals:
-    - No daemon/service, remote worker, cluster scheduler, network API, distributed runtime,
-      distributed performance claim, managed-platform proof, or package publication.
-  - Dependencies/blockers:
-    - SplitManifest contract, task lease/retry semantics, result-fragment merge evidence,
-      coordinator/worker security policy, and remote-execution admission gates.
-  - Claim boundary:
-    - This slice may claim only a report-only distributed protocol and explicit blockers.
-      Distributed runtime and Spark-level execution remain unsupported.
-  - Fallback boundary:
-    - Remote-worker report fields must not be satisfied by Spark, Dask, Ray, DataFusion, DuckDB,
-      Polars, Foundry Spark, or managed SQL systems executing ShardLoom work.
-  - Ledger rule:
-    - When complete, record protocol fields, blockers, and no-fallback boundaries in the completed
-      ledger.
 
 - [ ] GAR-SCALE-1G scale benchmark profiles and synthetic scale evidence
   - Source:

@@ -763,9 +763,13 @@ plan before coding.
   URI/listing/split-planning/read/write/commit statuses, table metadata/runtime/commit/rollback
   statuses, credential/network/ETag/commit/rollback evidence, separate object-store read/write and
   table runtime/commit claim gates, no-fallback fields, and
-  `object_table_ladder_claim_gate_status=not_object_table_scale_grade`. The remaining follow-through
-  must add distributed report-only protocol, scale benchmark, and Foundry scale proof boundaries
-  before any scale claim can be promoted beyond local evidence. Synthetic
+  `object_table_ladder_claim_gate_status=not_object_table_scale_grade`. `GAR-SCALE-1F` now adds the
+  report-only `shardloom.traditional_analytics.distributed_protocol.v1` row contract with
+  coordinator, worker, task lease, task attempt, split, retry, result-fragment, merge, no-fallback
+  fields, `distributed_claim_status=report_only`, and
+  `distributed_claim_gate_status=not_distributed_runtime_grade`. The remaining follow-through must
+  add scale benchmark and Foundry scale proof boundaries before any scale claim can be promoted
+  beyond local evidence. Synthetic
   metadata-only evidence, report-only protocol rows, external baselines, and managed-platform
   orchestration cannot satisfy ShardLoom runtime scale claims, Spark-replacement claims, or
   no-fallback/no-external-engine proof.

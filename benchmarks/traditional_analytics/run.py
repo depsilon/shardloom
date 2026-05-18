@@ -1024,6 +1024,39 @@ OBJECT_TABLE_SCALE_FIELDS = (
     "object_table_ladder_claim_gate_status",
     "object_table_ladder_claim_boundary",
 )
+DISTRIBUTED_PROTOCOL_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.distributed_protocol.v1"
+)
+DISTRIBUTED_PROTOCOL_STATUS_VOCABULARY = (
+    "report_only",
+    "blocked",
+    "unsupported",
+    "external_baseline_only",
+)
+DISTRIBUTED_PROTOCOL_FIELDS = (
+    "distributed_protocol_schema_version",
+    "distributed_protocol_status_vocabulary",
+    "distributed_protocol_status",
+    "distributed_protocol_id",
+    "distributed_protocol_digest",
+    "coordinator_invoked",
+    "worker_count",
+    "remote_worker_invoked",
+    "task_lease_id",
+    "task_attempt_id",
+    "split_id",
+    "worker_input_ref",
+    "worker_output_ref",
+    "worker_retry_count",
+    "worker_failure_class",
+    "result_fragment_digest",
+    "merge_digest",
+    "distributed_claim_status",
+    "distributed_fallback_attempted",
+    "distributed_external_engine_invoked",
+    "distributed_claim_gate_status",
+    "distributed_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -6392,6 +6425,7 @@ def bayesian_advisor_contract_metadata(
         "memory_spill_contract",
         "shuffle_scale_contract",
         "object_table_scale_contract",
+        "distributed_protocol_contract",
         "scale_claim_contract",
         "runtime_resource_policy_fields",
         "layout_advisor_report",
@@ -6977,6 +7011,77 @@ def object_table_scale_contract_metadata(
             "credentials, perform network probes, list objects, read byte ranges, stream "
             "object-store data, stage object-store writes, commit table data, rollback "
             "tables, or prove lakehouse/object-store production support."
+        ),
+    }
+
+
+def distributed_protocol_status_for_row(engine: str, status: str) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported"
+    if status != "success":
+        return "blocked"
+    return "report_only"
+
+
+def distributed_protocol_contract_metadata(
+    engine: str,
+    scenario: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    is_shardloom = is_shardloom_engine(engine)
+    split_id = str(metrics.get("split_id") or "none")
+    split_manifest_digest = str(metrics.get("split_manifest_digest") or "none")
+    digest = canonical_digest(
+        {
+            "distributed_schema": DISTRIBUTED_PROTOCOL_SCHEMA_VERSION,
+            "engine": engine,
+            "scenario": scenario,
+            "split_id": split_id,
+            "split_manifest_digest": split_manifest_digest,
+            "status": status,
+        }
+    )
+    return {
+        "distributed_protocol_schema_version": DISTRIBUTED_PROTOCOL_SCHEMA_VERSION,
+        "distributed_protocol_status_vocabulary": ",".join(
+            DISTRIBUTED_PROTOCOL_STATUS_VOCABULARY
+        ),
+        "distributed_protocol_status": distributed_protocol_status_for_row(
+            engine, status
+        ),
+        "distributed_protocol_id": (
+            f"distributed-protocol:{digest[:12]}" if is_shardloom else "none"
+        ),
+        "distributed_protocol_digest": digest if is_shardloom else "none",
+        "coordinator_invoked": False,
+        "worker_count": 0,
+        "remote_worker_invoked": False,
+        "task_lease_id": "none",
+        "task_attempt_id": "none",
+        "split_id": split_id if is_shardloom else "none",
+        "worker_input_ref": "none",
+        "worker_output_ref": "none",
+        "worker_retry_count": 0,
+        "worker_failure_class": "none",
+        "result_fragment_digest": "not_emitted_report_only",
+        "merge_digest": "not_emitted_report_only",
+        "distributed_claim_status": "report_only"
+        if is_shardloom
+        else "external_baseline_only",
+        "distributed_fallback_attempted": False,
+        "distributed_external_engine_invoked": False,
+        "distributed_claim_gate_status": "not_distributed_runtime_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "distributed_claim_boundary": (
+            "Distributed execution protocol evidence is report-only. Current rows do "
+            "not invoke a coordinator, remote worker, task lease, remote split execution, "
+            "retry, fragment merge, daemon, service, network API, managed platform, or "
+            "external fallback engine."
         ),
     }
 
@@ -7858,6 +7963,57 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         if metrics.get("object_table_ladder_external_engine_invoked") is not False:
             raise RuntimeError(
                 "object-store/table ladder cannot report external engine execution"
+            )
+        missing_distributed_fields = [
+            field for field in DISTRIBUTED_PROTOCOL_FIELDS if field not in metrics
+        ]
+        if missing_distributed_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted distributed protocol fields: "
+                + ", ".join(missing_distributed_fields)
+            )
+        if metrics.get("distributed_protocol_schema_version") != (
+            DISTRIBUTED_PROTOCOL_SCHEMA_VERSION
+        ):
+            raise RuntimeError("distributed protocol rows must preserve schema version")
+        if (
+            metrics.get("distributed_protocol_status")
+            not in DISTRIBUTED_PROTOCOL_STATUS_VOCABULARY
+        ):
+            raise RuntimeError("ShardLoom row reported unknown distributed_protocol_status")
+        if metrics.get("coordinator_invoked") is not False:
+            raise RuntimeError("GAR-SCALE-1F cannot invoke a coordinator")
+        if parse_optional_int(metrics.get("worker_count")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1F cannot report remote workers")
+        if metrics.get("remote_worker_invoked") is not False:
+            raise RuntimeError("GAR-SCALE-1F cannot invoke remote workers")
+        if metrics.get("task_lease_id") != "none":
+            raise RuntimeError("GAR-SCALE-1F cannot issue task leases")
+        if metrics.get("task_attempt_id") != "none":
+            raise RuntimeError("GAR-SCALE-1F cannot issue task attempts")
+        if metrics.get("worker_input_ref") != "none":
+            raise RuntimeError("GAR-SCALE-1F cannot emit worker input refs")
+        if metrics.get("worker_output_ref") != "none":
+            raise RuntimeError("GAR-SCALE-1F cannot emit worker output refs")
+        if parse_optional_int(metrics.get("worker_retry_count")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1F cannot report worker retries")
+        if metrics.get("worker_failure_class") != "none":
+            raise RuntimeError("GAR-SCALE-1F cannot report worker failures")
+        if metrics.get("result_fragment_digest") != "not_emitted_report_only":
+            raise RuntimeError("GAR-SCALE-1F cannot emit result fragment digests")
+        if metrics.get("merge_digest") != "not_emitted_report_only":
+            raise RuntimeError("GAR-SCALE-1F cannot emit merge digests")
+        if metrics.get("distributed_claim_status") != "report_only":
+            raise RuntimeError("distributed claim status must remain report_only")
+        if metrics.get("distributed_claim_gate_status") != (
+            "not_distributed_runtime_grade"
+        ):
+            raise RuntimeError("distributed protocol cannot upgrade scale claim status")
+        if metrics.get("distributed_fallback_attempted") is not False:
+            raise RuntimeError("distributed protocol cannot report fallback attempts")
+        if metrics.get("distributed_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "distributed protocol cannot report external engine execution"
             )
         missing_split_manifest_fields = [
             field for field in SPLIT_MANIFEST_FIELDS if field not in metrics
@@ -9032,6 +9188,50 @@ def object_table_scale_matrix(results: list[dict[str, Any]]) -> list[dict[str, A
     return rows
 
 
+def distributed_protocol_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "distributed_protocol_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "distributed_protocol_status": metrics.get(
+                    "distributed_protocol_status"
+                ),
+                "distributed_protocol_id": metrics.get("distributed_protocol_id"),
+                "coordinator_invoked": metrics.get("coordinator_invoked"),
+                "worker_count": metrics.get("worker_count"),
+                "remote_worker_invoked": metrics.get("remote_worker_invoked"),
+                "task_lease_id": metrics.get("task_lease_id"),
+                "task_attempt_id": metrics.get("task_attempt_id"),
+                "split_id": metrics.get("split_id"),
+                "worker_input_ref": metrics.get("worker_input_ref"),
+                "worker_output_ref": metrics.get("worker_output_ref"),
+                "worker_retry_count": metrics.get("worker_retry_count"),
+                "worker_failure_class": metrics.get("worker_failure_class"),
+                "result_fragment_digest": metrics.get("result_fragment_digest"),
+                "merge_digest": metrics.get("merge_digest"),
+                "distributed_claim_status": metrics.get("distributed_claim_status"),
+                "distributed_claim_gate_status": metrics.get(
+                    "distributed_claim_gate_status"
+                ),
+                "distributed_fallback_attempted": metrics.get(
+                    "distributed_fallback_attempted"
+                ),
+                "distributed_external_engine_invoked": metrics.get(
+                    "distributed_external_engine_invoked"
+                ),
+            }
+        )
+    return rows
+
+
 def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -9829,6 +10029,14 @@ def failed_result(
             metrics=metrics,
         )
     )
+    metrics.update(
+        distributed_protocol_contract_metadata(
+            engine,
+            scenario,
+            status=status,
+            metrics=metrics,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -10392,6 +10600,14 @@ def successful_result_from_iterations(
     )
     metrics.update(
         object_table_scale_contract_metadata(
+            runner.name,
+            scenario,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+        )
+    )
+    metrics.update(
+        distributed_protocol_contract_metadata(
             runner.name,
             scenario,
             status="success" if stable else "unstable_output",
@@ -11442,6 +11658,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "memory_spill_fields": list(MEMORY_SPILL_FIELDS),
         "shuffle_scale_fields": list(SHUFFLE_SCALE_FIELDS),
         "object_table_scale_fields": list(OBJECT_TABLE_SCALE_FIELDS),
+        "distributed_protocol_fields": list(DISTRIBUTED_PROTOCOL_FIELDS),
         "scale_claim_fields": list(SCALE_CLAIM_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
@@ -11799,6 +12016,52 @@ def object_table_scale_contract() -> dict[str, Any]:
             "object-store read, object-store write, table metadata, table runtime, table "
             "commit, and rollback remain separate claim gates and remain blocked/report-only "
             "unless later runtime evidence admits them."
+        ),
+    }
+
+
+def distributed_protocol_contract() -> dict[str, Any]:
+    return {
+        "contract_id": DISTRIBUTED_PROTOCOL_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/scale-readiness-contract.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(DISTRIBUTED_PROTOCOL_STATUS_VOCABULARY),
+        "row_fields": list(DISTRIBUTED_PROTOCOL_FIELDS),
+        "protocol_surfaces": [
+            "coordinator",
+            "worker",
+            "task lease",
+            "task attempt",
+            "split execution",
+            "retry",
+            "result fragment",
+            "merge",
+        ],
+        "current_scope": (
+            "report-only distributed protocol fields for current local rows; no daemon, "
+            "service, remote worker, cluster scheduler, network API, remote execution, "
+            "or managed-platform proof is admitted"
+        ),
+        "non_goals": [
+            "daemon or service runtime",
+            "remote worker runtime",
+            "cluster scheduler",
+            "network API",
+            "distributed execution",
+            "managed-platform proof",
+            "package publication",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Remote-worker report fields must not be satisfied by Spark, Dask, Ray, "
+            "DataFusion, DuckDB, Polars, Foundry Spark, managed SQL systems, or other "
+            "external engines executing ShardLoom work."
+        ),
+        "claim_boundary": (
+            "GAR-SCALE-1F permits distributed protocol vocabulary and explicit blockers only. "
+            "It does not prove distributed runtime, Spark-level execution, remote-worker "
+            "execution, managed-platform execution, retryable distributed work, or "
+            "performance superiority."
         ),
     }
 
@@ -12206,6 +12469,27 @@ def render_object_table_scale_contract(artifact: dict[str, Any]) -> str:
         ["Object-store ladder", ", ".join(contract["object_store_ladder"])],
         ["Table ladder", ", ".join(contract["table_ladder"])],
         ["Separate claim gates", ", ".join(contract["separate_claim_gates"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
+def render_distributed_protocol_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["distributed_protocol_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Protocol surfaces", ", ".join(contract["protocol_surfaces"])],
         ["Current scope", str(contract["current_scope"])],
         ["No-fallback rule", str(contract["no_fallback_rule"])],
         ["Claim boundary", str(contract["claim_boundary"])],
@@ -13177,6 +13461,91 @@ def render_object_table_scale_matrix(artifact: dict[str, Any]) -> str:
             "Write gate",
             "Table runtime gate",
             "Table commit gate",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
+def render_distributed_protocol_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["distributed_protocol_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["distributed_protocol_status"]),
+                str(row["distributed_protocol_id"]),
+                str(row["coordinator_invoked"]),
+                str(row["worker_count"]),
+                str(row["remote_worker_invoked"]),
+                str(row["task_lease_id"]),
+                str(row["task_attempt_id"]),
+                str(row["split_id"]),
+                str(row["worker_input_ref"]),
+                str(row["worker_output_ref"]),
+                str(row["worker_retry_count"]),
+                str(row["worker_failure_class"]),
+                str(row["result_fragment_digest"]),
+                str(row["merge_digest"]),
+                str(row["distributed_claim_status"]),
+                str(row["distributed_claim_gate_status"]),
+                str(row["distributed_fallback_attempted"]),
+                str(row["distributed_external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "none",
+                "false",
+                "0",
+                "false",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "0",
+                "none",
+                "not_emitted_report_only",
+                "not_emitted_report_only",
+                "report_only",
+                "not_distributed_runtime_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Protocol status",
+            "Protocol id",
+            "Coordinator",
+            "Workers",
+            "Remote worker",
+            "Task lease",
+            "Task attempt",
+            "Split id",
+            "Worker input",
+            "Worker output",
+            "Worker retries",
+            "Worker failure",
+            "Result fragment",
+            "Merge digest",
+            "Distributed claim",
             "Claim gate",
             "Fallback",
             "External engine",
@@ -14167,6 +14536,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_object_table_scale_contract(artifact),
         "",
+        "## Distributed Execution Report-Only Protocol",
+        "",
+        "This contract defines coordinator, worker, task lease, split execution, retry, fragment, and merge vocabulary without admitting a daemon, service, remote worker, or distributed runtime.",
+        "",
+        render_distributed_protocol_contract(artifact),
+        "",
         "## VortexPreparedState Contract",
         "",
         "This contract makes prepared Vortex artifact identity, preparation timing separation, source-state linkage, and scoped reuse posture visible without implying output support or performance claims.",
@@ -14260,6 +14635,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "Object-store/table rows expose staged readiness gates. Current rows do not admit credential resolution, network effects, object-store reads/writes, table runtime, table commit, rollback, lakehouse support, or fallback execution.",
         "",
         render_object_table_scale_matrix(artifact),
+        "",
+        "## ShardLoom Distributed Protocol Matrix",
+        "",
+        "Distributed protocol rows are report-only. Current rows do not invoke coordinators, remote workers, task leases, retries, fragment merges, network APIs, managed platforms, or fallback engines.",
+        "",
+        render_distributed_protocol_matrix(artifact),
         "",
         "## ShardLoom VortexPreparedState Evidence Matrix",
         "",
@@ -14603,6 +14984,7 @@ def main() -> int:
         "memory_spill_contract": memory_spill_contract(),
         "shuffle_scale_contract": shuffle_scale_contract(),
         "object_table_scale_contract": object_table_scale_contract(),
+        "distributed_protocol_contract": distributed_protocol_contract(),
         "scale_claim_contract": scale_claim_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
@@ -14619,6 +15001,7 @@ def main() -> int:
         "memory_spill_matrix": memory_spill_matrix(results),
         "shuffle_scale_matrix": shuffle_scale_matrix(results),
         "object_table_scale_matrix": object_table_scale_matrix(results),
+        "distributed_protocol_matrix": distributed_protocol_matrix(results),
         "output_plan_matrix": output_plan_matrix(results),
         "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
         "cache_invalidation_matrix": cache_invalidation_matrix(results),

@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-SCALE-1F distributed execution report-only protocol
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/scale-readiness-contract.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: close the distributed report-only slice by adding the
+    `shardloom.traditional_analytics.distributed_protocol.v1` benchmark/report contract. Current
+    rows expose coordinator, worker, task lease, task attempt, split, retry, result-fragment,
+    merge, no-fallback, external-engine, claim-gate, and claim-boundary fields as protocol
+    vocabulary only; no daemon, service, remote worker, cluster scheduler, network API,
+    managed-platform proof, distributed runtime, or performance claim is promoted.
+  - Checklist:
+    - [x] Add distributed protocol status vocabulary.
+    - [x] Emit distributed protocol ID/digest, coordinator, worker count, remote-worker,
+          task-lease/task-attempt, split ID, worker input/output refs, retry, worker failure,
+          result-fragment digest, merge digest, report-only status, no-fallback,
+          external-engine, claim-gate, and claim-boundary fields.
+    - [x] Add benchmark artifact contract and distributed protocol matrix.
+    - [x] Validate current rows keep `coordinator_invoked=false`, `worker_count=0`,
+          `remote_worker_invoked=false`, `task_lease_id=none`, `task_attempt_id=none`,
+          `worker_input_ref=none`, `worker_output_ref=none`, `worker_retry_count=0`,
+          `worker_failure_class=none`, `result_fragment_digest=not_emitted_report_only`,
+          `merge_digest=not_emitted_report_only`, `distributed_claim_status=report_only`,
+          `distributed_claim_gate_status=not_distributed_runtime_grade`,
+          `distributed_fallback_attempted=false`, and
+          `distributed_external_engine_invoked=false`.
+    - [x] Update compute-flow, benchmark docs, scale-readiness docs, GAR, traceability, and website
+          compute-flow snapshot.
+    - [x] Remove the active GAR-SCALE-1F item from the Planned queue.
+  - Evidence/verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 10 --dim-rows 5 --iterations 1 --regenerate --skip-shardloom-native --no-markdown --output target/codex-gar-scale-1f-smoke.json`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q benchmarks/traditional_analytics scripts website`
+    - `git diff --check`
+  - Claim boundary:
+    - Distributed protocol evidence is report-only vocabulary. It does not prove distributed
+      runtime, remote-worker execution, cluster scheduling, managed-platform proof, Spark-level
+      execution, Spark-replacement, or performance superiority.
+  - Fallback boundary:
+    - Remote-worker report fields cannot be satisfied by Spark, Dask, Ray, DataFusion, DuckDB,
+      Polars, Foundry Spark, managed SQL systems, or other external engines executing ShardLoom
+      work.
+
 - [x] Session label: GAR-SCALE-1E object-store and table-scale execution ladder
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`
