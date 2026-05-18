@@ -1009,11 +1009,13 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "planned",
         "not planned",
         "Public package channels",
+        "Enterprise evidence export pack",
         "Hidden fallback engine execution",
         "Spark-displacement claim",
         "Production SQL/DataFrame, object-store, lakehouse, or Foundry claim",
         "docs/architecture/universal-compatibility-coverage-scoreboard.json",
         "docs/release/package-channel-readiness-matrix.json",
+        "docs/release/enterprise-evidence-export-pack.json",
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "public_package_release_claim_allowed=false",
@@ -1028,14 +1030,102 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
     for required in [
         "Answer common capability questions in under two minutes.",
         "Public package channels",
+        "Enterprise evidence export pack",
         "docs/architecture/universal-compatibility-coverage-scoreboard.json",
         "docs/release/package-channel-readiness-matrix.json",
+        "docs/release/enterprise-evidence-export-pack.json",
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ] {
         assert!(
             website_readiness.contains(required),
             "missing website readiness status-scorecard check {required}"
+        );
+    }
+}
+
+#[test]
+fn enterprise_evidence_export_pack_remains_report_only_and_local_first() {
+    let doc = read_repo_file("docs/release/enterprise-evidence-export-pack.md");
+    for required in [
+        "shardloom.enterprise_evidence_export_pack.v1",
+        "python scripts\\check_enterprise_evidence_export_pack.py",
+        "shardloom.openlineage_facet_mapping.v1",
+        "shardloom.opentelemetry_trace_export_contract.v1",
+        "target/enterprise-evidence-export-pack/<run-id>/",
+        "shardloom-evidence.json",
+        "openlineage-facets.json",
+        "opentelemetry-trace.json",
+        "summary.md",
+        "redaction-report.json",
+        "strict_local_enterprise_redaction",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "network_calls_by_default=false",
+        "backend_integration_configured=false",
+        "claim_gate_status=not_claim_grade",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing enterprise evidence export-pack doc field {required}"
+        );
+    }
+
+    let manifest = read_repo_file("docs/release/enterprise-evidence-export-pack.json");
+    for required in [
+        "\"schema_version\": \"shardloom.enterprise_evidence_export_pack.v1\"",
+        "\"gar_id\": \"GAR-COMMERCIAL-1D\"",
+        "\"status\": \"report-only\"",
+        "\"claim_gate_status\": \"not_claim_grade\"",
+        "\"export_pack_runtime_supported\": false",
+        "\"export_pack_enabled_by_default\": false",
+        "\"opt_in_required\": true",
+        "\"network_calls_by_default\": false",
+        "\"backend_integration_configured\": false",
+        "\"lineage_event_emitted\": false",
+        "\"telemetry_trace_emitted\": false",
+        "\"telemetry_metric_emitted\": false",
+        "\"telemetry_log_emitted\": false",
+        "\"fallback_attempted\": false",
+        "\"external_engine_invoked\": false",
+        "\"object_store_io_performed\": false",
+        "\"credential_resolution_performed\": false",
+        "\"shardloom_json_evidence_bundle\"",
+        "\"openlineage_custom_facets\"",
+        "\"opentelemetry_spans_metrics\"",
+        "\"markdown_summary\"",
+        "\"redaction_report\"",
+        "\"strict_local_enterprise_redaction\"",
+        "\"full_local_paths\"",
+        "\"query_text\"",
+        "\"sample_values\"",
+        "\"future_cli_command\": \"shardloom evidence export-pack --output <dir> --local-only\"",
+    ] {
+        assert!(
+            manifest.contains(required),
+            "missing enterprise evidence export-pack manifest field {required}"
+        );
+    }
+
+    let script = read_repo_file("scripts/check_enterprise_evidence_export_pack.py");
+    for required in [
+        "shardloom.enterprise_evidence_export_pack.v1",
+        "shardloom.enterprise_evidence_export_pack_report.v1",
+        "EXPECTED_COMPONENT_IDS",
+        "REQUIRED_FALSE_FIELDS",
+        "network_calls_by_default",
+        "backend_integration_configured",
+        "lineage_event_emitted",
+        "telemetry_trace_emitted",
+        "telemetry_metric_emitted",
+        "telemetry_log_emitted",
+        "fallback_attempted",
+        "external_engine_invoked",
+        "strict_local_enterprise_redaction",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing enterprise evidence export-pack validator field {required}"
         );
     }
 }

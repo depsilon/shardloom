@@ -289,6 +289,8 @@ def main() -> int:
                 "planned",
                 "not planned",
                 "Public package channels",
+                "Enterprise evidence export pack",
+                "docs/release/enterprise-evidence-export-pack.json",
                 "docs/architecture/universal-compatibility-coverage-scoreboard.json",
                 "docs/release/package-channel-readiness-matrix.json",
                 "fallback_attempted=false",

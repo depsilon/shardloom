@@ -634,7 +634,8 @@ candidates.
   object-store/lakehouse, Foundry, or production claim.
 - **enterprise evidence export pack**: opt-in, local-first bundle of ShardLoom JSON evidence,
   OpenLineage facet payloads, OpenTelemetry span/metric payloads, and optional Markdown summary.
-  It must apply redaction/retention policy and must not make network calls by default.
+  It must apply redaction/retention policy and must not make network calls by default. The current
+  report-only contract is `shardloom.enterprise_evidence_export_pack.v1`.
 - **MCP agent API**: agent-facing surface over the same control-plane semantics, defaulting to safe
   discovery, validate, explain, estimate, and certify actions rather than unrestricted execution.
 - **one-command local proof**: adoption path that installs or locally builds ShardLoom, runs smoke

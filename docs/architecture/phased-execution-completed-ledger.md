@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMMERCIAL-1D enterprise evidence export pack
+  - Primary files:
+    - `docs/release/enterprise-evidence-export-pack.md`
+    - `docs/release/enterprise-evidence-export-pack.json`
+    - `scripts/check_enterprise_evidence_export_pack.py`
+    - `docs/architecture/adoption-commercial-readiness-friction-reduction.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: define the report-only, opt-in, local-first enterprise evidence export-pack contract
+    that packages ShardLoom JSON evidence, OpenLineage facet payload previews, OpenTelemetry
+    span/metric payload previews, optional Markdown summaries, and redaction reports.
+  - Checklist:
+    - [x] Add machine-readable schema `shardloom.enterprise_evidence_export_pack.v1`.
+    - [x] Define local artifact layout under `target/enterprise-evidence-export-pack/<run-id>/`.
+    - [x] Preserve `opt_in_required=true`, `network_calls_by_default=false`,
+          `backend_integration_configured=false`, `lineage_event_emitted=false`,
+          `telemetry_trace_emitted=false`, `telemetry_metric_emitted=false`,
+          `telemetry_log_emitted=false`, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+    - [x] Add strict redaction and retention rules for secrets, credentials, paths, query text,
+          schema names, sample values, endpoint URLs, object-store credentials, and platform ids.
+    - [x] Add validator coverage so the report-only pack cannot silently become a backend exporter
+          or claim-grade evidence surface.
+  - Evidence and verification:
+    - `python scripts\check_enterprise_evidence_export_pack.py`
+    - `python -m compileall -q scripts`
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Evidence export is portability only. It does not add exporter runtime, production
+      observability, managed-platform certification, Foundry proof, package publication, runtime
+      support, performance/Spark-displacement, SQL/DataFrame, object-store/lakehouse, or
+      claim-grade status.
+  - Fallback boundary:
+    - Evidence export cannot invoke external engines, external services, credentials, object-store
+      I/O, Foundry runtime, or fallback execution by default.
+
 - [x] Session label: GAR-COMMERCIAL-1C compatibility scorecard and buyer-facing status page
   - Primary files:
     - `website/build_static_pages.py`
