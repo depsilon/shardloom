@@ -62,3 +62,17 @@ Benchmark JSON with compatibility import timing separated from Vortex scan/opera
 
 - `prepared-native-vortex-runtime-direction`
 - `benchmark-interpretation-evidence-not-leaderboard`
+
+## Related Field Guide Terms
+
+- `website/field-guide/vortex-first.html` - Vortex-First (`Start Here` / `core-contract`)
+- `website/field-guide/evidence-certified-compute.html` - Evidence-Certified Compute (`Start Here` / `current-differentiator`)
+- `website/field-guide/compatibility-import-certified.html` - Compatibility Import Certified (`Execution Modes` / `current-certification-lane`)
+- `website/field-guide/vortex-native.html` - Vortex-Native (`Vortex Runtime` / `core-contract`)
+- `website/field-guide/native-io-certificate.html` - Native I/O Certificate (`Evidence And Claims` / `current-evidence`)
+- `website/field-guide/local-timing-context.html` - Local Timing Context (`Benchmark Telemetry` / `current-evidence`)
+- `website/field-guide/csv-local-input.html` - CSV Local Input (`I/O And Output` / `scoped-local`)
+- `website/field-guide/parquet-local-input.html` - Parquet Local Input (`I/O And Output` / `scoped-local`)
+- `website/field-guide/jsonl-local-input.html` - JSONL Local Input (`I/O And Output` / `scoped-local`)
+- `website/field-guide/avro-orc-boundary.html` - Avro/ORC Boundary (`I/O And Output` / `compatibility-boundary`)
+- `website/field-guide/certified-evidence-level.html` - Certified Evidence Level (`Performance Architecture` / `current-evidence`)

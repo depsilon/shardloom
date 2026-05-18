@@ -56,3 +56,11 @@ Benchmark rows and fixture metadata for the selected messy-data scenario with no
 
 - `query-scenario-cookbook-smoke`
 - `benchmark-interpretation-evidence-not-leaderboard`
+
+## Related Field Guide Terms
+
+- `website/field-guide/hybrid-engine.html` - Hybrid Engine (`Engine Modes` / `report-only`)
+- `website/field-guide/dirty-csv-cleanup.html` - Dirty CSV Cleanup (`User Workflows` / `fixture-smoke`)
+- `website/field-guide/nested-json-field-scan.html` - Nested JSON Field Scan (`User Workflows` / `fixture-smoke`)
+- `website/field-guide/cdc-overlay.html` - CDC Overlay (`User Workflows` / `fixture-smoke`)
+- `website/field-guide/jsonl-local-input.html` - JSONL Local Input (`I/O And Output` / `scoped-local`)

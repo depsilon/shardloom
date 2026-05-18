@@ -1381,6 +1381,31 @@ FIELD_GUIDE_CATEGORIES = (
 )
 
 
+def field_guide_concepts_for_use_case(use_case_id: str) -> list[dict[str, Any]]:
+    return [
+        concept
+        for concept in FIELD_GUIDE_CONCEPTS
+        if use_case_id in field_guide_values(concept.get("related_use_cases"))
+    ]
+
+
+def related_field_guide_term_links(use_case_id: str) -> str:
+    concepts = field_guide_concepts_for_use_case(use_case_id)
+    if not concepts:
+        return "<p>No related Field Guide terms are attached yet.</p>"
+    return (
+        '<div class="related-use-cases related-field-guide-terms">'
+        + "".join(
+            f'<a class="related-use-case" href="/field-guide/{esc(concept["slug"])}">'
+            f'<span>{esc(concept["category"])}</span>'
+            f'<strong>{esc(concept["title"])}</strong>'
+            f"</a>"
+            for concept in concepts
+        )
+        + "</div>"
+    )
+
+
 def normalize_field_guide_reading_path(entry: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(entry["id"]),
@@ -1853,6 +1878,7 @@ def render_reference_links(references: list[str]) -> str:
 
 def use_case_markdown(use_case: dict[str, Any]) -> str:
     references = value_list(use_case.get("references"))
+    related_terms = field_guide_concepts_for_use_case(str(use_case["id"]))
     lines = [
         "<!-- SPDX-License-Identifier: Apache-2.0 -->",
         "",
@@ -1911,6 +1937,15 @@ def use_case_markdown(use_case: dict[str, Any]) -> str:
     lines.extend(f"- `{reference}`" for reference in references)
     lines.extend(["", "## Related Use Cases", ""])
     lines.extend(f"- `{related}`" for related in value_list(use_case.get("related_use_cases")))
+    lines.extend(["", "## Related Field Guide Terms", ""])
+    if related_terms:
+        lines.extend(
+            f"- `website/field-guide/{concept['slug']}.html` - {concept['title']} "
+            f"(`{concept['category']}` / `{concept['status']}`)"
+            for concept in related_terms
+        )
+    else:
+        lines.append("- No related Field Guide terms are attached yet.")
     lines.append("")
     return "\n".join(lines)
 
@@ -1984,6 +2019,8 @@ def use_case_page(use_case: dict[str, Any], by_id: dict[str, dict[str, Any]]) ->
           {list_markup(value_list(use_case.get("common_mistakes")))}
           <h2>Reference Files</h2>
           {render_reference_links(value_list(use_case.get("references")))}
+          <h2>Related Field Guide Terms</h2>
+          {related_field_guide_term_links(use_case_id)}
           <h2>Related Use Cases</h2>
           <div class="related-use-cases">{related_cards}</div>
         </article>

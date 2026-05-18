@@ -1908,15 +1908,20 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1B"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1C"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1D"));
-    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1E Use Case Atlas integration"));
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1E"));
+    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1F Can-I-use-this status matrix"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "GAR-WEB-ATLAS-1E Use Case Atlas integration",
         "GAR-WEB-ATLAS-1D static Field Guide search with Pagefind",
         "GAR-WEB-ATLAS-1C Field Guide reading paths",
         "GAR-WEB-ATLAS-1A/1B Field Guide taxonomy and dossier generator",
         "website/content/field-guide-index.json",
         "website/pagefind/",
+        "Related Field Guide Terms",
+        "scripts/check_use_case_backlinks.py",
+        "python scripts/check_use_case_backlinks.py",
         "Pagefind 1.5.2",
         "section, status, category, execution mode, and engine mode",
         "75 entries",
@@ -1979,6 +1984,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "pagefind_filter_spans",
         "REQUIRED_FIELD_GUIDE_CATEGORIES",
         "FIELD_GUIDE_READING_PATHS",
+        "field_guide_concepts_for_use_case",
+        "related_field_guide_term_links",
         "reading_path_term_links",
         "field_guide_concepts_by_category",
         "Plain-English meaning",
@@ -2030,6 +2037,46 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         assert!(
             website_index.contains(required),
             "missing generated Field Guide index field {required}"
+        );
+    }
+
+    let use_case_page =
+        read_repo_file("website/use-cases/prepared-native-vortex-runtime-direction.html");
+    for required in [
+        "Related Field Guide Terms",
+        "/field-guide/prepared-vortex",
+        "/field-guide/native-vortex",
+        "/field-guide/source-backed-scan",
+    ] {
+        assert!(
+            use_case_page.contains(required),
+            "missing use-case reverse Field Guide link {required}"
+        );
+    }
+
+    let generated_use_case =
+        read_repo_file("docs/use-cases/generated/prepared-native-vortex-runtime-direction.md");
+    for required in [
+        "## Related Field Guide Terms",
+        "`website/field-guide/prepared-vortex.html`",
+        "`website/field-guide/native-vortex.html`",
+    ] {
+        assert!(
+            generated_use_case.contains(required),
+            "missing generated use-case reverse Field Guide link {required}"
+        );
+    }
+
+    let backlink_validator = read_repo_file("scripts/check_use_case_backlinks.py");
+    for required in [
+        "Related Field Guide Terms",
+        "use case has no related Field Guide terms",
+        "website page {use_case_id} missing Field Guide term link",
+        "website/content/field-guide-index.json",
+    ] {
+        assert!(
+            backlink_validator.contains(required),
+            "missing use-case integration validator field {required}"
         );
     }
 
@@ -2088,6 +2135,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "pagefind/pagefind-entry.json",
         "pagefind-filter-dropdown",
         "Committed Pagefind static bundle",
+        "Related Field Guide Terms",
+        "must render reverse Field Guide term links",
     ] {
         assert!(
             website_validator.contains(required),

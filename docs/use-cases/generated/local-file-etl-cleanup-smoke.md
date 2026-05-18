@@ -56,3 +56,10 @@ A target/shardloom-local-vortex-benchmark-smoke.json artifact with timing, cover
 - `compatibility-import-certified-local`
 - `messy-data-local-fixtures`
 - `output-result-sink-and-fanout-boundary`
+
+## Related Field Guide Terms
+
+- `website/field-guide/dirty-csv-cleanup.html` - Dirty CSV Cleanup (`User Workflows` / `fixture-smoke`)
+- `website/field-guide/csv-local-input.html` - CSV Local Input (`I/O And Output` / `scoped-local`)
+- `website/field-guide/parquet-local-input.html` - Parquet Local Input (`I/O And Output` / `scoped-local`)
+- `website/field-guide/arrow-ipc-boundary.html` - Arrow IPC Boundary (`I/O And Output` / `compatibility-boundary`)

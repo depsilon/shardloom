@@ -59,3 +59,29 @@ Timing rows and coverage rows that keep ShardLoom runtime lanes separate from op
 
 - `prepared-native-vortex-runtime-direction`
 - `compatibility-import-certified-local`
+
+## Related Field Guide Terms
+
+- `website/field-guide/technical-preview.html` - Technical Preview (`Start Here` / `pre-release`)
+- `website/field-guide/execution-modes.html` - Execution Modes (`Execution Modes` / `current-vocabulary`)
+- `website/field-guide/compatibility-import-certified.html` - Compatibility Import Certified (`Execution Modes` / `current-certification-lane`)
+- `website/field-guide/prepared-vortex.html` - Prepared Vortex (`Execution Modes` / `runtime-development-lane`)
+- `website/field-guide/native-vortex.html` - Native Vortex (`Execution Modes` / `scoped-runtime-lane`)
+- `website/field-guide/source-backed-scan.html` - Source-Backed Scan (`Vortex Runtime` / `scoped-evidence`)
+- `website/field-guide/vortex-scan-api.html` - Vortex Scan API (`Vortex Runtime` / `report-only-to-scoped`)
+- `website/field-guide/encoded-predicate-provider.html` - Encoded Predicate Provider (`Vortex Runtime` / `scoped-evidence`)
+- `website/field-guide/selection-vector.html` - Selection Vector (`Vortex Runtime` / `scoped-evidence`)
+- `website/field-guide/encoded-native.html` - Encoded-Native (`Vortex Runtime` / `claim-gated`)
+- `website/field-guide/materialization-boundary.html` - Materialization Boundary (`Evidence And Claims` / `current-evidence`)
+- `website/field-guide/claim-gates.html` - Claim Gates (`Evidence And Claims` / `core-contract`)
+- `website/field-guide/external-baseline-only.html` - External Baseline Only (`Evidence And Claims` / `core-boundary`)
+- `website/field-guide/benchmark-telemetry.html` - Benchmark Telemetry (`Benchmark Telemetry` / `current-evidence`)
+- `website/field-guide/local-timing-context.html` - Local Timing Context (`Benchmark Telemetry` / `current-evidence`)
+- `website/field-guide/prepared-native-batch-smoke.html` - Prepared/Native Batch Smoke (`Benchmark Telemetry` / `current-smoke-evidence`)
+- `website/field-guide/benchmark-artifact-manifest.html` - Benchmark Artifact Manifest (`Benchmark Telemetry` / `current-publishing-contract`)
+- `website/field-guide/benchmark-profile.html` - Benchmark Profile (`Benchmark Telemetry` / `current-publishing-contract`)
+- `website/field-guide/evidence-level.html` - Evidence Level (`Performance Architecture` / `current-vocabulary`)
+- `website/field-guide/minimal-runtime.html` - Minimal Runtime Evidence Level (`Performance Architecture` / `runtime-development`)
+- `website/field-guide/compressed-encoded-kernel-registry.html` - Compressed/Encoded Kernel Registry (`Performance Architecture` / `scoped-evidence`)
+- `website/field-guide/shardloom-session.html` - ShardLoom Session (`Performance Architecture` / `scoped-batch-runtime`)
+- `website/field-guide/public-claim-boundary.html` - Public Claim Boundary (`Release And Trust` / `core-contract`)

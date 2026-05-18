@@ -196,6 +196,20 @@ for (const required of [
   );
 }
 
+for (const useCasePage of htmlRuntimeFiles.filter((relativePath) =>
+  relativePath.startsWith("use-cases/") && relativePath !== "use-cases/index.html"
+)) {
+  const source = read(useCasePage);
+  assert(
+    source.includes("Related Field Guide Terms"),
+    `${useCasePage} must render reverse Field Guide term links`,
+  );
+  assert(
+    /href="\/field-guide\/[^"]+"/.test(source),
+    `${useCasePage} must link back to at least one Field Guide term`,
+  );
+}
+
 const pagefindEntry = JSON.parse(read("pagefind/pagefind-entry.json"));
 assert(
   pagefindEntry.version === "1.5.2",

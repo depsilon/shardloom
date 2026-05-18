@@ -57,3 +57,10 @@ A benchmark artifact for one named scenario with no-fallback evidence and correc
 
 - `local-file-etl-cleanup-smoke`
 - `prepared-native-vortex-runtime-direction`
+
+## Related Field Guide Terms
+
+- `website/field-guide/residual-native.html` - Residual-Native (`Vortex Runtime` / `current-runtime-pattern`)
+- `website/field-guide/nested-json-field-scan.html` - Nested JSON Field Scan (`User Workflows` / `fixture-smoke`)
+- `website/field-guide/cdc-overlay.html` - CDC Overlay (`User Workflows` / `fixture-smoke`)
+- `website/field-guide/fused-operator-pipeline.html` - Fused Operator Pipeline (`Performance Architecture` / `scoped-evidence`)

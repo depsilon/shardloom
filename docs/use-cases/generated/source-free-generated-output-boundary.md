@@ -68,3 +68,12 @@ A local JSONL output plus fields including generated_source_kind=user_rows or ra
 - `first-10-minutes-local-smoke`
 - `foundry-local-proof-boundary`
 - `output-result-sink-and-fanout-boundary`
+
+## Related Field Guide Terms
+
+- `website/field-guide/fixture-smoke.html` - Fixture Smoke (`Engine Modes` / `scoped-evidence`)
+- `website/field-guide/python-wrapper-client.html` - Python Wrapper Client (`User Workflows` / `current-local-client`)
+- `website/field-guide/source-free-generated-output.html` - Source-Free Generated Output (`User Workflows` / `scoped-local-smoke`)
+- `website/field-guide/output-fanout.html` - Output Fanout (`User Workflows` / `report-only-to-planned`)
+- `website/field-guide/output-plan-reuse.html` - OutputPlan Reuse (`I/O And Output` / `planned-contract`)
+- `website/field-guide/foundry-dev-stack-smoke.html` - Foundry Dev-Stack Smoke (`Platform Boundaries` / `local-style-proof`)
