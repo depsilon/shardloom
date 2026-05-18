@@ -9,6 +9,9 @@
   <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
+  <link href="/pagefind/pagefind-component-ui.css" rel="stylesheet">
+  <script src="/pagefind/pagefind-component-ui.js" type="module"></script>
+
   <meta property="og:title" content="ShardLoom Field Guide">
   <meta property="og:description" content="Technical dossiers for interpreting ShardLoom evidence.">
   <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
@@ -44,7 +47,9 @@
     </div>
   </div>
 
-  <main>
+  <main data-pagefind-body>
+    <span class="sr-only" data-pagefind-ignore data-pagefind-filter="section">Field Guide</span>
+    <span class="sr-only" data-pagefind-ignore data-pagefind-filter="status">atlas-index</span>
     <section class="doc-hero field-guide-hero">
       <div class="shell">
         <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
@@ -55,6 +60,31 @@
     </section>
     <section class="doc-section field-guide-toc-section">
       <div class="shell">
+        <div class="terminal-panel field-guide-search">
+          <p class="eyebrow">Static search</p>
+          <h2>Search the atlas.</h2>
+          <p>Search runs entirely from committed static assets. Results cover Field Guide dossiers, use cases, status, telemetry, compute flow, and rendered docs.</p>
+          <div class="pagefind-controls">
+            <pagefind-modal-trigger>Search Field Guide and docs</pagefind-modal-trigger>
+            <pagefind-modal>
+              <pagefind-modal-header>
+                <pagefind-input placeholder="Search terms, evidence fields, workflows..."></pagefind-input>
+              </pagefind-modal-header>
+              <pagefind-modal-body>
+                <div class="pagefind-filter-row">
+                  <pagefind-filter-dropdown filter="section" label="Section" single-select sort="alphabetical"></pagefind-filter-dropdown>
+                  <pagefind-filter-dropdown filter="status" label="Status" single-select sort="alphabetical"></pagefind-filter-dropdown>
+                  <pagefind-filter-dropdown filter="category" label="Category" single-select sort="alphabetical"></pagefind-filter-dropdown>
+                </div>
+                <pagefind-summary></pagefind-summary>
+                <pagefind-results></pagefind-results>
+              </pagefind-modal-body>
+              <pagefind-modal-footer>
+                <pagefind-keyboard-hints></pagefind-keyboard-hints>
+              </pagefind-modal-footer>
+            </pagefind-modal>
+          </div>
+        </div>
         <div class="section-header-row">
           <div>
             <p class="eyebrow">Reading paths</p>

@@ -8,6 +8,12 @@ const requiredFiles = [
   "assets/data/compute-engine-flow-reference.md",
   "assets/benchmarks/latest/manifest.json",
   "assets/benchmarks/latest/benchmark-results.json",
+  "pagefind/pagefind-component-ui.css",
+  "pagefind/pagefind-component-ui.js",
+  "pagefind/pagefind-entry.json",
+  "pagefind/pagefind.js",
+  "pagefind/pagefind-worker.js",
+  "pagefind/wasm.en.pagefind",
   "index.html",
   "status.html",
 ];
@@ -29,6 +35,10 @@ const runtimeFiles = [
   "assets/site.css",
   "assets/benchmarks/latest/manifest.json",
   "assets/benchmarks/latest/benchmark-results.json",
+  "pagefind/pagefind-component-ui.css",
+  "pagefind/pagefind-component-ui.js",
+  "pagefind/pagefind.js",
+  "pagefind/pagefind-worker.js",
 ];
 const blockedGitHubRawHost = "raw." + "githubusercontent.com";
 
@@ -169,6 +179,31 @@ assert(
 assert(
   /<img class="hero-logo" src="\/assets\/logo\/shardloom-logo-trim\.png"/.test(indexHtml),
   "The home hero must use the trimmed ShardLoom logo asset",
+);
+
+const fieldGuideIndexHtml = read("field-guide/index.html");
+for (const required of [
+  "/pagefind/pagefind-component-ui.css",
+  "/pagefind/pagefind-component-ui.js",
+  "pagefind-modal-trigger",
+  "pagefind-filter-dropdown",
+  "data-pagefind-filter=\"section\"",
+  "data-pagefind-filter=\"status\"",
+]) {
+  assert(
+    fieldGuideIndexHtml.includes(required),
+    `Field Guide search page must include ${required}`,
+  );
+}
+
+const pagefindEntry = JSON.parse(read("pagefind/pagefind-entry.json"));
+assert(
+  pagefindEntry.version === "1.5.2",
+  "Committed Pagefind static bundle must be generated with Pagefind 1.5.2",
+);
+assert(
+  pagefindEntry.languages?.en?.page_count >= 90,
+  "Committed Pagefind index must cover generated website pages",
 );
 
 for (const headerLogoFile of htmlRuntimeFiles.filter((relativePath) => !["404.html", "index.html"].includes(relativePath))) {

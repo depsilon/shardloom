@@ -26,6 +26,10 @@ BENCHMARK_LATEST_DIR = WEBSITE / "assets" / "benchmarks" / "latest"
 DOC_USE_CASES = ROOT / "docs" / "use-cases"
 USE_CASE_PAGES = WEBSITE / "use-cases"
 FIELD_GUIDE_INDEX_PATH = WEBSITE / "content" / "field-guide-index.json"
+PAGEFIND_HEAD = (
+    '<link href="/pagefind/pagefind-component-ui.css" rel="stylesheet">\n'
+    '  <script src="/pagefind/pagefind-component-ui.js" type="module"></script>'
+)
 COMPATIBILITY_SCOREBOARD_DATA = (
     ROOT / "docs" / "architecture" / "universal-compatibility-coverage-scoreboard.json"
 )
@@ -46,6 +50,24 @@ SITE_LASTMOD = "2026-05-17"
 
 def esc(value: Any) -> str:
     return html.escape("" if value is None else str(value), quote=True)
+
+
+def pagefind_filter_spans(filters: dict[str, Any] | None) -> str:
+    if not filters:
+        return ""
+    spans: list[str] = []
+    for key, raw_values in filters.items():
+        values = raw_values if isinstance(raw_values, list) else [raw_values]
+        for value in values:
+            if value is None or str(value) == "":
+                continue
+            spans.append(
+                '<span class="sr-only" data-pagefind-ignore '
+                f'data-pagefind-filter="{esc(key)}">{esc(value)}</span>'
+            )
+    if not spans:
+        return ""
+    return "\n    " + "\n    ".join(spans)
 
 
 def status_value(value: Any) -> str:
@@ -779,6 +801,8 @@ def page(
     body: str,
     active: str,
     canonical_path_override: str | None = None,
+    extra_head: str = "",
+    pagefind_filters: dict[str, Any] | None = None,
 ) -> str:
     nav_html = site_nav(active)
     canonical_paths = {
@@ -794,6 +818,8 @@ def page(
     if canonical_path is None:
         canonical_path = canonical_paths.get(active, "")
     canonical_url = f"https://shardloom.io/{canonical_path}"
+    head_extra = f"  {extra_head}\n" if extra_head else ""
+    pagefind_filters_html = pagefind_filter_spans(pagefind_filters)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -805,6 +831,7 @@ def page(
   <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
+{head_extra}
   <meta property="og:title" content="{esc(title)}">
   <meta property="og:description" content="{esc(description)}">
   <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
@@ -825,7 +852,7 @@ def page(
     </div>
   </header>
 {status_ribbon()}
-  <main>{body}</main>
+  <main data-pagefind-body>{pagefind_filters_html}{body}</main>
 {site_footer()}
 </body>
 </html>
@@ -852,7 +879,13 @@ def doc_page(source: Path, title: str, description: str, source_label: str, acti
       </div>
     </section>
     """
-    return page(title, description, body, active)
+    return page(
+        title,
+        description,
+        body,
+        active,
+        pagefind_filters={"section": source_label, "status": "reference"},
+    )
 
 
 def compute_flow_page(source: Path) -> str:
@@ -961,6 +994,7 @@ def compute_flow_page(source: Path) -> str:
         "Mission-map view of ShardLoom access surfaces, execution modes, engine modes, provider admission, downstream usage, evidence, and claim gates.",
         body,
         "flow",
+        pagefind_filters={"section": "Compute Flow", "status": "reference"},
     )
 
 
@@ -1068,6 +1102,7 @@ def status_page() -> str:
         "Claim-safe public posture board for ShardLoom supported local smoke, fixture-smoke, report-only, blocked, planned, and not-claimed surfaces.",
         body,
         "status",
+        pagefind_filters={"section": "Status", "status": "public-posture"},
     )
 
 
@@ -1549,6 +1584,31 @@ def field_guide_index_page() -> str:
     </section>
     <section class="doc-section field-guide-toc-section">
       <div class="shell">
+        <div class="terminal-panel field-guide-search">
+          <p class="eyebrow">Static search</p>
+          <h2>Search the atlas.</h2>
+          <p>Search runs entirely from committed static assets. Results cover Field Guide dossiers, use cases, status, telemetry, compute flow, and rendered docs.</p>
+          <div class="pagefind-controls">
+            <pagefind-modal-trigger>Search Field Guide and docs</pagefind-modal-trigger>
+            <pagefind-modal>
+              <pagefind-modal-header>
+                <pagefind-input placeholder="Search terms, evidence fields, workflows..."></pagefind-input>
+              </pagefind-modal-header>
+              <pagefind-modal-body>
+                <div class="pagefind-filter-row">
+                  <pagefind-filter-dropdown filter="section" label="Section" single-select sort="alphabetical"></pagefind-filter-dropdown>
+                  <pagefind-filter-dropdown filter="status" label="Status" single-select sort="alphabetical"></pagefind-filter-dropdown>
+                  <pagefind-filter-dropdown filter="category" label="Category" single-select sort="alphabetical"></pagefind-filter-dropdown>
+                </div>
+                <pagefind-summary></pagefind-summary>
+                <pagefind-results></pagefind-results>
+              </pagefind-modal-body>
+              <pagefind-modal-footer>
+                <pagefind-keyboard-hints></pagefind-keyboard-hints>
+              </pagefind-modal-footer>
+            </pagefind-modal>
+          </div>
+        </div>
         <div class="section-header-row">
           <div>
             <p class="eyebrow">Reading paths</p>
@@ -1576,6 +1636,8 @@ def field_guide_index_page() -> str:
         body,
         "field-guide",
         "field-guide/",
+        PAGEFIND_HEAD,
+        {"section": "Field Guide", "status": "atlas-index"},
     )
 
 
@@ -1680,6 +1742,11 @@ def field_guide_concept_page(
         body,
         "field-guide",
         f"field-guide/{concept['slug']}",
+        pagefind_filters={
+            "section": "Field Guide",
+            "category": concept["category"],
+            "status": concept["status"],
+        },
     )
 
 
@@ -1929,6 +1996,12 @@ def use_case_page(use_case: dict[str, Any], by_id: dict[str, dict[str, Any]]) ->
         body,
         "use-cases",
         canonical_path_override=f"use-cases/{use_case_id}",
+        pagefind_filters={
+            "section": "Use Case Atlas",
+            "status": status,
+            "execution_mode": use_case.get("execution_mode"),
+            "engine_mode": use_case.get("engine_mode"),
+        },
     )
 
 
@@ -2016,6 +2089,7 @@ def use_cases_index_page(use_cases: list[dict[str, Any]]) -> str:
         body,
         "use-cases",
         canonical_path_override="use-cases/",
+        pagefind_filters={"section": "Use Case Atlas", "status": "status-matrix"},
     )
 
 
@@ -3837,6 +3911,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         "Claim-safe prepared/native local benchmark evidence for ShardLoom.",
         body,
         "telemetry",
+        pagefind_filters={"section": "Telemetry", "status": "benchmark-evidence"},
     )
 
 

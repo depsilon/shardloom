@@ -1907,16 +1907,22 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1A"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1B"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1C"));
-    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1D static Field Guide search with Pagefind"));
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1D"));
+    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1E Use Case Atlas integration"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "GAR-WEB-ATLAS-1D static Field Guide search with Pagefind",
         "GAR-WEB-ATLAS-1C Field Guide reading paths",
         "GAR-WEB-ATLAS-1A/1B Field Guide taxonomy and dossier generator",
         "website/content/field-guide-index.json",
+        "website/pagefind/",
+        "Pagefind 1.5.2",
+        "section, status, category, execution mode, and engine mode",
         "75 entries",
         "seven reading paths",
         "python website/build_static_pages.py",
+        "python -m pagefind --site website",
         "node website/validate_static_assets.js",
         "python scripts/check_website_readiness.py",
         "No runtime behavior",
@@ -1969,6 +1975,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "FIELD_GUIDE_INDEX_PATH",
         "load_field_guide_concepts",
         "load_field_guide_reading_paths",
+        "PAGEFIND_HEAD",
+        "pagefind_filter_spans",
         "REQUIRED_FIELD_GUIDE_CATEGORIES",
         "FIELD_GUIDE_READING_PATHS",
         "reading_path_term_links",
@@ -1979,6 +1987,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "What it does not claim",
         "Try it / related use cases",
         "Reference files",
+        "pagefind-filter-dropdown",
     ] {
         assert!(
             generator.contains(required),
@@ -2008,6 +2017,13 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Platform Boundaries",
         "Performance Architecture",
         "Release And Trust",
+        "Static search",
+        "pagefind-component-ui.css",
+        "pagefind-component-ui.js",
+        "pagefind-modal-trigger",
+        "pagefind-filter-dropdown",
+        "data-pagefind-filter=\"section\"",
+        "data-pagefind-filter=\"status\"",
         "what-is-shardloom",
         "output-plan-reuse",
     ] {
@@ -2047,6 +2063,70 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
             "missing Field Guide sitemap URL {required}"
         );
     }
+
+    let pagefind_entry = read_repo_file("website/pagefind/pagefind-entry.json");
+    assert!(pagefind_entry.contains("\"version\":\"1.5.2\""));
+    assert!(pagefind_entry.contains("\"page_count\":"));
+
+    let headers = read_repo_file("website/_headers");
+    for required in [
+        "/pagefind/*",
+        "script-src 'self' 'wasm-unsafe-eval'",
+        "worker-src 'self'",
+        "Cache-Control: public, max-age=300",
+    ] {
+        assert!(
+            headers.contains(required),
+            "missing Pagefind header {required}"
+        );
+    }
+
+    let website_validator = read_repo_file("website/validate_static_assets.js");
+    for required in [
+        "pagefind/pagefind-component-ui.css",
+        "pagefind/pagefind-component-ui.js",
+        "pagefind/pagefind-entry.json",
+        "pagefind-filter-dropdown",
+        "Committed Pagefind static bundle",
+    ] {
+        assert!(
+            website_validator.contains(required),
+            "missing Pagefind static validator field {required}"
+        );
+    }
+
+    let readiness = read_repo_file("scripts/check_website_readiness.py");
+    for required in [
+        "pagefind/pagefind-component-ui.css",
+        "pagefind/pagefind-component-ui.js",
+        "pagefind/pagefind-entry.json",
+        "Pagefind index must cover generated website pages",
+        "_headers missing Pagefind static-search policy",
+    ] {
+        assert!(
+            readiness.contains(required),
+            "missing Pagefind readiness field {required}"
+        );
+    }
+
+    let third_party = read_repo_file("docs/legal/static-website-third-party-assets.md");
+    for required in [
+        "Pagefind",
+        "pagefind_bin_extended",
+        "1.5.2",
+        "MIT",
+        "website/pagefind/",
+        "not ShardLoom execution logic",
+    ] {
+        assert!(
+            third_party.contains(required),
+            "missing Pagefind third-party asset notice {required}"
+        );
+    }
+
+    let notice = read_repo_file("NOTICE");
+    assert!(notice.contains("generated Pagefind static-search"));
+    assert!(notice.contains("docs/legal/static-website-third-party-assets.md"));
 }
 
 #[test]
