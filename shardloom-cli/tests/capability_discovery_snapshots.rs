@@ -513,7 +513,7 @@ const ENGINE_FIELD_KEYS: [&str; 86] = [
     "hybrid_no_effects",
 ];
 
-const WORKFLOW_FIELD_KEYS: [&str; 30] = [
+const WORKFLOW_FIELD_KEYS: [&str; 48] = [
     "scope",
     "schema_version",
     "report_id",
@@ -544,6 +544,24 @@ const WORKFLOW_FIELD_KEYS: [&str; 30] = [
     "required_evidence",
     "suggested_next_action",
     "unsupported_diagnostic_surface",
+    "etl_workflow_matrix_schema_version",
+    "etl_workflow_matrix_id",
+    "etl_workflow_row_order",
+    "etl_workflow_row_count",
+    "etl_workflow_supported_local_rows",
+    "etl_workflow_supported_local_count",
+    "etl_workflow_report_only_rows",
+    "etl_workflow_report_only_count",
+    "etl_workflow_blocked_rows",
+    "etl_workflow_blocked_count",
+    "etl_workflow_required_evidence",
+    "etl_workflow_claim_boundary",
+    "etl_workflow_claim_gate_status",
+    "etl_workflow_fallback_attempted",
+    "etl_workflow_external_engine_invoked",
+    "etl_workflow_production_etl_claim_allowed",
+    "etl_workflow_object_store_runtime_supported",
+    "etl_workflow_table_lakehouse_runtime_supported",
 ];
 
 const REMOTE_API_FIELD_KEYS: [&str; 32] = [
@@ -1783,6 +1801,42 @@ fn cross_cg_capability_parity_surfaces_shared_blocker_contracts() {
     assert!(workflow.contains(&field_pair("no_runtime", true)));
     assert!(workflow.contains(&field_pair("no_fallback", true)));
     assert!(workflow.contains(&field_pair("no_effects", true)));
+    assert!(workflow.contains(&string_field_pair(
+        "etl_workflow_matrix_schema_version",
+        "shardloom.etl_workflow_capability_matrix.v1"
+    )));
+    assert!(workflow.contains(&string_field_pair(
+        "etl_workflow_matrix_id",
+        "gar-0033-a.etl_workflow_capability_matrix"
+    )));
+    assert!(workflow.contains(&string_field_pair(
+        "etl_workflow_row_order",
+        "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"
+    )));
+    assert!(workflow.contains(&string_field_pair(
+        "etl_workflow_supported_local_count",
+        "8"
+    )));
+    assert!(workflow.contains(&string_field_pair("etl_workflow_report_only_count", "2")));
+    assert!(workflow.contains(&string_field_pair("etl_workflow_blocked_count", "3")));
+    assert!(workflow.contains(&string_field_pair(
+        "etl_workflow_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(workflow.contains(&field_pair("etl_workflow_fallback_attempted", false)));
+    assert!(workflow.contains(&field_pair("etl_workflow_external_engine_invoked", false)));
+    assert!(workflow.contains(&field_pair(
+        "etl_workflow_production_etl_claim_allowed",
+        false
+    )));
+    assert!(workflow.contains(&field_pair(
+        "etl_workflow_object_store_runtime_supported",
+        false
+    )));
+    assert!(workflow.contains(&field_pair(
+        "etl_workflow_table_lakehouse_runtime_supported",
+        false
+    )));
 
     assert!(remote_api.contains(&string_field_pair(
         "schema_version",

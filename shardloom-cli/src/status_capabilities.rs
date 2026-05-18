@@ -82,6 +82,24 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
 );
 const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,no_fallback_policy";
 const WORKFLOW_SUGGESTED_NEXT_ACTION: &str = "Use workflow-unsupported-plan for method-specific blocker details before requesting execution.";
+const ETL_WORKFLOW_MATRIX_SCHEMA_VERSION: &str = "shardloom.etl_workflow_capability_matrix.v1";
+const ETL_WORKFLOW_MATRIX_ID: &str = "gar-0033-a.etl_workflow_capability_matrix";
+const ETL_WORKFLOW_ROW_ORDER: &str = concat!(
+    "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,",
+    "prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,",
+    "dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,",
+    "data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"
+);
+const ETL_WORKFLOW_SUPPORTED_LOCAL_ROWS: &str = concat!(
+    "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,",
+    "prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,",
+    "dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture"
+);
+const ETL_WORKFLOW_REPORT_ONLY_ROWS: &str = "sql_dataframe_capability_posture,data_quality_api";
+const ETL_WORKFLOW_BLOCKED_ROWS: &str =
+    "object_store_runtime,table_lakehouse_runtime,production_etl_certification";
+const ETL_WORKFLOW_REQUIRED_EVIDENCE: &str = "correctness_digest,execution_certificate,native_io_certificate,materialization_boundary,result_sink_evidence,source_state_evidence,generated_source_certificate,output_native_io_certificate,claim_gate_status,no_fallback_evidence";
+const ETL_WORKFLOW_CLAIM_BOUNDARY: &str = "local workflow claims only for already certified or smoke-supported technical-preview paths; production ETL, broad SQL/DataFrame, object-store/lakehouse, Foundry, package, performance, and Spark-displacement claims remain blocked";
 const REMOTE_API_BLOCKER_IDS: &str = concat!(
     "cg23.remote_api.plan_preview.unsupported_operator,",
     "cg23.remote_api.remote_object_store.unsupported,",
@@ -2579,6 +2597,7 @@ fn emit_workflow_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         "unsupported_diagnostic_surface",
         "workflow-unsupported-plan",
     );
+    append_etl_workflow_matrix_fields(&mut fields);
     emit(
         "capabilities",
         format,
@@ -2591,6 +2610,55 @@ fn emit_workflow_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         ),
         vec![],
         fields,
+    );
+}
+
+fn append_etl_workflow_matrix_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "etl_workflow_matrix_schema_version",
+        ETL_WORKFLOW_MATRIX_SCHEMA_VERSION,
+    );
+    push_field(fields, "etl_workflow_matrix_id", ETL_WORKFLOW_MATRIX_ID);
+    push_field(fields, "etl_workflow_row_order", ETL_WORKFLOW_ROW_ORDER);
+    push_count_field(fields, "etl_workflow_row_count", 13);
+    push_field(
+        fields,
+        "etl_workflow_supported_local_rows",
+        ETL_WORKFLOW_SUPPORTED_LOCAL_ROWS,
+    );
+    push_count_field(fields, "etl_workflow_supported_local_count", 8);
+    push_field(
+        fields,
+        "etl_workflow_report_only_rows",
+        ETL_WORKFLOW_REPORT_ONLY_ROWS,
+    );
+    push_count_field(fields, "etl_workflow_report_only_count", 2);
+    push_field(
+        fields,
+        "etl_workflow_blocked_rows",
+        ETL_WORKFLOW_BLOCKED_ROWS,
+    );
+    push_count_field(fields, "etl_workflow_blocked_count", 3);
+    push_field(
+        fields,
+        "etl_workflow_required_evidence",
+        ETL_WORKFLOW_REQUIRED_EVIDENCE,
+    );
+    push_field(
+        fields,
+        "etl_workflow_claim_boundary",
+        ETL_WORKFLOW_CLAIM_BOUNDARY,
+    );
+    push_field(fields, "etl_workflow_claim_gate_status", "not_claim_grade");
+    push_bool_field(fields, "etl_workflow_fallback_attempted", false);
+    push_bool_field(fields, "etl_workflow_external_engine_invoked", false);
+    push_bool_field(fields, "etl_workflow_production_etl_claim_allowed", false);
+    push_bool_field(fields, "etl_workflow_object_store_runtime_supported", false);
+    push_bool_field(
+        fields,
+        "etl_workflow_table_lakehouse_runtime_supported",
+        false,
     );
 }
 

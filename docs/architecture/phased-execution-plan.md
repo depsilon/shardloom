@@ -1242,21 +1242,12 @@ publication state, execution claims, fallback policy, or release gates.
   - Non-goals: no best-default claim.
   - Fallback/claim boundary: no best-default, performance, or replacement claim.
   - Dependencies/blockers: benchmark/correctness/release GAR-P5 slices.
-- [ ] GAR-0033-A ETL workflow and data-quality capability slice
-  - Source: RFC 0033; user data workflow docs; benchmark-suite catalog.
-  - Current state: local workflow surfaces exist; mature joins, aggregations, windows, data-quality
-    APIs, object-store/table runtime, and production ETL certification are not broad.
-  - Next slice outcome: ETL workflow matrix for supported local paths, report-only APIs, and
-    unsupported object-store/table paths.
-  - User-visible surface: CLI workflow plan, Python docs, examples.
-  - Implementation scope: workflow report, Python view, tests.
-  - Evidence required: correctness refs for supported local paths, diagnostic/no-fallback refs for
-    unsupported paths.
-  - Acceptance: production ETL claims are blocked unless all evidence is attached.
-  - Verification: workflow/table planning tests, Python compileall if touched.
-  - Non-goals: no production ETL runtime or publication.
-  - Fallback/claim boundary: local workflow claims only for already certified paths.
-  - Dependencies/blockers: operator/table/output GAR slices.
+GAR-0033-A is complete and recorded in the completed ledger. The ETL workflow capability matrix is
+now exposed through `capabilities workflow --format json`, Python `ctx.etl_workflow_matrix()`, and
+`docs/architecture/etl-workflow-capability-matrix.md`. It keeps local ready/smoke workflow rows,
+report-only SQL/DataFrame/data-quality API posture, and blocked object-store/table/production ETL
+rows explicit without adding runtime behavior, package publication, production ETL claims, or
+fallback execution.
 - [ ] GAR-0034-A live/hybrid fabric blocker and freshness gate
   - Source: RFC 0034; live/hybrid event API docs; operational evidence policy hardening.
   - Current state: live/hybrid engines and freshness/exactly-once claims are planning/report-only.

@@ -649,6 +649,358 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
 
 
 @dataclass(frozen=True, slots=True)
+class ETLWorkflowCapabilityRow:
+    """Support, evidence, and claim boundary for one user-facing ETL workflow family."""
+
+    workflow_id: str
+    title: str
+    status: str
+    execution_mode: str
+    engine_mode: str
+    inputs: tuple[str, ...]
+    outputs: tuple[str, ...]
+    evidence_fields: tuple[str, ...]
+    blocker_id: str | None
+    claim_gate_status: str
+    runtime_execution: bool
+    data_read: bool
+    write_io: bool
+    object_store_io: bool
+    table_runtime: bool
+    production_claim_allowed: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    claim_boundary: str
+
+    @property
+    def ready_or_smoke_supported(self) -> bool:
+        """Whether the row has a scoped local ready/smoke path."""
+
+        return self.status in {"ready_local", "smoke_supported"}
+
+    @property
+    def report_only(self) -> bool:
+        """Whether the row is inspectable posture without runtime support."""
+
+        return self.status == "report_only"
+
+    @property
+    def blocked(self) -> bool:
+        """Whether the row is deliberately blocked until future evidence exists."""
+
+        return self.status == "blocked"
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the row preserves the no-fallback/no-external-engine boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+
+@dataclass(frozen=True, slots=True)
+class ETLWorkflowCapabilityMatrix:
+    """Report-only ETL workflow matrix for user-facing local paths and blockers."""
+
+    capability: "CapabilityView"
+    rows: tuple[ETLWorkflowCapabilityRow, ...]
+
+    @classmethod
+    def from_capability(cls, capability: "CapabilityView") -> "ETLWorkflowCapabilityMatrix":
+        """Build the static ETL workflow matrix from the workflow capability view."""
+
+        return cls(capability=capability, rows=ETL_WORKFLOW_CAPABILITY_ROWS)
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the CLI-advertised ETL workflow matrix schema version."""
+
+        return self.capability.field("etl_workflow_matrix_schema_version")
+
+    @property
+    def matrix_id(self) -> str | None:
+        """Return the CLI-advertised ETL workflow matrix identifier."""
+
+        return self.capability.field("etl_workflow_matrix_id")
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return stable ETL workflow row IDs."""
+
+        return tuple(row.workflow_id for row in self.rows)
+
+    @property
+    def supported_local_rows(self) -> tuple[str, ...]:
+        """Return rows with scoped local ready/smoke evidence."""
+
+        return tuple(row.workflow_id for row in self.rows if row.ready_or_smoke_supported)
+
+    @property
+    def report_only_rows(self) -> tuple[str, ...]:
+        """Return rows that expose report-only posture."""
+
+        return tuple(row.workflow_id for row in self.rows if row.report_only)
+
+    @property
+    def blocked_rows(self) -> tuple[str, ...]:
+        """Return rows that remain blocked."""
+
+        return tuple(row.workflow_id for row in self.rows if row.blocked)
+
+    @property
+    def claim_gate_statuses(self) -> tuple[str, ...]:
+        """Return claim-gate statuses in stable first-seen order."""
+
+        return tuple(dict.fromkeys(row.claim_gate_status for row in self.rows))
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every row preserves no fallback and no external engine invocation."""
+
+        return all(row.no_fallback_no_external_engine for row in self.rows)
+
+    @property
+    def production_etl_claim_allowed(self) -> bool:
+        """Whether any row allows a production ETL claim."""
+
+        return any(row.production_claim_allowed for row in self.rows)
+
+    @property
+    def object_store_or_table_runtime_supported(self) -> bool:
+        """Whether object-store/table runtime is supported by any ETL row."""
+
+        return any(row.object_store_io or row.table_runtime for row in self.rows)
+
+    def row(self, workflow_id: str) -> ETLWorkflowCapabilityRow:
+        """Return one ETL workflow row by ID."""
+
+        normalized = workflow_id.strip().lower().replace("-", "_")
+        for row in self.rows:
+            if row.workflow_id == normalized:
+                return row
+        raise KeyError(f"ETL workflow {workflow_id!r} is not in the capability matrix")
+
+
+def _etl_workflow_row(
+    workflow_id: str,
+    title: str,
+    status: str,
+    execution_mode: str,
+    engine_mode: str,
+    *,
+    inputs: Sequence[str],
+    outputs: Sequence[str],
+    evidence_fields: Sequence[str],
+    blocker_id: str | None = None,
+    runtime_execution: bool = False,
+    data_read: bool = False,
+    write_io: bool = False,
+    object_store_io: bool = False,
+    table_runtime: bool = False,
+    claim_boundary: str,
+) -> ETLWorkflowCapabilityRow:
+    return ETLWorkflowCapabilityRow(
+        workflow_id=workflow_id,
+        title=title,
+        status=status,
+        execution_mode=execution_mode,
+        engine_mode=engine_mode,
+        inputs=tuple(inputs),
+        outputs=tuple(outputs),
+        evidence_fields=tuple(evidence_fields),
+        blocker_id=blocker_id,
+        claim_gate_status="not_claim_grade",
+        runtime_execution=runtime_execution,
+        data_read=data_read,
+        write_io=write_io,
+        object_store_io=object_store_io,
+        table_runtime=table_runtime,
+        production_claim_allowed=False,
+        fallback_attempted=False,
+        external_engine_invoked=False,
+        claim_boundary=claim_boundary,
+    )
+
+
+_LOCAL_TECHNICAL_PREVIEW_BOUNDARY = (
+    "Scoped local technical-preview evidence only; not production ETL, broad SQL/DataFrame, "
+    "object-store/lakehouse, Foundry, package, performance, or Spark-displacement proof."
+)
+_REPORT_ONLY_WORKFLOW_BOUNDARY = (
+    "Report-only workflow posture; inspectable diagnostics do not authorize runtime support."
+)
+_BLOCKED_WORKFLOW_BOUNDARY = (
+    "Blocked until scoped runtime, correctness, certificate, Native I/O, policy, and no-fallback "
+    "evidence exists."
+)
+
+ETL_WORKFLOW_CAPABILITY_ROWS: tuple[ETLWorkflowCapabilityRow, ...] = (
+    _etl_workflow_row(
+        "first_10_minutes_local_smoke",
+        "First 10 minutes local smoke",
+        "ready_local",
+        "no_dataset_smoke",
+        "batch_status",
+        inputs=("none",),
+        outputs=("status_report", "capabilities_report", "smoke_report"),
+        evidence_fields=("fallback_attempted=false", "external_engine_invoked=false"),
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "local_csv_parquet_certified_workload",
+        "Local CSV/Parquet certified workload",
+        "smoke_supported",
+        "compatibility_import_certified",
+        "batch",
+        inputs=("local_csv", "local_parquet"),
+        outputs=("local_vortex_artifact", "result_sink_evidence"),
+        evidence_fields=("execution_certificate", "native_io_certificate", "claim_gate_status"),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "prepared_native_vortex_batch_smoke",
+        "Prepared/native Vortex batch smoke",
+        "smoke_supported",
+        "prepared_vortex/native_vortex",
+        "batch",
+        inputs=("prepared_vortex_artifact", "native_vortex_fixture"),
+        outputs=("prepared_native_timing_rows", "source_backed_scan_evidence"),
+        evidence_fields=("source_backed_scan_used", "source_state_reuse_hit", "claim_gate_status"),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "source_free_user_rows_jsonl",
+        "Source-free user rows JSONL",
+        "smoke_supported",
+        "source_free_generated_output",
+        "batch",
+        inputs=("python_rows",),
+        outputs=("local_jsonl_output", "generated_source_certificate"),
+        evidence_fields=("input_dataset_count=0", "generated_source_created=true"),
+        runtime_execution=True,
+        write_io=True,
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "source_free_range_jsonl",
+        "Source-free range JSONL",
+        "smoke_supported",
+        "source_free_generated_output",
+        "batch",
+        inputs=("range_generator",),
+        outputs=("local_jsonl_output", "generated_source_certificate"),
+        evidence_fields=("generated_source_kind=range", "output_native_io_certificate_status"),
+        runtime_execution=True,
+        write_io=True,
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "dirty_csv_fixture",
+        "Dirty CSV fixture",
+        "smoke_supported",
+        "compatibility_import_certified",
+        "batch",
+        inputs=("dirty_csv_fixture",),
+        outputs=("benchmark_evidence_rows",),
+        evidence_fields=("source_metadata_snapshot_status", "claim_gate_status"),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "nested_json_fixture",
+        "Nested JSON fixture",
+        "smoke_supported",
+        "compatibility_import_certified",
+        "batch",
+        inputs=("nested_json_fixture",),
+        outputs=("benchmark_evidence_rows",),
+        evidence_fields=("scenario_family", "materialization_boundary", "claim_gate_status"),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "cdc_overlay_fixture",
+        "CDC overlay fixture",
+        "smoke_supported",
+        "compatibility_import_certified",
+        "batch",
+        inputs=("base_fixture", "append_delta_fixture"),
+        outputs=("local_cdc_overlay_evidence",),
+        evidence_fields=("cdc_overlay_status", "claim_gate_status"),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "sql_dataframe_capability_posture",
+        "SQL/DataFrame capability posture",
+        "report_only",
+        "report_only",
+        "none",
+        inputs=("sql_text", "dataframe_api_request"),
+        outputs=("capability_report", "deterministic_unsupported_diagnostics"),
+        evidence_fields=("support_status=report_only", "claim_gate_status=not_claim_grade"),
+        blocker_id="cg21.workflow.sql.frontend_unsupported",
+        claim_boundary=_REPORT_ONLY_WORKFLOW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "data_quality_api",
+        "Data-quality API posture",
+        "report_only",
+        "report_only",
+        "none",
+        inputs=("data_quality_rule",),
+        outputs=("deterministic_unsupported_diagnostics",),
+        evidence_fields=("data_quality_report", "claim_gate_status=not_claim_grade"),
+        blocker_id="cg21.workflow.data_quality.checks_unsupported",
+        claim_boundary=_REPORT_ONLY_WORKFLOW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "object_store_runtime",
+        "Object-store runtime",
+        "blocked",
+        "report_only_blocked",
+        "none",
+        inputs=("s3_uri", "gcs_uri", "adls_uri"),
+        outputs=("object_store_plan", "deterministic_blocker"),
+        evidence_fields=("object_store_io=false", "credential_policy_status"),
+        blocker_id="cg21.workflow.object_store_read.runtime_unsupported",
+        claim_boundary=_BLOCKED_WORKFLOW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "table_lakehouse_runtime",
+        "Table/lakehouse runtime",
+        "blocked",
+        "report_only_blocked",
+        "none",
+        inputs=("iceberg_table", "delta_table", "hudi_table"),
+        outputs=("table_compatibility_matrix", "deterministic_blocker"),
+        evidence_fields=("table_scan_status", "commit_protocol_status"),
+        blocker_id="gar-0033.table_lakehouse_runtime_blocked",
+        claim_boundary=_BLOCKED_WORKFLOW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "production_etl_certification",
+        "Production ETL certification",
+        "blocked",
+        "report_only_blocked",
+        "none",
+        inputs=("production_workload",),
+        outputs=("claim_gate_blocker",),
+        evidence_fields=("release_gate_status", "workload_certification_dossier"),
+        blocker_id="gar-0033.production_etl_certification_blocked",
+        claim_boundary=_BLOCKED_WORKFLOW_BOUNDARY,
+    ),
+)
+
+
+@dataclass(frozen=True, slots=True)
 class GeneratedSourceCaseCapability:
     """Support and claim posture for one generated-source contract case."""
 
@@ -2976,6 +3328,12 @@ class CapabilityView:
         return DataFrameMethodCapabilityMatrix.from_capability(self)
 
     @property
+    def etl_workflow_matrix(self) -> ETLWorkflowCapabilityMatrix:
+        """Return the report-only ETL workflow capability matrix."""
+
+        return ETLWorkflowCapabilityMatrix.from_capability(self)
+
+    @property
     def generated_source_contract(self) -> GeneratedSourceCertificateContract:
         """Return source-free generated-output contract posture exposed by this capability."""
 
@@ -3213,6 +3571,12 @@ class ContextCapabilities:
         return self.dataframe.dataframe_method_matrix
 
     @property
+    def etl_workflow_matrix(self) -> ETLWorkflowCapabilityMatrix:
+        """Return ETL workflow support, blockers, and claim boundaries."""
+
+        return self.workflow.etl_workflow_matrix
+
+    @property
     def universal_compatibility_scoreboard(self) -> UniversalCompatibilityScoreboard:
         """Return universal source/sink compatibility coverage posture."""
 
@@ -3372,6 +3736,15 @@ class ShardLoomContext:
         """Return the report-only DataFrame/query-builder method capability matrix."""
 
         return self._capability_view("dataframe", check=check).dataframe_method_matrix
+
+    def etl_workflow_matrix(
+        self,
+        *,
+        check: bool = True,
+    ) -> ETLWorkflowCapabilityMatrix:
+        """Return the report-only ETL workflow capability matrix."""
+
+        return self._capability_view("workflow", check=check).etl_workflow_matrix
 
     def compatibility_scoreboard(
         self,

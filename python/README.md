@@ -401,6 +401,31 @@ declarations; joins, aggregations, windows, writes, schema/data-quality helpers,
 materialization, and notebook display remain deterministic unsupported
 diagnostic surfaces unless later evidence-backed slices promote them.
 
+The CG-21 ETL workflow surface also has a compact typed matrix for current local
+workflow posture. Use it when a wrapper, notebook, or agent needs one place to
+show which user workflows are ready or smoke-supported, which APIs are
+report-only, and which production/runtime claims remain blocked:
+
+```python
+matrix = ctx.etl_workflow_matrix()
+
+print(matrix.schema_version)
+print(matrix.supported_local_rows)
+print(matrix.report_only_rows)
+print(matrix.blocked_rows)
+print(matrix.all_no_fallback_no_external_engine)
+
+blocked = matrix.row("object_store_runtime")
+print(blocked.status)
+print(blocked.blocker_id)
+print(blocked.claim_boundary)
+```
+
+This matrix is side-effect-free capability posture. It does not run production
+ETL, SQL/DataFrame execution, object-store/lakehouse runtime, Foundry runtime,
+external engine execution, or package publication, and it does not create
+performance or Spark-displacement claims.
+
 Source-free generated-output APIs are tracked under `GAR-GEN-1`. The full
 contract is exposed through capability views as `generated_source_contract`, and
 the per-API admission matrix is exposed as `generated_source_api_admission`.

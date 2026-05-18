@@ -1902,6 +1902,101 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
 }
 
 #[test]
+fn gar_0033_a_etl_workflow_capability_matrix_remains_claim_safe() {
+    let doc = read_repo_file("docs/architecture/etl-workflow-capability-matrix.md");
+    for required in [
+        "shardloom.etl_workflow_capability_matrix.v1",
+        "GAR-0033-A",
+        "first_10_minutes_local_smoke",
+        "local_csv_parquet_certified_workload",
+        "prepared_native_vortex_batch_smoke",
+        "source_free_user_rows_jsonl",
+        "source_free_range_jsonl",
+        "dirty_csv_fixture",
+        "nested_json_fixture",
+        "cdc_overlay_fixture",
+        "sql_dataframe_capability_posture",
+        "data_quality_api",
+        "object_store_runtime",
+        "table_lakehouse_runtime",
+        "production_etl_certification",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status=not_claim_grade",
+        "does not add production ETL",
+        "broad SQL/DataFrame runtime",
+        "object-store/lakehouse runtime",
+        "Foundry production support",
+        "performance or superiority",
+        "Spark replacement",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0033-A ETL matrix doc field {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    for required in [
+        "ETL_WORKFLOW_MATRIX_SCHEMA_VERSION",
+        "gar-0033-a.etl_workflow_capability_matrix",
+        "etl_workflow_row_order",
+        "etl_workflow_supported_local_count",
+        "etl_workflow_report_only_count",
+        "etl_workflow_blocked_count",
+        "etl_workflow_fallback_attempted",
+        "etl_workflow_external_engine_invoked",
+        "etl_workflow_production_etl_claim_allowed",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing CLI ETL workflow matrix field {required}"
+        );
+    }
+
+    let python_context = read_repo_file("python/src/shardloom/context.py");
+    for required in [
+        "ETLWorkflowCapabilityRow",
+        "ETLWorkflowCapabilityMatrix",
+        "ETL_WORKFLOW_CAPABILITY_ROWS",
+        "def etl_workflow_matrix",
+        "production_etl_claim_allowed",
+        "object_store_or_table_runtime_supported",
+        "all_no_fallback_no_external_engine",
+    ] {
+        assert!(
+            python_context.contains(required),
+            "missing Python ETL workflow matrix field {required}"
+        );
+    }
+
+    let python_readme = read_repo_file("python/README.md");
+    assert!(python_readme.contains("ctx.etl_workflow_matrix()"));
+    assert!(python_readme.contains("object_store_runtime"));
+    assert!(python_readme.contains("does not run production"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0033-A"));
+    assert!(plan.contains("GAR-0033-A is complete and recorded in the completed ledger"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0033-A ETL workflow and data-quality capability matrix"));
+    assert!(completed.contains("capabilities workflow --format json"));
+    assert!(completed.contains("ctx.etl_workflow_matrix()"));
+    assert!(completed.contains("fallback_attempted=false"));
+    assert!(completed.contains("external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0033-A` adds `shardloom.etl_workflow_capability_matrix.v1`"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(
+        traceability.contains("| GAR-0033-A | ETL workflow and data-quality capability matrix")
+    );
+    assert!(traceability.contains("`ctx.etl_workflow_matrix()`"));
+}
+
+#[test]
 fn security_rfc_and_p80_completion_are_traceable() {
     let rfc =
         read_repo_file("docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md");
