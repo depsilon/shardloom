@@ -145,6 +145,22 @@ output-plan contract covers scoped local Vortex result-sink planning, write/repl
 preservation posture, and sink artifact identity; it is not cross-format fanout, object-store/
 lakehouse support, table commit support, production sink support, or performance evidence.
 
+`GAR-IOREUSE-1D` adds a first-class `io_reuse_and_fanout` benchmark matrix to the artifact. The
+matrix lists required fanout cases and their current deterministic blockers:
+
+```text
+CSV input -> Parquet + JSONL + Vortex outputs
+Parquet input -> CSV + Vortex outputs
+JSONL input -> Parquet + Vortex outputs
+generated source -> CSV + Parquet + Vortex outputs
+prepared Vortex -> multiple output formats
+```
+
+Current fanout rows are `fanout_status=report_only`, `fanout_output_count=0`,
+`fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status=not_claim_grade`. They expose the required timing/reuse columns as explicit
+not-measured values until a future runtime slice writes and replays multiple local outputs.
+
 `GAR-PERF-1C` adds scoped fused-pipeline evidence for the current prepared/native
 filter/projection/limit row and selective-filter selection-vector metric aggregation row. The
 benchmark harness now carries `fused_pipeline_*` fields, including `fused_pipeline_used`,
@@ -291,9 +307,9 @@ generated source -> CSV + Parquet + Vortex outputs
 prepared Vortex -> multiple output formats
 ```
 
-The current SourceState, VortexPreparedState, and OutputPlan slices emit the source
-discovery/schema/parse, prepared artifact, and local output-plan subsets above. Required future
-timing fields for the remaining fanout bundle:
+The current SourceState, VortexPreparedState, OutputPlan, and fanout matrix slices emit the source
+discovery/schema/parse, prepared artifact, local output-plan, and report-only fanout subsets above.
+Required future timing fields for runtime fanout rows:
 
 ```text
 operator_compute_millis

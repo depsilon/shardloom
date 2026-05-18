@@ -25,9 +25,10 @@ InputAdapter
 artifact identity, digest, preparation timing separation, source-state linkage, and scoped reuse
 posture. `GAR-IOREUSE-1C` adds the OutputPlan benchmark/report contract for scoped local Vortex
 result-sink planning, metadata preservation posture, write/replay refs, and sink artifact identity.
-Fanout, invalidation, reuse-level, and Foundry generated-output slices are still planned. This
-document does not implement object-store I/O, table/lakehouse commits, Foundry production support,
-performance claims, or a hidden fast mode.
+`GAR-IOREUSE-1D` adds the first-class fanout benchmark matrix for required cross-format output
+cases as deterministic report-only rows. Fanout runtime, invalidation, reuse-level, and Foundry
+generated-output slices are still planned. This document does not implement object-store I/O,
+table/lakehouse commits, Foundry production support, performance claims, or a hidden fast mode.
 
 ## Goals
 
@@ -237,7 +238,7 @@ loss report, and claim gate.
 
 ## Benchmark Bundle
 
-The planned benchmark bundle adds these scenario families:
+The benchmark bundle tracks these scenario families:
 
 ```text
 io_reuse_and_fanout
@@ -248,7 +249,7 @@ cross_format_output
 generated_source_output
 ```
 
-Planned fanout cases:
+Implemented `GAR-IOREUSE-1D` report-only fanout cases:
 
 ```text
 CSV input -> Parquet + JSONL + Vortex outputs
@@ -258,22 +259,55 @@ generated source -> CSV + Parquet + Vortex outputs
 prepared Vortex -> multiple output formats
 ```
 
-Current `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, and `GAR-IOREUSE-1C` benchmark rows expose the
-SourceState, VortexPreparedState, and OutputPlan subsets listed above. Future fanout/reuse rows
-should additionally expose:
+The traditional analytics benchmark artifact and Markdown report now include a
+`shardloom.traditional_analytics.io_reuse_and_fanout.v1` contract object and a fanout benchmark
+matrix. Current fanout rows expose:
+
+```text
+benchmark_family
+fanout_case_id
+source_format
+requested_output_formats
+currently_proven_output_formats
+blocked_output_formats
+fanout_status
+fanout_blocker_id
+fanout_blocker_reason
+source_discovery_millis
+schema_inference_millis
+source_parse_millis
+vortex_prepare_millis
+operator_compute_millis
+output_plan_millis
+output_write_millis
+output_replay_millis
+total_runtime_millis
+source_state_reuse_hit
+prepared_state_reuse_hit
+output_plan_reuse_hit
+fanout_output_count
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status=not_claim_grade
+```
+
+Current `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, `GAR-IOREUSE-1C`, and `GAR-IOREUSE-1D` benchmark rows
+expose the SourceState, VortexPreparedState, OutputPlan, and report-only fanout subsets listed
+above. Future runtime fanout/reuse rows should replace report-only blockers with measured values
+for:
 
 ```text
 operator_compute_millis
 output_replay_millis
 total_runtime_millis
-fanout_output_count
+fanout_output_count > 1
 fallback_attempted=false
 external_engine_invoked=false
 claim_gate_status
 ```
 
 Rows may also expose source/prepared/output fingerprints, invalidation reasons, sink artifact refs,
-and per-output metadata preservation reports when implementation reaches those slices.
+and per-output metadata preservation reports when implementation reaches those runtime slices.
 
 The benchmark must demonstrate when source/prepared state is reused across outputs, separate raw
 one-shot speed from reuse/fanout timing, and avoid marking any output sink as supported without
@@ -418,10 +452,11 @@ external_engine_invoked=false
 
 ## Acceptance For The Planning Bundle
 
-- The phase plan contains detailed remaining `GAR-IOREUSE-1D` through `GAR-IOREUSE-1G` slices, and
-  the completed ledger records `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, and `GAR-IOREUSE-1C` as
-  completed SourceState, VortexPreparedState, and OutputPlan benchmark/report evidence.
-- Benchmark docs list the planned benchmark families and metrics.
+- The phase plan contains detailed remaining `GAR-IOREUSE-1E` through `GAR-IOREUSE-1G` slices, and
+  the completed ledger records `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, `GAR-IOREUSE-1C`, and
+  `GAR-IOREUSE-1D` as completed SourceState, VortexPreparedState, OutputPlan, and fanout benchmark
+  matrix evidence.
+- Benchmark docs list the tracked benchmark families and metrics.
 - Compute-flow docs show the decoupled path:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`.
 - The global architecture review mirrors unchecked follow-up items.
