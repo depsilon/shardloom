@@ -301,6 +301,15 @@ artifact with `cache_invalidation_contract_schema_version`, `cache_invalidation_
 fingerprints are internally consistent; it is not a persistent cache hit, hidden fast mode, or
 performance evidence.
 
+`GAR-IOREUSE-1F` adds an evidence-safe reuse-level contract and `reuse_level_matrix` to the
+JSON/Markdown artifact. Rows normalize `discovery_reuse`, `schema_reuse`, `parse_plan_reuse`,
+`prepared_vortex_reuse`, `operator_source_state_reuse`, `output_plan_reuse`, and
+`result_replay_reuse` as `reuse_hit`, `reuse_miss`, `not_needed`, `blocked`, `unsupported`,
+`invalidated`, or `report_only`. Reuse-level rows keep `execution_mode`, `evidence_level`,
+`output_format`, `claim_gate_status=not_claim_grade`, `claim_grade_requirements_met=false`,
+`fallback_attempted=false`, and `external_engine_invoked=false` visible; reuse evidence does not
+upgrade correctness, output, performance, or production claims.
+
 The scoped direct-transient lane can be run explicitly:
 
 ```powershell

@@ -329,9 +329,9 @@ The bundle requires these evidence groups before any runtime support claim:
   refs, output replay refs when requested, and output Native I/O certificate refs.
 - Invalidation refs for stale source, stale prepared state, stale output plan, or policy mismatch.
 
-## Reuse Levels
+## Evidence-Safe Reuse Levels
 
-The planned reuse evidence levels are:
+Implemented `GAR-IOREUSE-1F` evidence-safe reuse levels are:
 
 ```text
 discovery_reuse
@@ -343,7 +343,9 @@ output_plan_reuse
 result_replay_reuse
 ```
 
-Reuse rows should classify each reusable layer independently:
+The traditional analytics benchmark artifact and Markdown report now include a
+`shardloom.traditional_analytics.evidence_safe_reuse_levels.v1` contract object and a
+`reuse_level_matrix`. Reuse rows classify each reusable layer independently:
 
 ```text
 source_state_reuse_status
@@ -365,23 +367,48 @@ invalidated
 report_only
 ```
 
-Every row must preserve `fallback_attempted=false`, `external_engine_invoked=false`, and
-`claim_gate_status`.
+Every reuse-level row preserves `fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status=not_claim_grade`.
 
-Required future reuse fields:
+Implemented reuse-level matrix fields:
 
 ```text
 reuse_level
+reuse_status
 reuse_hit
 reuse_digest
 reuse_allowed
 reuse_blocker
+layer_invalidation_reason
+execution_mode
 evidence_level
+output_format
 claim_gate_status
+claim_grade_requirements_met=false
+fallback_attempted=false
+external_engine_invoked=false
 ```
 
-Reuse never hides execution mode and never upgrades claim status by itself. Reuse evidence should be
-visible in both `minimal_runtime` and `certified` modes.
+Each benchmark result also carries summary fields:
+
+```text
+reuse_level_contract_schema_version=shardloom.traditional_analytics.evidence_safe_reuse_levels.v1
+reuse_level_status_vocabulary
+reuse_level_supported_levels
+reuse_level_matrix_ref=artifact.reuse_level_matrix
+reuse_level_summary_digest
+reuse_level_hit_count
+reuse_level_allowed_count
+reuse_level_claim_gate_status=not_claim_grade
+claim_grade_requirements_met=false
+reuse_level_fallback_attempted=false
+reuse_level_external_engine_invoked=false
+reuse_level_claim_boundary
+```
+
+Reuse never hides execution mode and never upgrades claim status by itself. Reuse evidence is
+visible alongside `minimal_runtime`, `certified`, and `full_replay` evidence levels, but reuse hits
+or misses are not correctness, output-fidelity, or performance evidence by themselves.
 
 ## Cache Invalidation And Fingerprints
 

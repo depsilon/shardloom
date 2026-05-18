@@ -270,8 +270,8 @@ support status, row counts, decode/materialization status, `fallback_attempted=f
 `external_engine_invoked=false`, `claim_gate_status`, and an unsupported reason where applicable.
 
 `GAR-IOREUSE-1` adds the I/O reuse and cross-format fanout benchmark bundle. Current rows already
-emit SourceState, VortexPreparedState, OutputPlan, report-only fanout benchmark, and cache
-invalidation/fingerprint contracts for the stable path
+emit SourceState, VortexPreparedState, OutputPlan, report-only fanout benchmark, cache
+invalidation/fingerprint, and evidence-safe reuse-level contracts for the stable path
 `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
 SinkArtifact`; future runtime fanout rows must continue using that path and must not couple input
 and output formats. Benchmark families are `io_reuse_and_fanout`, `source_state_reuse`,
@@ -295,6 +295,13 @@ Current cache invalidation rows expose `source_fingerprint_kind`, `source_conten
 credential-redaction status, and `claim_gate_status=not_claim_grade`. These rows are local fingerprint
 posture only; they do not add a persistent cache, hidden fast mode, object-store cache, or cache
 performance claim.
+
+Current evidence-safe reuse-level rows expose the
+`shardloom.traditional_analytics.evidence_safe_reuse_levels.v1` contract and classify
+`discovery_reuse`, `schema_reuse`, `parse_plan_reuse`, `prepared_vortex_reuse`,
+`operator_source_state_reuse`, `output_plan_reuse`, and `result_replay_reuse` independently from
+execution mode, evidence level, output format, and claim gate. Reuse hits or misses remain
+`not_claim_grade` visibility evidence only.
 
 `runtime-report --format json` now mirrors this timing vocabulary as the
 GAR-0018-A report-only runtime-introspection schema. That command is an
@@ -487,6 +494,10 @@ GAR-IOREUSE-1E adds the cache invalidation/fingerprint matrix with current local
 plan/output fingerprint posture, source mtime/size fields, plan/output-plan digests, cache-valid
 status, invalidation reason, object-store ETag posture, credential-redaction status, no-fallback fields,
 and `claim_gate_status=not_claim_grade`.
+GAR-IOREUSE-1F adds the evidence-safe reuse-level matrix with seven normalized reuse layers,
+per-level status, hit/allowed/digest/blocker fields, invalidation reason linkage, evidence-level
+visibility, `claim_grade_requirements_met=false`, no-fallback fields, and
+`claim_gate_status=not_claim_grade`.
 Remaining GAR-PERF-1 follow-ups are fused
 filter/project/limit and selection-vector execution plus the report-only Bayesian performance/layout
 advisor. These are evidence and architecture slices: benchmark outputs must remain local

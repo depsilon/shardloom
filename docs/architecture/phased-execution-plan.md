@@ -746,106 +746,12 @@ InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPla
 The benchmark bundle vocabulary is `io_reuse_and_fanout`, `source_state_reuse`,
 `prepared_state_reuse`, `output_plan_reuse`, `cross_format_output`, and
 `generated_source_output`. SourceState, VortexPreparedState, OutputPlan, report-only fanout
-benchmark rows, and cache/fingerprint invalidation rows are now established by GAR-IOREUSE-1A
-through GAR-IOREUSE-1E. The active follow-through starts with evidence-safe reuse levels, then
+benchmark rows, cache/fingerprint invalidation rows, and evidence-safe reuse-level rows are now
+established by GAR-IOREUSE-1A through GAR-IOREUSE-1F. The active follow-through starts with
 Foundry generated-output fanout posture. Runtime fanout writers, persistent caches, multi-output
 correctness/replay evidence, object-store output, lakehouse/table commit semantics, hidden fast
 modes, external engine fallback, and performance claims remain out of scope until separate
 evidence-bearing slices admit them.
-
-- [ ] GAR-IOREUSE-1F evidence-safe reuse levels
-  - Source:
-    - GAR-IOREUSE-1A through GAR-IOREUSE-1E.
-    - `docs/architecture/io-reuse-and-fanout-architecture.md`.
-    - `docs/architecture/runtime-evidence-level-tiering.md`.
-    - `docs/architecture/operational-evidence-policy-hardening.md`.
-    - RFC 0029 certificates and state reuse.
-    - RFC 0039 typed command/result envelope.
-  - Current state:
-    - Scoped evidence-level runtime tiering exists for `traditional-analytics-vortex-batch-run`
-      under `GAR-PERF-2A`, but reuse levels are not yet first-class fields across source state,
-      prepared state, operator source-state, output plan, and sink artifacts.
-    - Minimal evidence or reuse-hit rows must not accidentally become claim-grade.
-  - Next slice outcome:
-    - Define evidence-safe reuse levels for each layer:
-      - `discovery_reuse`.
-      - `schema_reuse`.
-      - `parse_plan_reuse`.
-      - `prepared_vortex_reuse`.
-      - `operator_source_state_reuse`.
-      - `output_plan_reuse`.
-      - `result_replay_reuse`.
-    - Define allowed statuses: `reuse_hit`, `reuse_miss`, `not_needed`, `blocked`, `unsupported`,
-      `invalidated`, and `report_only`.
-    - Keep evidence level, execution mode, reuse status, and claim gate independent.
-  - User-visible surface:
-    - typed CLI envelopes.
-    - Python typed models if exposed.
-    - benchmark rows.
-    - website benchmark explanation.
-    - compute-flow docs.
-  - Implementation scope:
-    - typed evidence envelope fields.
-    - benchmark row schema.
-    - Python typed accessors if fields are surfaced.
-    - website benchmark copy/readiness rules.
-    - release metadata checks if claims could be affected.
-  - Evidence required:
-    - `reuse_level`.
-    - `reuse_hit`.
-    - `reuse_digest`.
-    - `reuse_allowed`.
-    - `reuse_blocker`.
-    - `execution_mode`.
-    - `evidence_level`.
-    - layer-specific reuse status fields.
-    - layer-specific reuse hit fields.
-    - layer-specific invalidation reason fields.
-    - `claim_gate_status`.
-    - `claim_grade_requirements_met=false` for evidence-light/reuse-only rows unless later gates
-      explicitly approve.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-  - Acceptance:
-    - Reuse never hides execution mode.
-    - Reuse never upgrades claim status by itself.
-    - Reuse evidence is visible in `minimal_runtime` and `certified` modes.
-    - Reuse-hit evidence is not treated as correctness, output, or performance evidence by itself.
-    - `minimal_runtime` and reuse-only rows remain `not_claim_grade` unless a later scoped gate
-      attaches correctness, Native I/O, materialization/decode, output, reproducibility, and
-      no-fallback evidence.
-    - Unsupported, blocked, invalidated, and report-only statuses remain machine-readable.
-    - Execution mode, evidence level, reuse level, and output format remain separate fields.
-  - Verification:
-    - typed envelope snapshot tests.
-    - benchmark row contract tests.
-    - release-readiness metadata tests.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`.
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`.
-    - `python scripts/check_website_readiness.py`.
-    - `git diff --check`.
-  - Non-goals:
-    - no runtime speed mode.
-    - no hidden cache.
-    - no claim-grade promotion.
-    - no performance/superiority claim.
-    - no object-store/lakehouse or Foundry runtime.
-    - no external fallback.
-  - Claim boundary:
-    - Evidence-safe reuse levels may claim only that reuse status and evidence completeness are
-      visible and machine-readable.
-    - They do not authorize performance, superiority, Spark-displacement, production,
-      SQL/DataFrame, object-store/lakehouse, Foundry, package, or release claims.
-  - Fallback boundary:
-    - `fallback_attempted=false` and `external_engine_invoked=false` are mandatory for every reuse
-      level and every evidence level.
-  - Ledger rule:
-    - When complete, move the detailed completed session to the completed ledger with envelope
-      snapshots, benchmark row refs, readiness refs, and no-fallback evidence.
-  - Dependencies/blockers:
-    - evidence-level runtime tiering, typed envelope schema, benchmark row schema, claim-gate
-      policy, SourceState/VortexPreparedState/OutputPlan reuse status fields, Python typed models,
-      and release/readiness metadata checks.
 
 - [ ] GAR-IOREUSE-1G Foundry no-input generated-output fanout
   - Source:

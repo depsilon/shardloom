@@ -171,6 +171,13 @@ rows expose `source_fingerprint_kind`, `source_content_digest`, `source_mtime`, 
 `cache_valid=true` means current-row local fingerprints are internally consistent; it is not a
 persistent cache hit, hidden fast mode, object-store cache, or performance claim.
 
+`GAR-IOREUSE-1F` adds evidence-safe reuse levels through
+`reuse_level_contract_schema_version=shardloom.traditional_analytics.evidence_safe_reuse_levels.v1`
+and `reuse_level_matrix`. Matrix rows classify `discovery_reuse`, `schema_reuse`,
+`parse_plan_reuse`, `prepared_vortex_reuse`, `operator_source_state_reuse`, `output_plan_reuse`,
+and `result_replay_reuse` independently from execution mode, evidence level, output format, and
+claim gate. Reuse hits or misses remain `not_claim_grade` visibility evidence only.
+
 `GAR-PERF-1C` adds scoped fused-pipeline evidence for the current prepared/native
 filter/projection/limit row and selective-filter selection-vector metric aggregation row. The
 benchmark harness now carries `fused_pipeline_*` fields, including `fused_pipeline_used`,
