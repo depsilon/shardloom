@@ -822,6 +822,12 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             allow_stderr: false,
             fields: &[
                 ("universal_harness_status", "evidence_incomplete"),
+                (
+                    "universal_harness_execution_gate_status",
+                    "blocked_missing_evidence",
+                ),
+                ("universal_harness_execution_allowed", "false"),
+                ("universal_harness_execution_attempted", "false"),
                 ("foundry_required", "false"),
                 ("foundry_optional_example", "true"),
                 ("foundry_optional_harness_required", "true"),

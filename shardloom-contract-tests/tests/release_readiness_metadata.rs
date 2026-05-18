@@ -2394,6 +2394,79 @@ fn gar_0037_a_wrapper_connector_registry_remains_claim_safe() {
 }
 
 #[test]
+fn gar_0030_a_universal_harness_execution_gate_remains_report_only() {
+    let core = read_repo_file("shardloom-core/src/universal_harness.rs");
+    for required in [
+        "UniversalHarnessExecutionGateStatus",
+        "BlockedMissingEvidence",
+        "execution_gate_required_evidence_refs",
+        "execution_gate_missing_evidence_refs",
+        "capability_refs",
+        "execution_certificate_refs",
+        "native_io_certificate_refs",
+        "policy_no_fallback_refs",
+        "output_artifact_refs",
+        "correctness_evidence_refs",
+        "benchmark_evidence_refs",
+        "execution_allowed: false",
+        "execution_attempted: false",
+    ] {
+        assert!(
+            core.contains(required),
+            "missing universal harness execution-gate marker {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/evidence_certificates.rs");
+    for required in [
+        "universal_harness_execution_gate_status",
+        "universal_harness_execution_allowed",
+        "universal_harness_execution_attempted",
+        "universal_harness_required_evidence_refs",
+        "universal_harness_attached_evidence_refs",
+        "universal_harness_missing_evidence_refs",
+        "capability_evidence_required",
+        "execution_certificate_required",
+        "native_io_certificate_required",
+        "policy_no_fallback_evidence_required",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing universal harness CLI gate field {required}"
+        );
+    }
+
+    let typed_envelope = read_repo_file("shardloom-cli/src/typed_envelope.rs");
+    assert!(typed_envelope.contains("universal_harness_execution_gate_status"));
+    assert!(typed_envelope.contains("universal_harness_missing_evidence_refs"));
+
+    let harness_doc =
+        read_repo_file("docs/architecture/universal-import-deployment-baseline-harness.md");
+    assert!(harness_doc.contains("GAR-0030-A"));
+    assert!(harness_doc.contains("blocked_missing_evidence"));
+    assert!(harness_doc.contains("universal_harness_execution_allowed=false"));
+    assert!(harness_doc.contains("External baseline environments remain comparison-only"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0030-A"));
+    assert!(plan.contains("GAR-0030-A is complete and recorded in the completed ledger"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0030-A universal harness execution gate"));
+    assert!(completed.contains("universal_harness_execution_gate_status=blocked_missing_evidence"));
+    assert!(completed.contains("External baselines remain comparison-only"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0030-A` adds `universal_harness_execution_gate_status`"));
+    assert!(gar.contains("actual universal harness execution remain unimplemented"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0030-A"));
+    assert!(traceability.contains("explicit `universal_harness_execution_gate_status`"));
+    assert!(traceability.contains("actual harness execution"));
+}
+
+#[test]
 fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
     let typed_doc = read_repo_file("docs/architecture/typed-command-result-envelope.md");
     for required in [

@@ -800,11 +800,15 @@ plan before coding.
 - [x] CLI JSON protocol, typed envelope, Python wrapper, plan import/export, and harness reports
   exist.
 - [x] External engines remain comparison/oracle references only.
-- [ ] `GAR-COMMERCIAL-1A` turns the source-local dry-run and first-10-minutes flow into a single
+- [x] `GAR-COMMERCIAL-1A` turns the source-local dry-run and first-10-minutes flow into a single
   adoption path for install/local build, smoke, generated-source posture, tiny prepared/native
   example, and evidence inspection without requiring architecture-doc reading.
-- [ ] Imported-plan execution and universal harness execution remain unimplemented without capability,
-  certificate, Native I/O, and no-fallback evidence.
+- [x] `GAR-0030-A` adds `universal_harness_execution_gate_status`,
+  `universal_harness_execution_allowed=false`, attached/missing evidence refs, and required
+  capability, execution-certificate, Native I/O, policy/no-fallback, output, correctness, and
+  benchmark evidence fields to keep harness execution blocked until evidence is attached.
+- [ ] Imported-plan execution and actual universal harness execution remain unimplemented without
+  capability, certificate, Native I/O, and no-fallback evidence.
 
 ### RFC 0031 - Universal Native I/O Envelope
 

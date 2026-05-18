@@ -1175,20 +1175,12 @@ publication state, execution claims, fallback policy, or release gates.
   - Non-goals: no Substrait execution or dependency expansion.
   - Fallback/claim boundary: imported plans are not runtime-supported.
   - Dependencies/blockers: dependency/license approval for any parser library.
-- [ ] GAR-0030-A universal harness execution gate
-  - Source: RFC 0030; universal import/deployment baseline harness; RFC 0029.
-  - Current state: universal harness is report-only; imported-plan execution needs capability,
-    certificate, Native I/O, and no-fallback evidence.
-  - Next slice outcome: gate that blocks harness execution until the evidence set is attached.
-  - User-visible surface: CLI universal harness plan, docs, release gate.
-  - Implementation scope: harness report fields, CLI output, tests.
-  - Evidence required: capability refs, execution certificate refs, Native I/O refs, policy/no-fallback
-    refs.
-  - Acceptance: harness execution cannot be confused with environment/report readiness.
-  - Verification: universal harness tests, release readiness metadata tests.
-  - Non-goals: no harness execution, external engine invocation, or container publication.
-  - Fallback/claim boundary: external baselines remain comparison-only.
-  - Dependencies/blockers: GAR-0022 import/export status.
+GAR-0030-A is complete and recorded in the completed ledger. The completed slice adds explicit
+universal-harness execution-admission fields to `UniversalHarnessReport` and
+`universal-harness-plan --format json`: execution gate status, execution allowed/attempted flags,
+required/attached/missing evidence refs, and required capability, execution-certificate, Native I/O,
+policy/no-fallback, output, correctness, and benchmark evidence. Harness execution remains blocked
+and environment readiness remains separate from runtime execution.
 - [ ] GAR-0032-A SQL parser/binder report-only readiness
   - Source: RFC 0032; RFC 0010; rfc-coverage followthrough.
   - Current state: SQL capability concepts exist; SQL parser/binder/execution is not a broad runtime.

@@ -36,12 +36,27 @@ fn universal_harness_json_exposes_cg18_contract() {
     assert!(output.contains(&field("plan_only", "true")));
     assert!(output.contains(&field("schema_version", "shardloom.universal_harness.v1")));
     assert!(output.contains(&field("universal_harness_status", "evidence_incomplete")));
+    assert!(output.contains(&field(
+        "universal_harness_execution_gate_status",
+        "blocked_missing_evidence"
+    )));
+    assert!(output.contains(&field("universal_harness_execution_allowed", "false")));
+    assert!(output.contains(&field("universal_harness_execution_attempted", "false")));
     assert!(output.contains(&field("surface_count", "7")));
     assert!(output.contains(&field("harness_environment_count", "5")));
     assert!(output.contains(&field("external_baseline_count", "6")));
     assert!(output.contains(&field(
         "runner_contract_field_order",
         "command,schema_version,exit_code,status,diagnostics,fallback_execution_allowed,side_effects,output_artifacts,metrics"
+    )));
+    assert!(output.contains(&field(
+        "universal_harness_required_evidence_refs",
+        "capability_refs,execution_certificate_refs,native_io_certificate_refs,policy_no_fallback_refs,output_envelope_refs,output_artifact_refs,correctness_evidence_refs,benchmark_evidence_refs"
+    )));
+    assert!(output.contains(&field("universal_harness_attached_evidence_refs", "")));
+    assert!(output.contains(&field(
+        "universal_harness_missing_evidence_refs",
+        "capability_refs,execution_certificate_refs,native_io_certificate_refs,policy_no_fallback_refs,output_envelope_refs,output_artifact_refs,correctness_evidence_refs,benchmark_evidence_refs"
     )));
     assert!(output.contains(&field(
         "surface_kind_order",
@@ -71,6 +86,10 @@ fn universal_harness_json_preserves_no_execution_or_publish_effects() {
     assert!(output.contains(&field("comparison_dataset_required", "true")));
     assert!(output.contains(&field("correctness_evidence_required", "true")));
     assert!(output.contains(&field("benchmark_evidence_required", "true")));
+    assert!(output.contains(&field("capability_evidence_required", "true")));
+    assert!(output.contains(&field("execution_certificate_required", "true")));
+    assert!(output.contains(&field("native_io_certificate_required", "true")));
+    assert!(output.contains(&field("policy_no_fallback_evidence_required", "true")));
     assert!(output.contains(&field("foundry_required", "false")));
     assert!(output.contains(&field("foundry_optional_example", "true")));
     assert!(output.contains(&field("local_harness_required", "true")));

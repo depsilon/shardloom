@@ -350,8 +350,9 @@ pub use translation::{
 pub use universal_harness::{
     ExternalBaselineHarnessRequirement, UniversalHarnessEnvironmentKind,
     UniversalHarnessEnvironmentRequirement, UniversalHarnessEnvironmentStatus,
-    UniversalHarnessReport, UniversalHarnessStatus, UniversalHarnessSurface,
-    UniversalHarnessSurfaceKind, UniversalHarnessSurfaceStatus, plan_universal_harness,
+    UniversalHarnessExecutionGateStatus, UniversalHarnessReport, UniversalHarnessStatus,
+    UniversalHarnessSurface, UniversalHarnessSurfaceKind, UniversalHarnessSurfaceStatus,
+    plan_universal_harness,
 };
 pub use unstructured_workflow::{
     BoundaryExecutor, DeterminismLevel, EmbeddingBoundaryReport, EmbeddingTable,

@@ -204,6 +204,11 @@ Acceptance:
 - `universal-harness-plan --format json` exposes environment counts, environment order, baseline
   order, required local/CI/container/optional Foundry/optional benchmark harness flags, and
   `external_engines_as_runtime_dependencies_allowed=false`.
+- `universal-harness-plan --format json` exposes an explicit execution gate with
+  `universal_harness_execution_gate_status=blocked_missing_evidence`,
+  `universal_harness_execution_allowed=false`, attached/missing evidence refs, and required
+  capability, execution-certificate, Native I/O, policy/no-fallback, output, correctness, and
+  benchmark evidence.
 - External engines remain optional comparison-only environments and must not become ShardLoom
   runtime dependencies.
 - Foundry remains optional context in RFC 0030; richer Foundry packaging and platform integration

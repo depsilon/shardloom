@@ -16,6 +16,43 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0030-A universal harness execution gate
+  - Primary files:
+    - `shardloom-core/src/universal_harness.rs`
+    - `shardloom-cli/src/evidence_certificates.rs`
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/universal_harness_plan_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `docs/architecture/universal-import-deployment-baseline-harness.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add an explicit universal-harness execution-admission gate to the existing report-only
+    CG-18 harness surface.
+  - Checklist:
+    - [x] Add `universal_harness_execution_gate_status=blocked_missing_evidence`.
+    - [x] Add execution allowed/attempted flags that stay false for report-only harness posture.
+    - [x] Add required, attached, and missing evidence refs for capability, execution certificate,
+          Native I/O, policy/no-fallback, output, correctness, and benchmark evidence.
+    - [x] Expose the gate through CLI flat fields and the typed `universal_harness_report` payload.
+    - [x] Move GAR-0030-A out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo test -p shardloom-core universal_harness --lib`
+    - `cargo test -p shardloom-cli --test universal_harness_plan_snapshots`
+    - `cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a report-only execution gate. It does not execute the universal harness, import plans,
+      publish packages, run containers, invoke Foundry, invoke external baselines, materialize
+      comparison datasets, or create performance, production, release, or Spark-replacement claims.
+  - Fallback boundary:
+    - External baselines remain comparison-only and cannot satisfy ShardLoom execution evidence or
+      act as fallback execution.
+
 - [x] Session label: GAR-0039-B typed-envelope fixtures and helper centralization
   - Primary files:
     - `shardloom-cli/src/typed_envelope.rs`

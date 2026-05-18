@@ -274,11 +274,21 @@ fn foundry_adjacent_harness_fixture_remains_optional_and_report_only() {
     assert!(output.contains(&field("command_family", "evidence_certificates")));
     assert!(output.contains(&field("mode", "universal_harness_plan")));
     assert!(output.contains(&field("universal_harness_status", "evidence_incomplete")));
+    assert!(output.contains(&field(
+        "universal_harness_execution_gate_status",
+        "blocked_missing_evidence"
+    )));
+    assert!(output.contains(&field("universal_harness_execution_allowed", "false")));
+    assert!(output.contains(&field("universal_harness_execution_attempted", "false")));
     assert!(output.contains(&field("foundry_required", "false")));
     assert!(output.contains(&field("foundry_optional_example", "true")));
     assert!(output.contains(&field("foundry_optional_harness_required", "true")));
     assert!(output.contains(&field("external_baseline_execution", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field(
+        "universal_harness_missing_evidence_refs",
+        "capability_refs,execution_certificate_refs,native_io_certificate_refs,policy_no_fallback_refs,output_envelope_refs,output_artifact_refs,correctness_evidence_refs,benchmark_evidence_refs"
+    )));
     assert!(output.contains("\"artifact_kind\":\"universal_harness_report\""));
     assert!(output.contains("\"artifact_id\":\"cg18.universal-harness\""));
 }
