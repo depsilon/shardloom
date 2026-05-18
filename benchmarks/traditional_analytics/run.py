@@ -327,6 +327,43 @@ BATCH_RUNNER_ADMISSION_FIELDS = (
     "source_state_dirty_input_reuse_status",
     "source_state_date_null_metric_reuse_status",
 )
+SOURCE_STATE_CONTRACT_SCHEMA_VERSION = "shardloom.traditional_analytics.source_state.v1"
+SOURCE_STATE_CONTRACT_STATUS_VOCABULARY = (
+    "source_state_reuse_supported",
+    "not_needed",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+SOURCE_STATE_CONTRACT_FIELDS = (
+    "source_state_contract_schema_version",
+    "source_state_status_vocabulary",
+    "source_state_status",
+    "source_state_id",
+    "source_state_digest",
+    "source_format",
+    "source_location",
+    "source_fingerprint_kind",
+    "schema_digest",
+    "row_count_known",
+    "file_count",
+    "byte_size",
+    "partition_columns",
+    "compression",
+    "source_state_reuse_allowed",
+    "source_discovery_millis",
+    "schema_inference_millis",
+    "source_parse_millis",
+    "parse_decode_plan_digest",
+    "source_state_reuse_hit",
+    "source_state_reuse_reason",
+    "source_state_materialization_decode_boundary_ref",
+    "source_state_fallback_attempted",
+    "source_state_external_engine_invoked",
+    "source_state_claim_gate_status",
+    "source_state_claim_boundary",
+)
 SESSION_RUNTIME_FIELDS = (
     "session_schema_version",
     "session_id",
@@ -542,6 +579,7 @@ DASK_BLOCKSIZE = "16MB"
 DASK_SCHEDULER = "threads"
 SHARDLOOM_BUILD_PROFILE = "release"
 SHARDLOOM_RESULT_SINK = False
+SHARDLOOM_EVIDENCE_LEVEL = "certified"
 MIN_CLAIM_GRADE_ITERATIONS = 3
 CLAIM_READINESS_RERUN_ENGINES = (
     "shardloom",
@@ -2607,6 +2645,12 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
             }
         )
+        for field in SESSION_RUNTIME_FIELDS:
+            fields.setdefault(field, batch_fields.get(field, "unknown"))
+        for field in ALLOCATION_RESOURCE_PROFILE_FIELDS:
+            fields.setdefault(field, batch_fields.get(field, "unknown"))
+        for field in RUNTIME_EVIDENCE_LEVEL_FIELDS:
+            fields.setdefault(field, batch_fields.get(field, "unknown"))
         return {
             "__benchmark_result": json.loads(result_json),
             "__shardloom_evidence": fields,
@@ -2634,7 +2678,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             "--execution-mode",
             "prepared_vortex",
             "--evidence-level",
-            args.shardloom_evidence_level,
+            SHARDLOOM_EVIDENCE_LEVEL,
             "--format",
             "json",
         ]
@@ -4381,6 +4425,163 @@ def scenario_bytes(paths: DatasetPaths, scenario: str, data_format: str) -> int:
     return total
 
 
+def source_state_path_text(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(workspace_root()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def source_state_paths(paths: DatasetPaths, scenario: str, data_format: str) -> tuple[Path, ...]:
+    if data_format == SHARDLOOM_VORTEX_FORMAT:
+        return ()
+    if scenario == "many-small-files scan":
+        parts = fact_part_paths(paths, data_format)
+        if parts:
+            return parts
+    source_paths: list[Path] = []
+    for role in SCENARIO_BYTES.get(scenario, ("fact",)):
+        source_paths.append(
+            fact_path(paths, data_format) if role == "fact" else dim_path(paths, data_format)
+        )
+    if (
+        scenario == "small change over large base"
+        and paths.cdc_delta_csv is not None
+        and paths.cdc_delta_csv.exists()
+    ):
+        source_paths.append(paths.cdc_delta_csv)
+    return tuple(source_paths)
+
+
+def source_state_compression(data_format: str) -> str:
+    return {
+        "csv": "none",
+        "jsonl": "none",
+        "parquet": "pyarrow_default",
+        "arrow-ipc": "none",
+        "avro": "fastavro_default",
+        "orc": "pyarrow_default",
+    }.get(data_format, "unsupported")
+
+
+def source_state_reuse_reason(engine: str, evidence: dict[str, Any], status: str) -> str:
+    if not is_shardloom_engine(engine):
+        return "external baseline rows do not create or reuse ShardLoom SourceState"
+    if status in {"unsupported", "unsupported_format", "execution_error"}:
+        return "row did not execute; SourceState posture is deterministic but not reusable"
+    if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
+        return str(
+            evidence.get(
+                "source_state_reuse_status",
+                "prepared/native batch row did not report source-state reuse status",
+            )
+        )
+    if engine == "shardloom-direct-transient":
+        return "direct transient smoke reads one local compatibility source without reusable SourceState"
+    return "one-shot compatibility import records SourceState identity but does not reuse it"
+
+
+def source_state_contract_metadata(
+    engine: str,
+    paths: DatasetPaths,
+    scenario: str,
+    data_format: str,
+    *,
+    status: str,
+    evidence: dict[str, Any] | None = None,
+    source_parse_millis: float | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    supported_format = data_format in FORMAT_ORDER
+    source_paths = source_state_paths(paths, scenario, data_format) if supported_format else ()
+    source_locations = [source_state_path_text(path) for path in source_paths]
+    source_sizes = [path.stat().st_size for path in source_paths if path.exists()]
+    byte_size = sum(source_sizes) if source_sizes else 0
+    schema_digest = canonical_digest(
+        {
+            "dataset_profile": paths.dataset_profile,
+            "dim_rows": paths.dim_rows,
+            "fact_extra_columns": paths.fact_extra_columns,
+            "format": data_format,
+            "roles": SCENARIO_BYTES.get(scenario, ("fact",)),
+            "rows": paths.rows,
+        }
+    )
+    source_state_digest = canonical_digest(
+        {
+            "byte_size": byte_size,
+            "file_count": len(source_locations),
+            "locations": source_locations,
+            "schema_digest": schema_digest,
+            "source_format": data_format,
+        }
+    )
+    parse_decode_plan_digest = canonical_digest(
+        {
+            "format": data_format,
+            "roles": SCENARIO_BYTES.get(scenario, ("fact",)),
+            "scenario": scenario,
+            "source_state_schema": SOURCE_STATE_CONTRACT_SCHEMA_VERSION,
+        }
+    )
+    batch_row = evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS
+    batch_reuse_allowed = is_shardloom and batch_row and status == "success"
+    source_state_reused = parse_optional_bool(evidence.get("source_state_reused")) is True
+    if not is_shardloom:
+        source_state_status = "external_baseline_only"
+    elif not supported_format:
+        source_state_status = "unsupported"
+    elif status in {"unsupported", "unsupported_format"}:
+        source_state_status = "unsupported"
+    elif status == "execution_error":
+        source_state_status = "blocked"
+    elif batch_reuse_allowed:
+        source_state_status = "source_state_reuse_supported"
+    elif engine == "shardloom-direct-transient":
+        source_state_status = "not_needed"
+    else:
+        source_state_status = "report_only"
+    source_state_id = (
+        f"source-state:{paths.dataset_profile}:{data_format}:{source_state_digest[:12]}"
+        if is_shardloom
+        else "none"
+    )
+    return {
+        "source_state_contract_schema_version": SOURCE_STATE_CONTRACT_SCHEMA_VERSION,
+        "source_state_status_vocabulary": ",".join(SOURCE_STATE_CONTRACT_STATUS_VOCABULARY),
+        "source_state_status": source_state_status,
+        "source_state_id": source_state_id,
+        "source_state_digest": source_state_digest if is_shardloom else "none",
+        "source_format": data_format,
+        "source_location": ";".join(source_locations) if source_locations else "none",
+        "source_fingerprint_kind": "local_file_size_schema_digest",
+        "schema_digest": schema_digest,
+        "row_count_known": supported_format,
+        "file_count": len(source_locations),
+        "byte_size": byte_size,
+        "partition_columns": "event_date" if scenario in {"partition pruning", "null-heavy aggregate"} else "none",
+        "compression": source_state_compression(data_format),
+        "source_state_reuse_allowed": batch_reuse_allowed,
+        "source_discovery_millis": None,
+        "schema_inference_millis": None,
+        "source_parse_millis": source_parse_millis,
+        "parse_decode_plan_digest": parse_decode_plan_digest,
+        "source_state_reuse_hit": source_state_reused,
+        "source_state_reuse_reason": source_state_reuse_reason(engine, evidence, status),
+        "source_state_materialization_decode_boundary_ref": MATERIALIZATION_POLICY_REF,
+        "source_state_fallback_attempted": False,
+        "source_state_external_engine_invoked": False,
+        "source_state_claim_gate_status": "not_claim_grade",
+        "source_state_claim_boundary": (
+            "SourceState evidence covers local source discovery, schema identity, parse/decode "
+            "planning, fingerprinting, and scoped reuse posture only; it is not output support, "
+            "Vortex-native execution, performance, production, SQL/DataFrame, object-store/"
+            "lakehouse, Foundry, package, release, or Spark-replacement evidence"
+        ),
+    }
+
+
 def rows_scanned(paths: DatasetPaths, scenario: str) -> int:
     if scenario in {
         "hash join",
@@ -4749,6 +4950,35 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         and metrics.get("scan_pushdown_external_engine_invoked") is True
     ):
         raise RuntimeError("scan pushdown evidence cannot report external engine execution")
+    if is_shardloom_engine(str(result.get("engine") or "")):
+        missing_source_state_fields = [
+            field for field in SOURCE_STATE_CONTRACT_FIELDS if field not in metrics
+        ]
+        if missing_source_state_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted SourceState contract fields: "
+                + ", ".join(missing_source_state_fields)
+            )
+        if metrics.get("source_state_fallback_attempted") is not False:
+            raise RuntimeError("SourceState evidence cannot report fallback attempts")
+        if metrics.get("source_state_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "SourceState evidence cannot report external engine execution"
+            )
+        if metrics.get("source_state_claim_gate_status") != "not_claim_grade":
+            raise RuntimeError("SourceState evidence cannot upgrade claim status")
+        if (
+            metrics.get("source_state_status") == "source_state_reuse_supported"
+            and metrics.get("source_state_reuse_allowed") is not True
+        ):
+            raise RuntimeError("SourceState reuse-supported rows must allow reuse explicitly")
+        if (
+            metrics.get("source_state_status") == "source_state_reuse_supported"
+            and result.get("selected_execution_mode") == "compatibility_import_certified"
+        ):
+            raise RuntimeError(
+                "SourceState reuse cannot turn compatibility-import rows into prepared/native rows"
+            )
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
         and result.get("status") == "success"
@@ -5207,6 +5437,93 @@ def format_preparation_matrix(results: list[dict[str, Any]]) -> list[dict[str, A
                 "total_runtime_millis": metrics.get("total_runtime_millis"),
                 "persistent_runner_status": metrics.get("persistent_runner_status"),
                 "claim_gate_status": result.get("claim_gate_status"),
+            }
+        )
+    return rows
+
+
+def source_state_contract() -> dict[str, Any]:
+    return {
+        "contract_id": SOURCE_STATE_CONTRACT_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(SOURCE_STATE_CONTRACT_STATUS_VOCABULARY),
+        "row_fields": list(SOURCE_STATE_CONTRACT_FIELDS),
+        "supported_local_formats": list(FORMAT_ORDER),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> "
+            "OutputPlan -> SinkArtifact"
+        ),
+        "current_scope": (
+            "local benchmark SourceState identity, schema/fingerprint posture, "
+            "parse/decode plan digest, and scoped prepared/native reuse visibility"
+        ),
+        "non_goals": [
+            "object-store runtime",
+            "lakehouse/table commit support",
+            "production SQL/DataFrame runtime",
+            "performance or superiority claims",
+            "implicit Vortex-native execution claims from SourceState alone",
+        ],
+        "no_fallback_rule": (
+            "SourceState rows must preserve source_state_fallback_attempted=false "
+            "and source_state_external_engine_invoked=false for ShardLoom rows."
+        ),
+        "claim_boundary": (
+            "SourceState evidence is input preparation evidence only. It may prove local "
+            "source discovery, schema identity, parse/decode planning, and scoped reuse "
+            "posture; it does not prove output support, Vortex-native execution, "
+            "performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, "
+            "package, release, or Spark-replacement readiness."
+        ),
+    }
+
+
+def source_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "source_state_contract_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "source_state_status": metrics.get("source_state_status"),
+                "source_state_id": metrics.get("source_state_id"),
+                "source_state_digest": metrics.get("source_state_digest"),
+                "source_format": metrics.get("source_format"),
+                "source_location": metrics.get("source_location"),
+                "source_fingerprint_kind": metrics.get("source_fingerprint_kind"),
+                "schema_digest": metrics.get("schema_digest"),
+                "row_count_known": metrics.get("row_count_known"),
+                "file_count": metrics.get("file_count"),
+                "byte_size": metrics.get("byte_size"),
+                "partition_columns": metrics.get("partition_columns"),
+                "compression": metrics.get("compression"),
+                "source_state_reuse_allowed": metrics.get("source_state_reuse_allowed"),
+                "source_state_reuse_hit": metrics.get("source_state_reuse_hit"),
+                "source_state_reuse_reason": metrics.get("source_state_reuse_reason"),
+                "source_discovery_millis": metrics.get("source_discovery_millis"),
+                "schema_inference_millis": metrics.get("schema_inference_millis"),
+                "source_parse_millis": metrics.get("source_parse_millis"),
+                "parse_decode_plan_digest": metrics.get("parse_decode_plan_digest"),
+                "source_state_materialization_decode_boundary_ref": metrics.get(
+                    "source_state_materialization_decode_boundary_ref"
+                ),
+                "source_state_claim_gate_status": metrics.get(
+                    "source_state_claim_gate_status"
+                ),
+                "source_state_fallback_attempted": metrics.get(
+                    "source_state_fallback_attempted"
+                ),
+                "source_state_external_engine_invoked": metrics.get(
+                    "source_state_external_engine_invoked"
+                ),
+                "source_state_claim_boundary": metrics.get("source_state_claim_boundary"),
             }
         )
     return rows
@@ -5707,6 +6024,15 @@ def failed_result(
         "scan_api_status": "not_executed",
         "persistent_runner_status": "not_executed",
     }
+    metrics.update(
+        source_state_contract_metadata(
+            engine,
+            paths,
+            scenario,
+            data_format,
+            status=status,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -6175,6 +6501,17 @@ def successful_result_from_iterations(
             "persistent_runner_status", PERSISTENT_RUNNER_STATUS
         ),
     }
+    metrics.update(
+        source_state_contract_metadata(
+            runner.name,
+            paths,
+            scenario,
+            data_format,
+            status="success" if stable else "unstable_output",
+            evidence=evidence,
+            source_parse_millis=compatibility_parse_millis,
+        )
+    )
     if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
         metrics.update(
             {
@@ -7577,6 +7914,28 @@ def render_persistent_runner_admission_gate(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_source_state_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["source_state_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Supported local formats", ", ".join(contract["supported_local_formats"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -7598,6 +7957,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "When result-sink proof is enabled, ShardLoom rows expose scenario_compute_millis and computed_result_sink_write_millis separately.",
         "ShardLoom rows expose cli_process_wall_millis and python_harness_overhead_millis where the Python harness can measure them. Build time is reported separately and excluded from per-scenario timing.",
         "Eligible prepared/native ShardLoom rows may use persistent_runner_status=single_process_batch_runner_supported; per-scenario CLI rows keep persistent_runner_status=process_per_scenario_attributed_not_reduced, and neither status permits a hidden fast mode or performance claim.",
+        "ShardLoom rows carry SourceState contract fields for local source discovery, schema identity, parse/decode planning, fingerprinting, and scoped reuse posture; SourceState is input preparation evidence and never upgrades Vortex-native, output, object-store, SQL/DataFrame, production, or performance claims.",
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -7802,6 +8162,103 @@ def render_format_preparation_matrix(artifact: dict[str, Any]) -> str:
             "Total runtime",
             "Runner",
             "Claim gate",
+        ],
+        rows,
+    )
+
+
+def render_source_state_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["source_state_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["source_state_status"]),
+                str(row["source_state_id"]),
+                str(row["source_state_digest"]),
+                str(row["source_format"]),
+                str(row["source_fingerprint_kind"]),
+                str(row["schema_digest"]),
+                str(row["row_count_known"]),
+                str(row["file_count"]),
+                format_bytes(row["byte_size"]),
+                str(row["partition_columns"]),
+                str(row["compression"]),
+                str(row["source_state_reuse_allowed"]),
+                str(row["source_state_reuse_hit"]),
+                str(row["source_state_reuse_reason"]).replace("|", "\\|"),
+                format_metric(row["source_discovery_millis"], " ms"),
+                format_metric(row["schema_inference_millis"], " ms"),
+                format_metric(row["source_parse_millis"], " ms"),
+                str(row["parse_decode_plan_digest"]),
+                str(row["source_state_materialization_decode_boundary_ref"]),
+                str(row["source_state_claim_gate_status"]),
+                str(row["source_state_fallback_attempted"]),
+                str(row["source_state_external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "false",
+                "0",
+                "n/a",
+                "none",
+                "none",
+                "false",
+                "false",
+                "no SourceState rows were emitted",
+                "n/a",
+                "n/a",
+                "n/a",
+                "none",
+                "none",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "SourceState status",
+            "SourceState id",
+            "SourceState digest",
+            "Format",
+            "Fingerprint",
+            "Schema digest",
+            "Row count known",
+            "Files",
+            "Bytes",
+            "Partitions",
+            "Compression",
+            "Reuse allowed",
+            "Reuse hit",
+            "Reuse reason",
+            "Discovery",
+            "Schema inference",
+            "Parse/decode",
+            "Parse plan digest",
+            "Materialization policy",
+            "Claim gate",
+            "Fallback",
+            "External engine",
         ],
         rows,
     )
@@ -8443,6 +8900,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_persistent_runner_admission_gate(artifact),
         "",
+        "## SourceState Contract",
+        "",
+        "This contract makes source discovery, schema identity, parse/decode planning, fingerprinting, and reuse posture visible without implying Vortex-native execution, output support, or performance claims.",
+        "",
+        render_source_state_contract(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -8464,6 +8927,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "This table separates compatibility source preparation from prepared/native Vortex query timing. CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC remain compatibility preparation inputs; Vortex is the native execution format.",
         "",
         render_format_preparation_matrix(artifact),
+        "",
+        "## ShardLoom SourceState Evidence Matrix",
+        "",
+        "SourceState is input preparation evidence. Reuse fields show whether local source preparation state was reusable for this row; they do not upgrade claim_gate_status or create object-store/lakehouse/SQL/DataFrame support.",
+        "",
+        render_source_state_matrix(artifact),
         "",
         "## Resource Metrics",
         "",
@@ -8540,11 +9009,13 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
 
 def main() -> int:
     global DASK_BLOCKSIZE, DASK_SCHEDULER, SHARDLOOM_BUILD_PROFILE, SHARDLOOM_RESULT_SINK
+    global SHARDLOOM_EVIDENCE_LEVEL
     args = parse_args()
     DASK_BLOCKSIZE = args.dask_blocksize
     DASK_SCHEDULER = args.dask_scheduler
     SHARDLOOM_BUILD_PROFILE = args.shardloom_build_profile
     SHARDLOOM_RESULT_SINK = args.shardloom_result_sink
+    SHARDLOOM_EVIDENCE_LEVEL = args.shardloom_evidence_level
     configure_java_home()
     paths = ensure_dataset(
         args.data_dir,
@@ -8763,6 +9234,7 @@ def main() -> int:
         "fairness_parameters": fairness_parameters(args, paths),
         "execution_mode_attribution_contract": execution_mode_attribution_contract(),
         "persistent_runner_admission_gate": persistent_runner_admission_gate(),
+        "source_state_contract": source_state_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
@@ -8772,6 +9244,7 @@ def main() -> int:
         "scenario_catalog": catalog_coverage_summary(SCENARIO_CATALOG),
         "coverage_table": coverage_table(results),
         "format_preparation_matrix": format_preparation_matrix(results),
+        "source_state_matrix": source_state_matrix(results),
         "results": results,
         "shardloom_native_microbenchmarks": []
         if args.skip_shardloom_native

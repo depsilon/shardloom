@@ -99,9 +99,22 @@ replacement claim.
 fields classify requested scenario rows as `source-state-reused`,
 `source-state-not-needed`, `blocked-with-reason`, or
 `unsupported-with-reason`. The rows also make the current digest boundary
-explicit with `source_state_digest_status=not_emitted_scoped_in_memory_source_state`;
-universal content-addressed `SourceState` digests are deferred to
-`GAR-IOREUSE-1A`.
+explicit with `source_state_digest_status=not_emitted_scoped_in_memory_source_state`; those fields
+remain the scoped in-process batch source-state coverage matrix.
+
+`GAR-IOREUSE-1A` adds a separate universal SourceState row contract to the benchmark artifact. Rows
+now carry `source_state_contract_schema_version=shardloom.traditional_analytics.source_state.v1`,
+`source_state_status`, `source_state_id`, `source_state_digest`, `source_format`,
+`source_location`, `source_fingerprint_kind`, `schema_digest`, `row_count_known`, `file_count`,
+`byte_size`, `partition_columns`, `compression`, `source_state_reuse_allowed`,
+`source_discovery_millis`, `schema_inference_millis`, `source_parse_millis`,
+`parse_decode_plan_digest`, `source_state_reuse_hit`, `source_state_reuse_reason`,
+`source_state_materialization_decode_boundary_ref`, `source_state_fallback_attempted=false`,
+`source_state_external_engine_invoked=false`, `source_state_claim_gate_status=not_claim_grade`, and
+`source_state_claim_boundary`. This SourceState contract covers local source discovery/schema
+identity/fingerprint/parse-plan posture and scoped reuse visibility; it is not output support,
+Vortex-native execution, object-store/lakehouse support, SQL/DataFrame runtime, or performance
+evidence.
 
 `GAR-PERF-1C` adds scoped fused-pipeline evidence for the current prepared/native
 filter/projection/limit row and selective-filter selection-vector metric aggregation row. The
@@ -249,12 +262,10 @@ generated source -> CSV + Parquet + Vortex outputs
 prepared Vortex -> multiple output formats
 ```
 
-Required future timing fields:
+The current SourceState slice emits the source discovery/schema/parse subset above. Required future
+timing fields for the remaining fanout bundle:
 
 ```text
-source_discovery_millis
-schema_inference_millis
-source_parse_millis
 vortex_prepare_millis
 operator_compute_millis
 output_plan_millis

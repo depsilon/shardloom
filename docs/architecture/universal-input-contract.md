@@ -71,12 +71,14 @@ not by compiling every reader by default. Active implementation status for input
   - Future adapters must emit source capability, pushdown proof, fidelity loss, materialization
     risk, and native I/O certificate evidence.
 - Reusable SourceState bridge
-  - `GAR-IOREUSE-1A` defines planned `SourceState` as a reusable, format-neutral input preparation
-    artifact for source discovery metadata, schema/dtype metadata, format-specific adapter state,
-    content fingerprinting, and source-state digest evidence.
-  - Required future fields include `source_state_id`, `source_state_digest`, `source_format`,
-    `source_location`, `source_fingerprint_kind`, `schema_digest`, `row_count_known`,
-    `file_count`, `byte_size`, `partition_columns`, `compression`,
+  - `GAR-IOREUSE-1A` defines the first benchmark/report `SourceState` contract as a reusable,
+    format-neutral input preparation artifact for source discovery metadata, schema/dtype metadata,
+    format-specific adapter state, content fingerprinting, parse/decode planning, and source-state
+    digest evidence.
+  - Current benchmark row fields include `source_state_contract_schema_version`,
+    `source_state_status`, `source_state_id`, `source_state_digest`, `source_format`,
+    `source_location`, `source_fingerprint_kind`, `schema_digest`, `row_count_known`, `file_count`,
+    `byte_size`, `partition_columns`, `compression`,
     `source_state_reuse_allowed`, `source_state_reuse_hit`, and `source_state_reuse_reason`.
   - SourceState reuse is preparation evidence only. It does not imply Vortex-native execution,
     output support, performance, object-store runtime, or table/lakehouse support.

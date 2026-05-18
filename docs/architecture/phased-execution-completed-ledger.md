@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1A universal SourceState benchmark evidence
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/source-state-reuse-coverage-matrix.md`
+    - `docs/architecture/universal-input-contract.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+  - Scope: define and expose a universal local SourceState benchmark/report contract for source
+    discovery, schema identity, parse/decode planning, fingerprinting, and scoped reuse posture
+    across local CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC rows without coupling input format to
+    output format.
+  - Checklist:
+    - [x] Add `shardloom.traditional_analytics.source_state.v1` and required
+          `source_state_*` row fields for identity, digest, format/location/fingerprint, schema,
+          file/byte/compression/partition posture, parse/decode plan digest, reuse hit/reason,
+          materialization policy ref, no-fallback fields, and claim boundary.
+    - [x] Add a SourceState contract object and Markdown SourceState evidence matrix so the fields
+          are visible in JSON and human reports.
+    - [x] Preserve existing family-specific prepared/native batch source-state fields while mapping
+          rows into the universal SourceState posture.
+    - [x] Keep external engines as `external_baseline_only` and prevent SourceState evidence from
+          upgrading claim status, Vortex-native execution, output support, object-store/lakehouse
+          support, SQL/DataFrame runtime, or performance posture.
+    - [x] Remove the active GAR-IOREUSE-1A item from the Planned queue and update architecture,
+          traceability, benchmark, compute-flow, and website compute-flow docs.
+  - Evidence/verification:
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q benchmarks/traditional_analytics website scripts`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+  - Claim boundary:
+    - The completed slice may claim only local SourceState evidence visibility and scoped
+      source-discovery/schema/parse-plan/reuse posture in benchmark artifacts.
+    - It does not authorize output support, VortexPreparedState reuse, object-store or lakehouse
+      runtime, production SQL/DataFrame support, Foundry support, package publication, performance,
+      superiority, Spark replacement, or broad encoded-native claims.
+  - Fallback boundary:
+    - Every ShardLoom SourceState row must keep `source_state_fallback_attempted=false` and
+      `source_state_external_engine_invoked=false`.
+    - External engines remain baseline-only and are not ShardLoom source-state providers or fallback
+      execution.
+
 - [x] Session label: GAR-PERF-2I native microbenchmark suite
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`
@@ -428,9 +484,9 @@ phase plan first.
           `source-state-not-needed`, `blocked-with-reason`, or `unsupported-with-reason`.
     - [x] Emit `source_state_coverage_*` batch evidence, including a matrix ref, status
           vocabulary, per-child scenario coverage fields, and coverage counts.
-    - [x] Preserve the digest boundary with
-          `source_state_digest_status=not_emitted_scoped_in_memory_source_state` until the
-          universal `SourceState` digest work in GAR-IOREUSE-1A.
+    - [x] Preserve the family-coverage digest boundary with
+          `source_state_digest_status=not_emitted_scoped_in_memory_source_state`; GAR-IOREUSE-1A
+          later added a separate universal SourceState benchmark row digest contract.
     - [x] Propagate the new fields through the Python benchmark harness and website benchmark
           generator.
     - [x] Update benchmark catalog, compute-flow, and local benchmark docs with the coverage
