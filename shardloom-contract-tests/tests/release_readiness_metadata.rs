@@ -1639,6 +1639,269 @@ fn workflow_recipe_library_remains_claim_safe_and_indexed() {
 }
 
 #[test]
+fn use_case_atlas_closeout_remains_generated_and_validated() {
+    let atlas = read_repo_file("docs/use-cases/README.md");
+    for required in [
+        "Can ShardLoom do my thing?",
+        "How do I try it?",
+        "What evidence do I get?",
+        "What is not supported yet?",
+        "ready_local",
+        "smoke_supported",
+        "report_only",
+        "planned",
+        "blocked",
+        "unsupported",
+        "python scripts\\check_use_case_index.py",
+        "python scripts\\check_use_case_coverage.py",
+        "python scripts\\check_use_case_glossary.py",
+        "python scripts\\check_use_case_backlinks.py",
+        "python scripts\\check_workflow_recipes.py",
+    ] {
+        assert!(
+            atlas.contains(required),
+            "missing Use Case Atlas README field {required}"
+        );
+    }
+
+    let index = read_repo_file("docs/use-cases/use-case-index.yml");
+    for required in [
+        "schema_version: 1",
+        "onboarding_first_10_minutes",
+        "local_file_etl",
+        "compatibility_import_certified",
+        "prepared_native_vortex",
+        "python_wrapper_client",
+        "sql_dataframe_report_only",
+        "source_free_generated_output",
+        "messy_data_dirty_json_cdc",
+        "query_scenario_cookbook",
+        "output_and_fanout",
+        "object_store_boundaries",
+        "table_lakehouse_boundaries",
+        "foundry_dev_stack_local_proof",
+        "evidence_audit_claim_gates",
+        "benchmark_interpretation",
+        "package_release_install_channels",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_boundary:",
+        "references:",
+        "related_use_cases:",
+    ] {
+        assert!(
+            index.contains(required),
+            "missing Use Case Atlas index field {required}"
+        );
+    }
+
+    let template = read_repo_file("docs/use-cases/templates/use-case-template.md");
+    for required in [
+        "## Quick Answer",
+        "## Can ShardLoom Do This?",
+        "## How To Try It",
+        "## Blocker",
+        "## Inputs",
+        "## Outputs",
+        "## Evidence You Should See",
+        "## Expected Output Or Evidence",
+        "## Common Mistakes",
+        "## Reference Files",
+        "## Related Use Cases",
+    ] {
+        assert!(
+            template.contains(required),
+            "missing use-case template section {required}"
+        );
+    }
+
+    let generated_doc = read_repo_file("docs/use-cases/generated/first-10-minutes-local-smoke.md");
+    for required in [
+        "## Quick Answer",
+        "## Can ShardLoom Do This?",
+        "## How To Try It",
+        "## Internal Flow",
+        "## Evidence You Should See",
+        "## Expected Output Or Evidence",
+        "## Reference Files",
+        "`README.md`",
+        "`docs/getting-started/first-10-minutes.md`",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            generated_doc.contains(required),
+            "missing generated use-case docs field {required}"
+        );
+    }
+
+    let generated_dir = repo_root().join("docs/use-cases/generated");
+    let generated_count = fs::read_dir(&generated_dir)
+        .unwrap_or_else(|err| panic!("failed to read {}: {err}", generated_dir.display()))
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "md"))
+        .count();
+    assert!(
+        generated_count >= 16,
+        "expected at least 16 generated use-case docs, found {generated_count}"
+    );
+
+    let glossary = read_repo_file("docs/use-cases/field-guide/README.md");
+    for required in [
+        "execution mode",
+        "engine mode",
+        "Vortex-native",
+        "compatibility import",
+        "prepared Vortex",
+        "native Vortex",
+        "direct transient",
+        "no fallback",
+        "materialization boundary",
+        "Native I/O certificate",
+        "result-sink replay",
+        "claim gate",
+        "fixture smoke",
+        "report-only",
+        "external baseline",
+        "residual-native",
+        "encoded-native",
+        "source-state reuse",
+        "output-plan reuse",
+    ] {
+        assert!(
+            glossary.contains(required),
+            "missing use-case glossary term {required}"
+        );
+    }
+
+    let backlinks = read_repo_file("docs/use-cases/reference-backlinks.md");
+    for required in [
+        "`README.md`",
+        "`docs/architecture/compute-engine-flow-reference.md`",
+        "`docs/benchmarks/local-taxonomy-benchmark.md`",
+        "`docs/foundry/proof-of-use-certification.md`",
+        "`python/README.md`",
+        "`examples/local-python-smoke/README.md`",
+        "`examples/local-vortex-benchmark/README.md`",
+        "`foundry-local-proof-boundary`",
+        "`benchmark-interpretation-evidence-not-leaderboard`",
+    ] {
+        assert!(
+            backlinks.contains(required),
+            "missing use-case backlink field {required}"
+        );
+    }
+
+    let generator = read_repo_file("website/build_static_pages.py");
+    for required in [
+        "write_use_case_pages",
+        "use_case_markdown",
+        "use_case_page",
+        "use_cases_index_page",
+        "DOC_USE_CASES",
+        "USE_CASE_PAGES",
+    ] {
+        assert!(
+            generator.contains(required),
+            "missing website use-case generator field {required}"
+        );
+    }
+
+    let website_index = read_repo_file("website/use-cases/index.html");
+    for required in [
+        "Can I use this?",
+        "data-use-case-filter=\"status\"",
+        "data-use-case-filter=\"input\"",
+        "data-use-case-filter=\"output\"",
+        "data-use-case-filter=\"execution\"",
+        "data-use-case-filter=\"evidence\"",
+        "data-use-case-filter=\"platform\"",
+        "data-use-case-grid",
+        "ready_local",
+        "smoke_supported",
+        "report_only",
+        "blocked",
+    ] {
+        assert!(
+            website_index.contains(required),
+            "missing website use-case matrix field {required}"
+        );
+    }
+
+    let website_page = read_repo_file("website/use-cases/first-10-minutes-local-smoke.html");
+    for required in [
+        "First 10 minutes local smoke",
+        "Reference Files",
+        "Claim gate",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            website_page.contains(required),
+            "missing generated website use-case field {required}"
+        );
+    }
+
+    let index_validator = read_repo_file("scripts/check_use_case_index.py");
+    for required in [
+        "ALLOWED_STATUSES",
+        "REQUIRED_USE_CASE_FIELDS",
+        "claim_boundary",
+        "FORBIDDEN_CLAIM_PATTERNS",
+        "references",
+        "reference must be exact",
+    ] {
+        assert!(
+            index_validator.contains(required),
+            "missing use-case index validator field {required}"
+        );
+    }
+
+    let coverage_validator = read_repo_file("scripts/check_use_case_coverage.py");
+    for required in [
+        "EXPECTED_CAPABILITY_FAMILIES",
+        "EXPECTED_EXECUTION_MODES",
+        "EXPECTED_ENGINE_MODES",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "native_io_certificate_status",
+        "claim_gate_status",
+    ] {
+        assert!(
+            coverage_validator.contains(required),
+            "missing use-case coverage validator field {required}"
+        );
+    }
+
+    let glossary_validator = read_repo_file("scripts/check_use_case_glossary.py");
+    for required in [
+        "REQUIRED_TERMS",
+        "no fallback",
+        "claim gate",
+        "external baseline",
+        "Reference Files",
+    ] {
+        assert!(
+            glossary_validator.contains(required),
+            "missing use-case glossary validator field {required}"
+        );
+    }
+
+    let backlink_validator = read_repo_file("scripts/check_use_case_backlinks.py");
+    for required in [
+        "reference-backlinks.md",
+        "## Reference Files",
+        "missing reference",
+        "backlink ledger missing reference",
+    ] {
+        assert!(
+            backlink_validator.contains(required),
+            "missing use-case backlink validator field {required}"
+        );
+    }
+}
+
+#[test]
 fn security_rfc_and_p80_completion_are_traceable() {
     let rfc =
         read_repo_file("docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md");
