@@ -1906,13 +1906,16 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1A"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1B"));
-    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1C Field Guide reading paths"));
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1C"));
+    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1D static Field Guide search with Pagefind"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "GAR-WEB-ATLAS-1C Field Guide reading paths",
         "GAR-WEB-ATLAS-1A/1B Field Guide taxonomy and dossier generator",
         "website/content/field-guide-index.json",
         "75 entries",
+        "seven reading paths",
         "python website/build_static_pages.py",
         "node website/validate_static_assets.js",
         "python scripts/check_website_readiness.py",
@@ -1946,6 +1949,14 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "\"related_use_cases\"",
         "\"reference_files\"",
         "\"claim_boundary\"",
+        "\"reading_paths\"",
+        "\"new-to-shardloom\"",
+        "\"run-a-local-workflow\"",
+        "\"understand-benchmarks\"",
+        "\"understand-vortex-native-paths\"",
+        "\"use-python-sql-dataframe\"",
+        "\"know-what-is-blocked\"",
+        "\"foundry-and-platform-context\"",
     ] {
         assert!(
             index.contains(required),
@@ -1957,7 +1968,10 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     for required in [
         "FIELD_GUIDE_INDEX_PATH",
         "load_field_guide_concepts",
+        "load_field_guide_reading_paths",
         "REQUIRED_FIELD_GUIDE_CATEGORIES",
+        "FIELD_GUIDE_READING_PATHS",
+        "reading_path_term_links",
         "field_guide_concepts_by_category",
         "Plain-English meaning",
         "Current support",
@@ -1974,6 +1988,14 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let website_index = read_repo_file("website/field-guide/index.html");
     for required in [
+        "Reading paths",
+        "New to ShardLoom",
+        "Run a local workflow",
+        "Understand benchmarks",
+        "Understand Vortex-native paths",
+        "Use Python, SQL, or DataFrame surfaces",
+        "Know what is blocked",
+        "Foundry and platform context",
         "Table of contents",
         "Start Here",
         "Execution Modes",

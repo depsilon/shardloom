@@ -1346,6 +1346,48 @@ FIELD_GUIDE_CATEGORIES = (
 )
 
 
+def normalize_field_guide_reading_path(entry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": str(entry["id"]),
+        "title": str(entry["title"]),
+        "summary": str(entry["summary"]),
+        "status": str(entry["status"]),
+        "terms": field_guide_values(entry.get("terms")),
+        "use_cases": field_guide_values(entry.get("use_cases")),
+        "claim_boundary": str(entry["claim_boundary"]),
+    }
+
+
+def load_field_guide_reading_paths() -> list[dict[str, Any]]:
+    if not FIELD_GUIDE_INDEX_PATH.exists():
+        return []
+    data = load_json_file(FIELD_GUIDE_INDEX_PATH)
+    entries = data.get("reading_paths") or []
+    if not isinstance(entries, list):
+        raise ValueError("Field Guide index reading_paths must be a list")
+    paths = [normalize_field_guide_reading_path(entry) for entry in entries]
+    concept_slugs = {concept["slug"] for concept in FIELD_GUIDE_CONCEPTS}
+    use_case_ids = set(use_case_title_lookup())
+    seen: set[str] = set()
+    for path in paths:
+        path_id = path["id"]
+        if path_id in seen:
+            raise ValueError(f"Duplicate Field Guide reading path id: {path_id}")
+        seen.add(path_id)
+        for key in ("title", "summary", "status", "claim_boundary"):
+            if not path.get(key):
+                raise ValueError(f"Field Guide reading path {path_id} missing {key}")
+        for term in path["terms"]:
+            if term not in concept_slugs:
+                raise ValueError(f"Field Guide reading path {path_id} unknown term: {term}")
+        for use_case_id in path["use_cases"]:
+            if use_case_id not in use_case_ids:
+                raise ValueError(
+                    f"Field Guide reading path {path_id} unknown use case: {use_case_id}"
+                )
+    return paths
+
+
 def concept_url(slug_value: str) -> str:
     return f"/field-guide/{slug_value}"
 
@@ -1373,6 +1415,9 @@ def use_case_title_lookup() -> dict[str, str]:
             for use_case in data.get("use_cases", [])
         }
     return _USE_CASE_TITLE_LOOKUP
+
+
+FIELD_GUIDE_READING_PATHS = load_field_guide_reading_paths()
 
 
 def source_file_links(paths: list[str]) -> str:
@@ -1410,6 +1455,16 @@ def related_use_case_links(ids: list[str]) -> str:
     return "<div>" + "".join(links) + "</div>"
 
 
+def reading_path_term_links(slugs: list[str]) -> str:
+    links = []
+    for slug_value in slugs:
+        concept = concept_by_slug(slug_value)
+        links.append(
+            f'<a href="{concept_url(slug_value)}">{esc(concept["title"])}</a>'
+        )
+    return "<div>" + "".join(links) + "</div>"
+
+
 def field_guide_concepts_by_category() -> list[tuple[str, list[dict[str, Any]]]]:
     grouped: list[tuple[str, list[dict[str, Any]]]] = []
     for category in FIELD_GUIDE_CATEGORIES:
@@ -1429,6 +1484,28 @@ def field_guide_index_page() -> str:
     category_links = "".join(
         f'<a class="claim-badge" href="#{slug(category)}">{esc(category)}</a>'
         for category, _ in field_guide_concepts_by_category()
+    )
+    reading_paths = "".join(
+        f"""
+          <article class="reading-path-card" id="{slug(path['id'])}">
+            <div class="reading-path-card-header">
+              <span class="claim-badge {status_class(path['status'])}" data-status="{esc(path['status'])}">{esc(status_label(path['status']))}</span>
+              <a href="#{slug(path['id'])}">#{esc(path['id'])}</a>
+            </div>
+            <h3>{esc(path['title'])}</h3>
+            <p>{esc(path['summary'])}</p>
+            <div class="reading-path-links">
+              <strong>Concepts</strong>
+              {reading_path_term_links(path['terms'])}
+            </div>
+            <div class="reading-path-links">
+              <strong>Use cases</strong>
+              {related_use_case_links(path['use_cases'])}
+            </div>
+            <p class="reading-path-boundary">{esc(path['claim_boundary'])}</p>
+          </article>
+        """
+        for path in FIELD_GUIDE_READING_PATHS
     )
     category_sections = "".join(
         f"""
@@ -1472,6 +1549,14 @@ def field_guide_index_page() -> str:
     </section>
     <section class="doc-section field-guide-toc-section">
       <div class="shell">
+        <div class="section-header-row">
+          <div>
+            <p class="eyebrow">Reading paths</p>
+            <h2>Start by what you need to understand.</h2>
+          </div>
+          <p>Each path links to exact dossiers and use cases while keeping support boundaries visible.</p>
+        </div>
+        <div class="reading-path-grid">{reading_paths}</div>
         <div class="terminal-panel field-guide-toc">
           <p class="eyebrow">Table of contents</p>
           <h2>Jump by concept family.</h2>

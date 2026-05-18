@@ -16,6 +16,40 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-1C Field Guide reading paths
+  - Primary files:
+    - `website/content/field-guide-index.json`
+    - `website/build_static_pages.py`
+    - `website/field-guide/index.html`
+    - `website/assets/site.css`
+    - `scripts/check_website_readiness.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add curated, claim-safe reading paths to the generated Field Guide so users can enter
+    the atlas by goal before browsing individual terms.
+  - Checklist:
+    - [x] Add seven reading paths: New to ShardLoom, Run a local workflow, Understand benchmarks,
+          Understand Vortex-native paths, Use Python/SQL/DataFrame surfaces, Know what is blocked,
+          and Foundry/platform context.
+    - [x] Link each reading path to exact Field Guide terms and use-case pages.
+    - [x] Render reading paths above the generated category table of contents.
+    - [x] Extend website readiness validation to require reading-path ids and generated content.
+    - [x] Move GAR-WEB-ATLAS-1C out of the active Planned queue.
+  - Evidence and verification:
+    - `python website/build_static_pages.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - Reading paths are educational navigation only. They do not add runtime behavior, search,
+      benchmark recomputation, package publication, production SQL/DataFrame support,
+      object-store/lakehouse runtime, Foundry production support, performance claims, or
+      Spark-displacement claims.
+  - Fallback boundary:
+    - Reading paths preserve no-fallback/no-external-engine language and never route blocked work
+      through external engines or external services.
+
 - [x] Session label: GAR-WEB-ATLAS-1A/1B Field Guide taxonomy and dossier generator
   - Primary files:
     - `website/content/field-guide-index.json`
