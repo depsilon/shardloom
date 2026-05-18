@@ -131,6 +131,10 @@ const UNIVERSAL_COMPATIBILITY_TABLE_FORMAT_MATRIX_SCHEMA_VERSION: &str =
     "shardloom.universal_compatibility.table_format_boundary_matrix.v1";
 const UNIVERSAL_COMPATIBILITY_TABLE_FORMAT_MATRIX_ID: &str =
     "gar-compat-1d.table_format_boundary_matrix";
+const UNIVERSAL_COMPATIBILITY_DATABASE_WAREHOUSE_MATRIX_SCHEMA_VERSION: &str =
+    "shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1";
+const UNIVERSAL_COMPATIBILITY_DATABASE_WAREHOUSE_MATRIX_ID: &str =
+    "gar-compat-1e.database_warehouse_import_export_boundary";
 
 #[derive(Debug, Clone, Copy)]
 #[allow(clippy::struct_excessive_bools)]
@@ -219,6 +223,31 @@ struct TableFormatBoundaryMatrixRow {
     write_io_allowed: bool,
     commit_allowed: bool,
     rollback_allowed: bool,
+    native_io_certificate_status: &'static str,
+    blocker_id: &'static str,
+    required_evidence: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct DatabaseWarehouseBoundaryMatrixRow {
+    id: &'static str,
+    endpoint_scope: &'static str,
+    endpoint_family: &'static str,
+    connector_type: &'static str,
+    support_status: &'static str,
+    credential_required: bool,
+    network_required: bool,
+    driver_dependency_required: bool,
+    credential_resolution_performed: bool,
+    network_probe_performed: bool,
+    driver_loaded: bool,
+    import_runtime_supported: bool,
+    export_runtime_supported: bool,
+    query_pushdown_supported: bool,
+    external_baseline_only: bool,
     native_io_certificate_status: &'static str,
     blocker_id: &'static str,
     required_evidence: &'static str,
@@ -1271,6 +1300,163 @@ const TABLE_FORMAT_BOUNDARY_MATRIX_ROWS: &[TableFormatBoundaryMatrixRow] = &[
         required_evidence: "object_store_admission_ladder,credential_policy,split_manifest,commit_protocol,table_snapshot_evidence",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "Object-store-backed table runtime remains blocked until object-store read/write/commit gates are independently admitted.",
+    },
+];
+
+const DATABASE_WAREHOUSE_BOUNDARY_MATRIX_ROWS: &[DatabaseWarehouseBoundaryMatrixRow] = &[
+    DatabaseWarehouseBoundaryMatrixRow {
+        id: "sqlite_file",
+        endpoint_scope: "sqlite",
+        endpoint_family: "database_file",
+        connector_type: "embedded_file_database",
+        support_status: "report-only",
+        credential_required: false,
+        network_required: false,
+        driver_dependency_required: true,
+        credential_resolution_performed: false,
+        network_probe_performed: false,
+        driver_loaded: false,
+        import_runtime_supported: false,
+        export_runtime_supported: false,
+        query_pushdown_supported: false,
+        external_baseline_only: true,
+        native_io_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-compat-1e.sqlite_import_export_runtime_blocked",
+        required_evidence: "sqlite_dependency_policy,transaction_snapshot_contract,import_certificate,export_certificate,no_fallback_diagnostics",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "SQLite import/export is report-only; no driver is loaded and no database file is read or written.",
+    },
+    DatabaseWarehouseBoundaryMatrixRow {
+        id: "postgres",
+        endpoint_scope: "postgres",
+        endpoint_family: "database_service",
+        connector_type: "network_database",
+        support_status: "blocked",
+        credential_required: true,
+        network_required: true,
+        driver_dependency_required: true,
+        credential_resolution_performed: false,
+        network_probe_performed: false,
+        driver_loaded: false,
+        import_runtime_supported: false,
+        export_runtime_supported: false,
+        query_pushdown_supported: false,
+        external_baseline_only: true,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1e.postgres_connector_runtime_blocked",
+        required_evidence: "credential_policy,network_effect_policy,driver_dependency_policy,snapshot_semantics,import_export_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Postgres remains blocked as a connector endpoint; it is not a fallback engine or query-pushdown runtime.",
+    },
+    DatabaseWarehouseBoundaryMatrixRow {
+        id: "mysql",
+        endpoint_scope: "mysql",
+        endpoint_family: "database_service",
+        connector_type: "network_database",
+        support_status: "blocked",
+        credential_required: true,
+        network_required: true,
+        driver_dependency_required: true,
+        credential_resolution_performed: false,
+        network_probe_performed: false,
+        driver_loaded: false,
+        import_runtime_supported: false,
+        export_runtime_supported: false,
+        query_pushdown_supported: false,
+        external_baseline_only: true,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1e.mysql_connector_runtime_blocked",
+        required_evidence: "credential_policy,network_effect_policy,driver_dependency_policy,snapshot_semantics,import_export_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "MySQL remains blocked as a connector endpoint; it is not a fallback engine or query-pushdown runtime.",
+    },
+    DatabaseWarehouseBoundaryMatrixRow {
+        id: "jdbc_odbc",
+        endpoint_scope: "jdbc,odbc",
+        endpoint_family: "connector_bridge",
+        connector_type: "driver_bridge",
+        support_status: "blocked",
+        credential_required: true,
+        network_required: true,
+        driver_dependency_required: true,
+        credential_resolution_performed: false,
+        network_probe_performed: false,
+        driver_loaded: false,
+        import_runtime_supported: false,
+        export_runtime_supported: false,
+        query_pushdown_supported: false,
+        external_baseline_only: true,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1e.jdbc_odbc_driver_loading_blocked",
+        required_evidence: "driver_loading_policy,dependency_license_policy,credential_policy,network_effect_policy,imported_schema_evidence,no_fallback_diagnostics",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "JDBC/ODBC bridge loading remains blocked; drivers are not loaded and bridge availability is not claimed.",
+    },
+    DatabaseWarehouseBoundaryMatrixRow {
+        id: "snowflake",
+        endpoint_scope: "snowflake",
+        endpoint_family: "warehouse_service",
+        connector_type: "cloud_warehouse",
+        support_status: "blocked",
+        credential_required: true,
+        network_required: true,
+        driver_dependency_required: true,
+        credential_resolution_performed: false,
+        network_probe_performed: false,
+        driver_loaded: false,
+        import_runtime_supported: false,
+        export_runtime_supported: false,
+        query_pushdown_supported: false,
+        external_baseline_only: true,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1e.snowflake_connector_runtime_blocked",
+        required_evidence: "warehouse_credential_policy,network_effect_policy,staging_policy,import_export_certificate,query_pushdown_boundary,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Snowflake remains a future import/export endpoint or external baseline only; no warehouse runtime or pushdown claim.",
+    },
+    DatabaseWarehouseBoundaryMatrixRow {
+        id: "bigquery",
+        endpoint_scope: "bigquery",
+        endpoint_family: "warehouse_service",
+        connector_type: "cloud_warehouse",
+        support_status: "blocked",
+        credential_required: true,
+        network_required: true,
+        driver_dependency_required: true,
+        credential_resolution_performed: false,
+        network_probe_performed: false,
+        driver_loaded: false,
+        import_runtime_supported: false,
+        export_runtime_supported: false,
+        query_pushdown_supported: false,
+        external_baseline_only: true,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1e.bigquery_connector_runtime_blocked",
+        required_evidence: "warehouse_credential_policy,network_effect_policy,staging_policy,import_export_certificate,query_pushdown_boundary,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "BigQuery remains a future import/export endpoint or external baseline only; no warehouse runtime or pushdown claim.",
+    },
+    DatabaseWarehouseBoundaryMatrixRow {
+        id: "databricks_sql",
+        endpoint_scope: "databricks_sql",
+        endpoint_family: "warehouse_service",
+        connector_type: "cloud_warehouse",
+        support_status: "blocked",
+        credential_required: true,
+        network_required: true,
+        driver_dependency_required: true,
+        credential_resolution_performed: false,
+        network_probe_performed: false,
+        driver_loaded: false,
+        import_runtime_supported: false,
+        export_runtime_supported: false,
+        query_pushdown_supported: false,
+        external_baseline_only: true,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1e.databricks_sql_connector_runtime_blocked",
+        required_evidence: "warehouse_credential_policy,network_effect_policy,staging_policy,import_export_certificate,query_pushdown_boundary,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Databricks SQL remains a future import/export endpoint or external baseline only; no warehouse runtime or Spark fallback claim.",
     },
 ];
 
@@ -5829,6 +6015,32 @@ fn table_format_boundary_matrix_all_no_io_no_fallback() -> bool {
     })
 }
 
+fn database_warehouse_boundary_matrix_row_order() -> String {
+    DATABASE_WAREHOUSE_BOUNDARY_MATRIX_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn database_warehouse_boundary_matrix_status_count(status: &str) -> usize {
+    DATABASE_WAREHOUSE_BOUNDARY_MATRIX_ROWS
+        .iter()
+        .filter(|row| row.support_status == status)
+        .count()
+}
+
+fn database_warehouse_boundary_matrix_all_no_effects() -> bool {
+    DATABASE_WAREHOUSE_BOUNDARY_MATRIX_ROWS.iter().all(|row| {
+        !row.credential_resolution_performed
+            && !row.network_probe_performed
+            && !row.driver_loaded
+            && !row.import_runtime_supported
+            && !row.export_runtime_supported
+            && !row.query_pushdown_supported
+    })
+}
+
 #[allow(clippy::too_many_lines)]
 fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
     push_field(
@@ -5934,6 +6146,7 @@ fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
     append_universal_compatibility_generated_output_fields(fields);
     append_universal_compatibility_object_store_ladder_fields(fields);
     append_universal_compatibility_table_format_matrix_fields(fields);
+    append_universal_compatibility_database_warehouse_matrix_fields(fields);
 
     for row in UNIVERSAL_COMPATIBILITY_ROWS {
         let prefix = format!("universal_compatibility_row_{}", row.id);
@@ -6575,6 +6788,212 @@ fn append_universal_compatibility_table_format_matrix_fields(fields: &mut Vec<(S
             fields,
             &format!("{prefix}_rollback_allowed"),
             row.rollback_allowed,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_native_io_certificate_status"),
+            row.native_io_certificate_status,
+        );
+        push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+        push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+        push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            row.required_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_boundary"),
+            row.claim_boundary,
+        );
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_universal_compatibility_database_warehouse_matrix_fields(
+    fields: &mut Vec<(String, String)>,
+) {
+    push_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_schema_version",
+        UNIVERSAL_COMPATIBILITY_DATABASE_WAREHOUSE_MATRIX_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_id",
+        UNIVERSAL_COMPATIBILITY_DATABASE_WAREHOUSE_MATRIX_ID,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_endpoint_scope",
+        "sqlite,postgres,mysql,jdbc,odbc,snowflake,bigquery,databricks_sql",
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_row_count",
+        DATABASE_WAREHOUSE_BOUNDARY_MATRIX_ROWS.len(),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_row_order",
+        &database_warehouse_boundary_matrix_row_order(),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_report_only_count",
+        database_warehouse_boundary_matrix_status_count("report-only"),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_blocked_count",
+        database_warehouse_boundary_matrix_status_count("blocked"),
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_import_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_export_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_query_pushdown_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_credential_resolution_performed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_network_probe_performed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_driver_loaded",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_external_baseline_only",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_all_rows_no_effects",
+        database_warehouse_boundary_matrix_all_no_effects(),
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_fallback_attempted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_external_engine_invoked",
+        false,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_field(
+        fields,
+        "universal_compatibility_database_warehouse_matrix_claim_boundary",
+        "Database and warehouse import/export boundary visibility only; no connector runtime, driver loading, credential resolution, network probe, query pushdown, fallback engine, production, performance, or Spark-replacement support",
+    );
+
+    for row in DATABASE_WAREHOUSE_BOUNDARY_MATRIX_ROWS {
+        let prefix = format!(
+            "universal_compatibility_database_warehouse_matrix_row_{}",
+            row.id
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_endpoint_scope"),
+            row.endpoint_scope,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_endpoint_family"),
+            row.endpoint_family,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_connector_type"),
+            row.connector_type,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_support_status"),
+            row.support_status,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_credential_required"),
+            row.credential_required,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_network_required"),
+            row.network_required,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_driver_dependency_required"),
+            row.driver_dependency_required,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_credential_resolution_performed"),
+            row.credential_resolution_performed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_network_probe_performed"),
+            row.network_probe_performed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_driver_loaded"),
+            row.driver_loaded,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_import_runtime_supported"),
+            row.import_runtime_supported,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_export_runtime_supported"),
+            row.export_runtime_supported,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_query_pushdown_supported"),
+            row.query_pushdown_supported,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_external_baseline_only"),
+            row.external_baseline_only,
         );
         push_field(
             fields,

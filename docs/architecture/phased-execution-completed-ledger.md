@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMPAT-1E database and warehouse import/export boundary
+  - Primary files:
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.json`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `website/build_static_pages.py`
+    - `website/status.html`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the fifth universal compatibility slice by projecting database and warehouse
+    import/export posture into the compatibility scoreboard and public status surfaces. The new
+    `shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1` matrix separates
+    SQLite, Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL from ShardLoom
+    runtime execution.
+  - Checklist:
+    - [x] Add database/warehouse boundary rows to CLI `capabilities compatibility --format json`
+          with stable row ordering, connector type, credential/network requirements, driver loading
+          posture, import/export/query-pushdown gates, blocker IDs, required evidence, claim
+          boundaries, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - [x] Add Python typed accessors through
+          `ctx.compatibility_scoreboard().database_warehouse_boundary_matrix`.
+    - [x] Add the same matrix to
+          `docs/architecture/universal-compatibility-coverage-scoreboard.json` and document the
+          rows in the Markdown scoreboard.
+    - [x] Render the database/warehouse matrix on the website status page from the JSON scoreboard.
+    - [x] Update compute-flow, GAR, RFC traceability, Python README, and release-readiness checks.
+    - [x] Remove the active GAR-COMPAT-1E item from the Planned queue.
+  - Evidence/verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts website benchmarks/traditional_analytics`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - The matrix is a status/capability surface only. It does not add SQLite, Postgres, MySQL,
+      JDBC/ODBC, Snowflake, BigQuery, Databricks SQL, database connector runtime, warehouse
+      connector runtime, driver loading, credential resolution, network probes, import/export
+      runtime, query pushdown, production connector support, performance, package publication,
+      Spark-replacement, or external fallback claims.
+  - Fallback boundary:
+    - No database/warehouse matrix row invokes Spark, Databricks, warehouses, database engines,
+      drivers, remote services, Foundry, or another external engine. All rows preserve
+      `fallback_attempted=false`, `external_engine_invoked=false`,
+      `credential_resolution_performed=false`, `network_probe_performed=false`,
+      `driver_loaded=false`, `import_runtime_supported=false`, `export_runtime_supported=false`,
+      and `query_pushdown_supported=false`.
+
 - [x] Session label: GAR-COMPAT-1D table-format boundary matrix
   - Primary files:
     - `docs/architecture/universal-compatibility-coverage-scoreboard.md`

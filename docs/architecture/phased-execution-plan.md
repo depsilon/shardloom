@@ -299,7 +299,8 @@ Supporting docs:
   - Status rule: scoreboard rows classify runtime-supported, smoke-supported, report-only, blocked,
     or not-planned posture only. Actionable compatibility/runtime work remains represented by
     `GAR-COMPAT-1`, `GAR-GEN-1`, `GAR-0008`, `GAR-0020`, `GAR-0028`, `GAR-0031`, and related
-    evidence-bearing slices.
+    evidence-bearing slices. GAR-COMPAT-1E adds the database/warehouse boundary projection without
+    connector runtime.
 - `docs/architecture/dynamic-work-shaping.md`,
   `spill-reservation-lifecycle-integration.md`, and `effect-budget-plan.md`
   - Role: runtime shaping, memory/spill lifecycle, and side-effect policy references.
@@ -496,53 +497,13 @@ object-store coupling as separate report-only or blocked gates. Local metadata a
 smokes remain related evidence only, with catalog I/O, object-store I/O, table metadata/data reads,
 writes, commits, rollbacks, fallback, and external engine invocation disabled.
 
-- [ ] GAR-COMPAT-1E database and warehouse import/export boundary
-  - Source: RFC 0030; RFC 0031; RFC 0032; RFC 0033; RFC 0037; user compatibility expectations;
-    Python client/adapters; `docs/architecture/universal-compatibility-coverage-scoreboard.md`.
-  - Current state:
-    - Database and warehouse connectors are not first-class ShardLoom runtime paths.
-    - Existing external systems remain baselines, oracles, migration references, or future
-      import/export endpoints only.
-  - Next slice outcome:
-    - Add a report-only database/warehouse import/export matrix for SQLite, Postgres, MySQL,
-      ODBC/JDBC, Snowflake, BigQuery, Databricks SQL, and similar endpoints.
-  - User-visible surface:
-    - Docs, website/status, Python capability view, connector diagnostics, and release-readiness
-      claim checks.
-  - Implementation scope:
-    - Report rows for connector type, credential requirement, network requirement, supported import
-      or export posture, query pushdown boundary, external-baseline-only status, and deterministic
-      blockers. Do not add connector runtime.
-  - Evidence required:
-    - connector refs: `connector_type`, driver/dependency posture, dialect boundary.
-    - credential/network refs: `credential_required`, `network_required`,
-      `credential_resolution_performed=false`, `network_probe_performed=false`.
-    - runtime refs: `supported_path`, import/export status, query pushdown status,
-      `external_engine_invoked=false`, `fallback_attempted=false`.
-    - certificate refs: Native I/O and execution certificates only if a future scoped runtime path
-      exists.
-  - Acceptance:
-    - Import/export is separated from query pushdown.
-    - External databases and warehouses are not fallback engines.
-    - Credential and network requirements are visible before any future runtime admission.
-    - Unsupported requests return deterministic diagnostics.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - connector/capability snapshot tests when report rows change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No database connector runtime, no warehouse connector runtime, no JDBC/ODBC driver loading, no
-      credentials, no network probes, no query pushdown, no external engine fallback, and no
-      production connector claim.
-  - Claim boundary:
-    - Report-only import/export boundary matrix; no database/warehouse runtime or query-pushdown
-      claim.
-  - Fallback boundary:
-    - Database and warehouse engines cannot execute unsupported ShardLoom plans as fallback.
-  - Dependencies/blockers:
-    - Connector dependency/license review, credential/effect policy, snapshot semantics, import and
-      export certificate model, and Python/CLI capability projection.
+GAR-COMPAT-1E is complete and recorded in the completed ledger. The compatibility scoreboard now
+projects `shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1` across CLI,
+Python, website/status, compute-flow, GAR, traceability, Python README, and release-readiness
+checks. The matrix keeps SQLite, Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks
+SQL as report-only or blocked import/export/query-pushdown gates, with credential resolution,
+network probes, driver loading, import/export runtime, query pushdown, fallback, and external engine
+invocation disabled.
 
 - [ ] GAR-GEN-1F Foundry generated-output proof boundary
   - Source: GAR-GEN-1A; RFC 0036; `docs/foundry/proof-of-use-certification.md`.

@@ -167,6 +167,22 @@
           </table>
         </div>
         <p class="section-note">Table-format summary: <code>runtime_supported=false</code>, <code>local_metadata_smoke_available=true</code>, <code>table_scan_supported=false</code>, <code>table_write_supported=false</code>, <code>table_commit_supported=false</code>, <code>object_store_runtime_supported=false</code>.</p>
+        <div class="section-spacer"></div>
+        <h3>Database/warehouse import-export boundary</h3>
+        <p class="section-lede">This report-only matrix separates SQLite, Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL from ShardLoom execution. Current rows do not load drivers, resolve credentials, probe networks, import/export data, push queries down, or use external systems as fallback engines.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Row</th><th>Status</th><th>Credentials</th><th>Network</th><th>Pushdown</th><th>Boundary</th></tr></thead>
+            <tbody><tr><td><strong>sqlite_file</strong><span>embedded_file_database</span></td><td><span class="claim-badge report-only">report-only</span></td><td>false</td><td>false</td><td>false</td><td>SQLite import/export is report-only; no driver is loaded and no database file is read or written.</td></tr>
+<tr><td><strong>postgres</strong><span>network_database</span></td><td><span class="claim-badge blocked">blocked</span></td><td>true</td><td>true</td><td>false</td><td>Postgres remains blocked as a connector endpoint; it is not a fallback engine or query-pushdown runtime.</td></tr>
+<tr><td><strong>mysql</strong><span>network_database</span></td><td><span class="claim-badge blocked">blocked</span></td><td>true</td><td>true</td><td>false</td><td>MySQL remains blocked as a connector endpoint; it is not a fallback engine or query-pushdown runtime.</td></tr>
+<tr><td><strong>jdbc_odbc</strong><span>driver_bridge</span></td><td><span class="claim-badge blocked">blocked</span></td><td>true</td><td>true</td><td>false</td><td>JDBC/ODBC bridge loading remains blocked; drivers are not loaded and bridge availability is not claimed.</td></tr>
+<tr><td><strong>snowflake</strong><span>cloud_warehouse</span></td><td><span class="claim-badge blocked">blocked</span></td><td>true</td><td>true</td><td>false</td><td>Snowflake remains a future import/export endpoint or external baseline only; no warehouse runtime or pushdown claim.</td></tr>
+<tr><td><strong>bigquery</strong><span>cloud_warehouse</span></td><td><span class="claim-badge blocked">blocked</span></td><td>true</td><td>true</td><td>false</td><td>BigQuery remains a future import/export endpoint or external baseline only; no warehouse runtime or pushdown claim.</td></tr>
+<tr><td><strong>databricks_sql</strong><span>cloud_warehouse</span></td><td><span class="claim-badge blocked">blocked</span></td><td>true</td><td>true</td><td>false</td><td>Databricks SQL remains a future import/export endpoint or external baseline only; no warehouse runtime or Spark fallback claim.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="section-note">Database/warehouse summary: <code>runtime_supported=false</code>, <code>import_runtime_supported=false</code>, <code>export_runtime_supported=false</code>, <code>query_pushdown_supported=false</code>, <code>credential_resolution_performed=false</code>, <code>network_probe_performed=false</code>.</p>
         <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>

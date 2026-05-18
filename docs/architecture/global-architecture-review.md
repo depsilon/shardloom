@@ -837,8 +837,12 @@ plan before coding.
   metadata read, table scan, snapshot/time-travel, partition evolution, delete/tombstone, append,
   merge/update/delete, commit, rollback, catalog interaction, and object-store coupling are visible
   as separate report-only or blocked gates while preserving no catalog, object-store, table
-  metadata, table data, write, commit, rollback, fallback, or external-engine effects. Remaining
-  GAR-COMPAT children own database/warehouse import/export boundaries.
+  metadata, table data, write, commit, rollback, fallback, or external-engine effects.
+  `GAR-COMPAT-1E` adds
+  `shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1` so SQLite, Postgres,
+  MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL import/export/query-pushdown posture is
+  visible while preserving no credential resolution, network probe, driver loading, import/export
+  runtime, query pushdown, fallback, or external-engine effects.
 - [x] `GAR-IOREUSE-1F` adds the remaining Native I/O reuse ladder after
   `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract and
   `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract and
@@ -1375,7 +1379,7 @@ plan before coding.
 - [ ] `GAR-DOCS-1` adds the Use Case Atlas and website status-matrix follow-up. The flow must be
   explainable to non-experts by use case, status, execution mode, engine mode, input, output,
   evidence fields, and blockers without requiring readers to inspect RFCs or benchmark internals.
-- [ ] `GAR-COMPAT-1` is now the compute-flow follow-up for universal source/sink/adapter/user-surface
+- [x] `GAR-COMPAT-1` is now the compute-flow follow-up for universal source/sink/adapter/user-surface
   compatibility coverage. The flow must keep compatibility coverage status distinct from runtime
   support for local files, Vortex, generated outputs, Python/DataFrame, SQL, databases, object
   stores, table formats, REST/Flight/ADBC, and Foundry.

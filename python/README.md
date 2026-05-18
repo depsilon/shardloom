@@ -967,6 +967,31 @@ Important row IDs include `table_metadata_read`, `table_scan`,
 `merge_update_delete`, `commit`, `rollback`, `catalog_interaction`, and
 `object_store_coupling`.
 
+The same scoreboard exposes database and warehouse import/export boundaries:
+
+```python
+endpoints = matrix.database_warehouse_boundary_matrix
+print(endpoints.schema_version)
+print(endpoints.endpoint_scope)
+print(endpoints.runtime_supported)
+for row in endpoints.rows:
+    print(
+        row.row_id,
+        row.support_status,
+        row.credential_required,
+        row.network_required,
+        row.no_effects_no_fallback,
+    )
+```
+
+The `database_warehouse_boundary_matrix` keeps SQLite, Postgres, MySQL,
+JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL separate from ShardLoom
+runtime execution. Current rows do not load drivers, resolve credentials, probe
+networks, import/export data, push queries down, or use external databases and
+warehouses as fallback engines. Important row IDs include `sqlite_file`,
+`postgres`, `mysql`, `jdbc_odbc`, `snowflake`, `bigquery`, and
+`databricks_sql`.
+
 The client also exposes advisory optimization reports:
 
 ```python
