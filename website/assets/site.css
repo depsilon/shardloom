@@ -1444,6 +1444,73 @@ tr:last-child td {
   gap: 8px;
 }
 
+.reading-path-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0 26px;
+}
+
+.reading-path-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--grid-line);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(0, 217, 255, 0.08), rgba(124, 92, 255, 0.06)),
+    #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.reading-path-card-header,
+.reading-path-links > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.reading-path-card-header {
+  justify-content: space-between;
+}
+
+.reading-path-card-header a,
+.reading-path-links a {
+  color: var(--navy);
+  font-weight: 760;
+  text-decoration: none;
+}
+
+.reading-path-card h3 {
+  margin: 0;
+  font-size: clamp(1.08rem, 1.35vw, 1.38rem);
+}
+
+.reading-path-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.reading-path-links {
+  display: grid;
+  gap: 6px;
+}
+
+.reading-path-links strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.reading-path-boundary {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+
 .field-guide-category {
   padding: 24px 0;
   border-top: 1px solid var(--line);
@@ -1778,6 +1845,7 @@ footer {
   .flow-grid,
   .flow-panels,
   .flow-columns,
+  .reading-path-grid,
   .field-guide-grid,
   .dossier-layout,
   .proof-grid,

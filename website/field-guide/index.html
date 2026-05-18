@@ -55,6 +55,140 @@
     </section>
     <section class="doc-section field-guide-toc-section">
       <div class="shell">
+        <div class="section-header-row">
+          <div>
+            <p class="eyebrow">Reading paths</p>
+            <h2>Start by what you need to understand.</h2>
+          </div>
+          <p>Each path links to exact dossiers and use cases while keeping support boundaries visible.</p>
+        </div>
+        <div class="reading-path-grid">
+          <article class="reading-path-card" id="new-to-shardloom">
+            <div class="reading-path-card-header">
+              <span class="claim-badge report-only" data-status="orientation">orientation</span>
+              <a href="#new-to-shardloom">#new-to-shardloom</a>
+            </div>
+            <h3>New to ShardLoom</h3>
+            <p>Start with the technical-preview posture, Vortex-first model, no-fallback contract, and claim gates.</p>
+            <div class="reading-path-links">
+              <strong>Concepts</strong>
+              <div><a href="/field-guide/what-is-shardloom">What Is ShardLoom?</a><a href="/field-guide/technical-preview">Technical Preview</a><a href="/field-guide/vortex-first">Vortex-First</a><a href="/field-guide/no-fallback">No Fallback</a><a href="/field-guide/claim-gates">Claim Gates</a></div>
+            </div>
+            <div class="reading-path-links">
+              <strong>Use cases</strong>
+              <div><a class="claim-badge" href="/use-cases/first-10-minutes-local-smoke">First 10 minutes local smoke</a><a class="claim-badge" href="/use-cases/evidence-audit-claim-gates">Evidence, audit, and claim gates</a></div>
+            </div>
+            <p class="reading-path-boundary">Orientation content explains current posture only and does not imply production or package-release readiness.</p>
+          </article>
+
+          <article class="reading-path-card" id="run-a-local-workflow">
+            <div class="reading-path-card-header">
+              <span class="claim-badge report-only" data-status="ready-local-docs">ready local docs</span>
+              <a href="#run-a-local-workflow">#run-a-local-workflow</a>
+            </div>
+            <h3>Run a local workflow</h3>
+            <p>Follow the local smoke and certified-workload path before reading deeper architecture docs.</p>
+            <div class="reading-path-links">
+              <strong>Concepts</strong>
+              <div><a href="/field-guide/first-ten-minutes">First 10 Minutes</a><a href="/field-guide/compatibility-import-certified">Compatibility Import Certified</a><a href="/field-guide/csv-local-input">CSV Local Input</a><a href="/field-guide/parquet-local-input">Parquet Local Input</a><a href="/field-guide/result-sink-proof">Result-Sink Proof</a></div>
+            </div>
+            <div class="reading-path-links">
+              <strong>Use cases</strong>
+              <div><a class="claim-badge" href="/use-cases/first-10-minutes-local-smoke">First 10 minutes local smoke</a><a class="claim-badge" href="/use-cases/local-file-etl-cleanup-smoke">Local file ETL smoke</a><a class="claim-badge" href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a></div>
+            </div>
+            <p class="reading-path-boundary">Local workflow recipes remain scoped technical-preview evidence, not production ETL or object-store support.</p>
+          </article>
+
+          <article class="reading-path-card" id="understand-benchmarks">
+            <div class="reading-path-card-header">
+              <span class="claim-badge report-only" data-status="claim-safe-telemetry">claim safe telemetry</span>
+              <a href="#understand-benchmarks">#understand-benchmarks</a>
+            </div>
+            <h3>Understand benchmarks</h3>
+            <p>Read the benchmark page as evidence attribution, not a speed leaderboard or public ranking.</p>
+            <div class="reading-path-links">
+              <strong>Concepts</strong>
+              <div><a href="/field-guide/benchmark-telemetry">Benchmark Telemetry</a><a href="/field-guide/local-timing-context">Local Timing Context</a><a href="/field-guide/benchmark-artifact-manifest">Benchmark Artifact Manifest</a><a href="/field-guide/benchmark-profile">Benchmark Profile</a><a href="/field-guide/external-baseline-only">External Baseline Only</a></div>
+            </div>
+            <div class="reading-path-links">
+              <strong>Use cases</strong>
+              <div><a class="claim-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a><a class="claim-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a></div>
+            </div>
+            <p class="reading-path-boundary">Benchmark reading paths do not create performance, superiority, or Spark-displacement claims.</p>
+          </article>
+
+          <article class="reading-path-card" id="understand-vortex-native-paths">
+            <div class="reading-path-card-header">
+              <span class="claim-badge report-only" data-status="runtime-development-orientation">runtime development orientation</span>
+              <a href="#understand-vortex-native-paths">#understand-vortex-native-paths</a>
+            </div>
+            <h3>Understand Vortex-native paths</h3>
+            <p>Trace how prepared/native Vortex rows use source-backed scans, certificates, materialization boundaries, and provider evidence.</p>
+            <div class="reading-path-links">
+              <strong>Concepts</strong>
+              <div><a href="/field-guide/vortex-native">Vortex-Native</a><a href="/field-guide/prepared-vortex">Prepared Vortex</a><a href="/field-guide/native-vortex">Native Vortex</a><a href="/field-guide/source-backed-scan">Source-Backed Scan</a><a href="/field-guide/native-io-certificate">Native I/O Certificate</a><a href="/field-guide/materialization-boundary">Materialization Boundary</a></div>
+            </div>
+            <div class="reading-path-links">
+              <strong>Use cases</strong>
+              <div><a class="claim-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a><a class="claim-badge" href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a></div>
+            </div>
+            <p class="reading-path-boundary">Vortex-native explanations are scoped by artifact, operator, evidence, and claim gates.</p>
+          </article>
+
+          <article class="reading-path-card" id="use-python-sql-dataframe">
+            <div class="reading-path-card-header">
+              <span class="claim-badge report-only" data-status="mixed-support">mixed support</span>
+              <a href="#use-python-sql-dataframe">#use-python-sql-dataframe</a>
+            </div>
+            <h3>Use Python, SQL, or DataFrame surfaces</h3>
+            <p>Separate ready-local Python wrapper use from report-only SQL/DataFrame planner and API posture.</p>
+            <div class="reading-path-links">
+              <strong>Concepts</strong>
+              <div><a href="/field-guide/python-wrapper-client">Python Wrapper Client</a><a href="/field-guide/source-free-generated-output">Source-Free Generated Output</a><a href="/field-guide/report-only">Report-Only</a><a href="/field-guide/unsupported-diagnostics">Unsupported Diagnostics</a><a href="/field-guide/rest-control-plane">REST Control Plane</a></div>
+            </div>
+            <div class="reading-path-links">
+              <strong>Use cases</strong>
+              <div><a class="claim-badge" href="/use-cases/python-wrapper-client-smoke">Python wrapper and client smoke</a><a class="claim-badge" href="/use-cases/source-free-generated-output-boundary">Source-free generated output boundary</a><a class="claim-badge" href="/use-cases/sql-dataframe-capability-posture">SQL and DataFrame capability posture</a></div>
+            </div>
+            <p class="reading-path-boundary">Python ergonomics and report-only SQL/DataFrame diagnostics do not imply broad SQL/DataFrame runtime support.</p>
+          </article>
+
+          <article class="reading-path-card" id="know-what-is-blocked">
+            <div class="reading-path-card-header">
+              <span class="claim-badge report-only" data-status="blocked-or-report-only">blocked or report only</span>
+              <a href="#know-what-is-blocked">#know-what-is-blocked</a>
+            </div>
+            <h3>Know what is blocked</h3>
+            <p>Use blocker and boundary dossiers to avoid mistaking planned or report-only surfaces for runtime support.</p>
+            <div class="reading-path-links">
+              <strong>Concepts</strong>
+              <div><a href="/field-guide/blocked-status">Blocked Status</a><a href="/field-guide/unsupported-diagnostics">Unsupported Diagnostics</a><a href="/field-guide/object-store-boundary">Object-Store Boundary</a><a href="/field-guide/table-lakehouse-boundary">Table/Lakehouse Boundary</a><a href="/field-guide/package-publication-boundary">Package Publication Boundary</a></div>
+            </div>
+            <div class="reading-path-links">
+              <strong>Use cases</strong>
+              <div><a class="claim-badge" href="/use-cases/object-store-boundary-report">Object-store and cloud storage boundary</a><a class="claim-badge" href="/use-cases/table-lakehouse-boundary-report">Table and lakehouse boundary</a><a class="claim-badge" href="/use-cases/package-channel-readiness-boundary">Package, release, and install channel boundary</a></div>
+            </div>
+            <p class="reading-path-boundary">Blocked reading paths make unsupported surfaces visible and do not hide fallback execution.</p>
+          </article>
+
+          <article class="reading-path-card" id="foundry-and-platform-context">
+            <div class="reading-path-card-header">
+              <span class="claim-badge report-only" data-status="platform-boundary-orientation">platform boundary orientation</span>
+              <a href="#foundry-and-platform-context">#foundry-and-platform-context</a>
+            </div>
+            <h3>Foundry and platform context</h3>
+            <p>Review Foundry, REST/control-plane, MCP/agent, package, and scale boundaries without inferring production platform support.</p>
+            <div class="reading-path-links">
+              <strong>Concepts</strong>
+              <div><a href="/field-guide/foundry-dev-stack-smoke">Foundry Dev-Stack Smoke</a><a href="/field-guide/rest-control-plane">REST Control Plane</a><a href="/field-guide/mcp-agent-api">MCP Agent API</a><a href="/field-guide/scale-profile">Scale Profile</a><a href="/field-guide/public-claim-boundary">Public Claim Boundary</a></div>
+            </div>
+            <div class="reading-path-links">
+              <strong>Use cases</strong>
+              <div><a class="claim-badge" href="/use-cases/foundry-local-proof-boundary">Foundry-style local proof boundary</a><a class="claim-badge" href="/use-cases/object-store-boundary-report">Object-store and cloud storage boundary</a><a class="claim-badge" href="/use-cases/package-channel-readiness-boundary">Package, release, and install channel boundary</a></div>
+            </div>
+            <p class="reading-path-boundary">Platform context is boundary documentation only; no Foundry, distributed, object-store, or managed-platform claim is created.</p>
+          </article>
+        </div>
         <div class="terminal-panel field-guide-toc">
           <p class="eyebrow">Table of contents</p>
           <h2>Jump by concept family.</h2>

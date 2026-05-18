@@ -288,6 +288,9 @@ def main() -> int:
                 entries = field_guide_data.get("entries") or []
                 if len(entries) < 50:
                     blockers.append("Field Guide index must contain at least 50 entries")
+                reading_paths = field_guide_data.get("reading_paths") or []
+                if len(reading_paths) < 7:
+                    blockers.append("Field Guide index must contain at least 7 reading paths")
                 categories = set(field_guide_data.get("categories") or [])
                 for required in [
                     "Start Here",
@@ -304,6 +307,29 @@ def main() -> int:
                 ]:
                     if required not in categories:
                         blockers.append(f"Field Guide index missing category: {required}")
+                reading_path_ids = {path.get("id") for path in reading_paths}
+                for required in [
+                    "new-to-shardloom",
+                    "run-a-local-workflow",
+                    "understand-benchmarks",
+                    "understand-vortex-native-paths",
+                    "use-python-sql-dataframe",
+                    "know-what-is-blocked",
+                    "foundry-and-platform-context",
+                ]:
+                    if required not in reading_path_ids:
+                        blockers.append(f"Field Guide index missing reading path: {required}")
+                entry_slugs = {entry.get("slug") for entry in entries}
+                for path in reading_paths:
+                    path_id = path.get("id", "<missing>")
+                    for required in ("id", "title", "summary", "status", "terms", "use_cases", "claim_boundary"):
+                        if not path.get(required):
+                            blockers.append(f"Field Guide reading path {path_id} missing {required}")
+                    for term in path.get("terms") or []:
+                        if term not in entry_slugs:
+                            blockers.append(
+                                f"Field Guide reading path {path_id} unknown term: {term}"
+                            )
                 for entry in entries:
                     entry_id = entry.get("slug", "<missing>")
                     for required in ("slug", "title", "category", "status", "summary", "reference_files", "claim_boundary"):
@@ -318,6 +344,14 @@ def main() -> int:
         if field_guide_page.exists():
             field_guide_text = field_guide_page.read_text(encoding="utf-8")
             for required in [
+                "Reading paths",
+                "New to ShardLoom",
+                "Run a local workflow",
+                "Understand benchmarks",
+                "Understand Vortex-native paths",
+                "Use Python, SQL, or DataFrame surfaces",
+                "Know what is blocked",
+                "Foundry and platform context",
                 "Table of contents",
                 "Start Here",
                 "Execution Modes",
