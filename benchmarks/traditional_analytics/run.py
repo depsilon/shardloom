@@ -791,6 +791,38 @@ BAYESIAN_ADVISOR_FIELDS = (
     "bayesian_advisor_external_engine_invoked",
     "bayesian_advisor_claim_boundary",
 )
+BAYESIAN_CLAIM_CONFIDENCE_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.bayesian_claim_confidence.v1"
+)
+BAYESIAN_CLAIM_CONFIDENCE_REPORT_ID = "gar-novel-1d.bayesian_claim_confidence"
+BAYESIAN_CLAIM_CONFIDENCE_MODEL_VERSION = "gar-novel-1d.report_only.v1"
+BAYESIAN_CLAIM_CONFIDENCE_FIELDS = (
+    "bayesian_claim_confidence_schema_version",
+    "bayesian_claim_confidence_model_version",
+    "bayesian_claim_confidence_status",
+    "bayesian_claim_confidence_posterior_runtime_distribution",
+    "bayesian_claim_confidence_credible_interval",
+    "bayesian_claim_confidence_probability_of_regression",
+    "bayesian_claim_confidence_minimum_iterations_for_claim_grade",
+    "bayesian_claim_confidence_benchmark_population_ref",
+    "bayesian_claim_confidence_benchmark_constitution_ref",
+    "bayesian_claim_confidence_run_manifest_ref",
+    "bayesian_claim_confidence_environment_ref",
+    "bayesian_claim_confidence_scenario_population_ref",
+    "bayesian_claim_confidence_input_evidence_refs",
+    "bayesian_claim_confidence_release_claim_policy_ref",
+    "bayesian_claim_confidence_performance_claim_allowed",
+    "bayesian_claim_confidence_claim_blocking_allowed",
+    "bayesian_claim_confidence_claim_upgrade_allowed",
+    "bayesian_claim_confidence_runtime_decision_applied",
+    "bayesian_claim_confidence_layout_decision_applied",
+    "bayesian_claim_confidence_benchmark_recomputed",
+    "bayesian_claim_confidence_fallback_attempted",
+    "bayesian_claim_confidence_external_engine_invoked",
+    "bayesian_claim_confidence_claim_gate_status",
+    "bayesian_claim_confidence_uncertainty_reason",
+    "bayesian_claim_confidence_claim_boundary",
+)
 SCALE_CLAIM_SCHEMA_VERSION = "shardloom.traditional_analytics.scale_claim_gate.v1"
 SCALE_CLASS_VOCABULARY = (
     "local_smoke",
@@ -9123,6 +9155,102 @@ def bayesian_advisor_contract() -> dict[str, Any]:
     }
 
 
+def bayesian_claim_confidence_report() -> dict[str, Any]:
+    input_evidence_refs = [
+        "benchmark_artifact.results",
+        "benchmark_artifact.environment",
+        "benchmark_artifact.scenario_catalog",
+        "benchmark_artifact.correctness",
+        "execution_mode_attribution_contract",
+        "source_state_contract",
+        "prepared_state_contract",
+        "output_plan_contract",
+        "reuse_level_contract",
+        "build_profile_contract",
+        "bayesian_advisor_contract",
+        "scale_claim_contract",
+    ]
+    return {
+        "report_id": BAYESIAN_CLAIM_CONFIDENCE_REPORT_ID,
+        "schema_version": BAYESIAN_CLAIM_CONFIDENCE_SCHEMA_VERSION,
+        "model_version": BAYESIAN_CLAIM_CONFIDENCE_MODEL_VERSION,
+        "canonical_reference": (
+            "docs/architecture/evidence-native-generated-execution-observability-confidence.md"
+        ),
+        "companion_reference": "docs/architecture/bayesian-performance-layout-advisor.md",
+        "row_fields": list(BAYESIAN_CLAIM_CONFIDENCE_FIELDS),
+        "bayesian_claim_confidence_schema_version": (
+            BAYESIAN_CLAIM_CONFIDENCE_SCHEMA_VERSION
+        ),
+        "bayesian_claim_confidence_model_version": (
+            BAYESIAN_CLAIM_CONFIDENCE_MODEL_VERSION
+        ),
+        "bayesian_claim_confidence_status": "report_only_not_fit",
+        "bayesian_claim_confidence_posterior_runtime_distribution": "not_fit",
+        "bayesian_claim_confidence_credible_interval": "not_computed",
+        "bayesian_claim_confidence_probability_of_regression": "not_computed",
+        "bayesian_claim_confidence_minimum_iterations_for_claim_grade": str(
+            MIN_CLAIM_GRADE_ITERATIONS
+        ),
+        "bayesian_claim_confidence_benchmark_population_ref": (
+            "traditional_analytics_local_smoke_population"
+        ),
+        "bayesian_claim_confidence_benchmark_constitution_ref": (
+            "docs/benchmarks/local-taxonomy-benchmark.md"
+        ),
+        "bayesian_claim_confidence_run_manifest_ref": "benchmark_artifact.results",
+        "bayesian_claim_confidence_environment_ref": "benchmark_artifact.environment",
+        "bayesian_claim_confidence_scenario_population_ref": (
+            "benchmark_artifact.scenario_catalog"
+        ),
+        "bayesian_claim_confidence_input_evidence_refs": ",".join(input_evidence_refs),
+        "bayesian_claim_confidence_release_claim_policy_ref": (
+            "docs/release/hard-release-readiness-gate.md"
+        ),
+        "bayesian_claim_confidence_performance_claim_allowed": False,
+        "bayesian_claim_confidence_claim_blocking_allowed": True,
+        "bayesian_claim_confidence_claim_upgrade_allowed": False,
+        "bayesian_claim_confidence_runtime_decision_applied": False,
+        "bayesian_claim_confidence_layout_decision_applied": False,
+        "bayesian_claim_confidence_benchmark_recomputed": False,
+        "bayesian_claim_confidence_fallback_attempted": False,
+        "bayesian_claim_confidence_external_engine_invoked": False,
+        "bayesian_claim_confidence_claim_gate_status": "advisory_only_not_claim_grade",
+        "bayesian_claim_confidence_uncertainty_reason": (
+            "posterior regression model is not fit; current benchmark artifacts are local "
+            "smoke/pre-release attribution evidence and cannot create performance, "
+            "superiority, release, or production claims"
+        ),
+        "bayesian_claim_confidence_claim_boundary": (
+            "Bayesian claim-confidence output is report-only. It may block a future "
+            "release/performance claim when uncertainty is high, but it cannot upgrade "
+            "claim_gate_status, apply runtime/layout decisions, recompute benchmarks, "
+            "invoke external engines, or weaken no-fallback evidence."
+        ),
+        "required_future_evidence": [
+            "stable benchmark population",
+            "multi-run claim-grade sample set",
+            "posterior model review",
+            "credible interval policy",
+            "regression probability threshold",
+            "release claim-gate integration",
+            "redacted evidence refs",
+            "no-fallback/no-external-engine proof",
+        ],
+        "non_goals": [
+            "runtime auto-optimization",
+            "hidden mode/layout decisioning",
+            "benchmark recomputation",
+            "performance or superiority claims",
+            "Spark-displacement claims",
+            "SQL/DataFrame runtime",
+            "object-store/lakehouse support",
+            "Foundry production support",
+            "package publication",
+        ],
+    }
+
+
 def source_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -13236,6 +13364,97 @@ def render_bayesian_advisor_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_bayesian_claim_confidence_report(artifact: dict[str, Any]) -> str:
+    report = artifact["bayesian_claim_confidence_report"]
+    field_rows = [
+        ["Report", str(report["report_id"])],
+        ["Model version", str(report["model_version"])],
+        ["Canonical reference", str(report["canonical_reference"])],
+        ["Companion reference", str(report["companion_reference"])],
+        [
+            "Posterior runtime distribution",
+            str(report["bayesian_claim_confidence_posterior_runtime_distribution"]),
+        ],
+        [
+            "Credible interval",
+            str(report["bayesian_claim_confidence_credible_interval"]),
+        ],
+        [
+            "Probability of regression",
+            str(report["bayesian_claim_confidence_probability_of_regression"]),
+        ],
+        [
+            "Minimum iterations for claim-grade",
+            str(report["bayesian_claim_confidence_minimum_iterations_for_claim_grade"]),
+        ],
+        [
+            "Benchmark population",
+            str(report["bayesian_claim_confidence_benchmark_population_ref"]),
+        ],
+        [
+            "Evidence refs",
+            str(report["bayesian_claim_confidence_input_evidence_refs"]),
+        ],
+        [
+            "Claim gate status",
+            str(report["bayesian_claim_confidence_claim_gate_status"]),
+        ],
+        [
+            "Uncertainty reason",
+            str(report["bayesian_claim_confidence_uncertainty_reason"]),
+        ],
+        [
+            "Claim boundary",
+            str(report["bayesian_claim_confidence_claim_boundary"]),
+        ],
+    ]
+    policy_rows = [
+        [
+            "performance_claim_allowed",
+            str(report["bayesian_claim_confidence_performance_claim_allowed"]),
+        ],
+        [
+            "claim_blocking_allowed",
+            str(report["bayesian_claim_confidence_claim_blocking_allowed"]),
+        ],
+        [
+            "claim_upgrade_allowed",
+            str(report["bayesian_claim_confidence_claim_upgrade_allowed"]),
+        ],
+        [
+            "runtime_decision_applied",
+            str(report["bayesian_claim_confidence_runtime_decision_applied"]),
+        ],
+        [
+            "layout_decision_applied",
+            str(report["bayesian_claim_confidence_layout_decision_applied"]),
+        ],
+        [
+            "benchmark_recomputed",
+            str(report["bayesian_claim_confidence_benchmark_recomputed"]),
+        ],
+        [
+            "fallback_attempted",
+            str(report["bayesian_claim_confidence_fallback_attempted"]),
+        ],
+        [
+            "external_engine_invoked",
+            str(report["bayesian_claim_confidence_external_engine_invoked"]),
+        ],
+    ]
+    evidence_rows = [
+        ["Future evidence", value] for value in report["required_future_evidence"]
+    ]
+    non_goal_rows = [["Non-goal", value] for value in report["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], field_rows)
+        + "\n\n"
+        + markdown_table(["Policy", "Value"], policy_rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], evidence_rows + non_goal_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -15272,6 +15491,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_bayesian_advisor_contract(artifact),
         "",
+        "## Bayesian Claim-Confidence And Regression Contract",
+        "",
+        "This contract records the report-only claim-confidence schema for future posterior runtime distributions, credible intervals, regression probability, minimum-run policy, and uncertainty blockers. It can only block future claims; it cannot create claim-grade status.",
+        "",
+        render_bayesian_claim_confidence_report(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -15674,6 +15899,7 @@ def main() -> int:
         "reuse_level_contract": reuse_level_contract(),
         "build_profile_contract": build_profile_contract(),
         "bayesian_advisor_contract": bayesian_advisor_contract(),
+        "bayesian_claim_confidence_report": bayesian_claim_confidence_report(),
         "split_manifest_contract": split_manifest_contract(),
         "memory_spill_contract": memory_spill_contract(),
         "shuffle_scale_contract": shuffle_scale_contract(),

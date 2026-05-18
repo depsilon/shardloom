@@ -193,6 +193,17 @@ thresholds, batch rows, target partition bytes, max parallelism, and layout/writ
 keeping `bayesian_advisor_runtime_decision_applied=false` and
 `bayesian_advisor_claim_gate_status=advisory_only`.
 
+Benchmark artifacts also include
+`shardloom.traditional_analytics.bayesian_claim_confidence.v1`, a report-only/not-fit
+claim-confidence report for future posterior runtime distributions, credible intervals, regression
+probability, minimum-run policy, benchmark population refs, release policy refs, and uncertainty
+blockers. Current reports set `posterior_runtime_distribution=not_fit`,
+`credible_interval=not_computed`, `probability_of_regression=not_computed`,
+`performance_claim_allowed=false`, `claim_upgrade_allowed=false`,
+`runtime_decision_applied=false`, `layout_decision_applied=false`,
+`benchmark_recomputed=false`, `fallback_attempted=false`, and
+`external_engine_invoked=false`.
+
 The ShardLoom write/commit evidence table runs the local committed-manifest step against a
 synthetic staged workspace and records commit
 execution, manifest-commit status, bytes written, and average commit latency.

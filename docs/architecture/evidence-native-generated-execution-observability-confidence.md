@@ -250,32 +250,49 @@ claim-grade by itself. It may block or hold a release/performance claim when unc
 GAR-PERF-1D now provides the adjacent benchmark-row advisor contract
 `shardloom.traditional_analytics.bayesian_advisor.v1` for report-only confidence and uncertainty
 fields around mode/reuse/sizing/layout decision surfaces. The GAR-NOVEL-1D model below is the later
-claim-confidence and regression layer; it still needs a fitted posterior model and release/claim
-gate integration before it can block claims from statistical uncertainty.
+claim-confidence and regression layer. It now exists as a report-only benchmark artifact schema, but
+it still needs a fitted posterior model and release/claim-gate integration before it can block claims
+from statistical uncertainty.
 
-Report-only fields:
+`GAR-NOVEL-1D` adds the report-only benchmark artifact schema:
 
 ```text
-bayesian_confidence_report_version
-input_evidence_refs
-benchmark_constitution_ref
-posterior_runtime_distribution
-credible_interval
-probability_of_regression
-minimum_iterations_for_claim_grade
-uncertainty_reason
-advisor_version
-claim_gate_status=advisory_only|not_claim_grade
+schema_version=shardloom.traditional_analytics.bayesian_claim_confidence.v1
+report_id=gar-novel-1d.bayesian_claim_confidence
+model_version=gar-novel-1d.report_only.v1
+status=report_only_not_fit
+posterior_runtime_distribution=not_fit
+credible_interval=not_computed
+probability_of_regression=not_computed
+minimum_iterations_for_claim_grade=3
+benchmark_population_ref=traditional_analytics_local_smoke_population
+benchmark_constitution_ref=docs/benchmarks/local-taxonomy-benchmark.md
+run_manifest_ref=benchmark_artifact.results
+environment_ref=benchmark_artifact.environment
+scenario_population_ref=benchmark_artifact.scenario_catalog
+release_claim_policy_ref=docs/release/hard-release-readiness-gate.md
+performance_claim_allowed=false
+claim_blocking_allowed=true
+claim_upgrade_allowed=false
+runtime_decision_applied=false
+layout_decision_applied=false
+benchmark_recomputed=false
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status=advisory_only_not_claim_grade
 ```
 
 Rules:
 
 - The model never silently changes execution mode, layout choice, or optimization policy.
 - The model must name the evidence population it was fit over.
-- High uncertainty may block a performance/release claim.
+- High uncertainty may block a performance/release claim only after a future release gate consumes
+  fitted posterior evidence.
 - A favorable posterior cannot create a performance, superiority, or replacement claim without the
   existing correctness, benchmark, Native I/O, execution-certificate, materialization, policy, and
   no-fallback evidence gates.
+- Current report-only rows set `posterior_runtime_distribution=not_fit`,
+  `credible_interval=not_computed`, and `probability_of_regression=not_computed`.
 
 ## Non-Goals
 

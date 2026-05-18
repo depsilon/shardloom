@@ -713,11 +713,13 @@ plan before coding.
 - [x] Execution certificates, benchmark rows, workload dossiers, and stateful reuse gate reports
   exist.
 - [x] Evidence is workload-scoped and links to plan/input/output/artifact/native-I/O references.
-- [ ] `GAR-NOVEL-1D` adds the planned Bayesian claim-confidence and regression model. The next work
-  is an advisory/report-only schema for posterior runtime distribution, credible interval,
-  probability of regression, minimum iterations for claim-grade consideration, and uncertainty
-  reason. Bayesian output may block release/performance claims when uncertainty is high, but it
-  cannot upgrade claim status alone.
+- [x] `GAR-NOVEL-1D` adds
+  `shardloom.traditional_analytics.bayesian_claim_confidence.v1` as a report-only/not-fit Bayesian
+  claim-confidence and regression schema in benchmark artifacts. It records posterior runtime
+  distribution, credible interval, probability of regression, minimum iterations for claim-grade
+  consideration, benchmark population refs, release policy refs, and uncertainty reason while
+  keeping posterior fitting, benchmark recomputation, runtime/layout decisioning, claim upgrades,
+  external engines, and fallback execution disabled.
 - [x] `GAR-PERF-2A` adds scoped evidence-level runtime tiering for
   `traditional-analytics-vortex-batch-run`. Prepared/native batch rows now emit
   `evidence_level=minimal_runtime|certified|full_replay`, keep no-fallback and no-external-engine
