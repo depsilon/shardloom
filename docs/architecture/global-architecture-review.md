@@ -883,9 +883,13 @@ plan before coding.
   report-only rows, or invoking external engines. Remaining GAR-GEN work is other engine-native
   generators plus broader output/API proof without promoting broad SQL/DataFrame runtime,
   object-store/Foundry runtime, performance, production, or package claims before evidence exists.
-- [ ] `GAR-NOVEL-1A` keeps `GeneratedSourceCertificate` aligned with Python/API docs,
+- [x] `GAR-NOVEL-1A` keeps `GeneratedSourceCertificate` aligned with Python/API docs,
   SQL/DataFrame capability rows, Foundry proof docs, and future lineage/telemetry/confidence refs
-  without adding generated-output runtime.
+  through `shardloom.generated_source_evidence_alignment.v1`. The rows cover
+  `no_dataset_smoke`, `python_generated_source_write`, `sql_dataframe_source_free`, and
+  `foundry_generated_output`; OpenLineage/OTel exports stay disabled/report-only, Bayesian
+  confidence remains disabled/advisory, and no SQL/DataFrame, object-store/lakehouse, Foundry,
+  production, performance, or package claim is promoted.
 - [ ] `GAR-COMPAT-1` keeps broad adapter and user-surface compatibility separate from runtime
   support. Python rows/DataFrame, SQL VALUES/literals, REST/Flight/ADBC, external databases, and
   generated/source-free output remain report-only or blocked unless a narrower evidence-bearing

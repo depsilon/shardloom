@@ -625,11 +625,204 @@ impl GeneratedSourceApiAdmissionMatrix {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GeneratedSourceEvidenceAlignmentRow {
+    pub row_id: &'static str,
+    pub user_visible_surface: &'static str,
+    pub source_free_case: &'static str,
+    pub support_status: GeneratedSourceSupportStatus,
+    pub runtime_execution: bool,
+    pub generated_source_certificate_status: GeneratedSourceCertificateStatus,
+    pub output_native_io_certificate_status: &'static str,
+    pub openlineage_facet_status: &'static str,
+    pub opentelemetry_span_status: &'static str,
+    pub bayesian_confidence_status: &'static str,
+    pub foundry_boundary_ref: &'static str,
+    pub blocker_id: &'static str,
+    pub required_evidence: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl GeneratedSourceEvidenceAlignmentRow {
+    #[must_use]
+    pub const fn no_dataset_smoke() -> Self {
+        Self {
+            row_id: "no_dataset_smoke",
+            user_visible_surface: "No-dataset smoke",
+            source_free_case: "no_dataset_smoke",
+            support_status: GeneratedSourceSupportStatus::SmokeOnly,
+            runtime_execution: false,
+            generated_source_certificate_status:
+                GeneratedSourceCertificateStatus::NotApplicableNoGeneratedRows,
+            output_native_io_certificate_status: "not_emitted_no_output_data",
+            openlineage_facet_status: "not_emitted_no_generated_rows",
+            opentelemetry_span_status: "not_emitted_smoke_only",
+            bayesian_confidence_status: "not_applicable_smoke_only",
+            foundry_boundary_ref: "not_applicable",
+            blocker_id: "gar-novel-1a.no_dataset_smoke_not_generated_output",
+            required_evidence: "no_dataset_smoke_status,capability_envelope,no_fallback_evidence",
+            claim_gate_status: "smoke_only",
+            claim_boundary: "No-dataset smoke proves import/capability posture only; it creates no generated rows, no source certificate, and no output claim.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn python_generated_source() -> Self {
+        Self {
+            row_id: "python_generated_source_write",
+            user_visible_surface: "Python ctx.from_rows/range local JSONL write",
+            source_free_case: "user_generated_source_or_engine_native_generated_source",
+            support_status: GeneratedSourceSupportStatus::FixtureSmokeSupported,
+            runtime_execution: true,
+            generated_source_certificate_status:
+                GeneratedSourceCertificateStatus::RequiredForRuntime,
+            output_native_io_certificate_status: "required_for_runtime_output",
+            openlineage_facet_status: "report_only_generated_source_facet_ref",
+            opentelemetry_span_status: "report_only_result_sink_span_ref",
+            bayesian_confidence_status: "advisory_ref_only",
+            foundry_boundary_ref: "not_applicable_local_output",
+            blocker_id: "none_scoped_local_jsonl_smoke_only",
+            required_evidence: "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "Scoped local JSONL fixture smoke only; lineage, telemetry, and confidence refs are report-only and cannot upgrade the claim.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn sql_dataframe_source_free() -> Self {
+        Self {
+            row_id: "sql_dataframe_source_free",
+            user_visible_surface: "SQL/DataFrame source-free rows",
+            source_free_case: "sql_dataframe_report_only",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            generated_source_certificate_status:
+                GeneratedSourceCertificateStatus::NotEmittedReportOnly,
+            output_native_io_certificate_status: "not_emitted_report_only",
+            openlineage_facet_status: "mapped_report_only_no_event",
+            opentelemetry_span_status: "mapped_report_only_no_export",
+            bayesian_confidence_status: "advisory_schema_only",
+            foundry_boundary_ref: "not_applicable",
+            blocker_id: "gar-novel-1a.sql_dataframe_runtime_not_implemented",
+            required_evidence: "parser_binder_or_dataframe_plan,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "SQL/DataFrame generated-output support is report-only; no parser, planner, DataFrame runtime, row generation, or output write is executed.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn foundry_generated_output() -> Self {
+        Self {
+            row_id: "foundry_generated_output",
+            user_visible_surface: "Foundry generated-output proof boundary",
+            source_free_case: "foundry_report_only",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            generated_source_certificate_status:
+                GeneratedSourceCertificateStatus::NotEmittedReportOnly,
+            output_native_io_certificate_status: "not_emitted_report_only",
+            openlineage_facet_status: "mapped_report_only_no_event",
+            opentelemetry_span_status: "mapped_report_only_no_export",
+            bayesian_confidence_status: "not_applicable_until_runtime_proof",
+            foundry_boundary_ref: "shardloom.foundry_generated_output_boundary.v1",
+            blocker_id: "gar-gen-1f.foundry_output_api_not_invoked",
+            required_evidence: "foundry_output_api_evidence,result_dataset_written,evidence_dataset_written,generated_source_certificate,output_native_io_certificate,no_fallback_evidence",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Foundry generated-output remains a future validation target; current proof invokes no Foundry runtime, Spark, output API, direct S3, or object-store write.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn fallback_free(&self) -> bool {
+        !self.fallback_attempted && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct GeneratedSourceEvidenceAlignmentReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub docs_ref: &'static str,
+    pub generated_source_contract_ref: &'static str,
+    pub generated_source_api_admission_ref: &'static str,
+    pub openlineage_facets_ref: &'static str,
+    pub opentelemetry_spans_ref: &'static str,
+    pub bayesian_confidence_ref: &'static str,
+    pub rows: Vec<GeneratedSourceEvidenceAlignmentRow>,
+    pub openlineage_export_enabled: bool,
+    pub opentelemetry_export_enabled: bool,
+    pub opentelemetry_network_exporter_enabled: bool,
+    pub bayesian_confidence_enabled: bool,
+    pub foundry_runtime_invoked: bool,
+    pub object_store_io_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+}
+
+impl GeneratedSourceEvidenceAlignmentReport {
+    #[must_use]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.generated_source_evidence_alignment.v1",
+            report_id: "gar-novel-1a.generated_source_cross_surface_alignment",
+            docs_ref: "docs/architecture/evidence-native-generated-execution-observability-confidence.md",
+            generated_source_contract_ref: "shardloom.generated_source_certificate_contract.v1",
+            generated_source_api_admission_ref: "shardloom.generated_source_api_admission.v1",
+            openlineage_facets_ref: "GAR-NOVEL-1B.report_only_facets",
+            opentelemetry_spans_ref: "GAR-NOVEL-1C.report_only_spans",
+            bayesian_confidence_ref: "GAR-NOVEL-1D.report_only_confidence",
+            rows: vec![
+                GeneratedSourceEvidenceAlignmentRow::no_dataset_smoke(),
+                GeneratedSourceEvidenceAlignmentRow::python_generated_source(),
+                GeneratedSourceEvidenceAlignmentRow::sql_dataframe_source_free(),
+                GeneratedSourceEvidenceAlignmentRow::foundry_generated_output(),
+            ],
+            openlineage_export_enabled: false,
+            opentelemetry_export_enabled: false,
+            opentelemetry_network_exporter_enabled: false,
+            bayesian_confidence_enabled: false,
+            foundry_runtime_invoked: false,
+            object_store_io_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn all_rows_fallback_free(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .all(GeneratedSourceEvidenceAlignmentRow::fallback_free)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         GeneratedSourceApiAdmissionMatrix, GeneratedSourceCaseKind,
-        GeneratedSourceCertificateContractReport,
+        GeneratedSourceCertificateContractReport, GeneratedSourceEvidenceAlignmentReport,
     };
 
     #[test]
@@ -735,5 +928,39 @@ mod tests {
             sql_values.blocker_id,
             "gar-gen-1.sql_values_runtime_not_implemented"
         );
+    }
+
+    #[test]
+    fn evidence_alignment_report_links_generated_source_to_export_refs_without_execution() {
+        let report = GeneratedSourceEvidenceAlignmentReport::report_only();
+        assert_eq!(
+            report.row_order(),
+            vec![
+                "no_dataset_smoke",
+                "python_generated_source_write",
+                "sql_dataframe_source_free",
+                "foundry_generated_output",
+            ]
+        );
+        assert!(report.all_rows_fallback_free());
+        assert!(!report.openlineage_export_enabled);
+        assert!(!report.opentelemetry_export_enabled);
+        assert!(!report.opentelemetry_network_exporter_enabled);
+        assert!(!report.bayesian_confidence_enabled);
+        assert!(!report.foundry_runtime_invoked);
+        assert!(!report.object_store_io_performed);
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+
+        let foundry = report
+            .rows
+            .iter()
+            .find(|row| row.row_id == "foundry_generated_output")
+            .expect("foundry generated output row");
+        assert_eq!(
+            foundry.foundry_boundary_ref,
+            "shardloom.foundry_generated_output_boundary.v1"
+        );
+        assert_eq!(foundry.claim_gate_status, "not_claim_grade");
+        assert!(!foundry.runtime_execution);
     }
 }

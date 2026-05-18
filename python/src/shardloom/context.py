@@ -997,6 +997,185 @@ class GeneratedSourceApiAdmissionMatrix:
 
 
 @dataclass(frozen=True, slots=True)
+class GeneratedSourceEvidenceAlignmentRow:
+    """One generated-source cross-surface alignment row."""
+
+    row_id: str
+    support_status: str | None
+    source_free_case: str | None
+    runtime_execution: bool | None
+    generated_source_certificate_status: str | None
+    output_native_io_certificate_status: str | None
+    openlineage_facet_status: str | None
+    opentelemetry_span_status: str | None
+    bayesian_confidence_status: str | None
+    foundry_boundary_ref: str | None
+    blocker_id: str | None
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether this row preserves no fallback and no external engine execution."""
+
+        return self.fallback_attempted is False and self.external_engine_invoked is False
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratedSourceEvidenceAlignmentReport:
+    """Typed view over GAR-NOVEL-1A generated-source evidence alignment fields."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the generated-source evidence alignment schema version."""
+
+        return self.capability.field("generated_source_evidence_alignment_schema_version")
+
+    @property
+    def report_id(self) -> str | None:
+        """Return the generated-source evidence alignment report identifier."""
+
+        return self.capability.field("generated_source_evidence_alignment_report_id")
+
+    @property
+    def docs_ref(self) -> str | None:
+        """Return the architecture document that owns the alignment model."""
+
+        return self.capability.field("generated_source_evidence_alignment_docs_ref")
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return alignment row IDs in stable order."""
+
+        return _split_csv(
+            self.capability.field("generated_source_evidence_alignment_row_order")
+        )
+
+    @property
+    def present(self) -> bool:
+        """Whether this capability exposes the GAR-NOVEL-1A alignment report."""
+
+        return self.schema_version is not None
+
+    @property
+    def openlineage_export_enabled(self) -> bool:
+        """Whether OpenLineage event export is enabled by this capability view."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "generated_source_evidence_alignment_openlineage_export_enabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def opentelemetry_export_enabled(self) -> bool:
+        """Whether OpenTelemetry export is enabled by this capability view."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "generated_source_evidence_alignment_opentelemetry_export_enabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def opentelemetry_network_exporter_enabled(self) -> bool:
+        """Whether an OpenTelemetry network exporter is enabled."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "generated_source_evidence_alignment_opentelemetry_network_exporter_enabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def bayesian_confidence_enabled(self) -> bool:
+        """Whether Bayesian claim-confidence runtime decisioning is enabled."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "generated_source_evidence_alignment_bayesian_confidence_enabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether the alignment report and rows preserve no-fallback policy."""
+
+        keys = (
+            "generated_source_evidence_alignment_fallback_attempted",
+            "generated_source_evidence_alignment_external_engine_invoked",
+            "generated_source_evidence_alignment_all_rows_no_fallback_no_external_engine",
+        )
+        return (
+            self.capability.envelope.field_bool(keys[0], True) is False
+            and self.capability.envelope.field_bool(keys[1], True) is False
+            and self.capability.envelope.field_bool(keys[2], False) is True
+            and all(self.row(row_id).no_fallback_no_external_engine for row_id in self.row_order)
+        )
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the alignment-level claim gate status."""
+
+        return self.capability.field("generated_source_evidence_alignment_claim_gate_status")
+
+    def row(self, row_id: str) -> GeneratedSourceEvidenceAlignmentRow:
+        """Return one generated-source evidence alignment row."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(
+                f"generated-source evidence alignment row {row_id!r} is not present"
+            )
+        prefix = f"generated_source_evidence_alignment_row_{normalized}"
+        return GeneratedSourceEvidenceAlignmentRow(
+            row_id=normalized,
+            support_status=self.capability.field(f"{prefix}_support_status"),
+            source_free_case=self.capability.field(f"{prefix}_source_free_case"),
+            runtime_execution=self.capability.envelope.field_bool(
+                f"{prefix}_runtime_execution"
+            ),
+            generated_source_certificate_status=self.capability.field(
+                f"{prefix}_generated_source_certificate_status"
+            ),
+            output_native_io_certificate_status=self.capability.field(
+                f"{prefix}_output_native_io_certificate_status"
+            ),
+            openlineage_facet_status=self.capability.field(
+                f"{prefix}_openlineage_facet_status"
+            ),
+            opentelemetry_span_status=self.capability.field(
+                f"{prefix}_opentelemetry_span_status"
+            ),
+            bayesian_confidence_status=self.capability.field(
+                f"{prefix}_bayesian_confidence_status"
+            ),
+            foundry_boundary_ref=self.capability.field(f"{prefix}_foundry_boundary_ref"),
+            blocker_id=self.capability.field(f"{prefix}_blocker_id"),
+            required_evidence=_split_csv(self.capability.field(f"{prefix}_required_evidence")),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UniversalCompatibilityRow:
     """One row from the universal source/sink compatibility scoreboard."""
 
@@ -2044,6 +2223,7 @@ class CapabilityView:
 
         excluded_prefixes = (
             "generated_source_api_admission_",
+            "generated_source_evidence_alignment_",
             "python_ctx_",
             "python_generated_source_",
             "sql_literal_",
@@ -2340,6 +2520,12 @@ class CapabilityView:
         """Return source-free SQL/DataFrame/Python/API admission posture."""
 
         return GeneratedSourceApiAdmissionMatrix(self)
+
+    @property
+    def generated_source_evidence_alignment(self) -> GeneratedSourceEvidenceAlignmentReport:
+        """Return GAR-NOVEL-1A generated-source evidence/export alignment posture."""
+
+        return GeneratedSourceEvidenceAlignmentReport(self)
 
     @property
     def universal_compatibility_scoreboard(self) -> UniversalCompatibilityScoreboard:

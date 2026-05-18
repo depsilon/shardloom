@@ -163,7 +163,8 @@ pub use feature_footprint::{
 pub use generated_source::{
     GeneratedSourceApiAdmissionMatrix, GeneratedSourceApiAdmissionRow, GeneratedSourceCaseKind,
     GeneratedSourceCertificateContractReport, GeneratedSourceCertificateContractRow,
-    GeneratedSourceCertificateStatus, GeneratedSourceSupportStatus,
+    GeneratedSourceCertificateStatus, GeneratedSourceEvidenceAlignmentReport,
+    GeneratedSourceEvidenceAlignmentRow, GeneratedSourceSupportStatus,
 };
 
 pub use hybrid_engine::{

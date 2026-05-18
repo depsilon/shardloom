@@ -235,6 +235,12 @@ dataset through Foundry output APIs. It must not write directly to S3/object sto
 object-store commit protocols as a shortcut, and must not report Foundry Spark, virtual tables,
 Snowflake, Databricks, BigQuery, or other managed compute as ShardLoom execution.
 
+`GAR-NOVEL-1A` projects this boundary into the generated-source evidence alignment report as
+`generated_source_evidence_alignment_row_foundry_generated_output_*`. That row points back to
+`shardloom.foundry_generated_output_boundary.v1`, keeps OpenLineage and OpenTelemetry export
+report-only/no-event, keeps Bayesian confidence unavailable until runtime proof exists, and
+preserves `fallback_attempted=false` and `external_engine_invoked=false`.
+
 ## Scale Proof Boundary
 
 `GAR-SCALE-1H` adds a report-only Foundry scale proof boundary:

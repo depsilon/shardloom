@@ -514,55 +514,14 @@ claims blocked.
 
 #### GAR-NOVEL-1 - Evidence-Native Generated Execution, Lineage, Observability, And Confidence
 
-- [ ] GAR-NOVEL-1A GeneratedSourceCertificate and source-free output execution alignment
-  - Source: GAR-GEN-1A; GAR-COMPAT-1B; RFC 0031; RFC 0032; RFC 0033; RFC 0036; RFC 0037;
-    no-dataset smoke reports; Python/DataFrame capability matrix; Foundry proof docs;
-    `docs/architecture/evidence-native-generated-execution-observability-confidence.md`.
-  - Current state:
-    - No-input smoke exists, but generated-output execution is not first-class.
-    - GAR-GEN-1 already owns the detailed generated-source certificate/runtime lane.
-    - This GAR-NOVEL slice is the cross-surface alignment layer so Python, SQL/DataFrame, Foundry
-      proof, lineage, telemetry, and confidence docs use the same evidence vocabulary.
-  - Next slice outcome:
-    - Add report-only capability rows and docs that align `GeneratedSourceCertificate` with
-      source-free output, OpenLineage generated-source facets, OpenTelemetry spans, and Bayesian
-      claim-confidence refs without creating runtime execution.
-  - User-visible surface:
-    - Python API docs, SQL/DataFrame capability matrix, Foundry dev-stack smoke docs, compute-flow
-      docs, and future evidence export docs.
-  - Implementation scope:
-    - Capability/report rows, docs, Python typed view accessors if available, snapshot tests, and
-      Foundry proof wording. Do not implement generated-output runtime in this slice.
-  - Evidence required:
-    - generated-source refs: `input_dataset_count=0`, `source_io_performed=false`,
-      `generated_source_created`, `generated_source_kind`, `generated_source_schema_digest`,
-      `generated_source_row_count`, `generated_source_plan_digest`, optional seed,
-      deterministic status, and `generated_source_certificate_status`.
-    - output refs: `output_io_performed`, output sink ref, output Native I/O certificate status.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-    - export refs: OpenLineage/OTel refs remain disabled or report-only.
-  - Acceptance:
-    - Generated output is not confused with no-dataset smoke.
-    - Source I/O certificate is not emitted when no source exists.
-    - Output evidence is required for output data claims.
-    - SQL/DataFrame and Foundry generated-output support remain report-only/blocked unless narrower
-      runtime proof exists.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - capability and Python accessor tests if report surfaces change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No generated-output runtime, SQL/DataFrame runtime, Foundry invocation, object-store write,
-      package publication, or external engine fallback.
-  - Claim boundary:
-    - Report-only generated-source alignment only; no production SQL/DataFrame/Foundry claim.
-  - Fallback boundary:
-    - No hidden pandas, Polars, DuckDB, DataFusion, Spark, database, object-store, or Foundry compute
-      execution.
-  - Dependencies/blockers:
-    - GAR-GEN-1A certificate contract, GAR-COMPAT-1B compatibility row, output sink certificate
-      model, and Python/SQL/DataFrame capability ownership.
+GAR-NOVEL-1A is complete and recorded in the completed ledger. Capability views now expose
+`shardloom.generated_source_evidence_alignment.v1`, a report-only cross-surface matrix that aligns
+GeneratedSourceCertificate/source-free API rows with future OpenLineage, OpenTelemetry, Bayesian
+confidence, and Foundry generated-output boundary refs. The alignment preserves no-fallback and
+no-external-engine fields and does not enable exporters, telemetry network calls, Bayesian runtime
+decisioning, SQL/DataFrame runtime, Foundry runtime, object-store writes, package publication, or
+production/performance claims.
+
 - [ ] GAR-NOVEL-1B OpenLineage evidence facets
   - Source: RFC 0018; RFC 0035; RFC 0036; operational evidence policy; ShardLoom evidence envelope;
     OpenLineage run/job/dataset/facet model;
