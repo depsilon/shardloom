@@ -419,7 +419,23 @@ def support_status_class(status: str) -> str:
     return status_class(status.replace("-", "_").replace(" ", "_"))
 
 
-def render_public_status_scorecard_section() -> str:
+def select_filter(
+    attr_name: str,
+    filter_name: str,
+    label: str,
+    values: list[str],
+) -> str:
+    options = ['<option value="">All</option>'] + [
+        f'<option value="{esc(value)}">{esc(status_label(value))}</option>' for value in values
+    ]
+    return (
+        f'<label><span>{esc(label)}</span><select data-{esc(attr_name)}="{esc(filter_name)}">'
+        + "".join(options)
+        + "</select></label>"
+    )
+
+
+def render_public_status_scorecard_section(use_cases: list[dict[str, Any]]) -> str:
     scoreboard = load_compatibility_scoreboard()
     package_matrix = load_package_channel_matrix()
     status_order = [
@@ -543,6 +559,68 @@ def render_public_status_scorecard_section() -> str:
             ("not-planned", "The public posture intentionally does not make or pursue this claim."),
         ]
     )
+    use_case_statuses = sorted({str(use_case["status"]) for use_case in use_cases})
+    use_case_inputs = sorted(
+        {value for use_case in use_cases for value in value_list(use_case.get("inputs"))}
+    )
+    use_case_outputs = sorted(
+        {value for use_case in use_cases for value in value_list(use_case.get("outputs"))}
+    )
+    use_case_execution_modes = sorted({str(use_case["execution_mode"]) for use_case in use_cases})
+    use_case_evidence_levels = sorted({evidence_level_for_use_case(use_case) for use_case in use_cases})
+    use_case_platforms = sorted({platform_for_use_case(use_case) for use_case in use_cases})
+    matrix_cards = []
+    for use_case in use_cases:
+        status = str(use_case["status"])
+        use_case_id = str(use_case["id"])
+        first_reference = value_list(use_case.get("references"))[0]
+        matrix_cards.append(
+            f'<article class="status-matrix-row" data-status="{esc(status)}" '
+            f'data-inputs="{esc(" ".join(value_list(use_case.get("inputs"))))}" '
+            f'data-outputs="{esc(" ".join(value_list(use_case.get("outputs"))))}" '
+            f'data-execution-mode="{esc(str(use_case["execution_mode"]))}" '
+            f'data-evidence-level="{esc(evidence_level_for_use_case(use_case))}" '
+            f'data-platform="{esc(platform_for_use_case(use_case))}">'
+            '<div class="status-matrix-primary">'
+            f'<span class="claim-badge {status_class(status)}">{esc(status_label(status))}</span>'
+            f'<h3><a href="/use-cases/{esc(use_case_id)}">{esc(use_case["title"])}</a></h3>'
+            f'<p>{esc(use_case_plain_summary(use_case))}</p>'
+            "</div>"
+            '<dl class="status-matrix-details">'
+            f'<dt>Capability</dt><dd>{esc(str(use_case["capability_family"]))}</dd>'
+            f'<dt>Execution</dt><dd><code>{esc(str(use_case["execution_mode"]))}</code></dd>'
+            f'<dt>Inputs</dt><dd>{esc(inline_csv(value_list(use_case.get("inputs"))))}</dd>'
+            f'<dt>Outputs</dt><dd>{esc(inline_csv(value_list(use_case.get("outputs"))))}</dd>'
+            f'<dt>Evidence</dt><dd>{esc(evidence_level_for_use_case(use_case))}</dd>'
+            f'<dt>Platform</dt><dd>{esc(platform_for_use_case(use_case))}</dd>'
+            f'<dt>Reference</dt><dd><code>{esc(first_reference)}</code></dd>'
+            "</dl>"
+            f'<p class="status-matrix-boundary">{inline_markdown(str(use_case["claim_boundary"]))}</p>'
+            "</article>"
+        )
+    status_matrix = f"""
+        <div class="terminal-panel status-matrix-panel" id="capability-status-matrix">
+          <div class="section-header-row">
+            <div>
+              <p class="eyebrow">Capability status matrix</p>
+              <h3>Filter by user question.</h3>
+            </div>
+            <p>Rows come from <code>docs/use-cases/use-case-index.yml</code> and link to exact use-case pages, so blocked/report-only states stay visible.</p>
+          </div>
+          <form class="use-case-filters status-matrix-filters" data-status-matrix-filters>
+            {select_filter("status-matrix-filter", "status", "Status", use_case_statuses)}
+            {select_filter("status-matrix-filter", "input", "Input type", use_case_inputs)}
+            {select_filter("status-matrix-filter", "output", "Output type", use_case_outputs)}
+            {select_filter("status-matrix-filter", "execution", "Execution mode", use_case_execution_modes)}
+            {select_filter("status-matrix-filter", "evidence", "Evidence level", use_case_evidence_levels)}
+            {select_filter("status-matrix-filter", "platform", "Platform", use_case_platforms)}
+            <button type="reset">Reset</button>
+          </form>
+          <p class="use-case-filter-count" data-status-matrix-count>{len(use_cases)} status rows shown</p>
+          <div class="status-matrix-grid" data-status-matrix-grid>{"".join(matrix_cards)}</div>
+        </div>
+    """
+    status_matrix = "\n".join(line.rstrip() for line in status_matrix.splitlines()).strip()
     return f"""
     <section id="can-i-use-this" class="status-scorecard">
       <div class="shell">
@@ -553,6 +631,7 @@ def render_public_status_scorecard_section() -> str:
         <div class="telemetry-signal-grid status-key" aria-label="Status vocabulary">
           {status_key}
         </div>
+        {status_matrix}
         <div class="table-scroll">
           <table>
             <thead><tr><th>Surface or claim</th><th>Status</th><th>What this means</th><th>Evidence or blocker</th><th>Reference</th></tr></thead>
@@ -998,7 +1077,7 @@ def compute_flow_page(source: Path) -> str:
     )
 
 
-def status_page() -> str:
+def status_page(use_cases: list[dict[str, Any]]) -> str:
     body = f"""
     <section class="doc-hero status-hero">
       <div class="shell">
@@ -1020,7 +1099,7 @@ def status_page() -> str:
         <a href="#not-claimed">Not claimed</a>
       </div>
     </nav>
-{render_public_status_scorecard_section()}
+{render_public_status_scorecard_section(use_cases)}
     <section id="supported">
       <div class="shell">
         <p class="eyebrow">Evidence-backed local surface</p>
@@ -1096,6 +1175,7 @@ def status_page() -> str:
         </div>
       </div>
     </section>
+    <script src="/assets/use-cases.js" defer></script>
     """
     return page(
         "ShardLoom Status Board",
@@ -3993,7 +4073,7 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
-    (WEBSITE / "status.html").write_text(status_page(), encoding="utf-8")
+    (WEBSITE / "status.html").write_text(status_page(use_cases), encoding="utf-8")
     if args.benchmark_manifest is not None:
         summary = load_benchmark_summary_from_manifest(args.benchmark_manifest)
     else:

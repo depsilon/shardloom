@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-1F Can-I-use-this status matrix
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/status.html`
+    - `website/assets/use-cases.js`
+    - `website/assets/site.css`
+    - `website/validate_static_assets.js`
+    - `scripts/check_website_readiness.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: turn the public status page's "Can I use this?" area into a filterable generated
+    Capability status matrix backed by the machine-readable use-case index while preserving the
+    existing compatibility scoreboard and claim-safe public posture.
+  - Checklist:
+    - [x] Generate a compact status matrix on `/status` from
+          `docs/use-cases/use-case-index.yml`.
+    - [x] Add filters for status, input type, output type, execution mode, evidence level, and
+          platform.
+    - [x] Link every status-matrix row to the corresponding generated use-case page and exact
+          first reference file.
+    - [x] Keep broader compatibility, package, evidence-export, Foundry, workflow-recipe, and
+          not-planned claim rows visible below the filterable matrix.
+    - [x] Reuse the static client-side filter script for both `/use-cases/` and `/status` without
+          adding frameworks or remote runtime dependencies.
+    - [x] Extend website readiness and static asset validation to fail if the status matrix loses
+          filter controls, row grid, count, or use-case index provenance.
+    - [x] Move GAR-WEB-ATLAS-1F out of the active Planned queue.
+  - Evidence and verification:
+    - `python website/build_static_pages.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `node --check website/assets/use-cases.js`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - The status matrix is a public technical-preview posture guide only. It does not add runtime
+      behavior, package publication, benchmark recomputation, production support, performance or
+      superiority claims, Spark-displacement claims, SQL/DataFrame production support,
+      object-store/lakehouse runtime, or Foundry production support.
+  - Fallback boundary:
+    - Matrix copy keeps blocked/report-only statuses visible and preserves `fallback_attempted=false`
+      and `external_engine_invoked=false` semantics. External baselines remain context only and are
+      never represented as ShardLoom execution.
+
 - [x] Session label: GAR-WEB-ATLAS-1E Use Case Atlas integration
   - Primary files:
     - `website/build_static_pages.py`

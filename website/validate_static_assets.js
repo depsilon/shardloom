@@ -196,6 +196,23 @@ for (const required of [
   );
 }
 
+const statusHtml = read("status.html");
+for (const required of [
+  "Capability status matrix",
+  "data-status-matrix-filters",
+  "data-status-matrix-filter=\"status\"",
+  "data-status-matrix-filter=\"input\"",
+  "data-status-matrix-filter=\"output\"",
+  "data-status-matrix-filter=\"execution\"",
+  "data-status-matrix-filter=\"evidence\"",
+  "data-status-matrix-filter=\"platform\"",
+  "data-status-matrix-grid",
+  "data-status-matrix-count",
+  "docs/use-cases/use-case-index.yml",
+]) {
+  assert(statusHtml.includes(required), `Status page must include ${required}`);
+}
+
 for (const useCasePage of htmlRuntimeFiles.filter((relativePath) =>
   relativePath.startsWith("use-cases/") && relativePath !== "use-cases/index.html"
 )) {

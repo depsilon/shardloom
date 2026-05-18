@@ -1909,14 +1909,20 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1C"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1D"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1E"));
-    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1F Can-I-use-this status matrix"));
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1F"));
+    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1G source-linked reference and citation blocks"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "GAR-WEB-ATLAS-1F Can-I-use-this status matrix",
         "GAR-WEB-ATLAS-1E Use Case Atlas integration",
         "GAR-WEB-ATLAS-1D static Field Guide search with Pagefind",
         "GAR-WEB-ATLAS-1C Field Guide reading paths",
         "GAR-WEB-ATLAS-1A/1B Field Guide taxonomy and dossier generator",
+        "Capability status matrix",
+        "docs/use-cases/use-case-index.yml",
+        "status, input type, output type, execution mode, evidence level, and",
+        "node --check website/assets/use-cases.js",
         "website/content/field-guide-index.json",
         "website/pagefind/",
         "Related Field Guide Terms",
@@ -1980,6 +1986,12 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "FIELD_GUIDE_INDEX_PATH",
         "load_field_guide_concepts",
         "load_field_guide_reading_paths",
+        "render_public_status_scorecard_section(use_cases",
+        "data-status-matrix-filters",
+        "data-status-matrix-filter",
+        "data-status-matrix-grid",
+        "data-status-matrix-count",
+        "docs/use-cases/use-case-index.yml",
         "PAGEFIND_HEAD",
         "pagefind_filter_spans",
         "REQUIRED_FIELD_GUIDE_CATEGORIES",
@@ -1999,6 +2011,44 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         assert!(
             generator.contains(required),
             "missing Field Guide generator field {required}"
+        );
+    }
+
+    let status_page = read_repo_file("website/status.html");
+    for required in [
+        "Capability status matrix",
+        "data-status-matrix-filters",
+        "data-status-matrix-filter=\"status\"",
+        "data-status-matrix-filter=\"input\"",
+        "data-status-matrix-filter=\"output\"",
+        "data-status-matrix-filter=\"execution\"",
+        "data-status-matrix-filter=\"evidence\"",
+        "data-status-matrix-filter=\"platform\"",
+        "data-status-matrix-grid",
+        "data-status-matrix-count",
+        "docs/use-cases/use-case-index.yml",
+        "/use-cases/object-store-boundary-report",
+        "/use-cases/table-lakehouse-boundary-report",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            status_page.contains(required),
+            "missing generated status matrix field {required}"
+        );
+    }
+
+    let use_case_filter_script = read_repo_file("website/assets/use-cases.js");
+    for required in [
+        "setupFilterSet",
+        "data-use-case-filter",
+        "data-status-matrix-filter",
+        ".status-matrix-row",
+        "status row",
+    ] {
+        assert!(
+            use_case_filter_script.contains(required),
+            "missing reusable filter script field {required}"
         );
     }
 
@@ -2137,6 +2187,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Committed Pagefind static bundle",
         "Related Field Guide Terms",
         "must render reverse Field Guide term links",
+        "data-status-matrix-filters",
+        "Status page must include",
     ] {
         assert!(
             website_validator.contains(required),
@@ -2151,6 +2203,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "pagefind/pagefind-entry.json",
         "Pagefind index must cover generated website pages",
         "_headers missing Pagefind static-search policy",
+        "data-status-matrix-filters",
+        "data-status-matrix-grid",
     ] {
         assert!(
             readiness.contains(required),

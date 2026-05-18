@@ -409,6 +409,17 @@ def main() -> int:
             status_text = status_page.read_text(encoding="utf-8")
             for required in [
                 "Answer common capability questions in under two minutes.",
+                "Capability status matrix",
+                "data-status-matrix-filters",
+                'data-status-matrix-filter="status"',
+                'data-status-matrix-filter="input"',
+                'data-status-matrix-filter="output"',
+                'data-status-matrix-filter="execution"',
+                'data-status-matrix-filter="evidence"',
+                'data-status-matrix-filter="platform"',
+                "data-status-matrix-grid",
+                "data-status-matrix-count",
+                "docs/use-cases/use-case-index.yml",
                 "runtime supported",
                 "smoke supported",
                 "report only",

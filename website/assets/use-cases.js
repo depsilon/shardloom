@@ -1,58 +1,85 @@
 (() => {
-  const form = document.querySelector("[data-use-case-filters]");
-  const grid = document.querySelector("[data-use-case-grid]");
-  const count = document.querySelector("[data-use-case-count]");
-
-  if (!form || !grid) {
-    return;
+  function tokens(value) {
+    return String(value || "")
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
   }
 
-  const cards = Array.from(grid.querySelectorAll(".use-case-card"));
-  const controls = Array.from(form.querySelectorAll("[data-use-case-filter]"));
-
-  function matches(card, key, value) {
+  function matches(item, key, value) {
     if (!value) {
       return true;
     }
-    if (key === "input") {
-      return card.dataset.inputs.toLowerCase().includes(value.toLowerCase());
-    }
-    if (key === "output") {
-      return card.dataset.outputs.toLowerCase().includes(value.toLowerCase());
-    }
-    if (key === "execution") {
-      return card.dataset.executionMode === value;
-    }
-    if (key === "evidence") {
-      return card.dataset.evidenceLevel === value;
-    }
-    if (key === "platform") {
-      return card.dataset.platform === value;
-    }
-    return card.dataset.status === value;
+    const datasetKey = {
+      input: "inputs",
+      output: "outputs",
+      execution: "executionMode",
+      evidence: "evidenceLevel",
+      platform: "platform",
+      status: "status",
+    }[key] || key;
+    return tokens(item.dataset[datasetKey]).includes(value.toLowerCase());
   }
 
-  function applyFilters() {
-    const active = controls.map((control) => [
-      control.dataset.useCaseFilter,
-      control.value,
-    ]);
-    let visible = 0;
-    for (const card of cards) {
-      const show = active.every(([key, value]) => matches(card, key, value));
-      card.hidden = !show;
-      if (show) {
-        visible += 1;
+  function setupFilterSet({
+    formSelector,
+    gridSelector,
+    itemSelector,
+    countSelector,
+    filterAttribute,
+    itemLabel,
+  }) {
+    const form = document.querySelector(formSelector);
+    const grid = document.querySelector(gridSelector);
+    const count = document.querySelector(countSelector);
+
+    if (!form || !grid) {
+      return;
+    }
+
+    const items = Array.from(grid.querySelectorAll(itemSelector));
+    const controls = Array.from(form.querySelectorAll(`[${filterAttribute}]`));
+
+    function applyFilters() {
+      const active = controls.map((control) => [
+        control.getAttribute(filterAttribute),
+        control.value,
+      ]);
+      let visible = 0;
+      for (const item of items) {
+        const show = active.every(([key, value]) => matches(item, key, value));
+        item.hidden = !show;
+        if (show) {
+          visible += 1;
+        }
+      }
+      if (count) {
+        count.textContent = `${visible} ${itemLabel}${visible === 1 ? "" : "s"} shown`;
       }
     }
-    if (count) {
-      count.textContent = `${visible} use case${visible === 1 ? "" : "s"} shown`;
-    }
+
+    form.addEventListener("change", applyFilters);
+    form.addEventListener("reset", () => {
+      window.setTimeout(applyFilters, 0);
+    });
+    applyFilters();
   }
 
-  form.addEventListener("change", applyFilters);
-  form.addEventListener("reset", () => {
-    window.setTimeout(applyFilters, 0);
+  setupFilterSet({
+    formSelector: "[data-use-case-filters]",
+    gridSelector: "[data-use-case-grid]",
+    itemSelector: ".use-case-card",
+    countSelector: "[data-use-case-count]",
+    filterAttribute: "data-use-case-filter",
+    itemLabel: "use case",
   });
-  applyFilters();
+
+  setupFilterSet({
+    formSelector: "[data-status-matrix-filters]",
+    gridSelector: "[data-status-matrix-grid]",
+    itemSelector: ".status-matrix-row",
+    countSelector: "[data-status-matrix-count]",
+    filterAttribute: "data-status-matrix-filter",
+    itemLabel: "status row",
+  });
 })();
