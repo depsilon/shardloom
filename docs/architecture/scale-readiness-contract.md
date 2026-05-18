@@ -1,6 +1,6 @@
 # Scale Readiness Contract
 
-Status: implemented report-only contracts for `GAR-SCALE-1A` through `GAR-SCALE-1E`.
+Status: implemented report-only contracts for `GAR-SCALE-1A` through `GAR-SCALE-1F`.
 
 ShardLoom must not claim literal "any volume" support. Scale readiness is a declared resource and
 evidence contract, not a slogan. A row can become scale-grade only when it proves the appropriate
@@ -362,6 +362,46 @@ object_table_ladder_external_engine_invoked=false
 Object-store read, object-store write, table runtime, and table commit remain separate claim gates.
 A table metadata read or snapshot listing posture cannot imply table runtime, and table runtime
 cannot imply append, merge/update/delete, commit, or rollback support.
+
+## Distributed Execution Report-Only Protocol
+
+`GAR-SCALE-1F` adds
+`distributed_protocol_schema_version=shardloom.traditional_analytics.distributed_protocol.v1` and a
+report-only distributed protocol contract to benchmark rows.
+
+Current rows expose coordinator, worker, task lease, task attempt, split execution, retry,
+result-fragment, and merge vocabulary only. They do not invoke a coordinator, remote worker,
+network API, daemon, service, cluster scheduler, managed platform, or external fallback engine.
+
+ShardLoom distributed protocol rows carry:
+
+```text
+distributed_protocol_schema_version
+distributed_protocol_status_vocabulary
+distributed_protocol_status
+distributed_protocol_id
+distributed_protocol_digest
+coordinator_invoked=false
+worker_count=0
+remote_worker_invoked=false
+task_lease_id=none
+task_attempt_id=none
+split_id
+worker_input_ref=none
+worker_output_ref=none
+worker_retry_count=0
+worker_failure_class=none
+result_fragment_digest=not_emitted_report_only
+merge_digest=not_emitted_report_only
+distributed_claim_status=report_only
+distributed_fallback_attempted=false
+distributed_external_engine_invoked=false
+distributed_claim_gate_status=not_distributed_runtime_grade
+distributed_claim_boundary
+```
+
+Remote-worker report fields must not be satisfied by Spark, Dask, Ray, DataFusion, DuckDB, Polars,
+Foundry Spark, managed SQL systems, or other external engines executing ShardLoom work.
 
 ## Claim Gate
 

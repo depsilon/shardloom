@@ -163,6 +163,18 @@ gates, `object_table_ladder_fallback_attempted=false`,
 readiness only; they do not prove object-store runtime, table runtime, table commit, credential
 resolution, network effects, lakehouse production support, Spark-replacement, or performance claims.
 
+`GAR-SCALE-1F` adds a report-only distributed protocol contract to benchmark rows. Rows now include
+`distributed_protocol_schema_version=shardloom.traditional_analytics.distributed_protocol.v1`,
+`coordinator_invoked=false`, `worker_count=0`, `remote_worker_invoked=false`,
+`task_lease_id=none`, `task_attempt_id=none`, `worker_input_ref=none`,
+`worker_output_ref=none`, `worker_retry_count=0`, `worker_failure_class=none`,
+`result_fragment_digest=not_emitted_report_only`, `merge_digest=not_emitted_report_only`,
+`distributed_claim_status=report_only`, `distributed_fallback_attempted=false`,
+`distributed_external_engine_invoked=false`, and
+`distributed_claim_gate_status=not_distributed_runtime_grade`. Current rows expose protocol
+vocabulary only; they do not prove coordinator, worker, task lease, remote split execution, retry,
+fragment merge, network API, distributed runtime, Spark-replacement, or performance claims.
+
 `GAR-PERF-1B` adds the source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md` and propagates
 `source_state_coverage_*` fields into prepared/native batch evidence. Those
