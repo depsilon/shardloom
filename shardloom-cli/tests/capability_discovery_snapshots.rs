@@ -36,6 +36,36 @@ const PLANNER_READINESS_FIELD_KEYS: [&str; 21] = [
     "planner_readiness_deterministic_diagnostics_present",
 ];
 
+const GENERATED_SOURCE_FIELD_KEYS: [&str; 27] = [
+    "generated_source_contract_schema_version",
+    "generated_source_contract_report_id",
+    "generated_source_certificate_schema_version",
+    "generated_source_support_status_vocabulary",
+    "generated_source_case_count",
+    "generated_source_case_order",
+    "generated_source_required_field_order",
+    "generated_source_contract_claim_gate_status",
+    "generated_source_contract_fallback_attempted",
+    "generated_source_contract_external_engine_invoked",
+    "generated_source_contract_object_store_io_performed",
+    "generated_source_contract_foundry_runtime_invoked",
+    "generated_source_contract_broad_sql_dataframe_claim_allowed",
+    "no_dataset_smoke_support_status",
+    "no_dataset_smoke_generated_source_certificate_status",
+    "no_dataset_smoke_generated_source_created",
+    "no_dataset_smoke_output_io_performed",
+    "no_dataset_smoke_claim_gate_status",
+    "user_generated_source_support_status",
+    "user_generated_source_blocker_id",
+    "engine_native_generated_source_support_status",
+    "engine_native_generated_source_blocker_id",
+    "input_dataset_count",
+    "source_io_performed",
+    "generated_source_created",
+    "output_io_performed",
+    "generated_source_certificate_status",
+];
+
 const SQL_FIELD_KEYS: [&str; 35] = [
     "scope",
     "schema_version",
@@ -73,6 +103,14 @@ const SQL_FIELD_KEYS: [&str; 35] = [
     "planner_readiness_fallback_attempted",
     "planner_readiness_deterministic_diagnostics_present",
 ];
+
+fn with_generated_source_fields(base_keys: &[&'static str]) -> Vec<&'static str> {
+    base_keys
+        .iter()
+        .copied()
+        .chain(GENERATED_SOURCE_FIELD_KEYS)
+        .collect()
+}
 
 const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "scope",
@@ -648,7 +686,6 @@ const WORLD_CLASS_SURFACE_SCOPES: [&str; 13] = [
 #[test]
 fn capability_discovery_json_field_keys_are_stable() {
     for (scope, expected_keys) in [
-        ("sql", SQL_FIELD_KEYS.as_slice()),
         ("functions", FUNCTION_FIELD_KEYS.as_slice()),
         ("operators", OPERATOR_FIELD_KEYS.as_slice()),
         ("adapters", ADAPTER_FIELD_KEYS.as_slice()),
@@ -664,15 +701,28 @@ fn capability_discovery_json_field_keys_are_stable() {
         let keys = field_keys(&output);
         assert_eq!(keys.as_slice(), expected_keys, "scope={scope}");
     }
+
+    let output = run_capabilities_scope("sql");
+    let keys = field_keys(&output);
+    assert_eq!(
+        keys.as_slice(),
+        with_generated_source_fields(SQL_FIELD_KEYS.as_slice()).as_slice(),
+        "scope=sql"
+    );
+
     for scope in WORLD_CLASS_SURFACE_SCOPES {
         let output = run_capabilities_scope(scope);
         let keys = field_keys(&output);
-        let expected_keys = if scope == "dataframe" {
-            DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice()
-        } else {
-            WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice()
+        let expected_keys = match scope {
+            "python" | "universal-adapters" | "api-surfaces" => {
+                with_generated_source_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+            }
+            "dataframe" => {
+                with_generated_source_fields(DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+            }
+            _ => WORLD_CLASS_SURFACE_FIELD_KEYS.to_vec(),
         };
-        assert_eq!(keys.as_slice(), expected_keys, "scope={scope}");
+        assert_eq!(keys.as_slice(), expected_keys.as_slice(), "scope={scope}");
     }
 }
 
@@ -800,6 +850,80 @@ fn sql_and_dataframe_capabilities_expose_planner_readiness_matrix() {
         assert!(output.contains(&field_pair(
             "planner_readiness_deterministic_diagnostics_present",
             true
+        )));
+    }
+}
+
+#[test]
+fn generated_source_capability_contract_separates_no_dataset_smoke() {
+    for scope in [
+        "sql",
+        "python",
+        "dataframe",
+        "universal-adapters",
+        "api-surfaces",
+    ] {
+        let output = run_capabilities_scope(scope);
+        assert!(output.contains(&string_field_pair(
+            "generated_source_contract_schema_version",
+            "shardloom.generated_source_certificate_contract.v1"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "generated_source_case_order",
+            "no_dataset_smoke,user_generated_source,engine_native_generated_source"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "generated_source_contract_claim_gate_status",
+            "not_claim_grade"
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_contract_fallback_attempted",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_contract_external_engine_invoked",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_contract_object_store_io_performed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_contract_foundry_runtime_invoked",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_contract_broad_sql_dataframe_claim_allowed",
+            false
+        )));
+        assert!(output.contains(&string_field_pair(
+            "no_dataset_smoke_support_status",
+            "smoke_only"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "no_dataset_smoke_generated_source_certificate_status",
+            "not_applicable_no_generated_rows"
+        )));
+        assert!(output.contains(&field_pair(
+            "no_dataset_smoke_generated_source_created",
+            false
+        )));
+        assert!(output.contains(&field_pair("no_dataset_smoke_output_io_performed", false)));
+        assert!(output.contains(&string_field_pair(
+            "user_generated_source_support_status",
+            "report_only"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "engine_native_generated_source_support_status",
+            "report_only"
+        )));
+        assert!(output.contains(&string_field_pair("input_dataset_count", "0")));
+        assert!(output.contains(&field_pair("source_io_performed", false)));
+        assert!(output.contains(&field_pair("generated_source_created", false)));
+        assert!(output.contains(&field_pair("output_io_performed", false)));
+        assert!(output.contains(&string_field_pair(
+            "generated_source_certificate_status",
+            "not_applicable_no_generated_rows"
         )));
     }
 }

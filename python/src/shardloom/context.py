@@ -612,6 +612,178 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
 
 
 @dataclass(frozen=True, slots=True)
+class GeneratedSourceCaseCapability:
+    """Support and claim posture for one generated-source contract case."""
+
+    case: str
+    support_status: str | None
+    generated_source_certificate_status: str | None
+    generated_source_created: bool | None
+    output_io_performed: bool | None
+    blocker_id: str | None
+    claim_gate_status: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratedSourceCertificateContract:
+    """Typed view over report-only GeneratedSourceCertificate contract fields."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the generated-source contract schema version."""
+
+        return self.capability.field("generated_source_contract_schema_version")
+
+    @property
+    def report_id(self) -> str | None:
+        """Return the generated-source contract report identifier."""
+
+        return self.capability.field("generated_source_contract_report_id")
+
+    @property
+    def certificate_schema_version(self) -> str | None:
+        """Return the future GeneratedSourceCertificate schema version."""
+
+        return self.capability.field("generated_source_certificate_schema_version")
+
+    @property
+    def support_status_vocabulary(self) -> tuple[str, ...]:
+        """Return supported generated-source posture status tokens."""
+
+        return _split_csv(
+            self.capability.field("generated_source_support_status_vocabulary")
+        )
+
+    @property
+    def case_order(self) -> tuple[str, ...]:
+        """Return generated-source cases in stable report order."""
+
+        return _split_csv(self.capability.field("generated_source_case_order"))
+
+    @property
+    def required_field_order(self) -> tuple[str, ...]:
+        """Return fields required before generated-output runtime can be claimed."""
+
+        return _split_csv(self.capability.field("generated_source_required_field_order"))
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the contract-level claim gate status."""
+
+        return self.capability.field("generated_source_contract_claim_gate_status")
+
+    @property
+    def present(self) -> bool:
+        """Whether this capability view exposes the generated-source contract."""
+
+        return self.schema_version is not None
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether the contract reports no fallback and no external engine invocation."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "generated_source_contract_fallback_attempted", True
+            )
+            is False
+            and self.capability.envelope.field_bool(
+                "generated_source_contract_external_engine_invoked", True
+            )
+            is False
+            and not self.capability.fallback_attempted
+            and not self.capability.external_engine_invoked
+        )
+
+    @property
+    def no_object_store_or_foundry_runtime(self) -> bool:
+        """Whether object-store and Foundry generated-output runtime remain uninvoked."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "generated_source_contract_object_store_io_performed", True
+            )
+            is False
+            and self.capability.envelope.field_bool(
+                "generated_source_contract_foundry_runtime_invoked", True
+            )
+            is False
+        )
+
+    @property
+    def broad_sql_dataframe_claim_allowed(self) -> bool:
+        """Whether broad SQL/DataFrame generated-output claims are allowed."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "generated_source_contract_broad_sql_dataframe_claim_allowed", False
+            )
+            is True
+        )
+
+    @property
+    def no_dataset_smoke_separate_from_generated_output(self) -> bool:
+        """Whether no-dataset smoke remains distinct from generated-output execution."""
+
+        smoke = self.row("no_dataset_smoke")
+        return (
+            smoke.support_status == "smoke_only"
+            and smoke.generated_source_certificate_status
+            == "not_applicable_no_generated_rows"
+            and smoke.generated_source_created is False
+            and smoke.output_io_performed is False
+            and self.capability.envelope.field_bool("source_io_performed", True)
+            is False
+        )
+
+    def row(self, case: str) -> GeneratedSourceCaseCapability:
+        """Return the generated-source contract row for a case."""
+
+        normalized = case.strip().lower().replace("-", "_")
+        if normalized not in {
+            "no_dataset_smoke",
+            "user_generated_source",
+            "engine_native_generated_source",
+        }:
+            raise KeyError(f"generated-source case {case!r} is not in the contract")
+        return GeneratedSourceCaseCapability(
+            case=normalized,
+            support_status=self.capability.field(f"{normalized}_support_status"),
+            generated_source_certificate_status=self.capability.field(
+                f"{normalized}_generated_source_certificate_status"
+            ),
+            generated_source_created=self.capability.envelope.field_bool(
+                f"{normalized}_generated_source_created"
+            ),
+            output_io_performed=self.capability.envelope.field_bool(
+                f"{normalized}_output_io_performed"
+            ),
+            blocker_id=self.capability.field(f"{normalized}_blocker_id"),
+            claim_gate_status=self.capability.field(f"{normalized}_claim_gate_status"),
+        )
+
+    @property
+    def no_dataset_smoke(self) -> GeneratedSourceCaseCapability:
+        """Return the no-dataset smoke contract row."""
+
+        return self.row("no_dataset_smoke")
+
+    @property
+    def user_generated_source(self) -> GeneratedSourceCaseCapability:
+        """Return the report-only user-generated source contract row."""
+
+        return self.row("user_generated_source")
+
+    @property
+    def engine_native_generated_source(self) -> GeneratedSourceCaseCapability:
+        """Return the report-only engine-native generated-source contract row."""
+
+        return self.row("engine_native_generated_source")
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityView:
     """Typed convenience view over one capability-discovery envelope."""
 
@@ -899,6 +1071,12 @@ class CapabilityView:
         """Return the report-only Python DataFrame method capability matrix."""
 
         return DataFrameMethodCapabilityMatrix.from_capability(self)
+
+    @property
+    def generated_source_contract(self) -> GeneratedSourceCertificateContract:
+        """Return source-free generated-output contract posture exposed by this capability."""
+
+        return GeneratedSourceCertificateContract(self)
 
     @property
     def planner_readiness_claim_gate_status(self) -> str | None:

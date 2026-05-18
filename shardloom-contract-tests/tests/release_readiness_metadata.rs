@@ -664,6 +664,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     for required in [
         "shardloom.foundry_proof_of_use_report.v1",
         "shardloom.foundry_generated_output_fanout_posture.v1",
+        "shardloom.generated_source_certificate_contract.v1",
         "package_install_mode",
         "transform_import_proven",
         "cli_binary_resolved",
@@ -672,6 +673,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "certificate_metrics_dataset_output_written",
         "foundry_generated_output_fanout_status",
         "generated_output_execution_performed=false",
+        "generated_source_certificate_status=not_applicable_no_generated_rows",
         "generated_source_certificate_status=not_emitted_report_only",
         "output_native_io_certificate_status=not_emitted_report_only",
         "direct_s3_write_invoked=false",
@@ -687,6 +689,31 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
             "missing Foundry proof doc field {required}"
         );
     }
+
+    let compute_flow = read_repo_file("docs/architecture/compute-engine-flow-reference.md");
+    for required in [
+        "shardloom.generated_source_certificate_contract.v1",
+        "no_dataset_smoke",
+        "user_generated_source",
+        "engine_native_generated_source",
+        "not_applicable_no_generated_rows",
+        "gar-gen-1.user_generated_source_runtime_not_implemented",
+        "gar-gen-1.engine_native_generated_source_runtime_not_implemented",
+    ] {
+        assert!(
+            compute_flow.contains(required),
+            "missing compute-flow generated-source contract field {required}"
+        );
+    }
+
+    let python_readme = read_repo_file("python/README.md");
+    assert!(python_readme.contains("generated_source_contract"));
+    assert!(python_readme.contains("no_dataset_smoke_separate_from_generated_output"));
+
+    let python_context = read_repo_file("python/src/shardloom/context.py");
+    assert!(python_context.contains("GeneratedSourceCertificateContract"));
+    assert!(python_context.contains("GeneratedSourceCaseCapability"));
+    assert!(python_context.contains("all_no_fallback_no_external_engine"));
 }
 
 #[test]

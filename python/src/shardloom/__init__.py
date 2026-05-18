@@ -47,6 +47,8 @@ from .context import (
     ContextCapabilities,
     DataFrameMethodCapability,
     DataFrameMethodCapabilityMatrix,
+    GeneratedSourceCaseCapability,
+    GeneratedSourceCertificateContract,
     ShardLoomContext,
     context,
 )
@@ -98,6 +100,8 @@ __all__ = [
     "CapabilityView",
     "DataFrameMethodCapability",
     "DataFrameMethodCapabilityMatrix",
+    "GeneratedSourceCaseCapability",
+    "GeneratedSourceCertificateContract",
     "CompatibilitySourcePlan",
     "CompatibilitySourceSmokeReport",
     "ContextCapabilities",

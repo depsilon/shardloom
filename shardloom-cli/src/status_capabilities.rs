@@ -9,9 +9,9 @@ use std::{process::ExitCode, vec::IntoIter};
 use shardloom_core::{
     ArchitectureRuntimeClaimGateReport, CapabilityCertificationReport,
     CapabilityCertificationStatus, CommandStatus, EngineCapabilities, EngineCapabilityMatrixReport,
-    MaterializationPolicyReport, OutputFormat, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
-    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
+    GeneratedSourceCertificateContractReport, MaterializationPolicyReport, OutputFormat,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
+    ShardLoomError, SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
     WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
     output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
     plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
@@ -3180,6 +3180,7 @@ fn append_sql_certification_fields(
         ),
     );
     append_sql_dataframe_planner_readiness_fields(fields);
+    append_generated_source_certificate_contract_fields(fields);
 }
 
 fn append_sql_dataframe_planner_readiness_fields(fields: &mut Vec<(String, String)>) {
@@ -3244,6 +3245,157 @@ fn append_sql_dataframe_planner_readiness_fields(fields: &mut Vec<(String, Strin
         fields,
         "planner_readiness_deterministic_diagnostics_present",
         matrix.deterministic_diagnostics_present(),
+    );
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_generated_source_certificate_contract_fields(fields: &mut Vec<(String, String)>) {
+    let report = GeneratedSourceCertificateContractReport::report_only();
+    let no_dataset_smoke = report
+        .row_for(shardloom_core::GeneratedSourceCaseKind::NoDatasetSmoke)
+        .expect("GeneratedSourceCertificate contract includes no_dataset_smoke");
+    let user_generated_source = report
+        .row_for(shardloom_core::GeneratedSourceCaseKind::UserGeneratedSource)
+        .expect("GeneratedSourceCertificate contract includes user_generated_source");
+    let engine_native_generated_source = report
+        .row_for(shardloom_core::GeneratedSourceCaseKind::EngineNativeGeneratedSource)
+        .expect("GeneratedSourceCertificate contract includes engine_native_generated_source");
+
+    push_field(
+        fields,
+        "generated_source_contract_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "generated_source_contract_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "generated_source_certificate_schema_version",
+        report.generated_source_certificate_schema_version,
+    );
+    push_field(
+        fields,
+        "generated_source_support_status_vocabulary",
+        report.support_status_vocabulary,
+    );
+    push_count_field(fields, "generated_source_case_count", report.rows.len());
+    push_field(
+        fields,
+        "generated_source_case_order",
+        &report.case_order().join(","),
+    );
+    push_field(
+        fields,
+        "generated_source_required_field_order",
+        &report.required_field_order.join(","),
+    );
+    push_field(
+        fields,
+        "generated_source_contract_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_contract_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_contract_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_contract_object_store_io_performed",
+        report.object_store_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_contract_foundry_runtime_invoked",
+        report.foundry_runtime_invoked,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_contract_broad_sql_dataframe_claim_allowed",
+        report.broad_sql_dataframe_claim_allowed,
+    );
+    push_field(
+        fields,
+        "no_dataset_smoke_support_status",
+        no_dataset_smoke.support_status.as_str(),
+    );
+    push_field(
+        fields,
+        "no_dataset_smoke_generated_source_certificate_status",
+        no_dataset_smoke
+            .generated_source_certificate_status
+            .as_str(),
+    );
+    push_bool_field(
+        fields,
+        "no_dataset_smoke_generated_source_created",
+        no_dataset_smoke.generated_source_created,
+    );
+    push_bool_field(
+        fields,
+        "no_dataset_smoke_output_io_performed",
+        no_dataset_smoke.output_io_performed,
+    );
+    push_field(
+        fields,
+        "no_dataset_smoke_claim_gate_status",
+        no_dataset_smoke.claim_gate_status,
+    );
+    push_field(
+        fields,
+        "user_generated_source_support_status",
+        user_generated_source.support_status.as_str(),
+    );
+    push_field(
+        fields,
+        "user_generated_source_blocker_id",
+        user_generated_source.blocker_id,
+    );
+    push_field(
+        fields,
+        "engine_native_generated_source_support_status",
+        engine_native_generated_source.support_status.as_str(),
+    );
+    push_field(
+        fields,
+        "engine_native_generated_source_blocker_id",
+        engine_native_generated_source.blocker_id,
+    );
+    push_count_field(
+        fields,
+        "input_dataset_count",
+        usize::try_from(no_dataset_smoke.input_dataset_count)
+            .expect("no_dataset_smoke input_dataset_count fits usize"),
+    );
+    push_bool_field(
+        fields,
+        "source_io_performed",
+        no_dataset_smoke.source_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_created",
+        no_dataset_smoke.generated_source_created,
+    );
+    push_bool_field(
+        fields,
+        "output_io_performed",
+        no_dataset_smoke.output_io_performed,
+    );
+    push_field(
+        fields,
+        "generated_source_certificate_status",
+        no_dataset_smoke
+            .generated_source_certificate_status
+            .as_str(),
     );
 }
 
@@ -4577,6 +4729,15 @@ fn world_class_surface_fields(
     ];
     if scope == CapabilityDiscoveryScope::DataFrame {
         append_sql_dataframe_planner_readiness_fields(&mut fields);
+    }
+    if matches!(
+        scope,
+        CapabilityDiscoveryScope::Python
+            | CapabilityDiscoveryScope::DataFrame
+            | CapabilityDiscoveryScope::UniversalAdapters
+            | CapabilityDiscoveryScope::ApiSurfaces
+    ) {
+        append_generated_source_certificate_contract_fields(&mut fields);
     }
     fields
 }
