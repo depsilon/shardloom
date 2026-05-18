@@ -127,6 +127,12 @@ the typed `capability_snapshot` payload. Python's `OutputEnvelope.field_map` now
 the temporary flat `fields` mirror; `legacy_field_map` is available only for compatibility checks
 while the mirror is retired.
 
+GAR-0039-B centralizes the shared Rust integration-test helpers for typed-envelope JSON checks and
+adds an inline `universal_harness_report` artifact for `universal-harness-plan --format json`.
+That artifact locks the Foundry optional-harness boundary into a typed payload: Foundry remains
+optional, external baselines remain comparison-only, runtime execution is false, and fallback is not
+attempted.
+
 These are protocol payloads only. They do not execute benchmarks, evaluate certificates, read data,
 write artifacts, or turn report-only surfaces into runtime support.
 

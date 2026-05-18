@@ -16,6 +16,40 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0039-B typed-envelope fixtures and helper centralization
+  - Primary files:
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/support/mod.rs`
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: centralize typed-envelope integration-test helpers and add a typed
+    `universal_harness_report` artifact for the Foundry optional-harness boundary.
+  - Checklist:
+    - [x] Move shared JSON field, common-slot, and command-run helpers into
+          `shardloom-cli/tests/support/mod.rs`.
+    - [x] Reuse the helper module from typed-envelope contract and compatibility-lock tests.
+    - [x] Add an inline `universal_harness_report` artifact for `universal-harness-plan`.
+    - [x] Strengthen the Foundry optional-harness fixture with runtime, baseline, and fallback
+          boundary fields.
+    - [x] Move GAR-0039-B out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a fixture/helper and typed-reporting slice. It does not add Foundry runtime,
+      universal harness execution, external baseline execution, package publication, performance,
+      SQL/DataFrame, production platform, or Spark-displacement claims.
+  - Fallback boundary:
+    - The helper centralization and inline report do not read data, write outputs, start services,
+      invoke Foundry, invoke external engines, or attempt fallback.
+
 - [x] Session label: GAR-0039-A typed envelope API-surface migration
   - Primary files:
     - `shardloom-cli/src/typed_envelope.rs`

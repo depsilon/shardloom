@@ -21,7 +21,9 @@ classification in `shardloom-cli/src/command_family.rs`, shared JSON/text render
 emission in `shardloom-cli/src/cli_output.rs`, the status/capabilities handler-family module in
 `shardloom-cli/src/status_capabilities.rs`, the GAR-0039-A API-surface capability typed migration
 for the wrapper/connector registry through an inline `api_surface_capability_report` artifact and
-typed `capability_snapshot` fields, the input planning handler module in
+typed `capability_snapshot` fields, the GAR-0039-B shared integration-test helper module and
+universal-harness typed `universal_harness_report` artifact for the Foundry optional-harness
+boundary, the input planning handler module in
 `shardloom-cli/src/input_planning.rs`, the REST/API planning handler module in
 `shardloom-cli/src/rest_api_planning.rs`, the packaging/deployment handler module in
 `shardloom-cli/src/packaging_deployment.rs`, the benchmark planning handler module in

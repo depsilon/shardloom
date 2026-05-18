@@ -1,32 +1,9 @@
 #[cfg(feature = "vortex-local-primitives")]
 use std::path::PathBuf;
-use std::process::Command;
 
-fn run_command(args: &[&str], expect_success: bool) -> String {
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
-        .output()
-        .expect("shardloom command runs");
+mod support;
 
-    assert_eq!(
-        output.status.success(),
-        expect_success,
-        "stdout={} stderr={}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(
-        output.stderr.is_empty(),
-        "stderr={}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    String::from_utf8(output.stdout).expect("stdout is utf8")
-}
-
-fn field(key: &str, value: &str) -> String {
-    format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
-}
+use support::{assert_common_typed_slots, field, run_command};
 
 #[cfg(feature = "vortex-local-primitives")]
 fn local_primitive_struct_fixture() -> String {
@@ -39,22 +16,6 @@ fn local_primitive_struct_fixture() -> String {
         .join("local_primitive_struct_five.vortex")
         .display()
         .to_string()
-}
-
-fn assert_common_typed_slots(output: &str, command: &str, status: &str) {
-    assert!(output.contains("\"schema_version\":\"shardloom.output.v2\""));
-    assert!(output.contains(&format!("\"command\":\"{command}\"")));
-    assert!(output.contains(&format!("\"status\":\"{status}\"")));
-    assert!(output.contains("\"fallback\":{\"attempted\":false,\"allowed\":false"));
-    assert!(output.contains("\"diagnostics\":["));
-    assert!(output.contains("\"result\":{\"fields\":["));
-    assert!(output.contains("\"result_refs\":["));
-    assert!(output.contains("\"artifacts\":["));
-    assert!(output.contains("\"artifact_refs\":["));
-    assert!(output.contains("\"certificates\":["));
-    assert!(output.contains("\"policy\":{\"fields\":["));
-    assert!(output.contains("\"lifecycle\":{\"fields\":["));
-    assert!(output.contains("\"capability_snapshot\":{\"fields\":["));
 }
 
 #[test]
@@ -318,4 +279,6 @@ fn foundry_adjacent_harness_fixture_remains_optional_and_report_only() {
     assert!(output.contains(&field("foundry_optional_harness_required", "true")));
     assert!(output.contains(&field("external_baseline_execution", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains("\"artifact_kind\":\"universal_harness_report\""));
+    assert!(output.contains("\"artifact_id\":\"cg18.universal-harness\""));
 }
