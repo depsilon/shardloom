@@ -896,6 +896,13 @@ plan before coding.
   `support_status=blocked`, `permission_status=policy_required`,
   `effect_status=denied_by_default`, `runtime_execution=false`, `effect_executed=false`,
   `fallback_attempted=false`, and `external_engine_invoked=false`.
+- [x] `GAR-0032-D` adds `shardloom.unstructured_adapter_capability_matrix.v1` and
+  `docs/architecture/unstructured-adapter-capability-matrix.md` so document references, text
+  extraction, media decode/extraction, embeddings, vector search, local file adapters,
+  database/warehouse adapters, object-store/table adapters, event/API/SaaS adapters, and
+  source/sink metadata are classified as report-only or blocked. The rows keep
+  `runtime_execution=false`, `source_io_performed=false`, `sink_io_performed=false`,
+  `fallback_attempted=false`, and `external_engine_invoked=false`.
 - [ ] `GAR-GEN-1` source-free generated-output runtime remains partially planned. `GAR-GEN-1A/1B`
   add the report-only `GeneratedSourceCertificate` contract and capability rows that separate
   `no_dataset_smoke`, `user_generated_source`, and `engine_native_generated_source`; `GAR-GEN-1C`
@@ -929,8 +936,9 @@ plan before coding.
   support. Python rows/DataFrame, SQL VALUES/literals, REST/Flight/ADBC, external databases, and
   generated/source-free output remain report-only or blocked unless a narrower evidence-bearing
   slice upgrades the row.
-- [ ] Executable SQL parser/binder/runtime, DataFrame execution, UDF runtime, notebook runtime, universal
-  adapter, unstructured/media, and best-default certification remain incomplete.
+- [ ] Executable SQL parser/binder/runtime, DataFrame execution, UDF runtime, notebook runtime,
+  universal-adapter runtime, unstructured/media runtime, and best-default certification remain
+  incomplete.
 
 ### RFC 0033 - User Data Workflow and ETL Surface
 

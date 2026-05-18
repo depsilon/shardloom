@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0032-D unstructured/media and universal adapter capability matrix
+  - Primary files:
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `docs/architecture/unstructured-adapter-capability-matrix.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: expose a deterministic report-only capability matrix for document/media/vector,
+    universal-adapter, and source/sink metadata surfaces.
+  - Checklist:
+    - [x] Add `shardloom.unstructured_adapter_capability_matrix.v1` with row-level family,
+          surface, support status, runtime/source/sink flags, effect blocker refs, required
+          evidence, and claim boundaries.
+    - [x] Attach the matrix to `capabilities unstructured-media --format json`.
+    - [x] Attach the matrix to `capabilities universal-adapters --format json`.
+    - [x] Attach the matrix to `capabilities event-api-saas-adapters --format json`.
+    - [x] Attach the matrix to `capabilities api-surfaces --format json`.
+    - [x] Move GAR-0032-D out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a diagnostic/report-only capability matrix. It does not add document parsing, text
+      extraction, OCR, transcription, image/audio/video decode, embedding generation, model calls,
+      vector indexes, vector search, database or warehouse drivers, object-store/table runtime,
+      event listeners, API clients, SaaS connectors, credential resolution, network probes, source
+      reads, sink writes, production SQL/DataFrame/object-store/lakehouse/Foundry support,
+      performance claims, Spark-displacement claims, or package publication.
+  - Fallback boundary:
+    - Every row preserves `runtime_execution=false`, `source_io_performed=false`,
+      `sink_io_performed=false`, `external_engine_invoked=false`, and `fallback_attempted=false`.
+
 - [x] Session label: GAR-0032-C UDF and external-effect blocker matrix
   - Primary files:
     - `shardloom-core/src/effect_budget.rs`

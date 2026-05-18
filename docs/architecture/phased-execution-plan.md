@@ -1199,19 +1199,16 @@ service UDFs, API calls, LLM calls, embedding generation, vector search, plugin 
 extraction, and network egress `blocked` with `permission_status=policy_required`,
 `effect_status=denied_by_default`, `runtime_execution=false`, `effect_executed=false`,
 `fallback_attempted=false`, and `external_engine_invoked=false`.
-- [ ] GAR-0032-D unstructured/media and universal adapter capability matrix
-  - Source: RFC 0032; RFC 0033; RFC 0037.
-  - Current state: unstructured/media/universal adapter surfaces are not executable broadly.
-  - Next slice outcome: report-only matrix for documents, media, vectors, universal adapters, and
-    source/sink metadata.
-  - User-visible surface: CLI capability view, docs, Python view.
-  - Implementation scope: capability report, docs, tests.
-  - Evidence required: diagnostic/no-fallback refs and effect-policy refs.
-  - Acceptance: no vector search, media extraction, or model call is implied by capability rows.
-  - Verification: capability snapshot tests and default GAR verification.
-  - Non-goals: no unstructured runtime.
-  - Fallback/claim boundary: `support_status=report_only|unsupported`.
-  - Dependencies/blockers: external-effect blocker matrix.
+GAR-0032-D unstructured/media and universal adapter capability matrix is complete.
+GAR-0032-D is complete and recorded in the completed ledger. The completed slice adds
+`shardloom.unstructured_adapter_capability_matrix.v1` to `capabilities unstructured-media`,
+`capabilities universal-adapters`, `capabilities event-api-saas-adapters`, and
+`capabilities api-surfaces`, documents the posture in
+`docs/architecture/unstructured-adapter-capability-matrix.md`, and keeps document references, text
+extraction, media decode/extraction, embeddings, vector search, local file adapters,
+database/warehouse adapters, object-store/table adapters, event/API/SaaS adapters, and source/sink
+metadata report-only or blocked with `runtime_execution=false`, `source_io_performed=false`,
+`sink_io_performed=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
 - [ ] GAR-0032-E best-default certification gate
   - Source: RFC 0032; operational evidence policy hardening; benchmark-suite catalog.
   - Current state: user capability and sufficiency reports exist; best-default claims are not
