@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-SCALE-1B split manifest and split-native execution contract
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/scale-readiness-contract.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: close the SplitManifest slice by adding the
+    `shardloom.traditional_analytics.split_manifest.v1` benchmark/report contract. Current rows
+    expose source-state-linked split planning fields and deterministic blockers only; no
+    split-parallel, larger-than-memory, object-store/table, distributed, Foundry, or performance
+    claim is promoted.
+  - Checklist:
+    - [x] Add SplitManifest status and split-claim vocabularies.
+    - [x] Emit SplitManifest ID/digest, SourceState linkage, split count, split ID, byte/row range,
+          estimated row/byte, projection mask, filter pushdown, retry, runtime, row output, spill,
+          output ref, no-fallback, external-engine, claim-gate, and claim-boundary fields.
+    - [x] Add benchmark artifact contract and SplitManifest evidence matrix.
+    - [x] Validate ShardLoom rows keep `split_claim_gate_status=not_split_scale_grade`,
+          `split_runtime_millis=null`, `split_retry_count=0`, `split_spill_bytes=0`,
+          `split_fallback_attempted=false`, and `split_external_engine_invoked=false`.
+    - [x] Update compute-flow, benchmark docs, scale-readiness docs, GAR, traceability, and website
+          compute-flow snapshot.
+    - [x] Remove the active GAR-SCALE-1B item from the Planned queue.
+  - Evidence/verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 10 --dim-rows 5 --iterations 1 --regenerate --skip-shardloom-native --no-markdown --output target/codex-gar-scale-1b-smoke.json`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q benchmarks/traditional_analytics scripts website`
+    - `git diff --check`
+  - Claim boundary:
+    - SplitManifest evidence is split planning/report-only evidence. It does not prove
+      split-parallel execution, larger-than-memory execution, distributed runtime,
+      object-store/table runtime, Foundry production support, managed-platform proof,
+      any-volume support, Spark-replacement, or performance superiority.
+  - Fallback boundary:
+    - Unsupported or unsplittable sources must block or report unsupported. They cannot route to
+      Spark, DataFusion, DuckDB, Polars, Dask, Ray, object stores, table engines, managed platforms,
+      or other external engines as fallback execution.
+
 - [x] Session label: GAR-SCALE-1A scale-class taxonomy and claim gate
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

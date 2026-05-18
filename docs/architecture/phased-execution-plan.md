@@ -451,76 +451,9 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-GAR-SCALE-1A is complete and recorded in the completed ledger. The active follow-through begins with
-SplitManifest and split-native execution contracts; all non-local scale classes remain blocked or
-report-only until later slices attach runtime evidence.
-
-- [ ] GAR-SCALE-1B split manifest and split-native execution contract
-  - Source:
-    - GAR-SCALE-1A.
-    - Vortex Scan API split/source model.
-    - SourceState and VortexPreparedState reuse work.
-    - Object-store byte-range planning gates.
-    - RFC 0013; RFC 0017; RFC 0026; RFC 0031; RFC 0034.
-  - Current state:
-    - Vortex Scan API concepts and prepared/native source-backed scan evidence exist.
-    - ShardLoom scale-grade split manifests are not first-class.
-    - Current prepared/native benchmark paths are scoped local rows, not general split-native
-      execution.
-  - Next slice outcome:
-    - Define `SplitManifest` and per-split evidence as the scale contract for processing large
-      inputs as independent splits rather than monolithic scans.
-  - User-visible surface:
-    - Compute-flow docs, benchmark evidence rows, CLI/Python capability views, and unsupported
-      diagnostics for split-ineligible sources.
-  - Implementation scope:
-    - SplitManifest schema, per-split evidence row fields, deterministic blockers, benchmark schema
-      tests, and compute-flow docs. Runtime split execution can be report-only unless scoped local
-      implementation evidence is added in a later slice.
-  - Evidence required:
-    - `split_manifest_id`
-    - `split_id`
-    - `source_state_id`
-    - `byte_range`
-    - `row_range`
-    - `estimated_rows`
-    - `estimated_bytes`
-    - `projection_mask`
-    - `filter_pushdown_status`
-    - `split_retry_count`
-    - `split_runtime_millis`
-    - `split_rows_scanned`
-    - `split_rows_output`
-    - `split_spill_bytes`
-    - `split_output_ref`
-    - `split_claim_status`
-    - `fallback_attempted=false`
-    - `external_engine_invoked=false`
-    - `claim_gate_status`
-  - Acceptance:
-    - Large sources can be represented as split manifests.
-    - Unsupported splitting emits deterministic blockers.
-    - Split execution does not imply distributed execution or object-store runtime.
-  - Verification:
-    - SplitManifest schema/snapshot tests.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `git diff --check`
-  - Non-goals:
-    - No remote workers, distributed runtime, object-store split execution, table runtime,
-      performance claim, or hidden fast mode.
-  - Dependencies/blockers:
-    - Vortex/source split metadata availability, SourceState linkage, byte/row range posture, and
-      deterministic blockers for unsplittable or unsupported formats.
-  - Claim boundary:
-    - Split manifests are scale planning/evidence artifacts. They do not prove Spark-level,
-      distributed, object-store, or table execution.
-  - Fallback boundary:
-    - Split ineligibility must block or report unsupported; it must not route to Spark, DataFusion,
-      DuckDB, Polars, Dask, Ray, or another engine.
-  - Ledger rule:
-    - When complete, record the SplitManifest contract, evidence refs, and remaining blockers in the
-      completed ledger.
+GAR-SCALE-1A and GAR-SCALE-1B are complete and recorded in the completed ledger. The active
+follow-through begins with bounded memory, spill, and backpressure contracts; all non-local scale
+classes remain blocked or report-only until later slices attach runtime evidence.
 
 - [ ] GAR-SCALE-1C bounded memory, spill, and backpressure contract
   - Source:
