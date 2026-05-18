@@ -102,7 +102,7 @@ foundry_generated_output
 ```
 
 This alignment report is a coordination layer. It lets CLI and Python capability views show that
-generated-source evidence, future OpenLineage facets, future OpenTelemetry spans, future Bayesian
+generated-source evidence, report-only OpenLineage facets, report-only OpenTelemetry spans, future Bayesian
 confidence, and Foundry generated-output boundaries all use the same no-fallback/no-external-engine
 vocabulary. It does not emit OpenLineage events, configure an OpenTelemetry exporter, fit a Bayesian
 model, invoke Foundry, or write object-store output.
@@ -175,29 +175,72 @@ Facet schema rules:
 
 ## OpenTelemetry Trace Mapping
 
-OpenTelemetry trace export is opt-in. No network exporter is configured by default. A future local
-JSON trace preview may be acceptable before any OTLP exporter is added.
+OpenTelemetry trace export is opt-in. No SDK dependency, OTLP exporter, collector, backend, runtime
+collection, trace emission, metric emission, log emission, or network exporter is configured by
+default. A future local JSON trace preview may be acceptable before any OTLP exporter is added.
 
-Planned spans:
+`GAR-NOVEL-1C` adds the report-only capability schema:
 
-| Span | Parent | Required attributes |
-| --- | --- | --- |
-| `request_admission` | trace root | request id, API surface, capability status, policy status, selected execution mode |
-| `source_read` | request | source kind, source I/O performed, bytes/rows if known, Native I/O certificate ref |
-| `compatibility_parse` | request | format, parse status, materialization/decode status |
-| `vortex_import` | request | artifact refs, write/reopen timing, schema/layout digest |
-| `vortex_scan` | request | projected columns, predicate/provider status, materialization/decode fields |
-| `operator_compute` | request | operator family, execution class, residual executor, row counts |
-| `result_sink` | request | sink kind, output I/O performed, output certificate ref |
-| `evidence_render` | request | evidence artifact refs, redaction policy, render timing |
-| `claim_gate` | request | claim gate status, blockers, workload refs |
+```text
+schema_version=shardloom.opentelemetry_trace_export_contract.v1
+report_id=gar-novel-1c.opentelemetry_trace_export_contract
+gar_id=GAR-NOVEL-1C
+opentelemetry_traces_ref=https://opentelemetry.io/docs/concepts/signals/traces/
+opentelemetry_common_ref=https://opentelemetry.io/docs/specs/otel/common/
+otlp_spec_ref=https://opentelemetry.io/docs/specs/otlp/
+otlp_exporter_ref=https://opentelemetry.io/docs/specs/otel/protocol/exporter/
+schema_url_base_placeholder=https://shardloom.io/schemas/opentelemetry/
+trace_export_enabled=false
+metric_export_enabled=false
+log_export_enabled=false
+otlp_exporter_configured=false
+network_exporter_enabled=false
+collector_configured=false
+sdk_dependency_added=false
+runtime_collection_enabled=false
+trace_emitted=false
+metric_emitted=false
+log_emitted=false
+network_call_performed=false
+attribute_allowlist_required=true
+redaction_policy_required=true
+retention_policy_required=true
+opt_in_required=true
+claim_gate_status=not_claim_grade
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+The report maps ShardLoom timing/evidence fields into future OTel span placeholders. It follows
+OpenTelemetry's trace/span signal vocabulary, attribute key/value model, and OTLP exporter
+configuration model, but it deliberately does not add an SDK or exporter. Every row uses
+`span_kind=internal`, `span_status=report_only_not_emitted`, `export_enabled=false`,
+`span_emitted=false`, `metric_emitted=false`, `log_emitted=false`, and
+`network_exporter_enabled=false`.
+
+| Span placeholder | Timing fields | Attribute allowlist | Claim boundary |
+| --- | --- | --- | --- |
+| `shardloom.request_admission` | `request_admission_millis`, `total_runtime_millis` | execution mode, engine mode, admission status, selected-mode reason, claim gate, no-fallback fields | Does not emit traces or admit runtime support. |
+| `shardloom.source_read` | `source_read_millis`, `source_discovery_millis`, `schema_inference_millis`, `source_parse_millis` | source format, source I/O status, source-state digest, row/file/byte counts | Does not enable object-store reads, credential resolution, or external source probes. |
+| `shardloom.compatibility_parse` | `compatibility_parse_millis`, `compatibility_to_vortex_import_millis` | source format, parse status, generated-source status, source I/O status | Compatibility rows are certification/workflow timing, not pure query speed. |
+| `shardloom.vortex_import` | `compatibility_to_vortex_import_millis`, `vortex_prepare_millis`, `vortex_write_millis`, `vortex_reopen_millis` | prepared-state digest, Vortex artifact digest, layout/encoding/statistics summaries | Does not publish artifacts or imply object-store/table runtime. |
+| `shardloom.vortex_scan` | `vortex_scan_millis`, `source_backed_scan_millis` | scan pushdown flags, decode/materialization flags, source-backed scan status | Does not imply encoded-native execution without separate evidence. |
+| `shardloom.operator_compute` | `operator_compute_millis` | operator execution class, fused-pipeline flag, row counts, encoded-native claim flag | Does not enable UDFs, external effects, SQL/DataFrame runtime, or performance claims. |
+| `shardloom.result_sink` | `result_sink_write_millis`, `output_write_millis`, `output_replay_millis` | output I/O status, output format, output Native I/O certificate, result replay, output digest | Does not imply object-store write, lakehouse commit, or Foundry output support. |
+| `shardloom.evidence_render` | `evidence_render_millis` | execution certificate, Native I/O certificate, materialization boundary, generated-source certificate, claim gate | Does not publish telemetry or upgrade claim status. |
+| `shardloom.claim_gate` | `claim_gate_millis`, `evidence_render_millis`, `total_runtime_millis` | claim gate, claim boundary, performance/production/scale claim flags | Telemetry cannot create production, performance, Spark-replacement, Foundry, package, or scale claims. |
 
 Attribute safety rules:
 
 - Do not put secrets, credentials, full local paths, unredacted query text, or unbounded samples into
   span attributes.
 - Use digest/ref fields where possible.
-- Add `otel_export_enabled=false` and `otel_network_exporter_enabled=false` by default.
+- Enforce `attribute_allowlist_required=true`, `redaction_policy_required=true`, and
+  `retention_policy_required=true` before exporting.
+- Add `opentelemetry_trace_export_trace_export_enabled=false`,
+  `opentelemetry_trace_export_otlp_exporter_configured=false`,
+  `opentelemetry_trace_export_network_exporter_enabled=false`, and
+  `opentelemetry_trace_export_network_call_performed=false` by default.
 - A future exporter must require explicit policy, redaction, retention, and endpoint configuration.
 
 ## Bayesian Confidence Schema

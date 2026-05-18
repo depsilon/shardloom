@@ -28,6 +28,7 @@ from shardloom import (
     GeneratedSourceEvidenceAlignmentReport,
     LocalVortexPrimitiveSmokeReport,
     OpenLineageFacetMappingReport,
+    OpenTelemetryTraceExportContractReport,
     ShardLoomBinaryNotFoundError,
     ShardLoomClient,
     ShardLoomCommandError,
@@ -1169,6 +1170,73 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": f"{prefix}_fallback_attempted", "value": "false"},
                                 {"key": f"{prefix}_external_engine_invoked", "value": "false"},
                             ])
+                        otel_rows = [
+                            ("request_admission", "shardloom.request_admission", "request_admission_millis,total_runtime_millis", "execution_mode,engine_mode,capability_admission_status,selected_mode_reason,claim_gate_status,fallback_attempted,external_engine_invoked"),
+                            ("source_read", "shardloom.source_read", "source_read_millis,source_discovery_millis,schema_inference_millis,source_parse_millis", "source_format,source_io_performed,source_state_digest,row_count_estimate,file_count,byte_size"),
+                            ("compatibility_parse", "shardloom.compatibility_parse", "compatibility_parse_millis,compatibility_to_vortex_import_millis", "source_format,compatibility_parse_status,generated_source_created,source_io_performed,source_state_digest"),
+                            ("vortex_import", "shardloom.vortex_import", "compatibility_to_vortex_import_millis,vortex_prepare_millis,vortex_write_millis,vortex_reopen_millis", "prepared_state_digest,vortex_artifact_digest,layout_summary,encoding_summary,statistics_summary"),
+                            ("vortex_scan", "shardloom.vortex_scan", "vortex_scan_millis,source_backed_scan_millis", "scan_filter_pushed_down,scan_projection_pushed_down,scan_limit_pushed_down,data_decoded,data_materialized,source_backed_scan_used"),
+                            ("operator_compute", "shardloom.operator_compute", "operator_compute_millis", "operator_execution_class,fused_pipeline_used,rows_scanned,rows_selected,rows_output,encoded_native_claim_allowed"),
+                            ("result_sink", "shardloom.result_sink", "result_sink_write_millis,output_write_millis,output_replay_millis", "output_io_performed,output_format,output_native_io_certificate_status,result_replay_verified,output_digest"),
+                            ("evidence_render", "shardloom.evidence_render", "evidence_render_millis", "execution_certificate_status,native_io_certificate_status,materialization_boundary,generated_source_certificate_status,claim_gate_status"),
+                            ("claim_gate", "shardloom.claim_gate", "claim_gate_millis,evidence_render_millis,total_runtime_millis", "claim_gate_status,claim_boundary,performance_claim_allowed,production_claim_allowed,scale_claim_status"),
+                        ]
+                        fields.extend([
+                            {"key": "opentelemetry_trace_export_schema_version", "value": "shardloom.opentelemetry_trace_export_contract.v1"},
+                            {"key": "opentelemetry_trace_export_report_id", "value": "gar-novel-1c.opentelemetry_trace_export_contract"},
+                            {"key": "opentelemetry_trace_export_gar_id", "value": "GAR-NOVEL-1C"},
+                            {"key": "opentelemetry_trace_export_docs_ref", "value": "docs/architecture/evidence-native-generated-execution-observability-confidence.md"},
+                            {"key": "opentelemetry_trace_export_traces_ref", "value": "https://opentelemetry.io/docs/concepts/signals/traces/"},
+                            {"key": "opentelemetry_trace_export_common_ref", "value": "https://opentelemetry.io/docs/specs/otel/common/"},
+                            {"key": "opentelemetry_trace_export_otlp_spec_ref", "value": "https://opentelemetry.io/docs/specs/otlp/"},
+                            {"key": "opentelemetry_trace_export_otlp_exporter_ref", "value": "https://opentelemetry.io/docs/specs/otel/protocol/exporter/"},
+                            {"key": "opentelemetry_trace_export_schema_url_base_placeholder", "value": "https://shardloom.io/schemas/opentelemetry/"},
+                            {"key": "opentelemetry_trace_export_row_count", "value": str(len(otel_rows))},
+                            {"key": "opentelemetry_trace_export_row_order", "value": ",".join(row[0] for row in otel_rows)},
+                            {"key": "opentelemetry_trace_export_trace_export_enabled", "value": "false"},
+                            {"key": "opentelemetry_trace_export_metric_export_enabled", "value": "false"},
+                            {"key": "opentelemetry_trace_export_log_export_enabled", "value": "false"},
+                            {"key": "opentelemetry_trace_export_otlp_exporter_configured", "value": "false"},
+                            {"key": "opentelemetry_trace_export_network_exporter_enabled", "value": "false"},
+                            {"key": "opentelemetry_trace_export_collector_configured", "value": "false"},
+                            {"key": "opentelemetry_trace_export_sdk_dependency_added", "value": "false"},
+                            {"key": "opentelemetry_trace_export_runtime_collection_enabled", "value": "false"},
+                            {"key": "opentelemetry_trace_export_trace_emitted", "value": "false"},
+                            {"key": "opentelemetry_trace_export_metric_emitted", "value": "false"},
+                            {"key": "opentelemetry_trace_export_log_emitted", "value": "false"},
+                            {"key": "opentelemetry_trace_export_network_call_performed", "value": "false"},
+                            {"key": "opentelemetry_trace_export_attribute_allowlist_required", "value": "true"},
+                            {"key": "opentelemetry_trace_export_redaction_policy_required", "value": "true"},
+                            {"key": "opentelemetry_trace_export_retention_policy_required", "value": "true"},
+                            {"key": "opentelemetry_trace_export_opt_in_required", "value": "true"},
+                            {"key": "opentelemetry_trace_export_all_rows_report_only", "value": "true"},
+                            {"key": "opentelemetry_trace_export_all_rows_no_fallback_no_external_engine", "value": "true"},
+                            {"key": "opentelemetry_trace_export_no_export_side_effects", "value": "true"},
+                            {"key": "opentelemetry_trace_export_claim_gate_status", "value": "not_claim_grade"},
+                        ])
+                        for row_id, span_name, timing, attrs in otel_rows:
+                            prefix = f"opentelemetry_trace_export_span_{row_id}"
+                            fields.extend([
+                                {"key": f"{prefix}_span_name", "value": span_name},
+                                {"key": f"{prefix}_span_kind", "value": "internal"},
+                                {"key": f"{prefix}_timing_fields", "value": timing},
+                                {"key": f"{prefix}_shardloom_attribute_allowlist", "value": attrs},
+                                {"key": f"{prefix}_redaction_policy", "value": "allowlist_only_redact_paths_query_text_credentials_headers"},
+                                {"key": f"{prefix}_sensitive_fields", "value": "query_text,source_location,output_location,credential,headers"},
+                                {"key": f"{prefix}_metric_refs", "value": f"{row_id}_millis"},
+                                {"key": f"{prefix}_span_status", "value": "report_only_not_emitted"},
+                                {"key": f"{prefix}_export_enabled", "value": "false"},
+                                {"key": f"{prefix}_span_emitted", "value": "false"},
+                                {"key": f"{prefix}_metric_emitted", "value": "false"},
+                                {"key": f"{prefix}_log_emitted", "value": "false"},
+                                {"key": f"{prefix}_network_exporter_enabled", "value": "false"},
+                                {"key": f"{prefix}_redaction_required", "value": "true"},
+                                {"key": f"{prefix}_retention_policy_required", "value": "true"},
+                                {"key": f"{prefix}_claim_gate_status", "value": "not_claim_grade"},
+                                {"key": f"{prefix}_claim_boundary", "value": "report-only OpenTelemetry span mapping; no SDK, exporter, collector, network call, fallback, or production tracing claim"},
+                                {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                                {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                            ])
                     if scope in {"workflow", "remote-api", "cross-cg"}:
                         fields.extend([
                             {"key": "severity", "value": "error"},
@@ -1535,6 +1603,53 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(lineage.row("no_fallback").report_only_no_export)
         self.assertTrue(lineage.row("vortex_artifact").no_fallback_no_external_engine)
+        telemetry = observability.opentelemetry_trace_export_contract
+        self.assertIsInstance(telemetry, OpenTelemetryTraceExportContractReport)
+        self.assertTrue(telemetry.present)
+        self.assertEqual(
+            telemetry.schema_version,
+            "shardloom.opentelemetry_trace_export_contract.v1",
+        )
+        self.assertEqual(telemetry.gar_id, "GAR-NOVEL-1C")
+        self.assertEqual(
+            telemetry.row_order,
+            (
+                "request_admission",
+                "source_read",
+                "compatibility_parse",
+                "vortex_import",
+                "vortex_scan",
+                "operator_compute",
+                "result_sink",
+                "evidence_render",
+                "claim_gate",
+            ),
+        )
+        self.assertFalse(telemetry.trace_export_enabled)
+        self.assertFalse(telemetry.metric_export_enabled)
+        self.assertFalse(telemetry.log_export_enabled)
+        self.assertFalse(telemetry.network_exporter_enabled)
+        self.assertFalse(telemetry.otlp_exporter_configured)
+        self.assertFalse(telemetry.trace_emitted)
+        self.assertFalse(telemetry.network_call_performed)
+        self.assertTrue(telemetry.all_rows_report_only)
+        self.assertTrue(telemetry.all_no_fallback_no_external_engine)
+        self.assertTrue(telemetry.no_export_side_effects)
+        self.assertEqual(telemetry.claim_gate_status, "not_claim_grade")
+        self.assertEqual(
+            telemetry.row("operator_compute").span_name,
+            "shardloom.operator_compute",
+        )
+        self.assertIn(
+            "operator_compute_millis",
+            telemetry.row("operator_compute").timing_fields,
+        )
+        self.assertIn(
+            "fallback_attempted",
+            telemetry.row("request_admission").shardloom_attribute_allowlist,
+        )
+        self.assertTrue(telemetry.row("result_sink").report_only_no_export)
+        self.assertTrue(telemetry.row("claim_gate").no_fallback_no_external_engine)
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:
         binary = self.fake_cli(

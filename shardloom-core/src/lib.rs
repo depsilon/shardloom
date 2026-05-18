@@ -223,9 +223,10 @@ pub use observability::{
     ObservabilityPlan, ObservabilityPlanStatus, ObservabilitySchemaArea,
     ObservabilitySchemaCoverageEntry, ObservabilitySchemaCoverageReport, ObservabilitySchemaStatus,
     ObservabilitySurface, ObservedField, OpenLineageFacetMappingReport, OpenLineageFacetMappingRow,
-    OperatorProfile, RedactionStatus, RuntimeObservabilityReport, SensitivityLevel,
-    StructuredEvent, StructuredEventKind, TraceSpanCategory, TraceSpanId, TraceSpanSkeleton,
-    TraceSpanStatus, plan_observability_schema_coverage,
+    OpenTelemetryTraceExportContractReport, OpenTelemetryTraceExportSpanRow, OperatorProfile,
+    RedactionStatus, RuntimeObservabilityReport, SensitivityLevel, StructuredEvent,
+    StructuredEventKind, TraceSpanCategory, TraceSpanId, TraceSpanSkeleton, TraceSpanStatus,
+    plan_observability_schema_coverage,
 };
 pub use operational_contracts::{
     BenchmarkConstitution, CostSimulationReport, EvidenceArtifactEnvelope, EvidenceArtifactSafety,

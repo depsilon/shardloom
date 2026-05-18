@@ -389,10 +389,12 @@ plan before coding.
 - [x] GAR-0018-A: `runtime-report` now exposes a report-only local benchmark stage-timing
   introspection schema, unsupported live profiling and distributed introspection blockers, and
   no-effect/no-fallback fields.
-- [ ] `GAR-NOVEL-1C` adds the planned OpenTelemetry execution trace export contract. The next work
-  is report-only span/attribute mapping for request admission, source read, compatibility parse,
-  Vortex import/scan, operator compute, result sink, evidence render, and claim gate with export
-  opt-in, no default network exporter, and secret/path/query redaction.
+- [x] `GAR-NOVEL-1C` adds `shardloom.opentelemetry_trace_export_contract.v1` as a report-only
+  observability capability. It maps request admission, source read, compatibility parse, Vortex
+  import/scan, operator compute, result sink, evidence render, and claim gate timing/evidence fields
+  into future OpenTelemetry internal span placeholders while keeping exporter/backend/collector
+  configuration disabled, trace/metric/log emission disabled, SDK dependency expansion disabled,
+  network calls disabled, allowlisted attributes required, and secret/path/query redaction required.
 - [ ] Live profiling collectors, profile artifacts, debug bundles, metrics exporters, trace
   backends, and distributed runtime introspection execution remain incomplete.
 
@@ -897,6 +899,11 @@ plan before coding.
   event emission disabled, schema publication disabled, backend/client dependency disabled,
   network calls disabled, `fallback_attempted=false`, `external_engine_invoked=false`, and
   `claim_gate_status=not_claim_grade`.
+- [x] `GAR-NOVEL-1C` adds `shardloom.opentelemetry_trace_export_contract.v1` as the companion
+  report-only observability capability for future OTel spans and metrics. It maps benchmark/runtime
+  stage-timing fields to span placeholders without adding an OTel dependency, configuring OTLP,
+  configuring a collector/backend, emitting telemetry, making network calls, or changing runtime
+  support.
 - [ ] `GAR-COMPAT-1` keeps broad adapter and user-surface compatibility separate from runtime
   support. Python rows/DataFrame, SQL VALUES/literals, REST/Flight/ADBC, external databases, and
   generated/source-free output remain report-only or blocked unless a narrower evidence-bearing
@@ -975,7 +982,7 @@ plan before coding.
 - [x] `GAR-NOVEL-1B` adds planned report-only OpenLineage facet mapping follow-through. No lineage
   event, schema publication, OpenLineage client dependency, network call, backend integration, or
   production API/lineage claim is authorized by those rows alone.
-- [ ] `GAR-NOVEL-1C` adds planned report-only OpenTelemetry trace mapping follow-through. No
+- [x] `GAR-NOVEL-1C` adds planned report-only OpenTelemetry trace mapping follow-through. No
   telemetry exporter, network call, backend integration, or production API claim is authorized by
   those rows alone.
 - [ ] `GAR-COMMERCIAL-1D` adds the planned enterprise evidence export pack: ShardLoom JSON,
