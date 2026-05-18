@@ -410,6 +410,10 @@ def main() -> int:
                 "pagefind-filter-dropdown",
                 'data-pagefind-filter="section"',
                 'data-pagefind-filter="status"',
+                "atlas-density-note",
+                "category-toc-band",
+                "compact-term-row",
+                "reference-badge",
             ]:
                 if required not in field_guide_text:
                     blockers.append(f"Field Guide index page missing atlas field: {required}")

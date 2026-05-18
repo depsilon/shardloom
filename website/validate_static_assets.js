@@ -189,6 +189,10 @@ for (const required of [
   "pagefind-filter-dropdown",
   "data-pagefind-filter=\"section\"",
   "data-pagefind-filter=\"status\"",
+  "atlas-density-note",
+  "category-toc-band",
+  "compact-term-row",
+  "reference-badge",
 ]) {
   assert(
     fieldGuideIndexHtml.includes(required),

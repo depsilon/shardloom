@@ -1912,10 +1912,12 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1F"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1G"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1H"));
-    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1I visual density and readability refinement"));
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1I"));
+    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1J Field Guide / Use Case public-readiness gate"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "GAR-WEB-ATLAS-1I visual density and readability refinement",
         "GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate",
         "GAR-WEB-ATLAS-1G source-linked reference and citation blocks",
         "GAR-WEB-ATLAS-1F Can-I-use-this status matrix",
@@ -1926,6 +1928,15 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "What this proves",
         "data-citation-block=\"reference-files\"",
         "citation-card",
+        "atlas-density-note",
+        "category-toc-band",
+        "compact-term-row",
+        "status-chip",
+        "reference-badge",
+        "related-concepts-rail",
+        "sticky-in-page-toc",
+        "75 compact dossier rows",
+        "11 concept families",
         "blocked_pending_explicit_approval",
         "website-atlas-framework-decision.md",
         "99 HTML files discovered by Pagefind",
@@ -2043,6 +2054,13 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "render_citation_links",
         "data-citation-block=\"reference-files\"",
         "What this proves:",
+        "atlas-density-note",
+        "category-toc-band",
+        "compact-term-row",
+        "status-chip",
+        "reference-badge",
+        "related-concepts-rail",
+        "sticky-in-page-toc",
         "REQUIRED_FIELD_GUIDE_CATEGORIES",
         "FIELD_GUIDE_READING_PATHS",
         "field_guide_concepts_for_use_case",
@@ -2130,6 +2148,13 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "pagefind-filter-dropdown",
         "data-pagefind-filter=\"section\"",
         "data-pagefind-filter=\"status\"",
+        "atlas-density-note",
+        "category-toc-band",
+        "compact-term-row",
+        "status-chip",
+        "reference-badge",
+        "75 dossiers",
+        "11 concept families",
         "what-is-shardloom",
         "output-plan-reuse",
     ] {
@@ -2197,6 +2222,9 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Try it / related use cases",
         "Related concepts",
         "Reference files",
+        "sticky-in-page-toc",
+        "related-concepts-rail",
+        "reference-badge",
         "data-citation-block=\"reference-files\"",
         "What this proves:",
         "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
@@ -2250,6 +2278,9 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "What this proves:",
         "data-status-matrix-filters",
         "Status page must include",
+        "atlas-density-note",
+        "compact-term-row",
+        "reference-badge",
     ] {
         assert!(
             website_validator.contains(required),
@@ -2268,6 +2299,10 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "What this proves:",
         "data-status-matrix-filters",
         "data-status-matrix-grid",
+        "atlas-density-note",
+        "category-toc-band",
+        "compact-term-row",
+        "reference-badge",
     ] {
         assert!(
             readiness.contains(required),
