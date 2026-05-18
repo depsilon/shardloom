@@ -451,74 +451,9 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-GAR-SCALE-1A through GAR-SCALE-1D are complete and recorded in the completed ledger. The active
-follow-through begins with object-store and table-scale execution ladders; all non-local scale
+GAR-SCALE-1A through GAR-SCALE-1E are complete and recorded in the completed ledger. The active
+follow-through begins with the distributed execution report-only protocol; all non-local scale
 classes remain blocked or report-only until later slices attach runtime evidence.
-
-- [ ] GAR-SCALE-1E object-store and table-scale execution ladder
-  - Source:
-    - GAR-COMPAT-1C S3/GCS/ADLS runtime admission ladder.
-    - GAR-COMPAT-1D Iceberg/Delta/Hudi table-format boundary matrix.
-    - RFC 0008 object-store-native planning.
-    - RFC 0020 schema evolution/table compatibility.
-    - RFC 0031 Native I/O envelope.
-    - Object-store byte-range planning gates.
-  - Current state:
-    - Object-store and table/lakehouse support remain report-only/blocked.
-    - Object-store range planning and table metadata posture exist, but runtime I/O and commit
-      semantics are not admitted.
-  - Next slice outcome:
-    - Add a scale ladder that ties S3/GCS/ADLS and table-format work to staged claim gates rather
-      than treating object-store/table support as generic I/O.
-  - User-visible surface:
-    - CLI object-store plan/status, Python capability view, website/status, benchmark profiles, and
-      compute-flow docs.
-  - Implementation scope:
-    - Ladder docs, capability/status rows, benchmark schema fields, deterministic blockers, and
-      release-readiness claim checks. No runtime object-store/table behavior unless admitted later.
-  - Evidence required:
-    - `credential_policy_status`
-    - `network_effect_status`
-    - `listing_strategy`
-    - `object_version_or_etag`
-    - `split_manifest_id`
-    - `commit_protocol`
-    - `idempotency_key`
-    - `rollback_status`
-    - `table_snapshot_id`
-    - `table_manifest_count`
-    - `table_data_file_count`
-    - `object_store_involved`
-    - `table_format_involved`
-    - `fallback_attempted=false`
-    - `external_engine_invoked=false`
-    - `claim_gate_status`
-  - Acceptance:
-    - Object-store URI parsing, listing, split planning, byte-range read, streaming read, write
-      staging, commit, table metadata read, snapshot scan, append, merge/update/delete, commit, and
-      rollback are separate states.
-    - Object-store read, object-store write, and table commit are separate claim gates.
-    - Metadata scan does not imply table runtime, and table runtime does not imply table commit.
-  - Verification:
-    - Object-store/table ladder snapshot tests or release-readiness metadata checks.
-    - `python scripts/check_website_readiness.py`
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `git diff --check`
-  - Non-goals:
-    - No S3/GCS/ADLS runtime, credential resolution, network probe, object-store write, lakehouse
-      table commit, Foundry production claim, or performance claim.
-  - Dependencies/blockers:
-    - Object-store credential policy, network-effect admission, byte-range read proof,
-      table-metadata proof, output commit protocol, rollback semantics, and status projection.
-  - Claim boundary:
-    - The ladder is a readiness/admission model only. It cannot be used as object-store runtime,
-      table runtime, table commit, or production lakehouse support evidence.
-  - Fallback boundary:
-    - Object-store/table blockers cannot invoke external engines, managed platforms, or Spark as
-      fallback execution.
-  - Ledger rule:
-    - When complete, move ladder details, status rows, and unsupported states to the completed
-      ledger.
 
 - [ ] GAR-SCALE-1F distributed execution report-only protocol
   - Source:

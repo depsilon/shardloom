@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-SCALE-1E object-store and table-scale execution ladder
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/scale-readiness-contract.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: close the object-store/table scale ladder by adding the
+    `shardloom.traditional_analytics.object_table_scale_ladder.v1` benchmark/report contract.
+    Current rows expose object-store URI/listing/split-planning/read/write/commit statuses, table
+    metadata/runtime/commit/rollback statuses, credential/network/ETag/commit/rollback evidence,
+    separate object-store read/write and table runtime/commit gates, no-fallback fields, and
+    claim boundaries as report-only evidence only; no object-store runtime, table runtime, table
+    commit, credential, network, lakehouse, Foundry, or performance claim is promoted.
+  - Checklist:
+    - [x] Add object-store/table ladder status vocabulary.
+    - [x] Emit object-store URI parse, listing, split planning, byte-range read, streaming read,
+          write staging, commit, table metadata read, snapshot scan, append, merge/update/delete,
+          table commit, table rollback, credential policy, network effect, listing strategy,
+          object version/ETag, SplitManifest, commit protocol, idempotency, rollback, table
+          snapshot, manifest/data-file counts, object-store/table involvement, no-fallback,
+          external-engine, claim-gate, and claim-boundary fields.
+    - [x] Add benchmark artifact contract and object-store/table ladder matrix.
+    - [x] Validate current rows keep object-store runtime, table runtime, table commit, credentials,
+          network effects, object-store listing, table manifests/data files, fallback, and
+          external-engine execution blocked.
+    - [x] Update compute-flow, benchmark docs, scale-readiness docs, GAR, traceability, and website
+          compute-flow snapshot.
+    - [x] Remove the active GAR-SCALE-1E item from the Planned queue.
+  - Evidence/verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 10 --dim-rows 5 --iterations 1 --regenerate --skip-shardloom-native --no-markdown --output target/codex-gar-scale-1e-smoke.json`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q benchmarks/traditional_analytics scripts website`
+    - `git diff --check`
+  - Claim boundary:
+    - The object-store/table ladder is readiness/admission evidence only. It does not prove
+      object-store runtime, object-store writes, object-store commits, table runtime, table commits,
+      rollback support, lakehouse production support, Foundry production support, Spark-replacement,
+      or performance superiority.
+  - Fallback boundary:
+    - Object-store/table blockers cannot invoke Spark, DataFusion, DuckDB, Polars, Dask, Ray,
+      Foundry Spark, managed SQL systems, object stores, table engines, or managed platforms as
+      fallback execution.
+
 - [x] Session label: GAR-SCALE-1D shuffle, repartition, and join scale contract
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

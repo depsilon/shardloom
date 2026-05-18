@@ -148,6 +148,21 @@ classify local/report-only join, group-by, window, top-N, repartition, and CDC p
 not prove distributed shuffle, Spark-scale joins, retryable shuffle, skew handling, partitioned
 writes, Spark-replacement, or performance claims.
 
+`GAR-SCALE-1E` adds a report-only object-store/table-scale ladder to benchmark rows. Rows now
+include
+`object_table_ladder_schema_version=shardloom.traditional_analytics.object_table_scale_ladder.v1`,
+object-store URI/listing/split-planning/read/write/commit status fields, table metadata, snapshot,
+append, merge/update/delete, commit, and rollback status fields, `credential_policy_status`,
+`network_effect_status`, `listing_strategy`, `object_version_or_etag`, `split_manifest_id`,
+`commit_protocol`, `idempotency_key`, `rollback_status`, `table_snapshot_id`,
+`table_manifest_count`, `table_data_file_count`, `object_store_involved=false`,
+`table_format_involved=false`, separate object-store read/write and table runtime/commit claim
+gates, `object_table_ladder_fallback_attempted=false`,
+`object_table_ladder_external_engine_invoked=false`, and
+`object_table_ladder_claim_gate_status=not_object_table_scale_grade`. Current rows expose staged
+readiness only; they do not prove object-store runtime, table runtime, table commit, credential
+resolution, network effects, lakehouse production support, Spark-replacement, or performance claims.
+
 `GAR-PERF-1B` adds the source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md` and propagates
 `source_state_coverage_*` fields into prepared/native batch evidence. Those

@@ -973,6 +973,57 @@ SHUFFLE_SCALE_FIELDS = (
     "shuffle_claim_gate_status",
     "shuffle_claim_boundary",
 )
+OBJECT_TABLE_SCALE_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.object_table_scale_ladder.v1"
+)
+OBJECT_TABLE_LADDER_STATUS_VOCABULARY = (
+    "local_not_involved_report_only",
+    "report_only",
+    "blocked",
+    "unsupported",
+    "external_baseline_only",
+)
+OBJECT_TABLE_SCALE_FIELDS = (
+    "object_table_ladder_schema_version",
+    "object_table_ladder_status_vocabulary",
+    "object_table_ladder_status",
+    "object_table_ladder_id",
+    "object_table_ladder_digest",
+    "object_store_uri_parse_status",
+    "object_store_listing_status",
+    "object_store_split_planning_status",
+    "object_store_byte_range_read_status",
+    "object_store_streaming_read_status",
+    "object_store_write_staging_status",
+    "object_store_commit_status",
+    "table_metadata_read_status",
+    "table_snapshot_scan_status",
+    "table_append_status",
+    "table_merge_update_delete_status",
+    "table_commit_status",
+    "table_rollback_status",
+    "credential_policy_status",
+    "network_effect_status",
+    "listing_strategy",
+    "object_version_or_etag",
+    "split_manifest_id",
+    "commit_protocol",
+    "idempotency_key",
+    "rollback_status",
+    "table_snapshot_id",
+    "table_manifest_count",
+    "table_data_file_count",
+    "object_store_involved",
+    "table_format_involved",
+    "object_store_read_claim_gate_status",
+    "object_store_write_claim_gate_status",
+    "table_runtime_claim_gate_status",
+    "table_commit_claim_gate_status",
+    "object_table_ladder_fallback_attempted",
+    "object_table_ladder_external_engine_invoked",
+    "object_table_ladder_claim_gate_status",
+    "object_table_ladder_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -6340,6 +6391,7 @@ def bayesian_advisor_contract_metadata(
         "split_manifest_contract",
         "memory_spill_contract",
         "shuffle_scale_contract",
+        "object_table_scale_contract",
         "scale_claim_contract",
         "runtime_resource_policy_fields",
         "layout_advisor_report",
@@ -6831,6 +6883,100 @@ def shuffle_scale_contract_metadata(
             "rows may classify local join, group-by, window, top-N, and CDC posture, "
             "but they do not prove distributed shuffle, Spark-scale joins, partitioned "
             "writes, skew handling, retryable shuffle, or performance superiority."
+        ),
+    }
+
+
+def object_table_ladder_status_for_row(engine: str, status: str) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported"
+    if status != "success":
+        return "blocked"
+    return "local_not_involved_report_only"
+
+
+def object_table_scale_contract_metadata(
+    engine: str,
+    scenario: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    is_shardloom = is_shardloom_engine(engine)
+    source_state_digest = str(metrics.get("source_state_digest") or "none")
+    split_manifest_id = str(metrics.get("split_manifest_id") or "none")
+    split_manifest_digest = str(metrics.get("split_manifest_digest") or "none")
+    digest = canonical_digest(
+        {
+            "engine": engine,
+            "object_table_schema": OBJECT_TABLE_SCALE_SCHEMA_VERSION,
+            "scenario": scenario,
+            "source_state_digest": source_state_digest,
+            "split_manifest_digest": split_manifest_digest,
+            "status": status,
+        }
+    )
+    return {
+        "object_table_ladder_schema_version": OBJECT_TABLE_SCALE_SCHEMA_VERSION,
+        "object_table_ladder_status_vocabulary": ",".join(
+            OBJECT_TABLE_LADDER_STATUS_VOCABULARY
+        ),
+        "object_table_ladder_status": object_table_ladder_status_for_row(
+            engine, status
+        ),
+        "object_table_ladder_id": (
+            f"object-table-ladder:{digest[:12]}" if is_shardloom else "none"
+        ),
+        "object_table_ladder_digest": digest if is_shardloom else "none",
+        "object_store_uri_parse_status": "not_requested_local_filesystem",
+        "object_store_listing_status": "blocked_no_object_store_runtime",
+        "object_store_split_planning_status": "blocked_no_object_store_runtime",
+        "object_store_byte_range_read_status": "blocked_no_object_store_runtime",
+        "object_store_streaming_read_status": "blocked_no_object_store_runtime",
+        "object_store_write_staging_status": "blocked_no_object_store_runtime",
+        "object_store_commit_status": "blocked_no_object_store_commit",
+        "table_metadata_read_status": "not_requested_no_table_format",
+        "table_snapshot_scan_status": "blocked_no_table_runtime",
+        "table_append_status": "blocked_no_table_commit",
+        "table_merge_update_delete_status": "blocked_no_table_commit",
+        "table_commit_status": "blocked_no_table_commit",
+        "table_rollback_status": "blocked_no_table_commit",
+        "credential_policy_status": "not_required_local_filesystem",
+        "network_effect_status": "not_allowed_no_network_effects",
+        "listing_strategy": "not_applicable_local_filesystem",
+        "object_version_or_etag": first_meaningful_field(
+            metrics.get("object_etag"),
+            "not_applicable_local_filesystem",
+        ),
+        "split_manifest_id": split_manifest_id if is_shardloom else "none",
+        "commit_protocol": "not_admitted_local_result_sink_only",
+        "idempotency_key": first_meaningful_field(
+            metrics.get("idempotency_key"),
+            "not_emitted_local_smoke",
+        ),
+        "rollback_status": "not_applicable_no_commit",
+        "table_snapshot_id": "none",
+        "table_manifest_count": 0,
+        "table_data_file_count": 0,
+        "object_store_involved": False,
+        "table_format_involved": False,
+        "object_store_read_claim_gate_status": "not_object_store_runtime_grade",
+        "object_store_write_claim_gate_status": "not_object_store_runtime_grade",
+        "table_runtime_claim_gate_status": "not_table_runtime_grade",
+        "table_commit_claim_gate_status": "not_table_commit_grade",
+        "object_table_ladder_fallback_attempted": False,
+        "object_table_ladder_external_engine_invoked": False,
+        "object_table_ladder_claim_gate_status": "not_object_table_scale_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "object_table_ladder_claim_boundary": (
+            "Object-store and table scale ladder evidence is report-only and fail-closed. "
+            "Current rows do not parse object-store URIs as runtime inputs, resolve "
+            "credentials, perform network probes, list objects, read byte ranges, stream "
+            "object-store data, stage object-store writes, commit table data, rollback "
+            "tables, or prove lakehouse/object-store production support."
         ),
     }
 
@@ -7624,6 +7770,94 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         ):
             raise RuntimeError(
                 "GAR-SCALE-1D cannot emit shuffle correctness digest before runtime proof"
+            )
+        missing_object_table_fields = [
+            field for field in OBJECT_TABLE_SCALE_FIELDS if field not in metrics
+        ]
+        if missing_object_table_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted object-store/table scale ladder fields: "
+                + ", ".join(missing_object_table_fields)
+            )
+        if metrics.get("object_table_ladder_schema_version") != (
+            OBJECT_TABLE_SCALE_SCHEMA_VERSION
+        ):
+            raise RuntimeError("object-store/table ladder rows must preserve schema version")
+        if (
+            metrics.get("object_table_ladder_status")
+            not in OBJECT_TABLE_LADDER_STATUS_VOCABULARY
+        ):
+            raise RuntimeError("ShardLoom row reported unknown object_table_ladder_status")
+        for blocked_field in [
+            "object_store_listing_status",
+            "object_store_split_planning_status",
+            "object_store_byte_range_read_status",
+            "object_store_streaming_read_status",
+            "object_store_write_staging_status",
+        ]:
+            if metrics.get(blocked_field) != "blocked_no_object_store_runtime":
+                raise RuntimeError(
+                    f"GAR-SCALE-1E cannot admit object-store runtime field {blocked_field}"
+                )
+        if metrics.get("object_store_commit_status") != (
+            "blocked_no_object_store_commit"
+        ):
+            raise RuntimeError("GAR-SCALE-1E cannot admit object-store commit")
+        for blocked_table_field in [
+            "table_snapshot_scan_status",
+            "table_append_status",
+            "table_merge_update_delete_status",
+            "table_commit_status",
+            "table_rollback_status",
+        ]:
+            expected = (
+                "blocked_no_table_runtime"
+                if blocked_table_field == "table_snapshot_scan_status"
+                else "blocked_no_table_commit"
+            )
+            if metrics.get(blocked_table_field) != expected:
+                raise RuntimeError(
+                    f"GAR-SCALE-1E cannot admit table runtime field {blocked_table_field}"
+                )
+        if metrics.get("credential_policy_status") != "not_required_local_filesystem":
+            raise RuntimeError("GAR-SCALE-1E cannot resolve object-store credentials")
+        if metrics.get("network_effect_status") != "not_allowed_no_network_effects":
+            raise RuntimeError("GAR-SCALE-1E cannot allow network effects")
+        if metrics.get("listing_strategy") != "not_applicable_local_filesystem":
+            raise RuntimeError("GAR-SCALE-1E cannot report object-store listing")
+        if metrics.get("commit_protocol") != "not_admitted_local_result_sink_only":
+            raise RuntimeError("GAR-SCALE-1E cannot admit commit protocol")
+        if metrics.get("rollback_status") != "not_applicable_no_commit":
+            raise RuntimeError("GAR-SCALE-1E cannot report rollback execution")
+        if metrics.get("table_snapshot_id") != "none":
+            raise RuntimeError("GAR-SCALE-1E cannot report table snapshots")
+        if parse_optional_int(metrics.get("table_manifest_count")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1E cannot report table manifests")
+        if parse_optional_int(metrics.get("table_data_file_count")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1E cannot report table data files")
+        if metrics.get("object_store_read_claim_gate_status") != (
+            "not_object_store_runtime_grade"
+        ):
+            raise RuntimeError("object-store read claim gate cannot promote current rows")
+        if metrics.get("object_store_write_claim_gate_status") != (
+            "not_object_store_runtime_grade"
+        ):
+            raise RuntimeError("object-store write claim gate cannot promote current rows")
+        if metrics.get("table_runtime_claim_gate_status") != "not_table_runtime_grade":
+            raise RuntimeError("table runtime claim gate cannot promote current rows")
+        if metrics.get("table_commit_claim_gate_status") != "not_table_commit_grade":
+            raise RuntimeError("table commit claim gate cannot promote current rows")
+        if metrics.get("object_table_ladder_claim_gate_status") != (
+            "not_object_table_scale_grade"
+        ):
+            raise RuntimeError("object-store/table ladder cannot upgrade scale claim status")
+        if metrics.get("object_table_ladder_fallback_attempted") is not False:
+            raise RuntimeError(
+                "object-store/table ladder cannot report fallback attempts"
+            )
+        if metrics.get("object_table_ladder_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "object-store/table ladder cannot report external engine execution"
             )
         missing_split_manifest_fields = [
             field for field in SPLIT_MANIFEST_FIELDS if field not in metrics
@@ -8717,6 +8951,87 @@ def shuffle_scale_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def object_table_scale_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "object_table_ladder_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "object_table_ladder_status": metrics.get(
+                    "object_table_ladder_status"
+                ),
+                "object_table_ladder_id": metrics.get("object_table_ladder_id"),
+                "object_store_uri_parse_status": metrics.get(
+                    "object_store_uri_parse_status"
+                ),
+                "object_store_listing_status": metrics.get(
+                    "object_store_listing_status"
+                ),
+                "object_store_byte_range_read_status": metrics.get(
+                    "object_store_byte_range_read_status"
+                ),
+                "object_store_streaming_read_status": metrics.get(
+                    "object_store_streaming_read_status"
+                ),
+                "object_store_write_staging_status": metrics.get(
+                    "object_store_write_staging_status"
+                ),
+                "object_store_commit_status": metrics.get(
+                    "object_store_commit_status"
+                ),
+                "table_metadata_read_status": metrics.get(
+                    "table_metadata_read_status"
+                ),
+                "table_snapshot_scan_status": metrics.get(
+                    "table_snapshot_scan_status"
+                ),
+                "table_commit_status": metrics.get("table_commit_status"),
+                "credential_policy_status": metrics.get("credential_policy_status"),
+                "network_effect_status": metrics.get("network_effect_status"),
+                "listing_strategy": metrics.get("listing_strategy"),
+                "object_version_or_etag": metrics.get("object_version_or_etag"),
+                "split_manifest_id": metrics.get("split_manifest_id"),
+                "commit_protocol": metrics.get("commit_protocol"),
+                "idempotency_key": metrics.get("idempotency_key"),
+                "rollback_status": metrics.get("rollback_status"),
+                "table_snapshot_id": metrics.get("table_snapshot_id"),
+                "table_manifest_count": metrics.get("table_manifest_count"),
+                "table_data_file_count": metrics.get("table_data_file_count"),
+                "object_store_involved": metrics.get("object_store_involved"),
+                "table_format_involved": metrics.get("table_format_involved"),
+                "object_store_read_claim_gate_status": metrics.get(
+                    "object_store_read_claim_gate_status"
+                ),
+                "object_store_write_claim_gate_status": metrics.get(
+                    "object_store_write_claim_gate_status"
+                ),
+                "table_runtime_claim_gate_status": metrics.get(
+                    "table_runtime_claim_gate_status"
+                ),
+                "table_commit_claim_gate_status": metrics.get(
+                    "table_commit_claim_gate_status"
+                ),
+                "object_table_ladder_claim_gate_status": metrics.get(
+                    "object_table_ladder_claim_gate_status"
+                ),
+                "object_table_ladder_fallback_attempted": metrics.get(
+                    "object_table_ladder_fallback_attempted"
+                ),
+                "object_table_ladder_external_engine_invoked": metrics.get(
+                    "object_table_ladder_external_engine_invoked"
+                ),
+            }
+        )
+    return rows
+
+
 def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -9506,6 +9821,14 @@ def failed_result(
             metrics=metrics,
         )
     )
+    metrics.update(
+        object_table_scale_contract_metadata(
+            engine,
+            scenario,
+            status=status,
+            metrics=metrics,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -10061,6 +10384,14 @@ def successful_result_from_iterations(
     )
     metrics.update(
         shuffle_scale_contract_metadata(
+            runner.name,
+            scenario,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+        )
+    )
+    metrics.update(
+        object_table_scale_contract_metadata(
             runner.name,
             scenario,
             status="success" if stable else "unstable_output",
@@ -11110,6 +11441,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "split_manifest_fields": list(SPLIT_MANIFEST_FIELDS),
         "memory_spill_fields": list(MEMORY_SPILL_FIELDS),
         "shuffle_scale_fields": list(SHUFFLE_SCALE_FIELDS),
+        "object_table_scale_fields": list(OBJECT_TABLE_SCALE_FIELDS),
         "scale_claim_fields": list(SCALE_CLAIM_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
@@ -11408,6 +11740,65 @@ def shuffle_scale_contract() -> dict[str, Any]:
             "planning posture only. It cannot claim distributed execution, Spark-scale "
             "joins, scale-safe repartition writes, skew handling, retryable shuffle, "
             "production scale safety, or performance superiority."
+        ),
+    }
+
+
+def object_table_scale_contract() -> dict[str, Any]:
+    return {
+        "contract_id": OBJECT_TABLE_SCALE_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/scale-readiness-contract.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(OBJECT_TABLE_LADDER_STATUS_VOCABULARY),
+        "row_fields": list(OBJECT_TABLE_SCALE_FIELDS),
+        "object_store_ladder": [
+            "object_store_uri_parse",
+            "object_store_listing",
+            "object_store_split_planning",
+            "object_store_byte_range_read",
+            "object_store_streaming_read",
+            "object_store_write_staging",
+            "object_store_commit",
+        ],
+        "table_ladder": [
+            "table_metadata_read",
+            "table_snapshot_scan",
+            "table_append",
+            "table_merge_update_delete",
+            "table_commit",
+            "table_rollback",
+        ],
+        "current_scope": (
+            "report-only object-store and table-scale ladder fields for current local "
+            "benchmark rows; no S3/GCS/ADLS runtime, table runtime, table commit, "
+            "credential resolution, network probe, or lakehouse production support is admitted"
+        ),
+        "separate_claim_gates": [
+            "object_store_read_claim_gate_status",
+            "object_store_write_claim_gate_status",
+            "table_runtime_claim_gate_status",
+            "table_commit_claim_gate_status",
+        ],
+        "non_goals": [
+            "S3/GCS/ADLS runtime",
+            "credential resolution",
+            "network probe",
+            "object-store write",
+            "object-store commit",
+            "table runtime",
+            "lakehouse table commit",
+            "Foundry production claim",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Object-store and table blockers cannot invoke external engines, managed "
+            "platforms, Spark, or other systems as fallback execution."
+        ),
+        "claim_boundary": (
+            "GAR-SCALE-1E permits a staged readiness/admission ladder only. URI parsing, "
+            "object-store read, object-store write, table metadata, table runtime, table "
+            "commit, and rollback remain separate claim gates and remain blocked/report-only "
+            "unless later runtime evidence admits them."
         ),
     }
 
@@ -11801,6 +12192,29 @@ def render_shuffle_scale_contract(artifact: dict[str, Any]) -> str:
         markdown_table(["Field", "Value"], rows)
         + "\n\n"
         + markdown_table(["Type", "Boundary"], proof_rows + non_goal_rows)
+    )
+
+
+def render_object_table_scale_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["object_table_scale_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Object-store ladder", ", ".join(contract["object_store_ladder"])],
+        ["Table ladder", ", ".join(contract["table_ladder"])],
+        ["Separate claim gates", ", ".join(contract["separate_claim_gates"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
     )
 
 
@@ -12639,6 +13053,130 @@ def render_shuffle_scale_matrix(artifact: dict[str, Any]) -> str:
             "Shuffle retries",
             "Shuffle correctness digest",
             "Shuffle claim",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
+def render_object_table_scale_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["object_table_scale_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["object_table_ladder_status"]),
+                str(row["object_table_ladder_id"]),
+                str(row["object_store_uri_parse_status"]),
+                str(row["object_store_listing_status"]),
+                str(row["object_store_byte_range_read_status"]),
+                str(row["object_store_streaming_read_status"]),
+                str(row["object_store_write_staging_status"]),
+                str(row["object_store_commit_status"]),
+                str(row["table_metadata_read_status"]),
+                str(row["table_snapshot_scan_status"]),
+                str(row["table_commit_status"]),
+                str(row["credential_policy_status"]),
+                str(row["network_effect_status"]),
+                str(row["listing_strategy"]),
+                str(row["object_version_or_etag"]),
+                str(row["split_manifest_id"]),
+                str(row["commit_protocol"]),
+                str(row["idempotency_key"]),
+                str(row["rollback_status"]),
+                str(row["table_snapshot_id"]),
+                str(row["table_manifest_count"]),
+                str(row["table_data_file_count"]),
+                str(row["object_store_involved"]),
+                str(row["table_format_involved"]),
+                str(row["object_store_read_claim_gate_status"]),
+                str(row["object_store_write_claim_gate_status"]),
+                str(row["table_runtime_claim_gate_status"]),
+                str(row["table_commit_claim_gate_status"]),
+                str(row["object_table_ladder_claim_gate_status"]),
+                str(row["object_table_ladder_fallback_attempted"]),
+                str(row["object_table_ladder_external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "none",
+                "not_requested_local_filesystem",
+                "blocked_no_object_store_runtime",
+                "blocked_no_object_store_runtime",
+                "blocked_no_object_store_runtime",
+                "blocked_no_object_store_runtime",
+                "blocked_no_object_store_commit",
+                "not_requested_no_table_format",
+                "blocked_no_table_runtime",
+                "blocked_no_table_commit",
+                "not_required_local_filesystem",
+                "not_allowed_no_network_effects",
+                "not_applicable_local_filesystem",
+                "not_applicable_local_filesystem",
+                "none",
+                "not_admitted_local_result_sink_only",
+                "not_emitted_local_smoke",
+                "not_applicable_no_commit",
+                "none",
+                "0",
+                "0",
+                "false",
+                "false",
+                "not_object_store_runtime_grade",
+                "not_object_store_runtime_grade",
+                "not_table_runtime_grade",
+                "not_table_commit_grade",
+                "not_object_table_scale_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Ladder status",
+            "Ladder id",
+            "URI parse",
+            "Listing",
+            "Byte-range read",
+            "Streaming read",
+            "Write staging",
+            "Object commit",
+            "Table metadata",
+            "Table snapshot scan",
+            "Table commit",
+            "Credential policy",
+            "Network effect",
+            "Listing strategy",
+            "Object version/ETag",
+            "SplitManifest",
+            "Commit protocol",
+            "Idempotency key",
+            "Rollback",
+            "Table snapshot",
+            "Table manifests",
+            "Table data files",
+            "Object-store involved",
+            "Table involved",
+            "Read gate",
+            "Write gate",
+            "Table runtime gate",
+            "Table commit gate",
             "Claim gate",
             "Fallback",
             "External engine",
@@ -13623,6 +14161,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_shuffle_scale_contract(artifact),
         "",
+        "## Object-Store And Table-Scale Ladder Contract",
+        "",
+        "This contract separates object-store URI parsing, listing, split planning, reads, writes, commits, table metadata, table runtime, and rollback into distinct fail-closed claim gates.",
+        "",
+        render_object_table_scale_contract(artifact),
+        "",
         "## VortexPreparedState Contract",
         "",
         "This contract makes prepared Vortex artifact identity, preparation timing separation, source-state linkage, and scoped reuse posture visible without implying output support or performance claims.",
@@ -13710,6 +14254,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "Shuffle rows classify local join, group-by, window, top-N, repartition, and CDC posture. They do not prove distributed shuffle, Spark-scale joins, skew handling, retryable shuffle, partitioned writes, or performance claims.",
         "",
         render_shuffle_scale_matrix(artifact),
+        "",
+        "## ShardLoom Object-Store And Table-Scale Ladder Matrix",
+        "",
+        "Object-store/table rows expose staged readiness gates. Current rows do not admit credential resolution, network effects, object-store reads/writes, table runtime, table commit, rollback, lakehouse support, or fallback execution.",
+        "",
+        render_object_table_scale_matrix(artifact),
         "",
         "## ShardLoom VortexPreparedState Evidence Matrix",
         "",
@@ -14052,6 +14602,7 @@ def main() -> int:
         "split_manifest_contract": split_manifest_contract(),
         "memory_spill_contract": memory_spill_contract(),
         "shuffle_scale_contract": shuffle_scale_contract(),
+        "object_table_scale_contract": object_table_scale_contract(),
         "scale_claim_contract": scale_claim_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
@@ -14067,6 +14618,7 @@ def main() -> int:
         "split_manifest_matrix": split_manifest_matrix(results),
         "memory_spill_matrix": memory_spill_matrix(results),
         "shuffle_scale_matrix": shuffle_scale_matrix(results),
+        "object_table_scale_matrix": object_table_scale_matrix(results),
         "output_plan_matrix": output_plan_matrix(results),
         "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
         "cache_invalidation_matrix": cache_invalidation_matrix(results),
