@@ -762,7 +762,49 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_table_runtime_supported", "value": "false"},
                     {"key": "universal_compatibility_foundry_runtime_supported", "value": "false"},
                     {"key": "universal_compatibility_sql_dataframe_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_generated_output_contract_schema_version", "value": "shardloom.universal_compatibility.generated_output_contract.v1"},
+                    {"key": "universal_compatibility_generated_output_contract_id", "value": "gar-compat-1b.source_free_generated_output_contract"},
+                    {"key": "universal_compatibility_generated_output_row_order", "value": "no_dataset_smoke,python_ctx_from_rows,sql_values,local_output_only_generated_source_posture"},
+                    {"key": "universal_compatibility_generated_output_python_row_order", "value": "python_ctx_from_rows"},
+                    {"key": "universal_compatibility_generated_output_sql_row_order", "value": "sql_values"},
+                    {"key": "universal_compatibility_generated_output_dataframe_row_order", "value": ""},
+                    {"key": "universal_compatibility_generated_output_claim_gate_status", "value": "fixture_smoke_only"},
+                    {"key": "universal_compatibility_generated_output_no_dataset_smoke_separate", "value": "true"},
+                    {"key": "universal_compatibility_generated_output_local_output_only", "value": "true"},
+                    {"key": "universal_compatibility_generated_output_output_certificate_required", "value": "true"},
+                    {"key": "universal_compatibility_generated_output_object_store_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_generated_output_foundry_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed", "value": "false"},
+                    {"key": "universal_compatibility_generated_output_all_rows_fallback_attempted_false", "value": "true"},
+                    {"key": "universal_compatibility_generated_output_all_rows_external_engine_invoked_false", "value": "true"},
                 ]
+                for row_id, surface, family, status, runtime, write_io, generated, output_io, source_cert, output_cert, generated_cert, claim_status, blocker in [
+                    ("no_dataset_smoke", "no-dataset smoke / capability proof", "no_dataset_smoke", "smoke-supported", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_no_output_data", "not_applicable_no_generated_rows", "smoke_only", "gar-gen-1.no_dataset_smoke_not_generated_output"),
+                    ("python_ctx_from_rows", "Python ctx.from_rows([...]).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_jsonl_smoke_only"),
+                    ("sql_values", "SQL VALUES (...)", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_values_runtime_not_implemented"),
+                    ("local_output_only_generated_source_posture", "Generated-source local-output-only posture", "output_boundary", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "local_output_certificate_required", "not_emitted_report_only", "not_claim_grade", "gar-compat-1b.non_local_generated_output_blocked"),
+                ]:
+                    prefix = f"universal_compatibility_generated_output_row_{row_id}"
+                    fields.extend([
+                        {"key": f"{prefix}_user_visible_surface", "value": surface},
+                        {"key": f"{prefix}_surface_family", "value": family},
+                        {"key": f"{prefix}_support_status", "value": status},
+                        {"key": f"{prefix}_runtime_execution", "value": runtime},
+                        {"key": f"{prefix}_data_read", "value": "false"},
+                        {"key": f"{prefix}_write_io", "value": write_io},
+                        {"key": f"{prefix}_source_io_performed", "value": "false"},
+                        {"key": f"{prefix}_generated_source_created", "value": generated},
+                        {"key": f"{prefix}_output_io_performed", "value": output_io},
+                        {"key": f"{prefix}_source_native_io_certificate_status", "value": source_cert},
+                        {"key": f"{prefix}_output_native_io_certificate_status", "value": output_cert},
+                        {"key": f"{prefix}_generated_source_certificate_status", "value": generated_cert},
+                        {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                        {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                        {"key": f"{prefix}_blocker_id", "value": blocker},
+                        {"key": f"{prefix}_required_evidence", "value": "future_evidence"},
+                        {"key": f"{prefix}_claim_gate_status", "value": claim_status},
+                        {"key": f"{prefix}_claim_boundary", "value": "claim boundary"},
+                    ])
                 for row_id, surface, family, direction, status, runtime, report_only, credential, network, source_io, output_io, native_status, generated_status, claim_status, blocker, claim_boundary in [
                     ("vortex", "Vortex", "native_file_layout", "read_write", "runtime-supported", "true", "false", "false", "false", "true", "true", "scoped_local_vortex_evidence_backed", "not_applicable", "fixture_smoke_only", "gar-compat-1a.vortex_universal_runtime_evidence_missing", "scoped local Vortex evidence only"),
                     ("object_store_s3_gcs_adls", "S3 / GCS / ADLS", "object_store", "read_write", "blocked", "false", "false", "true", "true", "false", "false", "not_emitted", "not_applicable", "not_claim_grade", "gar-compat-1c.object_store_runtime_blocked", "no object-store runtime claim"),
@@ -823,6 +865,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(scoreboard.sql_dataframe_runtime_supported)
         self.assertFalse(scoreboard.foundry_runtime_supported)
         self.assertTrue(scoreboard.all_rows_no_fallback_no_external_engine)
+        generated = scoreboard.source_free_generated_output_contract
+        self.assertEqual(
+            generated.schema_version,
+            "shardloom.universal_compatibility.generated_output_contract.v1",
+        )
+        self.assertEqual(generated.python_row_order, ("python_ctx_from_rows",))
+        self.assertTrue(generated.no_dataset_smoke_separate)
+        self.assertTrue(generated.local_output_only)
+        self.assertTrue(generated.output_certificate_required)
+        self.assertFalse(generated.object_store_runtime_supported)
+        self.assertFalse(generated.foundry_runtime_supported)
+        self.assertFalse(generated.broad_sql_dataframe_claim_allowed)
+        self.assertTrue(generated.all_no_fallback_no_external_engine)
+        self.assertTrue(generated.row("python-ctx-from-rows").fixture_smoke_supported)
+        self.assertTrue(generated.row("python_ctx_from_rows").generated_source_created)
+        self.assertTrue(generated.row("sql_values").report_only)
+        self.assertFalse(generated.row("sql_values").runtime_execution)
+        self.assertEqual(
+            generated.row("local_output_only_generated_source_posture").blocker_id,
+            "gar-compat-1b.non_local_generated_output_blocked",
+        )
 
     def test_context_exposes_rest_api_contract_views(self) -> None:
         binary = self.fake_cli(

@@ -112,6 +112,23 @@
 <tr><td><strong>Foundry</strong><span>platform_integration</span></td><td><span class="claim-badge report-only">report-only</span></td><td>api</td><td>not_claim_grade</td><td>Future validation target only; no endorsement or production claim.</td></tr></tbody>
           </table>
         </div>
+        <div class="section-spacer"></div>
+        <h3>Source-free generated-output contract</h3>
+        <p class="section-lede">This compatibility projection keeps no-dataset smoke, Python generated-output smokes, SQL/DataFrame report-only rows, and local-output-only sink posture separate. Current generated-output runtime is scoped to local JSONL smokes for <code>ctx.from_rows(...).write(...)</code> and <code>ctx.range(...).write(...)</code>.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Row</th><th>Status</th><th>Runtime</th><th>Output I/O</th><th>Boundary</th></tr></thead>
+            <tbody><tr><td><strong>no_dataset_smoke</strong><span>no-dataset smoke / capability proof</span></td><td><span class="claim-badge fixture">smoke-supported</span></td><td>false</td><td>false</td><td>No-dataset smoke is a status/capability proof only, not generated-output execution.</td></tr>
+<tr><td><strong>python_ctx_from_rows</strong><span>Python ctx.from_rows([...]).write(local_jsonl)</span></td><td><span class="claim-badge fixture">smoke-supported</span></td><td>true</td><td>true</td><td>Only scoped local user-row JSONL generated-output fixture smoke is admitted.</td></tr>
+<tr><td><strong>python_ctx_range</strong><span>Python ctx.range(...).write(local_jsonl)</span></td><td><span class="claim-badge fixture">smoke-supported</span></td><td>true</td><td>true</td><td>Only scoped local range JSONL generated-output fixture smoke is admitted.</td></tr>
+<tr><td><strong>python_ctx_literal_table</strong><span>Python ctx.literal_table(...).write(...)</span></td><td><span class="claim-badge report-only">report-only</span></td><td>false</td><td>false</td><td>Literal-table generation is capability vocabulary only; no rows are generated and no output is written.</td></tr>
+<tr><td><strong>python_ctx_calendar</strong><span>Python ctx.calendar(...).write(...)</span></td><td><span class="claim-badge report-only">report-only</span></td><td>false</td><td>false</td><td>Calendar/date dimension generation is capability vocabulary only; no rows are generated and no output is written.</td></tr>
+<tr><td><strong>local_output_only_generated_source_posture</strong><span>Generated-source local-output-only posture</span></td><td><span class="claim-badge report-only">report-only</span></td><td>false</td><td>false</td><td>Generated output support is local JSONL fixture-smoke only; object-store, lakehouse, and Foundry sinks remain blocked/report-only.</td></tr>
+<tr><td><strong>sql_values</strong><span>SQL VALUES (...)</span></td><td><span class="claim-badge report-only">report-only</span></td><td>false</td><td>false</td><td>SQL VALUES is report-only; no parser, binder, planner, runtime, row generation, or output write is executed.</td></tr>
+<tr><td><strong>dataframe_generated_with_column</strong><span>DataFrame generated with_column</span></td><td><span class="claim-badge report-only">report-only</span></td><td>false</td><td>false</td><td>Generated DataFrame columns are report-only; expression-backed generation and output are not runtime-supported.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="section-note">Generated-output summary: <code>no_dataset_smoke_separate=true</code>, <code>local_output_only=true</code>, <code>object_store_runtime_supported=false</code>, <code>foundry_runtime_supported=false</code>, <code>broad_sql_dataframe_claim_allowed=false</code>.</p>
         <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>

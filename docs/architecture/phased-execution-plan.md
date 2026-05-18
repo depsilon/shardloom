@@ -469,61 +469,14 @@ capability map only; it does not add database, Excel, JDBC/ODBC, object-store, t
 SQL/DataFrame, REST/Flight/ADBC, Foundry, package, production, performance, or Spark-replacement
 claims.
 
-- [ ] GAR-COMPAT-1B source-free generated output contract
-  - Source: GAR-COMPAT-1A; GAR-GEN-1A; RFC 0031; RFC 0032; RFC 0033; RFC 0036; RFC 0037; RFC 0039;
-    no-dataset smoke reports; Python/DataFrame capability posture; Foundry proof docs.
-  - Current state:
-    - No-input smoke exists and remains status/capability/proof only.
-    - Benchmark synthetic fixtures exist, but they are benchmark setup and do not count as
-      user-facing generated-output runtime.
-    - First-class Python, SQL, or DataFrame-style generated output execution is not
-      runtime-supported.
-    - GAR-GEN-1A/1B now expose a report-only `GeneratedSourceCertificate` contract and keep
-      no-dataset smoke separate from generated-output execution through core, CLI, and Python
-      capability views.
-  - Next slice outcome:
-    - Add a compatibility-level source-free generated-output contract row that links the scoreboard,
-      Python capability surfaces, SQL/DataFrame posture, and Foundry proof boundary to GAR-GEN-1.
-  - User-visible surface:
-    - Python API capability view, SQL/DataFrame capability matrix, docs, website/status, and Foundry
-      no-input/generated-output proof docs.
-  - Implementation scope:
-    - Compatibility status rows for `ctx.range`, `ctx.from_rows`, `ctx.literal_table`,
-      `ctx.calendar`, `ctx.write`, SQL literal `SELECT`, SQL `VALUES`, source-free projection, and
-      local-output-only generated-source posture.
-  - Evidence required:
-    - correctness refs: deterministic generated rows/schema/output only for runtime-promoted rows.
-    - execution certificate refs: required for any generated-output execution.
-    - Native I/O certificate refs: no source Native I/O certificate when no source dataset is read;
-      output certificate required when output is written.
-    - generated-source refs: `input_dataset_count=0`, `source_io_performed=false`,
-      `generated_source_created=true`, `generated_source_kind`, `generated_source_schema_digest`,
-      `generated_source_row_count`, `generated_source_plan_digest`, optional
-      `generated_source_seed`, `generation_deterministic`, `generated_source_certificate_status`.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - No-input smoke remains distinct from generated-output execution.
-    - No source Native I/O certificate is claimed when no source was read.
-    - Output sink evidence is still required for output data claims.
-    - SQL/DataFrame runtime support is not overclaimed.
-    - S3/object-store remains blocked/report-only unless future evidence admits it.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - capability/DataFrame matrix snapshot tests when surfaces change.
-    - `git diff --check`
-  - Non-goals:
-    - No S3 write, object-store write, broad SQL/DataFrame runtime, Foundry production claim,
-      package publication, or external engine fallback.
-  - Claim boundary:
-    - Compatibility may say generated-output support is planned/report-only until GAR-GEN runtime
-      slices land. It cannot claim source-free SQL/DataFrame generation or object-store/Foundry
-      generated-output runtime.
-  - Fallback boundary:
-    - No hidden pandas, Polars, DuckDB, DataFusion, Spark, database, object-store, or Foundry compute
-      execution.
-  - Dependencies/blockers:
-    - Output sink evidence model, Python API decision, SQL/DataFrame admission rows, compatibility
-      scoreboard/status projection, and Foundry output API proof boundary.
+GAR-COMPAT-1B is complete and recorded in the completed ledger. The compatibility scoreboard now
+projects `shardloom.universal_compatibility.generated_output_contract.v1` across CLI, Python,
+website/status, docs, and Foundry proof wording. The projection keeps no-dataset smoke separate from
+generated-output execution, marks current Python `ctx.from_rows(...).write(...)` and
+`ctx.range(...).write(...)` paths as scoped local JSONL fixture smokes, keeps SQL/DataFrame rows
+report-only, requires output evidence for output claims, emits no source Native I/O certificate when
+no source dataset is read, and keeps object-store/Foundry generated-output runtime blocked.
+
 - [ ] GAR-COMPAT-1C S3/GCS/ADLS runtime admission ladder
   - Source: RFC 0008; RFC 0019; RFC 0028; RFC 0031; current object-store report-only planner;
     object-store byte-range gates; `docs/architecture/object-store-request-planner.md`;

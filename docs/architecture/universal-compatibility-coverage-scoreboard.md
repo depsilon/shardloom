@@ -63,7 +63,7 @@ fallback execution.
 | S3 / GCS / ADLS | Object store | `blocked` | Object-store range planning/report surfaces exist, but runtime object-store I/O is blocked. | GAR-COMPAT-1C owns the runtime admission ladder. | No credential resolution, network probe, byte-range read, full-file read, write, or commit may run in this posture. | URI parse, credential policy, public read, authenticated read, byte-range read, full-file read, cache, write staging, commit protocol. | No object-store runtime claim. |
 | Iceberg / Delta / Hudi | Table/lakehouse format | `report-only` | Table/lakehouse commit runtime is not supported. | GAR-COMPAT-1D owns table scan, metadata, snapshot, delete/tombstone, append, merge/update/delete, commit, and rollback classification. | Local table metadata smoke does not imply table-format runtime or commit semantics. | Table metadata readers, snapshot semantics, delete/tombstone handling, object-store/catalog integration, commit/rollback evidence. | No production lakehouse claim. |
 | Vortex | Native file/layout | `runtime-supported` | Scoped local Vortex runtime paths exist for evidence-backed workloads. | Coverage rows must state execution mode, provider, materialization/decode fields, and claim gate. | Vortex is the highest-fidelity source and sink target when the path is evidence-backed. | Broader Source/Split/Sink, object-store Vortex I/O, encoded-native operators, and output fidelity evidence. | Scoped local Vortex evidence only; no universal runtime or performance claim. |
-| Generated / source-free outputs | Generated source | `smoke-supported` | `shardloom.generated_source_certificate_contract.v1` exposes no-dataset, user-generated, and engine-native generated-source contract rows. Scoped local JSONL smokes exist for `ctx.from_rows([...]).write(...)` and `ctx.range(...).write(...)`. | GAR-GEN-1A/1B own the report-only GeneratedSourceCertificate contract; GAR-GEN-1C owns local user-row output; GAR-GEN-1D owns local range output; GAR-GEN-1E owns source-free API admission rows. | No source Native I/O certificate is claimed when no source dataset is read; output evidence remains required. | Sequence/values/literal-table/calendar/synthetic generators, SQL/DataFrame runtime, object-store/Foundry output proof, broader output formats. | Local user-row and range JSONL fixture-smoke generated-output runtime only. |
+| Generated / source-free outputs | Generated source | `smoke-supported` | `shardloom.generated_source_certificate_contract.v1` exposes no-dataset, user-generated, and engine-native generated-source contract rows. Scoped local JSONL smokes exist for `ctx.from_rows([...]).write(...)` and `ctx.range(...).write(...)`. | GAR-GEN-1A/1B own the report-only GeneratedSourceCertificate contract; GAR-GEN-1C owns local user-row output; GAR-GEN-1D owns local range output; GAR-GEN-1E owns source-free API admission rows; GAR-COMPAT-1B projects those rows into this compatibility map. | No source Native I/O certificate is claimed when no source dataset is read; output evidence remains required. | Sequence/values/literal-table/calendar/synthetic generators, SQL/DataFrame runtime, object-store/Foundry output proof, broader output formats. | Local user-row and range JSONL fixture-smoke generated-output runtime only. |
 | Python rows / DataFrame | User API | `smoke-supported` | Python `ctx.from_rows([...]).write(...)` and `ctx.range(...).write(...)` can run scoped local JSONL generated-output smokes; broad DataFrame runtime is not supported. | `shardloom.generated_source_api_admission.v1` classifies `python_ctx_from_rows`, `python_ctx_range`, `python_generated_source_write`, `ctx.literal_table`, `ctx.calendar`, SQL rows, DataFrame source-free projection, blockers, and evidence. | No hidden pandas/Polars/DuckDB/DataFusion execution may occur. | Typed API admission contract, generated-source evidence, local sink evidence, no-fallback tests. | User-layer posture only; no broad DataFrame runtime claim. |
 | SQL `VALUES` / literals | SQL frontend | `report-only` | SQL source-free execution is not supported; SQL literal `SELECT`, SQL `VALUES`, source-free projection, and `generate_series`/`range` vocabulary are admission rows with deterministic blockers. | GAR-GEN-1E owns the report-only SQL admission rows; future slices must classify parse, bind, plan, source-free projection, and unsupported diagnostics before runtime. | No SQL parser, binder, planner, runtime, generated-source certificate, or SQL execution certificate may be claimed. | Parser/binder policy, literal expression semantics, generated-source certificate, output evidence. | No broad SQL runtime claim. |
 | REST / Flight / ADBC | Remote and data-plane APIs | `report-only` | REST/event contracts exist as report-only surfaces; Flight/ADBC runtime bridges are not supported. | Future rows must separate control-plane discovery from data-plane runtime. | No server, remote execution, or data-plane bridge may be claimed. | Transport contract, auth policy, lifecycle, result delivery, and no-fallback parity. | No production API claim. |
@@ -149,6 +149,48 @@ engine_native_generated_source
 
 No source Native I/O certificate is claimed when no source dataset was read. A local generated
 output claim requires `GeneratedSourceCertificate` evidence plus output Native I/O evidence.
+
+### Compatibility-Level Generated-Output Rows
+
+The JSON projection now includes
+`source_free_generated_output_contract.schema_version=shardloom.universal_compatibility.generated_output_contract.v1`
+so agents, Python callers, and the website can inspect source-free generated-output posture without
+joining GAR-GEN docs by hand.
+
+| Row | Status | Runtime execution | Output I/O | Boundary |
+| --- | --- | --- | --- | --- |
+| `no_dataset_smoke` | `smoke-supported` | `false` | `false` | Status/capability proof only; not generated-output execution. |
+| `python_ctx_from_rows` | `smoke-supported` | `true` | `true` | Scoped local user-row JSONL generated-output fixture smoke only. |
+| `python_ctx_range` | `smoke-supported` | `true` | `true` | Scoped local range JSONL generated-output fixture smoke only. |
+| `python_ctx_literal_table` | `report-only` | `false` | `false` | Literal-table generation is vocabulary only until runtime evidence exists. |
+| `python_ctx_calendar` | `report-only` | `false` | `false` | Calendar/date dimension generation is vocabulary only until runtime evidence exists. |
+| `python_generated_source_write` | `smoke-supported` | `true` | `true` | Supported only for local user-row and range JSONL smokes. |
+| `local_output_only_generated_source_posture` | `report-only` | `false` | `false` | Generated output remains local-output-only; object-store, lakehouse, and Foundry sinks stay blocked/report-only. |
+| `sql_literal_select` | `report-only` | `false` | `false` | SQL literal `SELECT` has no parser, binder, planner, runtime, row generation, or output write. |
+| `sql_values` | `report-only` | `false` | `false` | SQL `VALUES` has no parser, binder, planner, runtime, row generation, or output write. |
+| `sql_source_free_projection` | `report-only` | `false` | `false` | Source-free SQL projection is report-only. |
+| `sql_generate_series_range` | `report-only` | `false` | `false` | SQL `generate_series`/`range` is vocabulary only; use Python `ctx.range` for the scoped smoke. |
+| `dataframe_source_free_projection` | `report-only` | `false` | `false` | DataFrame source-free projection remains report-only outside scoped local generated-output smokes. |
+| `dataframe_generated_with_column` | `report-only` | `false` | `false` | Expression-backed generated columns are not runtime-supported. |
+
+Every compatibility-level generated-output row preserves:
+
+```text
+source_io_performed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+The contract also publishes fail-closed summary fields:
+
+```text
+universal_compatibility_generated_output_no_dataset_smoke_separate=true
+universal_compatibility_generated_output_local_output_only=true
+universal_compatibility_generated_output_output_certificate_required=true
+universal_compatibility_generated_output_object_store_runtime_supported=false
+universal_compatibility_generated_output_foundry_runtime_supported=false
+universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed=false
+```
 
 ## Acceptance
 

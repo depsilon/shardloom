@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMPAT-1B source-free generated output contract
+  - Primary files:
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.json`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `website/build_static_pages.py`
+    - `website/status.html`
+    - `website/assets/site.css`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the second universal compatibility slice by projecting source-free
+    generated-output posture into the compatibility scoreboard and public status surfaces. The
+    new `shardloom.universal_compatibility.generated_output_contract.v1` contract keeps
+    no-dataset smoke separate from generated-output execution, maps scoped Python
+    `ctx.from_rows(...).write(...)` and `ctx.range(...).write(...)` local JSONL smokes, keeps
+    `ctx.literal_table`, `ctx.calendar`, SQL literal `SELECT`, SQL `VALUES`, SQL source-free
+    projection, SQL `generate_series`/`range`, DataFrame source-free projection, and generated
+    `with_column` rows report-only, and exposes local-output-only object-store/Foundry blockers.
+  - Checklist:
+    - [x] Add source-free generated-output compatibility rows to CLI
+          `capabilities compatibility --format json` with stable row ordering, Python/SQL/DataFrame
+          row partitions, blocker IDs, required evidence, claim boundaries,
+          `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - [x] Add Python typed accessors through
+          `ctx.compatibility_scoreboard().source_free_generated_output_contract`.
+    - [x] Add the same contract to
+          `docs/architecture/universal-compatibility-coverage-scoreboard.json` and document the
+          rows in the Markdown scoreboard.
+    - [x] Render the featured generated-output rows on the website status page from the JSON
+          scoreboard, not Markdown scraping.
+    - [x] Update compute-flow, Foundry proof, GAR, RFC traceability, Python README, and
+          release-readiness checks.
+    - [x] Remove the active GAR-COMPAT-1B item from the Planned queue.
+  - Evidence/verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts website benchmarks/traditional_analytics`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - The compatibility projection is a status/capability surface only. It may claim scoped local
+      JSONL fixture-smoke visibility for existing Python generated-output smokes, but it does not
+      add broad source-free runtime, SQL/DataFrame runtime, object-store/lakehouse output, Foundry
+      runtime, package publication, production readiness, performance, or Spark-replacement claims.
+  - Fallback boundary:
+    - No generated-output row invokes pandas, Polars, DuckDB, DataFusion, Spark, a database,
+      object store, Foundry, or another external engine. No source Native I/O certificate is
+      emitted when no source dataset is read, and output Native I/O evidence remains required for
+      output data claims.
+
 - [x] Session label: GAR-COMPAT-1A universal compatibility scoreboard projection
   - Primary files:
     - `docs/architecture/universal-compatibility-coverage-scoreboard.md`

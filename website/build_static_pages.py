@@ -46,6 +46,12 @@ def esc(value: Any) -> str:
     return html.escape("" if value is None else str(value), quote=True)
 
 
+def status_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return esc(value)
+
+
 def slug(value: str) -> str:
     text = re.sub(r"[^a-zA-Z0-9]+", "-", value.lower()).strip("-")
     return text or "section"
@@ -410,6 +416,46 @@ def render_compatibility_scoreboard_section() -> str:
         "</tr>"
         for row in display_rows
     )
+    generated_contract = scoreboard.get("source_free_generated_output_contract", {})
+    generated_rows = generated_contract.get("rows", [])
+    generated_featured_ids = {
+        "no_dataset_smoke",
+        "python_ctx_from_rows",
+        "python_ctx_range",
+        "python_ctx_literal_table",
+        "python_ctx_calendar",
+        "local_output_only_generated_source_posture",
+        "sql_values",
+        "dataframe_generated_with_column",
+    }
+    generated_table_rows = "\n".join(
+        "<tr>"
+        f"<td><strong>{esc(row.get('row_id'))}</strong><span>{esc(row.get('user_visible_surface'))}</span></td>"
+        f"<td><span class=\"claim-badge {status_class(str(row.get('support_status', 'report_only')).replace('-', '_'))}\">{esc(row.get('support_status'))}</span></td>"
+        f"<td>{status_value(row.get('runtime_execution'))}</td>"
+        f"<td>{status_value(row.get('output_io_performed'))}</td>"
+        f"<td>{esc(row.get('claim_boundary'))}</td>"
+        "</tr>"
+        for row in generated_rows
+        if isinstance(row, dict) and row.get("row_id") in generated_featured_ids
+    )
+    generated_contract_html = ""
+    if generated_table_rows:
+        generated_contract_html = f"""
+        <div class="section-spacer"></div>
+        <h3>Source-free generated-output contract</h3>
+        <p class="section-lede">This compatibility projection keeps no-dataset smoke, Python generated-output smokes, SQL/DataFrame report-only rows, and local-output-only sink posture separate. Current generated-output runtime is scoped to local JSONL smokes for <code>ctx.from_rows(...).write(...)</code> and <code>ctx.range(...).write(...)</code>.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Row</th><th>Status</th><th>Runtime</th><th>Output I/O</th><th>Boundary</th></tr></thead>
+            <tbody>{generated_table_rows}</tbody>
+          </table>
+        </div>
+        <p class="section-note">Generated-output summary: <code>no_dataset_smoke_separate={status_value(generated_contract.get('no_dataset_smoke_separate'))}</code>, <code>local_output_only={status_value(generated_contract.get('local_output_only'))}</code>, <code>object_store_runtime_supported={status_value(generated_contract.get('object_store_runtime_supported'))}</code>, <code>foundry_runtime_supported={status_value(generated_contract.get('foundry_runtime_supported'))}</code>, <code>broad_sql_dataframe_claim_allowed={status_value(generated_contract.get('broad_sql_dataframe_claim_allowed'))}</code>.</p>
+        """
+        generated_contract_html = "\n".join(
+            line.rstrip() for line in generated_contract_html.splitlines()
+        ).strip()
     runtime_count = sum(
         1
         for row in rows
@@ -446,6 +492,7 @@ def render_compatibility_scoreboard_section() -> str:
             <tbody>{table_rows}</tbody>
           </table>
         </div>
+        {generated_contract_html}
         <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>"""
