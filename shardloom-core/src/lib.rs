@@ -125,6 +125,7 @@ pub use diagnostics::{
 };
 pub use effect_budget::{
     EffectBudgetEntry, EffectBudgetReport, EffectBudgetScope, EffectBudgetStatus,
+    ExternalEffectBlockerMatrix, ExternalEffectBlockerRow,
 };
 pub use encoded::{
     ByteRange, ColumnRef, ComparisonOp, EncodedEvalCapability, EncodedPredicateEvaluationReport,

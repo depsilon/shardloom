@@ -7,9 +7,9 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    AgentSafetyMode, CommandStatus, EffectBudgetReport, OutputFormat, RedactionPolicy,
-    SecurityGovernanceEvidenceGateReport, SecurityPlan, ShardLoomError,
-    plan_security_governance_evidence_gate,
+    AgentSafetyMode, CommandStatus, EffectBudgetReport, ExternalEffectBlockerMatrix,
+    ExternalEffectBlockerRow, OutputFormat, RedactionPolicy, SecurityGovernanceEvidenceGateReport,
+    SecurityPlan, ShardLoomError, plan_security_governance_evidence_gate,
 };
 use shardloom_exec::{
     AttemptId, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
@@ -2378,7 +2378,7 @@ pub(crate) fn cancellation_gate_plan_fields(
 }
 
 pub(crate) fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, String)> {
-    vec![
+    let mut fields = vec![
         ("mode".to_string(), "effect_budget_plan".to_string()),
         (
             "schema_version".to_string(),
@@ -2470,7 +2470,167 @@ pub(crate) fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, 
             "diagnostic_count".to_string(),
             report.diagnostics.len().to_string(),
         ),
-    ]
+    ];
+    append_external_effect_blocker_matrix_fields(&mut fields);
+    fields
+}
+
+pub(crate) fn append_external_effect_blocker_matrix_fields(fields: &mut Vec<(String, String)>) {
+    let matrix = ExternalEffectBlockerMatrix::report_only();
+    push_field(
+        fields,
+        "external_effect_blocker_matrix_schema_version",
+        matrix.schema_version,
+    );
+    push_field(
+        fields,
+        "external_effect_blocker_matrix_id",
+        matrix.matrix_id,
+    );
+    push_field(fields, "external_effect_blocker_docs_ref", matrix.docs_ref);
+    push_field(
+        fields,
+        "external_effect_blocker_support_status_vocabulary",
+        "blocked,report-only,unsupported",
+    );
+    push_field(
+        fields,
+        "external_effect_blocker_claim_gate_status",
+        matrix.claim_gate_status,
+    );
+    push_count_field(
+        fields,
+        "external_effect_blocker_row_count",
+        matrix.rows.len(),
+    );
+    push_field(
+        fields,
+        "external_effect_blocker_row_order",
+        &matrix.row_order().join(","),
+    );
+    push_field(
+        fields,
+        "external_effect_blocker_blocker_ids",
+        &matrix.blocker_ids().join(","),
+    );
+    push_field(
+        fields,
+        "external_effect_blocker_required_evidence",
+        &matrix.required_evidence().join("|"),
+    );
+    push_bool_field(
+        fields,
+        "external_effect_blocker_all_effects_blocked",
+        matrix.all_effects_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "external_effect_blocker_runtime_execution",
+        matrix.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        "external_effect_blocker_credential_resolution_performed",
+        matrix.credential_resolution_performed,
+    );
+    push_bool_field(
+        fields,
+        "external_effect_blocker_network_probe_performed",
+        matrix.network_probe_performed,
+    );
+    push_bool_field(
+        fields,
+        "external_effect_blocker_fallback_attempted",
+        matrix.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "external_effect_blocker_external_engine_invoked",
+        matrix.external_engine_invoked,
+    );
+    for row in &matrix.rows {
+        append_external_effect_blocker_row_fields(fields, row);
+    }
+}
+
+fn append_external_effect_blocker_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &ExternalEffectBlockerRow,
+) {
+    let prefix = format!("external_effect_blocker_row_{}", row.row_id);
+    push_field(fields, &format!("{prefix}_family"), row.family);
+    push_field(fields, &format!("{prefix}_operation"), row.operation);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_permission_status"),
+        row.permission_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_effect_status"),
+        row.effect_status,
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_diagnostic_code"),
+        row.diagnostic_code,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_required_evidence"),
+        row.required_evidence,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_credential_required"),
+        row.credential_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_network_required"),
+        row.network_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_sandbox_required"),
+        row.sandbox_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_model_or_embedding_call"),
+        row.model_or_embedding_call,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_data_egress_possible"),
+        row.data_egress_possible,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_materialization_boundary_required"),
+        row.materialization_boundary_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_execution"),
+        row.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_effect_executed"),
+        row.effect_executed,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
 }
 
 pub(crate) fn security_governance_evidence_gate_fields(

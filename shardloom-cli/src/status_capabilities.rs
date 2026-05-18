@@ -32,6 +32,7 @@ use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
     engine_runtime_planning::append_streaming_capability_matrix_summary_fields,
+    operational_hardening::append_external_effect_blocker_matrix_fields,
 };
 
 const WORKFLOW_OPERATION_NAMES: &str = concat!(
@@ -8250,6 +8251,16 @@ fn world_class_surface_fields(
     if scope == CapabilityDiscoveryScope::Observability {
         append_openlineage_facet_mapping_fields(&mut fields);
         append_opentelemetry_trace_export_contract_fields(&mut fields);
+    }
+    if matches!(
+        scope,
+        CapabilityDiscoveryScope::Udfs
+            | CapabilityDiscoveryScope::EventApiSaasAdapters
+            | CapabilityDiscoveryScope::UnstructuredMedia
+            | CapabilityDiscoveryScope::Extensions
+            | CapabilityDiscoveryScope::SecurityGovernance
+    ) {
+        append_external_effect_blocker_matrix_fields(&mut fields);
     }
     fields
 }
