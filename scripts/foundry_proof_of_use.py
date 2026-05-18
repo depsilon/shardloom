@@ -19,6 +19,9 @@ SCHEMA_VERSION = "shardloom.foundry_proof_of_use_report.v1"
 FOUNDRY_GENERATED_OUTPUT_FANOUT_SCHEMA_VERSION = (
     "shardloom.foundry_generated_output_fanout_posture.v1"
 )
+FOUNDRY_GENERATED_OUTPUT_BOUNDARY_SCHEMA_VERSION = (
+    "shardloom.foundry_generated_output_boundary.v1"
+)
 FOUNDRY_SCALE_PROOF_BOUNDARY_SCHEMA_VERSION = (
     "shardloom.foundry_scale_proof_boundary.v1"
 )
@@ -114,6 +117,54 @@ def foundry_generated_output_fanout_posture() -> dict[str, Any]:
             "output_native_io_certificate_not_emitted",
             "result_dataset_not_written",
             "evidence_dataset_not_written",
+        ],
+    }
+
+
+def foundry_generated_output_boundary() -> dict[str, Any]:
+    return {
+        "schema_version": FOUNDRY_GENERATED_OUTPUT_BOUNDARY_SCHEMA_VERSION,
+        "support_status": "report_only",
+        "boundary_status": "blocked_until_real_foundry_output_api_evidence",
+        "no_dataset_smoke_separate_from_generated_output": True,
+        "input_dataset_count": 0,
+        "source_io_performed": False,
+        "generated_source_created": False,
+        "generated_output_execution_performed": False,
+        "generated_source_certificate_status": "not_emitted_report_only",
+        "output_io_performed": False,
+        "output_native_io_certificate_status": "not_emitted_report_only",
+        "foundry_output_api_required": True,
+        "foundry_output_api_invoked": False,
+        "foundry_result_dataset_written": False,
+        "foundry_evidence_dataset_written": False,
+        "direct_s3_read_invoked": False,
+        "direct_s3_write_invoked": False,
+        "object_store_read_invoked": False,
+        "object_store_write_invoked": False,
+        "object_store_commit_invoked": False,
+        "lakehouse_output_invoked": False,
+        "foundry_runtime_invoked": False,
+        "foundry_compute_invoked": False,
+        "foundry_spark_invoked": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "public_foundry_generated_output_claim_allowed": False,
+        "claim_gate_status": "not_claim_grade",
+        "claim_boundary": (
+            "Foundry generated-output is a future validation target only. Any future "
+            "admitted smoke must write result and evidence datasets through Foundry "
+            "output APIs, not direct S3/object-store paths, and must preserve no "
+            "fallback and no external-engine execution."
+        ),
+        "blockers": [
+            "real_foundry_runtime_not_invoked",
+            "foundry_output_api_not_invoked",
+            "generated_source_certificate_not_emitted",
+            "output_native_io_certificate_not_emitted",
+            "result_dataset_not_written",
+            "evidence_dataset_not_written",
+            "direct_object_store_path_blocked",
         ],
     }
 
@@ -219,6 +270,7 @@ def main() -> int:
     benchmark = load_json_if_present(benchmark_output) or {}
     passed = all(step["returncode"] == 0 for step in steps)
     generated_output_fanout = foundry_generated_output_fanout_posture()
+    generated_output_boundary = foundry_generated_output_boundary()
     foundry_scale_proof = foundry_scale_proof_boundary(
         staged_dataset_bytes(repo_root, transform)
     )
@@ -245,6 +297,11 @@ def main() -> int:
         "foundry_generated_output_fanout_status": generated_output_fanout["support_status"],
         "foundry_generated_output_fanout_ref": "foundry_generated_output_fanout_posture",
         "foundry_generated_output_fanout_posture": generated_output_fanout,
+        "foundry_generated_output_boundary_status": generated_output_boundary[
+            "support_status"
+        ],
+        "foundry_generated_output_boundary_ref": "foundry_generated_output_boundary",
+        "foundry_generated_output_boundary": generated_output_boundary,
         "foundry_scale_proof_boundary_status": foundry_scale_proof["support_status"],
         "foundry_scale_proof_boundary_ref": "foundry_scale_proof_boundary",
         "foundry_scale_proof_boundary": foundry_scale_proof,
@@ -261,7 +318,11 @@ def main() -> int:
             "output_evidence_dataset_written"
         ],
         "direct_s3_write_invoked": False,
+        "direct_s3_read_invoked": False,
+        "object_store_read_invoked": False,
         "object_store_write_invoked": False,
+        "object_store_commit_invoked": False,
+        "foundry_output_api_invoked": False,
         "snowflake_databricks_bigquery_invoked": False,
         "virtual_tables_native_execution_claimed": False,
         "external_compute_boundary": "governed_handle_or_baseline_only",

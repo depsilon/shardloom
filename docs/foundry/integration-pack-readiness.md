@@ -107,3 +107,12 @@ target/foundry-proof-of-use/local-vortex-benchmark-smoke.json
 This covers local package/import posture, deterministic CLI binary resolution, no-dataset smoke,
 explicit staged dataset path, local ShardLoom execution smoke, certificate output, benchmark metrics
 output, materialization/staging boundary refs, and no-fallback evidence.
+
+The same report includes a report-only
+`shardloom.foundry_generated_output_boundary.v1` object. That boundary keeps future Foundry
+generated-output proof separate from current no-dataset smoke: `foundry_output_api_required=true`,
+`foundry_output_api_invoked=false`, `foundry_result_dataset_written=false`,
+`foundry_evidence_dataset_written=false`, `direct_s3_read_invoked=false`,
+`direct_s3_write_invoked=false`, `object_store_write_invoked=false`,
+`object_store_commit_invoked=false`, `fallback_attempted=false`, and
+`external_engine_invoked=false`.

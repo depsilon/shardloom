@@ -26,10 +26,16 @@ The generated `shardloom.foundry_proof_of_use_report.v1` report includes:
 - `materialization_staging_boundary_report_ref`
 - `foundry_generated_output_fanout_status`
 - `foundry_generated_output_fanout_posture`
+- `foundry_generated_output_boundary_status`
+- `foundry_generated_output_boundary`
 - `foundry_scale_proof_boundary_status`
 - `foundry_scale_proof_boundary`
 - `direct_s3_write_invoked=false`
+- `direct_s3_read_invoked=false`
+- `object_store_read_invoked=false`
 - `object_store_write_invoked=false`
+- `object_store_commit_invoked=false`
+- `foundry_output_api_invoked=false`
 - `foundry_runtime_invoked=false`
 - `foundry_compute_invoked=false`
 - `foundry_spark_invoked=false`
@@ -192,6 +198,42 @@ external_engine_invoked=false
 No-input smoke and generated-output execution remain separate. A Foundry-style generated-output
 fanout row is not a Foundry production claim, Foundry package publication claim, direct S3/object
 store write claim, or Spark fallback claim.
+
+## Foundry Generated-Output Proof Boundary
+
+`GAR-GEN-1F` adds a dedicated report-only Foundry generated-output proof boundary:
+
+```text
+schema_version=shardloom.foundry_generated_output_boundary.v1
+support_status=report_only
+boundary_status=blocked_until_real_foundry_output_api_evidence
+no_dataset_smoke_separate_from_generated_output=true
+generated_output_execution_performed=false
+generated_source_certificate_status=not_emitted_report_only
+output_native_io_certificate_status=not_emitted_report_only
+foundry_output_api_required=true
+foundry_output_api_invoked=false
+foundry_result_dataset_written=false
+foundry_evidence_dataset_written=false
+direct_s3_read_invoked=false
+direct_s3_write_invoked=false
+object_store_read_invoked=false
+object_store_write_invoked=false
+object_store_commit_invoked=false
+lakehouse_output_invoked=false
+foundry_runtime_invoked=false
+foundry_compute_invoked=false
+foundry_spark_invoked=false
+fallback_attempted=false
+external_engine_invoked=false
+public_foundry_generated_output_claim_allowed=false
+claim_gate_status=not_claim_grade
+```
+
+A future admitted Foundry generated-output smoke must write both the result dataset and evidence
+dataset through Foundry output APIs. It must not write directly to S3/object storage, must not use
+object-store commit protocols as a shortcut, and must not report Foundry Spark, virtual tables,
+Snowflake, Databricks, BigQuery, or other managed compute as ShardLoom execution.
 
 ## Scale Proof Boundary
 

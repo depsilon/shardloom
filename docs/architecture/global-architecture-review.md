@@ -991,6 +991,14 @@ plan before coding.
   report-only: `generated_output_execution_performed=false`, generated-source and output
   certificates are not emitted, `fanout_output_count=0`, and direct S3/object-store writes,
   Foundry Spark, external engines, and Foundry production claims remain blocked.
+- [x] `GAR-GEN-1F` adds the dedicated Foundry generated-output proof boundary through
+  `shardloom.foundry_generated_output_boundary.v1`. It requires future admitted generated-output
+  proof to write result/evidence datasets through Foundry output APIs while current local proof
+  keeps `foundry_output_api_invoked=false`, `foundry_result_dataset_written=false`,
+  `foundry_evidence_dataset_written=false`, `direct_s3_read_invoked=false`,
+  `direct_s3_write_invoked=false`, `object_store_read_invoked=false`,
+  `object_store_commit_invoked=false`, `fallback_attempted=false`, and
+  `external_engine_invoked=false`.
 - [ ] Production `shardloom-foundry`, package publication, Foundry service invocation, Artifact
   Repository publication, Compute Module, virtual-table native execution, Foundry dataset
   transaction runtime, and F10 workload-certified deployment remain incomplete.

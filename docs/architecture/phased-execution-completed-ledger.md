@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-GEN-1F Foundry generated-output proof boundary
+  - Primary files:
+    - `scripts/foundry_proof_of_use.py`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `docs/foundry/integration-pack-readiness.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the Foundry generated-output proof-boundary slice by adding
+    `shardloom.foundry_generated_output_boundary.v1` to the local Foundry proof report. The boundary
+    keeps no-dataset smoke, local generated-output smokes, and future Foundry generated-output proof
+    separate.
+  - Checklist:
+    - [x] Add a report-only Foundry generated-output boundary object to the proof script.
+    - [x] Require future admitted proof to use Foundry output APIs for result and evidence datasets.
+    - [x] Keep direct S3 reads/writes, object-store reads/writes/commits, lakehouse output, Foundry
+          runtime, Foundry compute, Foundry Spark, fallback, and external engine invocation disabled.
+    - [x] Update Foundry proof docs, integration-pack readiness docs, compute-flow, GAR, phase plan,
+          and release-readiness checks.
+    - [x] Remove the active GAR-GEN-1F item from the Planned queue.
+  - Evidence/verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q scripts`
+    - `python scripts/foundry_proof_of_use.py --rows 8 --iterations 1 --skip-local-execution-smoke`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - The boundary is report-only. It does not add Foundry generated-output runtime, Foundry
+      production support, Foundry package publication, direct S3/object-store support, lakehouse
+      output, performance, or Spark-replacement claims.
+  - Fallback boundary:
+    - No Foundry runtime, Foundry compute, Spark, direct S3/object-store path, lakehouse output, or
+      external engine is invoked. Current proof preserves `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: GAR-COMPAT-1E database and warehouse import/export boundary
   - Primary files:
     - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
