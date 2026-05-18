@@ -34,6 +34,26 @@ impl UniversalHarnessStatus {
     }
 }
 
+/// Execution-admission status for the universal harness.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UniversalHarnessExecutionGateStatus {
+    BlockedMissingEvidence,
+    ExecutionAdmitted,
+    BlockedPolicy,
+}
+
+impl UniversalHarnessExecutionGateStatus {
+    /// Stable machine-readable status label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::BlockedMissingEvidence => "blocked_missing_evidence",
+            Self::ExecutionAdmitted => "execution_admitted",
+            Self::BlockedPolicy => "blocked_policy",
+        }
+    }
+}
+
 /// Harness surface families CG-18 must keep explicit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UniversalHarnessSurfaceKind {
@@ -348,7 +368,11 @@ pub struct UniversalHarnessReport {
     pub schema_version: &'static str,
     pub report_id: String,
     pub status: UniversalHarnessStatus,
+    pub execution_gate_status: UniversalHarnessExecutionGateStatus,
     pub runner_contract_fields: Vec<&'static str>,
+    pub execution_gate_required_evidence_refs: Vec<&'static str>,
+    pub execution_gate_attached_evidence_refs: Vec<&'static str>,
+    pub execution_gate_missing_evidence_refs: Vec<&'static str>,
     pub surfaces: Vec<UniversalHarnessSurface>,
     pub harness_environments: Vec<UniversalHarnessEnvironmentRequirement>,
     pub external_baselines: Vec<ExternalBaselineHarnessRequirement>,
@@ -362,6 +386,12 @@ pub struct UniversalHarnessReport {
     pub comparison_dataset_required: bool,
     pub correctness_evidence_required: bool,
     pub benchmark_evidence_required: bool,
+    pub capability_evidence_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub policy_no_fallback_evidence_required: bool,
+    pub execution_allowed: bool,
+    pub execution_attempted: bool,
     pub foundry_required: bool,
     pub foundry_optional_example: bool,
     pub local_harness_required: bool,
@@ -395,7 +425,11 @@ impl UniversalHarnessReport {
             schema_version: "shardloom.universal_harness.v1",
             report_id: "cg18.universal-harness".to_string(),
             status: UniversalHarnessStatus::EvidenceIncomplete,
+            execution_gate_status: UniversalHarnessExecutionGateStatus::BlockedMissingEvidence,
             runner_contract_fields: cg18_runner_contract_fields(),
+            execution_gate_required_evidence_refs: cg18_execution_gate_required_evidence_refs(),
+            execution_gate_attached_evidence_refs: Vec::new(),
+            execution_gate_missing_evidence_refs: cg18_execution_gate_required_evidence_refs(),
             surfaces: cg18_harness_surfaces(),
             harness_environments: cg18_harness_environments(),
             external_baselines: cg18_external_baselines(),
@@ -409,6 +443,12 @@ impl UniversalHarnessReport {
             comparison_dataset_required: true,
             correctness_evidence_required: true,
             benchmark_evidence_required: true,
+            capability_evidence_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            policy_no_fallback_evidence_required: true,
+            execution_allowed: false,
+            execution_attempted: false,
             foundry_required: false,
             foundry_optional_example: true,
             local_harness_required: true,
@@ -479,6 +519,24 @@ impl UniversalHarnessReport {
         self.runner_contract_fields.join(",")
     }
 
+    /// Stable comma-separated evidence refs required before harness execution can be admitted.
+    #[must_use]
+    pub fn execution_gate_required_evidence_ref_order(&self) -> String {
+        self.execution_gate_required_evidence_refs.join(",")
+    }
+
+    /// Stable comma-separated evidence refs currently attached to the gate.
+    #[must_use]
+    pub fn execution_gate_attached_evidence_ref_order(&self) -> String {
+        self.execution_gate_attached_evidence_refs.join(",")
+    }
+
+    /// Stable comma-separated evidence refs still blocking execution.
+    #[must_use]
+    pub fn execution_gate_missing_evidence_ref_order(&self) -> String {
+        self.execution_gate_missing_evidence_refs.join(",")
+    }
+
     /// Stable comma-separated baseline-engine order for CLI reporting.
     #[must_use]
     pub fn baseline_engine_order(&self) -> String {
@@ -530,6 +588,7 @@ impl UniversalHarnessReport {
             && !self.external_publish
             && !self.fallback_execution_allowed
             && !self.fallback_attempted
+            && !self.execution_attempted
     }
 
     /// Returns whether the report contains errors.
@@ -538,6 +597,7 @@ impl UniversalHarnessReport {
         self.status.is_error()
             || self.foundry_required
             || self.external_engines_as_runtime_dependencies_allowed
+            || self.execution_attempted
             || self
                 .surfaces
                 .iter()
@@ -576,6 +636,19 @@ impl UniversalHarnessReport {
             .iter()
             .any(|environment| environment.kind == kind)
     }
+}
+
+fn cg18_execution_gate_required_evidence_refs() -> Vec<&'static str> {
+    vec![
+        "capability_refs",
+        "execution_certificate_refs",
+        "native_io_certificate_refs",
+        "policy_no_fallback_refs",
+        "output_envelope_refs",
+        "output_artifact_refs",
+        "correctness_evidence_refs",
+        "benchmark_evidence_refs",
+    ]
 }
 
 fn cg18_runner_contract_fields() -> Vec<&'static str> {
@@ -681,12 +754,25 @@ mod tests {
         let report = UniversalHarnessReport::cg18_foundation();
 
         assert_eq!(report.status, UniversalHarnessStatus::EvidenceIncomplete);
+        assert_eq!(
+            report.execution_gate_status,
+            UniversalHarnessExecutionGateStatus::BlockedMissingEvidence
+        );
         assert_eq!(report.surface_count(), 7);
         assert_eq!(report.harness_environment_count(), 5);
         assert_eq!(report.external_baseline_count(), 6);
         assert_eq!(
             report.runner_contract_field_order(),
             "command,schema_version,exit_code,status,diagnostics,fallback_execution_allowed,side_effects,output_artifacts,metrics"
+        );
+        assert_eq!(
+            report.execution_gate_required_evidence_ref_order(),
+            "capability_refs,execution_certificate_refs,native_io_certificate_refs,policy_no_fallback_refs,output_envelope_refs,output_artifact_refs,correctness_evidence_refs,benchmark_evidence_refs"
+        );
+        assert_eq!(report.execution_gate_attached_evidence_ref_order(), "");
+        assert_eq!(
+            report.execution_gate_missing_evidence_ref_order(),
+            "capability_refs,execution_certificate_refs,native_io_certificate_refs,policy_no_fallback_refs,output_envelope_refs,output_artifact_refs,correctness_evidence_refs,benchmark_evidence_refs"
         );
         assert_eq!(
             report.surface_kind_order(),
@@ -707,6 +793,12 @@ mod tests {
         assert!(report.comparison_dataset_required);
         assert!(report.correctness_evidence_required);
         assert!(report.benchmark_evidence_required);
+        assert!(report.capability_evidence_required);
+        assert!(report.execution_certificate_required);
+        assert!(report.native_io_certificate_required);
+        assert!(report.policy_no_fallback_evidence_required);
+        assert!(!report.execution_allowed);
+        assert!(!report.execution_attempted);
         assert!(!report.foundry_required);
         assert!(report.foundry_optional_example);
         assert!(report.local_harness_required);

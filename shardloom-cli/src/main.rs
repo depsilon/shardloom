@@ -1630,6 +1630,22 @@ mod tests {
             output_field(&fields, "universal_harness_status"),
             "evidence_incomplete"
         );
+        assert_eq!(
+            output_field(&fields, "universal_harness_execution_gate_status"),
+            "blocked_missing_evidence"
+        );
+        assert_eq!(
+            output_field(&fields, "universal_harness_execution_allowed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "universal_harness_execution_attempted"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "universal_harness_missing_evidence_refs"),
+            "capability_refs,execution_certificate_refs,native_io_certificate_refs,policy_no_fallback_refs,output_envelope_refs,output_artifact_refs,correctness_evidence_refs,benchmark_evidence_refs"
+        );
         assert_eq!(output_field(&fields, "harness_environment_count"), "5");
         assert_eq!(output_field(&fields, "external_baseline_count"), "6");
         assert_eq!(

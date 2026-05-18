@@ -872,6 +872,21 @@ fn append_universal_harness_identity_fields(
     push_field(fields, "schema_version", report.schema_version);
     push_field(fields, "report_id", &report.report_id);
     push_field(fields, "universal_harness_status", report.status.as_str());
+    push_field(
+        fields,
+        "universal_harness_execution_gate_status",
+        report.execution_gate_status.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "universal_harness_execution_allowed",
+        report.execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "universal_harness_execution_attempted",
+        report.execution_attempted,
+    );
     push_count_field(fields, "surface_count", report.surface_count());
     push_count_field(
         fields,
@@ -887,6 +902,21 @@ fn append_universal_harness_identity_fields(
         fields,
         "runner_contract_field_order",
         &report.runner_contract_field_order(),
+    );
+    push_field(
+        fields,
+        "universal_harness_required_evidence_refs",
+        &report.execution_gate_required_evidence_ref_order(),
+    );
+    push_field(
+        fields,
+        "universal_harness_attached_evidence_refs",
+        &report.execution_gate_attached_evidence_ref_order(),
+    );
+    push_field(
+        fields,
+        "universal_harness_missing_evidence_refs",
+        &report.execution_gate_missing_evidence_ref_order(),
     );
     push_field(fields, "surface_kind_order", &report.surface_kind_order());
     push_field(
@@ -942,6 +972,26 @@ fn append_universal_harness_requirement_fields(
         fields,
         "benchmark_evidence_required",
         report.benchmark_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "capability_evidence_required",
+        report.capability_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "policy_no_fallback_evidence_required",
+        report.policy_no_fallback_evidence_required,
     );
     push_bool_field(fields, "foundry_required", report.foundry_required);
     push_bool_field(

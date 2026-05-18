@@ -44,6 +44,12 @@ ShardLoom runtime dependencies and must not execute unsupported ShardLoom work a
 
 `universal-harness-plan --format json` exposes:
 
+- `universal_harness_execution_gate_status`
+- `universal_harness_execution_allowed=false`
+- `universal_harness_execution_attempted=false`
+- `universal_harness_required_evidence_refs`
+- `universal_harness_attached_evidence_refs`
+- `universal_harness_missing_evidence_refs`
 - `harness_environment_count`
 - `harness_environment_kind_order`
 - `local_harness_required`
@@ -53,6 +59,18 @@ ShardLoom runtime dependencies and must not execute unsupported ShardLoom work a
 - `optional_benchmark_environment_required`
 - `external_engines_as_runtime_dependencies_allowed=false`
 - `baselines_comparison_only_runtime_dependency_free=true`
+
+## Execution gate
+
+`GAR-0030-A` adds an explicit execution-admission gate to the report. The gate status is
+`blocked_missing_evidence` until the harness attaches capability evidence, execution certificate
+evidence, Native I/O certificate evidence, policy/no-fallback evidence, output-envelope evidence,
+output-artifact evidence, correctness evidence, and benchmark evidence.
+
+The gate is intentionally separate from environment readiness. Local, CI, container, Foundry
+optional, and benchmark-extra environment rows can be present while
+`universal_harness_execution_allowed=false`. External baseline environments remain comparison-only
+and cannot satisfy ShardLoom execution evidence or act as fallback.
 
 ## Release posture
 

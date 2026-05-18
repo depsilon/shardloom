@@ -133,6 +133,12 @@ That artifact locks the Foundry optional-harness boundary into a typed payload: 
 optional, external baselines remain comparison-only, runtime execution is false, and fallback is not
 attempted.
 
+GAR-0030-A extends that typed universal harness payload with an execution-admission gate:
+`universal_harness_execution_gate_status=blocked_missing_evidence`,
+`universal_harness_execution_allowed=false`, and required/attached/missing evidence refs for
+capability, execution certificate, Native I/O, policy/no-fallback, output, correctness, and
+benchmark evidence.
+
 These are protocol payloads only. They do not execute benchmarks, evaluate certificates, read data,
 write artifacts, or turn report-only surfaces into runtime support.
 
