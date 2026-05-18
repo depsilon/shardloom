@@ -47,6 +47,9 @@ Current local proof exists, but public distribution is not complete:
 - `docs/getting-started/first-10-minutes.md` describes a source-checkout path.
 - `docs/release/package-name-readiness.md` tracks PyPI, TestPyPI, Conda, and crates.io readiness
   posture.
+- `docs/release/package-channel-readiness-matrix.md` and
+  `docs/release/package-channel-readiness-matrix.json` track channel-specific install, uninstall,
+  clean-install, smoke, SBOM/checksum/provenance, rollback/yank, and authorization evidence.
 - `website/status.html` is a public posture board.
 - Real package publication, release tags, OCI pushes, Homebrew/Scoop/winget/conda-forge submission,
   and crates.io publication remain blocked until release gates pass.
@@ -75,6 +78,13 @@ Foundry output, production support, or performance claims.
 
 ## Package Channel Readiness Matrix
 
+The source of truth is `docs/release/package-channel-readiness-matrix.json` with schema
+`shardloom.package_channel_readiness_matrix.v1`. Validate it with:
+
+```powershell
+python scripts\check_package_channel_readiness.py
+```
+
 | Channel | Target | Current status | Required proof before ready |
 | --- | --- | --- | --- |
 | GitHub pre-release | Source archive plus built artifacts | `report-only` / blocked for public claim | Tag/release approval, checksums, SBOM, provenance, install/smoke transcript, rollback/delete policy. |
@@ -91,6 +101,9 @@ No channel is ready until the specific channel has install, uninstall, clean-ins
 provenance, and rollback/yank evidence.
 
 Package access does not imply production readiness.
+PyPI and TestPyPI require Trusted Publisher/OIDC posture for release-grade proof. Current internal
+Rust crates remain unpublished; crates.io is limited to future stable public API crates after API
+stability evidence exists.
 
 ## Compatibility And Buyer-Facing Status
 

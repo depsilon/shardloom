@@ -239,6 +239,9 @@ First-user docs:
 - [`docs/benchmarks/local-taxonomy-benchmark.md`](docs/benchmarks/local-taxonomy-benchmark.md)
 - [`docs/benchmarks/baseline-comparison-boundary.md`](docs/benchmarks/baseline-comparison-boundary.md)
 - [`docs/architecture/compute-engine-flow-reference.md`](docs/architecture/compute-engine-flow-reference.md)
+- [`docs/release/package-channel-readiness-matrix.md`](docs/release/package-channel-readiness-matrix.md)
+  shows why public package channels remain blocked until channel-specific install, smoke,
+  provenance, and rollback evidence exists.
 
 ## No-Fallback Policy
 

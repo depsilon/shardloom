@@ -5,6 +5,12 @@
 Status: release-readiness scaffold. Do not publish packages, create tags, or
 add secrets from this document.
 
+Package-name posture is separate from package-channel readiness. The channel-by-channel release
+gate lives in [`package-channel-readiness-matrix.md`](package-channel-readiness-matrix.md) and the
+machine-readable matrix lives in
+[`package-channel-readiness-matrix.json`](package-channel-readiness-matrix.json) with schema
+`shardloom.package_channel_readiness_matrix.v1`.
+
 ## Targets
 
 - PyPI: `shardloom`
@@ -106,3 +112,13 @@ The transcript lives at `target/release-dry-run-proof/transcript.json`.
 This proof is intentionally not a publish workflow. It does not create tags,
 submit Conda feedstocks, upload to PyPI/TestPyPI, publish crates, push OCI
 images, or add secrets.
+
+Before any public package claim, maintainers must also run:
+
+```powershell
+python scripts\check_package_channel_readiness.py
+python scripts\check_release_readiness.py --allow-blocked
+```
+
+The current package-channel matrix is valid but blocked: no channel has channel-specific install,
+uninstall, clean-install, smoke, SBOM/checksum/provenance, rollback/yank, and authorization proof.

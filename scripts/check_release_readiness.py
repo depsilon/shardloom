@@ -3,6 +3,8 @@
 """Aggregate hard release-readiness evidence for ShardLoom.
 
 The gate requires feature/build matrix execution evidence, not only matrix documentation.
+The gate also consumes the package-channel readiness matrix so public package claims cannot pass
+without channel-specific install, smoke, provenance, and rollback evidence.
 """
 
 from __future__ import annotations
@@ -11,6 +13,8 @@ import argparse
 import json
 from pathlib import Path
 from typing import Any
+
+from check_package_channel_readiness import validate_matrix as validate_package_channel_matrix
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +38,11 @@ def parse_args() -> argparse.Namespace:
         "--validation-evidence",
         type=Path,
         default=Path("target/release-validation-evidence.json"),
+    )
+    parser.add_argument(
+        "--package-channel-matrix",
+        type=Path,
+        default=Path("docs/release/package-channel-readiness-matrix.json"),
     )
     parser.add_argument(
         "--output",
@@ -69,6 +78,7 @@ def main() -> int:
     dry_run_path = resolve(repo_root, args.release_dry_run_transcript)
     security_gate_path = resolve(repo_root, args.security_gate_report)
     validation_evidence_path = resolve(repo_root, args.validation_evidence)
+    package_channel_matrix_path = resolve(repo_root, args.package_channel_matrix)
 
     checks: list[dict[str, Any]] = []
 
@@ -143,6 +153,30 @@ def main() -> int:
             metadata_blockers.append(f"missing Cargo metadata: {required}")
     checks.append(check("package_metadata_license_and_discoverability", "Cargo.toml python/pyproject.toml", metadata_blockers))
 
+    package_channel_matrix = load_json(package_channel_matrix_path)
+    package_channel_blockers = validate_package_channel_matrix(package_channel_matrix)
+    if package_channel_matrix is not None:
+        if package_channel_matrix.get("public_package_release_claim_allowed") is not True:
+            package_channel_blockers.append("public_package_release_claim_allowed=false")
+        channels = package_channel_matrix.get("channels", [])
+        blocked_channels = [
+            row.get("channel_id", "unknown")
+            for row in channels
+            if isinstance(row, dict) and row.get("ready") is not True
+        ]
+        if blocked_channels:
+            package_channel_blockers.append(
+                "package channels not ready: "
+                + ", ".join(str(channel) for channel in blocked_channels)
+            )
+    checks.append(
+        check(
+            "package_channel_readiness_matrix",
+            str(args.package_channel_matrix).replace("\\", "/"),
+            package_channel_blockers,
+        )
+    )
+
     feature_matrix_doc = repo_root / "docs/architecture/workspace-feature-build-matrix.md"
     feature_blockers = []
     matrix_text = read_text(feature_matrix_doc)
@@ -192,6 +226,7 @@ def main() -> int:
         "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
         "cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
         "python scripts/check_release_security_gate.py",
+        "python scripts/check_package_channel_readiness.py",
     ]
     validation_blockers = []
     if validation_evidence is None:
@@ -222,6 +257,7 @@ def main() -> int:
         "status": "passed" if passed else "blocked",
         "public_release_claim_allowed": passed,
         "public_package_claim_allowed": passed,
+        "package_channel_matrix_ref": str(args.package_channel_matrix).replace("\\", "/"),
         "checks": checks,
         "blockers": blockers,
         "required_validation_commands": validation_commands,
