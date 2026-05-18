@@ -95,6 +95,87 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 binary=["shardloom"],
             )
 
+    def test_from_rows_write_invokes_generated_source_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-user-rows-smoke",
+                    "target/generated.jsonl",
+                    "id:int64,label:utf8",
+                    "id=1,label=alpha;id=2,label=beta",
+                    "--output-format",
+                    "jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-user-rows-smoke",
+                    "status": "success",
+                    "summary": "generated",
+                    "human_text": "generated",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/generated.jsonl"},
+                        {"key": "generated_source_kind", "value": "user_rows"},
+                        {"key": "generated_source_row_count", "value": "2"},
+                        {"key": "generated_source_created", "value": "true"},
+                        {"key": "source_io_performed", "value": "false"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "sql_dataframe_runtime_claim_allowed", "value": "false"},
+                        {"key": "object_store_lakehouse_claim_allowed", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.from_rows(
+            [
+                {"id": 1, "label": "alpha"},
+                {"id": 2, "label": "beta"},
+            ]
+        ).write("target/generated.jsonl")
+
+        self.assertEqual(report.envelope.command, "generated-source-user-rows-smoke")
+        self.assertEqual(report.output_path, "target/generated.jsonl")
+        self.assertEqual(report.generated_source_kind, "user_rows")
+        self.assertEqual(report.generated_source_row_count, 2)
+        self.assertEqual(report.generated_source_certificate_status, "present")
+        self.assertEqual(
+            report.output_native_io_certificate_status,
+            "certified_local_file_sink",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_from_rows_validates_scoped_generated_source_inputs(self) -> None:
+        with self.assertRaises(ValueError):
+            sl.from_rows([], binary=["definitely-missing-shardloom"])
+        with self.assertRaises(TypeError):
+            sl.from_rows([object()], binary=["definitely-missing-shardloom"])  # type: ignore[list-item]
+        with self.assertRaises(ValueError):
+            sl.from_rows(
+                [{"id": 1}, {"id": 2, "label": "extra"}],
+                binary=["definitely-missing-shardloom"],
+            )
+        with self.assertRaises(TypeError):
+            sl.from_rows(
+                [{"id": 1}, {"id": "two"}],
+                binary=["definitely-missing-shardloom"],
+            )
+
     def test_context_readers_reuse_context_client_for_plan_inspection(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

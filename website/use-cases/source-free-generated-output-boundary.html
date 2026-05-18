@@ -50,35 +50,35 @@
         <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
         <p class="eyebrow">Use Case Atlas</p>
         <h1>Source-free generated output boundary</h1>
-        <p class="lede">Source-free generated output boundary is planned. The blocker and evidence requirements are part of the current public posture.</p>
-        <span class="claim-badge planned">planned</span>
+        <p class="lede">Source-free generated output boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+        <span class="claim-badge fixture">smoke supported</span>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell use-case-layout">
         <article class="doc-body">
           <h2>Plain-English Summary</h2>
-          <p>Source-free generated output boundary is planned. The blocker and evidence requirements are part of the current public posture.</p>
+          <p>Source-free generated output boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
           <h2>Status Table</h2>
           <div class="table-scroll"><table>
 <thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
-<tr><td>Status</td><td>planned</td></tr>
+<tr><td>Status</td><td>smoke supported</td></tr>
 <tr><td>Audience</td><td>user who wants range, values, calendar, or literal-table output without input data</td></tr>
-<tr><td>Execution mode</td><td>planned_generated_source</td></tr>
+<tr><td>Execution mode</td><td>source_free_generated_output</td></tr>
 <tr><td>Engine mode</td><td>batch</td></tr>
 <tr><td>Platform</td><td>foundry-local</td></tr>
 <tr><td>Evidence level</td><td>generated-source</td></tr>
 <tr><td>Inputs</td><td>none, generated_rows, range, values, calendar_dimension</td></tr>
-<tr><td>Outputs</td><td>planned_local_output_artifact, generated_source_certificate</td></tr>
+<tr><td>Outputs</td><td>local_jsonl_output_artifact, generated_source_certificate, output_native_io_certificate</td></tr>
 </tbody></table></div>
-          
-          <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>No-input smoke and the report-only GeneratedSourceCertificate contract exist, but generated-output execution still needs deterministic generation evidence and output sink proof before it can be supported.</span></div>
+          <h2>Quick Example</h2><pre><code data-language="powershell">$env:PYTHONPATH = &quot;python\src&quot;; python -c &quot;from shardloom import context; r=context(repo_root=&#x27;.&#x27;).from_rows([{&#x27;id&#x27;: 1, &#x27;label&#x27;: &#x27;alpha&#x27;}]).write(&#x27;target/generated-reference.jsonl&#x27;, allow_overwrite=True); print(r.claim_gate_status)&quot;</code></pre>
+          <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>Engine-native generator nodes, SQL VALUES/literal execution, broad DataFrame execution, object-store writes, and Foundry generated-output runtime remain blocked/report-only until separate evidence lands.</span></div>
           <h2>Internal Flow</h2>
-          <div class="use-case-flow"><article><strong>Inputs</strong><span>none, generated_rows, range, values, calendar_dimension</span></article><article><strong>Execution mode</strong><span>planned_generated_source</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>planned_local_output_artifact, generated_source_certificate</span></article><article><strong>Evidence</strong><span>input_dataset_count=0, source_io_performed=false, generated_source_created=true, generated_source_kind, generated_source_schema_digest, generated_source_row_count, output_io_performed, generated_source_certificate_status, output_native_io_certificate_status, fallback_attempted=false, external_engine_invoked=false, claim_gate_status</span></article><article><strong>Claim gate</strong><span>Report-only GeneratedSourceCertificate contract only; no current source-free runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, or package-publication claim.</span></article></div>
+          <div class="use-case-flow"><article><strong>Inputs</strong><span>none, generated_rows, range, values, calendar_dimension</span></article><article><strong>Execution mode</strong><span>source_free_generated_output</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>local_jsonl_output_artifact, generated_source_certificate, output_native_io_certificate</span></article><article><strong>Evidence</strong><span>input_dataset_count=0, source_io_performed=false, generated_source_created=true, generated_source_kind, generated_source_schema_digest, generated_source_row_count, output_io_performed, generated_source_certificate_status, output_native_io_certificate_status, fallback_attempted=false, external_engine_invoked=false, claim_gate_status</span></article><article><strong>Claim gate</strong><span>Scoped local user-row JSONL fixture smoke only; no range/calendar/literal-table runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.</span></article></div>
           <h2>Expected Evidence Fields</h2>
           <ul><li>input_dataset_count=0</li><li>source_io_performed=false</li><li>generated_source_created=true</li><li>generated_source_kind</li><li>generated_source_schema_digest</li><li>generated_source_row_count</li><li>output_io_performed</li><li>generated_source_certificate_status</li><li>output_native_io_certificate_status</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li><li>claim_gate_status</li></ul>
           <h2>Expected Output Or Evidence</h2>
-          <p>Current capability rows distinguish no_dataset_smoke from user_generated_source and engine_native_generated_source; future runtime rows must add generated-source and output evidence.</p>
+          <p>A local JSONL output plus fields including generated_source_kind=user_rows, generated_source_certificate_status=present, output_native_io_certificate_status=certified_local_file_sink, fallback_attempted=false, and external_engine_invoked=false.</p>
           <h2>Common Mistakes</h2>
           <ul><li>confusing_no_dataset_smoke_with_generated_output</li><li>claiming_source_native_io_without_source_read</li><li>writing_to_s3</li></ul>
           <h2>Reference Files</h2>

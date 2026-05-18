@@ -26,6 +26,7 @@ impl GeneratedSourceCaseKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GeneratedSourceSupportStatus {
     SmokeOnly,
+    FixtureSmokeSupported,
     ReportOnly,
     PlannedRuntime,
 }
@@ -35,6 +36,7 @@ impl GeneratedSourceSupportStatus {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::SmokeOnly => "smoke_only",
+            Self::FixtureSmokeSupported => "fixture_smoke_supported",
             Self::ReportOnly => "report_only",
             Self::PlannedRuntime => "planned_runtime",
         }
@@ -108,7 +110,7 @@ impl GeneratedSourceCertificateContractRow {
     pub const fn user_generated_source() -> Self {
         Self {
             case_kind: GeneratedSourceCaseKind::UserGeneratedSource,
-            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            support_status: GeneratedSourceSupportStatus::FixtureSmokeSupported,
             generated_source_certificate_status:
                 GeneratedSourceCertificateStatus::RequiredForRuntime,
             input_dataset_count: 0,
@@ -119,9 +121,9 @@ impl GeneratedSourceCertificateContractRow {
             output_native_io_certificate_status: "required_for_runtime_output",
             required_generator_kinds: "python_rows,literal_rows",
             required_evidence_fields: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,generation_deterministic,output_io_performed,output_native_io_certificate_status",
-            blocker_id: "gar-gen-1.user_generated_source_runtime_not_implemented",
-            claim_gate_status: "not_claim_grade",
-            claim_boundary: "User-generated source support is report-only until deterministic row/schema/plan evidence and local output sink evidence exist.",
+            blocker_id: "none_scoped_local_jsonl_smoke_only",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "User-generated source support is limited to the scoped local JSONL fixture smoke until broader runtime and sink evidence exists.",
             fallback_attempted: false,
             external_engine_invoked: false,
         }
@@ -180,7 +182,7 @@ impl GeneratedSourceCertificateContractReport {
             schema_version: "shardloom.generated_source_certificate_contract.v1",
             report_id: "gar-gen-1.generated_source_certificate_contract",
             generated_source_certificate_schema_version: "shardloom.generated_source_certificate.v1",
-            support_status_vocabulary: "smoke_only,report_only,planned_runtime",
+            support_status_vocabulary: "smoke_only,fixture_smoke_supported,report_only,planned_runtime",
             required_field_order: vec![
                 "input_dataset_count",
                 "source_io_performed",
@@ -273,6 +275,7 @@ mod tests {
             user_rows.generated_source_certificate_status.as_str(),
             "required_for_runtime"
         );
-        assert_eq!(user_rows.claim_gate_status, "not_claim_grade");
+        assert_eq!(user_rows.support_status.as_str(), "fixture_smoke_supported");
+        assert_eq!(user_rows.claim_gate_status, "fixture_smoke_only");
     }
 }

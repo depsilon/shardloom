@@ -35,7 +35,7 @@ EXPECTED_EXECUTION_MODES = {
     "prepared_vortex",
     "native_vortex",
     "report_only",
-    "planned_generated_source",
+    "source_free_generated_output",
     "report_only_blocked",
     "mixed_by_row",
     "local_release_dry_run",
@@ -142,8 +142,7 @@ def main() -> int:
     families_with_blockers = {
         str(use_case.get("capability_family"))
         for use_case in use_cases
-        if use_case.get("status") in {"report_only", "planned", "blocked", "unsupported"}
-        and use_case.get("blocked_explanation")
+        if use_case.get("blocked_explanation")
     }
     missing_blocked_major = BLOCKED_OR_REPORT_ONLY_FAMILIES - families_with_blockers
     if missing_blocked_major:

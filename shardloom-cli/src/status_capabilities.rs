@@ -3361,6 +3361,11 @@ fn append_generated_source_certificate_contract_fields(fields: &mut Vec<(String,
     );
     push_field(
         fields,
+        "user_generated_source_claim_gate_status",
+        user_generated_source.claim_gate_status,
+    );
+    push_field(
+        fields,
         "engine_native_generated_source_support_status",
         engine_native_generated_source.support_status.as_str(),
     );

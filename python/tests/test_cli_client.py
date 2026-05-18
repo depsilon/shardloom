@@ -931,7 +931,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "generated_source_contract_schema_version", "value": "shardloom.generated_source_certificate_contract.v1"},
                             {"key": "generated_source_contract_report_id", "value": "gar-gen-1.generated_source_certificate_contract"},
                             {"key": "generated_source_certificate_schema_version", "value": "shardloom.generated_source_certificate.v1"},
-                            {"key": "generated_source_support_status_vocabulary", "value": "smoke_only,report_only,planned_runtime"},
+                            {"key": "generated_source_support_status_vocabulary", "value": "smoke_only,fixture_smoke_supported,report_only,planned_runtime"},
                             {"key": "generated_source_case_count", "value": "3"},
                             {"key": "generated_source_case_order", "value": "no_dataset_smoke,user_generated_source,engine_native_generated_source"},
                             {"key": "generated_source_required_field_order", "value": "input_dataset_count,source_io_performed,generated_source_created,generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,generated_source_seed,generation_deterministic,output_io_performed,output_native_io_certificate_status,generated_source_certificate_status,fallback_attempted,external_engine_invoked,claim_gate_status"},
@@ -946,8 +946,9 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "no_dataset_smoke_generated_source_created", "value": "false"},
                             {"key": "no_dataset_smoke_output_io_performed", "value": "false"},
                             {"key": "no_dataset_smoke_claim_gate_status", "value": "smoke_only"},
-                            {"key": "user_generated_source_support_status", "value": "report_only"},
-                            {"key": "user_generated_source_blocker_id", "value": "gar-gen-1.user_generated_source_runtime_not_implemented"},
+                            {"key": "user_generated_source_support_status", "value": "fixture_smoke_supported"},
+                            {"key": "user_generated_source_blocker_id", "value": "none_scoped_local_jsonl_smoke_only"},
+                            {"key": "user_generated_source_claim_gate_status", "value": "fixture_smoke_only"},
                             {"key": "engine_native_generated_source_support_status", "value": "report_only"},
                             {"key": "engine_native_generated_source_blocker_id", "value": "gar-gen-1.engine_native_generated_source_runtime_not_implemented"},
                             {"key": "input_dataset_count", "value": "0"},
@@ -995,7 +996,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.python.claim_gate_status, "not_claim_grade")
         self.assertEqual(
             capabilities.python.claim_gate_statuses,
-            ("not_claim_grade", "smoke_only"),
+            ("not_claim_grade", "smoke_only", "fixture_smoke_only"),
         )
         self.assertFalse(capabilities.python.runtime_execution)
         self.assertFalse(capabilities.python.data_read)
@@ -1024,7 +1025,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.sql_support.claim_gate_status, "not_claim_grade")
         self.assertEqual(
             capabilities.sql_support.claim_gate_statuses,
-            ("not_claim_grade", "smoke_only"),
+            ("not_claim_grade", "smoke_only", "fixture_smoke_only"),
         )
         self.assertEqual(
             capabilities.sql_support.sql_planner_readiness_rows,
@@ -1069,8 +1070,16 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(generated_source.no_dataset_smoke.generated_source_created)
         self.assertFalse(generated_source.no_dataset_smoke.output_io_performed)
         self.assertEqual(
+            generated_source.user_generated_source.support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
             generated_source.user_generated_source.blocker_id,
-            "gar-gen-1.user_generated_source_runtime_not_implemented",
+            "none_scoped_local_jsonl_smoke_only",
+        )
+        self.assertEqual(
+            generated_source.user_generated_source.claim_gate_status,
+            "fixture_smoke_only",
         )
         self.assertEqual(
             generated_source.engine_native_generated_source.support_status,
@@ -1082,7 +1091,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             capabilities.dataframe.generated_source_contract.user_generated_source.support_status,
-            "report_only",
+            "fixture_smoke_supported",
         )
         self.assertEqual(
             capabilities.api_surfaces.generated_source_contract.engine_native_generated_source.blocker_id,
@@ -1105,6 +1114,12 @@ class ShardLoomClientTests(unittest.TestCase):
             "source_declaration_supported",
         )
         self.assertEqual(
+            dataframe_methods.row("from_rows").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("from_rows").runtime_execution)
+        self.assertTrue(dataframe_methods.row("from_rows").write_io)
+        self.assertEqual(
             dataframe_methods.row("join").blocker_id,
             "cg21.workflow.join.operator_unsupported",
         )
@@ -1119,9 +1134,9 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(dataframe_methods.claim_gate_statuses, ("not_claim_grade",))
         self.assertTrue(dataframe_methods.all_no_fallback_no_external_engine)
-        self.assertFalse(dataframe_methods.any_runtime_execution)
+        self.assertTrue(dataframe_methods.any_runtime_execution)
         self.assertFalse(dataframe_methods.any_data_read)
-        self.assertFalse(dataframe_methods.any_write_io)
+        self.assertTrue(dataframe_methods.any_write_io)
         self.assertEqual(
             ctx.dataframe_method_matrix().row("agg").diagnostic_operation,
             "agg",

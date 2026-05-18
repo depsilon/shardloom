@@ -75,6 +75,7 @@ base-plus-delta hybrid overlays.
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and scoped in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and scoped in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. |
 | Streaming/zero-copy/backpressure | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, and `capabilities engines` expose a GAR-0013 matrix for local fixture evidence, object-store streaming read blockers, zero-decode, zero-copy/materialization boundaries, bounded backpressure, and live/hybrid broker runtime blockers. | Object-store streaming reads, durable broker adapters, runtime backpressure enforcement, broader operator/source/sink evidence, and claim-grade workload certification. |
+| Source-free generated output | One scoped local user-row JSONL smoke exists through `generated-source-user-rows-smoke` and Python `ctx.from_rows([...]).write(...)`, with generated-source and output evidence and no source Native I/O certificate. | Engine-native generator nodes, SQL `VALUES`/literal execution, broad DataFrame runtime, object-store writes, and Foundry generated-output runtime remain gated. |
 | Prepared/native Vortex runtime | Scoped residual-native paths now avoid full fact-table materialization for selected local benchmark scenarios, including local distinct-count, null-heavy aggregate, clean/cast/filter/write, malformed timestamp / dirty CSV, nested JSON field scan, CDC-overlay small change over large base, global sort/top-k, and partition-pruning/date-range scan evidence. Prepared/native rows also emit explicit `source_backed_scan_*` fields for source roles, projected columns, residual executor, Native I/O certificate status, materialization boundary, and no-fallback evidence. The `selective filter` row now emits `encoded_predicate_provider_*` v4 fields: it records projected chunks such as `metric:vortex.filter`, separately probes real `flag,value` reader chunks without decode/materialization, lowers observed `flag:fastlanes.bitpacked` and `value:fastlanes.bitpacked` chunks into admitted reader-generated encoded kernel inputs, intersects their selection vectors, and consumes the admitted selection vector for scoped metric `row_count`/`metric_sum` evidence. The row remains residual-native because selected metric aggregation is still scoped ShardLoom-native residual logic, not a generalized encoded aggregation kernel. CPU specialization reporting records side-effect-free host feature probes and a blocked filter/encoded vector-kernel admission diagnostic. | Next planned work is generalized encoded/native operator coverage, prepared/native batch harness integration, and claim-grade correctness/benchmark gates; encoded-native, SIMD dispatch, and performance claims remain evidence-gated. |
 
 ## Current State
@@ -101,6 +102,9 @@ Currently wired surfaces include:
   scheduler/memory evidence, execution certificates, Native I/O certificates, and no-fallback fields
 - explicit execution-mode evidence for `compatibility_import_certified`, `prepared_vortex`,
   `native_vortex`, `direct_compatibility_transient`, and `auto`
+- scoped source-free user-row generated output to local JSONL with generated-source certificate
+  status, output Native I/O certificate status, output digest, and no-fallback/no-external-engine
+  evidence
 - scoped prepared/native Vortex query paths for `selective filter`, `wide projection`,
   `filter + projection + limit`, `group by aggregation`, `multi-key group by`, `hash join`, and
   `join + aggregate`, `sort and top-k`, `top-N per group`, `row number window`, and
@@ -256,7 +260,8 @@ status, and the temporary legacy field mirror. It is not a native binding,
 DataFrame runtime, SQL engine, UDF runtime, package publication, or fallback
 execution path.
 
-It also exposes report-only workflow diagnostics and local smoke helpers for explicit testing. The
+It also exposes report-only workflow diagnostics, local smoke helpers, and a scoped
+`ctx.from_rows([...]).write("target/generated.jsonl")` generated-output smoke for explicit testing. The
 Python client can be installed in editable mode, configured through environment variables, run a
 no-dataset smoke check, query the capability surfaces, and invoke the current local Vortex workflow
 without turning pandas, Arrow, SQL, or another engine into a fallback runtime. See

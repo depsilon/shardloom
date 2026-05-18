@@ -312,6 +312,7 @@ fn is_workflow_planning_command(command: &str) -> bool {
         command,
         "schema-plan"
             | "workflow-unsupported-plan"
+            | "generated-source-user-rows-smoke"
             | "translation-plan"
             | "plan-ir"
             | "plan-import"
@@ -499,6 +500,10 @@ mod tests {
         assert_eq!(classify_command("serve"), CommandFamily::RestApiPlanning);
         assert_eq!(
             classify_command("workflow-unsupported-plan"),
+            CommandFamily::WorkflowPlanning
+        );
+        assert_eq!(
+            classify_command("generated-source-user-rows-smoke"),
             CommandFamily::WorkflowPlanning
         );
         assert_eq!(
