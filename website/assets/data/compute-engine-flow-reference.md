@@ -279,7 +279,7 @@ flowchart TD
     COMPAT["compatibility_import_certified<br/>current ingest/stage certification lane"]
     PREPARED["prepared_vortex<br/>current/preferred performance lane"]
     NATIVE["native_vortex<br/>current scoped native-artifact lane"]
-    DIRECT["direct_compatibility_transient<br/>scoped CSV smoke + unsupported diagnostics"]
+    DIRECT["direct_compatibility_transient<br/>scoped CSV filter paths + unsupported diagnostics"]
 
     COMPAT_BOUNDARY["Compatibility ingest boundary<br/>adapter -> NativeWorkStream -> Vortex write/reopen"]
     PREPARED_BOUNDARY["Prepared Vortex boundary<br/>prepare once -> reuse artifact"]
@@ -287,7 +287,7 @@ flowchart TD
     DIRECT_BOUNDARY["Transient compatibility boundary<br/>no persistent Vortex artifact"]
 
     PROVIDER["Provider admission<br/>Vortex provider / ShardLoom kernel / diagnostic"]
-    SELECTIVE_BLOCKER["Selective-filter encoded predicate provider<br/>admitted filter inputs; metric aggregation pending"]
+    SELECTIVE_BLOCKER["Scoped filter providers<br/>selective filter + filter/project/limit evidence"]
 
     REQUESTED --> AUTO --> SELECTED
     REQUESTED --> COMPAT
@@ -303,7 +303,7 @@ flowchart TD
     PREPARED --> PREPARED_BOUNDARY --> PROVIDER
     NATIVE --> NATIVE_BOUNDARY --> PROVIDER
     DIRECT --> DIRECT_BOUNDARY --> PROVIDER
-    PROVIDER -->|"selective filter today"| SELECTIVE_BLOCKER
+    PROVIDER -->|"scoped CSV filter paths today"| SELECTIVE_BLOCKER
 ```
 
 Mode timing fields must stay visible:
@@ -828,10 +828,11 @@ claim_gate_status=fixture_smoke_only | claim_grade | not_claim_grade
 
 ## Mode 4 - `direct_compatibility_transient`
 
-This is the traditional-compute-like ShardLoom path. The current repo has one scoped local CSV
-selective-filter smoke path with execution-certificate evidence; adjacent formats, operators,
-result sinks, SQL/DataFrame access, and broader transient runtime behavior still return
-deterministic unsupported diagnostics.
+This is the traditional-compute-like ShardLoom path. The current repo has scoped local CSV smoke
+paths for `selective filter` and `filter + projection + limit`, each with execution-certificate
+evidence and explicit non-Vortex-native status. Adjacent formats, broader operators, result sinks,
+SQL/DataFrame access, and broader transient runtime behavior still return deterministic unsupported
+diagnostics.
 
 SQL/DataFrame diagnostics for this mode are interpreted through the GAR-0001A-A planner-readiness
 matrix. The matrix is `not_claim_grade`, preserves `fallback_attempted=false` and

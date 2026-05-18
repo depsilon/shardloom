@@ -2039,6 +2039,7 @@ impl TraditionalDirectTransientReport {
     #[must_use]
     #[allow(clippy::too_many_lines)]
     pub fn fields(&self) -> Vec<(String, String)> {
+        let scenario_slug = direct_transient_scenario_slug(self.scenario);
         let mut fields = vec![
             (
                 "fallback_execution_allowed".to_string(),
@@ -2147,12 +2148,13 @@ impl TraditionalDirectTransientReport {
             ),
             (
                 "benchmark_row_ref".to_string(),
-                "benchmark://local_vortex_analytics_v1/direct_transient_csv_selective_filter"
-                    .to_string(),
+                format!(
+                    "benchmark://local_vortex_analytics_v1/direct_transient_csv_{scenario_slug}"
+                ),
             ),
             (
                 "coverage_row_ref".to_string(),
-                "coverage.direct_compatibility_transient.local_csv_smoke".to_string(),
+                format!("coverage.direct_compatibility_transient.local_csv_{scenario_slug}"),
             ),
             (
                 "output_artifact_schema_summary".to_string(),
@@ -7743,9 +7745,13 @@ fn run_traditional_direct_transient_csv_smoke_enabled(
             request.input_format.as_str()
         )));
     }
-    if request.scenario != TraditionalAnalyticsScenario::SelectiveFilter {
+    if !matches!(
+        request.scenario,
+        TraditionalAnalyticsScenario::SelectiveFilter
+            | TraditionalAnalyticsScenario::FilterProjectionLimit
+    ) {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "direct transient CSV smoke only supports selective filter, found {}; fallback execution was not attempted",
+            "direct transient CSV smoke only supports selective filter or filter + projection + limit, found {}; fallback execution was not attempted",
             request.scenario.as_str()
         )));
     }
@@ -7786,14 +7792,49 @@ fn run_traditional_direct_transient_csv_smoke_enabled(
     let dim_rows = read_traditional_dim_csv(&request.dim_csv)?;
     let source_read_micros = duration_to_micros(source_read_start.elapsed());
     let scenario_compute_start = std::time::Instant::now();
-    let mut accum = TraditionalGroupAccum::default();
-    for row in &fact_rows {
-        if row.flag == 1 && row.value >= 5_000 {
-            accum.add(row.metric);
+    let (result_json, selected_rows_materialized) = match request.scenario {
+        TraditionalAnalyticsScenario::SelectiveFilter => {
+            let mut accum = TraditionalGroupAccum::default();
+            for row in &fact_rows {
+                if row.flag == 1 && row.value >= 5_000 {
+                    accum.add(row.metric);
+                }
+            }
+            (
+                scalar_result_json(accum.row_count, accum.metric_sum),
+                accum.row_count,
+            )
         }
-    }
-    let selected_rows_materialized = accum.row_count;
-    let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
+        TraditionalAnalyticsScenario::FilterProjectionLimit => {
+            let mut filtered_projection_limit_rows =
+                std::collections::BinaryHeap::<TraditionalFilteredProjectionLimitCandidate>::new();
+            let mut filtered_projection_sequence = 0_u64;
+            for row in &fact_rows {
+                if row.flag == 1 && row.value >= 5_000 {
+                    push_filter_projection_limit_candidate(
+                        &mut filtered_projection_limit_rows,
+                        filtered_projection_sequence,
+                        row.id,
+                        row.value,
+                    );
+                    filtered_projection_sequence =
+                        filtered_projection_sequence.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "direct transient filter + projection + limit row sequence overflowed u64"
+                                    .to_string(),
+                            )
+                        })?;
+                }
+            }
+            let rows = filter_projection_limit_rows_from_heap(filtered_projection_limit_rows);
+            let selected_rows_materialized = usize_to_u64(rows.len())?;
+            (
+                filter_projection_limit_result_json(&rows),
+                selected_rows_materialized,
+            )
+        }
+        _ => unreachable!("unsupported direct transient scenario blocked before execution"),
+    };
     let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
     let runtime_execution_certificate = direct_transient_execution_certificate(
         request.scenario,
@@ -7829,10 +7870,18 @@ fn direct_transient_execution_certificate(
     input_format: TraditionalAnalyticsInputFormat,
     rows_materialized: u64,
 ) -> Result<ExecutionCertificate> {
-    let mut certificate_input = ExecutionCertificateInput::new(
-        "gar-flow-1b.direct_transient_csv_selective_filter.runtime",
-        "direct_compatibility_transient_csv_smoke",
-    )?;
+    let scenario_slug = direct_transient_scenario_slug(scenario);
+    let certificate_id = match scenario {
+        TraditionalAnalyticsScenario::SelectiveFilter => {
+            "gar-flow-1b.direct_transient_csv_selective_filter.runtime"
+        }
+        TraditionalAnalyticsScenario::FilterProjectionLimit => {
+            "gar-flow-1c.direct_transient_csv_filter_projection_limit.runtime"
+        }
+        _ => "gar-flow-1c.direct_transient_csv_unsupported.runtime",
+    };
+    let mut certificate_input =
+        ExecutionCertificateInput::new(certificate_id, "direct_compatibility_transient_csv_smoke")?;
     certificate_input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
     certificate_input.provider_scope = "direct_compatibility_transient_local_csv".to_string();
     certificate_input.provider_crate = Some("shardloom-vortex".to_string());
@@ -7841,15 +7890,23 @@ fn direct_transient_execution_certificate(
         Some("run_traditional_direct_transient_csv_smoke".to_string());
     certificate_input.shardloom_admission_policy =
         Some("local_csv_direct_transient_no_external_fallback".to_string());
-    certificate_input.plan_ref = Some("direct_transient_csv_selective_filter".to_string());
+    certificate_input.plan_ref = Some(format!("direct_transient_csv_{scenario_slug}"));
     certificate_input.input_ref = Some(format!(
         "traditional-analytics://source-format/{}/direct-transient",
         input_format.as_str()
     ));
-    certificate_input.output_ref =
-        Some("runtime-result://direct_transient_csv_selective_filter/in-memory".to_string());
-    certificate_input.correctness_fixture_id =
-        Some("gar-flow-1b.direct_transient_csv_selective_filter".to_string());
+    certificate_input.output_ref = Some(format!(
+        "runtime-result://direct_transient_csv_{scenario_slug}/in-memory"
+    ));
+    certificate_input.correctness_fixture_id = Some(match scenario {
+        TraditionalAnalyticsScenario::SelectiveFilter => {
+            "gar-flow-1b.direct_transient_csv_selective_filter".to_string()
+        }
+        TraditionalAnalyticsScenario::FilterProjectionLimit => {
+            "gar-flow-1c.direct_transient_csv_filter_projection_limit".to_string()
+        }
+        _ => format!("gar-flow-1c.direct_transient_csv_{scenario_slug}"),
+    });
     let outcome = ExpectedOutcome::Rows {
         row_count: Some(rows_materialized),
     };
@@ -7876,6 +7933,14 @@ fn direct_transient_execution_certificate(
     certificate_input.fallback_execution_allowed = false;
     certificate_input.correctness_passed = true;
     Ok(ExecutionCertificate::evaluate(certificate_input))
+}
+
+const fn direct_transient_scenario_slug(scenario: TraditionalAnalyticsScenario) -> &'static str {
+    match scenario {
+        TraditionalAnalyticsScenario::SelectiveFilter => "selective_filter",
+        TraditionalAnalyticsScenario::FilterProjectionLimit => "filter_projection_limit",
+        _ => "unsupported",
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -17836,6 +17901,100 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    #[allow(clippy::too_many_lines)]
+    fn direct_transient_csv_smoke_runs_filter_projection_limit_without_vortex_persistence() {
+        let root = traditional_analytics_test_root("direct-transient-csv-fpl");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let report = run_traditional_direct_transient_csv_smoke(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::FilterProjectionLimit,
+                fact_csv,
+                dim_csv,
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+        )
+        .unwrap();
+
+        assert_eq!(
+            report.result_json,
+            "{\"row_count\":2,\"metric_sum\":14000.0}"
+        );
+        assert_eq!(report.fact_rows, 3);
+        assert_eq!(report.dim_rows, 2);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_materialized, 2);
+        assert!(!workspace.exists());
+        assert_eq!(
+            report.execution_mode_selection.selected_execution_mode,
+            ShardLoomExecutionMode::DirectCompatibilityTransient
+        );
+        assert!(report.execution_mode_selection.mode_supported);
+        assert_eq!(report.execution_mode_selection.support_status, "supported");
+        assert!(report.execution_mode_selection.direct_transient_execution);
+        assert!(!report.execution_mode_selection.vortex_native_claim_allowed);
+        assert!(!report.execution_mode_selection.fallback_attempted);
+        assert!(!report.execution_mode_selection.external_engine_invoked);
+        assert!(report.runtime_execution_certificate.is_certified());
+        assert!(report.runtime_execution_certificate.fallback_free());
+        assert!(
+            report
+                .runtime_execution_certificate
+                .external_query_engine_free()
+        );
+        assert_eq!(
+            report.runtime_execution_certificate.expected_outcome,
+            Some(ExpectedOutcome::Rows { row_count: Some(2) })
+        );
+
+        let fields = field_map(report.fields());
+        assert_field_eq(&fields, "scenario", "filter + projection + limit");
+        assert_field_eq(
+            &fields,
+            "selected_execution_mode",
+            "direct_compatibility_transient",
+        );
+        assert_field_eq(&fields, "support_status", "supported");
+        assert_field_eq(&fields, "direct_transient_execution", "true");
+        assert_field_eq(&fields, "vortex_native_claim_allowed", "false");
+        assert_field_eq(&fields, "compatibility_to_vortex_import_performed", "false");
+        assert_field_eq(&fields, "vortex_file_written", "false");
+        assert_field_eq(&fields, "vortex_file_read", "false");
+        assert_field_eq(&fields, "upstream_vortex_scan_called", "false");
+        assert_field_eq(&fields, "runtime_execution_certificate_status", "certified");
+        assert_field_eq(
+            &fields,
+            "runtime_execution_certificate_id",
+            "gar-flow-1c.direct_transient_csv_filter_projection_limit.runtime",
+        );
+        assert_field_eq(
+            &fields,
+            "runtime_execution_certificate_plan_ref",
+            "direct_transient_csv_filter_projection_limit",
+        );
+        assert_field_eq(
+            &fields,
+            "benchmark_row_ref",
+            "benchmark://local_vortex_analytics_v1/direct_transient_csv_filter_projection_limit",
+        );
+        assert_field_eq(
+            &fields,
+            "coverage_row_ref",
+            "coverage.direct_compatibility_transient.local_csv_filter_projection_limit",
+        );
+        assert_field_eq(&fields, "write_io", "false");
+        assert_field_eq(&fields, "native_io_certificate_status", "not_vortex_native");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
     fn direct_transient_csv_smoke_rejects_adjacent_scenarios() {
         let root = traditional_analytics_test_root("direct-transient-unsupported");
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
@@ -17852,7 +18011,11 @@ mod tests {
         )
         .expect_err("hash join is outside the direct transient smoke contract");
 
-        assert!(error.to_string().contains("only supports selective filter"));
+        assert!(
+            error
+                .to_string()
+                .contains("only supports selective filter or filter + projection + limit")
+        );
         assert!(
             error
                 .to_string()

@@ -199,10 +199,15 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def direct_transient_admission_coverage_row("));
     assert!(script.contains("def shardloom_direct_transient_runner("));
     assert!(script.contains("\"shardloom-direct-transient\""));
+    assert!(script.contains("\"filter + projection + limit\": lambda paths, data_format"));
     assert!(script.contains("\"direct_transient_local_csv_smoke\""));
+    assert!(script.contains("direct_transient_csv_filter_projection_limit"));
     assert!(script.contains("\"direct_transient_no_vortex_scan\""));
     assert!(script.contains("\"direct_compatibility_transient\""));
     assert!(script.contains("\"direct_compatibility_transient_not_implemented\""));
+    assert!(script.contains(
+        "direct transient smoke currently supports only selective filter or filter + projection + limit"
+    ));
     assert!(script.contains("def support_status("));
     assert!(script.contains("def materialization_decode_evidence_present("));
     assert!(script.contains("SHARDLOOM_EXECUTION_MODE_VOCABULARY"));
@@ -880,7 +885,7 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "stable correctness digest",
         "Native I/O certificate",
         "Unsupported work must return deterministic unsupported diagnostics",
-        "one scoped local CSV",
+        "scoped local CSV smoke",
         "Actionable implementation work must be represented in",
         "docs/architecture/phased-execution-plan.md",
         "docs/architecture/compute-engine-flow-overhaul-review.md",

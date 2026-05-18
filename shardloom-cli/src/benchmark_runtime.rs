@@ -330,8 +330,14 @@ fn direct_transient_unsupported_reason(
     if facts.input_format != shardloom_vortex::TraditionalAnalyticsInputFormat::Csv {
         return Some("direct transient smoke currently supports local CSV input only");
     }
-    if facts.scenario != shardloom_vortex::TraditionalAnalyticsScenario::SelectiveFilter {
-        return Some("direct transient smoke currently supports only selective filter");
+    if !matches!(
+        facts.scenario,
+        shardloom_vortex::TraditionalAnalyticsScenario::SelectiveFilter
+            | shardloom_vortex::TraditionalAnalyticsScenario::FilterProjectionLimit
+    ) {
+        return Some(
+            "direct transient smoke currently supports only selective filter or filter + projection + limit",
+        );
     }
     if facts.cdc_delta_requested {
         return Some("direct transient smoke does not support CDC delta input");
@@ -392,7 +398,7 @@ fn emit_direct_compatibility_transient_unsupported(
             "direct_compatibility_transient",
             format!("{unsupported_detail}; no runtime execution was attempted"),
             Some(
-                "Use compatibility_import_certified for certified ingest/stage evidence, or restrict direct transient mode to the supported local CSV selective-filter smoke path."
+                "Use compatibility_import_certified for certified ingest/stage evidence, or restrict direct transient mode to the supported local CSV selective-filter or filter + projection + limit smoke paths."
                     .to_string(),
             ),
         )],
