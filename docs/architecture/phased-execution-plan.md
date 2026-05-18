@@ -451,71 +451,9 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-GAR-SCALE-1A through GAR-SCALE-1G are complete and recorded in the completed ledger. The active
-follow-through begins with the Foundry scale proof boundary; all non-local scale
-classes remain blocked or report-only until later slices attach runtime evidence.
-
-- [ ] GAR-SCALE-1H Foundry scale proof boundary
-  - Source:
-    - RFC 0036 Foundry Integration Pack and availability surface.
-    - Foundry proof-of-use docs.
-    - Foundry generated-output fanout posture.
-    - GAR-SCALE-1A scale taxonomy and GAR-SCALE-1G scale benchmark profiles.
-  - Current state:
-    - Foundry proof is local/style-only and report-only.
-    - Foundry no-input generated-output fanout posture exists, but generated-output execution is not
-      a Foundry production claim.
-    - No real Foundry runtime, Foundry compute, Foundry Spark, or managed-platform scale proof is
-      claimable.
-  - Next slice outcome:
-    - Define what a real Foundry scale proof must emit while keeping local/dev-stack proof separate
-      from production Foundry support.
-  - User-visible surface:
-    - Foundry proof docs, website/status, capability matrix, and future Foundry starter workflows.
-  - Implementation scope:
-    - Foundry scale proof schema/docs, deterministic report-only blockers, release-readiness checks,
-      and claim boundary text. No Foundry platform invocation or package publication.
-  - Evidence required:
-    - `foundry_runtime_invoked`
-    - `foundry_compute_invoked`
-    - `foundry_spark_invoked=false`
-    - `foundry_input_dataset_count`
-    - `foundry_output_dataset_count`
-    - `staged_input_bytes`
-    - `shardloom_execution_mode`
-    - `split_count`
-    - `memory_budget_bytes`
-    - `output_evidence_dataset_written`
-    - `fallback_attempted=false`
-    - `external_engine_invoked=false`
-    - `public_foundry_claim_allowed=false`
-    - `claim_gate_status`
-  - Acceptance:
-    - Foundry can orchestrate a transform only when evidence distinguishes orchestration from
-      ShardLoom execution.
-    - Spark/Foundry compute cannot be silently reported as ShardLoom execution.
-    - Evidence dataset output is mandatory for any proof claim.
-    - Foundry scale proof remains separate from production support and package/channel claims.
-  - Verification:
-    - Foundry proof docs/schema checks.
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No Foundry production support, Marketplace/package claim, Foundry runtime invocation, Foundry
-      Spark use as ShardLoom execution, object-store direct write, or performance claim.
-  - Dependencies/blockers:
-    - Real Foundry environment proof, transform output/evidence dataset wiring, Foundry runtime and
-      compute invocation fields, package-channel evidence, and platform claim approval gates.
-  - Claim boundary:
-    - This slice may claim only a Foundry scale proof boundary. Real Foundry scale support remains
-      blocked until platform evidence exists.
-  - Fallback boundary:
-    - Foundry Spark, virtual tables, Snowflake, Databricks, BigQuery, or other managed compute cannot
-      execute ShardLoom work as fallback or satisfy ShardLoom no-fallback evidence.
-  - Ledger rule:
-    - When complete, record the Foundry proof boundary and any remaining blockers in the completed
-      ledger.
+GAR-SCALE-1A through GAR-SCALE-1H are complete and recorded in the completed ledger. Non-local scale
+classes remain blocked or report-only until later scoped runtime slices attach real workload bytes,
+correctness proof, no-fallback evidence, and the relevant runtime gates.
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 

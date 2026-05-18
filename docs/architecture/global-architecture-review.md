@@ -772,8 +772,10 @@ plan before coding.
   definitions, required scenario/metric vocabulary, row-level publishing posture, synthetic
   metadata-only boundaries, real-input-byte/correctness proof requirements, public-leaderboard
   separation, no-fallback fields, and `scale_benchmark_claim_gate_status=not_scale_benchmark_grade`.
-  The remaining follow-through must add Foundry scale proof boundaries before any scale claim can
-  be promoted beyond local evidence. Synthetic
+  `GAR-SCALE-1H` now adds `shardloom.foundry_scale_proof_boundary.v1` to the local Foundry proof
+  report with Foundry runtime/compute/Spark, input/output dataset counts, staged input bytes,
+  execution mode, split count, memory budget, evidence dataset, no-fallback, external-engine, and
+  public-claim fields while keeping Foundry scale proof report-only. Synthetic
   metadata-only evidence, report-only protocol rows, external baselines, and managed-platform
   orchestration cannot satisfy ShardLoom runtime scale claims, Spark-replacement claims, or
   no-fallback/no-external-engine proof.

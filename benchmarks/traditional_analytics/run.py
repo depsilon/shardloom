@@ -841,6 +841,7 @@ SCALE_CLAIM_FIELDS = (
     "table_format_involved",
     "remote_workers_involved",
     "foundry_runtime_invoked",
+    "foundry_compute_invoked",
     "foundry_spark_invoked",
     "scale_fallback_attempted",
     "scale_external_engine_invoked",
@@ -6645,6 +6646,7 @@ def scale_claim_contract_metadata(
         "table_format_involved": False,
         "remote_workers_involved": False,
         "foundry_runtime_invoked": False,
+        "foundry_compute_invoked": False,
         "foundry_spark_invoked": False,
         "scale_fallback_attempted": False,
         "scale_external_engine_invoked": False,
@@ -7962,6 +7964,7 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "table_format_involved",
             "remote_workers_involved",
             "foundry_runtime_invoked",
+            "foundry_compute_invoked",
             "foundry_spark_invoked",
         ]:
             if metrics.get(unsupported_scale_field) is not False:

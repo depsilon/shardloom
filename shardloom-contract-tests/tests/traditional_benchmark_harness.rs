@@ -639,6 +639,7 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"shuffle_required\"",
         "\"object_store_involved\"",
         "\"remote_workers_involved\"",
+        "\"foundry_compute_invoked\"",
         "\"scale_claim_gate_status\"",
         "\"scale_fallback_attempted\"",
         "\"scale_external_engine_invoked\"",
