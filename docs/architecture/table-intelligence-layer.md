@@ -99,6 +99,51 @@ For the CG-9 metadata gate:
 The aggregate report is evidence and routing context only. It does not certify that Iceberg, Delta,
 Hudi-like, catalog, manifest, recovery, or table-maintenance runtime behavior exists.
 
+## GAR-COMPAT-1D Table-Format Boundary Matrix
+
+The universal compatibility scoreboard projects table-format status through
+`shardloom.universal_compatibility.table_format_boundary_matrix.v1` so user-facing status,
+Python typed accessors, and website/status pages can explain Iceberg, Delta, and Hudi boundaries
+without treating local metadata smoke as table-format runtime.
+
+The matrix order is:
+
+```text
+table_metadata_read
+table_scan
+snapshot_time_travel
+partition_evolution
+delete_tombstone
+append
+merge_update_delete
+commit
+rollback
+catalog_interaction
+object_store_coupling
+```
+
+Every matrix row keeps:
+
+```text
+catalog_io_allowed=false
+object_store_io_allowed=false
+table_metadata_read_allowed=false
+table_data_read_allowed=false
+write_io_allowed=false
+commit_allowed=false
+rollback_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status=not_claim_grade
+```
+
+`table_metadata_read`, `partition_evolution`, and `delete_tombstone` are report-only because local
+manifest metadata and delete/tombstone fixture smokes are related evidence. They are not
+Iceberg/Delta/Hudi runtime support. Table scan, snapshot/time-travel, append, merge/update/delete,
+commit, rollback, catalog interaction, and object-store-backed table runtime remain blocked until
+separate table-format dependency, catalog, object-store, commit, correctness, execution-certificate,
+Native I/O, materialization, and no-fallback evidence exists.
+
 ## Delete, CDC, And Maintenance Execution Matrix
 
 `GAR-0020-B` adds `shardloom.table_maintenance_execution_matrix.v1` to

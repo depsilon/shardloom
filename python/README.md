@@ -943,6 +943,30 @@ Important row IDs include `object_store_uri_parse`, `credential_policy`,
 `public_no_credential_read`, `authenticated_read`, `byte_range_read`,
 `full_file_read`, `local_cache`, `write_staging`, and `commit_protocol`.
 
+The same scoreboard exposes table-format boundaries:
+
+```python
+tables = matrix.table_format_boundary_matrix
+print(tables.schema_version)
+print(tables.format_scope)
+print(tables.local_metadata_smoke_available)
+print(tables.runtime_supported)
+for row in tables.rows:
+    print(row.row_id, row.support_status, row.no_io_no_fallback)
+```
+
+The `table_format_boundary_matrix` keeps Iceberg, Delta, and Hudi metadata
+reads, table scans, snapshot/time-travel, partition evolution, delete/tombstone,
+append, merge/update/delete, commit, rollback, catalog interaction, and
+object-store coupling as separate gates. Local manifest metadata and
+delete/tombstone smokes are related evidence only; they are not table-format
+runtime, lakehouse runtime, catalog runtime, object-store runtime, or commit
+support.
+Important row IDs include `table_metadata_read`, `table_scan`,
+`snapshot_time_travel`, `partition_evolution`, `delete_tombstone`, `append`,
+`merge_update_delete`, `commit`, `rollback`, `catalog_interaction`, and
+`object_store_coupling`.
+
 The client also exposes advisory optimization reports:
 
 ```python

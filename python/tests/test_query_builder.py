@@ -783,7 +783,44 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_object_store_ladder_row_order", "value": "object_store_uri_parse,credential_policy,public_no_credential_read,authenticated_read,byte_range_read,write_staging,commit_protocol"},
                     {"key": "universal_compatibility_object_store_ladder_runtime_supported", "value": "false"},
                     {"key": "universal_compatibility_object_store_ladder_all_rows_no_effects", "value": "true"},
+                    {"key": "universal_compatibility_table_format_matrix_schema_version", "value": "shardloom.universal_compatibility.table_format_boundary_matrix.v1"},
+                    {"key": "universal_compatibility_table_format_matrix_id", "value": "gar-compat-1d.table_format_boundary_matrix"},
+                    {"key": "universal_compatibility_table_format_matrix_format_scope", "value": "iceberg,delta,hudi"},
+                    {"key": "universal_compatibility_table_format_matrix_row_order", "value": "table_metadata_read,table_scan,delete_tombstone,commit,object_store_coupling"},
+                    {"key": "universal_compatibility_table_format_matrix_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_table_format_matrix_local_metadata_smoke_available", "value": "true"},
+                    {"key": "universal_compatibility_table_format_matrix_all_rows_no_io_no_fallback", "value": "true"},
                 ]
+                for row_id, behavior, status, local_smoke, blocker in [
+                    ("table_metadata_read", "metadata_read", "report-only", "true", "gar-compat-1d.table_format_metadata_runtime_blocked"),
+                    ("table_scan", "table_scan", "blocked", "false", "gar-compat-1d.table_scan_runtime_blocked"),
+                    ("delete_tombstone", "delete_tombstone", "report-only", "true", "gar-compat-1d.delete_tombstone_runtime_blocked"),
+                    ("commit", "commit", "blocked", "false", "gar-compat-1d.table_commit_blocked"),
+                    ("object_store_coupling", "object_store_coupling", "blocked", "false", "gar-compat-1d.object_store_coupling_blocked"),
+                ]:
+                    prefix = f"universal_compatibility_table_format_matrix_row_{row_id}"
+                    fields.extend([
+                        {"key": f"{prefix}_format_scope", "value": "iceberg,delta,hudi"},
+                        {"key": f"{prefix}_behavior", "value": behavior},
+                        {"key": f"{prefix}_support_status", "value": status},
+                        {"key": f"{prefix}_local_metadata_smoke_related", "value": local_smoke},
+                        {"key": f"{prefix}_table_format_dependency_required", "value": "true"},
+                        {"key": f"{prefix}_catalog_io_allowed", "value": "false"},
+                        {"key": f"{prefix}_object_store_io_allowed", "value": "false"},
+                        {"key": f"{prefix}_table_metadata_read_allowed", "value": "false"},
+                        {"key": f"{prefix}_table_data_read_allowed", "value": "false"},
+                        {"key": f"{prefix}_delete_tombstone_runtime_allowed", "value": "false"},
+                        {"key": f"{prefix}_write_io_allowed", "value": "false"},
+                        {"key": f"{prefix}_commit_allowed", "value": "false"},
+                        {"key": f"{prefix}_rollback_allowed", "value": "false"},
+                        {"key": f"{prefix}_native_io_certificate_status", "value": "not_emitted_blocked"},
+                        {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                        {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                        {"key": f"{prefix}_blocker_id", "value": blocker},
+                        {"key": f"{prefix}_required_evidence", "value": "future_evidence"},
+                        {"key": f"{prefix}_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": f"{prefix}_claim_boundary", "value": "claim boundary"},
+                    ])
                 for row_id, stage, status, credential_policy_status, blocker in [
                     ("object_store_uri_parse", "uri_parse", "report-only", "not_required_for_parse", "gar-compat-1c.uri_parse_only_no_provider_runtime"),
                     ("credential_policy", "credential_policy", "blocked", "required_not_admitted", "gar-compat-1c.credential_resolution_blocked"),
@@ -944,6 +981,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "gar-compat-1c.byte_range_read_runtime_blocked",
         )
         self.assertFalse(object_store.row("write_staging").write_io_allowed)
+        table_formats = scoreboard.table_format_boundary_matrix
+        self.assertEqual(
+            table_formats.schema_version,
+            "shardloom.universal_compatibility.table_format_boundary_matrix.v1",
+        )
+        self.assertEqual(table_formats.format_scope, ("iceberg", "delta", "hudi"))
+        self.assertFalse(table_formats.runtime_supported)
+        self.assertTrue(table_formats.local_metadata_smoke_available)
+        self.assertTrue(table_formats.all_rows_no_io_no_fallback)
+        self.assertTrue(table_formats.row("table-metadata-read").no_io_no_fallback)
+        self.assertEqual(table_formats.row("table_scan").support_status, "blocked")
+        self.assertEqual(
+            table_formats.row("commit").blocker_id,
+            "gar-compat-1d.table_commit_blocked",
+        )
+        self.assertFalse(table_formats.row("object_store_coupling").object_store_io_allowed)
 
     def test_context_exposes_rest_api_contract_views(self) -> None:
         binary = self.fake_cli(

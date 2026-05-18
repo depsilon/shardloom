@@ -127,6 +127,10 @@ const UNIVERSAL_COMPATIBILITY_OBJECT_STORE_LADDER_SCHEMA_VERSION: &str =
     "shardloom.universal_compatibility.object_store_admission_ladder.v1";
 const UNIVERSAL_COMPATIBILITY_OBJECT_STORE_LADDER_ID: &str =
     "gar-compat-1c.object_store_runtime_admission_ladder";
+const UNIVERSAL_COMPATIBILITY_TABLE_FORMAT_MATRIX_SCHEMA_VERSION: &str =
+    "shardloom.universal_compatibility.table_format_boundary_matrix.v1";
+const UNIVERSAL_COMPATIBILITY_TABLE_FORMAT_MATRIX_ID: &str =
+    "gar-compat-1d.table_format_boundary_matrix";
 
 #[derive(Debug, Clone, Copy)]
 #[allow(clippy::struct_excessive_bools)]
@@ -191,6 +195,30 @@ struct ObjectStoreAdmissionLadderRow {
     commit_protocol_allowed: bool,
     object_store_io: bool,
     write_io: bool,
+    native_io_certificate_status: &'static str,
+    blocker_id: &'static str,
+    required_evidence: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct TableFormatBoundaryMatrixRow {
+    id: &'static str,
+    format_scope: &'static str,
+    behavior: &'static str,
+    support_status: &'static str,
+    local_metadata_smoke_related: bool,
+    table_format_dependency_required: bool,
+    catalog_io_allowed: bool,
+    object_store_io_allowed: bool,
+    table_metadata_read_allowed: bool,
+    table_data_read_allowed: bool,
+    delete_tombstone_runtime_allowed: bool,
+    write_io_allowed: bool,
+    commit_allowed: bool,
+    rollback_allowed: bool,
     native_io_certificate_status: &'static str,
     blocker_id: &'static str,
     required_evidence: &'static str,
@@ -1009,6 +1037,240 @@ const OBJECT_STORE_ADMISSION_LADDER_ROWS: &[ObjectStoreAdmissionLadderRow] = &[
         required_evidence: "commit_protocol,idempotency_key,rollback_policy,cleanup_policy,output_commit_certificate,no_fallback_evidence",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "Object-store commit remains blocked and does not imply table/lakehouse commit support.",
+    },
+];
+
+const TABLE_FORMAT_BOUNDARY_MATRIX_ROWS: &[TableFormatBoundaryMatrixRow] = &[
+    TableFormatBoundaryMatrixRow {
+        id: "table_metadata_read",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "metadata_read",
+        support_status: "report-only",
+        local_metadata_smoke_related: true,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-compat-1d.table_format_metadata_runtime_blocked",
+        required_evidence: "table_format_dependency_policy,catalog_policy,snapshot_manifest_fixture,native_io_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Local manifest metadata smoke is related evidence only; Iceberg, Delta, and Hudi metadata runtime is not supported.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "table_scan",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "table_scan",
+        support_status: "blocked",
+        local_metadata_smoke_related: false,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1d.table_scan_runtime_blocked",
+        required_evidence: "table_format_reader,snapshot_scan_policy,object_store_or_local_file_policy,execution_certificate,native_io_certificate,materialization_boundary",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Table-format scan/data read remains blocked and is separate from local metadata smoke.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "snapshot_time_travel",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "snapshot_time_travel",
+        support_status: "blocked",
+        local_metadata_smoke_related: false,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1d.snapshot_time_travel_blocked",
+        required_evidence: "snapshot_selection_policy,manifest_versioning,metadata_fidelity,time_travel_correctness,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Snapshot and time-travel semantics are not runtime-supported.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "partition_evolution",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "partition_evolution",
+        support_status: "report-only",
+        local_metadata_smoke_related: true,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-compat-1d.partition_evolution_runtime_blocked",
+        required_evidence: "partition_spec_fidelity,manifest_fixture,table_format_dependency_policy,correctness_evidence,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Partition-evolution compatibility remains planning/report evidence only.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "delete_tombstone",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "delete_tombstone",
+        support_status: "report-only",
+        local_metadata_smoke_related: true,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-compat-1d.delete_tombstone_runtime_blocked",
+        required_evidence: "delete_model_fidelity,tombstone_fixture,position_delete_policy,equality_delete_policy,execution_certificate,native_io_certificate",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Local delete/tombstone fixture smoke is related evidence only; table-format delete runtime is blocked.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "append",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "append",
+        support_status: "blocked",
+        local_metadata_smoke_related: false,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1d.table_append_blocked",
+        required_evidence: "append_writer,staging_policy,commit_protocol,idempotency_key,output_certificate,rollback_policy",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Table append remains blocked and does not follow from output-file writer support.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "merge_update_delete",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "merge_update_delete",
+        support_status: "blocked",
+        local_metadata_smoke_related: false,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1d.merge_update_delete_blocked",
+        required_evidence: "merge_semantics,delete_semantics,concurrency_policy,correctness_evidence,commit_protocol,rollback_policy",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Merge/update/delete table operations remain blocked.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "commit",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "commit",
+        support_status: "blocked",
+        local_metadata_smoke_related: false,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1d.table_commit_blocked",
+        required_evidence: "commit_protocol,optimistic_concurrency,idempotency_key,commit_record,cleanup_policy,output_commit_certificate",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Table commit remains blocked and separate from metadata planning, output files, and object-store commit posture.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "rollback",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "rollback",
+        support_status: "blocked",
+        local_metadata_smoke_related: false,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1d.table_rollback_blocked",
+        required_evidence: "rollback_protocol,orphan_cleanup_policy,idempotency_key,commit_recovery_evidence,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Rollback and recovery semantics remain blocked.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "catalog_interaction",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "catalog_interaction",
+        support_status: "blocked",
+        local_metadata_smoke_related: false,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1d.catalog_interaction_blocked",
+        required_evidence: "catalog_policy,credential_policy,network_effect_policy,metadata_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "External catalog interaction remains blocked; local catalog refs are not catalog runtime.",
+    },
+    TableFormatBoundaryMatrixRow {
+        id: "object_store_coupling",
+        format_scope: "iceberg,delta,hudi",
+        behavior: "object_store_coupling",
+        support_status: "blocked",
+        local_metadata_smoke_related: false,
+        table_format_dependency_required: true,
+        catalog_io_allowed: false,
+        object_store_io_allowed: false,
+        table_metadata_read_allowed: false,
+        table_data_read_allowed: false,
+        delete_tombstone_runtime_allowed: false,
+        write_io_allowed: false,
+        commit_allowed: false,
+        rollback_allowed: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1d.object_store_coupling_blocked",
+        required_evidence: "object_store_admission_ladder,credential_policy,split_manifest,commit_protocol,table_snapshot_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Object-store-backed table runtime remains blocked until object-store read/write/commit gates are independently admitted.",
     },
 ];
 
@@ -5539,6 +5801,34 @@ fn object_store_admission_ladder_all_no_effects() -> bool {
     })
 }
 
+fn table_format_boundary_matrix_row_order() -> String {
+    TABLE_FORMAT_BOUNDARY_MATRIX_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn table_format_boundary_matrix_status_count(status: &str) -> usize {
+    TABLE_FORMAT_BOUNDARY_MATRIX_ROWS
+        .iter()
+        .filter(|row| row.support_status == status)
+        .count()
+}
+
+fn table_format_boundary_matrix_all_no_io_no_fallback() -> bool {
+    TABLE_FORMAT_BOUNDARY_MATRIX_ROWS.iter().all(|row| {
+        !row.catalog_io_allowed
+            && !row.object_store_io_allowed
+            && !row.table_metadata_read_allowed
+            && !row.table_data_read_allowed
+            && !row.delete_tombstone_runtime_allowed
+            && !row.write_io_allowed
+            && !row.commit_allowed
+            && !row.rollback_allowed
+    })
+}
+
 #[allow(clippy::too_many_lines)]
 fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
     push_field(
@@ -5643,6 +5933,7 @@ fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
     );
     append_universal_compatibility_generated_output_fields(fields);
     append_universal_compatibility_object_store_ladder_fields(fields);
+    append_universal_compatibility_table_format_matrix_fields(fields);
 
     for row in UNIVERSAL_COMPATIBILITY_ROWS {
         let prefix = format!("universal_compatibility_row_{}", row.id);
@@ -6087,6 +6378,204 @@ fn append_universal_compatibility_object_store_ladder_fields(fields: &mut Vec<(S
             row.object_store_io,
         );
         push_bool_field(fields, &format!("{prefix}_write_io"), row.write_io);
+        push_field(
+            fields,
+            &format!("{prefix}_native_io_certificate_status"),
+            row.native_io_certificate_status,
+        );
+        push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+        push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+        push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            row.required_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_boundary"),
+            row.claim_boundary,
+        );
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_universal_compatibility_table_format_matrix_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "universal_compatibility_table_format_matrix_schema_version",
+        UNIVERSAL_COMPATIBILITY_TABLE_FORMAT_MATRIX_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_table_format_matrix_id",
+        UNIVERSAL_COMPATIBILITY_TABLE_FORMAT_MATRIX_ID,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_table_format_matrix_format_scope",
+        "iceberg,delta,hudi",
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_table_format_matrix_row_count",
+        TABLE_FORMAT_BOUNDARY_MATRIX_ROWS.len(),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_table_format_matrix_row_order",
+        &table_format_boundary_matrix_row_order(),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_table_format_matrix_report_only_count",
+        table_format_boundary_matrix_status_count("report-only"),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_table_format_matrix_blocked_count",
+        table_format_boundary_matrix_status_count("blocked"),
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_local_metadata_smoke_available",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_table_metadata_read_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_table_scan_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_table_write_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_table_commit_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_table_rollback_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_catalog_interaction_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_object_store_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_external_table_format_dependency_added",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_all_rows_no_io_no_fallback",
+        table_format_boundary_matrix_all_no_io_no_fallback(),
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_fallback_attempted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_format_matrix_external_engine_invoked",
+        false,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_table_format_matrix_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_field(
+        fields,
+        "universal_compatibility_table_format_matrix_claim_boundary",
+        "Iceberg/Delta/Hudi table-format boundary matrix visibility only; local metadata smoke is related evidence, not table-format runtime, table scan, table write, commit, rollback, catalog, object-store, production, performance, or Spark-replacement support",
+    );
+
+    for row in TABLE_FORMAT_BOUNDARY_MATRIX_ROWS {
+        let prefix = format!("universal_compatibility_table_format_matrix_row_{}", row.id);
+        push_field(fields, &format!("{prefix}_format_scope"), row.format_scope);
+        push_field(fields, &format!("{prefix}_behavior"), row.behavior);
+        push_field(
+            fields,
+            &format!("{prefix}_support_status"),
+            row.support_status,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_local_metadata_smoke_related"),
+            row.local_metadata_smoke_related,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_table_format_dependency_required"),
+            row.table_format_dependency_required,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_catalog_io_allowed"),
+            row.catalog_io_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_object_store_io_allowed"),
+            row.object_store_io_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_table_metadata_read_allowed"),
+            row.table_metadata_read_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_table_data_read_allowed"),
+            row.table_data_read_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_delete_tombstone_runtime_allowed"),
+            row.delete_tombstone_runtime_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_write_io_allowed"),
+            row.write_io_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_commit_allowed"),
+            row.commit_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_rollback_allowed"),
+            row.rollback_allowed,
+        );
         push_field(
             fields,
             &format!("{prefix}_native_io_certificate_status"),

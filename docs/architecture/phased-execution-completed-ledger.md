@@ -16,6 +16,70 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMPAT-1D table-format boundary matrix
+  - Primary files:
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.json`
+    - `docs/architecture/table-intelligence-layer.md`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `website/build_static_pages.py`
+    - `website/status.html`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the fourth universal compatibility slice by projecting Iceberg, Delta, and Hudi
+    table-format posture into the compatibility scoreboard and public status surfaces. The new
+    `shardloom.universal_compatibility.table_format_boundary_matrix.v1` matrix separates metadata
+    read, table scan, snapshot/time-travel, partition evolution, delete/tombstone, append,
+    merge/update/delete, commit, rollback, catalog interaction, and object-store coupling while
+    keeping local metadata/delete smokes as related evidence only.
+  - Checklist:
+    - [x] Add table-format boundary rows to CLI `capabilities compatibility --format json` with
+          stable row ordering, table/catalog/object-store I/O gates, blocker IDs, required
+          evidence, claim boundaries, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+    - [x] Add Python typed accessors through
+          `ctx.compatibility_scoreboard().table_format_boundary_matrix`.
+    - [x] Add the same matrix to
+          `docs/architecture/universal-compatibility-coverage-scoreboard.json` and document the
+          rows in the Markdown scoreboard.
+    - [x] Render the table-format matrix on the website status page from the JSON scoreboard.
+    - [x] Update table-intelligence docs, compute-flow, GAR, RFC traceability, Python README, and
+          release-readiness checks.
+    - [x] Remove the active GAR-COMPAT-1D item from the Planned queue.
+  - Evidence/verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts website benchmarks/traditional_analytics`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - The matrix is a status/capability surface only. It does not add Iceberg, Delta, Hudi,
+      table-format metadata runtime, table scans, snapshot/time-travel runtime, delete/tombstone
+      runtime, appends, merge/update/delete, commits, rollbacks, catalog runtime, object-store
+      backed table runtime, production lakehouse support, performance, package publication, or
+      Spark-replacement claims.
+  - Fallback boundary:
+    - No table-format matrix row invokes Spark, Iceberg, Delta, Hudi, an external catalog,
+      object-store provider, query engine, Foundry, or another external engine. All rows preserve
+      `fallback_attempted=false`, `external_engine_invoked=false`, and no table/catalog/object-store
+      I/O or write/commit/rollback execution.
+
 - [x] Session label: GAR-COMPAT-1C S3/GCS/ADLS runtime admission ladder
   - Primary files:
     - `docs/architecture/universal-compatibility-coverage-scoreboard.md`

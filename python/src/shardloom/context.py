@@ -1445,6 +1445,175 @@ class ObjectStoreAdmissionLadder:
 
 
 @dataclass(frozen=True, slots=True)
+class TableFormatBoundaryMatrixRow:
+    """One Iceberg/Delta/Hudi table-format boundary matrix row."""
+
+    row_id: str
+    format_scope: str | None
+    behavior: str | None
+    support_status: str | None
+    local_metadata_smoke_related: bool | None
+    table_format_dependency_required: bool | None
+    catalog_io_allowed: bool | None
+    object_store_io_allowed: bool | None
+    table_metadata_read_allowed: bool | None
+    table_data_read_allowed: bool | None
+    delete_tombstone_runtime_allowed: bool | None
+    write_io_allowed: bool | None
+    commit_allowed: bool | None
+    rollback_allowed: bool | None
+    native_io_certificate_status: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+    blocker_id: str | None
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str | None
+    claim_boundary: str | None
+
+    @property
+    def no_io_no_fallback(self) -> bool:
+        """Whether the row remains I/O-free and fallback-free."""
+
+        return (
+            self.catalog_io_allowed is False
+            and self.object_store_io_allowed is False
+            and self.table_metadata_read_allowed is False
+            and self.table_data_read_allowed is False
+            and self.delete_tombstone_runtime_allowed is False
+            and self.write_io_allowed is False
+            and self.commit_allowed is False
+            and self.rollback_allowed is False
+            and self.fallback_attempted is False
+            and self.external_engine_invoked is False
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class TableFormatBoundaryMatrix:
+    """Compatibility scoreboard projection for Iceberg/Delta/Hudi boundaries."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the table-format matrix schema version."""
+
+        return self.capability.field("universal_compatibility_table_format_matrix_schema_version")
+
+    @property
+    def matrix_id(self) -> str | None:
+        """Return the table-format matrix identifier."""
+
+        return self.capability.field("universal_compatibility_table_format_matrix_id")
+
+    @property
+    def format_scope(self) -> tuple[str, ...]:
+        """Return table formats covered by this matrix."""
+
+        return _split_csv(self.capability.field("universal_compatibility_table_format_matrix_format_scope"))
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return matrix rows in stable order."""
+
+        return _split_csv(self.capability.field("universal_compatibility_table_format_matrix_row_order"))
+
+    @property
+    def rows(self) -> tuple[TableFormatBoundaryMatrixRow, ...]:
+        """Return all table-format boundary rows."""
+
+        return tuple(self.row(row_id) for row_id in self.row_order)
+
+    @property
+    def runtime_supported(self) -> bool:
+        """Whether table-format runtime is supported by this matrix."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_table_format_matrix_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def local_metadata_smoke_available(self) -> bool:
+        """Whether scoped local metadata smoke evidence exists."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_table_format_matrix_local_metadata_smoke_available",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def all_rows_no_io_no_fallback(self) -> bool:
+        """Whether every matrix row preserves no-I/O/no-fallback posture."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_table_format_matrix_all_rows_no_io_no_fallback",
+                False,
+            )
+            is True
+            and all(row.no_io_no_fallback for row in self.rows)
+        )
+
+    def row(self, row_id: str) -> TableFormatBoundaryMatrixRow:
+        """Return one table-format matrix row."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(f"table-format boundary matrix row {row_id!r} is not present")
+        prefix = f"universal_compatibility_table_format_matrix_row_{normalized}"
+        return TableFormatBoundaryMatrixRow(
+            row_id=normalized,
+            format_scope=self.capability.field(f"{prefix}_format_scope"),
+            behavior=self.capability.field(f"{prefix}_behavior"),
+            support_status=self.capability.field(f"{prefix}_support_status"),
+            local_metadata_smoke_related=self.capability.envelope.field_bool(
+                f"{prefix}_local_metadata_smoke_related"
+            ),
+            table_format_dependency_required=self.capability.envelope.field_bool(
+                f"{prefix}_table_format_dependency_required"
+            ),
+            catalog_io_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_catalog_io_allowed"
+            ),
+            object_store_io_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_object_store_io_allowed"
+            ),
+            table_metadata_read_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_table_metadata_read_allowed"
+            ),
+            table_data_read_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_table_data_read_allowed"
+            ),
+            delete_tombstone_runtime_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_delete_tombstone_runtime_allowed"
+            ),
+            write_io_allowed=self.capability.envelope.field_bool(f"{prefix}_write_io_allowed"),
+            commit_allowed=self.capability.envelope.field_bool(f"{prefix}_commit_allowed"),
+            rollback_allowed=self.capability.envelope.field_bool(f"{prefix}_rollback_allowed"),
+            native_io_certificate_status=self.capability.field(
+                f"{prefix}_native_io_certificate_status"
+            ),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+            blocker_id=self.capability.field(f"{prefix}_blocker_id"),
+            required_evidence=_split_csv(self.capability.field(f"{prefix}_required_evidence")),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            claim_boundary=self.capability.field(f"{prefix}_claim_boundary"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UniversalCompatibilityScoreboard:
     """Typed view over the universal source/sink compatibility scoreboard."""
 
@@ -1615,6 +1784,12 @@ class UniversalCompatibilityScoreboard:
         """Return the S3/GCS/ADLS object-store admission ladder."""
 
         return ObjectStoreAdmissionLadder(self.capability)
+
+    @property
+    def table_format_boundary_matrix(self) -> TableFormatBoundaryMatrix:
+        """Return the Iceberg/Delta/Hudi table-format boundary matrix."""
+
+        return TableFormatBoundaryMatrix(self.capability)
 
     def row(self, surface_id: str) -> UniversalCompatibilityRow:
         """Return one scoreboard row by surface ID."""

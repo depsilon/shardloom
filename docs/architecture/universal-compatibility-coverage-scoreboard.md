@@ -230,6 +230,48 @@ The ladder exposes admission status only. It does not authorize credential resol
 probing, S3/GCS/ADLS reads, local cache runtime, writes, commit protocol execution, table/lakehouse
 runtime, production use, performance claims, or external fallback execution.
 
+### Iceberg/Delta/Hudi Table-Format Boundary Matrix
+
+The JSON projection includes
+`table_format_boundary_matrix.schema_version=shardloom.universal_compatibility.table_format_boundary_matrix.v1`
+for the GAR-COMPAT-1D table-format boundary matrix. The matrix keeps Iceberg, Delta, and Hudi
+behaviors separate from local manifest metadata smoke and from generic output-file support.
+
+| Row | Status | Related local smoke | I/O allowed | Boundary |
+| --- | --- | --- | --- | --- |
+| `table_metadata_read` | `report-only` | yes | no table/catalog/object-store I/O | Local manifest metadata smoke is related evidence only; format metadata runtime is not supported. |
+| `table_scan` | `blocked` | no | no data read | Table scan/data read remains blocked. |
+| `snapshot_time_travel` | `blocked` | no | no metadata/data read | Snapshot and time-travel semantics are not runtime-supported. |
+| `partition_evolution` | `report-only` | yes | no runtime I/O | Partition-evolution compatibility remains planning/report evidence only. |
+| `delete_tombstone` | `report-only` | yes | no delete runtime | Local delete/tombstone fixture smoke is related evidence only. |
+| `append` | `blocked` | no | no write/commit | Table append remains blocked and does not follow from output-file writer support. |
+| `merge_update_delete` | `blocked` | no | no write/commit | Merge/update/delete table operations remain blocked. |
+| `commit` | `blocked` | no | no commit | Table commit remains blocked and separate from metadata planning and object-store commit posture. |
+| `rollback` | `blocked` | no | no rollback | Rollback and recovery semantics remain blocked. |
+| `catalog_interaction` | `blocked` | no | no catalog I/O | External catalog interaction remains blocked. |
+| `object_store_coupling` | `blocked` | no | no object-store I/O | Object-store-backed table runtime remains blocked until object-store gates are independently admitted. |
+
+Every table-format matrix row preserves:
+
+```text
+catalog_io_allowed=false
+object_store_io_allowed=false
+table_metadata_read_allowed=false
+table_data_read_allowed=false
+write_io_allowed=false
+commit_allowed=false
+rollback_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status=not_claim_grade
+```
+
+The matrix is a boundary/status surface only. It does not authorize external table-format
+dependencies, Iceberg/Delta/Hudi metadata runtime, table scans, snapshot/time-travel runtime,
+delete/tombstone runtime, appends, merge/update/delete, commits, rollbacks, catalog interaction,
+object-store-backed table runtime, production lakehouse claims, performance claims, or fallback
+execution.
+
 ## Acceptance
 
 - Runtime coverage and plan/report coverage are distinct.

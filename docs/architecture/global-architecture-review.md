@@ -832,8 +832,13 @@ plan before coding.
   parse, credential policy, public read, authenticated read, byte-range read, full-file read, local
   cache, write staging, and commit protocol are visible as separate report-only or blocked gates
   while preserving no credential, network, provider-probe, object-store I/O, write, fallback, or
-  external-engine effects. Remaining GAR-COMPAT children own table-format boundaries and
-  database/warehouse import/export boundaries.
+  external-engine effects. `GAR-COMPAT-1D` adds
+  `shardloom.universal_compatibility.table_format_boundary_matrix.v1` so Iceberg, Delta, and Hudi
+  metadata read, table scan, snapshot/time-travel, partition evolution, delete/tombstone, append,
+  merge/update/delete, commit, rollback, catalog interaction, and object-store coupling are visible
+  as separate report-only or blocked gates while preserving no catalog, object-store, table
+  metadata, table data, write, commit, rollback, fallback, or external-engine effects. Remaining
+  GAR-COMPAT children own database/warehouse import/export boundaries.
 - [x] `GAR-IOREUSE-1F` adds the remaining Native I/O reuse ladder after
   `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract and
   `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract and
