@@ -5,22 +5,28 @@
 ## Quick Answer
 
 - **Audience:** user who wants range, values, calendar, or literal-table output without input data
-- **Status:** `planned`
-- **Execution mode:** `planned_generated_source`
+- **Status:** `smoke_supported`
+- **Execution mode:** `source_free_generated_output`
 - **Engine mode:** `batch`
-- **Claim boundary:** Report-only GeneratedSourceCertificate contract only; no current source-free runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, or package-publication claim.
+- **Claim boundary:** Scoped local user-row JSONL fixture smoke only; no range/calendar/literal-table runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
 
 ## Can ShardLoom Do This?
 
-Source-free generated output boundary is planned. The blocker and evidence requirements are part of the current public posture.
+Source-free generated output boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+
+## How To Try It
+
+```powershell
+$env:PYTHONPATH = "python\src"; python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.claim_gate_status)"
+```
 
 ## Blocker
 
-No-input smoke and the report-only GeneratedSourceCertificate contract exist, but generated-output execution still needs deterministic generation evidence and output sink proof before it can be supported.
+Engine-native generator nodes, SQL VALUES/literal execution, broad DataFrame execution, object-store writes, and Foundry generated-output runtime remain blocked/report-only until separate evidence lands.
 
 ## Internal Flow
 
-`none, generated_rows, range, values, calendar_dimension -> planned_generated_source -> batch -> planned_local_output_artifact, generated_source_certificate -> evidence -> claim gate`
+`none, generated_rows, range, values, calendar_dimension -> source_free_generated_output -> batch -> local_jsonl_output_artifact, generated_source_certificate, output_native_io_certificate -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -39,7 +45,7 @@ No-input smoke and the report-only GeneratedSourceCertificate contract exist, bu
 
 ## Expected Output Or Evidence
 
-Current capability rows distinguish no_dataset_smoke from user_generated_source and engine_native_generated_source; future runtime rows must add generated-source and output evidence.
+A local JSONL output plus fields including generated_source_kind=user_rows, generated_source_certificate_status=present, output_native_io_certificate_status=certified_local_file_sink, fallback_attempted=false, and external_engine_invoked=false.
 
 ## Common Mistakes
 

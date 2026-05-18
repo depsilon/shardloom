@@ -23,6 +23,17 @@ Use this for a small ShardLoom-only local Vortex benchmark smoke with result
 sink evidence. The default example uses CSV only so optional Parquet and
 external baseline dependencies are not required.
 
+## Source-Free User Rows Local Output Smoke
+
+```powershell
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.claim_gate_status)"
+```
+
+Use this for the scoped GAR-GEN-1C path that writes caller-provided rows to a local JSONL output and
+emits generated-source and output evidence. It is not SQL/VALUES execution, broad DataFrame
+runtime, object-store output, Foundry output, production support, or a performance claim.
+
 ## Foundry Lightweight Transform
 
 ```powershell

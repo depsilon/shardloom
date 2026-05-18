@@ -204,6 +204,64 @@ class PreparedVortexArtifacts:
 
 
 @dataclass(frozen=True, slots=True)
+class GeneratedSourceWriteReport:
+    """Typed view over a scoped local generated-source write smoke."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def output_path(self) -> str:
+        """Return the local output path written by the smoke command."""
+
+        return _required_field(self.envelope, "output_path")
+
+    @property
+    def generated_source_kind(self) -> str:
+        """Return the generated-source kind."""
+
+        return _required_field(self.envelope, "generated_source_kind")
+
+    @property
+    def generated_source_row_count(self) -> int:
+        """Return the generated-source row count."""
+
+        return self.envelope.field_int("generated_source_row_count", 0) or 0
+
+    @property
+    def generated_source_certificate_status(self) -> str:
+        """Return the generated-source certificate status."""
+
+        return _required_field(self.envelope, "generated_source_certificate_status")
+
+    @property
+    def output_native_io_certificate_status(self) -> str:
+        """Return the local output Native I/O certificate status."""
+
+        return _required_field(self.envelope, "output_native_io_certificate_status")
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the smoke command attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the smoke command invoked an external engine."""
+
+        return _envelope_external_engine_invoked(self.envelope)
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the generated-output claim gate status."""
+
+        return _required_field(self.envelope, "claim_gate_status")
+
+
+@dataclass(frozen=True, slots=True)
 class LocalVortexPrimitiveSmokeReport:
     """Result of the explicit local Vortex primitive smoke workflow."""
 
@@ -3285,6 +3343,30 @@ class ShardLoomClient:
         if target_ref is not None:
             command.append(str(target_ref))
         return self.run(command, check=check)
+
+    def generated_source_user_rows_smoke(
+        self,
+        output_path: str | os.PathLike[str],
+        schema_arg: str,
+        rows_arg: str,
+        *,
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Run the scoped local user-row generated-output smoke command."""
+
+        command: list[CommandPart] = [
+            "generated-source-user-rows-smoke",
+            str(output_path),
+            schema_arg,
+            rows_arg,
+            "--output-format",
+            output_format,
+        ]
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        return GeneratedSourceWriteReport(self.run(command, check=check))
 
     def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only execution certificate planning envelope."""

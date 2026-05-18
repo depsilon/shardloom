@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from typing import Mapping, Sequence, cast
+from urllib.parse import quote
 
-from .client import Binary, DEFAULT_PROFILE_ORDER, EngineSelectionPlan, ShardLoomClient
+from .client import (
+    Binary,
+    DEFAULT_PROFILE_ORDER,
+    EngineSelectionPlan,
+    GeneratedSourceWriteReport,
+    ShardLoomClient,
+)
 from .models import Diagnostic, OutputEnvelope
 
 SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet")
@@ -146,6 +154,34 @@ class UnsupportedWorkflowReport:
                 if "materialization" in key and value not in {"", "false", "none"}:
                     boundaries.append(f"{envelope.command}:{key}={value}")
         return tuple(dict.fromkeys(boundaries))
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratedRowsSource:
+    """Scoped source-free user rows that can write a local JSONL smoke output."""
+
+    schema_arg: str
+    rows_arg: str
+    client: ShardLoomClient
+
+    def write(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Write generated user rows to a scoped local output sink with evidence."""
+
+        return self.client.generated_source_user_rows_smoke(
+            target_uri,
+            self.schema_arg,
+            self.rows_arg,
+            output_format=output_format,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -749,6 +785,22 @@ def read_parquet(
     )
 
 
+def from_rows(
+    rows: Sequence[Mapping[str, object]],
+    *,
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> GeneratedRowsSource:
+    """Create a scoped source-free generated row set for local output smoke writes."""
+
+    schema_arg, rows_arg = _generated_rows_args(rows)
+    return GeneratedRowsSource(
+        schema_arg=schema_arg,
+        rows_arg=rows_arg,
+        client=_client_from_config(client, client_config),
+    )
+
+
 def from_pandas(
     dataframe: object,
     *,
@@ -812,6 +864,91 @@ def from_arrow_ipc(
         **client_config,
     )
     return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
+
+
+def _generated_rows_args(
+    rows: Sequence[Mapping[str, object]],
+) -> tuple[str, str]:
+    if isinstance(rows, (str, bytes, bytearray)) or not isinstance(rows, Sequence):
+        raise TypeError("rows must be a non-empty sequence of mappings")
+    if not rows:
+        raise ValueError("rows must not be empty")
+    first = rows[0]
+    if not isinstance(first, Mapping):
+        raise TypeError("rows must contain mappings")
+    if any(not isinstance(key, str) for key in first.keys()):
+        raise TypeError("generated row column names must be strings")
+    columns = tuple(first.keys())
+    if not columns or any(column.strip() == "" for column in columns):
+        raise ValueError("row column names must not be empty")
+    if len(set(columns)) != len(columns):
+        raise ValueError("row column names must be unique")
+    value_types = tuple(_generated_value_type(first[column]) for column in columns)
+    row_tokens: list[str] = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            raise TypeError(f"row {index} is not a mapping")
+        if any(not isinstance(key, str) for key in row.keys()):
+            raise TypeError("generated row column names must be strings")
+        row_keys = tuple(row.keys())
+        if row_keys != columns:
+            raise ValueError(
+                "all generated rows must have the same columns in the same order"
+            )
+        parts = []
+        for column, value_type in zip(columns, value_types):
+            parts.append(
+                f"{_generated_token(column)}={_generated_token(_generated_value(value_type, row[column]))}"
+            )
+        row_tokens.append(",".join(parts))
+    schema_arg = ",".join(
+        f"{_generated_token(column)}:{value_type}"
+        for column, value_type in zip(columns, value_types)
+    )
+    return schema_arg, ";".join(row_tokens)
+
+
+def _generated_value_type(value: object) -> str:
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int64"
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("float generated row values must be finite")
+        return "float64"
+    if isinstance(value, str):
+        return "utf8"
+    raise TypeError(
+        "generated row values must be bool, int, float, or str for the scoped local smoke"
+    )
+
+
+def _generated_value(value_type: str, value: object) -> str:
+    if value_type == "bool":
+        if not isinstance(value, bool):
+            raise TypeError("generated bool columns must contain only bool values")
+        return "true" if value else "false"
+    if value_type == "int64":
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError("generated int64 columns must contain only int values")
+        return str(value)
+    if value_type == "float64":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError("generated float64 columns must contain only numeric values")
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            raise ValueError("float generated row values must be finite")
+        return str(numeric)
+    if value_type == "utf8":
+        if not isinstance(value, str):
+            raise TypeError("generated utf8 columns must contain only str values")
+        return value
+    raise ValueError(f"unsupported generated value type {value_type!r}")
+
+
+def _generated_token(value: str) -> str:
+    return quote(value, safe="")
 
 
 def _read_source(

@@ -988,54 +988,11 @@ separate evidence-bearing slices admit them.
     - Connector dependency/license review, credential/effect policy, snapshot semantics, import and
       export certificate model, and Python/CLI capability projection.
 
-- [ ] GAR-GEN-1C user-generated source local-output fixture smoke
-  - Source: GAR-GEN-1A; RFC 0032; RFC 0033; RFC 0037; RFC 0039.
-  - Current state:
-    - Python can declare workflow/report surfaces, but user-created rows are not consumed as a
-      ShardLoom generated/literal source with output sink evidence.
-  - Next slice outcome:
-    - Add one narrow local fixture-smoke path where user Python rows are serialized into a
-      ShardLoom generated/literal source, written to a local output target, and certified without
-      source I/O.
-  - User-visible surface:
-    - Future Python `ctx.from_rows([...]).write(...)` path or equivalent report command, CLI JSON,
-      output artifact refs, and Python typed result.
-  - Implementation scope:
-    - Generated-source ingestion contract, local output sink, certificate emission, Python wrapper
-      affordance, tests, and docs.
-  - Evidence required:
-    - correctness refs: digest over rows/schema/output.
-    - execution certificate refs: ShardLoom-native generated-source execution.
-    - Native I/O certificate refs: no source certificate; output certificate required.
-    - materialization/decode refs: row materialization boundary and local sink boundary.
-    - policy/no-fallback refs: no external engine, no object-store/network I/O.
-  - Acceptance:
-    - Emits `input_dataset_count=0`, `source_io_performed=false`,
-      `generated_source_created=true`, `generated_source_kind=user_rows`,
-      `generated_source_schema_digest`, `generated_source_row_count`,
-      `generated_source_plan_digest`, `generation_deterministic=true`, `output_io_performed=true`,
-      `output_native_io_certificate_status`, `generated_source_certificate_status=present`,
-      `fallback_attempted=false`, and `external_engine_invoked=false`.
-    - Local output is written through an evidence-backed sink.
-    - SQL/DataFrame runtime is not implied.
-  - Verification:
-    - focused Rust/Python fixture tests.
-    - output certificate snapshot tests.
-    - Python compileall.
-    - `git diff --check`
-  - Non-goals:
-    - No S3/object-store write, Foundry write, SQL execution, DataFrame expression execution,
-      performance claim, or broad output sink support.
-  - Claim boundary:
-    - May claim one scoped local user-row generated-output smoke only after evidence lands.
-  - Fallback boundary:
-    - No external engine, object-store, network, or hidden pandas/Polars/DuckDB/DataFusion/Spark
-      execution.
-  - Dependencies/blockers:
-    - GAR-GEN-1A, local output sink certificate support, Python wrapper API decision.
 - [ ] GAR-GEN-1D engine-native generated source local-output runtime slice
   - Source: GAR-GEN-1A; RFC 0021; RFC 0026; RFC 0032; RFC 0033.
   - Current state:
+    - GAR-GEN-1C supports one scoped local user-row JSONL smoke through
+      `generated-source-user-rows-smoke` and Python `ctx.from_rows([...]).write(...)`.
     - Engine-native generator nodes for `range`, `sequence`, `values`, `literal_table`, calendar/date
       dimensions, and deterministic synthetic profiles are not runtime-supported.
   - Next slice outcome:

@@ -76,17 +76,23 @@ production, package-publication, or Spark-replacement claims.
 ## Source-Free Generated Reference Table
 
 - **User goal:** create a reference table without an input dataset.
-- **Status:** planned/blocked.
-- **Blocked explanation:** no-input smoke and the report-only `GeneratedSourceCertificate` contract
-  exist, but generated-output execution still needs deterministic generation evidence plus output
-  sink proof.
-- **Expected output:** current capability rows distinguish `no_dataset_smoke`,
-  `user_generated_source`, and `engine_native_generated_source`; future runtime rows must add
-  generated-source and output evidence.
+- **Status:** scoped local user-row JSONL smoke supported.
+- **Command:**
+  ```powershell
+  $env:PYTHONPATH = "python\src"
+  python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.claim_gate_status)"
+  ```
+- **Equivalent CLI:**
+  ```powershell
+  shardloom generated-source-user-rows-smoke target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --allow-overwrite --format json
+  ```
+- **Expected output:** local JSONL output plus a generated-source/output evidence envelope.
 - **Evidence fields:** `input_dataset_count=0`, `source_io_performed=false`,
   `generated_source_created=true`, `generated_source_certificate_status`,
   `output_native_io_certificate_status`.
-- **Claim boundary:** no current source-free runtime claim.
+- **Claim boundary:** one local user-row JSONL fixture smoke only; `ctx.range`,
+  `ctx.literal_table`, `ctx.calendar`, SQL `VALUES`/literals, object-store writes, and Foundry
+  generated-output runtime remain planned/blocked.
 - **References:** `docs/foundry/proof-of-use-certification.md`,
   `docs/architecture/compute-engine-flow-reference.md`.
 

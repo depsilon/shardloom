@@ -51,9 +51,11 @@ execution claim, or external compute pushdown claim.
 
 ## Generated-Output Boundary
 
-The existing `no_dataset_smoke_performed` field is status/proof smoke only. It does not mean
-ShardLoom generated rows, wrote an output dataset, emitted a `GeneratedSourceCertificate`, or proved a
-source-free generated-output runtime path.
+The existing `no_dataset_smoke_performed` field is status/proof smoke only. It does not mean a
+Foundry transform generated rows, wrote an output dataset, emitted a `GeneratedSourceCertificate`, or
+proved a Foundry source-free generated-output runtime path. GAR-GEN-1C adds a separate local
+user-row JSONL generated-output smoke outside Foundry; that local proof does not authorize Foundry
+runtime, Foundry package, or direct object-store claims.
 
 Future Foundry generated-output proof must stay separate from no-dataset smoke:
 
@@ -64,17 +66,17 @@ Future Foundry generated-output proof must stay separate from no-dataset smoke:
   - no output data claim
 - `user_generated_source`:
   - user Python code creates rows
-  - ShardLoom consumes rows as a generated/literal source only when deterministic generation evidence
-    exists
-  - output evidence is required before any generated-output claim
+  - ShardLoom consumes rows as a generated/literal source in the scoped local JSONL smoke when
+    deterministic generation evidence exists
+  - Foundry output evidence is still required before any Foundry generated-output claim
 - `engine_native_generated_source`:
   - ShardLoom executes generator nodes such as `range`, `sequence`, `values`, `literal_table`,
     calendar/date dimension, or deterministic synthetic profile
   - ShardLoom writes output and emits generated-source and output evidence
 
-Generated-output proof fields should align with the `GAR-GEN-1` contract. The current CLI/Python
-capability view exposes that report-only vocabulary as
-`shardloom.generated_source_certificate_contract.v1`; it is not runtime proof:
+Generated-output proof fields should align with the `GAR-GEN-1` contract. The CLI/Python capability
+view exposes that vocabulary as `shardloom.generated_source_certificate_contract.v1`; GAR-GEN-1C
+emits the fields only for a scoped local user-row JSONL smoke, not for Foundry:
 
 ```text
 input_dataset_count=0

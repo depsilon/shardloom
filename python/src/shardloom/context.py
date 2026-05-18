@@ -32,9 +32,11 @@ from .models import Diagnostic, OutputEnvelope
 from .query import (
     LazyFrame,
     UnsupportedWorkflowOperationReport,
+    GeneratedRowsSource,
     WorkflowSource,
     from_arrow_ipc,
     from_arrow_table,
+    from_rows,
     from_pandas,
     read_csv,
     read_json,
@@ -235,6 +237,7 @@ def _df_method(
     diagnostic_operation: str | None = None,
     blocker_id: str | None = None,
     required_evidence: Sequence[str] = (),
+    runtime_execution: bool = False,
     materialization_required: bool = False,
     write_io: bool = False,
     claim_boundary: str,
@@ -247,7 +250,7 @@ def _df_method(
         diagnostic_operation=diagnostic_operation,
         blocker_id=blocker_id,
         required_evidence=tuple(required_evidence),
-        runtime_execution=False,
+        runtime_execution=runtime_execution,
         data_read=False,
         write_io=write_io,
         materialization_required=materialization_required,
@@ -272,6 +275,11 @@ _MATERIALIZATION_BOUNDARY = (
 _WRITE_BOUNDARY = (
     "Write/export diagnostic only; no file write, sink commit, external engine, "
     "fallback, or production output claim."
+)
+_GENERATED_OUTPUT_BOUNDARY = (
+    "Scoped local user-row generated-output smoke only; writes local JSONL with generated-source "
+    "and output evidence, but no broad DataFrame runtime, SQL runtime, object-store/lakehouse, "
+    "Foundry, performance, or production claim."
 )
 
 DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
@@ -298,6 +306,19 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "source",
         "source_declaration_supported",
         claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "from_rows",
+        "source_free_generation",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
+        required_evidence=(
+            "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
+        ),
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
     ),
     _df_method(
         "filter",
@@ -1676,6 +1697,11 @@ class ShardLoomContext:
         """Declare a lazy Parquet compatibility source using this context's client."""
 
         return read_parquet(uri, schema=schema, client=self.client, engine_mode=self.engine)
+
+    def from_rows(self, rows: Sequence[Mapping[str, object]]) -> GeneratedRowsSource:
+        """Create a scoped source-free generated row set using this context's client."""
+
+        return from_rows(rows, client=self.client)
 
     def from_pandas(
         self,

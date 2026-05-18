@@ -36,7 +36,7 @@ const PLANNER_READINESS_FIELD_KEYS: [&str; 21] = [
     "planner_readiness_deterministic_diagnostics_present",
 ];
 
-const GENERATED_SOURCE_FIELD_KEYS: [&str; 27] = [
+const GENERATED_SOURCE_FIELD_KEYS: [&str; 28] = [
     "generated_source_contract_schema_version",
     "generated_source_contract_report_id",
     "generated_source_certificate_schema_version",
@@ -57,6 +57,7 @@ const GENERATED_SOURCE_FIELD_KEYS: [&str; 27] = [
     "no_dataset_smoke_claim_gate_status",
     "user_generated_source_support_status",
     "user_generated_source_blocker_id",
+    "user_generated_source_claim_gate_status",
     "engine_native_generated_source_support_status",
     "engine_native_generated_source_blocker_id",
     "input_dataset_count",
@@ -911,7 +912,15 @@ fn generated_source_capability_contract_separates_no_dataset_smoke() {
         assert!(output.contains(&field_pair("no_dataset_smoke_output_io_performed", false)));
         assert!(output.contains(&string_field_pair(
             "user_generated_source_support_status",
-            "report_only"
+            "fixture_smoke_supported"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "user_generated_source_blocker_id",
+            "none_scoped_local_jsonl_smoke_only"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "user_generated_source_claim_gate_status",
+            "fixture_smoke_only"
         )));
         assert!(output.contains(&string_field_pair(
             "engine_native_generated_source_support_status",
