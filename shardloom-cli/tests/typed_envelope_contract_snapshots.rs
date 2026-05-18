@@ -124,6 +124,31 @@ fn blocked_capability_fixture_routes_claim_blockers_into_typed_slots() {
 }
 
 #[test]
+fn api_surfaces_capability_fixture_routes_registry_into_typed_slots() {
+    let output = run_command(&["capabilities", "api-surfaces", "--format", "json"], true);
+
+    assert_common_typed_slots(&output, "capabilities", "success");
+    assert!(output.contains(&field("command_family", "status_capabilities")));
+    assert!(output.contains(&field("scope", "api_surfaces")));
+    assert!(output.contains(&field(
+        "wrapper_connector_registry_schema_version",
+        "shardloom.wrapper_connector_implementation_registry.v1"
+    )));
+    assert!(output.contains("\"artifact_kind\":\"api_surface_capability_report\""));
+    assert!(output.contains("\"artifact_id\":\"capabilities.api_surfaces\""));
+    assert!(output.contains("\"capability_snapshot\":{\"fields\":["));
+    assert!(output.contains(&field("wrapper_connector_registry_row_count", "26")));
+    assert!(output.contains(&field(
+        "wrapper_connector_registry_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
+        "false"
+    )));
+}
+
+#[test]
 fn certificate_surface_fixture_routes_certificate_plan_fields() {
     let output = run_command(&["execution-certificate-plan", "--format", "json"], true);
 

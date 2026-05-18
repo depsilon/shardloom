@@ -159,6 +159,42 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.lifecycle["fields"][0]["value"], "report_only")
         self.assertEqual(result.capability_snapshot["fields"][0]["value"], "status")
 
+    def test_typed_payload_fields_are_primary_field_map(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["status", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "status",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "result": {"fields": [{"key": "engine", "value": "typed-result"}]},
+                    "result_refs": [],
+                    "artifacts": [],
+                    "artifact_refs": [],
+                    "certificates": [],
+                    "policy": {"fields": [{"key": "fallback_execution_allowed", "value": "false"}]},
+                    "lifecycle": {"fields": [{"key": "phase", "value": "typed-lifecycle"}]},
+                    "capability_snapshot": {"fields": [{"key": "scope", "value": "typed-capability"}]},
+                    "fields": [{"key": "engine", "value": "legacy-result"}],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).status()
+
+        self.assertEqual(result.legacy_field_map["engine"], "legacy-result")
+        self.assertEqual(result.field_map["engine"], "typed-result")
+        self.assertEqual(result.field_map["fallback_execution_allowed"], "false")
+        self.assertEqual(result.field_map["phase"], "typed-lifecycle")
+        self.assertEqual(result.field_map["scope"], "typed-capability")
+
     def test_optimizer_plan_typed_view_preserves_report_only_boundaries(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
