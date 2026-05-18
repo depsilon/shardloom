@@ -943,24 +943,20 @@ fn range_row_count(start: i64, end: i64, step: i64) -> Result<usize, ShardLoomEr
     if (step > 0 && start >= end) || (step < 0 && start <= end) {
         return Ok(0);
     }
-    let mut current = start;
-    let mut count = 0_usize;
-    while (step > 0 && current < end) || (step < 0 && current > end) {
-        count = count.checked_add(1).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "generated-source range row count overflowed".to_string(),
-            )
-        })?;
-        if count > MAX_GENERATED_RANGE_ROWS {
-            return Ok(count);
-        }
-        current = current.checked_add(step).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "generated-source range step overflows int64 before reaching end".to_string(),
-            )
-        })?;
-    }
-    Ok(count)
+    let distance = if step > 0 {
+        i128::from(end) - i128::from(start)
+    } else {
+        i128::from(start) - i128::from(end)
+    };
+    let stride = if step > 0 {
+        i128::from(step)
+    } else {
+        -i128::from(step)
+    };
+    let count = (distance + stride - 1) / stride;
+    usize::try_from(count).map_err(|_| {
+        ShardLoomError::InvalidOperation("generated-source range row count overflowed".to_string())
+    })
 }
 
 fn generated_range_rows(
@@ -976,17 +972,52 @@ fn generated_range_rows(
     }
     let mut rows = Vec::with_capacity(row_count);
     let mut current = start;
-    while (step > 0 && current < end) || (step < 0 && current > end) {
+    for index in 0..row_count {
         rows.push(GeneratedRow {
             values: vec![current.to_string()],
         });
-        current = current.checked_add(step).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "generated-source range step overflows int64 before reaching end".to_string(),
-            )
-        })?;
+        if index + 1 < row_count {
+            current = current.checked_add(step).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "generated-source range step overflows int64 before reaching end".to_string(),
+                )
+            })?;
+        }
     }
     Ok(rows)
+}
+
+fn local_path_from_file_uri(rest: &str) -> Result<String, ShardLoomError> {
+    if rest.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "file:// generated-source output path must include a local path".to_string(),
+        ));
+    }
+    let local = if rest.starts_with('/') {
+        rest.to_string()
+    } else {
+        let Some((authority, path)) = rest.split_once('/') else {
+            return Err(ShardLoomError::InvalidOperation(
+                "file:// generated-source output path must include a local path".to_string(),
+            ));
+        };
+        if !authority.is_empty() && !authority.eq_ignore_ascii_case("localhost") {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "file:// generated-source output URI authority {authority:?} is not local; only empty authority or localhost is allowed"
+            )));
+        }
+        format!("/{path}")
+    };
+    if cfg!(windows)
+        && local.len() >= 3
+        && local.as_bytes()[0] == b'/'
+        && local.as_bytes()[2] == b':'
+        && local.as_bytes()[1].is_ascii_alphabetic()
+    {
+        Ok(local[1..].to_string())
+    } else {
+        Ok(local)
+    }
 }
 
 fn normalize_local_output_path(value: &str) -> Result<PathBuf, ShardLoomError> {
@@ -1001,13 +1032,17 @@ fn normalize_local_output_path(value: &str) -> Result<PathBuf, ShardLoomError> {
             "scoped generated-source smokes support local file output only; object-store and remote URI writes remain blocked".to_string(),
         ));
     }
-    let local = trimmed.strip_prefix("file://").unwrap_or(trimmed);
+    let local = if let Some(rest) = trimmed.strip_prefix("file://") {
+        local_path_from_file_uri(rest)?
+    } else {
+        trimmed.to_string()
+    };
     if local.trim().is_empty() {
         return Err(ShardLoomError::InvalidOperation(
             "file:// generated-source output path must include a local path".to_string(),
         ));
     }
-    Ok(Path::new(local).to_path_buf())
+    Ok(Path::new(&local).to_path_buf())
 }
 
 fn parse_schema(raw: &str) -> Result<Vec<GeneratedColumn>, ShardLoomError> {
@@ -1261,4 +1296,35 @@ fn fnv64_digest(value: &str) -> String {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     format!("fnv64:{hash:016x}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{generated_range_rows, normalize_local_output_path, range_row_count};
+
+    #[test]
+    fn range_row_count_does_not_step_past_final_boundary_row() {
+        let count = range_row_count(i64::MAX - 1, i64::MAX, 1).expect("range count");
+        assert_eq!(count, 1);
+        let rows = generated_range_rows(i64::MAX - 1, i64::MAX, 1).expect("range rows");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].values[0], (i64::MAX - 1).to_string());
+    }
+
+    #[test]
+    fn generated_source_file_uri_rejects_remote_authority() {
+        let error = normalize_local_output_path("file://example.com/tmp/out.jsonl")
+            .expect_err("remote file authority must be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("only empty authority or localhost is allowed")
+        );
+    }
+
+    #[test]
+    fn generated_source_file_uri_allows_empty_authority_or_localhost() {
+        assert!(normalize_local_output_path("file:///tmp/out.jsonl").is_ok());
+        assert!(normalize_local_output_path("file://localhost/tmp/out.jsonl").is_ok());
+    }
 }

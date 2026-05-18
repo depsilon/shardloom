@@ -147,7 +147,7 @@ def validate_manifest(manifest: dict[str, Any] | None) -> list[str]:
             file_components = [
                 row.get("component_id")
                 for row in layout_files
-                if isinstance(row, dict) and row.get("component_id") != "redaction_report"
+                if isinstance(row, dict)
             ]
             for component_id in EXPECTED_COMPONENT_IDS:
                 if component_id not in file_components:

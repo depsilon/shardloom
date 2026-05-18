@@ -87,14 +87,21 @@ def as_non_empty_list(value: Any, label: str, blockers: list[str]) -> list[Any]:
 
 
 def parse_use_case_ids(path: Path) -> set[str]:
-    ids: set[str] = set()
     if not path.exists():
-        return ids
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if stripped.startswith("- id:"):
-            ids.add(stripped.split(":", 1)[1].strip())
-    return ids
+        return set()
+    # Use the canonical index loader when available so capability-family IDs do
+    # not get mistaken for use-case IDs by a generic "- id:" text scan.
+    try:
+        from check_use_case_index import load_index
+
+        data = load_index(path)
+    except Exception:
+        return set()
+    return {
+        str(row.get("id"))
+        for row in data.get("use_cases", [])
+        if isinstance(row, dict) and row.get("id")
+    }
 
 
 def validate_index(data: dict[str, Any], repo_root: Path) -> list[str]:
@@ -128,6 +135,8 @@ def validate_index(data: dict[str, Any], repo_root: Path) -> list[str]:
         recipe_ids.add(recipe_id)
 
         status = recipe.get("status")
+        if status not in SUPPORTED_STATUSES | EXPLANATION_STATUSES:
+            blockers.append(f"{recipe_id}: unsupported status {status!r}")
         if status in SUPPORTED_STATUSES and not str(recipe.get("command", "")).strip():
             blockers.append(f"{recipe_id}: supported/smoke recipe requires command")
         if status in EXPLANATION_STATUSES and not str(recipe.get("blocked_explanation", "")).strip():

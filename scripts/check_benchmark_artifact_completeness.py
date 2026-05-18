@@ -80,8 +80,16 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
         if engine.startswith("shardloom"):
             if "fallback_attempted" not in row:
                 blockers.append(f"ShardLoom row {index} is missing fallback_attempted")
+            elif row.get("fallback_attempted") is not False:
+                blockers.append(
+                    f"ShardLoom row {index} must set fallback_attempted=false"
+                )
             if "external_engine_invoked" not in row:
                 blockers.append(f"ShardLoom row {index} is missing external_engine_invoked")
+            elif row.get("external_engine_invoked") is not False:
+                blockers.append(
+                    f"ShardLoom row {index} must set external_engine_invoked=false"
+                )
         elif engine:
             if row.get("external_baseline_only") is not True and row.get("row_classification") != "external_baseline_only":
                 blockers.append(

@@ -543,7 +543,8 @@ def render_public_status_scorecard_section(use_cases: list[dict[str, Any]]) -> s
                 "answer": row.get("claim_boundary"),
                 "evidence": (
                     f"{row.get('claim_gate_status')}; "
-                    "fallback_attempted=false; external_engine_invoked=false"
+                    f"fallback_attempted={row.get('fallback_attempted', False)}; "
+                    f"external_engine_invoked={row.get('external_engine_invoked', False)}"
                 ),
                 "reference": "docs/architecture/universal-compatibility-coverage-scoreboard.json",
             }
@@ -557,9 +558,18 @@ def render_public_status_scorecard_section(use_cases: list[dict[str, Any]]) -> s
         {
             "label": "Public package channels",
             "family": "release_distribution",
-            "status": "blocked",
-            "answer": "Public package channels remain blocked until channel-specific install, uninstall, smoke, SBOM/checksum/provenance, and rollback evidence exists.",
-            "evidence": f"{len(ready_channels)} ready channels; public_package_release_claim_allowed=false",
+            "status": "runtime-supported" if package_matrix.get("status") == "ready" else "blocked",
+            "answer": (
+                "Public package channels have channel-specific install, uninstall, smoke, "
+                "SBOM/checksum/provenance, and rollback evidence."
+                if package_matrix.get("status") == "ready"
+                else "Public package channels remain blocked until channel-specific install, uninstall, smoke, SBOM/checksum/provenance, and rollback evidence exists."
+            ),
+            "evidence": (
+                f"{len(ready_channels)} ready channels; "
+                "public_package_release_claim_allowed="
+                f"{str(package_matrix.get('public_package_release_claim_allowed', False)).lower()}"
+            ),
             "reference": "docs/release/package-channel-readiness-matrix.json",
         }
     )
@@ -1430,14 +1440,20 @@ def field_guide_values(values: Any) -> list[str]:
 
 def normalize_field_guide_entry(entry: dict[str, Any]) -> dict[str, Any]:
     evidence_fields = field_guide_values(entry.get("evidence_fields"))
+    if not evidence_fields:
+        evidence_fields = field_guide_values(entry.get("evidence"))
     related_terms = field_guide_values(entry.get("related_terms"))
+    if not related_terms:
+        related_terms = field_guide_values(entry.get("related"))
     related_use_cases = field_guide_values(entry.get("related_use_cases"))
     reference_files = field_guide_values(entry.get("reference_files"))
-    status = str(entry["status"])
+    if not reference_files:
+        reference_files = field_guide_values(entry.get("sources"))
+    status = str(entry.get("status") or "report_only")
     title = str(entry["title"])
-    category = str(entry["category"])
-    summary = str(entry["summary"])
-    claim_boundary = str(entry["claim_boundary"])
+    category = str(entry.get("category") or "Evidence And Claims")
+    summary = str(entry.get("summary") or entry.get("answer") or title)
+    claim_boundary = str(entry.get("claim_boundary") or entry.get("boundary") or summary)
     evidence_sample = ", ".join(evidence_fields[:4]) if evidence_fields else "its evidence fields"
     return {
         "slug": str(entry["slug"]),
@@ -1495,7 +1511,7 @@ def normalize_field_guide_entry(entry: dict[str, Any]) -> dict[str, Any]:
 
 def load_field_guide_concepts() -> list[dict[str, Any]]:
     if not FIELD_GUIDE_INDEX_PATH.exists():
-        return FALLBACK_FIELD_GUIDE_CONCEPTS
+        return [normalize_field_guide_entry(entry) for entry in FALLBACK_FIELD_GUIDE_CONCEPTS]
     data = load_json_file(FIELD_GUIDE_INDEX_PATH)
     if data.get("schema_version") != "shardloom.field_guide_index.v1":
         raise ValueError(f"Unsupported Field Guide index schema: {data.get('schema_version')}")
@@ -2504,10 +2520,15 @@ def rounded(value: Any) -> Any:
 
 
 def micros_field_to_millis(fields: dict[str, str], key: str) -> float:
+    value = fields.get(key)
+    if value in (None, ""):
+        raise ValueError(f"benchmark batch artifact missing timing field {key}")
     try:
-        return round(float(fields.get(key, "0")) / 1000.0, 4)
-    except (TypeError, ValueError):
-        return 0.0
+        return round(float(value) / 1000.0, 4)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"benchmark batch artifact field {key} must be numeric microseconds, got {value!r}"
+        ) from exc
 
 
 def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
@@ -2805,6 +2826,9 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                 "source_state_coverage_matrix_ref": fields.get(
                     "source_state_coverage_matrix_ref"
                 ),
+                "source_state_coverage_status_vocabulary": fields.get(
+                    "source_state_coverage_status_vocabulary"
+                ),
                 "source_state_coverage_all_requested_scenarios_classified": fields.get(
                     "source_state_coverage_all_requested_scenarios_classified"
                 ),
@@ -2820,7 +2844,11 @@ def benchmark_summary(benchmark_dir: Path) -> dict[str, Any]:
                 "source_state_coverage_blocked_scenario_count": fields.get(
                     "source_state_coverage_blocked_scenario_count"
                 ),
+                "source_state_coverage_unsupported_scenario_count": fields.get(
+                    "source_state_coverage_unsupported_scenario_count"
+                ),
                 "source_state_digest_status": fields.get("source_state_digest_status"),
+                "source_state_digest_reason": fields.get("source_state_digest_reason"),
                 "source_state_reused": fields.get("source_state_reused"),
                 "source_state_family_count": fields.get("source_state_family_count"),
                 "source_state_reuse_consumer_count": fields.get(
