@@ -31,18 +31,36 @@ ENGINE_ORDER = (
     "shardloom",
     "shardloom-vortex",
     "pandas",
-    "polars",
+    "polars-eager",
+    "polars-lazy",
     "duckdb",
     "spark-default",
     "spark-local-tuned",
     "datafusion",
     "dask",
 )
+EXTENDED_OPTIONAL_ENGINE_ORDER = (
+    "pyarrow-dataset",
+    "pyarrow-acero",
+    "clickhouse-local",
+    "daft",
+    "ray-data",
+    "ibis-duckdb",
+    "ibis-datafusion",
+    "ibis-polars",
+    "cudf-gpu",
+)
 ENGINE_CHOICES = ENGINE_ORDER + (
     "shardloom-prepared-vortex",
     "shardloom-direct-transient",
-)
-ENGINE_ALIASES = {"spark": ("spark-default", "spark-local-tuned")}
+) + EXTENDED_OPTIONAL_ENGINE_ORDER
+ENGINE_ALIASES = {
+    "spark": ("spark-default", "spark-local-tuned"),
+    "polars": ("polars-eager", "polars-lazy"),
+    "native-vortex": ("shardloom-vortex",),
+    "extended-local": EXTENDED_OPTIONAL_ENGINE_ORDER[:-1],
+    "gpu-optional": ("cudf-gpu",),
+}
 BENCHMARK_SUITE = "local_analytics"
 SHARDLOOM_EXECUTION_MODE_VOCABULARY = (
     "auto",
@@ -919,7 +937,8 @@ CLAIM_READINESS_RERUN_ENGINES = (
     "shardloom",
     "shardloom-vortex",
     "pandas",
-    "polars",
+    "polars-eager",
+    "polars-lazy",
     "duckdb",
     "datafusion",
 )
@@ -1160,7 +1179,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--engines",
         default=",".join(ENGINE_ORDER),
-        help="Comma-separated engines: shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-direct-transient,pandas,polars,duckdb,spark-default,spark-local-tuned,datafusion,dask. Alias: spark expands to both Spark profiles.",
+        help=(
+            "Comma-separated engines: shardloom,shardloom-vortex,"
+            "shardloom-prepared-vortex,shardloom-direct-transient,pandas,"
+            "polars-eager,polars-lazy,duckdb,spark-default,spark-local-tuned,"
+            "datafusion,dask, plus optional extended lanes pyarrow-dataset,"
+            "pyarrow-acero,clickhouse-local,daft,ray-data,ibis-duckdb,"
+            "ibis-datafusion,ibis-polars,cudf-gpu. Aliases: polars expands to "
+            "polars-eager and polars-lazy; spark expands to both Spark profiles; "
+            "extended-local expands to CPU optional extended lanes."
+        ),
     )
     parser.add_argument(
         "--formats",
@@ -3822,7 +3850,7 @@ def pandas_runner() -> EngineRunner:
     )
 
 
-def polars_runner() -> EngineRunner:
+def polars_eager_runner() -> EngineRunner:
     import polars as pl  # type: ignore
 
     def read_fact(paths: DatasetPaths, data_format: str) -> Any:
@@ -4003,7 +4031,7 @@ def polars_runner() -> EngineRunner:
         return normalize_complex_etl_rows(rows)
 
     return EngineRunner(
-        "polars",
+        "polars-eager",
         module_version("polars"),
         {
             "csv/file ingest": ingest,
@@ -4022,6 +4050,185 @@ def polars_runner() -> EngineRunner:
         },
         formats=("csv", "jsonl", "parquet", "arrow-ipc", "avro"),
     )
+
+
+def polars_lazy_runner() -> EngineRunner:
+    import polars as pl  # type: ignore
+
+    def scan_fact(paths: DatasetPaths, data_format: str) -> Any:
+        path = fact_path(paths, data_format)
+        if data_format == "parquet":
+            return pl.scan_parquet(path)
+        if data_format == "jsonl":
+            return pl.scan_ndjson(path)
+        if data_format == "csv":
+            return pl.scan_csv(path)
+        raise BenchmarkUnsupported(f"polars-lazy does not support {data_format} in this harness")
+
+    def scan_dim(paths: DatasetPaths, data_format: str) -> Any:
+        path = dim_path(paths, data_format)
+        if data_format == "parquet":
+            return pl.scan_parquet(path)
+        if data_format == "jsonl":
+            return pl.scan_ndjson(path)
+        if data_format == "csv":
+            return pl.scan_csv(path)
+        raise BenchmarkUnsupported(f"polars-lazy does not support {data_format} in this harness")
+
+    def collect_one(query: Any) -> dict[str, Any]:
+        rows = query.collect().to_dicts()
+        if not rows:
+            return {"row_count": 0, "metric_sum": 0.0}
+        return rows[0]
+
+    def scalar_from_lazy(query: Any, metric_column: str = "metric_sum") -> Any:
+        row = collect_one(query)
+        return normalize_scalar_result(row["row_count"], row[metric_column])
+
+    def ingest(paths: DatasetPaths, data_format: str) -> Any:
+        return scalar_from_lazy(
+            scan_fact(paths, data_format).select(
+                pl.len().alias("row_count"),
+                pl.col("metric").sum().alias("metric_sum"),
+            )
+        )
+
+    def selective_filter(paths: DatasetPaths, data_format: str) -> Any:
+        return scalar_from_lazy(
+            scan_fact(paths, data_format)
+            .filter((pl.col("flag") == 1) & (pl.col("value") >= 5000))
+            .select(
+                pl.len().alias("row_count"),
+                pl.col("metric").sum().alias("metric_sum"),
+            )
+        )
+
+    def group_by(paths: DatasetPaths, data_format: str) -> Any:
+        rows = (
+            scan_fact(paths, data_format)
+            .group_by("group_key")
+            .agg(
+                [
+                    pl.len().alias("row_count"),
+                    pl.col("metric").sum().alias("metric_sum"),
+                ]
+            )
+            .collect()
+            .to_dicts()
+        )
+        return normalize_group_rows(rows, "group_key")
+
+    def top_k(paths: DatasetPaths, data_format: str) -> Any:
+        rows = (
+            scan_fact(paths, data_format)
+            .sort(["metric", "id"], descending=[True, False])
+            .head(10)
+            .select(["id", "metric"])
+            .collect()
+            .to_dicts()
+        )
+        return normalize_top_rows(rows)
+
+    def hash_join(paths: DatasetPaths, data_format: str) -> Any:
+        rows = (
+            scan_fact(paths, data_format)
+            .join(scan_dim(paths, data_format), on="dim_key", how="inner")
+            .group_by("dim_label")
+            .agg(
+                [
+                    pl.len().alias("row_count"),
+                    pl.col("metric").sum().alias("metric_sum"),
+                ]
+            )
+            .collect()
+            .to_dicts()
+        )
+        return normalize_group_rows(rows, "dim_label")
+
+    def wide_projection(paths: DatasetPaths, data_format: str) -> Any:
+        return scalar_from_lazy(
+            scan_fact(paths, data_format)
+            .select(["id", "group_key", "category"])
+            .select(
+                pl.len().alias("row_count"),
+                pl.col("group_key").sum().alias("metric_sum"),
+            )
+        )
+
+    def distinct_count(paths: DatasetPaths, data_format: str) -> Any:
+        row = collect_one(
+            scan_fact(paths, data_format).select(
+                pl.col("category").n_unique().alias("distinct_category_count")
+            )
+        )
+        return {"distinct_category_count": int(row["distinct_category_count"])}
+
+    def filter_projection_limit(paths: DatasetPaths, data_format: str) -> Any:
+        return scalar_from_lazy(
+            scan_fact(paths, data_format)
+            .filter((pl.col("flag") == 1) & (pl.col("value") >= 5000))
+            .select(["id", "value", "category"])
+            .sort("id")
+            .head(100)
+            .select(
+                pl.len().alias("row_count"),
+                pl.col("value").sum().alias("metric_sum"),
+            )
+        )
+
+    def multi_key_group_by(paths: DatasetPaths, data_format: str) -> Any:
+        rows = (
+            scan_fact(paths, data_format)
+            .group_by(["group_key", "category"])
+            .agg(
+                [
+                    pl.len().alias("row_count"),
+                    pl.col("metric").sum().alias("metric_sum"),
+                ]
+            )
+            .collect()
+            .to_dicts()
+        )
+        return normalize_multi_group_rows(rows, ("group_key", "category"))
+
+    def join_aggregate(paths: DatasetPaths, data_format: str) -> Any:
+        rows = (
+            scan_fact(paths, data_format)
+            .filter(pl.col("value") >= 2500)
+            .join(scan_dim(paths, data_format), on="dim_key", how="inner")
+            .group_by(["dim_label", "category"])
+            .agg(
+                [
+                    pl.len().alias("row_count"),
+                    pl.col("metric").sum().alias("metric_sum"),
+                ]
+            )
+            .collect()
+            .to_dicts()
+        )
+        return normalize_multi_group_rows(rows, ("dim_label", "category"))
+
+    return EngineRunner(
+        "polars-lazy",
+        f"{module_version('polars')} (lazy scan API)",
+        {
+            "csv/file ingest": ingest,
+            "selective filter": selective_filter,
+            "group by aggregation": group_by,
+            "sort and top-k": top_k,
+            "hash join": hash_join,
+            "wide projection": wide_projection,
+            "distinct count": distinct_count,
+            "filter + projection + limit": filter_projection_limit,
+            "multi-key group by": multi_key_group_by,
+            "join + aggregate": join_aggregate,
+        },
+        formats=("csv", "jsonl", "parquet"),
+    )
+
+
+def polars_runner() -> EngineRunner:
+    return polars_eager_runner()
 
 
 def duckdb_runner() -> EngineRunner:
@@ -4763,18 +4970,131 @@ def dask_runner() -> EngineRunner:
     )
 
 
+def optional_external_report_only_runner(
+    name: str,
+    *,
+    module_name: str | None = None,
+    version_module_name: str | None = None,
+    executable_name: str | None = None,
+    requires_gpu: bool = False,
+    adapter_backend: str | None = None,
+) -> EngineRunner:
+    version_parts: list[str] = []
+    if module_name is not None:
+        importlib.import_module(module_name)
+        version_parts.append(module_version(version_module_name or module_name))
+    if executable_name is not None:
+        executable = shutil.which(executable_name)
+        if executable is None:
+            raise BenchmarkUnsupported(f"{executable_name} executable not found on PATH")
+        version_parts.append(f"{executable_name}={executable}")
+    if requires_gpu and not (
+        os.environ.get("CUDA_VISIBLE_DEVICES") or shutil.which("nvidia-smi")
+    ):
+        raise BenchmarkUnsupported("GPU optional lane requires CUDA_VISIBLE_DEVICES or nvidia-smi")
+    backend_note = f"; adapter_backend={adapter_backend}" if adapter_backend is not None else ""
+    reason = (
+        f"{name} is registered as an extended external baseline lane, but this harness "
+        "does not yet implement scenario execution for it. The deterministic row is "
+        "external_baseline_only context, not a ShardLoom fallback or performance claim"
+        f"{backend_note}."
+    )
+
+    def unsupported(_paths: DatasetPaths, _data_format: str) -> Any:
+        raise BenchmarkUnsupported(reason)
+
+    return EngineRunner(
+        name,
+        "; ".join(version_parts) if version_parts else "registered_report_only",
+        {scenario: unsupported for scenario in EXECUTABLE_SCENARIO_ORDER},
+        formats=FORMAT_ORDER,
+    )
+
+
+def pyarrow_dataset_runner() -> EngineRunner:
+    return optional_external_report_only_runner(
+        "pyarrow-dataset",
+        module_name="pyarrow.dataset",
+        version_module_name="pyarrow",
+    )
+
+
+def pyarrow_acero_runner() -> EngineRunner:
+    return optional_external_report_only_runner(
+        "pyarrow-acero",
+        module_name="pyarrow",
+    )
+
+
+def clickhouse_local_runner() -> EngineRunner:
+    return optional_external_report_only_runner(
+        "clickhouse-local",
+        executable_name="clickhouse-local",
+    )
+
+
+def daft_runner() -> EngineRunner:
+    return optional_external_report_only_runner("daft", module_name="daft")
+
+
+def ray_data_runner() -> EngineRunner:
+    return optional_external_report_only_runner("ray-data", module_name="ray")
+
+
+def ibis_duckdb_runner() -> EngineRunner:
+    return optional_external_report_only_runner(
+        "ibis-duckdb",
+        module_name="ibis",
+        adapter_backend="duckdb",
+    )
+
+
+def ibis_datafusion_runner() -> EngineRunner:
+    return optional_external_report_only_runner(
+        "ibis-datafusion",
+        module_name="ibis",
+        adapter_backend="datafusion",
+    )
+
+
+def ibis_polars_runner() -> EngineRunner:
+    return optional_external_report_only_runner(
+        "ibis-polars",
+        module_name="ibis",
+        adapter_backend="polars",
+    )
+
+
+def cudf_gpu_runner() -> EngineRunner:
+    return optional_external_report_only_runner(
+        "cudf-gpu",
+        module_name="cudf",
+        requires_gpu=True,
+    )
+
+
 ENGINE_FACTORIES: dict[str, Callable[[], EngineRunner]] = {
     "shardloom": shardloom_runner,
     "shardloom-vortex": shardloom_vortex_runner,
     "shardloom-prepared-vortex": shardloom_prepared_vortex_runner,
     "shardloom-direct-transient": shardloom_direct_transient_runner,
     "pandas": pandas_runner,
-    "polars": polars_runner,
+    "polars-eager": polars_eager_runner,
+    "polars-lazy": polars_lazy_runner,
     "duckdb": duckdb_runner,
     "spark-default": spark_default_runner,
     "spark-local-tuned": spark_local_tuned_runner,
     "datafusion": datafusion_runner,
     "dask": dask_runner,
+    "pyarrow-dataset": pyarrow_dataset_runner,
+    "pyarrow-acero": pyarrow_acero_runner,
+    "clickhouse-local": clickhouse_local_runner,
+    "daft": daft_runner,
+    "ray-data": ray_data_runner,
+    "ibis-duckdb": ibis_duckdb_runner,
+    "ibis-datafusion": ibis_datafusion_runner,
+    "ibis-polars": ibis_polars_runner,
+    "cudf-gpu": cudf_gpu_runner,
 }
 
 
@@ -8113,6 +8433,34 @@ def failed_result(
         "fused_pipeline_claim_boundary": "not_executed",
         "fused_pipeline_fallback_attempted": False,
         "fused_pipeline_external_engine_invoked": False,
+        "compressed_kernel_registry_schema_version": "not_executed",
+        "compressed_kernel_registry_scope": "not_executed",
+        "compressed_kernel_registry_current_surface": "not_executed",
+        "compressed_kernel_registry_vortex_first_decision": "not_executed",
+        "compressed_kernel_registry_initial_pair_count": 0,
+        "compressed_kernel_registry_pairs_classified": False,
+        "compressed_kernel_registry_pair_ids": "none",
+        "compressed_kernel_registry_pair_statuses": "not_executed",
+        "compressed_kernel_registry_encoding_ids": "none",
+        "compressed_kernel_registry_logical_dtypes": "none",
+        "compressed_kernel_registry_physical_encodings": "none",
+        "compressed_kernel_registry_operator_families": "none",
+        "compressed_kernel_registry_kernel_admitted": "none",
+        "compressed_kernel_registry_kernel_executed": "none",
+        "compressed_kernel_registry_canonicalization_required": "none",
+        "compressed_kernel_registry_decoded": "none",
+        "compressed_kernel_registry_materialized": "none",
+        "compressed_kernel_registry_selection_vector_emitted": "none",
+        "compressed_kernel_registry_validity_semantics": "none",
+        "compressed_kernel_registry_unsupported_kernel_reasons": "not_executed",
+        "compressed_kernel_registry_encoded_native_claim_allowed": False,
+        "compressed_kernel_registry_admitted_pair_count": 0,
+        "compressed_kernel_registry_executed_pair_count": 0,
+        "compressed_kernel_registry_blocked_pair_count": 0,
+        "compressed_kernel_registry_not_available_pair_count": 0,
+        "compressed_kernel_registry_claim_gate_status": "not_executed",
+        "compressed_kernel_registry_fallback_attempted": False,
+        "compressed_kernel_registry_external_engine_invoked": False,
         "scan_pushdown_schema_version": "not_executed",
         "scan_pushdown_status": "not_executed",
         "scan_filter_pushed_down": False,

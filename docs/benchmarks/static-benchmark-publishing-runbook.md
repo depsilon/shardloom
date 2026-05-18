@@ -47,16 +47,18 @@ python benchmarks\traditional_analytics\run.py `
   --rows 100000 `
   --iterations 3 `
   --include-taxonomy-extra `
-  --engines shardloom,shardloom-prepared-vortex,shardloom-vortex,pandas,polars,duckdb,datafusion,dask `
+  --engines shardloom,shardloom-prepared-vortex,shardloom-vortex,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask `
   --formats csv,parquet `
   --require-all-engines `
   --output target\benchmark-artifacts\traditional-full-local.json
 ```
 
-The command above uses the current collapsed `polars` harness lane. `GAR-BENCH-PUB-1D` tracks the
-remaining adapter work to emit separate `polars-eager` and `polars-lazy` rows plus extended optional
-lanes. Until those rows exist, a full-local artifact must stay incomplete or use deterministic
-unavailable-row diagnostics for the missing split lanes.
+The legacy `polars` CLI alias expands to `polars-eager` and `polars-lazy`, but full-local publishing
+commands should name the split lanes explicitly so the manifest and raw rows remain easy to audit.
+Optional extended lanes such as `pyarrow-dataset`, `pyarrow-acero`, `clickhouse-local`, `daft`,
+`ray-data`, `ibis-*`, and `cudf-gpu` are selected only by extended/GPU profiles or explicit
+`--engines` requests. Missing optional dependencies and unimplemented adapters must remain visible
+as deterministic unavailable or unsupported rows.
 
 Prepare website artifacts from a committed manifest:
 

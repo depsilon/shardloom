@@ -750,12 +750,15 @@ Local optional baselines are plugin contracts, not runtime dependencies:
 
 ```text
 pandas
-Polars
+Polars eager
+Polars lazy
 DuckDB
 DataFusion
 Dask
 local Spark default
 local Spark tuned
+pyarrow dataset / Acero, clickhouse-local, Daft, Ray Data, Ibis adapters, and cuDF GPU as explicit
+extended/GPU optional lanes
 Vortex + DataFusion integration
 Vortex + DuckDB integration
 ```
@@ -807,14 +810,14 @@ and no-fallback evidence. Rows without that evidence must remain `fixture_smoke_
 Suggested first local smoke:
 
 ```powershell
-python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,pandas,polars,duckdb,datafusion --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
+python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,pandas,polars-eager,polars-lazy,duckdb,datafusion --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
 ```
 
 Then run profile-specific checks:
 
 ```powershell
-python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars,duckdb --formats csv --scenario "top-N per group" --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
-python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars,duckdb --formats csv --scenario "high-cardinality string group/distinct" --dataset-profile high_cardinality_strings --rows 100000 --iterations 3
+python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars-eager,polars-lazy,duckdb --formats csv --scenario "top-N per group" --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
+python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars-eager,polars-lazy,duckdb --formats csv --scenario "high-cardinality string group/distinct" --dataset-profile high_cardinality_strings --rows 100000 --iterations 3
 ```
 
 For scenarios ShardLoom does not support yet, expected evidence is an unsupported or blocked row,

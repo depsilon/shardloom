@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-BENCH-PUB-1D competitor-lane expansion
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/benchmarks/static-benchmark-publishing-runbook.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: close the remaining GAR-BENCH-PUB-1D adapter/visibility gap by splitting the legacy
+    Polars baseline into first-class `polars-eager` and `polars-lazy` lanes, registering optional
+    extended lanes in the executable harness, and ensuring unavailable or not-yet-implemented
+    extended baselines produce deterministic external-baseline rows instead of silently disappearing.
+  - Checklist:
+    - [x] Add first-class `polars-eager` and `polars-lazy` benchmark engines.
+    - [x] Keep the legacy `polars` CLI alias as an audit-friendly expansion to both split lanes.
+    - [x] Add optional extended engine names for `pyarrow-dataset`, `pyarrow-acero`,
+          `clickhouse-local`, `daft`, `ray-data`, `ibis-duckdb`, `ibis-datafusion`,
+          `ibis-polars`, and `cudf-gpu`.
+    - [x] Make optional extended lanes emit deterministic missing-dependency or unsupported
+          external-baseline rows with version/backend/hardware context where available.
+    - [x] Preserve the benchmark registry/profile matrix, static manifest workflow, and
+          `performance_claim_allowed=false` posture.
+    - [x] Update runbook and benchmark docs so full-local publishing names the split Polars lanes
+          explicitly.
+  - Evidence/verification:
+    - `python -m compileall -q benchmarks/traditional_analytics scripts`
+    - `python scripts/check_benchmark_environment.py --profile extended_local --allow-missing-required --json-output target/codex-gar-bench-pub-1d-extended-env.json`
+    - `python benchmarks/traditional_analytics/run.py --engines polars-eager,polars-lazy,pyarrow-dataset --formats csv --scenario "selective filter" --rows 20 --dim-rows 5 --iterations 1 --regenerate --skip-shardloom-native --no-markdown --output target/codex-gar-bench-pub-1d-lane-smoke.json`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+  - Claim boundary:
+    - External engines remain baseline context only. Split Polars lanes and extended optional lanes
+      do not create performance, superiority, Spark-displacement, production SQL/DataFrame,
+      object-store/lakehouse, Foundry, package, GPU, or full-local claim-grade evidence.
+  - Fallback boundary:
+    - External lanes never execute ShardLoom work as fallback. ShardLoom no-fallback and
+      no-external-engine evidence remains required on ShardLoom rows.
+
 - [x] Session label: GAR-PERF-1D Bayesian performance and layout advisor report-only contract
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`
@@ -1487,8 +1526,9 @@ phase plan first.
     - [x] Update the benchmark page to render artifact profile, completeness, expected lanes,
           available lanes, missing lanes, and lane reasons from the manifest.
     - [x] Add the static benchmark publishing runbook and benchmark requirements files.
-    - [x] Leave GAR-BENCH-PUB-1D open for actual expanded competitor lane adapters and smoke
-          coverage beyond the registry vocabulary.
+    - [x] Leave GAR-BENCH-PUB-1D to a later slice for actual expanded competitor lane adapters and
+          smoke coverage beyond the registry vocabulary. That follow-up is now complete in the
+          GAR-BENCH-PUB-1D ledger entry above.
   - Evidence/verification:
     - `python scripts/check_benchmark_environment.py --profile smoke`
     - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
