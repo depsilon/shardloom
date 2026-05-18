@@ -1278,20 +1278,12 @@ no listener, no external engine, and no fallback.
   - Non-goals: no Foundry invocation, publication, or platform credential.
   - Fallback/claim boundary: Foundry remains optional integration, not a fallback engine.
   - Dependencies/blockers: package publication and credentials gates.
-- [ ] GAR-0037-A wrapper and connector implementation registry
-  - Source: RFC 0037; client wrapper architecture docs.
-  - Current state: wrapper architecture is documented; generated clients, DB-API, SQLAlchemy, Ibis,
-    dbt, Airflow, Dagster, Prefect, MCP, Flight, ADBC, and BI connectors are not implemented.
-  - Next slice outcome: registry of wrappers/connectors with support status, transport, evidence,
-    and unsupported diagnostics.
-  - User-visible surface: docs, CLI capability view, Python package docs.
-  - Implementation scope: registry/report docs, tests.
-  - Evidence required: protocol parity refs and diagnostic/no-fallback refs.
-  - Acceptance: connectors are not advertised as runtime-supported without implementation evidence.
-  - Verification: docs/contract tests and Python compileall if models change.
-  - Non-goals: no connector implementation.
-  - Fallback/claim boundary: no wrapper ecosystem claim.
-  - Dependencies/blockers: GAR-0035 REST/transport and GAR-0010 Python API.
+GAR-0037-A is complete and recorded in the completed ledger. The completed slice adds
+`shardloom.wrapper_connector_implementation_registry.v1`, exposes it through
+`capabilities api-surfaces --format json` and Python `ctx.wrapper_connector_registry()`, and keeps
+generated clients, DB-API, SQLAlchemy, Ibis, orchestration wrappers, MCP, Flight/ADBC, JDBC/ODBC,
+BI/Grafana, Foundry package, REST server, dependency expansion, data-plane bridge, external engine,
+and fallback support blocked unless later scoped evidence admits them.
 - [ ] GAR-0039-A typed envelope migration and legacy field mirror closeout
   - Source: RFC 0039; typed command result envelope docs; agent contract pack.
   - Current state: typed output v2 exists; legacy flat `fields` mirror and some command families

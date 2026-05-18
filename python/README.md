@@ -444,6 +444,39 @@ ETL, SQL/DataFrame execution, object-store/lakehouse runtime, Foundry runtime,
 external engine execution, or package publication, and it does not create
 performance or Spark-displacement claims.
 
+`GAR-0037-A` adds a wrapper/connector implementation registry on the API-surface
+capability view. Use it when a client, adapter, agent, or public docs page needs
+to distinguish the current source-tree Python wrapper from planned or blocked
+ecosystem connectors:
+
+```python
+caps = ctx.capabilities()
+registry = caps.wrapper_connector_registry
+# Or: registry = ctx.wrapper_connector_registry()
+
+print(registry.schema_version)
+print(registry.ready_local_count)
+print(registry.report_only_count)
+print(registry.blocked_count)
+print(registry.all_rows_no_fallback_no_external_engine)
+
+python = registry.row("python_cli_json_client")
+sqlalchemy = registry.row("sqlalchemy")
+
+print(python.support_status)
+print(python.explicit_execution_available)
+print(sqlalchemy.support_status)
+print(sqlalchemy.deterministic_diagnostic_code)
+print(sqlalchemy.claim_boundary)
+```
+
+The registry is capability posture, not connector implementation. It does not
+add generated clients, DB-API, SQLAlchemy, Ibis, dbt, Airflow, Dagster, Prefect,
+MCP, Flight SQL, ADBC, JDBC/ODBC, BI, Grafana, Foundry package, REST server,
+dependency expansion, network listener, external engine execution, or fallback.
+Rows preserve `fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status=not_claim_grade`.
+
 Source-free generated-output APIs are tracked under `GAR-GEN-1`. The full
 contract is exposed through capability views as `generated_source_contract`, and
 the per-API admission matrix is exposed as `generated_source_api_admission`.

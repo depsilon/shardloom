@@ -15,9 +15,10 @@ use shardloom_core::{
     OpenTelemetryTraceExportContractReport, OutputFormat, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
     SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
-    WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
-    output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
-    plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
+    WorldClassSufficiencyReport, WrapperConnectorImplementationRegistryReport,
+    boundedness_vocabulary, engine_mode_vocabulary, output_mode_vocabulary,
+    plan_global_architecture_runtime_claim_gate, plan_materialization_policy_report,
+    plan_world_class_sufficiency, update_mode_vocabulary,
 };
 use shardloom_exec::StreamingCapabilityMatrixReport;
 use shardloom_vortex::{
@@ -5176,6 +5177,177 @@ fn append_generated_source_evidence_alignment_fields(fields: &mut Vec<(String, S
 }
 
 #[allow(clippy::too_many_lines)]
+fn append_wrapper_connector_registry_fields(fields: &mut Vec<(String, String)>) {
+    let report = WrapperConnectorImplementationRegistryReport::gar0037a_current();
+    push_field(
+        fields,
+        "wrapper_connector_registry_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "wrapper_connector_registry_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "wrapper_connector_registry_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "wrapper_connector_registry_support_status_vocabulary",
+        report.support_status_vocabulary,
+    );
+    push_count_field(
+        fields,
+        "wrapper_connector_registry_row_count",
+        report.rows.len(),
+    );
+    push_field(
+        fields,
+        "wrapper_connector_registry_row_order",
+        &report.row_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "wrapper_connector_registry_ready_local_count",
+        report.ready_local_count(),
+    );
+    push_count_field(
+        fields,
+        "wrapper_connector_registry_report_only_count",
+        report.report_only_count(),
+    );
+    push_count_field(
+        fields,
+        "wrapper_connector_registry_blocked_count",
+        report.blocked_count(),
+    );
+    push_field(
+        fields,
+        "wrapper_connector_registry_diagnostic_codes",
+        &report.diagnostic_codes().join(","),
+    );
+    push_field(
+        fields,
+        "wrapper_connector_registry_required_evidence",
+        &report.required_evidence().join(","),
+    );
+    push_bool_field(
+        fields,
+        "wrapper_connector_registry_dependency_expansion_allowed",
+        report.dependency_expansion_allowed,
+    );
+    push_bool_field(
+        fields,
+        "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
+        report.wrapper_ecosystem_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "wrapper_connector_registry_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "wrapper_connector_registry_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "wrapper_connector_registry_all_rows_no_fallback_no_external_engine",
+        report.all_rows_no_fallback_no_external_engine(),
+    );
+    push_field(
+        fields,
+        "wrapper_connector_registry_claim_gate_status",
+        report.claim_gate_status,
+    );
+
+    for row in &report.rows {
+        let prefix = format!("wrapper_connector_registry_row_{}", row.row_id);
+        push_field(fields, &format!("{prefix}_family"), row.family.as_str());
+        push_field(
+            fields,
+            &format!("{prefix}_planned_package"),
+            row.planned_package,
+        );
+        push_field(fields, &format!("{prefix}_maturity"), row.maturity.as_str());
+        push_field(
+            fields,
+            &format!("{prefix}_primary_transport"),
+            row.primary_transport.as_str(),
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_support_status"),
+            row.support_status.as_str(),
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_user_visible_surface"),
+            row.user_visible_surface,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_implementation_evidence"),
+            row.implementation_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_deterministic_diagnostic_code"),
+            row.deterministic_diagnostic_code,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            row.required_evidence,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_explicit_execution_available"),
+            row.explicit_execution_available,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_dependency_added"),
+            row.dependency_added,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_network_listener_started"),
+            row.network_listener_started,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_data_plane_bridge_supported"),
+            row.data_plane_bridge_supported,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_external_engine_invoked"),
+            row.external_engine_invoked,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_fallback_attempted"),
+            row.fallback_attempted,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_boundary"),
+            row.claim_boundary,
+        );
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 fn append_openlineage_facet_mapping_fields(fields: &mut Vec<(String, String)>) {
     let report = OpenLineageFacetMappingReport::report_only();
     push_field(
@@ -8071,6 +8243,9 @@ fn world_class_surface_fields(
     ) {
         append_generated_source_api_admission_fields(&mut fields);
         append_generated_source_evidence_alignment_fields(&mut fields);
+    }
+    if scope == CapabilityDiscoveryScope::ApiSurfaces {
+        append_wrapper_connector_registry_fields(&mut fields);
     }
     if scope == CapabilityDiscoveryScope::Observability {
         append_openlineage_facet_mapping_fields(&mut fields);

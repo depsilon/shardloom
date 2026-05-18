@@ -1059,17 +1059,24 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0037-client-wrapper-sdk-ecosystem-surface.md`](../rfcs/0037-client-wrapper-sdk-ecosystem-surface.md)
-- Current read: Wrapper architecture, the Python CLI wrapper, and typed Python capability posture
-  accessors exist; ecosystem clients are planned work.
+- Current read: Wrapper architecture, the Python CLI wrapper, typed Python capability posture
+  accessors, and a wrapper/connector implementation registry exist; ecosystem clients remain
+  blocked or report-only unless later implementation evidence admits them.
 - Evidence: `shardloom-core/src/wrapper_architecture.rs`,
   `shardloom-cli/tests/python_wrapper_snapshots.rs`, `python/src/shardloom/client.py`,
-  `python/src/shardloom/context.py`, `python/tests/test_cli_client.py`
+  `python/src/shardloom/context.py`, `python/tests/test_cli_client.py`,
+  [`docs/architecture/wrapper-connector-implementation-registry.md`](wrapper-connector-implementation-registry.md)
 - [x] One-protocol/many-thin-wrappers architecture and no-fallback wrapper reports exist.
 - [x] Python wrapper reads CLI JSON rather than creating an alternate execution path.
 - [x] `GAR-0010-A` exposes no-scraping Python capability posture over existing `OutputEnvelope`
   fields while preserving side-effect-free capability discovery and no runtime expansion.
-- [ ] Generated clients, DB-API, SQLAlchemy, Ibis, dbt, Airflow, Dagster, Prefect, MCP, Flight,
-  ADBC, and BI connector implementations remain incomplete.
+- [x] `GAR-0037-A` exposes `shardloom.wrapper_connector_implementation_registry.v1` through
+  `capabilities api-surfaces --format json` and Python `ctx.wrapper_connector_registry()`.
+- [x] Generated clients, DB-API, SQLAlchemy, Ibis, dbt, Airflow, Dagster, Prefect, MCP, Flight SQL,
+  ADBC, JDBC/ODBC, BI, Grafana, and Foundry package rows are explicitly `report_only` or `blocked`
+  with deterministic diagnostics, no dependency expansion, no network listener, no data-plane
+  bridge, `fallback_attempted=false`, `external_engine_invoked=false`, and
+  `claim_gate_status=not_claim_grade`.
 
 ### RFC 0038 - Top-Level Plan and Execution Facade
 

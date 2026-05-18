@@ -2268,6 +2268,132 @@ fn gar_0035_a_rest_runtime_unsupported_contract_remains_claim_safe() {
 }
 
 #[test]
+fn gar_0037_a_wrapper_connector_registry_remains_claim_safe() {
+    let doc = read_repo_file("docs/architecture/wrapper-connector-implementation-registry.md");
+    for required in [
+        "shardloom.wrapper_connector_implementation_registry.v1",
+        "GAR-0037-A",
+        "shardloom capabilities api-surfaces --format json",
+        "ctx.capabilities().wrapper_connector_registry",
+        "ctx.wrapper_connector_registry()",
+        "python_cli_json_client",
+        "python_typed_capability_views",
+        "python_generated_source_helpers",
+        "rest_openapi_generated_client",
+        "sqlalchemy",
+        "flight_sql",
+        "mcp",
+        "wrapper_connector_registry_dependency_expansion_allowed=false",
+        "wrapper_connector_registry_wrapper_ecosystem_claim_allowed=false",
+        "wrapper_connector_registry_fallback_attempted=false",
+        "wrapper_connector_registry_external_engine_invoked=false",
+        "wrapper_connector_registry_claim_gate_status=not_claim_grade",
+        "No generated clients",
+        "No external engine",
+        "No fallback",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0037-A registry doc field {required}"
+        );
+    }
+
+    let core = read_repo_file("shardloom-core/src/wrapper_architecture.rs");
+    for required in [
+        "WrapperConnectorImplementationRegistryReport",
+        "WrapperConnectorRegistryRow",
+        "WrapperConnectorSupportStatus",
+        "gar0037a_current",
+        "shardloom.wrapper_connector_implementation_registry.v1",
+        "gar-0037-a.wrapper_connector_implementation_registry",
+        "python_cli_json_client",
+        "python_generated_source_helpers",
+        "rest_openapi_generated_client",
+        "SL_SQLALCHEMY_CONNECTOR_UNSUPPORTED",
+        "SL_COLUMNAR_TRANSPORT_UNSUPPORTED",
+        "dependency_added: false",
+        "network_listener_started: false",
+        "data_plane_bridge_supported",
+        "external_engine_invoked: false",
+        "fallback_attempted: false",
+        "claim_gate_status: \"not_claim_grade\"",
+    ] {
+        assert!(
+            core.contains(required),
+            "missing core wrapper registry field {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    for required in [
+        "append_wrapper_connector_registry_fields",
+        "wrapper_connector_registry_schema_version",
+        "wrapper_connector_registry_report_id",
+        "wrapper_connector_registry_row_order",
+        "wrapper_connector_registry_ready_local_count",
+        "wrapper_connector_registry_report_only_count",
+        "wrapper_connector_registry_blocked_count",
+        "wrapper_connector_registry_diagnostic_codes",
+        "wrapper_connector_registry_dependency_expansion_allowed",
+        "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
+        "wrapper_connector_registry_all_rows_no_fallback_no_external_engine",
+        "wrapper_connector_registry_claim_gate_status",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing CLI wrapper registry field {required}"
+        );
+    }
+
+    let python_context = read_repo_file("python/src/shardloom/context.py");
+    for required in [
+        "WrapperConnectorRegistryRow",
+        "WrapperConnectorRegistry",
+        "def wrapper_connector_registry",
+        "ready_local_count",
+        "blocked_count",
+        "diagnostic_codes",
+        "wrapper_ecosystem_claim_allowed",
+        "all_rows_no_fallback_no_external_engine",
+        "no_dependency_network_or_fallback",
+    ] {
+        assert!(
+            python_context.contains(required),
+            "missing Python wrapper registry accessor {required}"
+        );
+    }
+
+    let python_readme = read_repo_file("python/README.md");
+    assert!(python_readme.contains("GAR-0037-A"));
+    assert!(python_readme.contains("ctx.wrapper_connector_registry()"));
+    assert!(python_readme.contains("SQLAlchemy"));
+    assert!(python_readme.contains("claim_gate_status=not_claim_grade"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0037-A"));
+    assert!(plan.contains("GAR-0037-A is complete and recorded in the completed ledger"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0037-A wrapper and connector implementation registry"));
+    assert!(completed.contains("shardloom.wrapper_connector_implementation_registry.v1"));
+    assert!(completed.contains("capabilities api-surfaces --format json"));
+    assert!(completed.contains("ctx.wrapper_connector_registry()"));
+    assert!(completed.contains("fallback_attempted=false"));
+    assert!(completed.contains("external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(
+        gar.contains(
+            "`GAR-0037-A` exposes `shardloom.wrapper_connector_implementation_registry.v1`"
+        )
+    );
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("| GAR-0037-A | Wrapper and connector implementation registry"));
+    assert!(traceability.contains("`ctx.wrapper_connector_registry()`"));
+}
+
+#[test]
 fn security_rfc_and_p80_completion_are_traceable() {
     let rfc =
         read_repo_file("docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md");

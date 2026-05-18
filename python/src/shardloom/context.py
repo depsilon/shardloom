@@ -3017,6 +3017,210 @@ class UniversalCompatibilityScoreboard:
 
 
 @dataclass(frozen=True, slots=True)
+class WrapperConnectorRegistryRow:
+    """One wrapper/connector implementation registry row."""
+
+    row_id: str
+    family: str | None
+    planned_package: str | None
+    maturity: str | None
+    primary_transport: str | None
+    support_status: str | None
+    user_visible_surface: str | None
+    implementation_evidence: tuple[str, ...]
+    deterministic_diagnostic_code: str | None
+    required_evidence: tuple[str, ...]
+    explicit_execution_available: bool | None
+    dependency_added: bool | None
+    network_listener_started: bool | None
+    data_plane_bridge_supported: bool | None
+    external_engine_invoked: bool | None
+    fallback_attempted: bool | None
+    claim_gate_status: str | None
+    claim_boundary: str | None
+
+    @property
+    def ready_local(self) -> bool:
+        """Whether this wrapper surface is ready for scoped local use."""
+
+        return self.support_status == "ready_local"
+
+    @property
+    def blocked(self) -> bool:
+        """Whether this wrapper/connector remains blocked."""
+
+        return self.support_status == "blocked"
+
+    @property
+    def no_dependency_network_or_fallback(self) -> bool:
+        """Whether the row remains dependency-free, listener-free, and fallback-free."""
+
+        return (
+            self.dependency_added is False
+            and self.network_listener_started is False
+            and self.external_engine_invoked is False
+            and self.fallback_attempted is False
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class WrapperConnectorRegistry:
+    """Typed view over the wrapper/connector implementation registry."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the registry schema version."""
+
+        return self.capability.field("wrapper_connector_registry_schema_version")
+
+    @property
+    def report_id(self) -> str | None:
+        """Return the registry report identifier."""
+
+        return self.capability.field("wrapper_connector_registry_report_id")
+
+    @property
+    def docs_ref(self) -> str | None:
+        """Return the registry reference document path."""
+
+        return self.capability.field("wrapper_connector_registry_docs_ref")
+
+    @property
+    def support_status_vocabulary(self) -> tuple[str, ...]:
+        """Return the support status vocabulary."""
+
+        return _split_csv(
+            self.capability.field("wrapper_connector_registry_support_status_vocabulary")
+        )
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return registry rows in stable order."""
+
+        return _split_csv(self.capability.field("wrapper_connector_registry_row_order"))
+
+    @property
+    def rows(self) -> tuple[WrapperConnectorRegistryRow, ...]:
+        """Return all wrapper/connector registry rows."""
+
+        return tuple(self.row(row_id) for row_id in self.row_order)
+
+    @property
+    def ready_local_count(self) -> int:
+        """Return the number of scoped local ready rows."""
+
+        return (
+            self.capability.envelope.field_int(
+                "wrapper_connector_registry_ready_local_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def report_only_count(self) -> int:
+        """Return the number of report-only rows."""
+
+        return (
+            self.capability.envelope.field_int(
+                "wrapper_connector_registry_report_only_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def blocked_count(self) -> int:
+        """Return the number of blocked rows."""
+
+        return (
+            self.capability.envelope.field_int(
+                "wrapper_connector_registry_blocked_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def diagnostic_codes(self) -> tuple[str, ...]:
+        """Return deterministic diagnostic codes for unavailable wrappers/connectors."""
+
+        return _split_csv(self.capability.field("wrapper_connector_registry_diagnostic_codes"))
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the registry claim gate status."""
+
+        return self.capability.field("wrapper_connector_registry_claim_gate_status")
+
+    @property
+    def wrapper_ecosystem_claim_allowed(self) -> bool:
+        """Whether a broad wrapper ecosystem claim is allowed."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def all_rows_no_fallback_no_external_engine(self) -> bool:
+        """Whether all rows preserve no-fallback/no-external-engine posture."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "wrapper_connector_registry_all_rows_no_fallback_no_external_engine",
+                False,
+            )
+            is True
+            and all(row.no_dependency_network_or_fallback for row in self.rows)
+        )
+
+    def row(self, row_id: str) -> WrapperConnectorRegistryRow:
+        """Return one wrapper/connector registry row."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(f"wrapper/connector registry row {row_id!r} is not present")
+        prefix = f"wrapper_connector_registry_row_{normalized}"
+        return WrapperConnectorRegistryRow(
+            row_id=normalized,
+            family=self.capability.field(f"{prefix}_family"),
+            planned_package=self.capability.field(f"{prefix}_planned_package"),
+            maturity=self.capability.field(f"{prefix}_maturity"),
+            primary_transport=self.capability.field(f"{prefix}_primary_transport"),
+            support_status=self.capability.field(f"{prefix}_support_status"),
+            user_visible_surface=self.capability.field(f"{prefix}_user_visible_surface"),
+            implementation_evidence=_split_csv(
+                self.capability.field(f"{prefix}_implementation_evidence")
+            ),
+            deterministic_diagnostic_code=self.capability.field(
+                f"{prefix}_deterministic_diagnostic_code"
+            ),
+            required_evidence=_split_csv(self.capability.field(f"{prefix}_required_evidence")),
+            explicit_execution_available=self.capability.envelope.field_bool(
+                f"{prefix}_explicit_execution_available"
+            ),
+            dependency_added=self.capability.envelope.field_bool(f"{prefix}_dependency_added"),
+            network_listener_started=self.capability.envelope.field_bool(
+                f"{prefix}_network_listener_started"
+            ),
+            data_plane_bridge_supported=self.capability.envelope.field_bool(
+                f"{prefix}_data_plane_bridge_supported"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            claim_boundary=self.capability.field(f"{prefix}_claim_boundary"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityView:
     """Typed convenience view over one capability-discovery envelope."""
 
@@ -3370,6 +3574,12 @@ class CapabilityView:
         return UniversalCompatibilityScoreboard(self)
 
     @property
+    def wrapper_connector_registry(self) -> WrapperConnectorRegistry:
+        """Return wrapper and connector implementation status posture."""
+
+        return WrapperConnectorRegistry(self)
+
+    @property
     def planner_readiness_claim_gate_status(self) -> str | None:
         """Return the planner-readiness claim gate status when present."""
 
@@ -3589,6 +3799,12 @@ class ContextCapabilities:
         return self.scope("api-surfaces")
 
     @property
+    def wrapper_connector_registry(self) -> WrapperConnectorRegistry:
+        """Return wrapper/connector implementation status posture."""
+
+        return self.api_surfaces.wrapper_connector_registry
+
+    @property
     def observability(self) -> CapabilityView:
         """Return observability/lineage capability state."""
 
@@ -3757,6 +3973,18 @@ class ShardLoomContext:
             "compatibility",
             check=check,
         ).universal_compatibility_scoreboard
+
+    def wrapper_connector_registry(
+        self,
+        *,
+        check: bool = True,
+    ) -> WrapperConnectorRegistry:
+        """Return the wrapper/connector implementation registry."""
+
+        return self._capability_view(
+            "api-surfaces",
+            check=check,
+        ).wrapper_connector_registry
 
     def deployment(self, *, check: bool = True) -> CapabilityView:
         """Return deployment/package capability discovery."""
