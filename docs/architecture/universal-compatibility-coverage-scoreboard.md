@@ -272,6 +272,43 @@ delete/tombstone runtime, appends, merge/update/delete, commits, rollbacks, cata
 object-store-backed table runtime, production lakehouse claims, performance claims, or fallback
 execution.
 
+### Database/Warehouse Import-Export Boundary Matrix
+
+The JSON projection includes
+`database_warehouse_boundary_matrix.schema_version=shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1`
+for the GAR-COMPAT-1E database and warehouse import/export boundary. The matrix keeps file
+databases, network databases, driver bridges, and cloud warehouses visible without treating any of
+them as ShardLoom runtime connectors or fallback engines.
+
+| Row | Status | Connector type | Credentials/network | Runtime posture | Boundary |
+| --- | --- | --- | --- | --- | --- |
+| `sqlite_file` | `report-only` | embedded file database | no credentials/network | no import/export/query pushdown | SQLite import/export is report-only; no driver is loaded and no database file is read or written. |
+| `postgres` | `blocked` | network database | credentials and network required | no import/export/query pushdown | Postgres is not a fallback engine or query-pushdown runtime. |
+| `mysql` | `blocked` | network database | credentials and network required | no import/export/query pushdown | MySQL is not a fallback engine or query-pushdown runtime. |
+| `jdbc_odbc` | `blocked` | driver bridge | credentials, network, and driver policy required | no bridge runtime | JDBC/ODBC drivers are not loaded and bridge availability is not claimed. |
+| `snowflake` | `blocked` | cloud warehouse | credentials and network required | external baseline/future endpoint only | Snowflake has no warehouse runtime or pushdown claim. |
+| `bigquery` | `blocked` | cloud warehouse | credentials and network required | external baseline/future endpoint only | BigQuery has no warehouse runtime or pushdown claim. |
+| `databricks_sql` | `blocked` | cloud warehouse | credentials and network required | external baseline/future endpoint only | Databricks SQL has no warehouse runtime, Spark fallback, or pushdown claim. |
+
+Every database/warehouse matrix row preserves:
+
+```text
+credential_resolution_performed=false
+network_probe_performed=false
+driver_loaded=false
+import_runtime_supported=false
+export_runtime_supported=false
+query_pushdown_supported=false
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status=not_claim_grade
+```
+
+The matrix is a boundary/status surface only. It does not authorize SQLite, Postgres, MySQL,
+JDBC/ODBC, Snowflake, BigQuery, Databricks SQL, credential resolution, network probes, driver
+loading, connector import/export, query pushdown, production connector claims, performance claims,
+Spark replacement claims, or external fallback execution.
+
 ## Acceptance
 
 - Runtime coverage and plan/report coverage are distinct.
@@ -280,6 +317,8 @@ execution.
 - S3/GCS/ADLS remain blocked until specific read/write proof exists.
 - Table-format metadata, scan, delete/tombstone, write, commit, and rollback semantics remain
   separately classified.
+- Database and warehouse import/export, query pushdown, credential resolution, network probes, and
+  driver loading remain separately classified.
 - Foundry remains a future validation target unless real platform evidence exists.
 
 ## Verification

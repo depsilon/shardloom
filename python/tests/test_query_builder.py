@@ -790,7 +790,48 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_table_format_matrix_runtime_supported", "value": "false"},
                     {"key": "universal_compatibility_table_format_matrix_local_metadata_smoke_available", "value": "true"},
                     {"key": "universal_compatibility_table_format_matrix_all_rows_no_io_no_fallback", "value": "true"},
+                    {"key": "universal_compatibility_database_warehouse_matrix_schema_version", "value": "shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1"},
+                    {"key": "universal_compatibility_database_warehouse_matrix_id", "value": "gar-compat-1e.database_warehouse_import_export_boundary"},
+                    {"key": "universal_compatibility_database_warehouse_matrix_endpoint_scope", "value": "sqlite,postgres,mysql,jdbc,odbc,snowflake,bigquery,databricks_sql"},
+                    {"key": "universal_compatibility_database_warehouse_matrix_row_order", "value": "sqlite_file,postgres,jdbc_odbc,snowflake,bigquery,databricks_sql"},
+                    {"key": "universal_compatibility_database_warehouse_matrix_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_database_warehouse_matrix_import_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_database_warehouse_matrix_export_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_database_warehouse_matrix_query_pushdown_supported", "value": "false"},
+                    {"key": "universal_compatibility_database_warehouse_matrix_all_rows_no_effects", "value": "true"},
                 ]
+                for row_id, scope, family, connector_type, status, credential, network, blocker in [
+                    ("sqlite_file", "sqlite", "database_file", "embedded_file_database", "report-only", "false", "false", "gar-compat-1e.sqlite_import_export_runtime_blocked"),
+                    ("postgres", "postgres", "database_service", "network_database", "blocked", "true", "true", "gar-compat-1e.postgres_connector_runtime_blocked"),
+                    ("jdbc_odbc", "jdbc,odbc", "connector_bridge", "driver_bridge", "blocked", "true", "true", "gar-compat-1e.jdbc_odbc_driver_loading_blocked"),
+                    ("snowflake", "snowflake", "warehouse_service", "cloud_warehouse", "blocked", "true", "true", "gar-compat-1e.snowflake_connector_runtime_blocked"),
+                    ("bigquery", "bigquery", "warehouse_service", "cloud_warehouse", "blocked", "true", "true", "gar-compat-1e.bigquery_connector_runtime_blocked"),
+                    ("databricks_sql", "databricks_sql", "warehouse_service", "cloud_warehouse", "blocked", "true", "true", "gar-compat-1e.databricks_sql_connector_runtime_blocked"),
+                ]:
+                    prefix = f"universal_compatibility_database_warehouse_matrix_row_{row_id}"
+                    fields.extend([
+                        {"key": f"{prefix}_endpoint_scope", "value": scope},
+                        {"key": f"{prefix}_endpoint_family", "value": family},
+                        {"key": f"{prefix}_connector_type", "value": connector_type},
+                        {"key": f"{prefix}_support_status", "value": status},
+                        {"key": f"{prefix}_credential_required", "value": credential},
+                        {"key": f"{prefix}_network_required", "value": network},
+                        {"key": f"{prefix}_driver_dependency_required", "value": "true"},
+                        {"key": f"{prefix}_credential_resolution_performed", "value": "false"},
+                        {"key": f"{prefix}_network_probe_performed", "value": "false"},
+                        {"key": f"{prefix}_driver_loaded", "value": "false"},
+                        {"key": f"{prefix}_import_runtime_supported", "value": "false"},
+                        {"key": f"{prefix}_export_runtime_supported", "value": "false"},
+                        {"key": f"{prefix}_query_pushdown_supported", "value": "false"},
+                        {"key": f"{prefix}_external_baseline_only", "value": "true"},
+                        {"key": f"{prefix}_native_io_certificate_status", "value": "not_emitted_blocked"},
+                        {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                        {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                        {"key": f"{prefix}_blocker_id", "value": blocker},
+                        {"key": f"{prefix}_required_evidence", "value": "future_evidence"},
+                        {"key": f"{prefix}_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": f"{prefix}_claim_boundary", "value": "claim boundary"},
+                    ])
                 for row_id, behavior, status, local_smoke, blocker in [
                     ("table_metadata_read", "metadata_read", "report-only", "true", "gar-compat-1d.table_format_metadata_runtime_blocked"),
                     ("table_scan", "table_scan", "blocked", "false", "gar-compat-1d.table_scan_runtime_blocked"),
@@ -997,6 +1038,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "gar-compat-1d.table_commit_blocked",
         )
         self.assertFalse(table_formats.row("object_store_coupling").object_store_io_allowed)
+        database_warehouses = scoreboard.database_warehouse_boundary_matrix
+        self.assertEqual(
+            database_warehouses.schema_version,
+            "shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1",
+        )
+        self.assertIn("snowflake", database_warehouses.endpoint_scope)
+        self.assertFalse(database_warehouses.runtime_supported)
+        self.assertTrue(database_warehouses.all_rows_no_effects)
+        self.assertTrue(database_warehouses.row("sqlite-file").no_effects_no_fallback)
+        self.assertEqual(database_warehouses.row("postgres").support_status, "blocked")
+        self.assertEqual(
+            database_warehouses.row("jdbc_odbc").blocker_id,
+            "gar-compat-1e.jdbc_odbc_driver_loading_blocked",
+        )
+        self.assertFalse(database_warehouses.row("bigquery").query_pushdown_supported)
+        self.assertTrue(database_warehouses.row("databricks_sql").external_baseline_only)
 
     def test_context_exposes_rest_api_contract_views(self) -> None:
         binary = self.fake_cli(

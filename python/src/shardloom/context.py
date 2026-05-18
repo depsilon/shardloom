@@ -1614,6 +1614,175 @@ class TableFormatBoundaryMatrix:
 
 
 @dataclass(frozen=True, slots=True)
+class DatabaseWarehouseBoundaryMatrixRow:
+    """One database/warehouse import-export boundary matrix row."""
+
+    row_id: str
+    endpoint_scope: str | None
+    endpoint_family: str | None
+    connector_type: str | None
+    support_status: str | None
+    credential_required: bool | None
+    network_required: bool | None
+    driver_dependency_required: bool | None
+    credential_resolution_performed: bool | None
+    network_probe_performed: bool | None
+    driver_loaded: bool | None
+    import_runtime_supported: bool | None
+    export_runtime_supported: bool | None
+    query_pushdown_supported: bool | None
+    external_baseline_only: bool | None
+    native_io_certificate_status: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+    blocker_id: str | None
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str | None
+    claim_boundary: str | None
+
+    @property
+    def no_effects_no_fallback(self) -> bool:
+        """Whether the row remains free of connector effects and fallback execution."""
+
+        return (
+            self.credential_resolution_performed is False
+            and self.network_probe_performed is False
+            and self.driver_loaded is False
+            and self.import_runtime_supported is False
+            and self.export_runtime_supported is False
+            and self.query_pushdown_supported is False
+            and self.fallback_attempted is False
+            and self.external_engine_invoked is False
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DatabaseWarehouseBoundaryMatrix:
+    """Compatibility scoreboard projection for database/warehouse boundaries."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the database/warehouse matrix schema version."""
+
+        return self.capability.field(
+            "universal_compatibility_database_warehouse_matrix_schema_version"
+        )
+
+    @property
+    def matrix_id(self) -> str | None:
+        """Return the database/warehouse matrix identifier."""
+
+        return self.capability.field("universal_compatibility_database_warehouse_matrix_id")
+
+    @property
+    def endpoint_scope(self) -> tuple[str, ...]:
+        """Return database and warehouse endpoints covered by this matrix."""
+
+        return _split_csv(
+            self.capability.field(
+                "universal_compatibility_database_warehouse_matrix_endpoint_scope"
+            )
+        )
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return matrix rows in stable order."""
+
+        return _split_csv(
+            self.capability.field(
+                "universal_compatibility_database_warehouse_matrix_row_order"
+            )
+        )
+
+    @property
+    def rows(self) -> tuple[DatabaseWarehouseBoundaryMatrixRow, ...]:
+        """Return all database/warehouse boundary rows."""
+
+        return tuple(self.row(row_id) for row_id in self.row_order)
+
+    @property
+    def runtime_supported(self) -> bool:
+        """Whether database/warehouse connector runtime is supported by this matrix."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_database_warehouse_matrix_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def all_rows_no_effects(self) -> bool:
+        """Whether every matrix row preserves no-effects/no-fallback posture."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_database_warehouse_matrix_all_rows_no_effects",
+                False,
+            )
+            is True
+            and all(row.no_effects_no_fallback for row in self.rows)
+        )
+
+    def row(self, row_id: str) -> DatabaseWarehouseBoundaryMatrixRow:
+        """Return one database/warehouse matrix row."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(f"database/warehouse boundary matrix row {row_id!r} is not present")
+        prefix = f"universal_compatibility_database_warehouse_matrix_row_{normalized}"
+        return DatabaseWarehouseBoundaryMatrixRow(
+            row_id=normalized,
+            endpoint_scope=self.capability.field(f"{prefix}_endpoint_scope"),
+            endpoint_family=self.capability.field(f"{prefix}_endpoint_family"),
+            connector_type=self.capability.field(f"{prefix}_connector_type"),
+            support_status=self.capability.field(f"{prefix}_support_status"),
+            credential_required=self.capability.envelope.field_bool(
+                f"{prefix}_credential_required"
+            ),
+            network_required=self.capability.envelope.field_bool(f"{prefix}_network_required"),
+            driver_dependency_required=self.capability.envelope.field_bool(
+                f"{prefix}_driver_dependency_required"
+            ),
+            credential_resolution_performed=self.capability.envelope.field_bool(
+                f"{prefix}_credential_resolution_performed"
+            ),
+            network_probe_performed=self.capability.envelope.field_bool(
+                f"{prefix}_network_probe_performed"
+            ),
+            driver_loaded=self.capability.envelope.field_bool(f"{prefix}_driver_loaded"),
+            import_runtime_supported=self.capability.envelope.field_bool(
+                f"{prefix}_import_runtime_supported"
+            ),
+            export_runtime_supported=self.capability.envelope.field_bool(
+                f"{prefix}_export_runtime_supported"
+            ),
+            query_pushdown_supported=self.capability.envelope.field_bool(
+                f"{prefix}_query_pushdown_supported"
+            ),
+            external_baseline_only=self.capability.envelope.field_bool(
+                f"{prefix}_external_baseline_only"
+            ),
+            native_io_certificate_status=self.capability.field(
+                f"{prefix}_native_io_certificate_status"
+            ),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+            blocker_id=self.capability.field(f"{prefix}_blocker_id"),
+            required_evidence=_split_csv(self.capability.field(f"{prefix}_required_evidence")),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            claim_boundary=self.capability.field(f"{prefix}_claim_boundary"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UniversalCompatibilityScoreboard:
     """Typed view over the universal source/sink compatibility scoreboard."""
 
@@ -1790,6 +1959,12 @@ class UniversalCompatibilityScoreboard:
         """Return the Iceberg/Delta/Hudi table-format boundary matrix."""
 
         return TableFormatBoundaryMatrix(self.capability)
+
+    @property
+    def database_warehouse_boundary_matrix(self) -> DatabaseWarehouseBoundaryMatrix:
+        """Return the database/warehouse import-export boundary matrix."""
+
+        return DatabaseWarehouseBoundaryMatrix(self.capability)
 
     def row(self, surface_id: str) -> UniversalCompatibilityRow:
         """Return one scoreboard row by surface ID."""

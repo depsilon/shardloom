@@ -918,6 +918,9 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
         "universal_compatibility_table_format_matrix_schema_version",
         "universal_compatibility_table_format_matrix_id",
         "universal_compatibility_table_format_matrix_row_order",
+        "universal_compatibility_database_warehouse_matrix_schema_version",
+        "universal_compatibility_database_warehouse_matrix_id",
+        "universal_compatibility_database_warehouse_matrix_row_order",
     ] {
         assert!(
             output.contains(&format!("{{\"key\":\"{key}\",\"value\":")),
@@ -979,6 +982,7 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
     assert_generated_output_compatibility_fields(&output);
     assert_object_store_ladder_fields(&output);
     assert_table_format_matrix_fields(&output);
+    assert_database_warehouse_matrix_fields(&output);
 }
 
 fn assert_generated_output_compatibility_fields(output: &str) {
@@ -1121,6 +1125,61 @@ fn assert_table_format_matrix_fields(output: &str) {
     }
     assert!(output.contains(&field_pair(
         "universal_compatibility_table_format_matrix_all_rows_no_io_no_fallback",
+        true
+    )));
+}
+
+fn assert_database_warehouse_matrix_fields(output: &str) {
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_database_warehouse_matrix_schema_version",
+        "shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_database_warehouse_matrix_row_order",
+        "sqlite_file,postgres,mysql,jdbc_odbc,snowflake,bigquery,databricks_sql"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_database_warehouse_matrix_row_sqlite_file_support_status",
+        "report-only"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_database_warehouse_matrix_row_postgres_blocker_id",
+        "gar-compat-1e.postgres_connector_runtime_blocked"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_database_warehouse_matrix_row_jdbc_odbc_blocker_id",
+        "gar-compat-1e.jdbc_odbc_driver_loading_blocked"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_database_warehouse_matrix_external_baseline_only",
+        true
+    )));
+    for key in [
+        "universal_compatibility_database_warehouse_matrix_runtime_supported",
+        "universal_compatibility_database_warehouse_matrix_import_runtime_supported",
+        "universal_compatibility_database_warehouse_matrix_export_runtime_supported",
+        "universal_compatibility_database_warehouse_matrix_query_pushdown_supported",
+        "universal_compatibility_database_warehouse_matrix_credential_resolution_performed",
+        "universal_compatibility_database_warehouse_matrix_network_probe_performed",
+        "universal_compatibility_database_warehouse_matrix_driver_loaded",
+        "universal_compatibility_database_warehouse_matrix_fallback_attempted",
+        "universal_compatibility_database_warehouse_matrix_external_engine_invoked",
+    ] {
+        assert!(
+            output.contains(&field_pair(key, false)),
+            "missing false key={key}"
+        );
+    }
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_database_warehouse_matrix_all_rows_no_effects",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_database_warehouse_matrix_row_bigquery_query_pushdown_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_database_warehouse_matrix_row_databricks_sql_external_baseline_only",
         true
     )));
 }

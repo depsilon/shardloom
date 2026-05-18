@@ -517,6 +517,37 @@ def render_compatibility_scoreboard_section() -> str:
         table_format_matrix_html = "\n".join(
             line.rstrip() for line in table_format_matrix_html.splitlines()
         ).strip()
+    database_warehouse_matrix = scoreboard.get("database_warehouse_boundary_matrix", {})
+    database_warehouse_rows = database_warehouse_matrix.get("rows", [])
+    database_warehouse_table_rows = "\n".join(
+        "<tr>"
+        f"<td><strong>{esc(row.get('row_id'))}</strong><span>{esc(row.get('connector_type'))}</span></td>"
+        f"<td><span class=\"claim-badge {status_class(str(row.get('support_status', 'blocked')).replace('-', '_'))}\">{esc(row.get('support_status'))}</span></td>"
+        f"<td>{status_value(row.get('credential_required'))}</td>"
+        f"<td>{status_value(row.get('network_required'))}</td>"
+        f"<td>{status_value(row.get('query_pushdown_supported'))}</td>"
+        f"<td>{esc(row.get('claim_boundary'))}</td>"
+        "</tr>"
+        for row in database_warehouse_rows
+        if isinstance(row, dict)
+    )
+    database_warehouse_matrix_html = ""
+    if database_warehouse_table_rows:
+        database_warehouse_matrix_html = f"""
+        <div class="section-spacer"></div>
+        <h3>Database/warehouse import-export boundary</h3>
+        <p class="section-lede">This report-only matrix separates SQLite, Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL from ShardLoom execution. Current rows do not load drivers, resolve credentials, probe networks, import/export data, push queries down, or use external systems as fallback engines.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Row</th><th>Status</th><th>Credentials</th><th>Network</th><th>Pushdown</th><th>Boundary</th></tr></thead>
+            <tbody>{database_warehouse_table_rows}</tbody>
+          </table>
+        </div>
+        <p class="section-note">Database/warehouse summary: <code>runtime_supported={status_value(database_warehouse_matrix.get('runtime_supported'))}</code>, <code>import_runtime_supported={status_value(database_warehouse_matrix.get('import_runtime_supported'))}</code>, <code>export_runtime_supported={status_value(database_warehouse_matrix.get('export_runtime_supported'))}</code>, <code>query_pushdown_supported={status_value(database_warehouse_matrix.get('query_pushdown_supported'))}</code>, <code>credential_resolution_performed={status_value(database_warehouse_matrix.get('credential_resolution_performed'))}</code>, <code>network_probe_performed={status_value(database_warehouse_matrix.get('network_probe_performed'))}</code>.</p>
+        """
+        database_warehouse_matrix_html = "\n".join(
+            line.rstrip() for line in database_warehouse_matrix_html.splitlines()
+        ).strip()
     runtime_count = sum(
         1
         for row in rows
@@ -556,6 +587,7 @@ def render_compatibility_scoreboard_section() -> str:
         {generated_contract_html}
         {object_store_ladder_html}
         {table_format_matrix_html}
+        {database_warehouse_matrix_html}
         <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>"""
