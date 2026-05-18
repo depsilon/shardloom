@@ -505,42 +505,12 @@ SQL as report-only or blocked import/export/query-pushdown gates, with credentia
 network probes, driver loading, import/export runtime, query pushdown, fallback, and external engine
 invocation disabled.
 
-- [ ] GAR-GEN-1F Foundry generated-output proof boundary
-  - Source: GAR-GEN-1A; RFC 0036; `docs/foundry/proof-of-use-certification.md`.
-  - Current state:
-    - Foundry proof is local Foundry-style only; it includes no-dataset smoke and local Vortex smoke,
-      but it does not implement Foundry generated-output runtime.
-    - GAR-GEN-1E now exposes source-free Python, SQL, DataFrame, and API admission rows through
-      `shardloom.generated_source_api_admission.v1`; Foundry generated-output remains
-      report-only and must not be inferred from those local admission rows.
-  - Next slice outcome:
-    - Add a report-only Foundry generated-output boundary that requires future generated-output smoke
-      to write through Foundry output APIs instead of direct S3/object-store paths.
-  - User-visible surface:
-    - Foundry proof docs, future Foundry proof report, release readiness docs.
-  - Implementation scope:
-    - Foundry boundary report fields, docs, optional proof-script diagnostics, tests.
-  - Evidence required:
-    - Foundry output API refs for future admitted smoke.
-    - no direct S3/object-store credential, network, read, write, or commit evidence in this slice.
-    - policy/no-fallback refs.
-  - Acceptance:
-    - Foundry generated-output support remains `support_status=report_only|blocked`.
-    - Direct S3 write/read, object-store commit, lakehouse claim, and Foundry production claim remain
-      blocked unless future platform evidence admits them.
-  - Verification:
-    - Foundry proof tests if report fields change.
-    - release readiness metadata tests.
-    - `git diff --check`
-  - Non-goals:
-    - No Foundry invocation, direct S3 runtime, object-store write, object-store commit, lakehouse
-      output, package publication, or production Foundry claim.
-  - Claim boundary:
-    - Foundry generated-output is future validation target only.
-  - Fallback boundary:
-    - No external compute, no external engine, no hidden object-store path.
-  - Dependencies/blockers:
-    - GAR-GEN-1A, real Foundry environment proof, explicit Foundry output API integration.
+GAR-GEN-1F is complete and recorded in the completed ledger. The Foundry proof report now emits
+`shardloom.foundry_generated_output_boundary.v1` as a report-only boundary requiring future admitted
+generated-output proof to write result/evidence datasets through Foundry output APIs. Current local
+proof keeps `foundry_output_api_invoked=false`, direct S3/object-store paths disabled,
+`fallback_attempted=false`, `external_engine_invoked=false`, and public Foundry generated-output
+claims blocked.
 
 #### GAR-NOVEL-1 - Evidence-Native Generated Execution, Lineage, Observability, And Confidence
 

@@ -699,9 +699,17 @@ now exposes report-only Foundry generated-output fanout posture through
 `generated_output_execution_performed=false`, `generated_source_created=false`,
 `fanout_output_count=0`, `direct_s3_write_invoked=false`, `foundry_spark_invoked=false`,
 `fallback_attempted=false`, `external_engine_invoked=false`, and
-`claim_gate_status=not_claim_grade`. A future runtime proof must write through Foundry output APIs,
-not direct S3/object-store paths, and it must not imply Foundry production support, Foundry
-certification, or third-party platform endorsement.
+`claim_gate_status=not_claim_grade`. GAR-GEN-1F adds the dedicated
+`shardloom.foundry_generated_output_boundary.v1` proof boundary with
+`foundry_output_api_required=true`, `foundry_output_api_invoked=false`,
+`foundry_result_dataset_written=false`, `foundry_evidence_dataset_written=false`,
+`direct_s3_read_invoked=false`, `direct_s3_write_invoked=false`,
+`object_store_read_invoked=false`, `object_store_write_invoked=false`,
+`object_store_commit_invoked=false`, `foundry_runtime_invoked=false`,
+`foundry_compute_invoked=false`, and `foundry_spark_invoked=false`. A future runtime proof must
+write result and evidence datasets through Foundry output APIs, not direct S3/object-store paths,
+and it must not imply Foundry production support, Foundry certification, or third-party platform
+endorsement.
 
 ## Execution Modes And Engine Modes
 
@@ -1400,6 +1408,16 @@ the local Foundry proof report. It exposes
 fields, and `claim_gate_status=not_claim_grade`. This is posture/report evidence only; it is not
 generated-output execution, Foundry output API proof, direct S3/object-store support, package
 publication, or Foundry production support.
+
+GAR-GEN-1F adds a narrower generated-output proof boundary through
+`schema_version=shardloom.foundry_generated_output_boundary.v1`. It requires future admitted
+Foundry generated-output smoke to use Foundry output APIs and keeps
+`foundry_output_api_invoked=false`, `foundry_result_dataset_written=false`,
+`foundry_evidence_dataset_written=false`, `direct_s3_read_invoked=false`,
+`direct_s3_write_invoked=false`, `object_store_read_invoked=false`,
+`object_store_write_invoked=false`, `object_store_commit_invoked=false`,
+`fallback_attempted=false`, and `external_engine_invoked=false` in the current local proof. It does
+not add Foundry runtime, Foundry package, S3/object-store, lakehouse, or production support.
 
 The planned benchmark families are:
 
