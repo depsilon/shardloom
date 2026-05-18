@@ -82,6 +82,19 @@ not by compiling every reader by default. Active implementation status for input
     `source_state_reuse_allowed`, `source_state_reuse_hit`, and `source_state_reuse_reason`.
   - SourceState reuse is preparation evidence only. It does not imply Vortex-native execution,
     output support, performance, object-store runtime, or table/lakehouse support.
+- Reusable VortexPreparedState bridge
+  - `GAR-IOREUSE-1B` defines the first benchmark/report `VortexPreparedState` contract as the
+    prepared Vortex bridge between admitted source state and future execution/output plans.
+  - Current benchmark row fields include `prepared_state_contract_schema_version`,
+    `prepared_state_status`, `prepared_state_id`, `prepared_state_digest`,
+    `prepared_state_source_state_id`, `vortex_artifact_ref`, `vortex_artifact_digest`,
+    `prepared_state_reuse_allowed`, `prepared_state_reuse_hit`,
+    `prepared_state_reuse_reason`, `preparation_included_in_timing`, and
+    `vortex_prepare_millis`.
+  - VortexPreparedState evidence records scoped local prepared artifact identity, digest,
+    preparation timing separation, source-state linkage, and reuse posture. It does not imply
+    output support, encoded-native coverage, performance, object-store runtime, or table/lakehouse
+    support.
 - Benchmark-only local compatibility-to-Vortex smoke bridge
   - `vortex-traditional-analytics-benchmark` enables a narrow local benchmark path that parses
     deterministic traditional analytics fixtures in CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro, or
