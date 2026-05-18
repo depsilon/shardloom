@@ -452,10 +452,10 @@ def render_public_status_scorecard_section() -> str:
             {
                 "label": "Foundry dev-stack starter",
                 "family": "platform_integration",
-                "status": "planned",
-                "answer": "Foundry starter kit remains a local/dev-stack target, not Foundry production support or Marketplace proof.",
-                "evidence": "GAR-COMMERCIAL-1E planned",
-                "reference": "docs/architecture/phased-execution-plan.md",
+                "status": "report-only",
+                "answer": "A local Foundry-style dev-stack starter exists for CLI/package resolution, staged input posture, source-free generated-output blockers, and local certificate-style evidence. It does not invoke Foundry runtime, Foundry compute, Foundry Spark, or Foundry output APIs.",
+                "evidence": "shardloom.foundry_dev_stack_starter_kit.v1; foundry_runtime_invoked=false; foundry_spark_invoked=false",
+                "reference": "docs/foundry/dev-stack-starter-kit.json",
             },
             {
                 "label": "Workflow recipe library",

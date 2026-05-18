@@ -443,6 +443,10 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
         "shardloom.foundry_generated_output_fanout_posture.v1",
         "shardloom.foundry_generated_output_boundary.v1",
         "shardloom.foundry_scale_proof_boundary.v1",
+        "shardloom.foundry_dev_stack_starter_kit.v1",
+        "foundry_dev_stack_starter_kit_status",
+        "foundry_dev_stack_starter_kit_ref",
+        "foundry_dev_stack_starter_kit_schema_version",
         "foundry_generated_output_fanout_posture",
         "foundry_generated_output_fanout_status",
         "foundry_generated_output_boundary",
@@ -1010,12 +1014,14 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "not planned",
         "Public package channels",
         "Enterprise evidence export pack",
+        "Foundry dev-stack starter",
         "Hidden fallback engine execution",
         "Spark-displacement claim",
         "Production SQL/DataFrame, object-store, lakehouse, or Foundry claim",
         "docs/architecture/universal-compatibility-coverage-scoreboard.json",
         "docs/release/package-channel-readiness-matrix.json",
         "docs/release/enterprise-evidence-export-pack.json",
+        "docs/foundry/dev-stack-starter-kit.json",
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "public_package_release_claim_allowed=false",
@@ -1031,9 +1037,11 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "Answer common capability questions in under two minutes.",
         "Public package channels",
         "Enterprise evidence export pack",
+        "Foundry dev-stack starter",
         "docs/architecture/universal-compatibility-coverage-scoreboard.json",
         "docs/release/package-channel-readiness-matrix.json",
         "docs/release/enterprise-evidence-export-pack.json",
+        "docs/foundry/dev-stack-starter-kit.json",
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ] {
@@ -1220,6 +1228,8 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "FoundryMediaSetSource",
         "FoundryAipLogicBoundaryReport",
         "FoundryMarketplaceStarterProduct",
+        "shardloom.foundry_dev_stack_starter_kit.v1",
+        "docs/foundry/dev-stack-starter-kit.md",
         "python scripts\\foundry_proof_of_use.py",
         "shardloom.foundry_generated_output_boundary.v1",
         "foundry_output_api_required=true",
@@ -1241,6 +1251,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "shardloom.foundry_generated_output_fanout_posture.v1",
         "shardloom.foundry_generated_output_boundary.v1",
         "shardloom.foundry_scale_proof_boundary.v1",
+        "shardloom.foundry_dev_stack_starter_kit.v1",
         "shardloom.generated_source_certificate_contract.v1",
         "package_install_mode",
         "transform_import_proven",
@@ -1248,6 +1259,9 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "staged_dataset_path_explicit",
         "supported_local_native_execution_smoke_performed",
         "certificate_metrics_dataset_output_written",
+        "foundry_dev_stack_starter_kit_status",
+        "foundry_dev_stack_starter_kit_ref",
+        "foundry_dev_stack_starter_kit_schema_version",
         "foundry_generated_output_fanout_status",
         "foundry_generated_output_boundary_status",
         "foundry_scale_proof_boundary_status",
@@ -1476,6 +1490,86 @@ fn external_examples_include_fixtures_expected_outputs_and_boundaries() {
     assert!(boundary.contains("fallback_attempted=false"));
     assert!(boundary.contains("external_engine_invoked=false"));
     assert!(boundary.contains("never ShardLoom runtime dependencies"));
+}
+
+#[test]
+fn foundry_dev_stack_starter_remains_local_style_report_only() {
+    let doc = read_repo_file("docs/foundry/dev-stack-starter-kit.md");
+    for required in [
+        "shardloom.foundry_dev_stack_starter_kit.v1",
+        "python scripts\\check_foundry_dev_stack_starter.py",
+        "cargo build -p shardloom-cli --bin shardloom",
+        "python examples\\foundry-lightweight-transform\\run.py --repo-root .",
+        "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1",
+        "no_dataset_smoke_separate_from_generated_output=true",
+        "generated_output_execution_performed=false",
+        "foundry_runtime_invoked=false",
+        "foundry_compute_invoked=false",
+        "foundry_spark_invoked=false",
+        "foundry_output_api_invoked=false",
+        "foundry_result_dataset_written=false",
+        "foundry_evidence_dataset_written=false",
+        "direct_s3_write_invoked=false",
+        "object_store_write_invoked=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "local_foundry_style_transform_and_local_vortex_execution_smoke_only",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing Foundry dev-stack starter doc field {required}"
+        );
+    }
+
+    let manifest = read_repo_file("docs/foundry/dev-stack-starter-kit.json");
+    for required in [
+        "\"schema_version\": \"shardloom.foundry_dev_stack_starter_kit.v1\"",
+        "\"gar_id\": \"GAR-COMMERCIAL-1E\"",
+        "\"status\": \"local_style_report_only\"",
+        "\"claim_gate_status\": \"not_claim_grade\"",
+        "\"real_foundry_runtime_supported\": false",
+        "\"foundry_runtime_invoked\": false",
+        "\"foundry_compute_invoked\": false",
+        "\"foundry_spark_invoked\": false",
+        "\"foundry_output_api_invoked\": false",
+        "\"foundry_result_dataset_written\": false",
+        "\"foundry_evidence_dataset_written\": false",
+        "\"direct_s3_write_invoked\": false",
+        "\"object_store_write_invoked\": false",
+        "\"credential_resolution_performed\": false",
+        "\"network_probe_performed\": false",
+        "\"external_engine_invoked\": false",
+        "\"fallback_attempted\": false",
+        "\"public_foundry_claim_allowed\": false",
+        "\"foundry_marketplace_claim_allowed\": false",
+        "\"no_dataset_smoke_separate_from_generated_output\": true",
+        "\"generated_source_certificate_status\": \"not_emitted_report_only\"",
+        "\"deterministic_blocker\": \"blocked_until_real_foundry_output_api_evidence\"",
+    ] {
+        assert!(
+            manifest.contains(required),
+            "missing Foundry dev-stack starter manifest field {required}"
+        );
+    }
+
+    let script = read_repo_file("scripts/check_foundry_dev_stack_starter.py");
+    for required in [
+        "shardloom.foundry_dev_stack_starter_kit.v1",
+        "shardloom.foundry_dev_stack_starter_kit_report.v1",
+        "REQUIRED_FALSE_FIELDS",
+        "EXPECTED_COMMAND_IDS",
+        "foundry_runtime_invoked",
+        "foundry_compute_invoked",
+        "foundry_spark_invoked",
+        "foundry_output_api_invoked",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing Foundry dev-stack starter validator field {required}"
+        );
+    }
 }
 
 #[test]

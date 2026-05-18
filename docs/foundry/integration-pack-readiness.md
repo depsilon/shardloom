@@ -90,6 +90,10 @@ ShardLoom-native execution requires staged/native data plus execution and Native
 
 ## Local Proof
 
+For the user-facing starter path, see
+[`docs/foundry/dev-stack-starter-kit.md`](dev-stack-starter-kit.md) and
+`shardloom.foundry_dev_stack_starter_kit.v1`.
+
 Use:
 
 ```powershell

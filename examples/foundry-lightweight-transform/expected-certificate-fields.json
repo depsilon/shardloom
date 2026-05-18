@@ -5,9 +5,18 @@
   "execution_certificate_status": "not_emitted_no_dataset_smoke",
   "native_io_certificate_status": "not_emitted_no_dataset_smoke",
   "materialization_boundary_status": "staged_path_declared_only",
+  "no_dataset_smoke_separate_from_generated_output": true,
+  "generated_source_certificate_status": "not_emitted_report_only",
+  "output_native_io_certificate_status": "not_emitted_report_only",
+  "claim_gate_status": "not_claim_grade",
   "required_policy_fields": {
     "fallback_attempted": false,
     "external_compute_invoked": false,
-    "foundry_compute_invoked": false
+    "external_engine_invoked": false,
+    "foundry_compute_invoked": false,
+    "foundry_spark_invoked": false,
+    "foundry_output_api_invoked": false,
+    "foundry_result_dataset_written": false,
+    "foundry_evidence_dataset_written": false
   }
 }
