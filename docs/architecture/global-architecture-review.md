@@ -814,10 +814,12 @@ plan before coding.
   add the report-only `GeneratedSourceCertificate` contract and capability rows that separate
   `no_dataset_smoke`, `user_generated_source`, and `engine_native_generated_source`; `GAR-GEN-1C`
   adds one scoped local user-row JSONL smoke path with generated-source and output evidence, and
-  `GAR-GEN-1D` adds one scoped local engine-native range JSONL smoke path. Remaining GAR-GEN work is
-  other engine-native generators plus SQL/DataFrame/API admission without promoting broad
-  SQL/DataFrame runtime, object-store/Foundry runtime, performance, production, or package claims
-  before evidence exists.
+  `GAR-GEN-1D` adds one scoped local engine-native range JSONL smoke path. `GAR-GEN-1E` adds
+  `shardloom.generated_source_api_admission.v1` rows for Python, SQL, DataFrame, and API
+  source-free forms without parsing SQL, executing broad DataFrame runtime, writing output for
+  report-only rows, or invoking external engines. Remaining GAR-GEN work is other engine-native
+  generators plus broader output/API proof without promoting broad SQL/DataFrame runtime,
+  object-store/Foundry runtime, performance, production, or package claims before evidence exists.
 - [ ] `GAR-NOVEL-1A` keeps `GeneratedSourceCertificate` aligned with Python/API docs,
   SQL/DataFrame capability rows, Foundry proof docs, and future lineage/telemetry/confidence refs
   without adding generated-output runtime.
@@ -843,10 +845,13 @@ plan before coding.
   DataFrame/query-builder affordances without reading data, materializing rows, writing outputs,
   invoking external engines, or upgrading support to claim-grade runtime.
 - [ ] Source-free generated-output workflows such as `ctx.from_rows(...).write(...)` and
-  `ctx.range(...).write(...)` now have scoped local JSONL smoke paths. SQL literal `SELECT`, SQL
-  `VALUES`, calendar/date dimension generation, literal tables, and reference/lookup table
-  generation remain planned under `GAR-GEN-1`. No-input smoke does not count as generated-output
-  execution.
+  `ctx.range(...).write(...)` now have scoped local JSONL smoke paths, and
+  `shardloom.generated_source_api_admission.v1` exposes deterministic admission rows for
+  `ctx.literal_table`, `ctx.calendar`, SQL literal `SELECT`, SQL `VALUES`, SQL source-free
+  projection, SQL `generate_series`/`range`, DataFrame source-free projection, and generated
+  `with_column`. Calendar/date dimension generation, literal tables, SQL execution, and
+  reference/lookup table generation remain report-only/planned under `GAR-GEN-1`. No-input smoke
+  does not count as generated-output execution.
 - [ ] `GAR-COMPAT-1` is the user-workflow compatibility scoreboard for source/sink/adapters. It
   separates plan/report coverage from runtime coverage for local files, Vortex, generated-output
   APIs, external databases, object stores, table formats, REST/Flight/ADBC, and Foundry.

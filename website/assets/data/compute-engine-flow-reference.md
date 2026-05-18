@@ -526,9 +526,9 @@ End-to-end contract:
 ## Source-Free Generated Output
 
 Source-free generated output is the flow for requests that create output without reading an input
-dataset. The repo has the report-only certificate contract for the full flow and one scoped local
-user-row JSONL fixture-smoke runtime path. It keeps generated-output execution distinct from
-no-input smoke and benchmark fixture generation.
+dataset. The repo has the report-only certificate contract for the full flow plus scoped local
+user-row and range JSONL fixture-smoke runtime paths. It keeps generated-output execution distinct
+from no-input smoke and benchmark fixture generation.
 
 The governing GAR item is `GAR-GEN-1 source-free generated-output execution and
 GeneratedSourceCertificate`. GAR-GEN-1A/GAR-GEN-1B expose
@@ -536,6 +536,9 @@ GeneratedSourceCertificate`. GAR-GEN-1A/GAR-GEN-1B expose
 GAR-GEN-1C adds `generated-source-user-rows-smoke` plus Python `ctx.from_rows([...]).write(...)` for
 one local user-row JSONL output smoke path. GAR-GEN-1D adds `generated-source-range-smoke` plus
 Python `ctx.range(...).write(...)` for one ShardLoom-native range JSONL output smoke path.
+GAR-GEN-1E adds the source-free SQL/DataFrame/Python/API admission matrix
+`shardloom.generated_source_api_admission.v1` so users and agents can inspect supported,
+report-only, and blocked forms without executing unsupported runtime.
 
 ### Case Split
 
@@ -577,6 +580,32 @@ DataFrame-style builder methods should classify source-free builders and local w
 implying broad DataFrame runtime. The runtime-supported generated-output builders today are scoped
 local user-row JSONL and range JSONL smokes; expression-backed `with_column`, joins, aggregations,
 SQL, non-local output, and other source-free builders require future admission evidence.
+
+### Source-Free API Admission Matrix
+
+Capability discovery surfaces expose `shardloom.generated_source_api_admission.v1` for SQL,
+Python, DataFrame, and API scopes. The matrix is an admission/status surface, not a parser,
+planner, runtime, or write operation.
+
+| Row | Current posture | Runtime/effect boundary |
+| --- | --- | --- |
+| `python_ctx_from_rows` | `fixture_smoke_supported` | Admits only scoped local JSONL user-row writes with generated-source and output evidence. |
+| `python_ctx_range` | `fixture_smoke_supported` | Admits only scoped local JSONL range writes with generated-source and output evidence. |
+| `python_generated_source_write` | `fixture_smoke_supported` | Write helper is admitted only when attached to supported `user_rows` or `range` generated sources. |
+| `python_ctx_literal_table` | `report_only` | `blocker_id=gar-gen-1.literal_table_runtime_not_implemented`; no rows generated and no output written. |
+| `python_ctx_calendar` | `report_only` | `blocker_id=gar-gen-1.calendar_runtime_not_implemented`; no rows generated and no output written. |
+| `sql_literal_select` | `report_only` | `blocker_id=gar-gen-1.sql_literal_select_runtime_not_implemented`; no parser, binder, planner, or runtime execution. |
+| `sql_values` | `report_only` | `blocker_id=gar-gen-1.sql_values_runtime_not_implemented`; no parser, binder, planner, or runtime execution. |
+| `sql_source_free_projection` | `report_only` | `blocker_id=gar-gen-1.sql_source_free_projection_runtime_not_implemented`; no SQL runtime or output claim. |
+| `sql_generate_series_range` | `report_only` | `blocker_id=gar-gen-1.sql_generate_series_range_runtime_not_implemented`; SQL vocabulary only. |
+| `dataframe_source_free_projection` | `report_only` | `blocker_id=gar-gen-1.dataframe_source_free_projection_runtime_not_implemented`; no broad DataFrame runtime. |
+| `dataframe_generated_with_column` | `report_only` | `blocker_id=gar-gen-1.dataframe_generated_with_column_runtime_not_implemented`; no expression-backed generation. |
+
+Every row reports `support_status`, `runtime_execution`, `data_read`, `write_io`,
+`source_io_performed`, `generated_source_created`, `blocker_id`, `required_evidence`,
+`claim_gate_status`, `fallback_attempted=false`, `external_engine_invoked=false`, and
+`fallback_execution_allowed=false`. Report-only rows do not parse SQL, materialize rows, write
+output, resolve credentials, probe object stores, invoke Foundry, or invoke external engines.
 
 ### Required Generated-Source Evidence Fields
 

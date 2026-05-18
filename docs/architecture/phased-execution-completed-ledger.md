@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-GEN-1E source-free SQL/DataFrame/API admission matrix
+  - Primary files:
+    - `shardloom-core/src/generated_source.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/recipes/README.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+    - `website/use-cases/index.html`
+  - Scope: add a side-effect-free source-free generated-output admission matrix that classifies
+    scoped Python runtime smokes and report-only SQL/DataFrame/API forms without parsing SQL,
+    executing broad DataFrame runtime, writing output for report-only rows, probing object stores,
+    invoking Foundry, invoking external engines, or changing package/public claim posture.
+  - Checklist:
+    - [x] Add `shardloom.generated_source_api_admission.v1` with stable rows for
+          `python_ctx_from_rows`, `python_ctx_range`, `python_ctx_literal_table`,
+          `python_ctx_calendar`, `python_generated_source_write`, SQL literal `SELECT`,
+          SQL `VALUES`, SQL source-free projection, SQL `generate_series`/`range`,
+          DataFrame source-free projection, and generated `with_column`.
+    - [x] Report `support_status`, `runtime_execution`, `data_read`, `write_io`,
+          `source_io_performed`, `generated_source_created`, `blocker_id`,
+          `required_evidence`, `claim_gate_status`, `fallback_attempted=false`,
+          `external_engine_invoked=false`, and `fallback_execution_allowed=false` per row.
+    - [x] Expose Python typed accessors through `CapabilityView.generated_source_api_admission`.
+    - [x] Keep `ctx.from_rows`, `ctx.range`, and supported generated-source writes as
+          `fixture_smoke_supported`; keep literal-table, calendar, SQL, and broader DataFrame forms
+          `report_only` with deterministic blockers.
+    - [x] Move GAR-GEN-1E out of the active Planned queue and update compute-flow, Python,
+          compatibility, GAR, traceability, and use-case docs.
+  - Evidence/verification:
+    - `cargo test -p shardloom-core generated_source --lib`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `fc.exe docs/architecture/compute-engine-flow-reference.md website/assets/data/compute-engine-flow-reference.md`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This slice may claim only deterministic source-free API admission visibility plus the already
+      scoped local user-row and range JSONL generated-output smokes.
+    - It does not authorize SQL parser/binder/runtime, broad DataFrame runtime, literal-table or
+      calendar runtime, sequence/values/synthetic generators, object-store/lakehouse support,
+      Foundry production support, package publication, Spark replacement, performance/superiority
+      claims, or production readiness.
+  - Fallback boundary:
+    - All rows require `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+      `external_engine_invoked=false`; report-only rows also perform no source I/O, no output I/O,
+      no object-store/network/catalog probes, and no Foundry runtime.
+
 - [x] Session label: GAR-GEN-1D engine-native range generated source local-output fixture smoke
   - Primary files:
     - `shardloom-cli/src/generated_source_runtime.rs`

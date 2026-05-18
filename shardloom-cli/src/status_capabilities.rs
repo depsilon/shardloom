@@ -9,9 +9,10 @@ use std::{process::ExitCode, vec::IntoIter};
 use shardloom_core::{
     ArchitectureRuntimeClaimGateReport, CapabilityCertificationReport,
     CapabilityCertificationStatus, CommandStatus, EngineCapabilities, EngineCapabilityMatrixReport,
-    GeneratedSourceCertificateContractReport, MaterializationPolicyReport, OutputFormat,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
-    ShardLoomError, SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
+    GeneratedSourceApiAdmissionMatrix, GeneratedSourceCertificateContractReport,
+    MaterializationPolicyReport, OutputFormat, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
+    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
     WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
     output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
     plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
@@ -3181,6 +3182,7 @@ fn append_sql_certification_fields(
     );
     append_sql_dataframe_planner_readiness_fields(fields);
     append_generated_source_certificate_contract_fields(fields);
+    append_generated_source_api_admission_fields(fields);
 }
 
 fn append_sql_dataframe_planner_readiness_fields(fields: &mut Vec<(String, String)>) {
@@ -3402,6 +3404,163 @@ fn append_generated_source_certificate_contract_fields(fields: &mut Vec<(String,
             .generated_source_certificate_status
             .as_str(),
     );
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_generated_source_api_admission_fields(fields: &mut Vec<(String, String)>) {
+    let matrix = GeneratedSourceApiAdmissionMatrix::report_only();
+    push_field(
+        fields,
+        "generated_source_api_admission_schema_version",
+        matrix.schema_version,
+    );
+    push_field(
+        fields,
+        "generated_source_api_admission_matrix_id",
+        matrix.matrix_id,
+    );
+    push_field(
+        fields,
+        "generated_source_api_admission_support_status_vocabulary",
+        matrix.support_status_vocabulary,
+    );
+    push_field(
+        fields,
+        "generated_source_api_admission_claim_gate_status",
+        matrix.claim_gate_status,
+    );
+    push_count_field(
+        fields,
+        "generated_source_api_admission_row_count",
+        matrix.rows.len(),
+    );
+    push_field(
+        fields,
+        "generated_source_api_admission_row_order",
+        &matrix.row_order().join(","),
+    );
+    push_field(
+        fields,
+        "generated_source_api_admission_python_row_order",
+        &matrix.python_row_order().join(","),
+    );
+    push_field(
+        fields,
+        "generated_source_api_admission_sql_row_order",
+        &matrix.sql_row_order().join(","),
+    );
+    push_field(
+        fields,
+        "generated_source_api_admission_dataframe_row_order",
+        &matrix.dataframe_row_order().join(","),
+    );
+    push_field(
+        fields,
+        "generated_source_api_admission_blocker_ids",
+        &matrix.blocker_ids().join(","),
+    );
+    push_field(
+        fields,
+        "generated_source_api_admission_required_evidence",
+        &matrix.required_evidence().join(","),
+    );
+    push_bool_field(
+        fields,
+        "generated_source_api_admission_runtime_execution",
+        matrix.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_api_admission_data_read",
+        matrix.data_read,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_api_admission_write_io",
+        matrix.write_io,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_api_admission_source_io_performed",
+        matrix.source_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_api_admission_generated_source_created",
+        matrix.generated_source_created,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_api_admission_fallback_attempted",
+        matrix.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_api_admission_external_engine_invoked",
+        matrix.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_api_admission_fallback_execution_allowed",
+        matrix.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_api_admission_broad_sql_dataframe_claim_allowed",
+        matrix.broad_sql_dataframe_claim_allowed,
+    );
+
+    for row in &matrix.rows {
+        let prefix = row.row_id;
+        push_field(
+            fields,
+            &format!("{prefix}_support_status"),
+            row.support_status.as_str(),
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_runtime_execution"),
+            row.runtime_execution,
+        );
+        push_bool_field(fields, &format!("{prefix}_data_read"), row.data_read);
+        push_bool_field(fields, &format!("{prefix}_write_io"), row.write_io);
+        push_bool_field(
+            fields,
+            &format!("{prefix}_source_io_performed"),
+            row.source_io_performed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_generated_source_created"),
+            row.generated_source_created,
+        );
+        push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            row.required_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_fallback_attempted"),
+            row.fallback_attempted,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_external_engine_invoked"),
+            row.external_engine_invoked,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_fallback_execution_allowed"),
+            row.fallback_execution_allowed,
+        );
+    }
 }
 
 fn append_function_certification_fields(
@@ -4743,6 +4902,14 @@ fn world_class_surface_fields(
             | CapabilityDiscoveryScope::ApiSurfaces
     ) {
         append_generated_source_certificate_contract_fields(&mut fields);
+    }
+    if matches!(
+        scope,
+        CapabilityDiscoveryScope::Python
+            | CapabilityDiscoveryScope::DataFrame
+            | CapabilityDiscoveryScope::ApiSurfaces
+    ) {
+        append_generated_source_api_admission_fields(&mut fields);
     }
     fields
 }
