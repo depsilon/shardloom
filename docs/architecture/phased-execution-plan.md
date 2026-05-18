@@ -451,70 +451,9 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-GAR-SCALE-1A and GAR-SCALE-1B are complete and recorded in the completed ledger. The active
-follow-through begins with bounded memory, spill, and backpressure contracts; all non-local scale
+GAR-SCALE-1A through GAR-SCALE-1C are complete and recorded in the completed ledger. The active
+follow-through begins with shuffle, repartition, and join scale contracts; all non-local scale
 classes remain blocked or report-only until later slices attach runtime evidence.
-
-- [ ] GAR-SCALE-1C bounded memory, spill, and backpressure contract
-  - Source:
-    - RFC 0014 Memory Management, Spill, and OOM Safety.
-    - RFC 0013 streaming/zero-copy/zero-decode boundaries.
-    - Existing resource sizing, target partition, and benchmark resource fields.
-    - GAR-PERF-2G allocation and buffer-pool optimization evidence.
-  - Current state:
-    - Resource sizing and target partition fields exist.
-    - ShardLoom has no scale-grade spill/backpressure contract that can support larger-than-memory
-      claims.
-    - Current spill-like payload work must not be treated as query/data spill permission.
-  - Next slice outcome:
-    - Add memory, spill, and backpressure evidence contracts that let larger-than-memory paths block,
-      spill, or throttle deterministically under a declared budget.
-  - User-visible surface:
-    - Benchmark evidence rows, compute-flow docs, release readiness checks, CLI/Python capability
-      views, and future scale benchmark profiles.
-  - Implementation scope:
-    - Memory/spill schema, deterministic unsupported diagnostics, benchmark row fields, release
-      checks, and docs. Runtime spill implementation remains separate unless a later scoped slice
-      admits it.
-  - Evidence required:
-    - `memory_budget_bytes`
-    - `operator_memory_budget_bytes`
-    - `peak_memory_bytes`
-    - `memory_budget_exceeded=false`
-    - `spill_allowed`
-    - `spill_location`
-    - `spill_bytes_written`
-    - `spill_bytes_read`
-    - `spill_file_count`
-    - `spill_cleanup_status`
-    - `backpressure_status`
-    - `oom_prevention_status`
-    - `fallback_attempted=false`
-    - `external_engine_invoked=false`
-    - `claim_gate_status`
-  - Acceptance:
-    - Operators that cannot run within memory budget block or spill deterministically.
-    - No hidden full materialization is allowed under scale-grade mode.
-    - Spill evidence is required for any larger-than-memory claim.
-  - Verification:
-    - Memory/spill contract tests or release-readiness metadata tests.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `git diff --check`
-  - Non-goals:
-    - No production spill runtime, object-store spill, distributed spill, hidden materialization,
-      performance claim, or Spark fallback.
-  - Dependencies/blockers:
-    - Operator memory accounting, spill manager design, cleanup semantics, resource metrics, and
-      correctness evidence for any future runtime spill path.
-  - Claim boundary:
-    - This slice can establish the evidence contract only. Larger-than-memory support remains
-      blocked until runtime spill/backpressure implementation and correctness evidence exist.
-  - Fallback boundary:
-    - Memory pressure cannot be resolved by external engine fallback or by unreported full-table
-      materialization.
-  - Ledger rule:
-    - When complete, move the memory/spill contract details and unsupported states to the completed
-      ledger.
 
 - [ ] GAR-SCALE-1D shuffle, repartition, and join scale contract
   - Source:

@@ -750,10 +750,14 @@ plan before coding.
   `shardloom.traditional_analytics.split_manifest.v1` row contract with SplitManifest IDs/digests,
   SourceState linkage, split IDs, byte/row ranges, estimated rows/bytes, projection masks, filter
   pushdown posture, retry/runtime/row/spill/output refs, no-fallback fields, and
-  `split_claim_gate_status=not_split_scale_grade`. The remaining follow-through must add
-  memory/spill/backpressure, shuffle/repartition, object-store/table ladder, distributed
-  report-only protocol, scale benchmark, and Foundry scale proof boundaries before any scale claim
-  can be promoted beyond local evidence. Synthetic
+  `split_claim_gate_status=not_split_scale_grade`. `GAR-SCALE-1C` now adds the fail-closed
+  `shardloom.traditional_analytics.memory_spill_backpressure.v1` row contract with memory budget,
+  operator memory budget, peak memory, budget-exceeded, spill location/read/write/file/cleanup,
+  backpressure, OOM-prevention, no-fallback fields, and
+  `memory_spill_claim_gate_status=not_larger_than_memory_grade`. The remaining follow-through must
+  add shuffle/repartition, object-store/table ladder, distributed report-only protocol, scale
+  benchmark, and Foundry scale proof boundaries before any scale claim can be promoted beyond local
+  evidence. Synthetic
   metadata-only evidence, report-only protocol rows, external baselines, and managed-platform
   orchestration cannot satisfy ShardLoom runtime scale claims, Spark-replacement claims, or
   no-fallback/no-external-engine proof.

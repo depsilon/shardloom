@@ -890,6 +890,46 @@ SPLIT_MANIFEST_FIELDS = (
     "split_claim_gate_status",
     "split_claim_boundary",
 )
+MEMORY_SPILL_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.memory_spill_backpressure.v1"
+)
+MEMORY_SPILL_STATUS_VOCABULARY = (
+    "local_budget_not_declared_report_only",
+    "blocked",
+    "unsupported",
+    "external_baseline_only",
+)
+MEMORY_SPILL_CLAIM_STATUS_VOCABULARY = (
+    "not_larger_than_memory_grade",
+    "blocked",
+    "unsupported",
+    "external_baseline_only",
+)
+MEMORY_SPILL_FIELDS = (
+    "memory_spill_contract_schema_version",
+    "memory_spill_status_vocabulary",
+    "memory_spill_claim_status_vocabulary",
+    "memory_spill_status",
+    "memory_spill_id",
+    "memory_spill_digest",
+    "memory_budget_bytes",
+    "operator_memory_budget_bytes",
+    "peak_memory_bytes",
+    "memory_budget_exceeded",
+    "spill_allowed",
+    "spill_location",
+    "spill_bytes_written",
+    "spill_bytes_read",
+    "spill_file_count",
+    "spill_cleanup_status",
+    "backpressure_status",
+    "oom_prevention_status",
+    "memory_spill_claim_status",
+    "memory_spill_fallback_attempted",
+    "memory_spill_external_engine_invoked",
+    "memory_spill_claim_gate_status",
+    "memory_spill_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -6255,6 +6295,7 @@ def bayesian_advisor_contract_metadata(
         "reuse_level_contract",
         "build_profile_contract",
         "split_manifest_contract",
+        "memory_spill_contract",
         "scale_claim_contract",
         "runtime_resource_policy_fields",
         "layout_advisor_report",
@@ -6555,6 +6596,89 @@ def split_manifest_contract_metadata(
             "it does not prove split-parallel execution, larger-than-memory execution, "
             "object-store/table runtime, distributed runtime, Spark-replacement, or "
             "performance superiority."
+        ),
+    }
+
+
+def memory_spill_status_for_row(engine: str, status: str) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported"
+    if status != "success":
+        return "blocked"
+    return "local_budget_not_declared_report_only"
+
+
+def memory_spill_claim_status_for_row(engine: str, status: str) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported"
+    if status != "success":
+        return "blocked"
+    return "not_larger_than_memory_grade"
+
+
+def memory_spill_contract_metadata(
+    engine: str,
+    scenario: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    is_shardloom = is_shardloom_engine(engine)
+    peak_memory_bytes = metrics.get("peak_memory_bytes")
+    source_state_digest = str(metrics.get("source_state_digest") or "none")
+    split_manifest_digest = str(metrics.get("split_manifest_digest") or "none")
+    digest = canonical_digest(
+        {
+            "engine": engine,
+            "memory_spill_schema": MEMORY_SPILL_SCHEMA_VERSION,
+            "scenario": scenario,
+            "source_state_digest": source_state_digest,
+            "split_manifest_digest": split_manifest_digest,
+            "status": status,
+        }
+    )
+    return {
+        "memory_spill_contract_schema_version": MEMORY_SPILL_SCHEMA_VERSION,
+        "memory_spill_status_vocabulary": ",".join(
+            MEMORY_SPILL_STATUS_VOCABULARY
+        ),
+        "memory_spill_claim_status_vocabulary": ",".join(
+            MEMORY_SPILL_CLAIM_STATUS_VOCABULARY
+        ),
+        "memory_spill_status": memory_spill_status_for_row(engine, status),
+        "memory_spill_id": (
+            f"memory-spill:{digest[:12]}" if is_shardloom else "none"
+        ),
+        "memory_spill_digest": digest if is_shardloom else "none",
+        "memory_budget_bytes": None,
+        "operator_memory_budget_bytes": None,
+        "peak_memory_bytes": peak_memory_bytes,
+        "memory_budget_exceeded": False,
+        "spill_allowed": False,
+        "spill_location": "not_admitted",
+        "spill_bytes_written": 0,
+        "spill_bytes_read": 0,
+        "spill_file_count": 0,
+        "spill_cleanup_status": "not_needed_no_spill_runtime",
+        "backpressure_status": "not_admitted_report_only",
+        "oom_prevention_status": "not_larger_than_memory_proof",
+        "memory_spill_claim_status": memory_spill_claim_status_for_row(
+            engine, status
+        ),
+        "memory_spill_fallback_attempted": False,
+        "memory_spill_external_engine_invoked": False,
+        "memory_spill_claim_gate_status": "not_larger_than_memory_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "memory_spill_claim_boundary": (
+            "Memory, spill, and backpressure evidence is fail-closed. Current rows "
+            "do not declare a scale memory budget, do not admit runtime spill, do not "
+            "prove larger-than-memory execution, and cannot resolve memory pressure "
+            "through hidden materialization or external engine fallback."
         ),
     }
 
@@ -7239,6 +7363,62 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         if metrics.get("memory_budget_bytes") is not None:
             raise RuntimeError(
                 "GAR-SCALE-1A must not declare a scale memory budget without runtime proof"
+            )
+        missing_memory_spill_fields = [
+            field for field in MEMORY_SPILL_FIELDS if field not in metrics
+        ]
+        if missing_memory_spill_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted memory/spill/backpressure fields: "
+                + ", ".join(missing_memory_spill_fields)
+            )
+        if (
+            metrics.get("memory_spill_contract_schema_version")
+            != MEMORY_SPILL_SCHEMA_VERSION
+        ):
+            raise RuntimeError(
+                "memory/spill/backpressure rows must preserve schema version"
+            )
+        if metrics.get("memory_spill_status") not in MEMORY_SPILL_STATUS_VOCABULARY:
+            raise RuntimeError("ShardLoom row reported unknown memory_spill_status")
+        if (
+            metrics.get("memory_spill_claim_status")
+            not in MEMORY_SPILL_CLAIM_STATUS_VOCABULARY
+        ):
+            raise RuntimeError(
+                "ShardLoom row reported unknown memory_spill_claim_status"
+            )
+        if metrics.get("operator_memory_budget_bytes") is not None:
+            raise RuntimeError(
+                "GAR-SCALE-1C cannot declare operator memory budgets without runtime proof"
+            )
+        if metrics.get("memory_budget_exceeded") is not False:
+            raise RuntimeError(
+                "memory/spill contract must fail closed with memory_budget_exceeded=false"
+            )
+        if metrics.get("spill_location") != "not_admitted":
+            raise RuntimeError("GAR-SCALE-1C cannot admit a spill location yet")
+        if parse_optional_int(metrics.get("spill_file_count")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1C cannot report spill files yet")
+        if metrics.get("spill_cleanup_status") != "not_needed_no_spill_runtime":
+            raise RuntimeError("GAR-SCALE-1C cannot report runtime spill cleanup yet")
+        if metrics.get("backpressure_status") != "not_admitted_report_only":
+            raise RuntimeError("GAR-SCALE-1C cannot admit backpressure runtime yet")
+        if metrics.get("oom_prevention_status") != "not_larger_than_memory_proof":
+            raise RuntimeError(
+                "GAR-SCALE-1C cannot report larger-than-memory OOM prevention proof yet"
+            )
+        if metrics.get("memory_spill_claim_gate_status") != (
+            "not_larger_than_memory_grade"
+        ):
+            raise RuntimeError(
+                "memory/spill evidence cannot upgrade larger-than-memory claim status"
+            )
+        if metrics.get("memory_spill_fallback_attempted") is not False:
+            raise RuntimeError("memory/spill evidence cannot report fallback attempts")
+        if metrics.get("memory_spill_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "memory/spill evidence cannot report external engine execution"
             )
         missing_split_manifest_fields = [
             field for field in SPLIT_MANIFEST_FIELDS if field not in metrics
@@ -8238,6 +8418,53 @@ def split_manifest_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]
     return rows
 
 
+def memory_spill_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "memory_spill_contract_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "memory_spill_status": metrics.get("memory_spill_status"),
+                "memory_spill_id": metrics.get("memory_spill_id"),
+                "memory_spill_digest": metrics.get("memory_spill_digest"),
+                "memory_budget_bytes": metrics.get("memory_budget_bytes"),
+                "operator_memory_budget_bytes": metrics.get(
+                    "operator_memory_budget_bytes"
+                ),
+                "peak_memory_bytes": metrics.get("peak_memory_bytes"),
+                "memory_budget_exceeded": metrics.get("memory_budget_exceeded"),
+                "spill_allowed": metrics.get("spill_allowed"),
+                "spill_location": metrics.get("spill_location"),
+                "spill_bytes_written": metrics.get("spill_bytes_written"),
+                "spill_bytes_read": metrics.get("spill_bytes_read"),
+                "spill_file_count": metrics.get("spill_file_count"),
+                "spill_cleanup_status": metrics.get("spill_cleanup_status"),
+                "backpressure_status": metrics.get("backpressure_status"),
+                "oom_prevention_status": metrics.get("oom_prevention_status"),
+                "memory_spill_claim_status": metrics.get(
+                    "memory_spill_claim_status"
+                ),
+                "memory_spill_claim_gate_status": metrics.get(
+                    "memory_spill_claim_gate_status"
+                ),
+                "memory_spill_fallback_attempted": metrics.get(
+                    "memory_spill_fallback_attempted"
+                ),
+                "memory_spill_external_engine_invoked": metrics.get(
+                    "memory_spill_external_engine_invoked"
+                ),
+            }
+        )
+    return rows
+
+
 def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -9011,6 +9238,14 @@ def failed_result(
             metrics=metrics,
         )
     )
+    metrics.update(
+        memory_spill_contract_metadata(
+            engine,
+            scenario,
+            status=status,
+            metrics=metrics,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -9550,6 +9785,14 @@ def successful_result_from_iterations(
     )
     metrics.update(
         scale_claim_contract_metadata(
+            runner.name,
+            scenario,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+        )
+    )
+    metrics.update(
+        memory_spill_contract_metadata(
             runner.name,
             scenario,
             status="success" if stable else "unstable_output",
@@ -10597,6 +10840,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "build_profile_fields": list(BUILD_PROFILE_FIELDS),
         "bayesian_advisor_fields": list(BAYESIAN_ADVISOR_FIELDS),
         "split_manifest_fields": list(SPLIT_MANIFEST_FIELDS),
+        "memory_spill_fields": list(MEMORY_SPILL_FIELDS),
         "scale_claim_fields": list(SCALE_CLAIM_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
@@ -10795,6 +11039,53 @@ def split_manifest_contract() -> dict[str, Any]:
             "Current local rows may expose a single-local-file split manifest, but they do not "
             "prove split-parallel execution, distributed execution, object-store/table runtime, "
             "larger-than-memory support, any-volume support, or Spark-replacement readiness."
+        ),
+    }
+
+
+def memory_spill_contract() -> dict[str, Any]:
+    return {
+        "contract_id": MEMORY_SPILL_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/scale-readiness-contract.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(MEMORY_SPILL_STATUS_VOCABULARY),
+        "claim_status_vocabulary": list(MEMORY_SPILL_CLAIM_STATUS_VOCABULARY),
+        "row_fields": list(MEMORY_SPILL_FIELDS),
+        "current_scope": (
+            "report-only memory, spill, and backpressure evidence fields for current "
+            "local benchmark rows; no larger-than-memory runtime, spill runtime, or "
+            "backpressure runtime is admitted"
+        ),
+        "required_future_proof": [
+            "declared memory budget",
+            "operator memory budget",
+            "peak memory accounting under the declared budget",
+            "deterministic block-or-spill admission",
+            "spill file/read/write/cleanup evidence when spill is allowed",
+            "backpressure evidence when operators throttle or chunk work",
+            "correctness digest over larger-than-memory workload bytes",
+        ],
+        "non_goals": [
+            "larger-than-memory runtime",
+            "production spill runtime",
+            "object-store spill",
+            "distributed spill",
+            "hidden full materialization",
+            "Spark-replacement claim",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Memory pressure must not be resolved by external fallback engines or by "
+            "unreported full-table materialization. Rows must preserve "
+            "memory_spill_fallback_attempted=false and "
+            "memory_spill_external_engine_invoked=false."
+        ),
+        "claim_boundary": (
+            "GAR-SCALE-1C permits memory, spill, and backpressure vocabulary plus "
+            "fail-closed row evidence only. Current rows do not declare a scale memory "
+            "budget, admit spill, prove backpressure, prove larger-than-memory execution, "
+            "or support any-volume, distributed, object-store/table, Foundry, "
+            "Spark-replacement, or performance claims."
         ),
     }
 
@@ -11137,6 +11428,31 @@ def render_split_manifest_contract(artifact: dict[str, Any]) -> str:
         markdown_table(["Field", "Value"], rows)
         + "\n\n"
         + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
+def render_memory_spill_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["memory_spill_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Claim status vocabulary", ", ".join(contract["claim_status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    proof_rows = [
+        ["Required future proof", value]
+        for value in contract["required_future_proof"]
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], proof_rows + non_goal_rows)
     )
 
 
@@ -11793,6 +12109,94 @@ def render_split_manifest_matrix(artifact: dict[str, Any]) -> str:
             "Spill bytes",
             "Output ref",
             "Split claim",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
+def render_memory_spill_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["memory_spill_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["memory_spill_status"]),
+                str(row["memory_spill_id"]),
+                str(row["memory_spill_digest"]),
+                format_bytes(row["memory_budget_bytes"]),
+                format_bytes(row["operator_memory_budget_bytes"]),
+                format_bytes(row["peak_memory_bytes"]),
+                str(row["memory_budget_exceeded"]),
+                str(row["spill_allowed"]),
+                str(row["spill_location"]),
+                format_bytes(row["spill_bytes_written"]),
+                format_bytes(row["spill_bytes_read"]),
+                str(row["spill_file_count"]),
+                str(row["spill_cleanup_status"]),
+                str(row["backpressure_status"]),
+                str(row["oom_prevention_status"]),
+                str(row["memory_spill_claim_status"]),
+                str(row["memory_spill_claim_gate_status"]),
+                str(row["memory_spill_fallback_attempted"]),
+                str(row["memory_spill_external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "none",
+                "none",
+                "n/a",
+                "n/a",
+                "n/a",
+                "false",
+                "false",
+                "not_admitted",
+                "0 B",
+                "0 B",
+                "0",
+                "not_needed_no_spill_runtime",
+                "not_admitted_report_only",
+                "not_larger_than_memory_proof",
+                "not_larger_than_memory_grade",
+                "not_larger_than_memory_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Memory/spill status",
+            "Memory/spill id",
+            "Memory/spill digest",
+            "Memory budget",
+            "Operator memory budget",
+            "Peak memory",
+            "Budget exceeded",
+            "Spill allowed",
+            "Spill location",
+            "Spill written",
+            "Spill read",
+            "Spill files",
+            "Spill cleanup",
+            "Backpressure",
+            "OOM prevention",
+            "Memory/spill claim",
             "Claim gate",
             "Fallback",
             "External engine",
@@ -12765,6 +13169,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_split_manifest_contract(artifact),
         "",
+        "## Memory, Spill, And Backpressure Contract",
+        "",
+        "This contract makes memory budgets, operator budgets, spill posture, cleanup, backpressure, and OOM-prevention status visible without admitting larger-than-memory runtime or hidden materialization.",
+        "",
+        render_memory_spill_contract(artifact),
+        "",
         "## VortexPreparedState Contract",
         "",
         "This contract makes prepared Vortex artifact identity, preparation timing separation, source-state linkage, and scoped reuse posture visible without implying output support or performance claims.",
@@ -12840,6 +13250,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "SplitManifest rows expose report-only local split planning and deterministic blockers. They do not prove split-parallel execution, distributed runtime, object-store/table runtime, larger-than-memory support, or performance claims.",
         "",
         render_split_manifest_matrix(artifact),
+        "",
+        "## ShardLoom Memory, Spill, And Backpressure Evidence Matrix",
+        "",
+        "Memory/spill rows expose a fail-closed larger-than-memory posture. Current rows do not declare scale memory budgets, admit spill files, prove backpressure, or allow memory pressure to be resolved by hidden full materialization or external fallback.",
+        "",
+        render_memory_spill_matrix(artifact),
         "",
         "## ShardLoom VortexPreparedState Evidence Matrix",
         "",
@@ -13180,6 +13596,7 @@ def main() -> int:
         "build_profile_contract": build_profile_contract(),
         "bayesian_advisor_contract": bayesian_advisor_contract(),
         "split_manifest_contract": split_manifest_contract(),
+        "memory_spill_contract": memory_spill_contract(),
         "scale_claim_contract": scale_claim_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
@@ -13193,6 +13610,7 @@ def main() -> int:
         "source_state_matrix": source_state_matrix(results),
         "prepared_state_matrix": prepared_state_matrix(results),
         "split_manifest_matrix": split_manifest_matrix(results),
+        "memory_spill_matrix": memory_spill_matrix(results),
         "output_plan_matrix": output_plan_matrix(results),
         "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
         "cache_invalidation_matrix": cache_invalidation_matrix(results),
