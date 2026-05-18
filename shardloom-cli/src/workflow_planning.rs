@@ -1527,7 +1527,9 @@ fn workflow_unsupported_fields(
     push_field(&mut fields, "target_ref", target_ref);
     push_field(&mut fields, "blocker_id", operation.blocker_id);
     push_field(&mut fields, "severity", "error");
+    push_field(&mut fields, "support_status", "unsupported");
     push_field(&mut fields, "unsupported_status", "unsupported");
+    push_field(&mut fields, "claim_gate_status", "not_claim_grade");
     push_field(
         &mut fields,
         "required_evidence",
@@ -1558,6 +1560,9 @@ fn workflow_unsupported_fields(
     push_bool_field(&mut fields, "plan_only", true);
     push_bool_field(&mut fields, "side_effect_free", true);
     push_field(&mut fields, "execution", "not_performed");
+    push_bool_field(&mut fields, "parser_executed", false);
+    push_bool_field(&mut fields, "binder_executed", false);
+    push_bool_field(&mut fields, "planner_executed", false);
     push_bool_field(&mut fields, "query_execution", false);
     push_bool_field(&mut fields, "runtime_execution", false);
     push_bool_field(&mut fields, "data_read", false);

@@ -884,6 +884,11 @@ plan before coding.
   aggregations, windows, writes, schema/data-quality helpers, materialization/notebook display,
   input boundaries, SQL frontend posture, claim boundaries, required evidence, and
   no-fallback/no-external-engine posture.
+- [x] `GAR-0032-A` adds `docs/architecture/sql-parser-binder-readiness.md` and strengthens
+  `workflow-unsupported-plan sql-parse|sql-bind|sql-plan|sql-execute --format json` with
+  `support_status=unsupported`, `claim_gate_status=not_claim_grade`, `parser_executed=false`,
+  `binder_executed=false`, and `planner_executed=false` so SQL text requests have deterministic
+  diagnostics without parser, binder, planner, runtime, external engine, or fallback execution.
 - [ ] `GAR-GEN-1` source-free generated-output runtime remains partially planned. `GAR-GEN-1A/1B`
   add the report-only `GeneratedSourceCertificate` contract and capability rows that separate
   `no_dataset_smoke`, `user_generated_source`, and `engine_native_generated_source`; `GAR-GEN-1C`
@@ -917,7 +922,7 @@ plan before coding.
   support. Python rows/DataFrame, SQL VALUES/literals, REST/Flight/ADBC, external databases, and
   generated/source-free output remain report-only or blocked unless a narrower evidence-bearing
   slice upgrades the row.
-- [ ] Broad SQL parser/binder/runtime, DataFrame execution, UDF, notebook runtime, universal
+- [ ] Executable SQL parser/binder/runtime, DataFrame execution, UDF, notebook runtime, universal
   adapter, unstructured/media, and best-default certification remain incomplete.
 
 ### RFC 0033 - User Data Workflow and ETL Surface
