@@ -906,6 +906,12 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
         "universal_compatibility_row_count",
         "universal_compatibility_row_order",
         "universal_compatibility_claim_boundary",
+        "universal_compatibility_generated_output_contract_schema_version",
+        "universal_compatibility_generated_output_contract_id",
+        "universal_compatibility_generated_output_row_order",
+        "universal_compatibility_generated_output_python_row_order",
+        "universal_compatibility_generated_output_sql_row_order",
+        "universal_compatibility_generated_output_dataframe_row_order",
     ] {
         assert!(
             output.contains(&format!("{{\"key\":\"{key}\",\"value\":")),
@@ -963,6 +969,54 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
     assert!(output.contains(&field_pair(
         "universal_compatibility_all_rows_external_engine_invoked_false",
         true
+    )));
+    assert_generated_output_compatibility_fields(&output);
+}
+
+fn assert_generated_output_compatibility_fields(output: &str) {
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_contract_schema_version",
+        "shardloom.universal_compatibility.generated_output_contract.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_order",
+        "no_dataset_smoke,python_ctx_from_rows,python_ctx_range,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write,local_output_only_generated_source_posture,sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range,dataframe_source_free_projection,dataframe_generated_with_column"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_python_ctx_from_rows_support_status",
+        "smoke-supported"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_row_python_ctx_from_rows_generated_source_created",
+        true
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_sql_values_support_status",
+        "report-only"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_row_sql_values_runtime_execution",
+        false
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_local_output_only_generated_source_posture_blocker_id",
+        "gar-compat-1b.non_local_generated_output_blocked"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_no_dataset_smoke_separate",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_object_store_runtime_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_foundry_runtime_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed",
+        false
     )));
 }
 

@@ -90,6 +90,12 @@ view exposes that vocabulary as `shardloom.generated_source_certificate_contract
 and GAR-GEN-1D emit the fields only for scoped local user-row and range JSONL smokes, not for
 Foundry:
 
+`GAR-COMPAT-1B` also projects the same source-free generated-output posture into
+`shardloom.universal_compatibility.generated_output_contract.v1`. That compatibility projection keeps
+`no_dataset_smoke`, `python_ctx_from_rows`, `python_ctx_range`, SQL `VALUES`/literal rows,
+DataFrame generated-expression rows, local-output-only posture, and Foundry/object-store blockers
+visible without treating Foundry generated-output runtime as supported.
+
 ```text
 input_dataset_count=0
 source_io_performed=false

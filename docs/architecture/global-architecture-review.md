@@ -824,9 +824,12 @@ plan before coding.
   Iceberg/Delta/Hudi, Vortex, generated/source-free outputs, Python rows/DataFrame, SQL
   VALUES/literals, REST/Flight/ADBC, and Foundry as runtime-supported, smoke-supported,
   report-only, blocked, or not-planned while preserving `fallback_attempted=false` and
-  `external_engine_invoked=false`. Remaining GAR-COMPAT children own generated-source contract
-  integration, object-store ladders, table-format boundaries, and database/warehouse import/export
-  boundaries.
+  `external_engine_invoked=false`. `GAR-COMPAT-1B` adds
+  `shardloom.universal_compatibility.generated_output_contract.v1` so no-dataset smoke, scoped
+  Python generated-output smokes, SQL/DataFrame report-only rows, local-output-only posture, and
+  object-store/Foundry blockers are visible from compatibility/status surfaces. Remaining
+  GAR-COMPAT children own object-store ladders, table-format boundaries, and database/warehouse
+  import/export boundaries.
 - [x] `GAR-IOREUSE-1F` adds the remaining Native I/O reuse ladder after
   `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract and
   `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract and
@@ -896,9 +899,11 @@ plan before coding.
   `shardloom.generated_source_api_admission.v1` exposes deterministic admission rows for
   `ctx.literal_table`, `ctx.calendar`, SQL literal `SELECT`, SQL `VALUES`, SQL source-free
   projection, SQL `generate_series`/`range`, DataFrame source-free projection, and generated
-  `with_column`. Calendar/date dimension generation, literal tables, SQL execution, and
-  reference/lookup table generation remain report-only/planned under `GAR-GEN-1`. No-input smoke
-  does not count as generated-output execution.
+  `with_column`. `GAR-COMPAT-1B` projects the same posture into the universal compatibility
+  scoreboard and website/status rows without broadening runtime. Calendar/date dimension
+  generation, literal tables, SQL execution, and reference/lookup table generation remain
+  report-only/planned under `GAR-GEN-1`. No-input smoke does not count as generated-output
+  execution.
 - [ ] `GAR-COMPAT-1` is the user-workflow compatibility scoreboard for source/sink/adapters. It
   separates plan/report coverage from runtime coverage for local files, Vortex, generated-output
   APIs, external databases, object stores, table formats, REST/Flight/ADBC, and Foundry.

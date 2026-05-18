@@ -715,6 +715,11 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "\"surface_id\": \"table_lakehouse_iceberg_delta_hudi\"",
         "\"surface_id\": \"sql_values_literals\"",
         "\"surface_id\": \"foundry\"",
+        "\"source_free_generated_output_contract\"",
+        "\"schema_version\": \"shardloom.universal_compatibility.generated_output_contract.v1\"",
+        "\"row_id\": \"python_ctx_from_rows\"",
+        "\"row_id\": \"local_output_only_generated_source_posture\"",
+        "\"row_id\": \"sql_values\"",
         "\"fallback_attempted\": false",
         "\"external_engine_invoked\": false",
         "\"support_status\": \"runtime-supported\"",
@@ -740,6 +745,8 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "S3/GCS/ADLS",
         "S3/GCS/ADLS remain blocked",
         "Foundry remains a future validation target",
+        "Compatibility-Level Generated-Output Rows",
+        "universal_compatibility_generated_output_no_dataset_smoke_separate=true",
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ] {
@@ -758,6 +765,8 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "report-only",
         "blocked",
         "It is a capability map only",
+        "source_free_generated_output_contract",
+        "local_output_only_generated_source_posture",
         "performance, SQL/DataFrame, object-store/lakehouse, Foundry, or package claim",
     ] {
         assert!(

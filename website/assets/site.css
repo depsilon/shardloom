@@ -455,6 +455,10 @@ h4 {
   margin-top: 14px;
 }
 
+.section-spacer {
+  height: 30px;
+}
+
 .source-note {
   font-size: 0.92rem;
 }

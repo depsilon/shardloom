@@ -423,6 +423,28 @@ print(admission.row("sql_values").blocker_id)
 print(admission.all_no_fallback_no_external_engine)
 ```
 
+The universal compatibility view also projects the same source-free generated-output posture so
+callers do not need to join GAR-GEN docs by hand:
+
+```python
+compatibility = ctx.compatibility_scoreboard()
+generated = compatibility.source_free_generated_output_contract
+
+print(generated.schema_version)
+print(generated.no_dataset_smoke_separate)
+print(generated.local_output_only)
+print(generated.output_certificate_required)
+print(generated.row("python_ctx_from_rows").support_status)
+print(generated.row("sql_values").support_status)
+print(generated.row("local_output_only_generated_source_posture").blocker_id)
+print(generated.all_no_fallback_no_external_engine)
+```
+
+This compatibility contract is still a capability map. It can say local JSONL generated-output
+smokes exist for user rows and range, but it keeps `ctx.literal_table`, `ctx.calendar`, SQL
+literal/`VALUES` execution, DataFrame generated expressions, object-store/lakehouse output, and
+Foundry generated-output runtime as report-only or blocked.
+
 The supported user-row local smoke uses Python rows supplied by the caller,
 writes a local JSONL file, and returns generated-source/output evidence:
 

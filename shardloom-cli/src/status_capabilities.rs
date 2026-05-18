@@ -119,6 +119,10 @@ const UNIVERSAL_COMPATIBILITY_DATA_REF: &str =
 const UNIVERSAL_COMPATIBILITY_SUPPORT_STATUS_VOCABULARY: &str =
     "runtime-supported,smoke-supported,report-only,blocked,not-planned";
 const UNIVERSAL_COMPATIBILITY_CLAIM_BOUNDARY: &str = "compatibility coverage is a capability map and evidence inventory, not a production, performance, Spark-replacement, SQL/DataFrame, object-store/lakehouse, Foundry, or package-readiness claim";
+const UNIVERSAL_COMPATIBILITY_GENERATED_OUTPUT_SCHEMA_VERSION: &str =
+    "shardloom.universal_compatibility.generated_output_contract.v1";
+const UNIVERSAL_COMPATIBILITY_GENERATED_OUTPUT_CONTRACT_ID: &str =
+    "gar-compat-1b.source_free_generated_output_contract";
 
 #[derive(Debug, Clone, Copy)]
 #[allow(clippy::struct_excessive_bools)]
@@ -139,6 +143,28 @@ struct UniversalCompatibilityRow {
     generated_source_certificate_status: &'static str,
     blocker_id: &'static str,
     required_future_evidence: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct GeneratedOutputCompatibilityRow {
+    id: &'static str,
+    user_visible_surface: &'static str,
+    family: &'static str,
+    support_status: &'static str,
+    runtime_execution: bool,
+    data_read: bool,
+    write_io: bool,
+    source_io_performed: bool,
+    generated_source_created: bool,
+    output_io_performed: bool,
+    source_native_io_certificate_status: &'static str,
+    output_native_io_certificate_status: &'static str,
+    generated_source_certificate_status: &'static str,
+    blocker_id: &'static str,
+    required_evidence: &'static str,
     claim_gate_status: &'static str,
     claim_boundary: &'static str,
 }
@@ -503,6 +529,256 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
         required_future_evidence: "real_foundry_environment_output_api_governance_lineage_no_external_compute_proof",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "future validation target only",
+    },
+];
+
+const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = &[
+    GeneratedOutputCompatibilityRow {
+        id: "no_dataset_smoke",
+        user_visible_surface: "no-dataset smoke / capability proof",
+        family: "no_dataset_smoke",
+        support_status: "smoke-supported",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_no_output_data",
+        generated_source_certificate_status: "not_applicable_no_generated_rows",
+        blocker_id: "gar-gen-1.no_dataset_smoke_not_generated_output",
+        required_evidence: "input_dataset_count,source_io_performed,generated_source_created,output_io_performed,generated_source_certificate_status,claim_gate_status",
+        claim_gate_status: "smoke_only",
+        claim_boundary: "No-dataset smoke is a status/capability proof only, not generated-output execution.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "python_ctx_from_rows",
+        user_visible_surface: "Python ctx.from_rows([...]).write(local_jsonl)",
+        family: "python_generated_source",
+        support_status: "smoke-supported",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        source_io_performed: false,
+        generated_source_created: true,
+        output_io_performed: true,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "required_for_runtime_output",
+        generated_source_certificate_status: "required_for_runtime",
+        blocker_id: "none_scoped_local_jsonl_smoke_only",
+        required_evidence: "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Only scoped local user-row JSONL generated-output fixture smoke is admitted.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "python_ctx_range",
+        user_visible_surface: "Python ctx.range(...).write(local_jsonl)",
+        family: "python_generated_source",
+        support_status: "smoke-supported",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        source_io_performed: false,
+        generated_source_created: true,
+        output_io_performed: true,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "required_for_runtime_output",
+        generated_source_certificate_status: "required_for_runtime",
+        blocker_id: "none_scoped_local_range_jsonl_smoke_only",
+        required_evidence: "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Only scoped local range JSONL generated-output fixture smoke is admitted.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "python_ctx_literal_table",
+        user_visible_surface: "Python ctx.literal_table(...).write(...)",
+        family: "python_generated_source",
+        support_status: "report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_report_only",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-gen-1.literal_table_runtime_not_implemented",
+        required_evidence: "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Literal-table generation is capability vocabulary only; no rows are generated and no output is written.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "python_ctx_calendar",
+        user_visible_surface: "Python ctx.calendar(...).write(...)",
+        family: "python_generated_source",
+        support_status: "report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_report_only",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-gen-1.calendar_runtime_not_implemented",
+        required_evidence: "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Calendar/date dimension generation is capability vocabulary only; no rows are generated and no output is written.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "python_generated_source_write",
+        user_visible_surface: "Python GeneratedRowsSource/GeneratedRangeSource.write(local_jsonl)",
+        family: "python_generated_source",
+        support_status: "smoke-supported",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        source_io_performed: false,
+        generated_source_created: true,
+        output_io_performed: true,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "required_for_runtime_output",
+        generated_source_certificate_status: "required_for_runtime",
+        blocker_id: "none_supported_generated_source_write_smokes_only",
+        required_evidence: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Generated-source write is admitted only for supported local user_rows and range JSONL smokes.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "local_output_only_generated_source_posture",
+        user_visible_surface: "Generated-source local-output-only posture",
+        family: "output_boundary",
+        support_status: "report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "local_output_certificate_required",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-compat-1b.non_local_generated_output_blocked",
+        required_evidence: "local_output_sink_evidence,output_native_io_certificate,object_store_admission_blocker,foundry_output_api_blocker",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Generated output support is local JSONL fixture-smoke only; object-store, lakehouse, and Foundry sinks remain blocked/report-only.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "sql_literal_select",
+        user_visible_surface: "SQL SELECT literal expressions",
+        family: "sql_generated_source",
+        support_status: "report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_report_only",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-gen-1.sql_literal_select_runtime_not_implemented",
+        required_evidence: "sql_parser,sql_binder,sql_planner,literal_projection_semantics,generated_source_certificate,output_native_io_certificate",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "SQL literal SELECT is report-only; no parser, binder, planner, runtime, row generation, or output write is executed.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "sql_values",
+        user_visible_surface: "SQL VALUES (...)",
+        family: "sql_generated_source",
+        support_status: "report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_report_only",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-gen-1.sql_values_runtime_not_implemented",
+        required_evidence: "sql_parser,sql_binder,values_table_semantics,generated_source_certificate,output_native_io_certificate",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "SQL VALUES is report-only; no parser, binder, planner, runtime, row generation, or output write is executed.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "sql_source_free_projection",
+        user_visible_surface: "SQL source-free projection",
+        family: "sql_generated_source",
+        support_status: "report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_report_only",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-gen-1.sql_source_free_projection_runtime_not_implemented",
+        required_evidence: "sql_expression_semantics,projection_plan_digest,generated_source_certificate,execution_certificate",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Source-free SQL projection is report-only; no SQL runtime or output claim is admitted.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "sql_generate_series_range",
+        user_visible_surface: "SQL generate_series/range vocabulary",
+        family: "sql_generated_source",
+        support_status: "report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_report_only",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-gen-1.sql_generate_series_range_runtime_not_implemented",
+        required_evidence: "sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "SQL generate_series/range is vocabulary only; use Python ctx.range for the scoped runtime smoke.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "dataframe_source_free_projection",
+        user_visible_surface: "DataFrame source-free projection",
+        family: "dataframe_generated_source",
+        support_status: "report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_report_only",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented",
+        required_evidence: "typed_expression_contract,projection_plan_digest,generated_source_certificate,execution_certificate",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "DataFrame source-free projection is report-only outside the scoped local user_rows and range write smokes.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "dataframe_generated_with_column",
+        user_visible_surface: "DataFrame generated with_column",
+        family: "dataframe_generated_source",
+        support_status: "report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_report_only",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented",
+        required_evidence: "expression_engine,type_coercion,determinism_policy,generated_source_certificate,execution_certificate",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Generated DataFrame columns are report-only; expression-backed generation and output are not runtime-supported.",
     },
 ];
 
@@ -4971,6 +5247,38 @@ fn universal_compatibility_status_count(status: &str) -> usize {
         .count()
 }
 
+fn generated_output_compatibility_row_order() -> String {
+    GENERATED_OUTPUT_COMPATIBILITY_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn generated_output_compatibility_row_order_for_family(family: &str) -> String {
+    GENERATED_OUTPUT_COMPATIBILITY_ROWS
+        .iter()
+        .filter(|row| row.family == family)
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn generated_output_compatibility_status_count(status: &str) -> usize {
+    GENERATED_OUTPUT_COMPATIBILITY_ROWS
+        .iter()
+        .filter(|row| row.support_status == status)
+        .count()
+}
+
+fn generated_output_compatibility_all_rows_source_free() -> bool {
+    GENERATED_OUTPUT_COMPATIBILITY_ROWS.iter().all(|row| {
+        !row.data_read
+            && !row.source_io_performed
+            && row.source_native_io_certificate_status == "not_applicable_no_source_dataset"
+    })
+}
+
 #[allow(clippy::too_many_lines)]
 fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
     push_field(
@@ -5073,6 +5381,7 @@ fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
         "universal_compatibility_sql_dataframe_runtime_supported",
         false,
     );
+    append_universal_compatibility_generated_output_fields(fields);
 
     for row in UNIVERSAL_COMPATIBILITY_ROWS {
         let prefix = format!("universal_compatibility_row_{}", row.id);
@@ -5137,6 +5446,185 @@ fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
             fields,
             &format!("{prefix}_required_future_evidence"),
             row.required_future_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_boundary"),
+            row.claim_boundary,
+        );
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_universal_compatibility_generated_output_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "universal_compatibility_generated_output_contract_schema_version",
+        UNIVERSAL_COMPATIBILITY_GENERATED_OUTPUT_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_generated_output_contract_id",
+        UNIVERSAL_COMPATIBILITY_GENERATED_OUTPUT_CONTRACT_ID,
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_generated_output_row_count",
+        GENERATED_OUTPUT_COMPATIBILITY_ROWS.len(),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_generated_output_row_order",
+        &generated_output_compatibility_row_order(),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_generated_output_python_row_order",
+        &generated_output_compatibility_row_order_for_family("python_generated_source"),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_generated_output_sql_row_order",
+        &generated_output_compatibility_row_order_for_family("sql_generated_source"),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_generated_output_dataframe_row_order",
+        &generated_output_compatibility_row_order_for_family("dataframe_generated_source"),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_generated_output_smoke_supported_count",
+        generated_output_compatibility_status_count("smoke-supported"),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_generated_output_report_only_count",
+        generated_output_compatibility_status_count("report-only"),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_generated_output_claim_gate_status",
+        "fixture_smoke_only",
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_no_dataset_smoke_separate",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_local_output_only",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_source_native_io_certificate_emitted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_output_certificate_required",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_object_store_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_foundry_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_all_rows_fallback_attempted_false",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_all_rows_external_engine_invoked_false",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_all_rows_source_io_performed_false",
+        generated_output_compatibility_all_rows_source_free(),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_generated_output_claim_boundary",
+        "only scoped local user-row and range JSONL generated-output smokes are admitted; SQL/DataFrame, object-store, lakehouse, Foundry, production, package, and performance claims remain blocked or report-only",
+    );
+
+    for row in GENERATED_OUTPUT_COMPATIBILITY_ROWS {
+        let prefix = format!("universal_compatibility_generated_output_row_{}", row.id);
+        push_field(
+            fields,
+            &format!("{prefix}_user_visible_surface"),
+            row.user_visible_surface,
+        );
+        push_field(fields, &format!("{prefix}_surface_family"), row.family);
+        push_field(
+            fields,
+            &format!("{prefix}_support_status"),
+            row.support_status,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_runtime_execution"),
+            row.runtime_execution,
+        );
+        push_bool_field(fields, &format!("{prefix}_data_read"), row.data_read);
+        push_bool_field(fields, &format!("{prefix}_write_io"), row.write_io);
+        push_bool_field(
+            fields,
+            &format!("{prefix}_source_io_performed"),
+            row.source_io_performed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_generated_source_created"),
+            row.generated_source_created,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_output_io_performed"),
+            row.output_io_performed,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_source_native_io_certificate_status"),
+            row.source_native_io_certificate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_output_native_io_certificate_status"),
+            row.output_native_io_certificate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_generated_source_certificate_status"),
+            row.generated_source_certificate_status,
+        );
+        push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+        push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+        push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            row.required_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
         );
         push_field(
             fields,

@@ -1041,6 +1041,249 @@ class UniversalCompatibilityRow:
 
 
 @dataclass(frozen=True, slots=True)
+class SourceFreeGeneratedOutputCompatibilityRow:
+    """One compatibility-level source-free generated-output admission row."""
+
+    row_id: str
+    user_visible_surface: str | None
+    surface_family: str | None
+    support_status: str | None
+    runtime_execution: bool | None
+    data_read: bool | None
+    write_io: bool | None
+    source_io_performed: bool | None
+    generated_source_created: bool | None
+    output_io_performed: bool | None
+    source_native_io_certificate_status: str | None
+    output_native_io_certificate_status: str | None
+    generated_source_certificate_status: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+    blocker_id: str | None
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str | None
+    claim_boundary: str | None
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether this row preserves no fallback and no external engine invocation."""
+
+        return self.fallback_attempted is False and self.external_engine_invoked is False
+
+    @property
+    def fixture_smoke_supported(self) -> bool:
+        """Whether this row is a scoped local generated-output smoke surface."""
+
+        return self.support_status == "smoke-supported"
+
+    @property
+    def report_only(self) -> bool:
+        """Whether this row is capability/report vocabulary only."""
+
+        return self.support_status == "report-only"
+
+
+@dataclass(frozen=True, slots=True)
+class SourceFreeGeneratedOutputCompatibilityContract:
+    """Compatibility scoreboard projection for source-free generated-output surfaces."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the generated-output compatibility contract schema version."""
+
+        return self.capability.field(
+            "universal_compatibility_generated_output_contract_schema_version"
+        )
+
+    @property
+    def contract_id(self) -> str | None:
+        """Return the generated-output compatibility contract identifier."""
+
+        return self.capability.field("universal_compatibility_generated_output_contract_id")
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return source-free generated-output rows in stable order."""
+
+        return _split_csv(self.capability.field("universal_compatibility_generated_output_row_order"))
+
+    @property
+    def python_row_order(self) -> tuple[str, ...]:
+        """Return Python generated-output compatibility rows."""
+
+        return _split_csv(
+            self.capability.field("universal_compatibility_generated_output_python_row_order")
+        )
+
+    @property
+    def sql_row_order(self) -> tuple[str, ...]:
+        """Return SQL source-free generated-output compatibility rows."""
+
+        return _split_csv(
+            self.capability.field("universal_compatibility_generated_output_sql_row_order")
+        )
+
+    @property
+    def dataframe_row_order(self) -> tuple[str, ...]:
+        """Return DataFrame source-free generated-output compatibility rows."""
+
+        return _split_csv(
+            self.capability.field("universal_compatibility_generated_output_dataframe_row_order")
+        )
+
+    @property
+    def rows(self) -> tuple[SourceFreeGeneratedOutputCompatibilityRow, ...]:
+        """Return all source-free generated-output compatibility rows."""
+
+        return tuple(self.row(row_id) for row_id in self.row_order)
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the generated-output compatibility claim gate status."""
+
+        return self.capability.field("universal_compatibility_generated_output_claim_gate_status")
+
+    @property
+    def no_dataset_smoke_separate(self) -> bool:
+        """Whether no-dataset smoke remains separate from generated-output execution."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_no_dataset_smoke_separate",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def local_output_only(self) -> bool:
+        """Whether generated-output support remains local-output-only."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_local_output_only",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def output_certificate_required(self) -> bool:
+        """Whether generated-output data claims require output Native I/O evidence."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_output_certificate_required",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def object_store_runtime_supported(self) -> bool:
+        """Whether object-store generated-output runtime is supported."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_object_store_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def foundry_runtime_supported(self) -> bool:
+        """Whether Foundry generated-output runtime is supported."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_foundry_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def broad_sql_dataframe_claim_allowed(self) -> bool:
+        """Whether broad SQL/DataFrame generated-output claims are allowed."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every row preserves no fallback and no external engine invocation."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_all_rows_fallback_attempted_false",
+                False,
+            )
+            is True
+            and self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_all_rows_external_engine_invoked_false",
+                False,
+            )
+            is True
+            and all(row.no_fallback_no_external_engine for row in self.rows)
+        )
+
+    def row(self, row_id: str) -> SourceFreeGeneratedOutputCompatibilityRow:
+        """Return one source-free generated-output compatibility row."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(f"source-free generated-output row {row_id!r} is not present")
+        prefix = f"universal_compatibility_generated_output_row_{normalized}"
+        return SourceFreeGeneratedOutputCompatibilityRow(
+            row_id=normalized,
+            user_visible_surface=self.capability.field(f"{prefix}_user_visible_surface"),
+            surface_family=self.capability.field(f"{prefix}_surface_family"),
+            support_status=self.capability.field(f"{prefix}_support_status"),
+            runtime_execution=self.capability.envelope.field_bool(
+                f"{prefix}_runtime_execution"
+            ),
+            data_read=self.capability.envelope.field_bool(f"{prefix}_data_read"),
+            write_io=self.capability.envelope.field_bool(f"{prefix}_write_io"),
+            source_io_performed=self.capability.envelope.field_bool(
+                f"{prefix}_source_io_performed"
+            ),
+            generated_source_created=self.capability.envelope.field_bool(
+                f"{prefix}_generated_source_created"
+            ),
+            output_io_performed=self.capability.envelope.field_bool(
+                f"{prefix}_output_io_performed"
+            ),
+            source_native_io_certificate_status=self.capability.field(
+                f"{prefix}_source_native_io_certificate_status"
+            ),
+            output_native_io_certificate_status=self.capability.field(
+                f"{prefix}_output_native_io_certificate_status"
+            ),
+            generated_source_certificate_status=self.capability.field(
+                f"{prefix}_generated_source_certificate_status"
+            ),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+            blocker_id=self.capability.field(f"{prefix}_blocker_id"),
+            required_evidence=_split_csv(self.capability.field(f"{prefix}_required_evidence")),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            claim_boundary=self.capability.field(f"{prefix}_claim_boundary"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UniversalCompatibilityScoreboard:
     """Typed view over the universal source/sink compatibility scoreboard."""
 
@@ -1197,6 +1440,14 @@ class UniversalCompatibilityScoreboard:
             )
             is True
         )
+
+    @property
+    def source_free_generated_output_contract(
+        self,
+    ) -> SourceFreeGeneratedOutputCompatibilityContract:
+        """Return the compatibility-level source-free generated-output contract."""
+
+        return SourceFreeGeneratedOutputCompatibilityContract(self.capability)
 
     def row(self, surface_id: str) -> UniversalCompatibilityRow:
         """Return one scoreboard row by surface ID."""
