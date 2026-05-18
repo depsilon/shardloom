@@ -911,10 +911,11 @@ plan before coding.
   dev-stack/local-style proof only and must expose `foundry_runtime_invoked`,
   `foundry_compute_invoked`, and `foundry_spark_invoked` fields without invoking Foundry,
   credentials, direct S3/object-store runtime, Spark, or external compute.
-- [ ] `GAR-IOREUSE-1G` adds Foundry no-input generated-output fanout posture. It remains
-  report-only unless a future admitted smoke writes through Foundry output APIs and emits
-  generated-source plus output evidence; direct S3/object-store writes, Foundry Spark, and Foundry
-  production claims remain blocked.
+- [x] `GAR-IOREUSE-1G` adds Foundry no-input generated-output fanout posture to the local
+  proof report through `shardloom.foundry_generated_output_fanout_posture.v1`. It remains
+  report-only: `generated_output_execution_performed=false`, generated-source and output
+  certificates are not emitted, `fanout_output_count=0`, and direct S3/object-store writes,
+  Foundry Spark, external engines, and Foundry production claims remain blocked.
 - [ ] Production `shardloom-foundry`, package publication, Foundry service invocation, Artifact
   Repository publication, Compute Module, virtual-table native execution, Foundry dataset
   transaction runtime, and F10 workload-certified deployment remain incomplete.

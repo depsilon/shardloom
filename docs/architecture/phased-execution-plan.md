@@ -746,109 +746,12 @@ InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPla
 The benchmark bundle vocabulary is `io_reuse_and_fanout`, `source_state_reuse`,
 `prepared_state_reuse`, `output_plan_reuse`, `cross_format_output`, and
 `generated_source_output`. SourceState, VortexPreparedState, OutputPlan, report-only fanout
-benchmark rows, cache/fingerprint invalidation rows, and evidence-safe reuse-level rows are now
-established by GAR-IOREUSE-1A through GAR-IOREUSE-1F. The active follow-through starts with
-Foundry generated-output fanout posture. Runtime fanout writers, persistent caches, multi-output
-correctness/replay evidence, object-store output, lakehouse/table commit semantics, hidden fast
-modes, external engine fallback, and performance claims remain out of scope until separate
-evidence-bearing slices admit them.
-
-- [ ] GAR-IOREUSE-1G Foundry no-input generated-output fanout
-  - Source:
-    - GAR-GEN-1.
-    - GAR-COMPAT-1B.
-    - GAR-IOREUSE-1A through GAR-IOREUSE-1F.
-    - `docs/architecture/io-reuse-and-fanout-architecture.md`.
-    - `docs/foundry/proof-of-use-certification.md`.
-    - RFC 0036 Foundry integration pack.
-  - Current state:
-    - Foundry no-dataset smoke exists.
-    - No-input smoke and generated-output planning are distinct from source-read execution.
-    - Source-free generated output is not first-class.
-    - Foundry proof is local/style-only, and real Foundry runtime proof remains gated.
-    - S3/object-store is report-only/gated and must not be used as a direct runtime write path for
-      this slice.
-  - Next slice outcome:
-    - Add Foundry-style generated-output smoke posture:
-      - no input dataset.
-      - generate deterministic source.
-      - prepare through ShardLoom/Vortex.
-      - write result dataset.
-      - write evidence dataset.
-    - Define report-only Foundry generated-output fanout posture for source-free generated output
-      that writes through Foundry output APIs where applicable, not direct S3.
-    - Preserve generated-source certificate fields, output-plan evidence, fanout output count, and
-      Foundry runtime boundary fields.
-  - User-visible surface:
-    - Foundry proof docs.
-    - generated-output capability matrix.
-    - website/status after projection.
-    - future Python/API examples.
-  - Implementation scope:
-    - Foundry proof docs.
-    - generated-source/output-plan capability rows.
-    - local Foundry-style smoke diagnostics if implementation is later admitted.
-    - evidence envelope fields for Foundry runtime boundaries.
-  - Evidence required:
-    - `input_dataset_count=0`.
-    - `source_io_performed=false`.
-    - `generated_source_created=true`.
-    - `generated_source_kind`.
-    - `generated_source_schema_digest`.
-    - `generated_source_row_count`.
-    - `generated_source_plan_digest`.
-    - `generated_source_certificate_status`.
-    - `output_plan_id`.
-    - `output_plan_reuse_hit`.
-    - `fanout_output_count`.
-    - `output_io_performed`.
-    - `output_native_io_certificate_status`.
-    - `foundry_runtime_invoked`.
-    - `foundry_compute_invoked`.
-    - `foundry_spark_invoked=false`.
-    - `direct_s3_write_invoked=false`.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-    - `claim_gate_status`.
-  - Acceptance:
-    - No-input smoke remains separate from generated-output execution.
-    - No-input smoke and generated-output execution are separate.
-    - Generated-source evidence remains separate from source Native I/O certificate evidence.
-    - Foundry generated-output fanout is report-only unless a future admitted smoke writes through
-      Foundry output APIs and emits output evidence.
-    - Foundry output is via transform output APIs, not direct object-store/S3 write.
-    - Direct S3/object-store writes remain blocked.
-    - No Foundry production or Marketplace claim is implied.
-  - Verification:
-    - Foundry proof doc checks.
-    - generated-output capability/report snapshot tests if rows are emitted.
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`.
-    - `python scripts/check_website_readiness.py`.
-    - `git diff --check`.
-  - Non-goals:
-    - no S3/object-store runtime.
-    - no direct object-store write.
-    - no Foundry production claim.
-    - no Foundry Marketplace/package claim.
-    - no broad SQL/DataFrame runtime.
-    - no external engine fallback.
-  - Claim boundary:
-    - This slice may claim only report-only Foundry generated-output fanout posture or a future
-      scoped local/dev-stack smoke if evidence is attached.
-    - It does not authorize Foundry production, object-store/lakehouse, performance, superiority,
-      Spark-displacement, package, release, or broad generated-output runtime claims.
-  - Fallback boundary:
-    - `fallback_attempted=false`, `external_engine_invoked=false`,
-      `foundry_spark_invoked=false`, and `direct_s3_write_invoked=false` are required for every
-      Foundry generated-output fanout row.
-  - Ledger rule:
-    - When complete, move the detailed completed session to the completed ledger with Foundry proof
-      refs, generated-source/output evidence refs, deterministic blockers, and no-fallback
-      evidence.
-  - Dependencies/blockers:
-    - GeneratedSourceCertificate contract, OutputPlan reuse contract, Foundry proof docs,
-      Foundry-style transform wrapper examples, generated-output capability rows, output evidence
-      dataset posture, and no-direct-S3/no-Spark boundary fields.
+benchmark rows, cache/fingerprint invalidation rows, evidence-safe reuse-level rows, and
+report-only Foundry generated-output fanout posture are now established by GAR-IOREUSE-1A through
+GAR-IOREUSE-1G and recorded in the completed ledger. Runtime fanout writers, persistent caches,
+multi-output correctness/replay evidence, object-store output, lakehouse/table commit semantics,
+hidden fast modes, external engine fallback, and performance claims remain out of scope until
+separate evidence-bearing slices admit them.
 
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 

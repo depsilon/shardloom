@@ -24,6 +24,10 @@ The generated `shardloom.foundry_proof_of_use_report.v1` report includes:
 - `supported_local_native_execution_smoke_performed`
 - `certificate_metrics_dataset_output_written`
 - `materialization_staging_boundary_report_ref`
+- `foundry_generated_output_fanout_status`
+- `foundry_generated_output_fanout_posture`
+- `direct_s3_write_invoked=false`
+- `object_store_write_invoked=false`
 - `foundry_runtime_invoked=false`
 - `foundry_compute_invoked=false`
 - `foundry_spark_invoked=false`
@@ -93,8 +97,8 @@ through Foundry output APIs, not direct S3/object-store paths. This document doe
 credential resolution, network probes, S3 reads, S3 writes, object-store commits, lakehouse output,
 Foundry production claims, package publication, or external engine fallback.
 
-`GAR-IOREUSE-1G` extends this posture with planned output fanout evidence. The intended future smoke
-is:
+`GAR-IOREUSE-1G` extends this posture with report-only output fanout evidence. The intended future
+runtime smoke is:
 
 ```text
 no input dataset
@@ -104,7 +108,40 @@ write result dataset
 write evidence dataset
 ```
 
-Required future fields include:
+The current report now includes a report-only
+`shardloom.foundry_generated_output_fanout_posture.v1` object. It records the required field
+vocabulary without pretending a generated-output runtime path executed:
+
+```text
+support_status=report_only
+admission_status=blocked_until_generated_source_and_foundry_output_api_evidence
+generated_output_execution_performed=false
+no_dataset_smoke_separate_from_generated_output=true
+input_dataset_count=0
+source_io_performed=false
+generated_source_created=false
+generated_source_kind=planned_deterministic_literal_table
+generated_source_certificate_status=not_emitted_report_only
+source_native_io_certificate_status=not_applicable_no_source_dataset
+output_plan_id=null
+output_plan_reuse_hit=false
+fanout_output_count=0
+output_io_performed=false
+output_native_io_certificate_status=not_emitted_report_only
+result_dataset_output_status=not_written_report_only
+evidence_dataset_output_status=not_written_report_only
+foundry_output_api_required=true
+foundry_runtime_invoked=false
+foundry_compute_invoked=false
+foundry_spark_invoked=false
+direct_s3_write_invoked=false
+object_store_write_invoked=false
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status=not_claim_grade
+```
+
+Future admitted runtime fields must include:
 
 ```text
 input_dataset_count=0
@@ -113,7 +150,9 @@ generated_source_certificate_status
 output_plan_id
 output_native_io_certificate_status
 foundry_runtime_invoked=false unless real Foundry runtime proof exists
+foundry_compute_invoked=false unless real Foundry runtime proof exists
 foundry_spark_invoked=false
+direct_s3_write_invoked=false
 fallback_attempted=false
 external_engine_invoked=false
 ```
