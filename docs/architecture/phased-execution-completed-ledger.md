@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-DOCS-1 non-expert Use Case Atlas closeout
+  - Primary files:
+    - `docs/use-cases/README.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/templates/use-case-template.md`
+    - `docs/use-cases/generated/`
+    - `docs/use-cases/field-guide/README.md`
+    - `docs/use-cases/reference-backlinks.md`
+    - `docs/use-cases/recipes/README.md`
+    - `docs/use-cases/recipes/recipe-index.json`
+    - `scripts/check_use_case_index.py`
+    - `scripts/check_use_case_coverage.py`
+    - `scripts/check_use_case_glossary.py`
+    - `scripts/check_use_case_backlinks.py`
+    - `scripts/check_workflow_recipes.py`
+    - `website/build_static_pages.py`
+    - `website/use-cases/`
+    - `website/status.html`
+    - `scripts/check_website_readiness.py`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the already-implemented Use Case Atlas lane by removing stale planned GAR-DOCS-1
+    entries from the active queue and locking the docs/site/validator evidence in release readiness.
+  - Checklist:
+    - [x] Keep `docs/use-cases/README.md` as the non-expert hub for "Can ShardLoom do my thing?",
+          "How do I try it?", "What evidence do I get?", and "What is not supported yet?"
+    - [x] Keep `docs/use-cases/use-case-index.yml` as the machine-readable use-case contract with
+          status, audience, execution mode, engine mode, inputs, outputs, evidence fields, claim
+          boundary, references, and related use cases.
+    - [x] Generate Markdown and website pages for each use case from the index and template.
+    - [x] Validate all-capability coverage, required glossary terms, source-reference backlinks,
+          workflow recipe coverage, website readiness, and local static assets.
+    - [x] Preserve blocked/report-only rows as visible posture rather than hidden support.
+  - Evidence and verification:
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_use_case_glossary.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_workflow_recipes.py`
+    - `python -m compileall -q scripts`
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - The Use Case Atlas, generated pages, glossary, backlinks, recipes, and website status matrix
+      are documentation/status surfaces only. They do not add runtime behavior, package
+      publication, benchmark recomputation, production SQL/DataFrame support, object-store or
+      lakehouse runtime, Foundry production support, performance/superiority claims, or
+      Spark-displacement claims.
+  - Fallback boundary:
+    - Use-case docs and generated pages must preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`; planned, blocked, unsupported, and report-only use cases
+      cannot route users to external engines as fallback.
+
 - [x] Session label: GAR-COMMERCIAL-1F workflow recipes library / GAR-DOCS-1E non-expert recipe library
   - Primary files:
     - `docs/use-cases/recipes/README.md`

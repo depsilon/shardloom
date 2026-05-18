@@ -250,10 +250,11 @@ plan before coding.
   data/write/object-store/catalog I/O, no-fallback, external-engine, blockers, and required
   evidence so Python users can inspect capability state without scraping CLI text.
 - [x] Deterministic unsupported diagnostics preserve no-fallback semantics.
-- [ ] `GAR-DOCS-1` adds the non-expert Use Case Atlas follow-through. The atlas must keep
+- [x] `GAR-DOCS-1` adds the non-expert Use Case Atlas follow-through. The atlas keeps
   `ready_local`, `smoke_supported`, `report_only`, `planned`, `blocked`, and `unsupported` statuses
-  distinct, map every public capability family to references and claim boundaries, and prevent
-  planned/blocked paths from being mistaken for runtime support.
+  distinct, maps every public capability family to references and claim boundaries, and prevents
+  planned/blocked paths from being mistaken for runtime support through generated docs, website
+  pages, validators, glossary coverage, and backlink checks.
 - [ ] Mature ergonomic runtime APIs, DataFrame/notebook surfaces, REST runtime, and user-facing
   package publication remain incomplete.
 
@@ -951,9 +952,9 @@ plan before coding.
   IDs/reasons, timing/reuse columns, `fanout_output_count=0`, and no-fallback/no-external-engine
   evidence without treating fanout as runtime support, performance proof, or a requirement that
   input and output formats match.
-- [ ] `GAR-DOCS-1` adds non-expert workflow documentation coverage, recipe generation, glossary
-  links, exact references, and a future website "Can I use this?" status matrix. It must document
-  current local/smoke paths and blockers without creating production ETL, SQL/DataFrame,
+- [x] `GAR-DOCS-1` adds non-expert workflow documentation coverage, recipe generation, glossary
+  links, exact references, and website "Can I use this?" status-matrix pages. It documents current
+  local/smoke paths and blockers without creating production ETL, SQL/DataFrame,
   object-store/lakehouse, Foundry, performance, or Spark-replacement claims.
 - [ ] Mature DataFrame execution, SQL execution, joins, aggregations, windows, data-quality
   runtime, object-store/table runtime, publication, production ETL certification, and
@@ -1415,7 +1416,7 @@ plan before coding.
   One-command local proof, package-channel readiness, buyer-facing status, enterprise evidence
   export, Foundry dev-stack, and workflow recipes now remain claim-safe and evidence-gated before
   any public release or production/commercial readiness claim.
-- [ ] `GAR-DOCS-1` adds the Use Case Atlas and website status-matrix follow-up. The flow must be
+- [x] `GAR-DOCS-1` adds the Use Case Atlas and website status-matrix follow-up. The flow is
   explainable to non-experts by use case, status, execution mode, engine mode, input, output,
   evidence fields, and blockers without requiring readers to inspect RFCs or benchmark internals.
 - [x] `GAR-COMPAT-1` is now the compute-flow follow-up for universal source/sink/adapter/user-surface
