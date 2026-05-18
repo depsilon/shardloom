@@ -51,51 +51,71 @@
         <p class="eyebrow">Field Guide dossier</p>
         <h1>Native Vortex</h1>
         <p class="lede">Native Vortex is the lane for scoped execution over existing Vortex artifacts.</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge report-only" data-status="scoped-runtime-lane">scoped runtime lane</span>
+          <span>Execution Modes</span>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
         <aside class="dossier-sidebar">
           <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>
           <a href="#how">How ShardLoom uses it</a>
-          <a href="#proof">What it proves</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
           <a href="#boundary">Claim boundary</a>
-          <a href="#sources">Source docs</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
         </aside>
         <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>Native Vortex is the lane for scoped execution over existing Vortex artifacts.</p>
+          </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
-            <p>It keeps Vortex as the native substrate instead of treating Vortex as a temporary translation detail.</p>
+            <p>This concept helps users interpret ShardLoom&#x27;s execution modes posture without reading the phase plan or RFCs first.</p>
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>Native rows must preserve admission, source-backed scan, Native I/O, materialization, and no-fallback evidence.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as native_vortex, source_backed_scan_provider_kind, source_backed_scan_native_io_certificate_status.</p>
           </section>
-          <section id="proof">
-            <p class="eyebrow">What it proves</p>
-            <p>A scoped row can show the selected Vortex-native input path and its evidence posture.</p>
-            <h3>What it does not prove</h3>
-            <p>It does not prove every Vortex layout, object-store source, table format, or downstream sink is supported.</p>
-            <h3>Evidence fields</h3>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>Current status is <code>scoped-runtime-lane</code>. Treat that status exactly as shown; scoped, smoke, report-only, planned, blocked, or unsupported posture must not be read as broader runtime support.</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
+            <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
             <ul><li><code>native_vortex</code></li><li><code>source_backed_scan_provider_kind</code></li><li><code>source_backed_scan_native_io_certificate_status</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>Native Vortex evidence is scoped to the supported artifacts and operators present in the repo.</p>
             <p>Native Vortex evidence is scoped to the supported artifacts and operators present in the repo.</p>
           </section>
-          <section id="sources">
-            <p class="eyebrow">Source docs</p>
-            <ul><li><code>docs/rfcs/0005-vortex-native-file-io-output.md</code></li><li><code>docs/skills/vortex/vortex-file-io.md</code></li></ul>
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>Use the linked use cases when a runnable or blocked workflow is available for this concept.</p>
+            <div><a class="claim-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a><a class="claim-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a></div>
           </section>
-          <section class="related-concepts">
+          <section id="related" class="related-concepts">
             <p class="eyebrow">Related concepts</p>
-            <div><a class="claim-badge" href="/field-guide/prepared-vortex">Prepared Vortex</a><a class="claim-badge" href="/field-guide/native-io-certificate">Native I/O Certificate</a><a class="claim-badge" href="/field-guide/execution-modes">Execution Modes</a></div>
+            <div><a class="claim-badge" href="/field-guide/vortex-native">Vortex-Native</a><a class="claim-badge" href="/field-guide/native-io-certificate">Native I/O Certificate</a><a class="claim-badge" href="/field-guide/execution-modes">Execution Modes</a></div>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/rfcs/0005-vortex-native-file-io-output.md"><code>docs/rfcs/0005-vortex-native-file-io-output.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/skills/vortex/vortex-file-io.md"><code>docs/skills/vortex/vortex-file-io.md</code></a></li></ul>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>
             <a class="button" href="/field-guide/prepared-vortex">Previous: Prepared Vortex</a>
-            <a class="button primary" href="/field-guide/native-io-certificate">Next: Native I/O Certificate</a>
+            <a class="button primary" href="/field-guide/direct-compatibility-transient">Next: Direct Compatibility Transient</a>
           </nav>
         </article>
       </div>

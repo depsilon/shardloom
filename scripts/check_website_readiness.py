@@ -277,6 +277,60 @@ def main() -> int:
         if not (website / "assets" / "data" / "compute-engine-flow-reference.md").exists():
             blockers.append("missing local compute-flow reference snapshot")
 
+        field_guide_index = website / "content" / "field-guide-index.json"
+        field_guide_page = website / "field-guide" / "index.html"
+        if field_guide_index.exists():
+            try:
+                field_guide_data = json.loads(field_guide_index.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                blockers.append(f"Field Guide index is not valid JSON: {exc}")
+            else:
+                entries = field_guide_data.get("entries") or []
+                if len(entries) < 50:
+                    blockers.append("Field Guide index must contain at least 50 entries")
+                categories = set(field_guide_data.get("categories") or [])
+                for required in [
+                    "Start Here",
+                    "Execution Modes",
+                    "Engine Modes",
+                    "Vortex Runtime",
+                    "Evidence And Claims",
+                    "Benchmark Telemetry",
+                    "User Workflows",
+                    "I/O And Output",
+                    "Platform Boundaries",
+                    "Performance Architecture",
+                    "Release And Trust",
+                ]:
+                    if required not in categories:
+                        blockers.append(f"Field Guide index missing category: {required}")
+                for entry in entries:
+                    entry_id = entry.get("slug", "<missing>")
+                    for required in ("slug", "title", "category", "status", "summary", "reference_files", "claim_boundary"):
+                        if not entry.get(required):
+                            blockers.append(f"Field Guide entry {entry_id} missing {required}")
+                    slug_value = entry.get("slug")
+                    if slug_value and not (website / "field-guide" / f"{slug_value}.html").exists():
+                        blockers.append(f"Field Guide entry missing generated page: {slug_value}")
+        else:
+            blockers.append("missing website/content/field-guide-index.json")
+
+        if field_guide_page.exists():
+            field_guide_text = field_guide_page.read_text(encoding="utf-8")
+            for required in [
+                "Table of contents",
+                "Start Here",
+                "Execution Modes",
+                "Vortex Runtime",
+                "Evidence And Claims",
+                "Performance Architecture",
+                "Release And Trust",
+            ]:
+                if required not in field_guide_text:
+                    blockers.append(f"Field Guide index page missing atlas field: {required}")
+        else:
+            blockers.append("missing field-guide/index.html")
+
         status_page = website / "status.html"
         if status_page.exists():
             status_text = status_page.read_text(encoding="utf-8")

@@ -51,51 +51,71 @@
         <p class="eyebrow">Field Guide dossier</p>
         <h1>Materialization Boundary</h1>
         <p class="lede">A materialization boundary records where data was decoded, materialized, converted, or kept native.</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+          <span>Evidence And Claims</span>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
         <aside class="dossier-sidebar">
           <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>
           <a href="#how">How ShardLoom uses it</a>
-          <a href="#proof">What it proves</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
           <a href="#boundary">Claim boundary</a>
-          <a href="#sources">Source docs</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
         </aside>
         <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>A materialization boundary records where data was decoded, materialized, converted, or kept native.</p>
+          </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
-            <p>It prevents a row from implying encoded-native execution when residual-native or decoded work actually happened.</p>
+            <p>This concept helps users interpret ShardLoom&#x27;s evidence and claims posture without reading the phase plan or RFCs first.</p>
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>Prepared/native evidence exposes decode, materialization, row-read, Arrow conversion, and boundary-report fields.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as data_decoded, data_materialized, row_read, arrow_converted.</p>
           </section>
-          <section id="proof">
-            <p class="eyebrow">What it proves</p>
-            <p>A row can show whether data crossed a boundary for the scoped scenario.</p>
-            <h3>What it does not prove</h3>
-            <p>It does not prove zero-copy, zero-decode, or encoded-native execution unless the row says so with evidence.</p>
-            <h3>Evidence fields</h3>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>Current status is <code>current-evidence</code>. Treat that status exactly as shown; scoped, smoke, report-only, planned, blocked, or unsupported posture must not be read as broader runtime support.</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
+            <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
             <ul><li><code>data_decoded</code></li><li><code>data_materialized</code></li><li><code>row_read</code></li><li><code>arrow_converted</code></li><li><code>materialization_boundary_report_emitted</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>Boundary fields explain execution posture; they are not performance claims.</p>
             <p>Boundary fields explain execution posture; they are not performance claims.</p>
           </section>
-          <section id="sources">
-            <p class="eyebrow">Source docs</p>
-            <ul><li><code>docs/rfcs/0013-streaming-zero-copy-boundary-interoperability.md</code></li><li><code>website/benchmarks.html</code></li></ul>
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>Use the linked use cases when a runnable or blocked workflow is available for this concept.</p>
+            <div><a class="claim-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a><a class="claim-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a></div>
           </section>
-          <section class="related-concepts">
+          <section id="related" class="related-concepts">
             <p class="eyebrow">Related concepts</p>
-            <div><a class="claim-badge" href="/field-guide/prepared-vortex">Prepared Vortex</a><a class="claim-badge" href="/field-guide/claim-gates">Claim Gates</a><a class="claim-badge" href="/field-guide/native-io-certificate">Native I/O Certificate</a></div>
+            <div><a class="claim-badge" href="/field-guide/source-backed-scan">Source-Backed Scan</a><a class="claim-badge" href="/field-guide/residual-native">Residual-Native</a><a class="claim-badge" href="/field-guide/encoded-native">Encoded-Native</a></div>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/rfcs/0013-streaming-zero-copy-boundary-interoperability.md"><code>docs/rfcs/0013-streaming-zero-copy-boundary-interoperability.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/website/benchmarks.html"><code>website/benchmarks.html</code></a></li></ul>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>
-            <a class="button" href="/field-guide/native-io-certificate">Previous: Native I/O Certificate</a>
-            <a class="button primary" href="/field-guide/claim-gates">Next: Claim Gates</a>
+            <a class="button" href="/field-guide/execution-certificate">Previous: Execution Certificate</a>
+            <a class="button primary" href="/field-guide/result-sink-replay">Next: Result-Sink Replay</a>
           </nav>
         </article>
       </div>

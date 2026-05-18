@@ -51,50 +51,70 @@
         <p class="eyebrow">Field Guide dossier</p>
         <h1>Execution Modes</h1>
         <p class="lede">Execution modes identify the source and preparation lane that a run used.</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge report-only" data-status="current-vocabulary">current vocabulary</span>
+          <span>Execution Modes</span>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
         <aside class="dossier-sidebar">
           <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>
           <a href="#how">How ShardLoom uses it</a>
-          <a href="#proof">What it proves</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
           <a href="#boundary">Claim boundary</a>
-          <a href="#sources">Source docs</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
         </aside>
         <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>Execution modes identify the source and preparation lane that a run used.</p>
+          </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
-            <p>Mode attribution separates compatibility certification costs from prepared/native Vortex runtime paths.</p>
+            <p>This concept helps users interpret ShardLoom&#x27;s execution modes posture without reading the phase plan or RFCs first.</p>
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>Benchmark and CLI rows report modes such as `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto`.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as selected_execution_mode, requested_execution_mode, execution_mode, claim_gate_status.</p>
           </section>
-          <section id="proof">
-            <p class="eyebrow">What it proves</p>
-            <p>A row can identify which lane was selected and which timing fields belong to that lane.</p>
-            <h3>What it does not prove</h3>
-            <p>`auto` is not a hidden fast mode, and mode vocabulary is not the same as broad runtime support.</p>
-            <h3>Evidence fields</h3>
-            <ul><li><code>selected_execution_mode</code></li><li><code>requested_execution_mode</code></li><li><code>mode timing fields</code></li><li><code>claim_gate_status</code></li></ul>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>Current status is <code>current-vocabulary</code>. Treat that status exactly as shown; scoped, smoke, report-only, planned, blocked, or unsupported posture must not be read as broader runtime support.</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
+            <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
+            <ul><li><code>selected_execution_mode</code></li><li><code>requested_execution_mode</code></li><li><code>execution_mode</code></li><li><code>claim_gate_status</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>Execution mode labels are explanatory and must not be read as performance claims.</p>
             <p>Execution mode labels are explanatory and must not be read as performance claims.</p>
           </section>
-          <section id="sources">
-            <p class="eyebrow">Source docs</p>
-            <ul><li><code>docs/architecture/compute-engine-flow-reference.md</code></li><li><code>docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md</code></li></ul>
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>Use the linked use cases when a runnable or blocked workflow is available for this concept.</p>
+            <div><a class="claim-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a><a class="claim-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a></div>
           </section>
-          <section class="related-concepts">
+          <section id="related" class="related-concepts">
             <p class="eyebrow">Related concepts</p>
-            <div><a class="claim-badge" href="/field-guide/prepared-vortex">Prepared Vortex</a><a class="claim-badge" href="/field-guide/native-vortex">Native Vortex</a><a class="claim-badge" href="/field-guide/compatibility-import-certified">Compatibility Import Certified</a></div>
+            <div><a class="claim-badge" href="/field-guide/compatibility-import-certified">Compatibility Import Certified</a><a class="claim-badge" href="/field-guide/prepared-vortex">Prepared Vortex</a><a class="claim-badge" href="/field-guide/native-vortex">Native Vortex</a></div>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md"><code>docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md</code></a></li></ul>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>
-            <a class="button" href="/field-guide/no-fallback">Previous: No Fallback</a>
+            <a class="button" href="/field-guide/technical-preview">Previous: Technical Preview</a>
             <a class="button primary" href="/field-guide/compatibility-import-certified">Next: Compatibility Import Certified</a>
           </nav>
         </article>

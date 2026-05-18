@@ -51,51 +51,71 @@
         <p class="eyebrow">Field Guide dossier</p>
         <h1>Benchmark Telemetry</h1>
         <p class="lede">Benchmark telemetry is evidence and attribution, not a speed leaderboard.</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+          <span>Benchmark Telemetry</span>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
         <aside class="dossier-sidebar">
           <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>
           <a href="#how">How ShardLoom uses it</a>
-          <a href="#proof">What it proves</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
           <a href="#boundary">Claim boundary</a>
-          <a href="#sources">Source docs</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
         </aside>
         <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>Benchmark telemetry is evidence and attribution, not a speed leaderboard.</p>
+          </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
-            <p>ShardLoom rows include workflow and evidence costs that direct local engine rows may not carry.</p>
+            <p>This concept helps users interpret ShardLoom&#x27;s benchmark telemetry posture without reading the phase plan or RFCs first.</p>
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>The website separates compatibility import, prepared Vortex, native Vortex, external baselines, freshness labels, and raw tables.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as local_timing_context, source_backed_scan_*, encoded_predicate_provider_*, claim_gate_status.</p>
           </section>
-          <section id="proof">
-            <p class="eyebrow">What it proves</p>
-            <p>The current page shows local smoke coverage, timing decomposition, and claim-gate posture from committed artifacts.</p>
-            <h3>What it does not prove</h3>
-            <p>It does not prove performance superiority, replacement, production platform readiness, or best-default status.</p>
-            <h3>Evidence fields</h3>
-            <ul><li><code>local fastest count</code></li><li><code>local timing context</code></li><li><code>source_backed_scan_*</code></li><li><code>encoded_predicate_provider_*</code></li></ul>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>Current status is <code>current-evidence</code>. Treat that status exactly as shown; scoped, smoke, report-only, planned, blocked, or unsupported posture must not be read as broader runtime support.</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
+            <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
+            <ul><li><code>local_timing_context</code></li><li><code>source_backed_scan_*</code></li><li><code>encoded_predicate_provider_*</code></li><li><code>claim_gate_status</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>External engines are baseline context only and never fallback execution.</p>
             <p>External engines are baseline context only and never fallback execution.</p>
           </section>
-          <section id="sources">
-            <p class="eyebrow">Source docs</p>
-            <ul><li><code>website/benchmarks.html</code></li><li><code>target/shardloom-benchmark-evidence/</code></li></ul>
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>Use the linked use cases when a runnable or blocked workflow is available for this concept.</p>
+            <div><a class="claim-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a><a class="claim-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a></div>
           </section>
-          <section class="related-concepts">
+          <section id="related" class="related-concepts">
             <p class="eyebrow">Related concepts</p>
-            <div><a class="claim-badge" href="/field-guide/compatibility-import-certified">Compatibility Import Certified</a><a class="claim-badge" href="/field-guide/prepared-vortex">Prepared Vortex</a><a class="claim-badge" href="/field-guide/claim-gates">Claim Gates</a></div>
+            <div><a class="claim-badge" href="/field-guide/local-timing-context">Local Timing Context</a><a class="claim-badge" href="/field-guide/benchmark-artifact-manifest">Benchmark Artifact Manifest</a><a class="claim-badge" href="/field-guide/claim-gates">Claim Gates</a></div>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/website/benchmarks.html"><code>website/benchmarks.html</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/local-taxonomy-benchmark.md"><code>docs/benchmarks/local-taxonomy-benchmark.md</code></a></li></ul>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>
-            <a class="button" href="/field-guide/claim-gates">Previous: Claim Gates</a>
-            <a class="button primary" href="/field-guide/unsupported-diagnostics">Next: Unsupported Diagnostics</a>
+            <a class="button" href="/field-guide/external-baseline-only">Previous: External Baseline Only</a>
+            <a class="button primary" href="/field-guide/local-timing-context">Next: Local Timing Context</a>
           </nav>
         </article>
       </div>

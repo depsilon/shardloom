@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-1A/1B Field Guide taxonomy and dossier generator
+  - Primary files:
+    - `website/content/field-guide-index.json`
+    - `website/build_static_pages.py`
+    - `website/field-guide/index.html`
+    - `website/field-guide/*.html`
+    - `website/assets/site.css`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: expand the public Field Guide from a small inline concept list into a generated
+    category-driven technical atlas with reusable dossier pages.
+  - Checklist:
+    - [x] Add `shardloom.field_guide_index.v1` content with 75 entries across Start Here,
+          Execution Modes, Engine Modes, Vortex Runtime, Evidence And Claims, Benchmark Telemetry,
+          User Workflows, I/O And Output, Platform Boundaries, Performance Architecture, and
+          Release And Trust.
+    - [x] Load Field Guide content from the machine-readable index instead of hard-coding the active
+          website taxonomy in the generator.
+    - [x] Generate `/field-guide/` as a category-organized atlas with category anchors and status
+          badges.
+    - [x] Generate reusable `/field-guide/<slug>` dossier pages with plain-English meaning, why it
+          matters, how ShardLoom uses it, current support, evidence fields, what it does not claim,
+          related use cases, related concepts, and reference files.
+    - [x] Keep the existing Field Guide URLs resolving while adding the expanded atlas pages.
+    - [x] Move GAR-WEB-ATLAS-1A and GAR-WEB-ATLAS-1B out of the active Planned queue.
+  - Evidence and verification:
+    - `python website/build_static_pages.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - This is website and documentation generation only. It does not add runtime behavior, benchmark
+      recomputation, Pagefind search, Astro migration, package publication, production
+      SQL/DataFrame support, object-store/lakehouse runtime, Foundry production support,
+      performance claims, Spark-displacement claims, or any new support claim.
+  - Fallback boundary:
+    - Field Guide entries preserve no-fallback/no-external-engine language. External engines remain
+      baselines or oracles only and are never described as ShardLoom fallback execution.
+
 - [x] Session label: GAR-0032-D unstructured/media and universal adapter capability matrix
   - Primary files:
     - `shardloom-cli/src/status_capabilities.rs`

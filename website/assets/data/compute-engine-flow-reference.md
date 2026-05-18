@@ -98,7 +98,7 @@ or claim.
 
 | Layer | Current repo state | Planned updates | Claim boundary |
 | --- | --- | --- | --- |
-| User access | CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces and thin adapters are report-only or planned. | Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope. | No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. |
+| User access | CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces expose checked-in OpenAPI/AsyncAPI and GAR-0035-A runtime-unsupported contract rows. | Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope. | No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. REST does not imply an HTTP listener, remote execution, Flight/ADBC, broker runtime, dependency-expanded server, or production API claim. |
 | Adoption and commercial readiness | Source-local dry-run proof, first-10-minutes docs, website/status, package-channel matrix, enterprise evidence export pack, Foundry dev-stack starter, workflow recipe library, and public-preview posture exist, but public package publication and production platform proofs are incomplete. | GAR-COMMERCIAL-1 turns local proof, package channels, buyer-facing status, evidence export, Foundry starter, and recipes into claim-safe adoption surfaces. | Adoption surfaces reduce evaluation friction only; they do not authorize production, package release, performance, Spark-replacement, SQL/DataFrame, object-store/lakehouse, or Foundry claims. |
 | Universal compatibility coverage | `docs/architecture/universal-compatibility-coverage-scoreboard.md` and `docs/architecture/universal-compatibility-coverage-scoreboard.json` now provide a report-only map for local files, Vortex, generated/source-free outputs, Python rows/DataFrame, SQL literals/VALUES, databases, warehouses, object stores, table formats, REST/Flight/ADBC, and Foundry. GAR-COMPAT-1B adds a compatibility-level `shardloom.universal_compatibility.generated_output_contract.v1` projection for no-dataset smoke, scoped Python generated-output smokes, local-output-only posture, SQL/DataFrame report-only rows, and Foundry/object-store blockers. GAR-COMPAT-1C adds `shardloom.universal_compatibility.object_store_admission_ladder.v1` for S3/GCS/ADLS URI parse, credential policy, public read, authenticated read, byte-range read, full-file read, local cache, write staging, and commit protocol admission status. GAR-COMPAT-1D adds `shardloom.universal_compatibility.table_format_boundary_matrix.v1` for Iceberg/Delta/Hudi metadata, scan, snapshot/time-travel, partition evolution, delete/tombstone, append, merge/update/delete, commit, rollback, catalog, and object-store coupling boundaries. GAR-COMPAT-1E adds `shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1` for SQLite, Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL import/export/query-pushdown boundaries. | Future GAR-COMPAT follow-through now moves to runtime-specific connector evidence only through scoped later slices. | Compatibility coverage is a capability map, not a production, performance, Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, database/warehouse connector, or package-readiness claim. |
 | I/O reuse and cross-format fanout | Prepared/native rows reuse selected source metadata and scenario-family source-state. GAR-IOREUSE-1A adds a universal local SourceState benchmark/report contract for source discovery/schema identity/fingerprints/parse-plan posture across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC rows. GAR-IOREUSE-1B adds a VortexPreparedState benchmark/report contract for prepared artifact refs/digests, preparation timing separation, source-state linkage, and scoped reuse posture. GAR-IOREUSE-1C adds an OutputPlan benchmark/report contract for scoped local Vortex result-sink planning, metadata preservation posture, write/replay refs, and sink artifact identity. GAR-IOREUSE-1D adds report-only fanout benchmark rows for required cross-format cases. GAR-IOREUSE-1E adds cache invalidation/fingerprint rows for current local source/prepared/plan/output posture. GAR-IOREUSE-1F adds evidence-safe reuse-level rows and a reuse-level matrix. GAR-IOREUSE-1G adds report-only Foundry generated-output fanout posture to the local proof report. Runtime fanout and generated-output sink artifact evidence remain planned. | GAR-IOREUSE-1 follow-through now moves to runtime fanout, generated-source runtime, and claim-grade output evidence only through later scoped slices. | Input and output formats remain decoupled. SourceState, VortexPreparedState, OutputPlan, fanout matrix, cache invalidation evidence, reuse-level evidence, and Foundry generated-output fanout posture are not runtime cross-format fanout or persistent cache support by themselves, not a performance claim, and not object-store/lakehouse or Foundry production support. |
@@ -376,6 +376,7 @@ Current engine-mode surfaces:
 | `hybrid` | `engine-selection-plan hybrid ...`, `hybrid-overlay-run` | Partially supported for in-memory base-plus-hot-delta fixture overlays with delta/freshness/execution/Native I/O certificate fields | No durable micro-segment writes, object-store commit, catalog snapshot discovery, or production hybrid claim. |
 | `auto` | `engine-selection-plan` default selection | Transparent selector; defaults to `batch` for bounded snapshot workloads and must report selected/rejected modes | Not a hidden engine and never a fallback route. |
 | `streaming capability` | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, `capabilities engines` | Full GAR-0013 matrix exists; local count fixture and zero-decode rows are scoped fixture-smoke, while object-store streaming and broker-backed live/hybrid rows are blocked | No broad streaming runtime, object-store streaming read, broker-backed production, or zero-copy compatibility claim. |
+| `live/hybrid fabric gate` | `engine-capability-matrix`, `capabilities engines`, Python `ctx.engine_capability_matrix()` | Full GAR-0034-A gate exists for broker/state-store, unbounded scheduler, freshness, exactly-once, object-store commit, catalog snapshot, and baseline/oracle rows | Fixture-scoped freshness only; production live/hybrid, broker/state-store, object-store/table/catalog, exactly-once, benchmark, and Spark-displacement claims remain blocked. |
 
 These commands are side-effect controlled:
 
@@ -383,15 +384,16 @@ These commands are side-effect controlled:
 engine-selection-plan: runtime_execution=false, data_read=false, write_io=false
 engine-capability-matrix: runtime_execution=false, data_read=false, write_io=false
 streaming capability matrix: runtime_execution=false, object_store_io=false, write_io=false
+live/hybrid fabric gate: runtime_execution=false, data_read=false, write_io=false, fallback_attempted=false, external_engine_invoked=false
 live-change-contract-plan: runtime_execution=false, data_read=false, write_io=false
 live-fixture-run: scoped fixture runtime, data_read=false, write_io=false, broker_io=false
 hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, object_store_io=false
 ```
 
-Planned updates are carried in the phase plan, especially `GAR-0034-A` for live/hybrid fabric
-blockers and freshness gates. Runtime-focused follow-through now shifts from the completed scoped
-prepared/native benchmark paths and CPU admission diagnostics toward kernel/provider expansion,
-source-backed API coverage, facade coverage, and other evidence-gated residual-native paths.
+`GAR-0034-A` is complete as a report-only/fail-closed gate. Runtime-focused follow-through now
+shifts from scoped prepared/native benchmark paths, CPU admission diagnostics, and live/hybrid
+fabric blockers toward kernel/provider expansion, source-backed API coverage, facade coverage, and
+other evidence-gated residual-native paths.
 
 ### View 5 - I/O, Evidence, And Downstream Use
 
@@ -526,6 +528,13 @@ End-to-end contract:
   `capabilities sql`, `capabilities dataframe`, and Python `CapabilityView` accessors. It names
   SQL parse/bind/plan/execute and DataFrame lazy-plan/expression/join/aggregate/window readiness
   rows, but it does not execute a parser, binder, planner, DataFrame runtime, or fallback engine.
+- Wrapper and connector access now exposes `shardloom.wrapper_connector_implementation_registry.v1`
+  through `capabilities api-surfaces` and Python `ctx.wrapper_connector_registry()`. The registry
+  marks the source-tree Python CLI JSON wrapper and scoped local Python helper surfaces as
+  `ready_local`, generated clients/report viewers as `report_only`, and DB-API, SQLAlchemy, Ibis,
+  dbt, Airflow, Dagster, Prefect, MCP, Flight SQL, ADBC, JDBC/ODBC, BI, and Grafana connectors as
+  `blocked`. It does not start a server, add dependencies, open listeners, create a data-plane
+  bridge, invoke an external engine, or authorize wrapper ecosystem claims.
 - End-user and adapter surfaces may improve ergonomics, but they must not hide selected execution
   mode, unsupported diagnostics, materialization/decode boundaries, or claim-gate status.
 - Every source path reports what was read, what decoded, what materialized, what stayed native, and
