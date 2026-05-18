@@ -2620,6 +2620,100 @@ fn gar_0032_c_udf_external_effect_blockers_remain_denied_by_default() {
 }
 
 #[test]
+fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
+    let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    for required in [
+        "UnstructuredAdapterCapabilityRow",
+        "UNSTRUCTURED_ADAPTER_CAPABILITY_ROWS",
+        "shardloom.unstructured_adapter_capability_matrix.v1",
+        "gar-0032-d.unstructured_media_universal_adapter_matrix",
+        "support_status: \"report-only\"",
+        "support_status: \"blocked\"",
+        "runtime_execution: false",
+        "source_io_performed: false",
+        "sink_io_performed: false",
+        "append_unstructured_adapter_capability_matrix_fields",
+        "CapabilityDiscoveryScope::UnstructuredMedia",
+        "CapabilityDiscoveryScope::UniversalAdapters",
+        "CapabilityDiscoveryScope::EventApiSaasAdapters",
+        "CapabilityDiscoveryScope::ApiSurfaces",
+        "document_reference",
+        "text_extraction",
+        "image_audio_video",
+        "embedding_vector_generation",
+        "vector_search",
+        "universal_file_adapter",
+        "database_warehouse_adapter",
+        "object_store_table_adapter",
+        "event_api_saas_adapter",
+        "source_sink_metadata",
+    ] {
+        assert!(
+            capabilities.contains(required),
+            "missing unstructured adapter capability marker {required}"
+        );
+    }
+
+    let snapshots = read_repo_file("shardloom-cli/tests/capability_discovery_snapshots.rs");
+    for required in [
+        "unstructured_and_adapter_capabilities_expose_report_only_matrix",
+        "unstructured-media",
+        "universal-adapters",
+        "event-api-saas-adapters",
+        "api-surfaces",
+        "unstructured_adapter_capability_external_engine_invoked",
+        "unstructured_adapter_capability_row_{row}_runtime_execution",
+    ] {
+        assert!(
+            snapshots.contains(required),
+            "missing unstructured adapter snapshot marker {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/architecture/unstructured-adapter-capability-matrix.md");
+    for required in [
+        "GAR-0032-D",
+        "shardloom.unstructured_adapter_capability_matrix.v1",
+        "unstructured_adapter_capability_claim_gate_status=not_claim_grade",
+        "unstructured_adapter_capability_runtime_execution=false",
+        "unstructured_adapter_capability_source_io_performed=false",
+        "unstructured_adapter_capability_sink_io_performed=false",
+        "unstructured_adapter_capability_external_engine_invoked=false",
+        "no document parser",
+        "no fallback execution",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing unstructured adapter doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0032-D"));
+    assert!(plan.contains(
+        "GAR-0032-D unstructured/media and universal adapter capability matrix is complete"
+    ));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(
+        completed.contains("GAR-0032-D unstructured/media and universal adapter capability matrix")
+    );
+    assert!(completed.contains("shardloom.unstructured_adapter_capability_matrix.v1"));
+    assert!(completed.contains("source_io_performed=false"));
+    assert!(completed.contains("sink_io_performed=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(
+        gar.contains("`GAR-0032-D` adds `shardloom.unstructured_adapter_capability_matrix.v1`")
+    );
+    assert!(gar.contains("unstructured/media runtime"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("CG-20, GAR-0032-A, GAR-0032-C, GAR-0032-D"));
+    assert!(traceability.contains("document/media/vector/adapter/source-sink metadata rows"));
+}
+
+#[test]
 fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
     let typed_doc = read_repo_file("docs/architecture/typed-command-result-envelope.md");
     for required in [

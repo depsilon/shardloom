@@ -413,6 +413,53 @@ const EXTERNAL_EFFECT_BLOCKER_ROW_SUFFIXES: [&str; 17] = [
     "claim_boundary",
 ];
 
+const UNSTRUCTURED_ADAPTER_CAPABILITY_FIELD_KEYS: [&str; 14] = [
+    "unstructured_adapter_capability_schema_version",
+    "unstructured_adapter_capability_matrix_id",
+    "unstructured_adapter_capability_docs_ref",
+    "unstructured_adapter_capability_support_status_vocabulary",
+    "unstructured_adapter_capability_claim_gate_status",
+    "unstructured_adapter_capability_row_count",
+    "unstructured_adapter_capability_row_order",
+    "unstructured_adapter_capability_runtime_execution",
+    "unstructured_adapter_capability_source_io_performed",
+    "unstructured_adapter_capability_sink_io_performed",
+    "unstructured_adapter_capability_model_call_performed",
+    "unstructured_adapter_capability_network_probe_performed",
+    "unstructured_adapter_capability_fallback_attempted",
+    "unstructured_adapter_capability_external_engine_invoked",
+];
+
+const UNSTRUCTURED_ADAPTER_CAPABILITY_ROW_IDS: [&str; 10] = [
+    "document_reference",
+    "text_extraction",
+    "image_audio_video",
+    "embedding_vector_generation",
+    "vector_search",
+    "universal_file_adapter",
+    "database_warehouse_adapter",
+    "object_store_table_adapter",
+    "event_api_saas_adapter",
+    "source_sink_metadata",
+];
+
+const UNSTRUCTURED_ADAPTER_CAPABILITY_ROW_SUFFIXES: [&str; 14] = [
+    "family",
+    "surface",
+    "support_status",
+    "runtime_execution",
+    "source_io_performed",
+    "sink_io_performed",
+    "metadata_only",
+    "credential_required",
+    "network_required",
+    "model_call_required",
+    "external_effect_blocker_id",
+    "blocker_id",
+    "required_evidence",
+    "claim_boundary",
+];
+
 const SQL_FIELD_KEYS: [&str; 35] = [
     "scope",
     "schema_version",
@@ -561,6 +608,33 @@ fn with_external_effect_blocker_fields(base_keys: &[&'static str]) -> Vec<String
                 .map(|suffix| format!("external_effect_blocker_row_{row_id}_{suffix}")),
         );
     }
+    keys
+}
+
+fn append_unstructured_adapter_capability_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        UNSTRUCTURED_ADAPTER_CAPABILITY_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in UNSTRUCTURED_ADAPTER_CAPABILITY_ROW_IDS {
+        keys.extend(
+            UNSTRUCTURED_ADAPTER_CAPABILITY_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("unstructured_adapter_capability_row_{row_id}_{suffix}")),
+        );
+    }
+}
+
+fn with_external_effect_and_unstructured_adapter_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = with_external_effect_blocker_fields(base_keys);
+    append_unstructured_adapter_capability_keys(&mut keys);
+    keys
+}
+
+fn with_wrapper_and_unstructured_adapter_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = with_wrapper_connector_registry_fields(base_keys);
+    append_unstructured_adapter_capability_keys(&mut keys);
     keys
 }
 
@@ -1210,14 +1284,17 @@ fn capability_discovery_json_field_keys_are_stable() {
             "python" => {
                 with_generated_source_alignment_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
             }
-            "api-surfaces" => {
-                with_wrapper_connector_registry_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
-            }
+            "api-surfaces" => with_wrapper_and_unstructured_adapter_fields(
+                WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
+            ),
             "universal-adapters" => {
-                with_generated_source_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
-                    .into_iter()
-                    .map(str::to_string)
-                    .collect()
+                let mut keys: Vec<String> =
+                    with_generated_source_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+                        .into_iter()
+                        .map(str::to_string)
+                        .collect();
+                append_unstructured_adapter_capability_keys(&mut keys);
+                keys
             }
             "dataframe" => with_generated_source_alignment_fields(
                 DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
@@ -1225,11 +1302,12 @@ fn capability_discovery_json_field_keys_are_stable() {
             "observability" => {
                 with_observability_contract_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
             }
-            "udfs"
-            | "event-api-saas-adapters"
-            | "unstructured-media"
-            | "extensions"
-            | "security-governance" => {
+            "event-api-saas-adapters" | "unstructured-media" => {
+                with_external_effect_and_unstructured_adapter_fields(
+                    WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
+                )
+            }
+            "udfs" | "extensions" | "security-governance" => {
                 with_external_effect_blocker_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
             }
             _ => WORLD_CLASS_SURFACE_FIELD_KEYS
@@ -1387,6 +1465,82 @@ fn udf_and_effectful_capabilities_expose_external_effect_blockers() {
             )));
             assert!(output.contains(&field_pair(
                 &format!("external_effect_blocker_row_{row}_effect_executed"),
+                false
+            )));
+        }
+    }
+}
+
+#[test]
+fn unstructured_and_adapter_capabilities_expose_report_only_matrix() {
+    for scope in [
+        "unstructured-media",
+        "universal-adapters",
+        "event-api-saas-adapters",
+        "api-surfaces",
+    ] {
+        let output = run_capabilities_scope(scope);
+        assert!(output.contains(&string_field_pair(
+            "unstructured_adapter_capability_schema_version",
+            "shardloom.unstructured_adapter_capability_matrix.v1"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "unstructured_adapter_capability_matrix_id",
+            "gar-0032-d.unstructured_media_universal_adapter_matrix"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "unstructured_adapter_capability_claim_gate_status",
+            "not_claim_grade"
+        )));
+        assert!(output.contains(&field_pair(
+            "unstructured_adapter_capability_runtime_execution",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "unstructured_adapter_capability_source_io_performed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "unstructured_adapter_capability_sink_io_performed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "unstructured_adapter_capability_model_call_performed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "unstructured_adapter_capability_network_probe_performed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "unstructured_adapter_capability_external_engine_invoked",
+            false
+        )));
+        for row in [
+            "document_reference",
+            "text_extraction",
+            "image_audio_video",
+            "embedding_vector_generation",
+            "vector_search",
+            "universal_file_adapter",
+            "database_warehouse_adapter",
+            "object_store_table_adapter",
+            "event_api_saas_adapter",
+            "source_sink_metadata",
+        ] {
+            assert!(output.contains(&format!(
+                "{{\"key\":\"unstructured_adapter_capability_row_{row}_support_status\",\"value\":"
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("unstructured_adapter_capability_row_{row}_runtime_execution"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("unstructured_adapter_capability_row_{row}_source_io_performed"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("unstructured_adapter_capability_row_{row}_sink_io_performed"),
                 false
             )));
         }

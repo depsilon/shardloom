@@ -85,6 +85,198 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
 );
 const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,no_fallback_policy";
 const WORKFLOW_SUGGESTED_NEXT_ACTION: &str = "Use workflow-unsupported-plan for method-specific blocker details before requesting execution.";
+#[allow(clippy::struct_excessive_bools)]
+struct UnstructuredAdapterCapabilityRow {
+    id: &'static str,
+    family: &'static str,
+    surface: &'static str,
+    support_status: &'static str,
+    runtime_execution: bool,
+    source_io_performed: bool,
+    sink_io_performed: bool,
+    metadata_only: bool,
+    credential_required: bool,
+    network_required: bool,
+    model_call_required: bool,
+    external_effect_blocker_id: &'static str,
+    blocker_id: &'static str,
+    required_evidence: &'static str,
+    claim_boundary: &'static str,
+}
+
+const UNSTRUCTURED_ADAPTER_CAPABILITY_ROWS: &[UnstructuredAdapterCapabilityRow] = &[
+    UnstructuredAdapterCapabilityRow {
+        id: "document_reference",
+        family: "documents",
+        surface: "document/file references and metadata",
+        support_status: "report-only",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: true,
+        credential_required: false,
+        network_required: false,
+        model_call_required: false,
+        external_effect_blocker_id: "media_extraction",
+        blocker_id: "gar-0032-d.document_reference_runtime_blocked",
+        required_evidence: "document_ref_schema,metadata_certificate,redaction_policy,no_fallback_evidence",
+        claim_boundary: "Document references are metadata/report-only; no file read, parsing, OCR, extraction, or model call is performed.",
+    },
+    UnstructuredAdapterCapabilityRow {
+        id: "text_extraction",
+        family: "documents",
+        surface: "text extraction and chunking",
+        support_status: "blocked",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: false,
+        credential_required: false,
+        network_required: false,
+        model_call_required: false,
+        external_effect_blocker_id: "media_extraction",
+        blocker_id: "gar-0032-d.text_extraction_runtime_blocked",
+        required_evidence: "parser_dependency_policy,extraction_semantics,redaction_policy,materialization_boundary,effect_budget_certificate",
+        claim_boundary: "Text extraction is blocked; no parser dependency, chunking runtime, decoded text materialization, or extraction claim is added.",
+    },
+    UnstructuredAdapterCapabilityRow {
+        id: "image_audio_video",
+        family: "media",
+        surface: "image, audio, and video references",
+        support_status: "blocked",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: false,
+        credential_required: false,
+        network_required: false,
+        model_call_required: false,
+        external_effect_blocker_id: "media_extraction",
+        blocker_id: "gar-0032-d.media_decode_runtime_blocked",
+        required_evidence: "media_dependency_policy,decode_boundary,redaction_policy,resource_budget,effect_budget_certificate",
+        claim_boundary: "Media decode/extraction is blocked; no OCR, transcription, frame decode, model call, or media runtime is added.",
+    },
+    UnstructuredAdapterCapabilityRow {
+        id: "embedding_vector_generation",
+        family: "vectors",
+        surface: "embedding generation and vector values",
+        support_status: "blocked",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: false,
+        credential_required: true,
+        network_required: true,
+        model_call_required: true,
+        external_effect_blocker_id: "embedding_generation",
+        blocker_id: "gar-0032-d.embedding_vector_runtime_blocked",
+        required_evidence: "model_policy,credential_policy,vector_schema,redaction_policy,effect_budget_certificate,no_fallback_evidence",
+        claim_boundary: "Embedding/vector generation is blocked; no embedding model, vector index, network call, or vector runtime claim is added.",
+    },
+    UnstructuredAdapterCapabilityRow {
+        id: "vector_search",
+        family: "vectors",
+        surface: "vector search",
+        support_status: "blocked",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: false,
+        credential_required: true,
+        network_required: true,
+        model_call_required: false,
+        external_effect_blocker_id: "vector_search",
+        blocker_id: "gar-0032-d.vector_search_runtime_blocked",
+        required_evidence: "vector_index_contract,similarity_semantics,query_correctness,effect_budget_certificate,no_fallback_evidence",
+        claim_boundary: "Vector search is blocked; no local or remote vector index/query runtime is claimed.",
+    },
+    UnstructuredAdapterCapabilityRow {
+        id: "universal_file_adapter",
+        family: "universal_adapter",
+        surface: "additional local file adapters",
+        support_status: "report-only",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: true,
+        credential_required: false,
+        network_required: false,
+        model_call_required: false,
+        external_effect_blocker_id: "not_applicable_metadata_only",
+        blocker_id: "gar-0032-d.universal_file_adapter_runtime_blocked",
+        required_evidence: "adapter_contract,source_state_contract,native_io_certificate,compatibility_matrix,no_fallback_evidence",
+        claim_boundary: "Additional file adapters are report-only unless a specific input/output format has runtime evidence.",
+    },
+    UnstructuredAdapterCapabilityRow {
+        id: "database_warehouse_adapter",
+        family: "universal_adapter",
+        surface: "database and warehouse adapters",
+        support_status: "blocked",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: false,
+        credential_required: true,
+        network_required: true,
+        model_call_required: false,
+        external_effect_blocker_id: "api_call",
+        blocker_id: "gar-0032-d.database_warehouse_adapter_runtime_blocked",
+        required_evidence: "credential_policy,network_policy,driver_policy,import_export_certificate,no_fallback_evidence",
+        claim_boundary: "Database and warehouse adapters are blocked; no driver, credential, network, import/export, pushdown, or fallback engine path is added.",
+    },
+    UnstructuredAdapterCapabilityRow {
+        id: "object_store_table_adapter",
+        family: "universal_adapter",
+        surface: "object-store and lakehouse/table adapters",
+        support_status: "blocked",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: false,
+        credential_required: true,
+        network_required: true,
+        model_call_required: false,
+        external_effect_blocker_id: "network_egress",
+        blocker_id: "gar-0032-d.object_store_table_adapter_runtime_blocked",
+        required_evidence: "object_store_admission,table_metadata_certificate,commit_protocol_policy,no_fallback_evidence",
+        claim_boundary: "Object-store/table adapters remain blocked unless separate object-store and table-runtime gates pass.",
+    },
+    UnstructuredAdapterCapabilityRow {
+        id: "event_api_saas_adapter",
+        family: "universal_adapter",
+        surface: "event, API, and SaaS adapters",
+        support_status: "blocked",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: false,
+        credential_required: true,
+        network_required: true,
+        model_call_required: false,
+        external_effect_blocker_id: "api_call",
+        blocker_id: "gar-0032-d.event_api_saas_adapter_runtime_blocked",
+        required_evidence: "credential_policy,network_policy,rate_limit_policy,delivery_semantics,effect_budget_certificate,no_fallback_evidence",
+        claim_boundary: "Event/API/SaaS adapters are blocked; no listener, webhook, request, export, or SaaS runtime is added.",
+    },
+    UnstructuredAdapterCapabilityRow {
+        id: "source_sink_metadata",
+        family: "metadata",
+        surface: "source/sink metadata references",
+        support_status: "report-only",
+        runtime_execution: false,
+        source_io_performed: false,
+        sink_io_performed: false,
+        metadata_only: true,
+        credential_required: false,
+        network_required: false,
+        model_call_required: false,
+        external_effect_blocker_id: "not_applicable_metadata_only",
+        blocker_id: "gar-0032-d.source_sink_metadata_runtime_blocked",
+        required_evidence: "metadata_schema,source_sink_registry,native_io_certificate_refs,redaction_policy,no_fallback_evidence",
+        claim_boundary: "Source/sink metadata rows are visibility only; they do not read sources, write sinks, probe adapters, or certify runtime support.",
+    },
+];
+
 const ETL_WORKFLOW_MATRIX_SCHEMA_VERSION: &str = "shardloom.etl_workflow_capability_matrix.v1";
 const ETL_WORKFLOW_MATRIX_ID: &str = "gar-0033-a.etl_workflow_capability_matrix";
 const ETL_WORKFLOW_ROW_ORDER: &str = concat!(
@@ -8122,6 +8314,151 @@ fn world_class_surface_components(scope: CapabilityDiscoveryScope) -> &'static s
     }
 }
 
+fn append_unstructured_adapter_capability_matrix_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "unstructured_adapter_capability_schema_version",
+        "shardloom.unstructured_adapter_capability_matrix.v1",
+    );
+    push_field(
+        fields,
+        "unstructured_adapter_capability_matrix_id",
+        "gar-0032-d.unstructured_media_universal_adapter_matrix",
+    );
+    push_field(
+        fields,
+        "unstructured_adapter_capability_docs_ref",
+        "docs/architecture/unstructured-adapter-capability-matrix.md",
+    );
+    push_field(
+        fields,
+        "unstructured_adapter_capability_support_status_vocabulary",
+        "report-only,blocked,unsupported",
+    );
+    push_field(
+        fields,
+        "unstructured_adapter_capability_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_count_field(
+        fields,
+        "unstructured_adapter_capability_row_count",
+        UNSTRUCTURED_ADAPTER_CAPABILITY_ROWS.len(),
+    );
+    push_field(
+        fields,
+        "unstructured_adapter_capability_row_order",
+        &UNSTRUCTURED_ADAPTER_CAPABILITY_ROWS
+            .iter()
+            .map(|row| row.id)
+            .collect::<Vec<_>>()
+            .join(","),
+    );
+    push_bool_field(
+        fields,
+        "unstructured_adapter_capability_runtime_execution",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "unstructured_adapter_capability_source_io_performed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "unstructured_adapter_capability_sink_io_performed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "unstructured_adapter_capability_model_call_performed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "unstructured_adapter_capability_network_probe_performed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "unstructured_adapter_capability_fallback_attempted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "unstructured_adapter_capability_external_engine_invoked",
+        false,
+    );
+    for row in UNSTRUCTURED_ADAPTER_CAPABILITY_ROWS {
+        append_unstructured_adapter_capability_row_fields(fields, row);
+    }
+}
+
+fn append_unstructured_adapter_capability_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &UnstructuredAdapterCapabilityRow,
+) {
+    let prefix = format!("unstructured_adapter_capability_row_{}", row.id);
+    push_field(fields, &format!("{prefix}_family"), row.family);
+    push_field(fields, &format!("{prefix}_surface"), row.surface);
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_execution"),
+        row.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_source_io_performed"),
+        row.source_io_performed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_sink_io_performed"),
+        row.sink_io_performed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_metadata_only"),
+        row.metadata_only,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_credential_required"),
+        row.credential_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_network_required"),
+        row.network_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_model_call_required"),
+        row.model_call_required,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_external_effect_blocker_id"),
+        row.external_effect_blocker_id,
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_required_evidence"),
+        row.required_evidence,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
+}
+
 #[allow(clippy::too_many_lines)]
 fn world_class_surface_fields(
     scope: CapabilityDiscoveryScope,
@@ -8261,6 +8598,15 @@ fn world_class_surface_fields(
             | CapabilityDiscoveryScope::SecurityGovernance
     ) {
         append_external_effect_blocker_matrix_fields(&mut fields);
+    }
+    if matches!(
+        scope,
+        CapabilityDiscoveryScope::UnstructuredMedia
+            | CapabilityDiscoveryScope::UniversalAdapters
+            | CapabilityDiscoveryScope::EventApiSaasAdapters
+            | CapabilityDiscoveryScope::ApiSurfaces
+    ) {
+        append_unstructured_adapter_capability_matrix_fields(&mut fields);
     }
     fields
 }
