@@ -89,26 +89,27 @@ Future Foundry generated-output proof must stay separate from no-dataset smoke:
   - no output data claim
 - `user_generated_source`:
   - user Python code creates rows
-  - ShardLoom consumes rows as a generated/literal source in the scoped local JSONL smoke when
+  - ShardLoom consumes rows as a generated/literal/calendar source in scoped local JSONL smokes when
     deterministic generation evidence exists
   - Foundry output evidence is still required before any Foundry generated-output claim
 - `engine_native_generated_source`:
-  - ShardLoom executes generator nodes such as `range`, `sequence`, `values`, `literal_table`,
-    calendar/date dimension, or deterministic synthetic profile
+  - ShardLoom executes generator nodes such as `range`, `sequence`, `values`, or deterministic
+    synthetic profile
   - the scoped local `range` JSONL smoke is supported outside Foundry; other generator nodes remain
     report-only
   - ShardLoom writes output and emits generated-source and output evidence
 
 Generated-output proof fields should align with the `GAR-GEN-1` contract. The CLI/Python capability
 view exposes that vocabulary as `shardloom.generated_source_certificate_contract.v1`; GAR-GEN-1C
-and GAR-GEN-1D emit the fields only for scoped local user-row and range JSONL smokes, not for
-Foundry:
+and GAR-GEN-1D emit the fields only for scoped local user-row, literal-table, calendar, and range
+JSONL smokes, not for Foundry:
 
 `GAR-COMPAT-1B` also projects the same source-free generated-output posture into
 `shardloom.universal_compatibility.generated_output_contract.v1`. That compatibility projection keeps
-`no_dataset_smoke`, `python_ctx_from_rows`, `python_ctx_range`, SQL `VALUES`/literal rows,
-DataFrame generated-expression rows, local-output-only posture, and Foundry/object-store blockers
-visible without treating Foundry generated-output runtime as supported.
+`no_dataset_smoke`, `python_ctx_from_rows`, `python_ctx_literal_table`, `python_ctx_calendar`,
+`python_ctx_range`, SQL `VALUES`/literal rows, DataFrame generated-expression rows,
+local-output-only posture, and Foundry/object-store blockers visible without treating Foundry
+generated-output runtime as supported.
 
 ```text
 input_dataset_count=0

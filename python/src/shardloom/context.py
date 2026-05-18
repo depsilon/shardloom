@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import date
 from typing import Mapping, Sequence
 
 from .client import (
@@ -35,10 +36,12 @@ from .query import (
     LazyFrame,
     UnsupportedWorkflowOperationReport,
     WorkflowSource,
+    calendar as generated_calendar,
     from_arrow_ipc,
     from_arrow_table,
     from_pandas,
     from_rows,
+    literal_table as generated_literal_table,
     range as generated_range,
     read_csv,
     read_json,
@@ -325,6 +328,32 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "range",
+        "source_free_generation",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
+        required_evidence=(
+            "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
+        ),
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
+    ),
+    _df_method(
+        "literal_table",
+        "source_free_generation",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
+        required_evidence=(
+            "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
+        ),
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
+    ),
+    _df_method(
+        "calendar",
         "source_free_generation",
         "fixture_smoke_supported",
         runtime_execution=True,
@@ -899,6 +928,32 @@ ETL_WORKFLOW_CAPABILITY_ROWS: tuple[ETLWorkflowCapabilityRow, ...] = (
         inputs=("range_generator",),
         outputs=("local_jsonl_output", "generated_source_certificate"),
         evidence_fields=("generated_source_kind=range", "output_native_io_certificate_status"),
+        runtime_execution=True,
+        write_io=True,
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "source_free_literal_table_jsonl",
+        "Source-free literal table JSONL",
+        "smoke_supported",
+        "source_free_generated_output",
+        "batch",
+        inputs=("literal_table_rows",),
+        outputs=("local_jsonl_output", "generated_source_certificate"),
+        evidence_fields=("generated_source_kind=literal_table", "output_native_io_certificate_status"),
+        runtime_execution=True,
+        write_io=True,
+        claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
+    ),
+    _etl_workflow_row(
+        "source_free_calendar_jsonl",
+        "Source-free calendar JSONL",
+        "smoke_supported",
+        "source_free_generated_output",
+        "batch",
+        inputs=("calendar_generator",),
+        outputs=("local_jsonl_output", "generated_source_certificate"),
+        evidence_fields=("generated_source_kind=calendar", "output_native_io_certificate_status"),
         runtime_execution=True,
         write_io=True,
         claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
@@ -4256,6 +4311,11 @@ class ShardLoomContext:
 
         return from_rows(rows, client=self.client)
 
+    def literal_table(self, rows: Sequence[Mapping[str, object]]) -> GeneratedRowsSource:
+        """Create a scoped source-free literal table using this context's client."""
+
+        return generated_literal_table(rows, client=self.client)
+
     def range(
         self,
         start: int,
@@ -4271,6 +4331,24 @@ class ShardLoomContext:
             end,
             step=step,
             column=column,
+            client=self.client,
+        )
+
+    def calendar(
+        self,
+        start: str | date,
+        end: str | date,
+        *,
+        column: str = "date",
+        include_parts: bool = True,
+    ) -> GeneratedRowsSource:
+        """Create a scoped source-free calendar/date dimension using this context's client."""
+
+        return generated_calendar(
+            start,
+            end,
+            column=column,
+            include_parts=include_parts,
             client=self.client,
         )
 

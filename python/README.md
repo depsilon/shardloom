@@ -483,9 +483,10 @@ the per-API admission matrix is exposed as `generated_source_api_admission`.
 `GAR-NOVEL-1A` also exposes `generated_source_evidence_alignment`, which ties the same
 GeneratedSourceCertificate rows to report-only OpenLineage, OpenTelemetry, Bayesian-confidence,
 and Foundry generated-output boundary refs without enabling exporters or platform runtime.
-Two scoped local JSONL smoke paths are runtime-supported: caller-provided rows
-and one ShardLoom-native range generator. SQL and broader DataFrame forms remain
-report-only unless a later evidence-backed slice admits them:
+Four scoped local JSONL smoke paths are runtime-supported: caller-provided rows,
+Python literal tables, Python calendar/date dimensions, and one ShardLoom-native
+range generator. SQL and broader DataFrame forms remain report-only unless a
+later evidence-backed slice admits them:
 
 ```python
 caps = ctx.capabilities()
@@ -501,6 +502,8 @@ print(contract.no_dataset_smoke_separate_from_generated_output)
 print(contract.all_no_fallback_no_external_engine)
 print(admission.row("python_ctx_from_rows").support_status)
 print(admission.row("python_ctx_range").runtime_execution)
+print(admission.row("python_ctx_literal_table").support_status)
+print(admission.row("python_ctx_calendar").runtime_execution)
 print(admission.row("sql_values").blocker_id)
 print(admission.all_no_fallback_no_external_engine)
 print(alignment.schema_version)
@@ -535,7 +538,7 @@ print(generated.all_no_fallback_no_external_engine)
 ```
 
 This compatibility contract is still a capability map. It can say local JSONL generated-output
-smokes exist for user rows and range, but it keeps `ctx.literal_table`, `ctx.calendar`, SQL
+smokes exist for user rows, literal tables, calendar/date dimensions, and range, but it keeps SQL
 literal/`VALUES` execution, DataFrame generated expressions, object-store/lakehouse output, and
 Foundry generated-output runtime as report-only or blocked.
 
@@ -568,6 +571,38 @@ Equivalent CLI command:
 shardloom generated-source-user-rows-smoke target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --format json
 ```
 
+The supported literal-table helper uses the same local generated-source write path while reporting
+`generated_source_kind=literal_table`:
+
+```python
+literal_report = ctx.literal_table(
+    [
+        {"code": "A", "weight": 1.5},
+        {"code": "B", "weight": 2.0},
+    ]
+).write("target/generated-literal-table.jsonl", allow_overwrite=True)
+
+print(literal_report.generated_source_kind)
+print(literal_report.generated_source_row_count)
+print(literal_report.claim_gate_status)
+```
+
+The calendar/date-dimension helper generates deterministic local rows in Python, writes JSONL
+through the same ShardLoom generated-source command, and reports
+`generated_source_kind=calendar`:
+
+```python
+calendar_report = ctx.calendar(
+    "2026-05-18",
+    "2026-05-21",
+    column="dt",
+).write("target/generated-calendar.jsonl", allow_overwrite=True)
+
+print(calendar_report.generated_source_kind)
+print(calendar_report.generated_source_row_count)
+print(calendar_report.claim_gate_status)
+```
+
 The supported engine-native range smoke is separate. It generates deterministic
 `int64` rows inside ShardLoom, writes local JSONL, and emits the same
 generated-source/output/no-fallback evidence family:
@@ -596,33 +631,25 @@ The contract separates three cases:
 
 - `no_dataset_smoke`: status/capability/proof smoke only; no generated rows, no
   source Native I/O certificate, and no output data claim.
-- `user_generated_source`: scoped local user rows are supported for JSONL
-  fixture-smoke writes through `ctx.from_rows(...).write(...)`; broader
-  generated-source APIs remain report-only.
+- `user_generated_source`: scoped local user rows, literal tables, and calendar/date dimensions are
+  supported for JSONL fixture-smoke writes through `ctx.from_rows(...).write(...)`,
+  `ctx.literal_table(...).write(...)`, and `ctx.calendar(...).write(...)`; broader generated-source
+  APIs remain report-only.
 - `engine_native_generated_source`: one scoped local `range` JSONL fixture smoke
-  is supported through `ctx.range(...).write(...)`; `sequence`, `values`,
-  `literal_table`, calendar/date dimensions, and deterministic synthetic
-  profiles remain report-only.
+  is supported through `ctx.range(...).write(...)`; engine-native `sequence`, engine-native
+  `values`, and deterministic synthetic profiles remain report-only.
 
-The broader intended Python shape is:
-
-```python
-ctx.literal_table(...).write(...)
-ctx.calendar(...).write(...)
-```
-
-`ctx.literal_table`, `ctx.calendar`, SQL `VALUES`/literal execution, and broad
-DataFrame expression execution are not runtime-supported yet. Current
+SQL `VALUES`/literal execution and broad DataFrame expression execution are not runtime-supported
+yet. Current
 source-free API admission rows classify:
 
-- `python_ctx_from_rows`, `python_ctx_range`, and `python_generated_source_write`
+- `python_ctx_from_rows`, `python_ctx_literal_table`, `python_ctx_calendar`,
+  `python_ctx_range`, and `python_generated_source_write`
   as `fixture_smoke_supported` only for scoped local JSONL generated-output
   smokes with generated-source and output evidence.
-- `python_ctx_literal_table`, `python_ctx_calendar`, SQL literal `SELECT`, SQL
-  `VALUES`, SQL source-free projection, SQL `generate_series`/`range`
-  vocabulary, DataFrame source-free projection, and generated `with_column`
-  forms as `report_only` with deterministic blocker IDs such as
-  `gar-gen-1.sql_values_runtime_not_implemented`.
+- SQL literal `SELECT`, SQL `VALUES`, SQL source-free projection, SQL `generate_series`/`range`
+  vocabulary, DataFrame source-free projection, and generated `with_column` forms as `report_only`
+  with deterministic blocker IDs such as `gar-gen-1.sql_values_runtime_not_implemented`.
 
 Admission capability discovery does not parse SQL, bind names, plan a query,
 generate rows, write output, probe object stores, invoke Foundry, or invoke
@@ -639,8 +666,8 @@ Generated-output runtime must report
 `generation_deterministic`, `output_io_performed`,
 `output_native_io_certificate_status`, `generated_source_certificate_status`,
 `fallback_attempted=false`, `external_engine_invoked=false`, and
-`claim_gate_status`. The current user-row and range paths report
-`claim_gate_status=fixture_smoke_only`. S3/object-store writes remain
+`claim_gate_status`. The current user-row, literal-table, calendar, and range paths report
+`claim_gate_status=fixture_smoke_only` in their scoped local JSONL lanes. S3/object-store writes remain
 report-only/gated, and Foundry generated-output smoke must go through Foundry
 output APIs rather than direct S3 paths.
 

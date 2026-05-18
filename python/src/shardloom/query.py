@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import os
 from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from typing import Mapping, Sequence, cast
 from urllib.parse import quote
 
@@ -163,6 +164,7 @@ class GeneratedRowsSource:
     schema_arg: str
     rows_arg: str
     client: ShardLoomClient
+    source_kind: str = "user_rows"
 
     def write(
         self,
@@ -178,6 +180,7 @@ class GeneratedRowsSource:
             target_uri,
             self.schema_arg,
             self.rows_arg,
+            source_kind=self.source_kind,
             output_format=output_format,
             allow_overwrite=allow_overwrite,
             check=check,
@@ -821,6 +824,7 @@ def from_rows(
     rows: Sequence[Mapping[str, object]],
     *,
     client: ShardLoomClient | None = None,
+    source_kind: str = "user_rows",
     **client_config: object,
 ) -> GeneratedRowsSource:
     """Create a scoped source-free generated row set for local output smoke writes."""
@@ -830,6 +834,23 @@ def from_rows(
         schema_arg=schema_arg,
         rows_arg=rows_arg,
         client=_client_from_config(client, client_config),
+        source_kind=_normalize_generated_source_kind(source_kind),
+    )
+
+
+def literal_table(
+    rows: Sequence[Mapping[str, object]],
+    *,
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> GeneratedRowsSource:
+    """Create a scoped source-free literal table for local output smoke writes."""
+
+    return from_rows(
+        rows,
+        client=client,
+        source_kind="literal_table",
+        **client_config,
     )
 
 
@@ -856,6 +877,51 @@ def range(
         step=normalized_step,
         column=normalized_column,
         client=_client_from_config(client, client_config),
+    )
+
+
+def calendar(
+    start: str | date,
+    end: str | date,
+    *,
+    column: str = "date",
+    include_parts: bool = True,
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> GeneratedRowsSource:
+    """Create a scoped source-free calendar/date dimension for local JSONL output.
+
+    Dates are generated in Python with an inclusive `start` and exclusive `end`,
+    mirroring `range(start, end)`. The write path still goes through ShardLoom's
+    generated-source local-output command and emits no source Native I/O
+    certificate because no input dataset is read.
+    """
+
+    start_date = _normalize_date("calendar start", start)
+    end_date = _normalize_date("calendar end", end)
+    if start_date >= end_date:
+        raise ValueError("calendar start must be before end")
+    column_name = _require_non_empty("calendar column", column)
+    rows = []
+    current = start_date
+    while current < end_date:
+        row: dict[str, object] = {column_name: current.isoformat()}
+        if include_parts:
+            row.update(
+                {
+                    "year": current.year,
+                    "month": current.month,
+                    "day": current.day,
+                    "day_of_week": current.isoweekday(),
+                }
+            )
+        rows.append(row)
+        current += timedelta(days=1)
+    return from_rows(
+        rows,
+        client=client,
+        source_kind="calendar",
+        **client_config,
     )
 
 
@@ -1003,6 +1069,31 @@ def _generated_value(value_type: str, value: object) -> str:
             raise TypeError("generated utf8 columns must contain only str values")
         return value
     raise ValueError(f"unsupported generated value type {value_type!r}")
+
+
+def _normalize_generated_source_kind(value: str) -> str:
+    normalized = value.strip().lower().replace("-", "_")
+    if normalized not in {"user_rows", "literal_table", "calendar"}:
+        raise ValueError(
+            "generated source kind must be one of ('user_rows', 'literal_table', 'calendar')"
+        )
+    return normalized
+
+
+def _normalize_date(name: str, value: str | date) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a date or ISO date string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{name} must not be empty")
+    try:
+        return date.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an ISO date string like YYYY-MM-DD") from exc
 
 
 def _require_range_int(name: str, value: object) -> int:

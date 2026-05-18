@@ -41,6 +41,50 @@ const RANGE_EXECUTION_CERTIFICATE_ID: &str = "generated-source.range.local-outpu
 const MAX_GENERATED_RANGE_ROWS: usize = 1_000_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UserRowsGeneratedSourceKind {
+    UserRows,
+    LiteralTable,
+    Calendar,
+}
+
+impl UserRowsGeneratedSourceKind {
+    fn parse(value: &str) -> Result<Self, ShardLoomError> {
+        match value.trim().to_ascii_lowercase().replace('-', "_").as_str() {
+            "user_rows" | "rows" => Ok(Self::UserRows),
+            "literal_table" | "literal" => Ok(Self::LiteralTable),
+            "calendar" | "date_dimension" => Ok(Self::Calendar),
+            other => Err(ShardLoomError::InvalidOperation(format!(
+                "unsupported generated-source user rows source kind {other:?}; supported kinds are user_rows,literal_table,calendar"
+            ))),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::UserRows => "user_rows",
+            Self::LiteralTable => "literal_table",
+            Self::Calendar => "calendar",
+        }
+    }
+
+    const fn materialization_boundary(self) -> &'static str {
+        match self {
+            Self::UserRows => "python_user_rows_to_local_jsonl_sink",
+            Self::LiteralTable => "python_literal_table_to_local_jsonl_sink",
+            Self::Calendar => "python_calendar_generator_to_local_jsonl_sink",
+        }
+    }
+
+    const fn claim_gate_reason(self) -> &'static str {
+        match self {
+            Self::UserRows => "one_scoped_local_user_rows_generated_output_smoke",
+            Self::LiteralTable => "one_scoped_local_literal_table_generated_output_smoke",
+            Self::Calendar => "one_scoped_local_calendar_generated_output_smoke",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GeneratedOutputFormat {
     Jsonl,
 }
@@ -108,6 +152,7 @@ struct GeneratedRow {
 struct GeneratedUserRowsSmokeRequest {
     output_path: PathBuf,
     output_format: GeneratedOutputFormat,
+    source_kind: UserRowsGeneratedSourceKind,
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
     allow_overwrite: bool,
@@ -117,6 +162,7 @@ struct GeneratedUserRowsSmokeRequest {
 struct GeneratedUserRowsSmokeReport {
     output_path: PathBuf,
     output_format: GeneratedOutputFormat,
+    source_kind: UserRowsGeneratedSourceKind,
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
     output_bytes: u64,
@@ -161,7 +207,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--output-format jsonl] [--allow-overwrite]"
+            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar] [--output-format jsonl] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -187,6 +233,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
     };
 
     let mut output_format = GeneratedOutputFormat::Jsonl;
+    let mut source_kind = UserRowsGeneratedSourceKind::UserRows;
     let mut allow_overwrite = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -213,6 +260,29 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
                     }
                 };
             }
+            "--source-kind" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        USER_ROWS_COMMAND,
+                        format,
+                        "generated-source smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--source-kind requires a value".to_string(),
+                        ),
+                    );
+                };
+                source_kind = match UserRowsGeneratedSourceKind::parse(&value) {
+                    Ok(parsed) => parsed,
+                    Err(error) => {
+                        return emit_error(
+                            USER_ROWS_COMMAND,
+                            format,
+                            "generated-source smoke failed",
+                            &error,
+                        );
+                    }
+                };
+            }
             "--allow-overwrite" => allow_overwrite = true,
             extra => {
                 return emit_error(
@@ -228,6 +298,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
     let request = match GeneratedUserRowsSmokeRequest::parse(
         &output_target,
         output_format,
+        source_kind,
         &schema_raw,
         &rows_raw,
         allow_overwrite,
@@ -468,6 +539,7 @@ impl GeneratedUserRowsSmokeRequest {
     fn parse(
         output_target: &str,
         output_format: GeneratedOutputFormat,
+        source_kind: UserRowsGeneratedSourceKind,
         schema_raw: &str,
         rows_raw: &str,
         allow_overwrite: bool,
@@ -483,6 +555,7 @@ impl GeneratedUserRowsSmokeRequest {
         Ok(Self {
             output_path,
             output_format,
+            source_kind,
             schema,
             rows,
             allow_overwrite,
@@ -515,7 +588,10 @@ impl GeneratedUserRowsSmokeReport {
                 "not_applicable_no_source_dataset".to_string(),
             ),
             ("generated_source_created".to_string(), "true".to_string()),
-            ("generated_source_kind".to_string(), "user_rows".to_string()),
+            (
+                "generated_source_kind".to_string(),
+                self.source_kind.as_str().to_string(),
+            ),
             (
                 "generated_source_schema_digest".to_string(),
                 self.schema_digest.clone(),
@@ -573,7 +649,7 @@ impl GeneratedUserRowsSmokeReport {
             ("correctness_digest".to_string(), self.output_digest.clone()),
             (
                 "materialization_boundary".to_string(),
-                "python_user_rows_to_local_jsonl_sink".to_string(),
+                self.source_kind.materialization_boundary().to_string(),
             ),
             ("data_materialized".to_string(), "true".to_string()),
             ("data_decoded".to_string(), "false".to_string()),
@@ -594,7 +670,7 @@ impl GeneratedUserRowsSmokeReport {
             ),
             (
                 "claim_gate_reason".to_string(),
-                "one_scoped_local_user_rows_generated_output_smoke".to_string(),
+                self.source_kind.claim_gate_reason().to_string(),
             ),
             ("performance_claim_allowed".to_string(), "false".to_string()),
             ("production_claim_allowed".to_string(), "false".to_string()),
@@ -615,7 +691,8 @@ impl GeneratedUserRowsSmokeReport {
 
     fn to_text(&self) -> String {
         format!(
-            "generated-source user rows smoke\nschema_version: {USER_ROWS_SCHEMA_VERSION}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: certified_local_file_sink\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "generated-source user rows smoke\nschema_version: {USER_ROWS_SCHEMA_VERSION}\ngenerated_source_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: certified_local_file_sink\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            self.source_kind.as_str(),
             canonical_schema(&self.schema),
             self.rows.len(),
             self.output_path.display(),
@@ -852,13 +929,15 @@ fn run_generated_user_rows_smoke(
     Ok(GeneratedUserRowsSmokeReport {
         output_path: request.output_path.clone(),
         output_format: request.output_format,
+        source_kind: request.source_kind,
         schema: request.schema.clone(),
         rows: request.rows.clone(),
         output_bytes: u64::try_from(content.len()).unwrap_or(u64::MAX),
         output_digest: output_digest.clone(),
         schema_digest: fnv64_digest(&schema_text),
         plan_digest: fnv64_digest(&format!(
-            "generated_source_kind=user_rows;output_format={};schema={schema_text};rows={canonical_rows}",
+            "generated_source_kind={};output_format={};schema={schema_text};rows={canonical_rows}",
+            request.source_kind.as_str(),
             request.output_format.as_str()
         )),
         write_millis,

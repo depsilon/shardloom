@@ -1,9 +1,9 @@
 //! Source-free generated-output evidence contracts.
 //!
 //! These contracts distinguish no-dataset smoke from generated-output execution. They define the
-//! fields future runtime slices must emit when `ShardLoom` creates output without reading an input
-//! dataset, but they do not execute generators, parse SQL, materialize `DataFrames`, write outputs,
-//! probe object stores, invoke Foundry, or call external fallback engines.
+//! fields runtime slices must emit when `ShardLoom` creates output without reading an input
+//! dataset. Current support is limited to scoped local JSONL fixture smokes; broader SQL,
+//! `DataFrame`, object-store, Foundry, production, and performance claims remain blocked.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GeneratedSourceCaseKind {
@@ -115,15 +115,15 @@ impl GeneratedSourceCertificateContractRow {
                 GeneratedSourceCertificateStatus::RequiredForRuntime,
             input_dataset_count: 0,
             source_io_performed: false,
-            generated_source_created: false,
-            output_io_performed: false,
+            generated_source_created: true,
+            output_io_performed: true,
             source_native_io_certificate_status: "not_applicable_no_source_dataset",
             output_native_io_certificate_status: "required_for_runtime_output",
-            required_generator_kinds: "python_rows,literal_rows",
+            required_generator_kinds: "python_rows(runtime_local_jsonl_smoke),literal_table(runtime_local_jsonl_smoke),calendar(runtime_local_jsonl_smoke)",
             required_evidence_fields: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,generation_deterministic,output_io_performed,output_native_io_certificate_status",
             blocker_id: "none_scoped_local_jsonl_smoke_only",
             claim_gate_status: "fixture_smoke_only",
-            claim_boundary: "User-generated source support is limited to the scoped local JSONL fixture smoke until broader runtime and sink evidence exists.",
+            claim_boundary: "User-generated source support is limited to scoped local user_rows, literal_table, and calendar JSONL fixture smokes until broader runtime and sink evidence exists.",
             fallback_attempted: false,
             external_engine_invoked: false,
         }
@@ -138,8 +138,8 @@ impl GeneratedSourceCertificateContractRow {
                 GeneratedSourceCertificateStatus::RequiredForRuntime,
             input_dataset_count: 0,
             source_io_performed: false,
-            generated_source_created: false,
-            output_io_performed: false,
+            generated_source_created: true,
+            output_io_performed: true,
             source_native_io_certificate_status: "not_applicable_no_source_dataset",
             output_native_io_certificate_status: "required_for_runtime_output",
             required_generator_kinds: "range(runtime_local_jsonl_smoke),sequence(report_only),values(report_only),literal_table(report_only),calendar(report_only),synthetic(report_only)",
@@ -294,7 +294,7 @@ impl GeneratedSourceApiAdmissionRow {
             blocker_id: "none_scoped_local_range_jsonl_smoke_only",
             required_evidence: "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
             claim_gate_status: "fixture_smoke_only",
-            claim_boundary: "Only scoped local range JSONL generated-output fixture smoke is admitted; sequence, values, literal_table, calendar, SQL, broad DataFrame, object-store, Foundry, production, and performance claims remain blocked.",
+            claim_boundary: "Only scoped local range JSONL generated-output fixture smoke is admitted; sequence, values, SQL, broad DataFrame, object-store, Foundry, production, and performance claims remain blocked.",
             fallback_attempted: false,
             external_engine_invoked: false,
             fallback_execution_allowed: false,
@@ -305,17 +305,17 @@ impl GeneratedSourceApiAdmissionRow {
     pub const fn python_ctx_literal_table() -> Self {
         Self {
             row_id: "python_ctx_literal_table",
-            user_visible_surface: "Python ctx.literal_table(...).write(...)",
-            support_status: GeneratedSourceSupportStatus::ReportOnly,
-            runtime_execution: false,
+            user_visible_surface: "Python ctx.literal_table([...]).write(local_jsonl)",
+            support_status: GeneratedSourceSupportStatus::FixtureSmokeSupported,
+            runtime_execution: true,
             data_read: false,
-            write_io: false,
+            write_io: true,
             source_io_performed: false,
-            generated_source_created: false,
-            blocker_id: "gar-gen-1.literal_table_runtime_not_implemented",
+            generated_source_created: true,
+            blocker_id: "none_scoped_local_literal_table_jsonl_smoke_only",
             required_evidence: "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
-            claim_gate_status: "not_claim_grade",
-            claim_boundary: "Literal-table generation is capability vocabulary only; no rows are generated and no output is written.",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "Only scoped local literal-table JSONL generated-output fixture smoke is admitted; SQL VALUES, broad DataFrame, object-store, Foundry, production, and performance claims remain blocked.",
             fallback_attempted: false,
             external_engine_invoked: false,
             fallback_execution_allowed: false,
@@ -326,17 +326,17 @@ impl GeneratedSourceApiAdmissionRow {
     pub const fn python_ctx_calendar() -> Self {
         Self {
             row_id: "python_ctx_calendar",
-            user_visible_surface: "Python ctx.calendar(...).write(...)",
-            support_status: GeneratedSourceSupportStatus::ReportOnly,
-            runtime_execution: false,
+            user_visible_surface: "Python ctx.calendar(start,end).write(local_jsonl)",
+            support_status: GeneratedSourceSupportStatus::FixtureSmokeSupported,
+            runtime_execution: true,
             data_read: false,
-            write_io: false,
+            write_io: true,
             source_io_performed: false,
-            generated_source_created: false,
-            blocker_id: "gar-gen-1.calendar_runtime_not_implemented",
+            generated_source_created: true,
+            blocker_id: "none_scoped_local_calendar_jsonl_smoke_only",
             required_evidence: "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
-            claim_gate_status: "not_claim_grade",
-            claim_boundary: "Calendar/date dimension generation is capability vocabulary only; no rows are generated and no output is written.",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "Only scoped local calendar/date-dimension JSONL generated-output fixture smoke is admitted; SQL/DataFrame generated-source runtime, object-store, Foundry, production, and performance claims remain blocked.",
             fallback_attempted: false,
             external_engine_invoked: false,
             fallback_execution_allowed: false,
@@ -357,7 +357,7 @@ impl GeneratedSourceApiAdmissionRow {
             blocker_id: "none_supported_generated_source_write_smokes_only",
             required_evidence: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence",
             claim_gate_status: "fixture_smoke_only",
-            claim_boundary: "Generated-source write is admitted only for supported local user_rows and range JSONL smokes; unsupported generator kinds remain blocked/report-only.",
+            claim_boundary: "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, and range JSONL smokes; unsupported generator kinds remain blocked/report-only.",
             fallback_attempted: false,
             external_engine_invoked: false,
             fallback_execution_allowed: false,
@@ -859,6 +859,18 @@ mod tests {
             "required_for_runtime"
         );
         assert_eq!(user_rows.support_status.as_str(), "fixture_smoke_supported");
+        assert!(user_rows.generated_source_created);
+        assert!(user_rows.output_io_performed);
+        assert!(
+            user_rows
+                .required_generator_kinds
+                .contains("literal_table(runtime_local_jsonl_smoke)")
+        );
+        assert!(
+            user_rows
+                .required_generator_kinds
+                .contains("calendar(runtime_local_jsonl_smoke)")
+        );
         assert_eq!(user_rows.claim_gate_status, "fixture_smoke_only");
 
         let engine_range = report
@@ -872,6 +884,8 @@ mod tests {
             engine_range.support_status.as_str(),
             "fixture_smoke_supported"
         );
+        assert!(engine_range.generated_source_created);
+        assert!(engine_range.output_io_performed);
         assert_eq!(engine_range.claim_gate_status, "fixture_smoke_only");
         assert!(engine_range.required_generator_kinds.contains("range("));
         assert!(engine_range.claim_boundary.contains("range JSONL"));
@@ -918,6 +932,25 @@ mod tests {
         assert!(from_rows.runtime_execution);
         assert!(from_rows.write_io);
         assert!(from_rows.generated_source_created);
+
+        let literal_table = matrix
+            .row_for("python_ctx_literal_table")
+            .expect("python literal_table row");
+        assert_eq!(
+            literal_table.support_status.as_str(),
+            "fixture_smoke_supported"
+        );
+        assert!(literal_table.runtime_execution);
+        assert!(literal_table.write_io);
+        assert!(literal_table.generated_source_created);
+
+        let calendar = matrix
+            .row_for("python_ctx_calendar")
+            .expect("python calendar row");
+        assert_eq!(calendar.support_status.as_str(), "fixture_smoke_supported");
+        assert!(calendar.runtime_execution);
+        assert!(calendar.write_io);
+        assert!(calendar.generated_source_created);
 
         let sql_values = matrix.row_for("sql_values").expect("sql values row");
         assert_eq!(sql_values.support_status.as_str(), "report_only");

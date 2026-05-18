@@ -106,6 +106,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "target/generated.jsonl",
                     "id:int64,label:utf8",
                     "id=1,label=alpha;id=2,label=beta",
+                    "--source-kind",
+                    "user_rows",
                     "--output-format",
                     "jsonl",
                     "--format",
@@ -160,6 +162,113 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_literal_table_write_uses_literal_table_source_kind(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-user-rows-smoke",
+                    "target/literal-table.jsonl",
+                    "code:utf8,weight:float64",
+                    "code=A,weight=1.5;code=B,weight=2.0",
+                    "--source-kind",
+                    "literal_table",
+                    "--output-format",
+                    "jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-user-rows-smoke",
+                    "status": "success",
+                    "summary": "literal table",
+                    "human_text": "literal table",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/literal-table.jsonl"},
+                        {"key": "generated_source_kind", "value": "literal_table"},
+                        {"key": "generated_source_row_count", "value": "2"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.literal_table(
+            [
+                {"code": "A", "weight": 1.5},
+                {"code": "B", "weight": 2.0},
+            ]
+        ).write("target/literal-table.jsonl")
+
+        self.assertEqual(report.generated_source_kind, "literal_table")
+        self.assertEqual(report.generated_source_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_calendar_write_generates_date_dimension_rows(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-user-rows-smoke",
+                    "target/calendar.jsonl",
+                    "dt:utf8,year:int64,month:int64,day:int64,day_of_week:int64",
+                    "dt=2026-05-18,year=2026,month=5,day=18,day_of_week=1;dt=2026-05-19,year=2026,month=5,day=19,day_of_week=2",
+                    "--source-kind",
+                    "calendar",
+                    "--output-format",
+                    "jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-user-rows-smoke",
+                    "status": "success",
+                    "summary": "calendar",
+                    "human_text": "calendar",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/calendar.jsonl"},
+                        {"key": "generated_source_kind", "value": "calendar"},
+                        {"key": "generated_source_row_count", "value": "2"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.calendar(
+            "2026-05-18",
+            "2026-05-20",
+            column="dt",
+        ).write("target/calendar.jsonl")
+
+        self.assertEqual(report.generated_source_kind, "calendar")
+        self.assertEqual(report.generated_source_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_from_rows_validates_scoped_generated_source_inputs(self) -> None:
         with self.assertRaises(ValueError):
             sl.from_rows([], binary=["definitely-missing-shardloom"])
@@ -173,6 +282,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             sl.from_rows(
                 [{"id": 1}, {"id": "two"}],
+                binary=["definitely-missing-shardloom"],
+            )
+        with self.assertRaises(ValueError):
+            sl.literal_table([], binary=["definitely-missing-shardloom"])
+        with self.assertRaises(ValueError):
+            sl.calendar(
+                "2026-05-20",
+                "2026-05-18",
                 binary=["definitely-missing-shardloom"],
             )
 
@@ -764,8 +881,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_sql_dataframe_runtime_supported", "value": "false"},
                     {"key": "universal_compatibility_generated_output_contract_schema_version", "value": "shardloom.universal_compatibility.generated_output_contract.v1"},
                     {"key": "universal_compatibility_generated_output_contract_id", "value": "gar-compat-1b.source_free_generated_output_contract"},
-                    {"key": "universal_compatibility_generated_output_row_order", "value": "no_dataset_smoke,python_ctx_from_rows,sql_values,local_output_only_generated_source_posture"},
-                    {"key": "universal_compatibility_generated_output_python_row_order", "value": "python_ctx_from_rows"},
+                    {"key": "universal_compatibility_generated_output_row_order", "value": "no_dataset_smoke,python_ctx_from_rows,python_ctx_range,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write,local_output_only_generated_source_posture,sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range,dataframe_source_free_projection,dataframe_generated_with_column"},
+                    {"key": "universal_compatibility_generated_output_python_row_order", "value": "python_ctx_from_rows,python_ctx_range,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write"},
                     {"key": "universal_compatibility_generated_output_sql_row_order", "value": "sql_values"},
                     {"key": "universal_compatibility_generated_output_dataframe_row_order", "value": ""},
                     {"key": "universal_compatibility_generated_output_claim_gate_status", "value": "fixture_smoke_only"},
@@ -898,8 +1015,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 for row_id, surface, family, status, runtime, write_io, generated, output_io, source_cert, output_cert, generated_cert, claim_status, blocker in [
                     ("no_dataset_smoke", "no-dataset smoke / capability proof", "no_dataset_smoke", "smoke-supported", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_no_output_data", "not_applicable_no_generated_rows", "smoke_only", "gar-gen-1.no_dataset_smoke_not_generated_output"),
                     ("python_ctx_from_rows", "Python ctx.from_rows([...]).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_jsonl_smoke_only"),
-                    ("sql_values", "SQL VALUES (...)", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_values_runtime_not_implemented"),
+                    ("python_ctx_range", "Python ctx.range(...).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_range_jsonl_smoke_only"),
+                    ("python_ctx_literal_table", "Python ctx.literal_table([...]).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_literal_table_jsonl_smoke_only"),
+                    ("python_ctx_calendar", "Python ctx.calendar(start,end).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_calendar_jsonl_smoke_only"),
+                    ("python_generated_source_write", "Generated-source write path", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_supported_generated_source_write_smokes_only"),
                     ("local_output_only_generated_source_posture", "Generated-source local-output-only posture", "output_boundary", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "local_output_certificate_required", "not_emitted_report_only", "not_claim_grade", "gar-compat-1b.non_local_generated_output_blocked"),
+                    ("sql_literal_select", "SQL SELECT literal expressions", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_literal_select_runtime_not_implemented"),
+                    ("sql_values", "SQL VALUES (...)", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_values_runtime_not_implemented"),
+                    ("sql_source_free_projection", "SQL source-free projection", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_source_free_projection_runtime_not_implemented"),
+                    ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_generate_series_range_runtime_not_implemented"),
+                    ("dataframe_source_free_projection", "DataFrame source-free projection", "dataframe_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented"),
+                    ("dataframe_generated_with_column", "DataFrame generated with_column", "dataframe_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented"),
                 ]:
                     prefix = f"universal_compatibility_generated_output_row_{row_id}"
                     fields.extend([
@@ -987,7 +1113,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             generated.schema_version,
             "shardloom.universal_compatibility.generated_output_contract.v1",
         )
-        self.assertEqual(generated.python_row_order, ("python_ctx_from_rows",))
+        self.assertEqual(
+            generated.python_row_order,
+            (
+                "python_ctx_from_rows",
+                "python_ctx_range",
+                "python_ctx_literal_table",
+                "python_ctx_calendar",
+                "python_generated_source_write",
+            ),
+        )
         self.assertTrue(generated.no_dataset_smoke_separate)
         self.assertTrue(generated.local_output_only)
         self.assertTrue(generated.output_certificate_required)
@@ -997,6 +1132,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(generated.all_no_fallback_no_external_engine)
         self.assertTrue(generated.row("python-ctx-from-rows").fixture_smoke_supported)
         self.assertTrue(generated.row("python_ctx_from_rows").generated_source_created)
+        self.assertTrue(generated.row("python_ctx_literal_table").fixture_smoke_supported)
+        self.assertTrue(generated.row("python_ctx_calendar").runtime_execution)
         self.assertTrue(generated.row("sql_values").report_only)
         self.assertFalse(generated.row("sql_values").runtime_execution)
         self.assertEqual(

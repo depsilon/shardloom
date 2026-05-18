@@ -282,12 +282,14 @@ const ETL_WORKFLOW_MATRIX_ID: &str = "gar-0033-a.etl_workflow_capability_matrix"
 const ETL_WORKFLOW_ROW_ORDER: &str = concat!(
     "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,",
     "prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,",
+    "source_free_literal_table_jsonl,source_free_calendar_jsonl,",
     "dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,",
     "data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"
 );
 const ETL_WORKFLOW_SUPPORTED_LOCAL_ROWS: &str = concat!(
     "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,",
     "prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,",
+    "source_free_literal_table_jsonl,source_free_calendar_jsonl,",
     "dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture"
 );
 const ETL_WORKFLOW_REPORT_ONLY_ROWS: &str = "sql_dataframe_capability_posture,data_quality_api";
@@ -892,41 +894,41 @@ const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = 
     },
     GeneratedOutputCompatibilityRow {
         id: "python_ctx_literal_table",
-        user_visible_surface: "Python ctx.literal_table(...).write(...)",
+        user_visible_surface: "Python ctx.literal_table([...]).write(local_jsonl)",
         family: "python_generated_source",
-        support_status: "report-only",
-        runtime_execution: false,
+        support_status: "smoke-supported",
+        runtime_execution: true,
         data_read: false,
-        write_io: false,
+        write_io: true,
         source_io_performed: false,
-        generated_source_created: false,
-        output_io_performed: false,
+        generated_source_created: true,
+        output_io_performed: true,
         source_native_io_certificate_status: "not_applicable_no_source_dataset",
-        output_native_io_certificate_status: "not_emitted_report_only",
-        generated_source_certificate_status: "not_emitted_report_only",
-        blocker_id: "gar-gen-1.literal_table_runtime_not_implemented",
+        output_native_io_certificate_status: "required_for_runtime_output",
+        generated_source_certificate_status: "required_for_runtime",
+        blocker_id: "none_scoped_local_literal_table_jsonl_smoke_only",
         required_evidence: "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
-        claim_gate_status: "not_claim_grade",
-        claim_boundary: "Literal-table generation is capability vocabulary only; no rows are generated and no output is written.",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Only scoped local literal-table JSONL generated-output fixture smoke is admitted.",
     },
     GeneratedOutputCompatibilityRow {
         id: "python_ctx_calendar",
-        user_visible_surface: "Python ctx.calendar(...).write(...)",
+        user_visible_surface: "Python ctx.calendar(start,end).write(local_jsonl)",
         family: "python_generated_source",
-        support_status: "report-only",
-        runtime_execution: false,
+        support_status: "smoke-supported",
+        runtime_execution: true,
         data_read: false,
-        write_io: false,
+        write_io: true,
         source_io_performed: false,
-        generated_source_created: false,
-        output_io_performed: false,
+        generated_source_created: true,
+        output_io_performed: true,
         source_native_io_certificate_status: "not_applicable_no_source_dataset",
-        output_native_io_certificate_status: "not_emitted_report_only",
-        generated_source_certificate_status: "not_emitted_report_only",
-        blocker_id: "gar-gen-1.calendar_runtime_not_implemented",
+        output_native_io_certificate_status: "required_for_runtime_output",
+        generated_source_certificate_status: "required_for_runtime",
+        blocker_id: "none_scoped_local_calendar_jsonl_smoke_only",
         required_evidence: "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
-        claim_gate_status: "not_claim_grade",
-        claim_boundary: "Calendar/date dimension generation is capability vocabulary only; no rows are generated and no output is written.",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Only scoped local calendar/date-dimension JSONL generated-output fixture smoke is admitted.",
     },
     GeneratedOutputCompatibilityRow {
         id: "python_generated_source_write",
@@ -945,7 +947,7 @@ const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = 
         blocker_id: "none_supported_generated_source_write_smokes_only",
         required_evidence: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Generated-source write is admitted only for supported local user_rows and range JSONL smokes.",
+        claim_boundary: "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, and range JSONL smokes.",
     },
     GeneratedOutputCompatibilityRow {
         id: "local_output_only_generated_source_posture",
@@ -2818,13 +2820,13 @@ fn append_etl_workflow_matrix_fields(fields: &mut Vec<(String, String)>) {
     );
     push_field(fields, "etl_workflow_matrix_id", ETL_WORKFLOW_MATRIX_ID);
     push_field(fields, "etl_workflow_row_order", ETL_WORKFLOW_ROW_ORDER);
-    push_count_field(fields, "etl_workflow_row_count", 13);
+    push_count_field(fields, "etl_workflow_row_count", 15);
     push_field(
         fields,
         "etl_workflow_supported_local_rows",
         ETL_WORKFLOW_SUPPORTED_LOCAL_ROWS,
     );
-    push_count_field(fields, "etl_workflow_supported_local_count", 8);
+    push_count_field(fields, "etl_workflow_supported_local_count", 10);
     push_field(
         fields,
         "etl_workflow_report_only_rows",

@@ -1056,8 +1056,8 @@ class ShardLoomClientTests(unittest.TestCase):
                         api_rows = [
                             ("python_ctx_from_rows", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("python_ctx_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_range_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
-                            ("python_ctx_literal_table", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.literal_table_runtime_not_implemented", "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "not_claim_grade"),
-                            ("python_ctx_calendar", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.calendar_runtime_not_implemented", "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "not_claim_grade"),
+                            ("python_ctx_literal_table", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_literal_table_jsonl_smoke_only", "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_ctx_calendar", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_calendar_jsonl_smoke_only", "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("python_generated_source_write", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_supported_generated_source_write_smokes_only", "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("sql_literal_select", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_literal_select_runtime_not_implemented", "sql_parser,sql_binder,sql_planner,literal_projection_semantics,generated_source_certificate,output_native_io_certificate", "not_claim_grade"),
                             ("sql_values", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_values_runtime_not_implemented", "sql_parser,sql_binder,values_table_semantics,generated_source_certificate,output_native_io_certificate", "not_claim_grade"),
@@ -1375,10 +1375,10 @@ class ShardLoomClientTests(unittest.TestCase):
                         fields.extend([
                             {"key": "etl_workflow_matrix_schema_version", "value": "shardloom.etl_workflow_capability_matrix.v1"},
                             {"key": "etl_workflow_matrix_id", "value": "gar-0033-a.etl_workflow_capability_matrix"},
-                            {"key": "etl_workflow_row_order", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"},
-                            {"key": "etl_workflow_row_count", "value": "13"},
-                            {"key": "etl_workflow_supported_local_rows", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture"},
-                            {"key": "etl_workflow_supported_local_count", "value": "8"},
+                            {"key": "etl_workflow_row_order", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,source_free_literal_table_jsonl,source_free_calendar_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"},
+                            {"key": "etl_workflow_row_count", "value": "15"},
+                            {"key": "etl_workflow_supported_local_rows", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,source_free_literal_table_jsonl,source_free_calendar_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture"},
+                            {"key": "etl_workflow_supported_local_count", "value": "10"},
                             {"key": "etl_workflow_report_only_rows", "value": "sql_dataframe_capability_posture,data_quality_api"},
                             {"key": "etl_workflow_report_only_count", "value": "2"},
                             {"key": "etl_workflow_blocked_rows", "value": "object_store_runtime,table_lakehouse_runtime,production_etl_certification"},
@@ -1464,12 +1464,14 @@ class ShardLoomClientTests(unittest.TestCase):
             etl_workflows.matrix_id,
             "gar-0033-a.etl_workflow_capability_matrix",
         )
-        self.assertEqual(len(etl_workflows.rows), 13)
+        self.assertEqual(len(etl_workflows.rows), 15)
         self.assertIn(
             "local_csv_parquet_certified_workload",
             etl_workflows.supported_local_rows,
         )
         self.assertIn("source_free_user_rows_jsonl", etl_workflows.supported_local_rows)
+        self.assertIn("source_free_literal_table_jsonl", etl_workflows.supported_local_rows)
+        self.assertIn("source_free_calendar_jsonl", etl_workflows.supported_local_rows)
         self.assertIn("dirty_csv_fixture", etl_workflows.supported_local_rows)
         self.assertEqual(
             etl_workflows.report_only_rows,
@@ -1629,7 +1631,12 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(
             capabilities.api_surfaces.generated_source_api_admission.row(
                 "python_ctx_calendar"
-            ).report_only
+            ).fixture_smoke_supported
+        )
+        self.assertTrue(
+            capabilities.api_surfaces.generated_source_api_admission.row(
+                "python_ctx_literal_table"
+            ).runtime_execution
         )
         evidence_alignment = capabilities.python.generated_source_evidence_alignment
         self.assertIsInstance(

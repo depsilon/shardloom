@@ -102,7 +102,8 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
 ## Source-Free Generated Reference Table
 
 - **User goal:** create a reference table without an input dataset.
-- **Status:** scoped local user-row JSONL and range JSONL smokes supported.
+- **Status:** scoped local user-row, literal-table, calendar/date-dimension, and range JSONL smokes
+  supported.
 - **Command:**
   ```powershell
   $env:PYTHONPATH = "python\src"
@@ -121,6 +122,16 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
   ```powershell
   shardloom generated-source-range-smoke target\generated-range.jsonl 0 5 --column id --allow-overwrite --format json
   ```
+- **Literal-table example:**
+  ```powershell
+  $env:PYTHONPATH = "python\src"
+  python -c "from shardloom import context; r=context(repo_root='.').literal_table([{'code':'A','weight':1.5},{'code':'B','weight':2.0}]).write('target/generated-literal.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  ```
+- **Calendar example:**
+  ```powershell
+  $env:PYTHONPATH = "python\src"
+  python -c "from shardloom import context; r=context(repo_root='.').calendar('2026-05-18','2026-05-21', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  ```
 - **Expected output:** local JSONL output plus a generated-source/output evidence envelope.
 - **Evidence fields:** `input_dataset_count=0`, `source_io_performed=false`,
   `generated_source_created=true`, `generated_source_certificate_status`,
@@ -128,8 +139,8 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
   `generated_source_range_start/end/step/column`. Capability discovery also exposes
   `generated_source_api_admission_schema_version` plus per-form `support_status`, `blocker_id`,
   and no-fallback/no-external-engine fields.
-- **Claim boundary:** scoped local user-row and range JSONL fixture smokes only; `ctx.literal_table`,
-  `ctx.calendar`, SQL literal `SELECT`, SQL `VALUES`, SQL source-free projection, DataFrame
+- **Claim boundary:** scoped local user-row, literal-table, calendar/date-dimension, and range JSONL
+  fixture smokes only; SQL literal `SELECT`, SQL `VALUES`, SQL source-free projection, DataFrame
   source-free projection, object-store writes, and Foundry generated-output runtime remain
   report-only/planned/blocked.
 - **References:** `docs/foundry/proof-of-use-certification.md`,
