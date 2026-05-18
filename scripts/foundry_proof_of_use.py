@@ -25,6 +25,9 @@ FOUNDRY_GENERATED_OUTPUT_BOUNDARY_SCHEMA_VERSION = (
 FOUNDRY_SCALE_PROOF_BOUNDARY_SCHEMA_VERSION = (
     "shardloom.foundry_scale_proof_boundary.v1"
 )
+FOUNDRY_DEV_STACK_STARTER_SCHEMA_VERSION = (
+    "shardloom.foundry_dev_stack_starter_kit.v1"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -294,6 +297,9 @@ def main() -> int:
         "certificate_output_ref": str(transform_output),
         "benchmark_metrics_output_ref": str(benchmark_output) if benchmark_output.exists() else None,
         "materialization_staging_boundary_report_ref": "examples/foundry-lightweight-transform/expected-certificate-fields.json",
+        "foundry_dev_stack_starter_kit_status": "local_style_report_only",
+        "foundry_dev_stack_starter_kit_ref": "docs/foundry/dev-stack-starter-kit.json",
+        "foundry_dev_stack_starter_kit_schema_version": FOUNDRY_DEV_STACK_STARTER_SCHEMA_VERSION,
         "foundry_generated_output_fanout_status": generated_output_fanout["support_status"],
         "foundry_generated_output_fanout_ref": "foundry_generated_output_fanout_posture",
         "foundry_generated_output_fanout_posture": generated_output_fanout,

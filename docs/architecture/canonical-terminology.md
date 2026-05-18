@@ -649,5 +649,9 @@ candidates.
 - **buyer-facing compatibility scorecard**: public status surface that lets users distinguish
   supported, smoke-supported, report-only, blocked, planned, and not-planned ShardLoom surfaces
   without inferring maturity from architecture docs.
+- **Foundry dev-stack starter kit**: local Foundry-style proof path with exact commands for CLI
+  build, transform-shape smoke, staged-input posture, source-free generated-output blockers, and
+  local certificate-style evidence. It does not invoke Foundry runtime, Foundry compute, Foundry
+  Spark, Foundry output APIs, object stores, external engines, or fallback execution.
 - **workflow recipe**: user-facing, claim-safe example that includes goal, code/command, expected
   output, evidence fields, claim boundary, and no-fallback/no-external-engine posture.

@@ -1009,10 +1009,13 @@ plan before coding.
 - [x] Foundry availability docs, local proof posture, optional harness flags, and boundary report
   shapes exist.
 - [x] ShardLoom core remains Vortex-native/no-fallback while Foundry stays optional integration.
-- [ ] `GAR-COMMERCIAL-1E` adds the planned Foundry dev-stack starter kit. It remains personal
-  dev-stack/local-style proof only and must expose `foundry_runtime_invoked`,
-  `foundry_compute_invoked`, and `foundry_spark_invoked` fields without invoking Foundry,
-  credentials, direct S3/object-store runtime, Spark, or external compute.
+- [x] `GAR-COMMERCIAL-1E` adds the Foundry dev-stack starter kit with
+  `shardloom.foundry_dev_stack_starter_kit.v1`, exact local proof commands, staged-input posture,
+  generated-output/no-dataset separation, local certificate-style output, and explicit blockers for
+  real Foundry output API evidence. It remains local-style proof only and exposes
+  `foundry_runtime_invoked=false`, `foundry_compute_invoked=false`, and
+  `foundry_spark_invoked=false` without invoking Foundry, credentials, direct S3/object-store
+  runtime, Spark, or external compute.
 - [x] `GAR-IOREUSE-1G` adds Foundry no-input generated-output fanout posture to the local
   proof report through `shardloom.foundry_generated_output_fanout_posture.v1`. It remains
   report-only: `generated_output_execution_performed=false`, generated-source and output

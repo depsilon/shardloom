@@ -137,7 +137,8 @@ The current public status board renders a first-class "Can I use this?" matrix w
   `planned`, and `not-planned`
 - rows sourced from `docs/architecture/universal-compatibility-coverage-scoreboard.json`
 - package-channel rows sourced from `docs/release/package-channel-readiness-matrix.json`
-- a report-only enterprise evidence export row plus planned Foundry starter and workflow recipe rows
+- report-only enterprise evidence export and Foundry dev-stack starter rows plus a planned workflow
+  recipe row
 - explicit not-planned rows for hidden fallback execution, Spark replacement claims, and production
   SQL/DataFrame/object-store/lakehouse/Foundry claims
 - visible `fallback_attempted=false`, `external_engine_invoked=false`, and
@@ -207,6 +208,13 @@ target/enterprise-evidence-export-pack/<run-id>/
 
 The Foundry starter kit is a personal dev-stack proof path, not production certification.
 
+The source of truth is `docs/foundry/dev-stack-starter-kit.json` with schema
+`shardloom.foundry_dev_stack_starter_kit.v1`. Validate it with:
+
+```powershell
+python scripts\check_foundry_dev_stack_starter.py
+```
+
 It should show:
 
 - import package
@@ -222,6 +230,9 @@ Required fields:
 foundry_runtime_invoked=false
 foundry_compute_invoked=false
 foundry_spark_invoked=false
+foundry_output_api_invoked=false
+foundry_result_dataset_written=false
+foundry_evidence_dataset_written=false
 fallback_attempted=false
 external_engine_invoked=false
 ```

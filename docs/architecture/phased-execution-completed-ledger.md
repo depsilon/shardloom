@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMMERCIAL-1E Foundry dev-stack starter kit
+  - Primary files:
+    - `docs/foundry/dev-stack-starter-kit.md`
+    - `docs/foundry/dev-stack-starter-kit.json`
+    - `scripts/check_foundry_dev_stack_starter.py`
+    - `examples/foundry-lightweight-transform/run.py`
+    - `examples/foundry-lightweight-transform/expected-output.json`
+    - `examples/foundry-lightweight-transform/expected-certificate-fields.json`
+    - `examples/foundry-lightweight-transform/known-limitations.md`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: add a local Foundry-style dev-stack starter that imports/resolves ShardLoom locally,
+    declares staged input, documents source-free generated-output posture, records local
+    certificate-style output, and keeps Foundry output dataset evidence blocked until real Foundry
+    output API proof exists.
+  - Checklist:
+    - [x] Add machine-readable schema `shardloom.foundry_dev_stack_starter_kit.v1`.
+    - [x] Document exact local commands for CLI build, Foundry-style transform smoke, and proof-of-use
+          run.
+    - [x] Expose generated-output posture without confusing no-dataset smoke with generated-output
+          execution.
+    - [x] Add deterministic evidence-dataset blocker for real Foundry output API proof.
+    - [x] Extend example output fields for Foundry Spark, Foundry output APIs, result/evidence
+          datasets, external engine, no-fallback, generated-source, and claim gate posture.
+  - Evidence and verification:
+    - `python scripts\check_foundry_dev_stack_starter.py`
+    - `python -m compileall -q scripts examples`
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python scripts\foundry_proof_of_use.py --rows 64 --iterations 1 --skip-local-execution-smoke`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Starter-kit evidence is local Foundry-style evaluation only. It does not claim Foundry
+      production support, Foundry-native/certified status, Foundry Marketplace/package readiness,
+      generated-output runtime in Foundry, direct S3/object-store support, performance, or
+      Spark-displacement.
+  - Fallback boundary:
+    - Foundry, Spark, managed compute, object stores, external engines, credentials, and platform
+      services cannot execute unsupported ShardLoom work as fallback.
+
 - [x] Session label: GAR-COMMERCIAL-1D enterprise evidence export pack
   - Primary files:
     - `docs/release/enterprise-evidence-export-pack.md`

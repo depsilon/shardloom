@@ -595,53 +595,15 @@ emit events/traces/metrics/logs, invoke Foundry, resolve credentials, call objec
 packages, add dependencies, expand runtime support, or create production observability,
 managed-platform, performance, Spark-displacement, SQL/DataFrame, object-store/lakehouse, Foundry,
 package, or fallback-execution claims.
-- [ ] GAR-COMMERCIAL-1E Foundry dev-stack starter kit
-  - Source: RFC 0036; Foundry proof-of-use docs; local Foundry-style transform example;
-    GAR-GEN-1F; GAR-COMMERCIAL-1A;
-    `docs/architecture/adoption-commercial-readiness-friction-reduction.md`.
-  - Current state:
-    - Foundry proof is local/style-only.
-    - Real Foundry runtime proof is still needed.
-    - Generated-output runtime is not first-class yet.
-  - Next slice outcome:
-    - Add a personal dev-stack starter that imports the package, resolves the CLI, demonstrates
-      source-free generated-output posture, runs a staged input example, and writes or documents an
-      evidence dataset output boundary.
-  - User-visible surface:
-    - Foundry docs, examples, README/website integration notes, and local proof transcript.
-  - Implementation scope:
-    - Docs, local-style example, proof-script metadata fields, expected output snapshots, and
-      no-fallback/no-external-compute diagnostics. Do not invoke Foundry.
-  - Evidence required:
-    - package/CLI resolution refs.
-    - generated-output posture refs.
-    - staged input refs.
-    - evidence dataset output refs or deterministic blocker.
-    - `foundry_runtime_invoked=false`, `foundry_compute_invoked=false`,
-      `foundry_spark_invoked=false`.
-    - `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - Clearly says no Foundry production claim.
-    - No Spark fallback.
-    - No external compute pushdown.
-    - Evidence includes `foundry_runtime_invoked`, `foundry_compute_invoked`, and
-      `foundry_spark_invoked` fields.
-  - Verification:
-    - Foundry proof tests if proof fields change.
-    - release readiness metadata tests.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No Foundry Marketplace/package claim, Foundry invocation, credentials, direct S3 runtime,
-      external compute, virtual table native execution, or production Foundry support.
-  - Claim boundary:
-    - Personal dev-stack starter only; no Foundry-native/certified/production claim.
-  - Fallback boundary:
-    - Foundry, Spark, external compute, S3/object-store, and platform services cannot execute
-      unsupported ShardLoom work as fallback.
-  - Dependencies/blockers:
-    - GAR-GEN generated-output posture, Foundry proof field ownership, package proof, and future real
-      Foundry environment evidence.
+GAR-COMMERCIAL-1E is complete and recorded in the completed ledger.
+`docs/foundry/dev-stack-starter-kit.md` and `docs/foundry/dev-stack-starter-kit.json` now define
+the local Foundry-style starter path with schema `shardloom.foundry_dev_stack_starter_kit.v1`,
+commands for local CLI build, Foundry-style transform smoke, and `scripts/foundry_proof_of_use.py`,
+plus source-free generated-output posture, staged input, local certificate-style output, and
+evidence-dataset blocker boundaries. `scripts/check_foundry_dev_stack_starter.py` validates that
+Foundry runtime, Foundry compute, Foundry Spark, Foundry output APIs, result/evidence datasets,
+direct S3/object-store I/O, credentials, network probes, external compute, external engines,
+fallback execution, production Foundry, Marketplace, and package claims remain disabled.
 - [ ] GAR-COMMERCIAL-1F workflow recipes library
   - Source: RFC 0033; common ETL/user workflows; getting-started examples; benchmark scenarios;
     known unsupported paths; universal compatibility scoreboard;

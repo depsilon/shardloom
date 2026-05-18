@@ -5,6 +5,11 @@
 Status: P9.6 local proof. This proof is Foundry-style only; it does not import Foundry packages or
 invoke Foundry services.
 
+For the user-facing local dev-stack path, see
+[`docs/foundry/dev-stack-starter-kit.md`](dev-stack-starter-kit.md). The starter kit records
+`shardloom.foundry_dev_stack_starter_kit.v1` and keeps Foundry runtime, compute, Spark, output API,
+result dataset, evidence dataset, S3/object-store, external compute, and fallback execution disabled.
+
 ## Command
 
 ```powershell
@@ -24,6 +29,9 @@ The generated `shardloom.foundry_proof_of_use_report.v1` report includes:
 - `supported_local_native_execution_smoke_performed`
 - `certificate_metrics_dataset_output_written`
 - `materialization_staging_boundary_report_ref`
+- `foundry_dev_stack_starter_kit_status`
+- `foundry_dev_stack_starter_kit_ref`
+- `foundry_dev_stack_starter_kit_schema_version`
 - `foundry_generated_output_fanout_status`
 - `foundry_generated_output_fanout_posture`
 - `foundry_generated_output_boundary_status`
