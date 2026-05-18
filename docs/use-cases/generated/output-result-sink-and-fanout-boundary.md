@@ -47,10 +47,10 @@ A local result-sink proof artifact and future fanout fields only when admitted b
 
 ## Reference Files
 
-- `docs/architecture/io-reuse-and-fanout-architecture.md`
-- `docs/architecture/compute-engine-flow-reference.md`
-- `docs/benchmarks/local-taxonomy-benchmark.md`
-- `examples/local-vortex-benchmark/README.md`
+- `docs/architecture/io-reuse-and-fanout-architecture.md` - What this proves: SourceState, VortexPreparedState, OutputPlan, fanout, and reuse evidence contracts.
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
+- `examples/local-vortex-benchmark/README.md` - What this proves: Runnable or blocked example posture, expected local command path, and claim boundary.
 
 ## Related Use Cases
 

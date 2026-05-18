@@ -49,10 +49,10 @@ A capability posture report showing report_only or unsupported rows rather than 
 
 ## Reference Files
 
-- `python/README.md`
-- `docs/architecture/compute-engine-flow-reference.md`
-- `docs/architecture/canonical-terminology.md`
-- `README.md`
+- `python/README.md` - What this proves: Python wrapper posture, local smoke usage, and Python API claim boundaries.
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/architecture/canonical-terminology.md` - What this proves: Canonical terminology for support states, execution modes, and claim language.
+- `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
 
 ## Related Use Cases
 

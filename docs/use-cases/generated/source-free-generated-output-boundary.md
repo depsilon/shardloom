@@ -58,10 +58,10 @@ A local JSONL output plus fields including generated_source_kind=user_rows or ra
 
 ## Reference Files
 
-- `docs/architecture/compute-engine-flow-reference.md`
-- `docs/foundry/proof-of-use-certification.md`
-- `python/README.md`
-- `docs/architecture/phased-execution-plan.md`
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/foundry/proof-of-use-certification.md` - What this proves: Foundry-style local proof boundary and no-production-Foundry claim posture.
+- `python/README.md` - What this proves: Python wrapper posture, local smoke usage, and Python API claim boundaries.
+- `docs/architecture/phased-execution-plan.md` - What this proves: Active planned work, claim boundaries, non-goals, and ledger move rules.
 
 ## Related Use Cases
 

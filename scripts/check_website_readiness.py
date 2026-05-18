@@ -368,8 +368,20 @@ def main() -> int:
                         if not entry.get(required):
                             blockers.append(f"Field Guide entry {entry_id} missing {required}")
                     slug_value = entry.get("slug")
-                    if slug_value and not (website / "field-guide" / f"{slug_value}.html").exists():
-                        blockers.append(f"Field Guide entry missing generated page: {slug_value}")
+                    if slug_value:
+                        dossier_path = website / "field-guide" / f"{slug_value}.html"
+                        if not dossier_path.exists():
+                            blockers.append(f"Field Guide entry missing generated page: {slug_value}")
+                        else:
+                            dossier_text = dossier_path.read_text(encoding="utf-8")
+                            for required in [
+                                'data-citation-block="reference-files"',
+                                "What this proves:",
+                            ]:
+                                if required not in dossier_text:
+                                    blockers.append(
+                                        f"Field Guide dossier {slug_value} missing citation field: {required}"
+                                    )
         else:
             blockers.append("missing website/content/field-guide-index.json")
 
@@ -440,6 +452,19 @@ def main() -> int:
             ]:
                 if required not in status_text:
                     blockers.append(f"status page missing buyer-facing scorecard field: {required}")
+
+        use_case_pages = sorted((website / "use-cases").glob("*.html"))
+        for use_case_page in use_case_pages:
+            if use_case_page.name == "index.html":
+                continue
+            relative = rel(use_case_page, website)
+            use_case_text = use_case_page.read_text(encoding="utf-8")
+            for required in [
+                'data-citation-block="reference-files"',
+                "What this proves:",
+            ]:
+                if required not in use_case_text:
+                    blockers.append(f"use-case page {relative} missing citation field: {required}")
 
         manifest_path = website / "assets" / "benchmarks" / "latest" / "manifest.json"
         if manifest_path.exists():

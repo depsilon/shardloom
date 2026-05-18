@@ -48,10 +48,10 @@ A local proof report showing Foundry and external compute were not invoked.
 
 ## Reference Files
 
-- `docs/foundry/proof-of-use-certification.md`
-- `docs/foundry/integration-pack-readiness.md`
-- `examples/foundry-lightweight-transform/README.md`
-- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/foundry/proof-of-use-certification.md` - What this proves: Foundry-style local proof boundary and no-production-Foundry claim posture.
+- `docs/foundry/integration-pack-readiness.md` - What this proves: Foundry integration-pack readiness posture and unresolved proof requirements.
+- `examples/foundry-lightweight-transform/README.md` - What this proves: Runnable or blocked example posture, expected local command path, and claim boundary.
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
 
 ## Related Use Cases
 

@@ -51,11 +51,11 @@ target/release-dry-run-proof/transcript.json records local source artifacts and 
 
 ## Reference Files
 
-- `docs/getting-started/first-10-minutes.md`
-- `docs/getting-started/install.md`
-- `docs/release/hard-release-readiness-gate.md`
-- `docs/architecture/adoption-commercial-readiness-friction-reduction.md`
-- `README.md`
+- `docs/getting-started/first-10-minutes.md` - What this proves: Shortest local orientation path for smoke checks and evidence inspection.
+- `docs/getting-started/install.md` - What this proves: Installation posture and package-channel caveats for technical-preview users.
+- `docs/release/hard-release-readiness-gate.md` - What this proves: Release gate requirements for package publication and public claims.
+- `docs/architecture/adoption-commercial-readiness-friction-reduction.md` - What this proves: Commercial-readiness friction plan and package/channel adoption boundaries.
+- `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
 
 ## Related Use Cases
 

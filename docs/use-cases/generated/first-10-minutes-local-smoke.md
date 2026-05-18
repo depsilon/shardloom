@@ -43,11 +43,11 @@ Status, smoke, and capabilities JSON with fallback_attempted=false and external_
 
 ## Reference Files
 
-- `README.md`
-- `docs/getting-started/first-10-minutes.md`
-- `docs/getting-started/examples.md`
-- `examples/local-python-smoke/README.md`
-- `python/README.md`
+- `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
+- `docs/getting-started/first-10-minutes.md` - What this proves: Shortest local orientation path for smoke checks and evidence inspection.
+- `docs/getting-started/examples.md` - What this proves: Current example catalog and local workflow entrypoints.
+- `examples/local-python-smoke/README.md` - What this proves: Runnable or blocked example posture, expected local command path, and claim boundary.
+- `python/README.md` - What this proves: Python wrapper posture, local smoke usage, and Python API claim boundaries.
 
 ## Related Use Cases
 

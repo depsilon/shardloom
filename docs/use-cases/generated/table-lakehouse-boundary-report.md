@@ -51,10 +51,10 @@ A report-only table compatibility plan or deterministic unsupported output.
 
 ## Reference Files
 
-- `docs/architecture/compute-engine-flow-reference.md`
-- `docs/architecture/universal-compatibility-coverage-scoreboard.md`
-- `docs/architecture/universal-input-contract.md`
-- `README.md`
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/architecture/universal-compatibility-coverage-scoreboard.md` - What this proves: Compatibility scoreboard status and source/sink support boundaries.
+- `docs/architecture/universal-input-contract.md` - What this proves: Universal input contract posture and unsupported input-family diagnostics.
+- `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
 
 ## Related Use Cases
 

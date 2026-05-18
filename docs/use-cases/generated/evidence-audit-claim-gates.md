@@ -47,10 +47,10 @@ A local benchmark smoke artifact with certificate, result-sink, materialization,
 
 ## Reference Files
 
-- `docs/getting-started/certified-local-workload.md`
-- `docs/architecture/compute-engine-flow-reference.md`
-- `docs/benchmarks/local-taxonomy-benchmark.md`
-- `docs/architecture/operational-evidence-policy-hardening.md`
+- `docs/getting-started/certified-local-workload.md` - What this proves: Scoped certified local workload path and expected evidence fields.
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
+- `docs/architecture/operational-evidence-policy-hardening.md` - What this proves: Evidence policy rules that keep unsupported paths explicit and claim gates closed.
 
 ## Related Use Cases
 
