@@ -1,6 +1,6 @@
 # Scale Readiness Contract
 
-Status: implemented report-only contract for `GAR-SCALE-1A`.
+Status: implemented report-only contracts for `GAR-SCALE-1A` and `GAR-SCALE-1B`.
 
 ShardLoom must not claim literal "any volume" support. Scale readiness is a declared resource and
 evidence contract, not a slogan. A row can become scale-grade only when it proves the appropriate
@@ -85,14 +85,74 @@ scale_fallback_attempted=false
 scale_external_engine_invoked=false
 ```
 
+## SplitManifest Contract
+
+`GAR-SCALE-1B` adds
+`split_manifest_contract_schema_version=shardloom.traditional_analytics.split_manifest.v1` and a
+report-only SplitManifest/per-split evidence contract to benchmark rows. The contract sits between
+SourceState and execution:
+
+```text
+SourceState -> SplitManifest -> VortexPreparedState -> ExecutionPlan
+```
+
+Current local rows may expose a single-local-source split summary, but this is split planning
+evidence only. It is not split-parallel runtime, distributed execution, larger-than-memory runtime,
+object-store execution, table execution, or performance evidence.
+
+ShardLoom SplitManifest rows carry:
+
+```text
+split_manifest_contract_schema_version
+split_manifest_status
+split_manifest_id
+split_manifest_digest
+split_manifest_source_state_id
+split_manifest_split_count
+split_id
+source_state_id
+byte_range
+row_range
+estimated_rows
+estimated_bytes
+projection_mask
+filter_pushdown_status
+split_retry_count
+split_runtime_millis
+split_rows_scanned
+split_rows_output
+split_spill_bytes
+split_output_ref
+split_claim_status
+split_fallback_attempted=false
+split_external_engine_invoked=false
+split_claim_gate_status=not_split_scale_grade
+split_claim_boundary
+```
+
+For `GAR-SCALE-1B`, runtime split execution remains blocked. Rows must keep:
+
+```text
+split_claim_gate_status=not_split_scale_grade
+split_retry_count=0
+split_runtime_millis=null
+split_spill_bytes=0
+split_fallback_attempted=false
+split_external_engine_invoked=false
+```
+
+Unsupported or unsplittable sources must emit deterministic `unsupported` or `blocked` posture
+instead of delegating to Spark, DataFusion, DuckDB, Polars, Dask, Ray, object stores, table engines,
+or managed platforms.
+
 ## Claim Gate
 
 A row is not scale-grade when any required proof is missing:
 
 - no declared memory budget,
 - no larger-than-memory input proof,
-- no spill/backpressure proof,
 - no split manifest proof,
+- no spill/backpressure proof,
 - no shuffle/repartition proof where required,
 - no object-store/table runtime proof,
 - no distributed worker proof,

@@ -105,6 +105,19 @@ include `scale_contract_schema_version=shardloom.traditional_analytics.scale_cla
 they do not prove larger-than-memory, split-parallel, object-store, table, distributed, Foundry,
 managed-platform, any-volume, Spark-replacement, or performance claims.
 
+`GAR-SCALE-1B` adds a report-only SplitManifest/per-split evidence contract to benchmark rows.
+Rows now include
+`split_manifest_contract_schema_version=shardloom.traditional_analytics.split_manifest.v1`,
+`split_manifest_status`, `split_manifest_id`, `split_manifest_digest`,
+`split_manifest_source_state_id`, `split_manifest_split_count`, `split_id`, `source_state_id`,
+`byte_range`, `row_range`, `estimated_rows`, `estimated_bytes`, `projection_mask`,
+`filter_pushdown_status`, `split_retry_count`, `split_runtime_millis`, `split_rows_scanned`,
+`split_rows_output`, `split_spill_bytes`, `split_output_ref`, `split_claim_status`,
+`split_fallback_attempted=false`, `split_external_engine_invoked=false`,
+`split_claim_gate_status=not_split_scale_grade`, and `split_claim_boundary`. Current rows expose
+split planning posture only; they do not prove split-parallel runtime, larger-than-memory support,
+distributed execution, object-store/table runtime, Spark-replacement, or performance claims.
+
 `GAR-PERF-1B` adds the source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md` and propagates
 `source_state_coverage_*` fields into prepared/native batch evidence. Those

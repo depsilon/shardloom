@@ -847,6 +847,49 @@ SCALE_CLAIM_FIELDS = (
     "scale_claim_gate_status",
     "scale_claim_boundary",
 )
+SPLIT_MANIFEST_SCHEMA_VERSION = "shardloom.traditional_analytics.split_manifest.v1"
+SPLIT_MANIFEST_STATUS_VOCABULARY = (
+    "single_local_split_report_only",
+    "split_manifest_report_only",
+    "blocked",
+    "unsupported",
+    "external_baseline_only",
+)
+SPLIT_CLAIM_STATUS_VOCABULARY = (
+    "not_split_scale_grade",
+    "blocked",
+    "unsupported",
+    "external_baseline_only",
+)
+SPLIT_MANIFEST_FIELDS = (
+    "split_manifest_contract_schema_version",
+    "split_manifest_status_vocabulary",
+    "split_claim_status_vocabulary",
+    "split_manifest_status",
+    "split_manifest_id",
+    "split_manifest_digest",
+    "split_manifest_source_state_id",
+    "split_manifest_split_count",
+    "split_id",
+    "source_state_id",
+    "byte_range",
+    "row_range",
+    "estimated_rows",
+    "estimated_bytes",
+    "projection_mask",
+    "filter_pushdown_status",
+    "split_retry_count",
+    "split_runtime_millis",
+    "split_rows_scanned",
+    "split_rows_output",
+    "split_spill_bytes",
+    "split_output_ref",
+    "split_claim_status",
+    "split_fallback_attempted",
+    "split_external_engine_invoked",
+    "split_claim_gate_status",
+    "split_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -6211,6 +6254,7 @@ def bayesian_advisor_contract_metadata(
         "cache_invalidation_contract",
         "reuse_level_contract",
         "build_profile_contract",
+        "split_manifest_contract",
         "scale_claim_contract",
         "runtime_resource_policy_fields",
         "layout_advisor_report",
@@ -6330,7 +6374,10 @@ def scale_claim_contract_metadata(
     )
     file_count = first_meaningful_field(metrics.get("file_count"), 0)
     partition_count = 1 if parse_optional_int(file_count) else 0
-    split_count = 1 if parse_optional_int(file_count) else 0
+    split_count = first_meaningful_field(
+        parse_optional_int(metrics.get("split_manifest_split_count")),
+        1 if parse_optional_int(file_count) else 0,
+    )
     shuffle_required = scenario_requires_scale_shuffle(scenario)
     shuffle_strategy = (
         "local_in_memory_operator_not_scale_shuffle_proof"
@@ -6379,9 +6426,134 @@ def scale_claim_contract_metadata(
         else "external_baseline_only",
         "scale_claim_boundary": (
             "Scale evidence is fail-closed. Current rows may establish local smoke or local "
-            "claim evidence only; they do not prove any-volume support, Spark replacement, "
+            "claim evidence only; they do not prove any-volume support, Spark-replacement, "
             "larger-than-memory execution, split-parallel execution, object-store/table runtime, "
             "distributed runtime, Foundry production support, managed-platform proof, or "
+            "performance superiority."
+        ),
+    }
+
+
+def split_manifest_status_for_row(engine: str, status: str, metrics: dict[str, Any]) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported"
+    if status == "execution_error":
+        return "blocked"
+    if parse_optional_int(metrics.get("file_count")):
+        return "single_local_split_report_only"
+    return "split_manifest_report_only"
+
+
+def split_claim_status_for_row(engine: str, status: str) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported"
+    if status == "execution_error":
+        return "blocked"
+    return "not_split_scale_grade"
+
+
+def split_manifest_contract_metadata(
+    engine: str,
+    scenario: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    is_shardloom = is_shardloom_engine(engine)
+    source_state_id = str(metrics.get("source_state_id") or "none")
+    source_state_digest = str(metrics.get("source_state_digest") or "none")
+    source_format = str(metrics.get("source_format") or "unknown")
+    source_location = str(metrics.get("source_location") or "none")
+    file_count = parse_optional_int(metrics.get("file_count")) or 0
+    byte_size = parse_optional_int(metrics.get("byte_size")) or 0
+    rows_scanned = parse_optional_int(metrics.get("rows_scanned"))
+    fused_rows_output = (
+        parse_optional_int(metrics.get("fused_pipeline_rows_output"))
+        if parse_optional_bool(metrics.get("fused_pipeline_used")) is True
+        else None
+    )
+    rows_output = first_meaningful_field(
+        fused_rows_output,
+        parse_optional_int(metrics.get("row_count")),
+        "unknown",
+    )
+    split_manifest_status = split_manifest_status_for_row(engine, status, metrics)
+    split_claim_status = split_claim_status_for_row(engine, status)
+    split_count = file_count if is_shardloom and file_count > 0 else 0
+    split_manifest_digest = canonical_digest(
+        {
+            "byte_size": byte_size,
+            "file_count": file_count,
+            "scenario": scenario,
+            "split_count": split_count,
+            "source_format": source_format,
+            "source_location": source_location,
+            "source_state_digest": source_state_digest,
+            "split_schema": SPLIT_MANIFEST_SCHEMA_VERSION,
+        }
+    )
+    split_manifest_id = (
+        f"split-manifest:{source_format}:{split_manifest_digest[:12]}"
+        if is_shardloom and split_count > 0
+        else "none"
+    )
+    split_id = (
+        f"{split_manifest_id}:local-summary-split"
+        if split_manifest_id != "none"
+        else "none"
+    )
+    byte_range = f"0..{byte_size}" if split_count > 0 else "none"
+    row_range = f"0..{rows_scanned}" if rows_scanned is not None else "unknown"
+    projection_mask = first_meaningful_field(
+        metrics.get("scan_output_columns_read"),
+        metrics.get("source_backed_scan_projected_columns"),
+        "not_reported",
+    )
+    filter_pushdown_status = first_meaningful_field(
+        metrics.get("scan_filter_pushdown_status"),
+        metrics.get("source_backed_scan_filter_pushdown_status"),
+        "not_reported",
+    )
+    return {
+        "split_manifest_contract_schema_version": SPLIT_MANIFEST_SCHEMA_VERSION,
+        "split_manifest_status_vocabulary": ",".join(
+            SPLIT_MANIFEST_STATUS_VOCABULARY
+        ),
+        "split_claim_status_vocabulary": ",".join(SPLIT_CLAIM_STATUS_VOCABULARY),
+        "split_manifest_status": split_manifest_status,
+        "split_manifest_id": split_manifest_id,
+        "split_manifest_digest": split_manifest_digest if is_shardloom else "none",
+        "split_manifest_source_state_id": source_state_id if is_shardloom else "none",
+        "split_manifest_split_count": split_count,
+        "split_id": split_id,
+        "source_state_id": source_state_id if is_shardloom else "none",
+        "byte_range": byte_range,
+        "row_range": row_range if is_shardloom else "none",
+        "estimated_rows": rows_scanned if rows_scanned is not None else "unknown",
+        "estimated_bytes": byte_size if is_shardloom else 0,
+        "projection_mask": str(projection_mask),
+        "filter_pushdown_status": str(filter_pushdown_status),
+        "split_retry_count": 0,
+        "split_runtime_millis": None,
+        "split_rows_scanned": rows_scanned,
+        "split_rows_output": rows_output,
+        "split_spill_bytes": 0,
+        "split_output_ref": "not_emitted_report_only_split_manifest",
+        "split_claim_status": split_claim_status,
+        "split_fallback_attempted": False,
+        "split_external_engine_invoked": False,
+        "split_claim_gate_status": "not_split_scale_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "split_claim_boundary": (
+            "SplitManifest evidence is report-only local split planning evidence. "
+            "It can identify local source ranges and deterministic split blockers, but "
+            "it does not prove split-parallel execution, larger-than-memory execution, "
+            "object-store/table runtime, distributed runtime, Spark-replacement, or "
             "performance superiority."
         ),
     }
@@ -7068,6 +7240,40 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError(
                 "GAR-SCALE-1A must not declare a scale memory budget without runtime proof"
             )
+        missing_split_manifest_fields = [
+            field for field in SPLIT_MANIFEST_FIELDS if field not in metrics
+        ]
+        if missing_split_manifest_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted SplitManifest contract fields: "
+                + ", ".join(missing_split_manifest_fields)
+            )
+        if (
+            metrics.get("split_manifest_contract_schema_version")
+            != SPLIT_MANIFEST_SCHEMA_VERSION
+        ):
+            raise RuntimeError("SplitManifest rows must preserve schema version")
+        if (
+            metrics.get("split_manifest_status")
+            not in SPLIT_MANIFEST_STATUS_VOCABULARY
+        ):
+            raise RuntimeError("ShardLoom row reported unknown split_manifest_status")
+        if metrics.get("split_claim_status") not in SPLIT_CLAIM_STATUS_VOCABULARY:
+            raise RuntimeError("ShardLoom row reported unknown split_claim_status")
+        if metrics.get("split_claim_gate_status") != "not_split_scale_grade":
+            raise RuntimeError("SplitManifest evidence cannot upgrade scale claim status")
+        if metrics.get("split_fallback_attempted") is not False:
+            raise RuntimeError("SplitManifest evidence cannot report fallback attempts")
+        if metrics.get("split_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "SplitManifest evidence cannot report external engine execution"
+            )
+        if parse_optional_int(metrics.get("split_retry_count")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1B cannot report runtime split retries yet")
+        if parse_optional_int(metrics.get("split_spill_bytes")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1B cannot report split spill runtime yet")
+        if metrics.get("split_runtime_millis") is not None:
+            raise RuntimeError("GAR-SCALE-1B cannot report split runtime timing yet")
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
         and result.get("status") == "success"
@@ -7827,7 +8033,7 @@ def build_profile_contract() -> dict[str, Any]:
         "claim_boundary": (
             "Build-profile evidence is configuration and reproducibility evidence only. "
             "It cannot upgrade claim_gate_status, prove performance, authorize public "
-            "package/release claims, or imply Spark replacement, SQL/DataFrame, object-store/"
+            "package/release claims, or imply Spark-replacement, SQL/DataFrame, object-store/"
             "lakehouse, Foundry, or production support."
         ),
     }
@@ -7984,6 +8190,49 @@ def prepared_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "prepared_state_claim_boundary": metrics.get(
                     "prepared_state_claim_boundary"
                 ),
+            }
+        )
+    return rows
+
+
+def split_manifest_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "split_manifest_contract_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "split_manifest_status": metrics.get("split_manifest_status"),
+                "split_manifest_id": metrics.get("split_manifest_id"),
+                "split_manifest_digest": metrics.get("split_manifest_digest"),
+                "source_state_id": metrics.get("source_state_id"),
+                "split_count": metrics.get("split_manifest_split_count"),
+                "split_id": metrics.get("split_id"),
+                "byte_range": metrics.get("byte_range"),
+                "row_range": metrics.get("row_range"),
+                "estimated_rows": metrics.get("estimated_rows"),
+                "estimated_bytes": metrics.get("estimated_bytes"),
+                "projection_mask": metrics.get("projection_mask"),
+                "filter_pushdown_status": metrics.get("filter_pushdown_status"),
+                "split_retry_count": metrics.get("split_retry_count"),
+                "split_runtime_millis": metrics.get("split_runtime_millis"),
+                "split_rows_scanned": metrics.get("split_rows_scanned"),
+                "split_rows_output": metrics.get("split_rows_output"),
+                "split_spill_bytes": metrics.get("split_spill_bytes"),
+                "split_output_ref": metrics.get("split_output_ref"),
+                "split_claim_status": metrics.get("split_claim_status"),
+                "split_claim_gate_status": metrics.get("split_claim_gate_status"),
+                "split_fallback_attempted": metrics.get("split_fallback_attempted"),
+                "split_external_engine_invoked": metrics.get(
+                    "split_external_engine_invoked"
+                ),
+                "split_claim_boundary": metrics.get("split_claim_boundary"),
             }
         )
     return rows
@@ -8747,6 +8996,14 @@ def failed_result(
         )
     )
     metrics.update(
+        split_manifest_contract_metadata(
+            engine,
+            scenario,
+            status=status,
+            metrics=metrics,
+        )
+    )
+    metrics.update(
         scale_claim_contract_metadata(
             engine,
             scenario,
@@ -9281,6 +9538,14 @@ def successful_result_from_iterations(
             metrics,
             evidence=evidence,
             execution_mode=execution_mode,
+        )
+    )
+    metrics.update(
+        split_manifest_contract_metadata(
+            runner.name,
+            scenario,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
         )
     )
     metrics.update(
@@ -10331,6 +10596,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "optimizer_trace_fields": list(OPTIMIZER_TRACE_FIELDS),
         "build_profile_fields": list(BUILD_PROFILE_FIELDS),
         "bayesian_advisor_fields": list(BAYESIAN_ADVISOR_FIELDS),
+        "split_manifest_fields": list(SPLIT_MANIFEST_FIELDS),
         "scale_claim_fields": list(SCALE_CLAIM_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
@@ -10474,7 +10740,7 @@ def scale_claim_contract() -> dict[str, Any]:
         ],
         "non_goals": [
             "any-volume claim",
-            "Spark replacement claim",
+            "Spark-replacement claim",
             "distributed runtime",
             "object-store/table runtime",
             "Foundry production support",
@@ -10491,6 +10757,44 @@ def scale_claim_contract() -> dict[str, Any]:
             "Synthetic metadata, report-only protocol rows, and local smoke rows do not "
             "prove larger-than-memory, split-parallel, object-store, table, distributed, "
             "Foundry, managed-platform, any-volume, or Spark-replacement support."
+        ),
+    }
+
+
+def split_manifest_contract() -> dict[str, Any]:
+    return {
+        "contract_id": SPLIT_MANIFEST_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/scale-readiness-contract.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(SPLIT_MANIFEST_STATUS_VOCABULARY),
+        "claim_status_vocabulary": list(SPLIT_CLAIM_STATUS_VOCABULARY),
+        "row_fields": list(SPLIT_MANIFEST_FIELDS),
+        "current_scope": (
+            "report-only SplitManifest and per-split evidence fields for current local "
+            "benchmark rows; no split-parallel runtime is admitted"
+        ),
+        "split_contract_path": (
+            "SourceState -> SplitManifest -> VortexPreparedState -> ExecutionPlan"
+        ),
+        "non_goals": [
+            "split-parallel runtime",
+            "distributed runtime",
+            "larger-than-memory runtime",
+            "object-store split execution",
+            "table runtime",
+            "Spark-replacement claim",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "SplitManifest rows must preserve split_fallback_attempted=false and "
+            "split_external_engine_invoked=false. Unsplittable or unsupported sources "
+            "must block or report unsupported instead of routing to external engines."
+        ),
+        "claim_boundary": (
+            "GAR-SCALE-1B permits split planning vocabulary and deterministic blockers only. "
+            "Current local rows may expose a single-local-file split manifest, but they do not "
+            "prove split-parallel execution, distributed execution, object-store/table runtime, "
+            "larger-than-memory support, any-volume support, or Spark-replacement readiness."
         ),
     }
 
@@ -10802,6 +11106,28 @@ def render_prepared_state_contract(artifact: dict[str, Any]) -> str:
         ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
         ["Row fields", ", ".join(contract["row_fields"])],
         ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
+def render_split_manifest_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["split_manifest_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Claim status vocabulary", ", ".join(contract["claim_status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Split path", str(contract["split_contract_path"])],
         ["Current scope", str(contract["current_scope"])],
         ["No-fallback rule", str(contract["no_fallback_rule"])],
         ["Claim boundary", str(contract["claim_boundary"])],
@@ -11370,6 +11696,103 @@ def render_prepared_state_matrix(artifact: dict[str, Any]) -> str:
             "Vortex prepare",
             "Source Native I/O",
             "Materialization policy",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
+def render_split_manifest_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["split_manifest_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["split_manifest_status"]),
+                str(row["split_manifest_id"]),
+                str(row["split_manifest_digest"]),
+                str(row["source_state_id"]),
+                str(row["split_count"]),
+                str(row["split_id"]),
+                str(row["byte_range"]),
+                str(row["row_range"]),
+                str(row["estimated_rows"]),
+                format_bytes(row["estimated_bytes"]),
+                str(row["projection_mask"]).replace("|", "\\|"),
+                str(row["filter_pushdown_status"]).replace("|", "\\|"),
+                str(row["split_retry_count"]),
+                format_metric(row["split_runtime_millis"], " ms"),
+                str(row["split_rows_scanned"]),
+                str(row["split_rows_output"]),
+                format_bytes(row["split_spill_bytes"]),
+                str(row["split_output_ref"]),
+                str(row["split_claim_status"]),
+                str(row["split_claim_gate_status"]),
+                str(row["split_fallback_attempted"]),
+                str(row["split_external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "none",
+                "none",
+                "none",
+                "0",
+                "none",
+                "none",
+                "none",
+                "unknown",
+                "n/a",
+                "none",
+                "none",
+                "0",
+                "n/a",
+                "unknown",
+                "unknown",
+                "0 B",
+                "none",
+                "blocked",
+                "not_split_scale_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "SplitManifest status",
+            "Manifest id",
+            "Manifest digest",
+            "SourceState id",
+            "Split count",
+            "Split id",
+            "Byte range",
+            "Row range",
+            "Estimated rows",
+            "Estimated bytes",
+            "Projection mask",
+            "Filter pushdown",
+            "Retry count",
+            "Split runtime",
+            "Rows scanned",
+            "Rows output",
+            "Spill bytes",
+            "Output ref",
+            "Split claim",
             "Claim gate",
             "Fallback",
             "External engine",
@@ -12336,6 +12759,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_source_state_contract(artifact),
         "",
+        "## SplitManifest Contract",
+        "",
+        "This contract makes source splits, byte/row ranges, pushdown posture, retry, spill, and output refs visible without implying split-parallel, distributed, object-store, or larger-than-memory runtime.",
+        "",
+        render_split_manifest_contract(artifact),
+        "",
         "## VortexPreparedState Contract",
         "",
         "This contract makes prepared Vortex artifact identity, preparation timing separation, source-state linkage, and scoped reuse posture visible without implying output support or performance claims.",
@@ -12405,6 +12834,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "SourceState is input preparation evidence. Reuse fields show whether local source preparation state was reusable for this row; they do not upgrade claim_gate_status or create object-store/lakehouse/SQL/DataFrame support.",
         "",
         render_source_state_matrix(artifact),
+        "",
+        "## ShardLoom SplitManifest Evidence Matrix",
+        "",
+        "SplitManifest rows expose report-only local split planning and deterministic blockers. They do not prove split-parallel execution, distributed runtime, object-store/table runtime, larger-than-memory support, or performance claims.",
+        "",
+        render_split_manifest_matrix(artifact),
         "",
         "## ShardLoom VortexPreparedState Evidence Matrix",
         "",
@@ -12744,6 +13179,7 @@ def main() -> int:
         "reuse_level_contract": reuse_level_contract(),
         "build_profile_contract": build_profile_contract(),
         "bayesian_advisor_contract": bayesian_advisor_contract(),
+        "split_manifest_contract": split_manifest_contract(),
         "scale_claim_contract": scale_claim_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
@@ -12756,6 +13192,7 @@ def main() -> int:
         "format_preparation_matrix": format_preparation_matrix(results),
         "source_state_matrix": source_state_matrix(results),
         "prepared_state_matrix": prepared_state_matrix(results),
+        "split_manifest_matrix": split_manifest_matrix(results),
         "output_plan_matrix": output_plan_matrix(results),
         "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
         "cache_invalidation_matrix": cache_invalidation_matrix(results),
