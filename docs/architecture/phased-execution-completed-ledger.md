@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-SCALE-1G scale benchmark profiles and synthetic scale evidence
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/scale-readiness-contract.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: close the scale benchmark profile slice by adding the
+    `shardloom.traditional_analytics.scale_benchmark_profile.v1` benchmark/report contract.
+    Current rows expose scale profile definitions, row-level profile status, row/input/file/split
+    metrics, peak-memory/spill/shuffle/retry placeholders, synthetic metadata posture,
+    public-leaderboard separation, no-fallback, external-engine, claim-gate, and claim-boundary
+    fields without changing benchmark volumes or promoting scale/runtime claims.
+  - Checklist:
+    - [x] Define scale benchmark profiles for `local_stress`, `larger_than_memory_local`,
+          `many_small_files`, `partitioned_table_metadata`, `object_store_report_only`,
+          `table_metadata_report_only`, `foundry_dev_stack_scale_proof`, and
+          `distributed_report_only`.
+    - [x] Add required future scenarios for 10M/100M local stress, larger-than-memory data,
+          many-small-files scan, partition pruning, skewed group-by, broadcast candidate join,
+          shuffle join, CDC overlay over a large base, dirty/schema-drift write path, and output
+          fanout.
+    - [x] Emit row-level profile, status, rows, input bytes, file count, split count, peak memory,
+          spill bytes, shuffle bytes, retry count, correctness digest, synthetic-evidence status,
+          runtime-claim flag, public-leaderboard flag, actual-large-volume flag, no-fallback,
+          external-engine, and claim-gate fields.
+    - [x] Add benchmark artifact contract, profile definition table, and scale benchmark profile
+          matrix.
+    - [x] Validate current rows keep `scale_benchmark_runtime_claim_allowed=false`,
+          `scale_benchmark_public_leaderboard_included=false`,
+          `scale_benchmark_actual_large_volume_evidence=false`,
+          `scale_benchmark_claim_gate_status=not_scale_benchmark_grade`,
+          `scale_benchmark_fallback_attempted=false`, and
+          `scale_benchmark_external_engine_invoked=false`.
+    - [x] Update compute-flow, benchmark docs, scale-readiness docs, GAR, traceability, and website
+          compute-flow snapshot.
+    - [x] Remove the active GAR-SCALE-1G item from the Planned queue.
+  - Evidence/verification:
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 10 --dim-rows 5 --iterations 1 --regenerate --skip-shardloom-native --no-markdown --output target/codex-gar-scale-1g-smoke.json`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q benchmarks/traditional_analytics scripts website`
+    - `git diff --check`
+  - Claim boundary:
+    - Scale benchmark profile evidence is benchmark publishing posture. It does not prove
+      larger-than-memory execution, split-parallel runtime, object-store/table runtime,
+      distributed runtime, Foundry production support, Spark-level scale, Spark-replacement, or
+      performance superiority.
+  - Fallback boundary:
+    - Synthetic metadata-only rows and external baselines cannot satisfy ShardLoom runtime scale
+      evidence, no-fallback evidence, or no-external-engine proof.
+
 - [x] Session label: GAR-SCALE-1F distributed execution report-only protocol
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

@@ -1,6 +1,6 @@
 # Scale Readiness Contract
 
-Status: implemented report-only contracts for `GAR-SCALE-1A` through `GAR-SCALE-1F`.
+Status: implemented report-only contracts for `GAR-SCALE-1A` through `GAR-SCALE-1G`.
 
 ShardLoom must not claim literal "any volume" support. Scale readiness is a declared resource and
 evidence contract, not a slogan. A row can become scale-grade only when it proves the appropriate
@@ -402,6 +402,63 @@ distributed_claim_boundary
 
 Remote-worker report fields must not be satisfied by Spark, Dask, Ray, DataFusion, DuckDB, Polars,
 Foundry Spark, managed SQL systems, or other external engines executing ShardLoom work.
+
+## Scale Benchmark Profiles And Synthetic Scale Evidence
+
+`GAR-SCALE-1G` adds
+`scale_benchmark_profile_schema_version=shardloom.traditional_analytics.scale_benchmark_profile.v1`
+and a benchmark publishing/profile contract. It defines scale-oriented profiles without changing
+current local benchmark volumes:
+
+```text
+local_stress
+larger_than_memory_local
+many_small_files
+partitioned_table_metadata
+object_store_report_only
+table_metadata_report_only
+foundry_dev_stack_scale_proof
+distributed_report_only
+```
+
+ShardLoom rows now expose scale benchmark publishing posture:
+
+```text
+scale_benchmark_profile_schema_version
+scale_benchmark_profile_vocabulary
+scale_benchmark_profile_status_vocabulary
+scale_benchmark_synthetic_evidence_vocabulary
+scale_benchmark_profile
+scale_benchmark_profile_status
+scale_benchmark_profile_id
+scale_benchmark_profile_digest
+scale_benchmark_rows
+scale_benchmark_input_bytes
+scale_benchmark_file_count
+scale_benchmark_split_count
+scale_benchmark_peak_memory_bytes
+scale_benchmark_spill_bytes
+scale_benchmark_shuffle_bytes
+scale_benchmark_retry_count
+scale_benchmark_correctness_digest
+scale_benchmark_synthetic_evidence_status
+scale_benchmark_runtime_claim_allowed=false
+scale_benchmark_public_leaderboard_included=false
+scale_benchmark_actual_large_volume_evidence=false
+scale_benchmark_fallback_attempted=false
+scale_benchmark_external_engine_invoked=false
+scale_benchmark_claim_gate_status=not_scale_benchmark_grade
+scale_benchmark_claim_boundary
+```
+
+Required future scale scenarios include 10M/100M row local stress where feasible, data larger than a
+configured memory budget, many-small-files scan, partition pruning, skewed group-by, broadcast
+candidate join, shuffle join, CDC overlay over a large base, dirty/schema-drift write path, and
+output fanout.
+
+Synthetic metadata-only rows can describe a plan, blocker, or report-only profile, but they cannot
+become runtime scale evidence. Actual large-volume evidence requires real input bytes, correctness
+proof, declared resource envelope, no-fallback evidence, and the relevant runtime gates.
 
 ## Claim Gate
 
