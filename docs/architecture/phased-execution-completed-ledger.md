@@ -16,6 +16,44 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate
+  - Primary files:
+    - `docs/architecture/website-atlas-framework-decision.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: add a report-only framework decision record for the ShardLoom website atlas, comparing
+    the current Python static generator, Astro custom site, and Astro Starlight before any
+    migration or dependency work begins.
+  - Checklist:
+    - [x] Record current generated-site evidence: 99 HTML files discovered by Pagefind, 97 indexed
+          pages, 16 use-case families, committed Pagefind static assets, and Cloudflare static
+          asset deployment.
+    - [x] Compare current generator, Astro custom, and Astro Starlight against schema validation,
+          search, visual identity, Cloudflare deployment, contributor workflow, dependency review,
+          and maintenance cost.
+    - [x] Recommend keeping the current Python generator, vanilla HTML/CSS/JS, committed Pagefind,
+          and Cloudflare Workers Static Assets path for the next website slices.
+    - [x] Mark any Astro/Starlight migration as `blocked_pending_explicit_approval`.
+    - [x] Add migration revisit triggers and blockers for dependency/license review, lockfiles,
+          Cloudflare output, Pagefind strategy, validator parity, and claim-safety parity.
+    - [x] Move GAR-WEB-ATLAS-1H out of the active Planned queue.
+  - Evidence and verification:
+    - Context7-backed review of Astro content collections, Astro build/static output, Starlight
+      docs-site features, and Pagefind static indexing/filter metadata.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - The decision is about website maintainability only. It does not add runtime behavior,
+      dependencies, benchmark recomputation, package publication, production support, performance or
+      superiority claims, Spark-displacement claims, SQL/DataFrame runtime, object-store/lakehouse
+      runtime, or Foundry production support.
+  - Fallback boundary:
+    - Framework decisions do not alter no-fallback runtime policy and must not introduce runtime
+      external fetches. Existing `fallback_attempted=false` and `external_engine_invoked=false`
+      public semantics remain unchanged.
+
 - [x] Session label: GAR-WEB-ATLAS-1G source-linked reference and citation blocks
   - Primary files:
     - `website/build_static_pages.py`

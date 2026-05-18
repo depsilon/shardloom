@@ -1911,10 +1911,12 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1E"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1F"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1G"));
-    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate"));
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1H"));
+    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1I visual density and readability refinement"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate",
         "GAR-WEB-ATLAS-1G source-linked reference and citation blocks",
         "GAR-WEB-ATLAS-1F Can-I-use-this status matrix",
         "GAR-WEB-ATLAS-1E Use Case Atlas integration",
@@ -1924,6 +1926,13 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "What this proves",
         "data-citation-block=\"reference-files\"",
         "citation-card",
+        "blocked_pending_explicit_approval",
+        "website-atlas-framework-decision.md",
+        "99 HTML files discovered by Pagefind",
+        "97 indexed",
+        "current Python static generator",
+        "Astro custom",
+        "Astro Starlight",
         "Capability status matrix",
         "docs/use-cases/use-case-index.yml",
         "status, input type, output type, execution mode, evidence level, and",
@@ -1947,6 +1956,37 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         assert!(
             completed.contains(required),
             "missing Field Guide completed-ledger field {required}"
+        );
+    }
+
+    let framework_decision =
+        read_repo_file("docs/architecture/website-atlas-framework-decision.md");
+    for required in [
+        "GAR-WEB-ATLAS-1H",
+        "Decision status: `report_only`",
+        "Recommendation: keep the current Python static generator",
+        "Migration status: `blocked_pending_explicit_approval`",
+        "99 HTML files discovered by Pagefind",
+        "97 indexed pages",
+        "Astro content collections",
+        "Astro custom site",
+        "Astro Starlight",
+        "Pagefind",
+        "Cloudflare Workers Static Assets",
+        "No Astro/Starlight migration may begin",
+        "dependency/license review",
+        "lockfile",
+        "validator parity",
+        "runtime GitHub raw fetches",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "https://docs.astro.build/en/guides/content-collections/",
+        "https://starlight.astro.build/",
+        "https://pagefind.app/docs/",
+    ] {
+        assert!(
+            framework_decision.contains(required),
+            "missing framework decision field {required}"
         );
     }
 
