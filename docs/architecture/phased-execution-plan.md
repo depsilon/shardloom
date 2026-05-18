@@ -393,6 +393,579 @@ multi-output correctness/replay evidence, object-store output, lakehouse/table c
 hidden fast modes, external engine fallback, and performance claims remain out of scope until
 separate evidence-bearing slices admit them.
 
+#### GAR-SCALE-1 - Spark-Level Scale Contract And Any-Volume Execution Readiness
+
+Goal: ShardLoom must not claim literal "any volume" support. Instead, scale work must define and
+prove bounded-memory, split-based, spill-safe, shuffle-aware, object-store/table-aware, retryable,
+idempotent execution under an explicit resource envelope. Scale profiles must remain separate from
+local benchmark leaderboards, and synthetic metadata-only evidence cannot become a runtime scale
+claim.
+
+Required scale classes:
+
+```text
+local_smoke
+local_claim_grade
+larger_than_memory_local
+split_parallel_local
+object_store_read_report_only
+object_store_runtime
+table_metadata_report_only
+table_runtime
+distributed_report_only
+distributed_runtime
+foundry_dev_stack_proof
+managed_platform_proof
+```
+
+Required shared scale evidence fields:
+
+```text
+scale_profile
+scale_claim_status
+data_volume_bytes
+row_count_estimate
+file_count
+partition_count
+split_count
+memory_budget_bytes
+peak_memory_bytes
+spill_allowed
+spill_bytes_written
+spill_bytes_read
+shuffle_required
+shuffle_strategy
+shuffle_bytes_written
+shuffle_bytes_read
+skew_detected
+retry_count
+idempotency_key
+output_commit_status
+object_store_involved
+table_format_involved
+remote_workers_involved
+foundry_runtime_invoked
+foundry_spark_invoked
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status
+```
+
+- [ ] GAR-SCALE-1A scale-class taxonomy and claim gate
+  - Source:
+    - Spark cluster architecture and SQL tuning docs as comparison pressure only.
+    - ShardLoom benchmark artifact and phased execution plan.
+    - Vortex Scan API split/source model.
+    - Iceberg/Delta scale and table-format expectations.
+    - RFC 0014; RFC 0016; RFC 0017; RFC 0020; RFC 0026; RFC 0029; RFC 0031; RFC 0034; RFC 0036.
+  - Current state:
+    - ShardLoom has local smoke, prepared/native, source-state reuse, and benchmark publishing
+      evidence.
+    - Current benchmark artifacts are not Spark-scale proof.
+    - Object-store, table/lakehouse, distributed execution, and managed-platform scale remain gated.
+    - There is no first-class scale-class claim gate that can fail closed before public copy,
+      benchmark rows, or status pages imply "any volume".
+  - Next slice outcome:
+    - Add the scale-class taxonomy and scale-claim gate as an architecture/report contract.
+    - Require every future scale row to select one explicit scale class or fail closed.
+  - User-visible surface:
+    - Phased plan, compute-flow docs, benchmark docs/artifacts, website/status, release-readiness
+      checks, and future Python/CLI capability views.
+  - Implementation scope:
+    - Add scale taxonomy docs, benchmark row schema expectations, release-readiness metadata checks,
+      and website/status claim language. Do not change current benchmark volumes.
+  - Evidence required:
+    - `scale_profile`
+    - `scale_claim_status`
+    - `data_volume_bytes`
+    - `row_count_estimate`
+    - `file_count`
+    - `partition_count`
+    - `split_count`
+    - `memory_budget_bytes`
+    - `spill_budget_bytes`
+    - `shuffle_required`
+    - `object_store_involved`
+    - `table_format_involved`
+    - `remote_workers_involved`
+    - `retry_policy_status`
+    - `output_commit_status`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `claim_gate_status`
+  - Acceptance:
+    - No row, page, README section, or benchmark artifact can claim Spark-level or any-volume
+      support without a scale class and scale claim status.
+    - Current local benchmarks remain local smoke/local claim evidence only.
+    - Larger-than-memory, split-parallel, object-store, table, distributed, Foundry, and managed
+      platform claims fail closed until evidence admits them.
+  - Verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Non-goals:
+    - No distributed runtime, object-store runtime, table commit, benchmark volume change,
+      performance claim, Spark replacement claim, package publication, or Foundry production claim.
+  - Dependencies/blockers:
+    - Scale taxonomy doc ownership, benchmark row schema ownership, website/status claim checks, and
+      future workload evidence for any status promotion.
+  - Claim boundary:
+    - This slice may claim a scale-readiness taxonomy and fail-closed claim gate only.
+    - It does not authorize any-volume support, Spark displacement, distributed runtime,
+      object-store/table runtime, Foundry production support, or performance superiority.
+  - Fallback boundary:
+    - External engines may be baselines or correctness oracles only; they cannot satisfy ShardLoom
+      scale evidence or execute unsupported work as fallback.
+  - Ledger rule:
+    - When complete, move the completed session details to
+      `docs/architecture/phased-execution-completed-ledger.md` and remove this active planned item.
+
+- [ ] GAR-SCALE-1B split manifest and split-native execution contract
+  - Source:
+    - GAR-SCALE-1A.
+    - Vortex Scan API split/source model.
+    - SourceState and VortexPreparedState reuse work.
+    - Object-store byte-range planning gates.
+    - RFC 0013; RFC 0017; RFC 0026; RFC 0031; RFC 0034.
+  - Current state:
+    - Vortex Scan API concepts and prepared/native source-backed scan evidence exist.
+    - ShardLoom scale-grade split manifests are not first-class.
+    - Current prepared/native benchmark paths are scoped local rows, not general split-native
+      execution.
+  - Next slice outcome:
+    - Define `SplitManifest` and per-split evidence as the scale contract for processing large
+      inputs as independent splits rather than monolithic scans.
+  - User-visible surface:
+    - Compute-flow docs, benchmark evidence rows, CLI/Python capability views, and unsupported
+      diagnostics for split-ineligible sources.
+  - Implementation scope:
+    - SplitManifest schema, per-split evidence row fields, deterministic blockers, benchmark schema
+      tests, and compute-flow docs. Runtime split execution can be report-only unless scoped local
+      implementation evidence is added in a later slice.
+  - Evidence required:
+    - `split_manifest_id`
+    - `split_id`
+    - `source_state_id`
+    - `byte_range`
+    - `row_range`
+    - `estimated_rows`
+    - `estimated_bytes`
+    - `projection_mask`
+    - `filter_pushdown_status`
+    - `split_retry_count`
+    - `split_runtime_millis`
+    - `split_rows_scanned`
+    - `split_rows_output`
+    - `split_spill_bytes`
+    - `split_output_ref`
+    - `split_claim_status`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `claim_gate_status`
+  - Acceptance:
+    - Large sources can be represented as split manifests.
+    - Unsupported splitting emits deterministic blockers.
+    - Split execution does not imply distributed execution or object-store runtime.
+  - Verification:
+    - SplitManifest schema/snapshot tests.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Non-goals:
+    - No remote workers, distributed runtime, object-store split execution, table runtime,
+      performance claim, or hidden fast mode.
+  - Dependencies/blockers:
+    - Vortex/source split metadata availability, SourceState linkage, byte/row range posture, and
+      deterministic blockers for unsplittable or unsupported formats.
+  - Claim boundary:
+    - Split manifests are scale planning/evidence artifacts. They do not prove Spark-level,
+      distributed, object-store, or table execution.
+  - Fallback boundary:
+    - Split ineligibility must block or report unsupported; it must not route to Spark, DataFusion,
+      DuckDB, Polars, Dask, Ray, or another engine.
+  - Ledger rule:
+    - When complete, record the SplitManifest contract, evidence refs, and remaining blockers in the
+      completed ledger.
+
+- [ ] GAR-SCALE-1C bounded memory, spill, and backpressure contract
+  - Source:
+    - RFC 0014 Memory Management, Spill, and OOM Safety.
+    - RFC 0013 streaming/zero-copy/zero-decode boundaries.
+    - Existing resource sizing, target partition, and benchmark resource fields.
+    - GAR-PERF-2G allocation and buffer-pool optimization evidence.
+  - Current state:
+    - Resource sizing and target partition fields exist.
+    - ShardLoom has no scale-grade spill/backpressure contract that can support larger-than-memory
+      claims.
+    - Current spill-like payload work must not be treated as query/data spill permission.
+  - Next slice outcome:
+    - Add memory, spill, and backpressure evidence contracts that let larger-than-memory paths block,
+      spill, or throttle deterministically under a declared budget.
+  - User-visible surface:
+    - Benchmark evidence rows, compute-flow docs, release readiness checks, CLI/Python capability
+      views, and future scale benchmark profiles.
+  - Implementation scope:
+    - Memory/spill schema, deterministic unsupported diagnostics, benchmark row fields, release
+      checks, and docs. Runtime spill implementation remains separate unless a later scoped slice
+      admits it.
+  - Evidence required:
+    - `memory_budget_bytes`
+    - `operator_memory_budget_bytes`
+    - `peak_memory_bytes`
+    - `memory_budget_exceeded=false`
+    - `spill_allowed`
+    - `spill_location`
+    - `spill_bytes_written`
+    - `spill_bytes_read`
+    - `spill_file_count`
+    - `spill_cleanup_status`
+    - `backpressure_status`
+    - `oom_prevention_status`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `claim_gate_status`
+  - Acceptance:
+    - Operators that cannot run within memory budget block or spill deterministically.
+    - No hidden full materialization is allowed under scale-grade mode.
+    - Spill evidence is required for any larger-than-memory claim.
+  - Verification:
+    - Memory/spill contract tests or release-readiness metadata tests.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+  - Non-goals:
+    - No production spill runtime, object-store spill, distributed spill, hidden materialization,
+      performance claim, or Spark fallback.
+  - Dependencies/blockers:
+    - Operator memory accounting, spill manager design, cleanup semantics, resource metrics, and
+      correctness evidence for any future runtime spill path.
+  - Claim boundary:
+    - This slice can establish the evidence contract only. Larger-than-memory support remains
+      blocked until runtime spill/backpressure implementation and correctness evidence exist.
+  - Fallback boundary:
+    - Memory pressure cannot be resolved by external engine fallback or by unreported full-table
+      materialization.
+  - Ledger rule:
+    - When complete, move the memory/spill contract details and unsupported states to the completed
+      ledger.
+
+- [ ] GAR-SCALE-1D shuffle, repartition, and join scale contract
+  - Source:
+    - RFC 0016 optimizer/adaptive execution/runtime filters/skew.
+    - RFC 0017 fault tolerance and recovery.
+    - Prepared/native batch runner and source-state reuse work.
+    - Benchmark scenario catalog for joins, group-bys, top-N per group, and CDC overlay.
+  - Current state:
+    - Local prepared/native source-state reuse is improving.
+    - Scale-grade shuffle, repartition, and join evidence is not first-class.
+    - Current local join/group-by/top-N/CDC rows are not distributed shuffle evidence.
+  - Next slice outcome:
+    - Define `ShufflePlan` and `ShuffleEvidence` for scale-safe joins, group-bys, windows, top-N per
+      group, repartition writes, and CDC overlays.
+  - User-visible surface:
+    - Benchmark rows, compute-flow docs, optimizer/explain surfaces, and capability/status matrices.
+  - Implementation scope:
+    - Shuffle/repartition evidence schema, deterministic blockers, benchmark row fields, docs, and
+      plan/explain vocabulary. No distributed shuffle implementation in this slice.
+  - Evidence required:
+    - `shuffle_required`
+    - `shuffle_strategy`
+    - `partitioning_strategy`
+    - `shuffle_partition_count`
+    - `target_shuffle_partition_bytes`
+    - `local_combine_used`
+    - `global_merge_used`
+    - `broadcast_candidate`
+    - `broadcast_admitted`
+    - `skew_detected`
+    - `skew_strategy`
+    - `shuffle_spill_bytes`
+    - `shuffle_retry_count`
+    - `shuffle_correctness_digest`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `claim_gate_status`
+  - Acceptance:
+    - Group-by, join, window, top-N, repartition, and CDC scale paths either emit shuffle evidence
+      or deterministic blockers.
+    - Broadcast, hash shuffle, range shuffle, local combine, global merge, and skew splitting are
+      separate states.
+    - No distributed shuffle claim exists without remote-worker or cluster evidence.
+  - Verification:
+    - Shuffle evidence snapshot/contract tests.
+    - Benchmark harness schema tests.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+  - Non-goals:
+    - No distributed shuffle runtime, broad join optimization claim, performance claim, or Spark
+      replacement claim.
+  - Dependencies/blockers:
+    - Plan/explain ownership, join/group-by/window/top-N/CDC operator evidence, partitioning
+      strategy vocabulary, spill evidence, retry semantics, and correctness digests.
+  - Claim boundary:
+    - Shuffle evidence can describe local/report-only planning. It cannot claim distributed
+      execution, Spark-scale joins, or production scale safety without workload evidence.
+  - Fallback boundary:
+    - Unsupported shuffle strategies must block/report unsupported; they cannot delegate to Spark,
+      DataFusion, DuckDB, Polars, Dask, Ray, or managed platforms.
+  - Ledger rule:
+    - When complete, record the shuffle/repartition contract, tested blockers, and claim boundaries
+      in the completed ledger.
+
+- [ ] GAR-SCALE-1E object-store and table-scale execution ladder
+  - Source:
+    - GAR-COMPAT-1C S3/GCS/ADLS runtime admission ladder.
+    - GAR-COMPAT-1D Iceberg/Delta/Hudi table-format boundary matrix.
+    - RFC 0008 object-store-native planning.
+    - RFC 0020 schema evolution/table compatibility.
+    - RFC 0031 Native I/O envelope.
+    - Object-store byte-range planning gates.
+  - Current state:
+    - Object-store and table/lakehouse support remain report-only/blocked.
+    - Object-store range planning and table metadata posture exist, but runtime I/O and commit
+      semantics are not admitted.
+  - Next slice outcome:
+    - Add a scale ladder that ties S3/GCS/ADLS and table-format work to staged claim gates rather
+      than treating object-store/table support as generic I/O.
+  - User-visible surface:
+    - CLI object-store plan/status, Python capability view, website/status, benchmark profiles, and
+      compute-flow docs.
+  - Implementation scope:
+    - Ladder docs, capability/status rows, benchmark schema fields, deterministic blockers, and
+      release-readiness claim checks. No runtime object-store/table behavior unless admitted later.
+  - Evidence required:
+    - `credential_policy_status`
+    - `network_effect_status`
+    - `listing_strategy`
+    - `object_version_or_etag`
+    - `split_manifest_id`
+    - `commit_protocol`
+    - `idempotency_key`
+    - `rollback_status`
+    - `table_snapshot_id`
+    - `table_manifest_count`
+    - `table_data_file_count`
+    - `object_store_involved`
+    - `table_format_involved`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `claim_gate_status`
+  - Acceptance:
+    - Object-store URI parsing, listing, split planning, byte-range read, streaming read, write
+      staging, commit, table metadata read, snapshot scan, append, merge/update/delete, commit, and
+      rollback are separate states.
+    - Object-store read, object-store write, and table commit are separate claim gates.
+    - Metadata scan does not imply table runtime, and table runtime does not imply table commit.
+  - Verification:
+    - Object-store/table ladder snapshot tests or release-readiness metadata checks.
+    - `python scripts/check_website_readiness.py`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Non-goals:
+    - No S3/GCS/ADLS runtime, credential resolution, network probe, object-store write, lakehouse
+      table commit, Foundry production claim, or performance claim.
+  - Dependencies/blockers:
+    - Object-store credential policy, network-effect admission, byte-range read proof,
+      table-metadata proof, output commit protocol, rollback semantics, and status projection.
+  - Claim boundary:
+    - The ladder is a readiness/admission model only. It cannot be used as object-store runtime,
+      table runtime, table commit, or production lakehouse support evidence.
+  - Fallback boundary:
+    - Object-store/table blockers cannot invoke external engines, managed platforms, or Spark as
+      fallback execution.
+  - Ledger rule:
+    - When complete, move ladder details, status rows, and unsupported states to the completed
+      ledger.
+
+- [ ] GAR-SCALE-1F distributed execution report-only protocol
+  - Source:
+    - RFC 0017 fault tolerance/cancellation/recovery.
+    - RFC 0034 three-engine certified data execution fabric.
+    - RFC 0035 REST/event/remote API surface.
+    - SplitManifest and shuffle/repartition contracts.
+  - Current state:
+    - ShardLoom is local/in-process.
+    - No daemon, service, coordinator, remote worker, or cluster runtime is claimable.
+    - Remote/distributed vocabulary exists in docs but lacks a scale evidence protocol.
+  - Next slice outcome:
+    - Add a report-only protocol for coordinator, worker, task lease, split execution, retry, and
+      result-fragment merge without implementing remote workers.
+  - User-visible surface:
+    - Architecture docs, capability/status rows, future CLI explain/status output, and website/status.
+  - Implementation scope:
+    - Report-only distributed protocol doc/schema, deterministic blockers, and claim-gate language.
+      No network listener, scheduler, daemon, worker process, or remote execution.
+  - Evidence required:
+    - `coordinator_invoked`
+    - `worker_count`
+    - `remote_worker_invoked`
+    - `task_lease_id`
+    - `task_attempt_id`
+    - `split_id`
+    - `worker_input_ref`
+    - `worker_output_ref`
+    - `worker_retry_count`
+    - `worker_failure_class`
+    - `result_fragment_digest`
+    - `merge_digest`
+    - `distributed_claim_status=report_only`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `claim_gate_status`
+  - Acceptance:
+    - Distributed runtime remains report-only.
+    - Remote workers are not confused with external fallback engines.
+    - The same no-fallback, evidence, retry, idempotency, and claim-gate model applies to the future
+      distributed protocol.
+  - Verification:
+    - Release-readiness metadata tests or docs contract checks.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Non-goals:
+    - No daemon/service, remote worker, cluster scheduler, network API, distributed runtime,
+      distributed performance claim, managed-platform proof, or package publication.
+  - Dependencies/blockers:
+    - SplitManifest contract, task lease/retry semantics, result-fragment merge evidence,
+      coordinator/worker security policy, and remote-execution admission gates.
+  - Claim boundary:
+    - This slice may claim only a report-only distributed protocol and explicit blockers.
+      Distributed runtime and Spark-level execution remain unsupported.
+  - Fallback boundary:
+    - Remote-worker report fields must not be satisfied by Spark, Dask, Ray, DataFusion, DuckDB,
+      Polars, Foundry Spark, or managed SQL systems executing ShardLoom work.
+  - Ledger rule:
+    - When complete, record protocol fields, blockers, and no-fallback boundaries in the completed
+      ledger.
+
+- [ ] GAR-SCALE-1G scale benchmark profiles and synthetic scale evidence
+  - Source:
+    - Benchmark profile matrix and static benchmark publishing workflow.
+    - GAR-SCALE-1A scale taxonomy.
+    - GAR-SCALE-1B split manifests.
+    - GAR-SCALE-1C memory/spill/backpressure contract.
+    - GAR-SCALE-1D shuffle/repartition evidence.
+    - GAR-SCALE-1E object-store/table ladder.
+  - Current state:
+    - Current benchmark profiles focus on smoke, full local, Spark-context, extended local, GPU
+      optional, object-store optional, and I/O reuse/fanout planning.
+    - Scale-oriented profiles are not first-class.
+    - Current public benchmark page must remain evidence, not a scale/performance leaderboard.
+  - Next slice outcome:
+    - Add scale-oriented benchmark profile definitions and synthetic metadata-only evidence rules
+      without requiring immediate massive hardware or changing current local benchmark volumes.
+  - User-visible surface:
+    - Benchmark docs, website/benchmarks, benchmark manifests, and release-readiness gates.
+  - Implementation scope:
+    - Benchmark profile docs/schema, artifact manifest fields, completeness checks, website
+      interpretation text, and deterministic unsupported/synthetic rows. Runtime large-volume
+      execution is a later slice.
+  - Evidence required:
+    - `scale_profile`
+    - `rows`
+    - `input_bytes`
+    - `file_count`
+    - `split_count`
+    - `peak_memory_bytes`
+    - `spill_bytes`
+    - `shuffle_bytes`
+    - `retry_count`
+    - `correctness_digest`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `claim_gate_status`
+  - Acceptance:
+    - Profiles are defined for `local_stress`, `larger_than_memory_local`, `many_small_files`,
+      `partitioned_table_metadata`, `object_store_report_only`, `table_metadata_report_only`,
+      `foundry_dev_stack_scale_proof`, and `distributed_report_only`.
+    - Required scenarios include 10M/100M row local stress where feasible, data larger than a
+      configured memory budget, many-small-files scan, partition pruning, skewed group-by, broadcast
+      candidate join, shuffle join, CDC overlay over a large base, dirty/schema-drift write path, and
+      output fanout.
+    - Scale benchmarks are separated from local smoke and public leaderboard rows.
+    - Synthetic metadata-only scale evidence cannot become a runtime scale claim.
+    - Actual large-volume evidence requires real input bytes and correctness proof.
+  - Verification:
+    - Benchmark profile validation tests.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Non-goals:
+    - No benchmark volume change in this planning slice, no performance/superiority claim, no
+      object-store runtime, no distributed runtime, and no Spark replacement claim.
+  - Dependencies/blockers:
+    - Benchmark profile registry, artifact manifest schema, completeness gate, hardware/resource
+      disclosure, correctness proof, and website benchmark interpretation updates.
+  - Claim boundary:
+    - Scale profiles describe evidence posture. They cannot claim scale readiness unless backed by
+      real workload bytes, correctness proof, no-fallback evidence, and the relevant runtime gates.
+  - Fallback boundary:
+    - External benchmark engines remain baseline-only and cannot satisfy ShardLoom scale evidence.
+  - Ledger rule:
+    - When complete, move profile/schema details and benchmark interpretation boundaries to the
+      completed ledger.
+
+- [ ] GAR-SCALE-1H Foundry scale proof boundary
+  - Source:
+    - RFC 0036 Foundry Integration Pack and availability surface.
+    - Foundry proof-of-use docs.
+    - Foundry generated-output fanout posture.
+    - GAR-SCALE-1A scale taxonomy and GAR-SCALE-1G scale benchmark profiles.
+  - Current state:
+    - Foundry proof is local/style-only and report-only.
+    - Foundry no-input generated-output fanout posture exists, but generated-output execution is not
+      a Foundry production claim.
+    - No real Foundry runtime, Foundry compute, Foundry Spark, or managed-platform scale proof is
+      claimable.
+  - Next slice outcome:
+    - Define what a real Foundry scale proof must emit while keeping local/dev-stack proof separate
+      from production Foundry support.
+  - User-visible surface:
+    - Foundry proof docs, website/status, capability matrix, and future Foundry starter workflows.
+  - Implementation scope:
+    - Foundry scale proof schema/docs, deterministic report-only blockers, release-readiness checks,
+      and claim boundary text. No Foundry platform invocation or package publication.
+  - Evidence required:
+    - `foundry_runtime_invoked`
+    - `foundry_compute_invoked`
+    - `foundry_spark_invoked=false`
+    - `foundry_input_dataset_count`
+    - `foundry_output_dataset_count`
+    - `staged_input_bytes`
+    - `shardloom_execution_mode`
+    - `split_count`
+    - `memory_budget_bytes`
+    - `output_evidence_dataset_written`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `public_foundry_claim_allowed=false`
+    - `claim_gate_status`
+  - Acceptance:
+    - Foundry can orchestrate a transform only when evidence distinguishes orchestration from
+      ShardLoom execution.
+    - Spark/Foundry compute cannot be silently reported as ShardLoom execution.
+    - Evidence dataset output is mandatory for any proof claim.
+    - Foundry scale proof remains separate from production support and package/channel claims.
+  - Verification:
+    - Foundry proof docs/schema checks.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Non-goals:
+    - No Foundry production support, Marketplace/package claim, Foundry runtime invocation, Foundry
+      Spark use as ShardLoom execution, object-store direct write, or performance claim.
+  - Dependencies/blockers:
+    - Real Foundry environment proof, transform output/evidence dataset wiring, Foundry runtime and
+      compute invocation fields, package-channel evidence, and platform claim approval gates.
+  - Claim boundary:
+    - This slice may claim only a Foundry scale proof boundary. Real Foundry scale support remains
+      blocked until platform evidence exists.
+  - Fallback boundary:
+    - Foundry Spark, virtual tables, Snowflake, Databricks, BigQuery, or other managed compute cannot
+      execute ShardLoom work as fallback or satisfy ShardLoom no-fallback evidence.
+  - Ledger rule:
+    - When complete, record the Foundry proof boundary and any remaining blockers in the completed
+      ledger.
+
 #### GAR-P1 - Core Runtime, Operators, And Execution Safety
 
 #### GAR-P2 - I/O, Tables, Output, And Lakehouse Semantics
