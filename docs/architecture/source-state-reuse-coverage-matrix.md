@@ -41,9 +41,12 @@ The batch evidence emits:
 - `source_state_fallback_attempted=false`
 - `source_state_external_engine_invoked=false`
 
-The current scoped source-state families are in-memory derived runtime state. They do not emit a
-content-addressed `SourceState` digest yet. `GAR-IOREUSE-1A` owns universal, format-neutral
-`SourceState` IDs, digests, invalidation, and cross-format reuse.
+The current scoped source-state families are in-memory derived runtime state. They intentionally
+keep `source_state_digest_status=not_emitted_scoped_in_memory_source_state`. `GAR-IOREUSE-1A` adds
+a separate universal, format-neutral SourceState benchmark row contract with local source IDs,
+digests, source-format/location/fingerprint/schema fields, parse/decode plan digest, reuse
+hit/reason, no-fallback fields, and claim boundaries. Invalidation and cross-format prepared/output
+reuse remain follow-up work.
 
 ## Coverage Matrix
 
@@ -57,7 +60,7 @@ content-addressed `SourceState` digest yet. `GAR-IOREUSE-1A` owns universal, for
 | Joins | `hash join`, `join + aggregate` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `dimension_label` | `source_state_dimension_label_*` | The shared dimension-label lookup state is reused across the pair. |
 | Ranking/window | `sort and top-k`, `top-N per group`, `row number window` | `source-state-reused` when at least two ranked rows are requested; otherwise `source-state-not-needed` | `ranked_metric` | `source_state_ranked_metric_*` | The shared ranked `group_key,id,metric` state is reused across ranked consumers. |
 | Date/null metrics | `partition pruning`, `null-heavy aggregate` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `date_null_metric` | `source_state_date_null_metric_*` | The shared `event_date,metric,nullable_metric_00` state is reused across the pair. |
-| Many-file fixture | `many-small-files scan` | `source-state-not-needed` | `split_fixture` | `source_state_coverage_*`, `source_metadata_snapshot_*` | The current prepared/native lane starts from prepared Vortex artifacts; universal split-discovery reuse belongs to `GAR-IOREUSE-1A`. |
+| Many-file fixture | `many-small-files scan` | `source-state-not-needed` | `split_fixture` | `source_state_coverage_*`, `source_metadata_snapshot_*`, universal `source_state_*` row fields | The current prepared/native lane starts from prepared Vortex artifacts; GAR-IOREUSE-1A records local SourceState posture, while reusable split-discovery execution remains follow-up work. |
 | Dirty input cleanup | `clean/cast/filter/write`, `malformed timestamp / dirty CSV` | `source-state-reused` when both rows are requested; otherwise `source-state-not-needed` | `dirty_input` | `source_state_dirty_input_*` | The shared dirty-input cleanup state is reused across the pair. |
 | CDC overlay | `small change over large base` | `source-state-not-needed` | `cdc_overlay` | `source_state_coverage_*`, CDC preparation fields | The CDC overlay row is a single incremental-state workflow in the current batch lane. |
 | Nested JSON | `nested JSON field scan` | `source-state-not-needed` | `nested_json` | `source_state_coverage_*`, `source_backed_scan_*` | The nested field scan is a single messy-data workflow in the current batch lane. |
@@ -87,5 +90,5 @@ This matrix leaves the next meaningful runtime work explicit:
 - `GAR-PERF-1C`: fused filter/project/limit and selection-vector execution path.
 - `GAR-PERF-2C`: Vortex Scan API pushdown completion.
 - `GAR-PERF-2E`: fused operator pipeline.
-- `GAR-IOREUSE-1A`: universal `SourceState` abstraction with stable IDs, digests, invalidation,
-  and cross-format reuse.
+- `GAR-IOREUSE-1A`: completed universal local SourceState row contract with stable IDs and digests.
+- `GAR-IOREUSE-1B` and later: prepared-state/output-plan invalidation and cross-format reuse.

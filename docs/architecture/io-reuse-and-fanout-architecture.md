@@ -1,6 +1,6 @@
 # I/O Reuse And Cross-Format Fanout Architecture
 
-Status: planned/report-only reference for `GAR-IOREUSE-1`.
+Status: partially implemented architecture reference for `GAR-IOREUSE-1`.
 
 ## Summary
 
@@ -20,8 +20,10 @@ InputAdapter
 -> SinkArtifact
 ```
 
-This document is a planning reference only. It does not implement runtime behavior, object-store
-I/O, table/lakehouse commits, Foundry production support, performance claims, or a hidden fast mode.
+`GAR-IOREUSE-1A` now implements the first benchmark/report contract for local SourceState evidence.
+The remaining VortexPreparedState, OutputPlan, fanout, invalidation, reuse-level, and Foundry
+generated-output slices are still planned. This document does not implement object-store I/O,
+table/lakehouse commits, Foundry production support, performance claims, or a hidden fast mode.
 
 ## Goals
 
@@ -62,9 +64,12 @@ planning, source capability, and unsupported diagnostics.
 schema, dtype mapping, parse/decode plan, source digest, source fingerprint, and adapter capability
 results. It is not an execution result and it is not tied to an output format.
 
-Required future fields:
+Implemented `GAR-IOREUSE-1A` benchmark/report fields:
 
 ```text
+source_state_contract_schema_version
+source_state_status_vocabulary
+source_state_status
 source_state_id
 source_state_digest
 source_format
@@ -77,13 +82,30 @@ byte_size
 partition_columns
 compression
 source_state_reuse_allowed
+source_discovery_millis
+schema_inference_millis
+source_parse_millis
+parse_decode_plan_digest
 source_state_reuse_hit
 source_state_reuse_reason
+source_state_materialization_decode_boundary_ref
+source_state_fallback_attempted=false
+source_state_external_engine_invoked=false
+source_state_claim_gate_status=not_claim_grade
+source_state_claim_boundary
 ```
 
-CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC should all be able to report a SourceState posture.
-Unsupported formats should return deterministic blockers. SourceState reuse never implies
-Vortex-native execution by itself.
+CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC rows can report a SourceState posture in the
+traditional analytics benchmark artifact and Markdown report. `source_state_status` is one of
+`source_state_reuse_supported`, `not_needed`, `blocked`, `unsupported`, `report_only`, or
+`external_baseline_only`. Existing prepared/native batch source-state families keep their
+family-specific fields while also mapping into the universal SourceState contract.
+
+The current SourceState contract is local benchmark evidence only. It records source identity,
+schema/fingerprint posture, parse/decode plan identity, reuse eligibility, reuse hit/miss, and
+no-fallback policy fields. It does not claim output support, Vortex-native execution, performance,
+production SQL/DataFrame runtime, object-store/lakehouse support, Foundry support, package release,
+or Spark replacement.
 
 ### VortexPreparedState
 
@@ -192,19 +214,16 @@ generated source -> CSV + Parquet + Vortex outputs
 prepared Vortex -> multiple output formats
 ```
 
-Future benchmark rows should expose:
+Current `GAR-IOREUSE-1A` benchmark rows expose the SourceState subset listed above. Future
+fanout/reuse rows should additionally expose:
 
 ```text
-source_discovery_millis
-schema_inference_millis
-source_parse_millis
 vortex_prepare_millis
 operator_compute_millis
 output_plan_millis
 output_write_millis
 output_replay_millis
 total_runtime_millis
-source_state_reuse_hit
 prepared_state_reuse_hit
 output_plan_reuse_hit
 fanout_output_count
@@ -359,7 +378,8 @@ external_engine_invoked=false
 
 ## Acceptance For The Planning Bundle
 
-- The phase plan contains detailed `GAR-IOREUSE-1A` through `GAR-IOREUSE-1G` slices.
+- The phase plan contains detailed remaining `GAR-IOREUSE-1B` through `GAR-IOREUSE-1G` slices, and
+  this ledger records `GAR-IOREUSE-1A` as completed SourceState benchmark/report evidence.
 - Benchmark docs list the planned benchmark families and metrics.
 - Compute-flow docs show the decoupled path:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`.

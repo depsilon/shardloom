@@ -772,11 +772,12 @@ plan before coding.
   runtime-supported, smoke-supported, report-only, blocked, or not-planned. It still needs typed
   website/status and Python capability projection before users or agents can consume the matrix as
   a stable machine surface.
-- [ ] `GAR-IOREUSE-1A` through `GAR-IOREUSE-1F` add the planned Native I/O reuse ladder:
+- [ ] `GAR-IOREUSE-1B` through `GAR-IOREUSE-1F` add the remaining Native I/O reuse ladder after
+  `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
-  SinkArtifact`. The next work is to keep source discovery, schema/dtype inference, parse/decode
-  planning, Vortex preparation, operator source-state, output planning, and sink artifacts reusable
-  and independently certified without coupling input format to output format.
+  SinkArtifact`. The next work is to keep Vortex preparation, output planning, fanout, invalidation,
+  and sink artifacts reusable and independently certified without coupling input format to output
+  format.
 - [ ] CG-19 is not universal across object-store/range-read, streaming sinks, table/catalog,
   external adapters, and all production source/sink paths.
 
@@ -1258,10 +1259,11 @@ plan before coding.
   external baseline rows, and must not let microbenchmark timing imply public performance,
   superiority, production, SQL/DataFrame, object-store/lakehouse, Foundry, or Spark-replacement
   claims.
-- [ ] `GAR-IOREUSE-1` adds I/O reuse and cross-format fanout follow-through. The flow must show
-  `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
-  SinkArtifact`, keep input and output formats decoupled, expose source/prepared/output reuse and
-  invalidation evidence, and preserve distinct direct-transient, compatibility-import-certified,
+- [ ] `GAR-IOREUSE-1` adds I/O reuse and cross-format fanout follow-through. `GAR-IOREUSE-1A`
+  now exposes SourceState identity, digest, source-format/location/fingerprint/schema fields,
+  parse/decode plan digest, reuse hit/reason, no-fallback fields, and claim boundaries in benchmark
+  artifacts. The remaining flow must add VortexPreparedState, OutputPlan, fanout, invalidation, and
+  sink evidence while preserving distinct direct-transient, compatibility-import-certified,
   prepared-vortex, and native-vortex lanes without adding object-store/lakehouse, performance, or
   fallback claims.
 - [ ] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and

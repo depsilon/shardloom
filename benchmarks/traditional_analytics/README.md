@@ -291,17 +291,28 @@ ordering, and cardinality estimation. Optimizer traces should report before/afte
 rewrite safety, `evidence_preserved=true`, no-fallback fields, correctness smoke refs for applied
 rewrites, and claim gates. They are explainability evidence only, not lazy optimizer parity,
 SQL/DataFrame runtime, or performance proof.
-`GAR-IOREUSE-1` tracks the I/O reuse and cross-format fanout benchmark follow-up. Future rows should
-model the workflow as `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan ->
-OutputPlan -> SinkArtifact`, not as matching input/output formats. Planned families are
-`io_reuse_and_fanout`, `source_state_reuse`, `prepared_state_reuse`, `output_plan_reuse`,
-`cross_format_output`, and `generated_source_output`. Planned fanout cases include CSV input ->
-Parquet + JSONL + Vortex outputs, Parquet input -> CSV + Vortex outputs, JSONL input -> Parquet +
-Vortex outputs, generated source -> CSV + Parquet + Vortex outputs, and prepared Vortex -> multiple
-output formats. Rows must expose source discovery, schema inference, parse, Vortex preparation,
-operator compute, output plan, output write, output replay, total runtime, source/prepared/output
-reuse hits, fanout output count, no-fallback/no-external-engine fields, and claim gate status.
-These rows are local workflow/evidence rows, not a performance leaderboard.
+`GAR-IOREUSE-1` tracks the I/O reuse and cross-format fanout benchmark follow-up. Rows model the
+workflow as `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
+SinkArtifact`, not as matching input/output formats. `GAR-IOREUSE-1A` adds the first SourceState
+contract to the benchmark JSON/Markdown artifact with
+`source_state_contract_schema_version=shardloom.traditional_analytics.source_state.v1`,
+`source_state_status_vocabulary`, `source_state_status`, `source_state_id`,
+`source_state_digest`, `source_format`, `source_location`, `source_fingerprint_kind`,
+`schema_digest`, `row_count_known`, `file_count`, `byte_size`, `partition_columns`,
+`compression`, `source_state_reuse_allowed`, `source_discovery_millis`,
+`schema_inference_millis`, `source_parse_millis`, `parse_decode_plan_digest`,
+`source_state_reuse_hit`, `source_state_reuse_reason`,
+`source_state_materialization_decode_boundary_ref`, `source_state_fallback_attempted=false`,
+`source_state_external_engine_invoked=false`, `source_state_claim_gate_status=not_claim_grade`, and
+`source_state_claim_boundary`. CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC rows can all report a
+SourceState posture. Planned fanout families remain `io_reuse_and_fanout`,
+`source_state_reuse`, `prepared_state_reuse`, `output_plan_reuse`, `cross_format_output`, and
+`generated_source_output`. Planned fanout cases include CSV input -> Parquet + JSONL + Vortex
+outputs, Parquet input -> CSV + Vortex outputs, JSONL input -> Parquet + Vortex outputs, generated
+source -> CSV + Parquet + Vortex outputs, and prepared Vortex -> multiple output formats. Future
+rows must add Vortex preparation, operator compute, output plan, output write, output replay, total
+runtime, prepared/output reuse hits, fanout output count, no-fallback/no-external-engine fields, and
+claim gate status. These rows are local workflow/evidence rows, not a performance leaderboard.
 `GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence for selective-filter
 prepared/native rows. Current rows classify bitpacked filter, sequence predicate, dictionary
 equality/group-by, constant count/filter, sorted min/max pruning, and FSST/dictionary string
@@ -415,8 +426,10 @@ per-child `scenario_<slug>_source_state_coverage_*` fields. Coverage statuses ar
 `source-state-reused`, `source-state-not-needed`, `blocked-with-reason`, and
 `unsupported-with-reason`. Rows also report
 `source_state_digest_status=not_emitted_scoped_in_memory_source_state` because the current batch
-source states are scoped in-process derived state; universal content-addressed `SourceState`
-digests belong to the GAR-IOREUSE-1A follow-up.
+source states are scoped in-process derived state. GAR-IOREUSE-1A adds a separate universal
+SourceState identity/digest contract at the benchmark row level; it does not replace the
+family-specific batch source-state fields or turn scoped reuse into output support, Vortex-native
+execution, or a performance claim.
 
 `GAR-PERF-2F` adds a scoped in-process session-backed prepared/native batch lane for local artifacts.
 Batch rows now expose `session_id`, explicit open/close/drop status, prepared-artifact

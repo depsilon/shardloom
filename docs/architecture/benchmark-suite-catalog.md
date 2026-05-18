@@ -458,8 +458,10 @@ per-child `scenario_<slug>_source_state_coverage_*` fields. The status vocabular
 `source-state-reused`, `source-state-not-needed`, `blocked-with-reason`, and
 `unsupported-with-reason`. The matrix also records
 `source_state_digest_status=not_emitted_scoped_in_memory_source_state` because the current source
-states are scoped in-process derived state; universal content-addressed `SourceState` IDs and
-digests belong to GAR-IOREUSE-1A. Remaining GAR-PERF-1 follow-ups are fused
+states are scoped in-process derived state. GAR-IOREUSE-1A now adds separate universal local
+SourceState IDs and digests to the benchmark row contract; those fields are SourceState posture
+evidence and do not replace the family-specific batch coverage matrix. Remaining GAR-PERF-1
+follow-ups are fused
 filter/project/limit and selection-vector execution plus the report-only Bayesian performance/layout
 advisor. These are evidence and architecture slices: benchmark outputs must remain local
 pre-release evidence, not leaderboards or public performance claims. Compatibility-import rows
