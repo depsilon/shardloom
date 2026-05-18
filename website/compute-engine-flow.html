@@ -434,13 +434,13 @@ claim-gated benchmark/reporting</code></pre>
 <li><strong>compatibility_import_certified</strong><span>current ingest/stage certification lane</span></li>
 <li><strong>prepared_vortex</strong><span>current/preferred performance lane</span></li>
 <li><strong>native_vortex</strong><span>current scoped native-artifact lane</span></li>
-<li><strong>direct_compatibility_transient</strong><span>scoped CSV smoke + unsupported diagnostics</span></li>
+<li><strong>direct_compatibility_transient</strong><span>scoped CSV filter paths + unsupported diagnostics</span></li>
 <li><strong>Compatibility ingest boundary</strong><span>adapter -&gt; NativeWorkStream -&gt; Vortex write/reopen</span></li>
 <li><strong>Prepared Vortex boundary</strong><span>prepare once -&gt; reuse artifact</span></li>
 <li><strong>Native Vortex boundary</strong><span>existing .vortex -&gt; Source / Scan / Split</span></li>
 <li><strong>Transient compatibility boundary</strong><span>no persistent Vortex artifact</span></li>
 <li><strong>Provider admission</strong><span>Vortex provider / ShardLoom kernel / diagnostic</span></li>
-<li><strong>Selective-filter encoded predicate provider</strong><span>admitted filter inputs; metric aggregation pending</span></li>
+<li><strong>Scoped filter providers</strong><span>selective filter + filter/project/limit evidence</span></li>
 </ol></section>
 </div>
 <details class="diagram-edges">
@@ -458,7 +458,7 @@ claim-gated benchmark/reporting</code></pre>
 <li><span>prepared_vortex</span> <span>Prepared Vortex boundary</span></li>
 <li><span>native_vortex</span> <span>Native Vortex boundary</span></li>
 <li><span>direct_compatibility_transient</span> <span>Transient compatibility boundary</span></li>
-<li><span>Provider admission</span> <em>selective filter today</em> <span>Selective-filter encoded predicate provider</span></li>
+<li><span>Provider admission</span> <em>scoped CSV filter paths today</em> <span>Scoped filter providers</span></li>
 </ol></details>
 <details class="diagram-source"><summary>Mermaid source</summary><pre><code data-language="mermaid">flowchart TD
     REQUESTED[&quot;requested_execution_mode&quot;]
@@ -468,7 +468,7 @@ claim-gated benchmark/reporting</code></pre>
     COMPAT[&quot;compatibility_import_certified&lt;br/&gt;current ingest/stage certification lane&quot;]
     PREPARED[&quot;prepared_vortex&lt;br/&gt;current/preferred performance lane&quot;]
     NATIVE[&quot;native_vortex&lt;br/&gt;current scoped native-artifact lane&quot;]
-    DIRECT[&quot;direct_compatibility_transient&lt;br/&gt;scoped CSV smoke + unsupported diagnostics&quot;]
+    DIRECT[&quot;direct_compatibility_transient&lt;br/&gt;scoped CSV filter paths + unsupported diagnostics&quot;]
 
     COMPAT_BOUNDARY[&quot;Compatibility ingest boundary&lt;br/&gt;adapter -&gt; NativeWorkStream -&gt; Vortex write/reopen&quot;]
     PREPARED_BOUNDARY[&quot;Prepared Vortex boundary&lt;br/&gt;prepare once -&gt; reuse artifact&quot;]
@@ -476,7 +476,7 @@ claim-gated benchmark/reporting</code></pre>
     DIRECT_BOUNDARY[&quot;Transient compatibility boundary&lt;br/&gt;no persistent Vortex artifact&quot;]
 
     PROVIDER[&quot;Provider admission&lt;br/&gt;Vortex provider / ShardLoom kernel / diagnostic&quot;]
-    SELECTIVE_BLOCKER[&quot;Selective-filter encoded predicate provider&lt;br/&gt;admitted filter inputs; metric aggregation pending&quot;]
+    SELECTIVE_BLOCKER[&quot;Scoped filter providers&lt;br/&gt;selective filter + filter/project/limit evidence&quot;]
 
     REQUESTED --&gt; AUTO --&gt; SELECTED
     REQUESTED --&gt; COMPAT
@@ -492,7 +492,7 @@ claim-gated benchmark/reporting</code></pre>
     PREPARED --&gt; PREPARED_BOUNDARY --&gt; PROVIDER
     NATIVE --&gt; NATIVE_BOUNDARY --&gt; PROVIDER
     DIRECT --&gt; DIRECT_BOUNDARY --&gt; PROVIDER
-    PROVIDER --&gt;|&quot;selective filter today&quot;| SELECTIVE_BLOCKER</code></pre></details>
+    PROVIDER --&gt;|&quot;scoped CSV filter paths today&quot;| SELECTIVE_BLOCKER</code></pre></details>
 </figure>
 <p>Mode timing fields must stay visible:</p>
 <pre><code data-language="text">source_read_millis
@@ -976,7 +976,7 @@ result_sink_claim_gate_status=result_sink_replay_certified|not_claim_grade_missi
 vortex_native_claim_allowed=true
 claim_gate_status=fixture_smoke_only | claim_grade | not_claim_grade</code></pre>
 <h3 id="mode-4-direct-compatibility-transient">Mode 4 - <code>direct_compatibility_transient</code></h3>
-<p>This is the traditional-compute-like ShardLoom path. The current repo has one scoped local CSV selective-filter smoke path with execution-certificate evidence; adjacent formats, operators, result sinks, SQL/DataFrame access, and broader transient runtime behavior still return deterministic unsupported diagnostics.</p>
+<p>This is the traditional-compute-like ShardLoom path. The current repo has scoped local CSV smoke paths for <code>selective filter</code> and <code>filter + projection + limit</code>, each with execution-certificate evidence and explicit non-Vortex-native status. Adjacent formats, broader operators, result sinks, SQL/DataFrame access, and broader transient runtime behavior still return deterministic unsupported diagnostics.</p>
 <p>SQL/DataFrame diagnostics for this mode are interpreted through the GAR-0001A-A planner-readiness matrix. The matrix is <code>not_claim_grade</code>, preserves <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>, and cannot be used as evidence for SQL/DataFrame runtime support.</p>
 <pre><code data-language="text">CSV / Parquet / JSONL / etc.
   -&gt; compatibility source adapter

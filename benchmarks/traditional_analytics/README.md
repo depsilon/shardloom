@@ -62,9 +62,9 @@ lanes prepare native Vortex artifacts once for each requested source format and 
 report the native/prepared scenario result under that source-format row, such as CSV
 or Parquet. They do not add standalone `.vortex` report rows.
 The optional `shardloom-direct-transient` lane runs only the scoped local CSV
-`selective filter` smoke path without persistent Vortex write/reopen. It exists to
-prove direct transient admission and evidence shape; it is not a Vortex-native,
-SQL/DataFrame, or performance-claim lane.
+`selective filter` and `filter + projection + limit` smoke paths without persistent Vortex
+write/reopen. It exists to prove direct transient admission and evidence shape; it is not a
+Vortex-native, SQL/DataFrame, or performance-claim lane.
 Native Vortex rows start from prepared/existing Vortex artifacts, but they may still use temporary
 ShardLoom operator paths unless the row's evidence proves encoded/native execution. External-engine
 rows are baseline comparisons only and never execute unsupported ShardLoom work as fallback.
@@ -316,11 +316,17 @@ The scoped direct-transient lane can be run explicitly:
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom-direct-transient,pandas --formats csv --scenario "selective filter" --rows 10000 --iterations 1
 ```
 
+For the second admitted direct-transient CSV smoke path, use:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom-direct-transient,pandas --formats csv --scenario "filter + projection + limit" --rows 10000 --iterations 1
+```
+
 That lane reports `execution_mode=direct_compatibility_transient`,
 `direct_transient_execution=true`, `vortex_file_written=false`, `vortex_file_read=false`,
 `upstream_vortex_scan_called=false`, `runtime_execution_certificate_status=certified`, and
-`vortex_native_claim_allowed=false`. Adjacent formats, operators, result sinks, replay paths, and
-SQL/DataFrame access remain unsupported unless later phase-plan slices add evidence.
+`vortex_native_claim_allowed=false`. Adjacent formats, broader operators, result sinks, replay
+paths, and SQL/DataFrame access remain unsupported unless later phase-plan slices add evidence.
 
 Prepared/native rows also expose provider-admission evidence. The current local Vortex file
 scan/source boundary is admitted as the Vortex-native provider surface; residual scenario operators

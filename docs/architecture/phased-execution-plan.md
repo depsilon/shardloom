@@ -359,30 +359,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-- [ ] GAR-FLOW-1C direct transient format/operator/result-sink expansion gate
-  - Source: `docs/architecture/compute-engine-flow-reference.md`; RFC 0033; RFC 0042.
-  - Current state: `direct_compatibility_transient` has deterministic admission diagnostics and one
-    scoped local CSV selective-filter smoke path; broader formats, operators, result sinks, and
-    SQL/DataFrame direct transient runtime remain incomplete.
-  - Next slice outcome: split direct transient follow-through into explicit unsupported diagnostics
-    or one new scoped smoke path with evidence, depending on the selected format/operator.
-  - User-visible surface: CLI benchmark rows, Python typed accessors if capability fields change,
-    benchmark docs, and compute-flow docs.
-  - Implementation scope: direct-transient admission/report fields, traditional benchmark runner
-    coverage, focused Rust/Python tests, and docs.
-  - Evidence required: correctness refs for any admitted smoke path; execution certificate refs;
-    materialization/decode refs; policy/no-fallback refs; result-sink refs if output is written.
-  - Acceptance: every newly named direct-transient path reports `support_status`,
-    `claim_gate_status`, `fallback_attempted=false`, `external_engine_invoked=false`, and either
-    deterministic unsupported diagnostics or scoped fixture evidence.
-  - Verification: focused traditional-analytics direct-transient tests, benchmark harness contract
-    test, Python compileall if Python fields change, and default GAR verification.
-  - Non-goals: no broad direct-transient runtime, no SQL/DataFrame execution, no external engine,
-    no Vortex-native claim, and no performance claim.
-  - Fallback/claim boundary: direct transient remains scoped and cannot satisfy Vortex-native,
-    production, Spark-displacement, or performance claims.
-  - Dependencies/blockers: source/format-specific parser support, result-sink evidence, and
-    operator coverage.
 #### GAR-PERF-1 - End-To-End Prepared/Native Performance Architecture
 
 - [ ] GAR-PERF-1D Bayesian performance and layout advisor report-only contract

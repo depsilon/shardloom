@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-FLOW-1C direct transient filter/projection/limit CSV smoke path
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+  - Scope: expand the scoped `direct_compatibility_transient` local CSV smoke lane from
+    selective-filter-only to also admit `filter + projection + limit` without persistent Vortex
+    write/reopen, result-sink output, SQL/DataFrame execution, external fallback, or any
+    Vortex-native/performance/production claim.
+  - Checklist:
+    - [x] Add ShardLoom-native direct transient CSV execution for the existing
+          `filter + projection + limit` fixture semantics.
+    - [x] Keep the path CSV-only, in-memory-result-only, and explicitly non-Vortex-native with
+          `compatibility_to_vortex_import_performed=false`, `vortex_file_written=false`,
+          `vortex_file_read=false`, and `upstream_vortex_scan_called=false`.
+    - [x] Emit scenario-specific execution certificate, benchmark row ref, and coverage row ref
+          values for `direct_transient_csv_filter_projection_limit`.
+    - [x] Keep adjacent direct-transient formats/operators/result sinks as deterministic
+          unsupported diagnostics with no fallback execution.
+    - [x] Remove `GAR-FLOW-1C` from the active Planned queue and update compute-flow,
+          benchmark, and website reference docs.
+  - Evidence/verification:
+    - `cargo test -p shardloom-vortex direct_transient --features vortex-traditional-analytics-benchmark --lib`
+    - `cargo test -p shardloom-cli --features vortex-traditional-analytics-benchmark --test typed_envelope_compatibility_lock direct_transient`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom-direct-transient,pandas --formats csv --scenario "filter + projection + limit" --rows 1000 --iterations 1 --output target/codex-gar-flow-1c-smoke.json --markdown-output target/codex-gar-flow-1c-smoke.md --regenerate --skip-shardloom-native`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - The completed slice may claim only two scoped local CSV direct-transient smoke paths:
+      `selective filter` and `filter + projection + limit`.
+    - It does not authorize broad direct-transient runtime, result-sink support, Vortex-native
+      execution, encoded-native execution, SQL/DataFrame execution, object-store/lakehouse support,
+      Foundry support, package publication, Spark replacement, performance/superiority claims, or
+      production readiness.
+  - Fallback boundary:
+    - Every admitted and unsupported direct-transient path must preserve
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-IOREUSE-1G Foundry generated-output fanout posture
   - Primary files:
     - `scripts/foundry_proof_of_use.py`

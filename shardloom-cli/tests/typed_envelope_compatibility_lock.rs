@@ -770,7 +770,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 ("no_effects", "true"),
                 (
                     "unsupported_detail",
-                    "direct transient smoke currently supports only selective filter",
+                    "direct transient smoke currently supports only selective filter or filter + projection + limit",
                 ),
             ],
             fragments: &[
@@ -910,6 +910,109 @@ fn traditional_analytics_direct_transient_csv_success_keeps_typed_envelope() {
     assert_contains(
         &stdout,
         "{\\\"row_count\\\":2,\\\"metric_sum\\\":6.5}",
+        case.name,
+    );
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_analytics_direct_transient_filter_projection_limit_keeps_typed_envelope() {
+    let root = std::env::temp_dir().join(format!(
+        "shardloom-cli-direct-transient-fpl-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time after epoch")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&root).expect("temp root");
+    let fact_csv = root.join("fact.csv");
+    let dim_csv = root.join("dim.csv");
+    std::fs::write(
+        &fact_csv,
+        "id,group_key,dim_key,value,metric,flag,category\n1,10,1,6000,2.5,1,A\n2,11,2,1000,3.5,0,B\n3,10,1,8000,4.0,1,A\n",
+    )
+    .expect("fact csv");
+    std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").expect("dim csv");
+    let fact_arg = fact_csv.display().to_string();
+    let dim_arg = dim_csv.display().to_string();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "traditional-analytics-run",
+            "filter + projection + limit",
+            &fact_arg,
+            &dim_arg,
+            "--input-format",
+            "csv",
+            "--execution-mode",
+            "direct_compatibility_transient",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("shardloom command runs");
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    let stderr = String::from_utf8(output.stderr).expect("stderr is utf8");
+    let case = EnvelopeCase {
+        name: "traditional analytics direct transient filter projection limit success",
+        args: &[],
+        command: "traditional-analytics-run",
+        status: "success",
+        family: "benchmarks",
+        success: true,
+        allow_stderr: false,
+        fields: &[],
+        fragments: &[],
+    };
+
+    assert!(
+        output.status.success(),
+        "{}: stdout={stdout} stderr={stderr}",
+        case.name
+    );
+    assert!(stderr.is_empty(), "{}: stderr={stderr}", case.name);
+    assert_common_typed_slots(&stdout, &case);
+    for (key, value) in [
+        ("scenario", "filter + projection + limit"),
+        ("requested_execution_mode", "direct_compatibility_transient"),
+        ("selected_execution_mode", "direct_compatibility_transient"),
+        ("execution_mode_family", "compatibility"),
+        ("mode_supported", "true"),
+        ("support_status", "supported"),
+        ("direct_transient_execution", "true"),
+        ("vortex_native_claim_allowed", "false"),
+        ("compatibility_import_included", "false"),
+        ("vortex_write_reopen_included", "false"),
+        ("compatibility_to_vortex_import_performed", "false"),
+        ("vortex_file_written", "false"),
+        ("vortex_file_read", "false"),
+        ("upstream_vortex_scan_called", "false"),
+        ("runtime_execution_certificate_status", "certified"),
+        (
+            "runtime_execution_certificate_id",
+            "gar-flow-1c.direct_transient_csv_filter_projection_limit.runtime",
+        ),
+        (
+            "benchmark_row_ref",
+            "benchmark://local_vortex_analytics_v1/direct_transient_csv_filter_projection_limit",
+        ),
+        (
+            "coverage_row_ref",
+            "coverage.direct_compatibility_transient.local_csv_filter_projection_limit",
+        ),
+        ("native_io_certificate_status", "not_vortex_native"),
+        ("write_io", "false"),
+        ("fallback_attempted", "false"),
+        ("external_engine_invoked", "false"),
+    ] {
+        assert_field(&stdout, key, value, case.name);
+    }
+    assert_contains(
+        &stdout,
+        "{\\\"row_count\\\":2,\\\"metric_sum\\\":14000.0}",
         case.name,
     );
 
