@@ -727,9 +727,10 @@ plan before coding.
 - [ ] `GAR-IOREUSE-1` adds planned I/O reuse and cross-format fanout evidence. `GAR-IOREUSE-1A`,
   `GAR-IOREUSE-1B`, and `GAR-IOREUSE-1C` now establish SourceState, VortexPreparedState, and
   OutputPlan benchmark/report contracts for local source discovery/schema/parse posture, prepared
-  artifact identity/digest/reuse posture, and scoped local Vortex result-sink output posture. The
-  next work is cross-format fanout, layer fingerprints, invalidation reasons, evidence-safe reuse
-  levels, benchmark timing fields, and no-fallback/no-external-engine evidence so reuse cannot
+  artifact identity/digest/reuse posture, and scoped local Vortex result-sink output posture.
+  `GAR-IOREUSE-1D` now adds a report-only fanout benchmark matrix for the required cross-format
+  cases. The next work is runtime fanout, layer fingerprints, invalidation reasons, evidence-safe
+  reuse levels, benchmark timing fields, and no-fallback/no-external-engine evidence so reuse cannot
   silently become claim-grade or performance proof.
 - [ ] Broad CG-5/CG-6 coverage, production stateful reuse runtime, and performance/superiority
   claims remain incomplete.
@@ -775,13 +776,14 @@ plan before coding.
   runtime-supported, smoke-supported, report-only, blocked, or not-planned. It still needs typed
   website/status and Python capability projection before users or agents can consume the matrix as
   a stable machine surface.
-- [ ] `GAR-IOREUSE-1D` through `GAR-IOREUSE-1F` add the remaining Native I/O reuse ladder after
+- [ ] `GAR-IOREUSE-1E` through `GAR-IOREUSE-1F` add the remaining Native I/O reuse ladder after
   `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract and
   `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract and
   `GAR-IOREUSE-1C` established the scoped OutputPlan benchmark/report contract:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
-  SinkArtifact`. The next work is to keep fanout, invalidation, and sink artifacts reusable and
-  independently certified without coupling input format to output format.
+  SinkArtifact`. `GAR-IOREUSE-1D` established report-only fanout case visibility. The next work is
+  to keep invalidation and sink artifacts reusable and independently certified without coupling
+  input format to output format.
 - [ ] CG-19 is not universal across object-store/range-read, streaming sinks, table/catalog,
   external adapters, and all production source/sink paths.
 
@@ -840,10 +842,11 @@ plan before coding.
 - [ ] `GAR-COMMERCIAL-1C` and `GAR-COMMERCIAL-1F` add buyer-facing status and workflow recipes so
   users can quickly determine whether ShardLoom supports, smoke-supports, reports-only, blocks, or
   does not plan common workflows without hiding unsupported paths.
-- [ ] `GAR-IOREUSE-1D` adds a planned cross-format fanout benchmark and workflow lane. It must show
-  local workflow coverage, reusable source/prepared/output planning, and per-output sink evidence
-  without treating fanout as performance proof or as a requirement that input and output formats
-  match.
+- [x] `GAR-IOREUSE-1D` adds a report-only cross-format fanout benchmark and workflow lane. It shows
+  required fanout case IDs, reusable source/prepared/output planning fields, deterministic blocker
+  IDs/reasons, timing/reuse columns, `fanout_output_count=0`, and no-fallback/no-external-engine
+  evidence without treating fanout as runtime support, performance proof, or a requirement that
+  input and output formats match.
 - [ ] `GAR-DOCS-1` adds non-expert workflow documentation coverage, recipe generation, glossary
   links, exact references, and a future website "Can I use this?" status matrix. It must document
   current local/smoke paths and blockers without creating production ETL, SQL/DataFrame,
@@ -1013,12 +1016,12 @@ plan before coding.
   filter predicate-only, projection-only, group-by kernel, hash-join kernel, top-k, result-sink
   write, and evidence-render primitives. These rows must remain subsystem evidence, not end-to-end
   benchmark claims, and skipped/unsupported primitives must be visible deterministic rows.
-- [ ] `GAR-IOREUSE-1D` adds the planned I/O reuse and cross-format fanout benchmark bundle:
+- [x] `GAR-IOREUSE-1D` adds the I/O reuse and cross-format fanout benchmark bundle visibility:
   `io_reuse_and_fanout`, `source_state_reuse`, `prepared_state_reuse`, `output_plan_reuse`,
-  `cross_format_output`, and `generated_source_output`. Future rows must report source discovery,
-  schema inference, parse, Vortex preparation, operator compute, output plan, output write, output
-  replay, reuse-hit, fanout count, no-fallback, no-external-engine, and claim-gate fields without
-  presenting the bundle as a speed leaderboard.
+  `cross_format_output`, and `generated_source_output`. Current rows report required fanout cases,
+  source/prepared/output reuse-hit fields, timing columns, `fanout_output_count=0`,
+  no-fallback/no-external-engine fields, and claim-gate fields without presenting the bundle as
+  runtime fanout support or a speed leaderboard.
 - [ ] Full comparative reruns, source-backed claim-grade promotion, managed-platform lanes,
   credentials, new managed dependencies, and public performance claims remain incomplete.
 
@@ -1271,10 +1274,12 @@ plan before coding.
   fields, and claim boundaries in benchmark artifacts. `GAR-IOREUSE-1C` now exposes OutputPlan
   identity, digest, target format/schema/location posture, metadata preservation/materialization
   fields, local Vortex write/replay refs, sink artifact refs/digests, no-fallback fields, and claim
-  boundaries in benchmark artifacts. The remaining flow must add fanout, invalidation, and broader
-  sink evidence while preserving distinct direct-transient, compatibility-import-certified,
-  prepared-vortex, and native-vortex lanes without adding object-store/lakehouse, performance, or
-  fallback claims.
+  boundaries in benchmark artifacts. `GAR-IOREUSE-1D` now exposes report-only fanout benchmark case
+  IDs, requested outputs, blocker IDs/reasons, timing/reuse columns, `fanout_output_count=0`,
+  no-fallback fields, and claim boundaries in benchmark artifacts. The remaining flow must add
+  invalidation and broader sink evidence while preserving distinct direct-transient,
+  compatibility-import-certified, prepared-vortex, and native-vortex lanes without adding
+  object-store/lakehouse, performance, or fallback claims.
 - [ ] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and
   confidence follow-up. OpenLineage facets and OpenTelemetry spans remain opt-in/report-only, and
   Bayesian confidence can block claims but cannot upgrade claim status by itself.

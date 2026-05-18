@@ -157,10 +157,11 @@ Supporting docs:
     evidence-safe reuse levels, and Foundry generated-output fanout posture.
   - Status rule: defines the
     `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`
-    architecture and benchmark field vocabulary only. Runtime state caches, fanout writers,
-    benchmark row schema changes, Foundry generated-output smoke, object-store I/O, table commits,
-    and claim-grade use must remain represented by `GAR-IOREUSE-1*` or later evidence-bearing
-    slices.
+    architecture and benchmark field vocabulary. GAR-IOREUSE-1A through GAR-IOREUSE-1D have
+    established SourceState, VortexPreparedState, OutputPlan, and report-only fanout benchmark row
+    contracts. Runtime state caches, fanout writers, cache invalidation, evidence-safe reuse
+    levels, Foundry generated-output smoke, object-store I/O, table commits, and claim-grade use
+    must remain represented by `GAR-IOREUSE-1*` or later evidence-bearing slices.
 - `docs/architecture/allocation-buffer-pool-optimization.md`
   - Role: GAR-PERF-2G reference for scoped allocation/resource-profile evidence and buffer-pool
     blocker semantics across prepared/native local runtime paths.
@@ -743,113 +744,13 @@ InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPla
 
 The benchmark bundle vocabulary is `io_reuse_and_fanout`, `source_state_reuse`,
 `prepared_state_reuse`, `output_plan_reuse`, `cross_format_output`, and
-`generated_source_output`. SourceState, VortexPreparedState, and OutputPlan row contracts are now
-established by GAR-IOREUSE-1A through GAR-IOREUSE-1C. Required future timing/reuse fields for the
-remaining fanout bundle include `operator_compute_millis`, `output_replay_millis`,
-`total_runtime_millis`, `output_plan_reuse_hit`, `fanout_output_count`,
-`fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`.
-
-- [ ] GAR-IOREUSE-1D cross-format fanout benchmark
-  - Source:
-    - GAR-IOREUSE-1A through GAR-IOREUSE-1C.
-    - global non-Vortex parity benchmark cube.
-    - OutputPlan reuse.
-    - VortexPreparedState reuse.
-    - `docs/architecture/io-reuse-and-fanout-architecture.md`.
-    - `benchmarks/traditional_analytics/README.md`.
-    - `benchmarks/traditional_analytics/run.py`.
-    - `docs/architecture/benchmark-suite-catalog.md`.
-    - `docs/benchmarks/local-taxonomy-benchmark.md`.
-    - RFC 0040 benchmark suite hardening.
-  - Current state:
-    - Traditional benchmark rows separate compatibility import, prepared/native paths, timing
-      stages, result-sink proof, and no-fallback evidence.
-    - There is no first-class benchmark family that starts from reusable source/prepared state and
-      fans out to multiple local output formats while reporting output-plan reuse separately.
-  - Next slice outcome:
-    - Add benchmark scenario families:
-      - `io_reuse_and_fanout`.
-      - `source_state_reuse`.
-      - `prepared_state_reuse`.
-      - `output_plan_reuse`.
-      - `cross_format_output`.
-      - `generated_source_output`.
-    - Add explicit fanout cases:
-      - CSV input -> Parquet + JSONL + Vortex outputs.
-      - Parquet input -> CSV + Vortex outputs.
-      - JSONL input -> Parquet + Vortex outputs.
-      - generated source -> CSV + Parquet + Vortex outputs.
-      - prepared Vortex -> multiple output formats.
-    - Emit deterministic unsupported/skipped rows where a source, preparation, output format, or
-      fanout combination is not runtime-supported.
-  - User-visible surface:
-    - benchmark JSON/Markdown artifacts.
-    - website benchmark page.
-    - compute-flow benchmark interpretation.
-    - local taxonomy benchmark docs.
-  - Implementation scope:
-    - benchmark scenario catalog.
-    - benchmark harness row schema.
-    - Markdown/HTML renderer.
-    - correctness digest refs per output where runtime rows are added.
-    - readiness checks for new rendered fields.
-  - Evidence required:
-    - `benchmark_family=io_reuse_and_fanout`.
-    - `source_discovery_millis`.
-    - `schema_inference_millis`.
-    - `source_parse_millis`.
-    - `vortex_prepare_millis`.
-    - `operator_compute_millis`.
-    - `output_plan_millis`.
-    - `output_write_millis`.
-    - `output_replay_millis`.
-    - `total_runtime_millis`.
-    - `source_state_reuse_hit`.
-    - `prepared_state_reuse_hit`.
-    - `output_plan_reuse_hit`.
-    - `fanout_output_count`.
-    - per-output artifact refs/digests.
-    - correctness refs when output data is written.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-    - `claim_gate_status`.
-  - Acceptance:
-    - Benchmark rows do not require input and output formats to match.
-    - Benchmark demonstrates when source/prepared state is reused across outputs.
-    - Raw one-shot speed and reuse/fanout speed are separated.
-    - No output sink is marked supported without replay/evidence proof.
-    - Compatibility-import, prepared-vortex, native-vortex, and direct-transient lanes remain
-      distinct.
-    - Cross-format output rows are framed as local workflow/evidence coverage, not speed rankings.
-    - Unsupported output formats and fanout combinations remain visible deterministic rows.
-  - Verification:
-    - focused benchmark smoke for one supported or report-only fanout row.
-    - benchmark harness contract test for required metrics.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`.
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`.
-    - `python scripts/check_website_readiness.py`.
-    - `git diff --check`.
-  - Non-goals:
-    - no benchmark recomputation in the planning slice.
-    - no performance/superiority claim.
-    - no object-store output.
-    - no lakehouse/table commit.
-    - no hidden fast mode.
-    - no external engine fallback.
-  - Claim boundary:
-    - Fanout benchmark rows are local pre-release workflow/evidence rows only.
-    - They cannot support public performance, superiority, Spark-displacement, production,
-      SQL/DataFrame, object-store/lakehouse, Foundry, package, or release claims.
-  - Fallback boundary:
-    - `fallback_attempted=false` and `external_engine_invoked=false` are required for every
-      fanout-supported, blocked, unsupported, skipped, or report-only row.
-  - Ledger rule:
-    - When complete, move the detailed completed session to the completed ledger with benchmark
-      artifact refs, renderer/readiness refs, unsupported row examples, and no-fallback evidence.
-  - Dependencies/blockers:
-    - SourceState, VortexPreparedState, and OutputPlan contracts; benchmark scenario catalog;
-      benchmark row schema; per-output correctness/replay evidence; local writer support; website
-      benchmark renderer; and deterministic unsupported-row renderer.
+`generated_source_output`. SourceState, VortexPreparedState, OutputPlan, and report-only fanout
+benchmark row contracts are now established by GAR-IOREUSE-1A through GAR-IOREUSE-1D. The active
+follow-through starts with cache/fingerprint invalidation, then evidence-safe reuse levels and
+Foundry generated-output fanout posture. Runtime fanout writers, multi-output correctness/replay
+evidence, object-store output, lakehouse/table commit semantics, hidden fast modes, external engine
+fallback, and performance claims remain out of scope until separate evidence-bearing slices admit
+them.
 
 - [ ] GAR-IOREUSE-1E cache invalidation and fingerprint contract
   - Source:

@@ -437,6 +437,88 @@ OUTPUT_PLAN_CONTRACT_FIELDS = (
     "output_plan_claim_gate_status",
     "output_plan_claim_boundary",
 )
+FANOUT_BENCHMARK_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.io_reuse_and_fanout.v1"
+)
+FANOUT_BENCHMARK_STATUS_VOCABULARY = (
+    "runtime_supported",
+    "fixture_smoke",
+    "report_only",
+    "blocked",
+    "unsupported",
+)
+FANOUT_BENCHMARK_FIELDS = (
+    "benchmark_family",
+    "fanout_case_id",
+    "source_format",
+    "prepared_state_required",
+    "generated_source_required",
+    "requested_output_formats",
+    "currently_proven_output_formats",
+    "blocked_output_formats",
+    "fanout_status",
+    "fanout_blocker_id",
+    "fanout_blocker_reason",
+    "source_discovery_millis",
+    "schema_inference_millis",
+    "source_parse_millis",
+    "vortex_prepare_millis",
+    "operator_compute_millis",
+    "output_plan_millis",
+    "output_write_millis",
+    "output_replay_millis",
+    "total_runtime_millis",
+    "source_state_reuse_hit",
+    "prepared_state_reuse_hit",
+    "output_plan_reuse_hit",
+    "fanout_output_count",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_gate_status",
+    "claim_boundary",
+)
+FANOUT_BENCHMARK_CASES = (
+    {
+        "fanout_case_id": "csv_to_parquet_jsonl_vortex_outputs",
+        "source_format": "csv",
+        "prepared_state_required": True,
+        "generated_source_required": False,
+        "requested_output_formats": ("parquet", "jsonl", "vortex"),
+        "blocker_id": "gar-ioreuse-1d.cross_format_output_runtime_not_implemented",
+    },
+    {
+        "fanout_case_id": "parquet_to_csv_vortex_outputs",
+        "source_format": "parquet",
+        "prepared_state_required": True,
+        "generated_source_required": False,
+        "requested_output_formats": ("csv", "vortex"),
+        "blocker_id": "gar-ioreuse-1d.cross_format_output_runtime_not_implemented",
+    },
+    {
+        "fanout_case_id": "jsonl_to_parquet_vortex_outputs",
+        "source_format": "jsonl",
+        "prepared_state_required": True,
+        "generated_source_required": False,
+        "requested_output_formats": ("parquet", "vortex"),
+        "blocker_id": "gar-ioreuse-1d.cross_format_output_runtime_not_implemented",
+    },
+    {
+        "fanout_case_id": "generated_source_to_csv_parquet_vortex_outputs",
+        "source_format": "generated_source",
+        "prepared_state_required": True,
+        "generated_source_required": True,
+        "requested_output_formats": ("csv", "parquet", "vortex"),
+        "blocker_id": "gar-ioreuse-1d.generated_source_output_runtime_not_implemented",
+    },
+    {
+        "fanout_case_id": "prepared_vortex_to_multiple_output_formats",
+        "source_format": "prepared_vortex",
+        "prepared_state_required": True,
+        "generated_source_required": False,
+        "requested_output_formats": ("csv", "jsonl", "parquet", "vortex"),
+        "blocker_id": "gar-ioreuse-1d.multi_output_fanout_runtime_not_implemented",
+    },
+)
 SESSION_RUNTIME_FIELDS = (
     "session_schema_version",
     "session_id",
@@ -5941,6 +6023,43 @@ def output_plan_contract() -> dict[str, Any]:
     }
 
 
+def fanout_benchmark_contract() -> dict[str, Any]:
+    return {
+        "contract_id": FANOUT_BENCHMARK_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(FANOUT_BENCHMARK_STATUS_VOCABULARY),
+        "row_fields": list(FANOUT_BENCHMARK_FIELDS),
+        "current_scope": (
+            "deterministic report-only benchmark matrix for required cross-format "
+            "fanout cases, using SourceState, VortexPreparedState, and OutputPlan "
+            "contract vocabulary without adding fanout runtime"
+        ),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> "
+            "OutputPlan -> SinkArtifact"
+        ),
+        "non_goals": [
+            "multi-output runtime execution",
+            "object-store output runtime",
+            "lakehouse/table commit support",
+            "generated-source runtime execution",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Fanout benchmark rows must preserve fallback_attempted=false and "
+            "external_engine_invoked=false for every supported, blocked, unsupported, "
+            "or report-only case."
+        ),
+        "claim_boundary": (
+            "The fanout benchmark matrix is local pre-release workflow/evidence posture. "
+            "It does not prove cross-format fanout runtime, object-store/lakehouse/table "
+            "commit, production, performance, SQL/DataFrame, Foundry, package, release, "
+            "or Spark-replacement readiness."
+        ),
+    }
+
+
 def source_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -6097,6 +6216,65 @@ def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "output_plan_external_engine_invoked"
                 ),
                 "output_plan_claim_boundary": metrics.get("output_plan_claim_boundary"),
+            }
+        )
+    return rows
+
+
+def fanout_benchmark_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    output_plan_rows = output_plan_matrix(results)
+    local_vortex_result_sink_available = any(
+        row.get("output_plan_status") == "output_plan_supported"
+        and row.get("output_format") == "vortex"
+        and row.get("result_replay_verified") is True
+        for row in output_plan_rows
+    )
+    currently_proven_output_formats = (
+        "vortex_result_sink_when_requested"
+        if local_vortex_result_sink_available
+        else "none_in_this_artifact"
+    )
+    rows: list[dict[str, Any]] = []
+    for case in FANOUT_BENCHMARK_CASES:
+        requested_outputs = tuple(case["requested_output_formats"])
+        blocked_outputs = ",".join(requested_outputs)
+        rows.append(
+            {
+                "benchmark_family": "io_reuse_and_fanout",
+                "fanout_case_id": case["fanout_case_id"],
+                "source_format": case["source_format"],
+                "prepared_state_required": case["prepared_state_required"],
+                "generated_source_required": case["generated_source_required"],
+                "requested_output_formats": ",".join(requested_outputs),
+                "currently_proven_output_formats": currently_proven_output_formats,
+                "blocked_output_formats": blocked_outputs,
+                "fanout_status": "report_only",
+                "fanout_blocker_id": case["blocker_id"],
+                "fanout_blocker_reason": (
+                    "first-class multi-output fanout benchmark runtime is not implemented; "
+                    "local Vortex result-sink OutputPlan evidence remains separate from "
+                    "cross-format fanout support"
+                ),
+                "source_discovery_millis": None,
+                "schema_inference_millis": None,
+                "source_parse_millis": None,
+                "vortex_prepare_millis": None,
+                "operator_compute_millis": None,
+                "output_plan_millis": None,
+                "output_write_millis": None,
+                "output_replay_millis": None,
+                "total_runtime_millis": None,
+                "source_state_reuse_hit": False,
+                "prepared_state_reuse_hit": False,
+                "output_plan_reuse_hit": False,
+                "fanout_output_count": 0,
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "claim_gate_status": "not_claim_grade",
+                "claim_boundary": (
+                    "report-only fanout benchmark posture; not runtime support, not a "
+                    "performance claim, and not object-store/lakehouse/table/Foundry support"
+                ),
             }
         )
     return rows
@@ -8591,6 +8769,27 @@ def render_output_plan_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_fanout_benchmark_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["fanout_benchmark_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -8615,6 +8814,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom rows carry SourceState contract fields for local source discovery, schema identity, parse/decode planning, fingerprinting, and scoped reuse posture; SourceState is input preparation evidence and never upgrades Vortex-native, output, object-store, SQL/DataFrame, production, or performance claims.",
         "ShardLoom prepared/native rows carry VortexPreparedState contract fields for prepared artifact refs, digests, preparation timing separation, source-state linkage, and scoped reuse posture; prepared-state evidence is not output support, encoded-native operator coverage, object-store/lakehouse support, or a performance claim.",
         "ShardLoom rows carry OutputPlan contract fields for local output planning posture; only result-sink rows with explicit local Vortex write/replay evidence can report output_plan_supported, and this is not cross-format fanout, object-store/lakehouse support, or a production sink claim.",
+        "ShardLoom artifacts include an io_reuse_and_fanout matrix for required cross-format fanout cases; current rows are report-only blockers until a first-class fanout benchmark runtime writes and replays multiple local outputs.",
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -9107,6 +9307,70 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
             "Claim gate",
             "Fallback",
             "External engine",
+        ],
+        rows,
+    )
+
+
+def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["fanout_benchmark_matrix"]:
+        rows.append(
+            [
+                str(row["benchmark_family"]),
+                str(row["fanout_case_id"]),
+                str(row["source_format"]),
+                str(row["requested_output_formats"]),
+                str(row["currently_proven_output_formats"]),
+                str(row["blocked_output_formats"]),
+                str(row["fanout_status"]),
+                str(row["fanout_blocker_id"]),
+                str(row["fanout_blocker_reason"]),
+                format_metric(row["source_discovery_millis"], " ms"),
+                format_metric(row["schema_inference_millis"], " ms"),
+                format_metric(row["source_parse_millis"], " ms"),
+                format_metric(row["vortex_prepare_millis"], " ms"),
+                format_metric(row["operator_compute_millis"], " ms"),
+                format_metric(row["output_plan_millis"], " ms"),
+                format_metric(row["output_write_millis"], " ms"),
+                format_metric(row["output_replay_millis"], " ms"),
+                format_metric(row["total_runtime_millis"], " ms"),
+                str(row["source_state_reuse_hit"]),
+                str(row["prepared_state_reuse_hit"]),
+                str(row["output_plan_reuse_hit"]),
+                str(row["fanout_output_count"]),
+                str(row["fallback_attempted"]),
+                str(row["external_engine_invoked"]),
+                str(row["claim_gate_status"]),
+            ]
+        )
+    return markdown_table(
+        [
+            "Family",
+            "Case",
+            "Source",
+            "Requested outputs",
+            "Currently proven outputs",
+            "Blocked outputs",
+            "Status",
+            "Blocker",
+            "Reason",
+            "Source discovery",
+            "Schema inference",
+            "Source parse",
+            "Vortex prepare",
+            "Operator compute",
+            "Output plan",
+            "Output write",
+            "Output replay",
+            "Total runtime",
+            "SourceState reuse",
+            "PreparedState reuse",
+            "OutputPlan reuse",
+            "Fanout outputs",
+            "Fallback",
+            "External engine",
+            "Claim gate",
         ],
         rows,
     )
@@ -9766,6 +10030,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_output_plan_contract(artifact),
         "",
+        "## I/O Reuse And Fanout Benchmark Contract",
+        "",
+        "This contract makes the required cross-format fanout benchmark cases visible as deterministic report-only rows until multi-output local fanout runtime and replay evidence exist.",
+        "",
+        render_fanout_benchmark_contract(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -9805,6 +10075,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "OutputPlan is output-planning evidence. Local Vortex result-sink rows can report scoped output-plan support only when write/replay evidence is present; other rows remain explicit `not_needed`, `report_only`, unsupported, or external-baseline posture.",
         "",
         render_output_plan_matrix(artifact),
+        "",
+        "## ShardLoom I/O Reuse And Fanout Benchmark Matrix",
+        "",
+        "Fanout rows list the required benchmark cases and current blockers. They are local workflow/evidence posture only, not runtime fanout support or speed rankings.",
+        "",
+        render_fanout_benchmark_matrix(artifact),
         "",
         "## Resource Metrics",
         "",
@@ -10109,6 +10385,7 @@ def main() -> int:
         "source_state_contract": source_state_contract(),
         "prepared_state_contract": prepared_state_contract(),
         "output_plan_contract": output_plan_contract(),
+        "fanout_benchmark_contract": fanout_benchmark_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
@@ -10121,6 +10398,7 @@ def main() -> int:
         "source_state_matrix": source_state_matrix(results),
         "prepared_state_matrix": prepared_state_matrix(results),
         "output_plan_matrix": output_plan_matrix(results),
+        "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
         "results": results,
         "shardloom_native_microbenchmarks": []
         if args.skip_shardloom_native

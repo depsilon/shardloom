@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1D cross-format fanout benchmark matrix evidence
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+  - Scope: define and expose a report-only cross-format fanout benchmark matrix for required
+    fanout cases, requested/blocked output formats, deterministic blocker IDs/reasons, timing/reuse
+    columns, fanout count, and no-fallback policy without implementing multi-output fanout runtime.
+  - Checklist:
+    - [x] Add `shardloom.traditional_analytics.io_reuse_and_fanout.v1` and required fanout row
+          fields for benchmark family, case ID, source format, requested/proven/blocked output
+          formats, fanout status/blocker, stage timing columns, source/prepared/output reuse hits,
+          fanout output count, no-fallback fields, and claim boundary.
+    - [x] Add required report-only fanout cases for CSV to Parquet/JSONL/Vortex, Parquet to
+          CSV/Vortex, JSONL to Parquet/Vortex, generated source to CSV/Parquet/Vortex, and prepared
+          Vortex to multiple output formats.
+    - [x] Add a fanout benchmark contract object and Markdown matrix so fanout posture is visible in
+          JSON and human reports.
+    - [x] Keep current rows `report_only`, `fanout_output_count=0`, `claim_gate_status=not_claim_grade`,
+          `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - [x] Preserve input/output format decoupling while keeping fanout runtime writers, object-store
+          output, lakehouse/table commit, Foundry production output, hidden fast modes, and
+          performance claims out of scope.
+    - [x] Remove the active GAR-IOREUSE-1D item from the Planned queue and update architecture,
+          traceability, benchmark, compute-flow, and website compute-flow docs.
+  - Evidence/verification:
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 100 --iterations 1 --skip-shardloom-native --shardloom-result-sink --output target/codex-gar-ioreuse-1d-smoke/traditional.json`
+    - `python -m compileall -q benchmarks/traditional_analytics website scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+  - Claim boundary:
+    - The completed slice may claim only report-only cross-format fanout benchmark visibility and
+      deterministic blocker evidence for required local fanout cases.
+    - It does not authorize multi-output fanout runtime, cross-format output support, generated
+      source output runtime, object-store or lakehouse runtime, table commit, production SQL/
+      DataFrame support, Foundry support, package publication, performance, superiority, Spark
+      replacement, or claim-grade fanout support.
+  - Fallback boundary:
+    - Every fanout matrix row must keep `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+    - External engines remain baseline-only and are not ShardLoom fanout providers or fallback
+      execution.
+
 - [x] Session label: GAR-IOREUSE-1C output-side OutputPlan benchmark evidence
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

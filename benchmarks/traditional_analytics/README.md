@@ -282,6 +282,14 @@ performance claim.
 `output_plan_claim_boundary`. Local Vortex result-sink rows can report
 `output_plan_status=output_plan_supported` only when write/replay evidence is present; rows without
 an output request remain explicit `not_needed` posture.
+`GAR-IOREUSE-1D` adds the first `io_reuse_and_fanout` benchmark matrix to the JSON/Markdown
+artifact. It lists the required fanout cases for CSV -> Parquet/JSONL/Vortex, Parquet -> CSV/
+Vortex, JSONL -> Parquet/Vortex, generated source -> CSV/Parquet/Vortex, and prepared Vortex ->
+multiple output formats. Current rows are deterministic `fanout_status=report_only` blockers with
+`fanout_output_count=0`, `fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status=not_claim_grade`; local Vortex result-sink proof remains visible as
+`currently_proven_output_formats=vortex_result_sink_when_requested` when the artifact was generated
+with result-sink proof.
 
 The scoped direct-transient lane can be run explicitly:
 
@@ -338,12 +346,12 @@ reuse posture. `GAR-IOREUSE-1C` adds the companion OutputPlan contract for local
 planning, metadata preservation posture, write/replay refs, and sink artifact identity. Planned
 fanout families remain `io_reuse_and_fanout`, `source_state_reuse`,
 `prepared_state_reuse`, `output_plan_reuse`, `cross_format_output`, and
-`generated_source_output`. Planned fanout cases include CSV input -> Parquet + JSONL + Vortex
-outputs, Parquet input -> CSV + Vortex outputs, JSONL input -> Parquet + Vortex outputs, generated
-source -> CSV + Parquet + Vortex outputs, and prepared Vortex -> multiple output formats. Future
-rows must add cross-format fanout, output-plan reuse hits, fanout output count, no-fallback/
-no-external-engine fields, and claim gate status. These rows are local workflow/evidence rows, not
-a performance leaderboard.
+`generated_source_output`. `GAR-IOREUSE-1D` adds report-only fanout rows for CSV input -> Parquet +
+JSONL + Vortex outputs, Parquet input -> CSV + Vortex outputs, JSONL input -> Parquet + Vortex
+outputs, generated source -> CSV + Parquet + Vortex outputs, and prepared Vortex -> multiple output
+formats. Future rows must replace those blockers with runtime cross-format fanout, output-plan
+reuse hits, fanout output count, no-fallback/no-external-engine fields, and claim gate status.
+These rows are local workflow/evidence rows, not a performance leaderboard.
 `GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence for selective-filter
 prepared/native rows. Current rows classify bitpacked filter, sequence predicate, dictionary
 equality/group-by, constant count/filter, sorted min/max pruning, and FSST/dictionary string
@@ -469,6 +477,9 @@ GAR-IOREUSE-1C adds a separate OutputPlan identity/digest/status contract at the
 level. It does not replace result-sink replay fields and does not turn local Vortex result-sink
 proof into cross-format fanout, object-store/lakehouse runtime, table commit, production sink
 support, or a performance claim.
+GAR-IOREUSE-1D adds a separate fanout benchmark matrix. It does not execute multi-output fanout and
+does not turn required fanout cases into supported outputs until future rows attach per-output
+write/replay/correctness evidence.
 
 `GAR-PERF-2F` adds a scoped in-process session-backed prepared/native batch lane for local artifacts.
 Batch rows now expose `session_id`, explicit open/close/drop status, prepared-artifact
