@@ -883,6 +883,23 @@ path is the feature-gated local compatibility-file-to-Vortex benchmark smoke
 and native `.vortex` replay; production adapter certification, object-store
 runtime, catalogs, SQL, DataFrame runtime, and UDF runtime remain future work.
 
+For a single source/sink compatibility view, use the typed scoreboard instead
+of scraping architecture prose:
+
+```python
+matrix = ctx.compatibility_scoreboard()
+print(matrix.schema_version)
+print(matrix.row("vortex").support_status)
+print(matrix.row("object_store_s3_gcs_adls").support_status)
+print(matrix.all_rows_no_fallback_no_external_engine)
+```
+
+The scoreboard maps local files, Vortex, generated outputs, Python rows,
+SQL literals, databases, object stores, table/lakehouse formats, remote APIs,
+and Foundry to `runtime-supported`, `smoke-supported`, `report-only`,
+`blocked`, or `not-planned`. It is a capability map only, not a production,
+performance, SQL/DataFrame, object-store/lakehouse, Foundry, or package claim.
+
 The client also exposes advisory optimization reports:
 
 ```python

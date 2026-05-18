@@ -25,6 +25,9 @@ DATA_DIR = WEBSITE / "assets" / "data"
 BENCHMARK_LATEST_DIR = WEBSITE / "assets" / "benchmarks" / "latest"
 DOC_USE_CASES = ROOT / "docs" / "use-cases"
 USE_CASE_PAGES = WEBSITE / "use-cases"
+COMPATIBILITY_SCOREBOARD_DATA = (
+    ROOT / "docs" / "architecture" / "universal-compatibility-coverage-scoreboard.json"
+)
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
@@ -370,6 +373,84 @@ def status_ribbon() -> str:
 """
 
 
+def load_compatibility_scoreboard() -> dict[str, Any]:
+    if not COMPATIBILITY_SCOREBOARD_DATA.exists():
+        return {"rows": []}
+    return json.loads(COMPATIBILITY_SCOREBOARD_DATA.read_text(encoding="utf-8"))
+
+
+def render_compatibility_scoreboard_section() -> str:
+    scoreboard = load_compatibility_scoreboard()
+    rows = scoreboard.get("rows", [])
+    if not isinstance(rows, list) or not rows:
+        return ""
+    featured_ids = {
+        "csv",
+        "parquet",
+        "vortex",
+        "generated_source_free_outputs",
+        "python_rows_dataframe",
+        "sql_values_literals",
+        "object_store_s3_gcs_adls",
+        "table_lakehouse_iceberg_delta_hudi",
+        "foundry",
+    }
+    display_rows = [
+        row
+        for row in rows
+        if isinstance(row, dict) and row.get("surface_id") in featured_ids
+    ]
+    table_rows = "\n".join(
+        "<tr>"
+        f"<td><strong>{esc(row.get('surface'))}</strong><span>{esc(row.get('surface_family'))}</span></td>"
+        f"<td><span class=\"claim-badge {status_class(str(row.get('support_status', 'report_only')).replace('-', '_'))}\">{esc(row.get('support_status'))}</span></td>"
+        f"<td>{esc(row.get('direction'))}</td>"
+        f"<td>{esc(row.get('claim_gate_status'))}</td>"
+        f"<td>{esc(row.get('claim_boundary'))}</td>"
+        "</tr>"
+        for row in display_rows
+    )
+    runtime_count = sum(
+        1
+        for row in rows
+        if isinstance(row, dict) and row.get("support_status") == "runtime-supported"
+    )
+    smoke_count = sum(
+        1
+        for row in rows
+        if isinstance(row, dict) and row.get("support_status") == "smoke-supported"
+    )
+    report_only_count = sum(
+        1
+        for row in rows
+        if isinstance(row, dict) and row.get("support_status") == "report-only"
+    )
+    blocked_count = sum(
+        1 for row in rows if isinstance(row, dict) and row.get("support_status") == "blocked"
+    )
+    return f"""
+    <section id="compatibility">
+      <div class="shell">
+        <p class="eyebrow">Compatibility scoreboard</p>
+        <h2>Can I use this surface?</h2>
+        <p class="section-lede">The universal compatibility scoreboard is a typed capability map, not a support expansion. It keeps runtime-supported, smoke-supported, report-only, and blocked rows visible without treating planned adapters, object stores, table formats, SQL/DataFrame, or Foundry as production support.</p>
+        <div class="metric-row">
+          <div class="metric"><strong>{runtime_count}</strong><span>runtime-supported rows</span></div>
+          <div class="metric"><strong>{smoke_count}</strong><span>smoke-supported rows</span></div>
+          <div class="metric"><strong>{report_only_count}</strong><span>report-only rows</span></div>
+          <div class="metric"><strong>{blocked_count}</strong><span>blocked rows</span></div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Surface</th><th>Status</th><th>Direction</th><th>Claim gate</th><th>Boundary</th></tr></thead>
+            <tbody>{table_rows}</tbody>
+          </table>
+        </div>
+        <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
+      </div>
+    </section>"""
+
+
 def site_footer() -> str:
     return """
   <footer class="site-footer">
@@ -597,6 +678,7 @@ def status_page() -> str:
       <div class="shell">
         <a href="#supported">Supported local smoke</a>
         <a href="#fixture">Fixture-smoke</a>
+        <a href="#compatibility">Compatibility</a>
         <a href="#report-only">Report-only</a>
         <a href="#blocked">Blocked</a>
         <a href="#planned">Planned</a>
@@ -625,6 +707,7 @@ def status_page() -> str:
         </div>
       </div>
     </section>
+{render_compatibility_scoreboard_section()}
     <section id="report-only">
       <div class="shell">
         <p class="eyebrow">Report-only surfaces</p>
@@ -972,6 +1055,7 @@ def status_label(status: str) -> str:
 def status_class(status: str) -> str:
     classes = {
         "ready_local": "supported",
+        "runtime_supported": "supported",
         "smoke_supported": "fixture",
         "report_only": "report-only",
         "planned": "planned",

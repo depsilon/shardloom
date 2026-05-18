@@ -54,6 +54,8 @@ from .context import (
     GeneratedSourceCaseCapability,
     GeneratedSourceCertificateContract,
     ShardLoomContext,
+    UniversalCompatibilityRow,
+    UniversalCompatibilityScoreboard,
     context,
 )
 from ._version import __version__
@@ -114,6 +116,8 @@ __all__ = [
     "GeneratedSourceApiAdmissionRow",
     "GeneratedSourceCaseCapability",
     "GeneratedSourceCertificateContract",
+    "UniversalCompatibilityRow",
+    "UniversalCompatibilityScoreboard",
     "CompatibilitySourcePlan",
     "CompatibilitySourceSmokeReport",
     "ContextCapabilities",

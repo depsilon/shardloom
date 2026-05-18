@@ -51,6 +51,7 @@ DEFAULT_CAPABILITY_SCOPES = (
     "deployment",
     "data-etl",
     "dataframe",
+    "compatibility",
     "adapters",
     "functions",
     "operators",
@@ -996,6 +997,261 @@ class GeneratedSourceApiAdmissionMatrix:
 
 
 @dataclass(frozen=True, slots=True)
+class UniversalCompatibilityRow:
+    """One row from the universal source/sink compatibility scoreboard."""
+
+    surface_id: str
+    surface: str | None
+    surface_family: str | None
+    direction: str | None
+    support_status: str | None
+    runtime_supported: bool | None
+    smoke_supported: bool | None
+    report_only: bool | None
+    credential_required: bool | None
+    network_required: bool | None
+    source_io_performed: bool | None
+    output_io_performed: bool | None
+    native_io_certificate_status: str | None
+    generated_source_certificate_status: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+    claim_gate_status: str | None
+    blocker_id: str | None
+    required_future_evidence: tuple[str, ...]
+    claim_boundary: str | None
+
+    @property
+    def supported_for_runtime_claims(self) -> bool:
+        """Whether this row can be treated as a runtime support claim."""
+
+        return self.support_status == "runtime-supported" and self.runtime_supported is True
+
+    @property
+    def blocked_or_report_only(self) -> bool:
+        """Whether this row is deliberately not runtime-supported."""
+
+        return self.support_status in {"blocked", "report-only", "not-planned"}
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the row preserves ShardLoom's no-fallback boundary."""
+
+        return self.fallback_attempted is False and self.external_engine_invoked is False
+
+
+@dataclass(frozen=True, slots=True)
+class UniversalCompatibilityScoreboard:
+    """Typed view over the universal source/sink compatibility scoreboard."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the scoreboard schema version."""
+
+        return self.capability.field("universal_compatibility_scoreboard_schema_version")
+
+    @property
+    def scoreboard_id(self) -> str | None:
+        """Return the scoreboard identifier."""
+
+        return self.capability.field("universal_compatibility_scoreboard_id")
+
+    @property
+    def docs_ref(self) -> str | None:
+        """Return the human-readable source document path."""
+
+        return self.capability.field("universal_compatibility_scoreboard_docs_ref")
+
+    @property
+    def data_ref(self) -> str | None:
+        """Return the machine-readable source document path."""
+
+        return self.capability.field("universal_compatibility_scoreboard_data_ref")
+
+    @property
+    def support_status_vocabulary(self) -> tuple[str, ...]:
+        """Return status tokens used by the scoreboard."""
+
+        return _split_csv(
+            self.capability.field("universal_compatibility_support_status_vocabulary")
+        )
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return scoreboard row IDs in stable order."""
+
+        return _split_csv(self.capability.field("universal_compatibility_row_order"))
+
+    @property
+    def rows(self) -> tuple[UniversalCompatibilityRow, ...]:
+        """Return all scoreboard rows."""
+
+        return tuple(self.row(row_id) for row_id in self.row_order)
+
+    @property
+    def runtime_supported_count(self) -> int:
+        """Return runtime-supported row count."""
+
+        return (
+            self.capability.envelope.field_int(
+                "universal_compatibility_runtime_supported_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def smoke_supported_count(self) -> int:
+        """Return smoke-supported row count."""
+
+        return (
+            self.capability.envelope.field_int(
+                "universal_compatibility_smoke_supported_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def report_only_count(self) -> int:
+        """Return report-only row count."""
+
+        return (
+            self.capability.envelope.field_int(
+                "universal_compatibility_report_only_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def blocked_count(self) -> int:
+        """Return blocked row count."""
+
+        return (
+            self.capability.envelope.field_int("universal_compatibility_blocked_count", 0)
+            or 0
+        )
+
+    @property
+    def claim_boundary(self) -> str | None:
+        """Return the scoreboard-level claim boundary."""
+
+        return self.capability.field("universal_compatibility_claim_boundary")
+
+    @property
+    def all_rows_no_fallback_no_external_engine(self) -> bool:
+        """Whether every row preserves no fallback and no external engine."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_all_rows_fallback_attempted_false", False
+            )
+            is True
+            and self.capability.envelope.field_bool(
+                "universal_compatibility_all_rows_external_engine_invoked_false", False
+            )
+            is True
+            and all(row.no_fallback_no_external_engine for row in self.rows)
+        )
+
+    @property
+    def object_store_runtime_supported(self) -> bool:
+        """Whether object-store runtime is supported by this scoreboard."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_object_store_runtime_supported", False
+            )
+            is True
+        )
+
+    @property
+    def table_runtime_supported(self) -> bool:
+        """Whether table/lakehouse runtime is supported by this scoreboard."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_table_runtime_supported", False
+            )
+            is True
+        )
+
+    @property
+    def foundry_runtime_supported(self) -> bool:
+        """Whether Foundry runtime is supported by this scoreboard."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_foundry_runtime_supported", False
+            )
+            is True
+        )
+
+    @property
+    def sql_dataframe_runtime_supported(self) -> bool:
+        """Whether broad SQL/DataFrame runtime is supported by this scoreboard."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_sql_dataframe_runtime_supported", False
+            )
+            is True
+        )
+
+    def row(self, surface_id: str) -> UniversalCompatibilityRow:
+        """Return one scoreboard row by surface ID."""
+
+        normalized = surface_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(f"compatibility surface {surface_id!r} is not in the scoreboard")
+        prefix = f"universal_compatibility_row_{normalized}"
+        return UniversalCompatibilityRow(
+            surface_id=normalized,
+            surface=self.capability.field(f"{prefix}_surface"),
+            surface_family=self.capability.field(f"{prefix}_surface_family"),
+            direction=self.capability.field(f"{prefix}_direction"),
+            support_status=self.capability.field(f"{prefix}_support_status"),
+            runtime_supported=self.capability.envelope.field_bool(
+                f"{prefix}_runtime_supported"
+            ),
+            smoke_supported=self.capability.envelope.field_bool(
+                f"{prefix}_smoke_supported"
+            ),
+            report_only=self.capability.envelope.field_bool(f"{prefix}_report_only"),
+            credential_required=self.capability.envelope.field_bool(
+                f"{prefix}_credential_required"
+            ),
+            network_required=self.capability.envelope.field_bool(
+                f"{prefix}_network_required"
+            ),
+            source_io_performed=self.capability.envelope.field_bool(
+                f"{prefix}_source_io_performed"
+            ),
+            output_io_performed=self.capability.envelope.field_bool(
+                f"{prefix}_output_io_performed"
+            ),
+            native_io_certificate_status=self.capability.field(
+                f"{prefix}_native_io_certificate_status"
+            ),
+            generated_source_certificate_status=self.capability.field(
+                f"{prefix}_generated_source_certificate_status"
+            ),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            blocker_id=self.capability.field(f"{prefix}_blocker_id"),
+            required_future_evidence=_split_csv(
+                self.capability.field(f"{prefix}_required_future_evidence")
+            ),
+            claim_boundary=self.capability.field(f"{prefix}_claim_boundary"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityView:
     """Typed convenience view over one capability-discovery envelope."""
 
@@ -1318,6 +1574,12 @@ class CapabilityView:
         return GeneratedSourceApiAdmissionMatrix(self)
 
     @property
+    def universal_compatibility_scoreboard(self) -> UniversalCompatibilityScoreboard:
+        """Return universal source/sink compatibility coverage posture."""
+
+        return UniversalCompatibilityScoreboard(self)
+
+    @property
     def planner_readiness_claim_gate_status(self) -> str | None:
         """Return the planner-readiness claim gate status when present."""
 
@@ -1507,10 +1769,22 @@ class ContextCapabilities:
         return self.scope("dataframe")
 
     @property
+    def compatibility(self) -> CapabilityView:
+        """Return universal compatibility scoreboard capability state."""
+
+        return self.scope("compatibility")
+
+    @property
     def dataframe_method_matrix(self) -> DataFrameMethodCapabilityMatrix:
         """Return DataFrame/query-builder method support and claim boundaries."""
 
         return self.dataframe.dataframe_method_matrix
+
+    @property
+    def universal_compatibility_scoreboard(self) -> UniversalCompatibilityScoreboard:
+        """Return universal source/sink compatibility coverage posture."""
+
+        return self.compatibility.universal_compatibility_scoreboard
 
     @property
     def api_surfaces(self) -> CapabilityView:
@@ -1660,6 +1934,18 @@ class ShardLoomContext:
         """Return the report-only DataFrame/query-builder method capability matrix."""
 
         return self._capability_view("dataframe", check=check).dataframe_method_matrix
+
+    def compatibility_scoreboard(
+        self,
+        *,
+        check: bool = True,
+    ) -> UniversalCompatibilityScoreboard:
+        """Return the universal source/sink compatibility coverage scoreboard."""
+
+        return self._capability_view(
+            "compatibility",
+            check=check,
+        ).universal_compatibility_scoreboard
 
     def deployment(self, *, check: bool = True) -> CapabilityView:
         """Return deployment/package capability discovery."""

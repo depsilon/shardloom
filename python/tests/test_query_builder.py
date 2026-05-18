@@ -735,6 +735,95 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         self.assertTrue(matrix.external_engine_invoked)
 
+    def test_context_exposes_universal_compatibility_scoreboard(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == ["capabilities", "compatibility", "--format", "json"], sys.argv
+                fields = [
+                    {"key": "scope", "value": "compatibility"},
+                    {"key": "universal_compatibility_scoreboard_schema_version", "value": "shardloom.universal_compatibility_coverage_scoreboard.v1"},
+                    {"key": "universal_compatibility_scoreboard_id", "value": "gar-compat-1.universal_compatibility_coverage_scoreboard"},
+                    {"key": "universal_compatibility_scoreboard_docs_ref", "value": "docs/architecture/universal-compatibility-coverage-scoreboard.md"},
+                    {"key": "universal_compatibility_scoreboard_data_ref", "value": "docs/architecture/universal-compatibility-coverage-scoreboard.json"},
+                    {"key": "universal_compatibility_support_status_vocabulary", "value": "runtime-supported,smoke-supported,report-only,blocked,not-planned"},
+                    {"key": "universal_compatibility_row_count", "value": "4"},
+                    {"key": "universal_compatibility_row_order", "value": "vortex,object_store_s3_gcs_adls,sql_values_literals,foundry"},
+                    {"key": "universal_compatibility_runtime_supported_count", "value": "1"},
+                    {"key": "universal_compatibility_smoke_supported_count", "value": "0"},
+                    {"key": "universal_compatibility_report_only_count", "value": "2"},
+                    {"key": "universal_compatibility_blocked_count", "value": "1"},
+                    {"key": "universal_compatibility_claim_boundary", "value": "capability map only"},
+                    {"key": "universal_compatibility_all_rows_fallback_attempted_false", "value": "true"},
+                    {"key": "universal_compatibility_all_rows_external_engine_invoked_false", "value": "true"},
+                    {"key": "universal_compatibility_object_store_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_table_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_foundry_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_sql_dataframe_runtime_supported", "value": "false"},
+                ]
+                for row_id, surface, family, direction, status, runtime, report_only, credential, network, source_io, output_io, native_status, generated_status, claim_status, blocker, claim_boundary in [
+                    ("vortex", "Vortex", "native_file_layout", "read_write", "runtime-supported", "true", "false", "false", "false", "true", "true", "scoped_local_vortex_evidence_backed", "not_applicable", "fixture_smoke_only", "gar-compat-1a.vortex_universal_runtime_evidence_missing", "scoped local Vortex evidence only"),
+                    ("object_store_s3_gcs_adls", "S3 / GCS / ADLS", "object_store", "read_write", "blocked", "false", "false", "true", "true", "false", "false", "not_emitted", "not_applicable", "not_claim_grade", "gar-compat-1c.object_store_runtime_blocked", "no object-store runtime claim"),
+                    ("sql_values_literals", "SQL VALUES / literals", "sql_frontend", "api", "report-only", "false", "true", "false", "false", "false", "false", "not_emitted", "not_emitted_report_only", "not_claim_grade", "gar-compat-1b.sql_source_free_runtime_blocked", "no SQL runtime claim"),
+                    ("foundry", "Foundry", "platform_integration", "api", "report-only", "false", "true", "true", "true", "false", "false", "not_emitted", "not_emitted_report_only", "not_claim_grade", "gar-compat-1a.foundry_platform_proof_missing", "future validation target only"),
+                ]:
+                    prefix = f"universal_compatibility_row_{row_id}"
+                    fields.extend([
+                        {"key": f"{prefix}_surface", "value": surface},
+                        {"key": f"{prefix}_surface_family", "value": family},
+                        {"key": f"{prefix}_direction", "value": direction},
+                        {"key": f"{prefix}_support_status", "value": status},
+                        {"key": f"{prefix}_runtime_supported", "value": runtime},
+                        {"key": f"{prefix}_smoke_supported", "value": "false"},
+                        {"key": f"{prefix}_report_only", "value": report_only},
+                        {"key": f"{prefix}_credential_required", "value": credential},
+                        {"key": f"{prefix}_network_required", "value": network},
+                        {"key": f"{prefix}_source_io_performed", "value": source_io},
+                        {"key": f"{prefix}_output_io_performed", "value": output_io},
+                        {"key": f"{prefix}_native_io_certificate_status", "value": native_status},
+                        {"key": f"{prefix}_generated_source_certificate_status", "value": generated_status},
+                        {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                        {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                        {"key": f"{prefix}_claim_gate_status", "value": claim_status},
+                        {"key": f"{prefix}_blocker_id", "value": blocker},
+                        {"key": f"{prefix}_required_future_evidence", "value": "future_evidence"},
+                        {"key": f"{prefix}_claim_boundary", "value": claim_boundary},
+                    ])
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "capabilities",
+                    "status": "success",
+                    "summary": "compatibility scoreboard",
+                    "human_text": "compatibility scoreboard",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        scoreboard = ShardLoomContext(ShardLoomClient(binary=binary)).compatibility_scoreboard()
+
+        self.assertEqual(
+            scoreboard.schema_version,
+            "shardloom.universal_compatibility_coverage_scoreboard.v1",
+        )
+        self.assertEqual(
+            scoreboard.data_ref,
+            "docs/architecture/universal-compatibility-coverage-scoreboard.json",
+        )
+        self.assertEqual(scoreboard.runtime_supported_count, 1)
+        self.assertEqual(scoreboard.blocked_count, 1)
+        self.assertEqual(scoreboard.row("object-store-s3-gcs-adls").support_status, "blocked")
+        self.assertTrue(scoreboard.row("vortex").supported_for_runtime_claims)
+        self.assertTrue(scoreboard.row("foundry").blocked_or_report_only)
+        self.assertFalse(scoreboard.object_store_runtime_supported)
+        self.assertFalse(scoreboard.sql_dataframe_runtime_supported)
+        self.assertFalse(scoreboard.foundry_runtime_supported)
+        self.assertTrue(scoreboard.all_rows_no_fallback_no_external_engine)
+
     def test_context_exposes_rest_api_contract_views(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

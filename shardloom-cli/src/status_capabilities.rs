@@ -108,6 +108,403 @@ const PREDICATE_DTYPE_COVERAGE_SUPPORT_STATUS_VOCABULARY: &str =
     "unsupported,fixture_needed,executable_uncertified,fixture_certified,claim_grade";
 const PREDICATE_DTYPE_COVERAGE_CATEGORY_VOCABULARY: &str =
     "predicate,dtype,null_semantics,nested_shape,statistics";
+const UNIVERSAL_COMPATIBILITY_SCOREBOARD_SCHEMA_VERSION: &str =
+    "shardloom.universal_compatibility_coverage_scoreboard.v1";
+const UNIVERSAL_COMPATIBILITY_SCOREBOARD_ID: &str =
+    "gar-compat-1.universal_compatibility_coverage_scoreboard";
+const UNIVERSAL_COMPATIBILITY_DOCS_REF: &str =
+    "docs/architecture/universal-compatibility-coverage-scoreboard.md";
+const UNIVERSAL_COMPATIBILITY_DATA_REF: &str =
+    "docs/architecture/universal-compatibility-coverage-scoreboard.json";
+const UNIVERSAL_COMPATIBILITY_SUPPORT_STATUS_VOCABULARY: &str =
+    "runtime-supported,smoke-supported,report-only,blocked,not-planned";
+const UNIVERSAL_COMPATIBILITY_CLAIM_BOUNDARY: &str = "compatibility coverage is a capability map and evidence inventory, not a production, performance, Spark-replacement, SQL/DataFrame, object-store/lakehouse, Foundry, or package-readiness claim";
+
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct UniversalCompatibilityRow {
+    id: &'static str,
+    surface: &'static str,
+    family: &'static str,
+    direction: &'static str,
+    support_status: &'static str,
+    runtime_supported: bool,
+    smoke_supported: bool,
+    report_only: bool,
+    credential_required: bool,
+    network_required: bool,
+    source_io_performed: bool,
+    output_io_performed: bool,
+    native_io_certificate_status: &'static str,
+    generated_source_certificate_status: &'static str,
+    blocker_id: &'static str,
+    required_future_evidence: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+}
+
+const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
+    UniversalCompatibilityRow {
+        id: "csv",
+        surface: "CSV",
+        family: "local_compatibility_file",
+        direction: "read_write",
+        support_status: "smoke-supported",
+        runtime_supported: false,
+        smoke_supported: true,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: true,
+        output_io_performed: false,
+        native_io_certificate_status: "scoped_compatibility_import_certificate",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.csv.broader_runtime_evidence_missing",
+        required_future_evidence: "broader_schema_malformed_input_writer_operator_coverage",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "compatibility import evidence only",
+    },
+    UniversalCompatibilityRow {
+        id: "jsonl_json",
+        surface: "JSONL / NDJSON / JSON",
+        family: "local_compatibility_file",
+        direction: "read_write",
+        support_status: "smoke-supported",
+        runtime_supported: false,
+        smoke_supported: true,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: true,
+        output_io_performed: false,
+        native_io_certificate_status: "scoped_compatibility_import_certificate",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.json.general_runtime_evidence_missing",
+        required_future_evidence: "nested_json_schema_drift_writer_diagnostics",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped local JSONL compatibility evidence only",
+    },
+    UniversalCompatibilityRow {
+        id: "parquet",
+        surface: "Parquet",
+        family: "local_compatibility_file",
+        direction: "read_write",
+        support_status: "smoke-supported",
+        runtime_supported: false,
+        smoke_supported: true,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: true,
+        output_io_performed: false,
+        native_io_certificate_status: "scoped_compatibility_import_certificate",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.parquet.broader_runtime_evidence_missing",
+        required_future_evidence: "pushdown_writer_metadata_table_boundary_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "parquet preparation evidence only",
+    },
+    UniversalCompatibilityRow {
+        id: "arrow_ipc",
+        surface: "Arrow IPC",
+        family: "local_compatibility_file",
+        direction: "read_write",
+        support_status: "smoke-supported",
+        runtime_supported: false,
+        smoke_supported: true,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: true,
+        output_io_performed: false,
+        native_io_certificate_status: "scoped_compatibility_import_certificate",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.arrow_ipc.zero_copy_evidence_missing",
+        required_future_evidence: "zero_copy_streaming_output_fidelity_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "interop boundary only",
+    },
+    UniversalCompatibilityRow {
+        id: "avro",
+        surface: "Avro",
+        family: "local_compatibility_file",
+        direction: "read_write",
+        support_status: "smoke-supported",
+        runtime_supported: false,
+        smoke_supported: true,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: true,
+        output_io_performed: false,
+        native_io_certificate_status: "scoped_compatibility_import_certificate",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.avro.logical_type_evidence_missing",
+        required_future_evidence: "schema_evolution_logical_type_writer_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped compatibility import evidence only",
+    },
+    UniversalCompatibilityRow {
+        id: "orc",
+        surface: "ORC",
+        family: "local_compatibility_file",
+        direction: "read_write",
+        support_status: "smoke-supported",
+        runtime_supported: false,
+        smoke_supported: true,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: true,
+        output_io_performed: false,
+        native_io_certificate_status: "scoped_compatibility_import_certificate",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.orc.statistics_writer_evidence_missing",
+        required_future_evidence: "predicate_stripe_statistics_writer_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped compatibility import evidence only",
+    },
+    UniversalCompatibilityRow {
+        id: "excel",
+        surface: "Excel",
+        family: "local_desktop_document_file",
+        direction: "read_write",
+        support_status: "blocked",
+        runtime_supported: false,
+        smoke_supported: false,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: false,
+        output_io_performed: false,
+        native_io_certificate_status: "not_emitted",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.excel.parser_policy_missing",
+        required_future_evidence: "parser_dependency_license_formula_effect_policy",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "excel source/sink support is not claimed",
+    },
+    UniversalCompatibilityRow {
+        id: "sqlite",
+        surface: "SQLite",
+        family: "database_file",
+        direction: "read_write",
+        support_status: "report-only",
+        runtime_supported: false,
+        smoke_supported: false,
+        report_only: true,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: false,
+        output_io_performed: false,
+        native_io_certificate_status: "not_emitted",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.sqlite.connector_evidence_missing",
+        required_future_evidence: "connector_policy_transaction_snapshot_no_fallback_diagnostics",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "sqlite import/export support is not claimed",
+    },
+    UniversalCompatibilityRow {
+        id: "postgres_mysql",
+        surface: "Postgres / MySQL",
+        family: "database_service",
+        direction: "read_write",
+        support_status: "report-only",
+        runtime_supported: false,
+        smoke_supported: false,
+        report_only: true,
+        credential_required: true,
+        network_required: true,
+        source_io_performed: false,
+        output_io_performed: false,
+        native_io_certificate_status: "not_emitted",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.database_service.connector_evidence_missing",
+        required_future_evidence: "credential_policy_network_policy_snapshot_import_export_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "external databases are not fallback engines",
+    },
+    UniversalCompatibilityRow {
+        id: "jdbc_odbc",
+        surface: "JDBC / ODBC",
+        family: "connector_bridge",
+        direction: "read_write",
+        support_status: "report-only",
+        runtime_supported: false,
+        smoke_supported: false,
+        report_only: true,
+        credential_required: true,
+        network_required: true,
+        source_io_performed: false,
+        output_io_performed: false,
+        native_io_certificate_status: "not_emitted",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.jdbc_odbc.driver_policy_missing",
+        required_future_evidence: "dependency_license_driver_loading_credentials_imported_schema_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "jdbc/odbc bridge availability is not claimed",
+    },
+    UniversalCompatibilityRow {
+        id: "object_store_s3_gcs_adls",
+        surface: "S3 / GCS / ADLS",
+        family: "object_store",
+        direction: "read_write",
+        support_status: "blocked",
+        runtime_supported: false,
+        smoke_supported: false,
+        report_only: false,
+        credential_required: true,
+        network_required: true,
+        source_io_performed: false,
+        output_io_performed: false,
+        native_io_certificate_status: "not_emitted",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1c.object_store_runtime_blocked",
+        required_future_evidence: "uri_parse_credential_policy_public_read_byte_range_read_write_staging_commit_protocol",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "no object-store runtime claim",
+    },
+    UniversalCompatibilityRow {
+        id: "table_lakehouse_iceberg_delta_hudi",
+        surface: "Iceberg / Delta / Hudi",
+        family: "table_lakehouse_format",
+        direction: "read_write",
+        support_status: "report-only",
+        runtime_supported: false,
+        smoke_supported: false,
+        report_only: true,
+        credential_required: true,
+        network_required: true,
+        source_io_performed: false,
+        output_io_performed: false,
+        native_io_certificate_status: "not_emitted",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1d.table_runtime_commit_blocked",
+        required_future_evidence: "metadata_scan_snapshot_delete_append_merge_commit_rollback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "no production lakehouse or table commit claim",
+    },
+    UniversalCompatibilityRow {
+        id: "vortex",
+        surface: "Vortex",
+        family: "native_file_layout",
+        direction: "read_write",
+        support_status: "runtime-supported",
+        runtime_supported: true,
+        smoke_supported: true,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: true,
+        output_io_performed: true,
+        native_io_certificate_status: "scoped_local_vortex_evidence_backed",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.vortex_universal_runtime_evidence_missing",
+        required_future_evidence: "broader_source_split_sink_encoded_operator_object_store_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped local Vortex evidence only",
+    },
+    UniversalCompatibilityRow {
+        id: "generated_source_free_outputs",
+        surface: "Generated / source-free outputs",
+        family: "generated_source",
+        direction: "generated",
+        support_status: "smoke-supported",
+        runtime_supported: false,
+        smoke_supported: true,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: false,
+        output_io_performed: true,
+        native_io_certificate_status: "local_output_certificate_required",
+        generated_source_certificate_status: "scoped_local_jsonl_smoke",
+        blocker_id: "gar-compat-1b.generated_output_broader_api_evidence_missing",
+        required_future_evidence: "sequence_values_literal_table_calendar_sql_dataframe_object_store_foundry_output_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "local JSONL fixture-smoke generated-output runtime only",
+    },
+    UniversalCompatibilityRow {
+        id: "python_rows_dataframe",
+        surface: "Python rows / DataFrame",
+        family: "user_api",
+        direction: "api",
+        support_status: "smoke-supported",
+        runtime_supported: false,
+        smoke_supported: true,
+        report_only: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: false,
+        output_io_performed: true,
+        native_io_certificate_status: "local_output_certificate_required",
+        generated_source_certificate_status: "scoped_local_jsonl_smoke",
+        blocker_id: "gar-compat-1b.python_dataframe_broad_runtime_blocked",
+        required_future_evidence: "typed_api_admission_generated_source_local_sink_no_fallback_tests",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "no broad DataFrame runtime claim",
+    },
+    UniversalCompatibilityRow {
+        id: "sql_values_literals",
+        surface: "SQL VALUES / literals",
+        family: "sql_frontend",
+        direction: "api",
+        support_status: "report-only",
+        runtime_supported: false,
+        smoke_supported: false,
+        report_only: true,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: false,
+        output_io_performed: false,
+        native_io_certificate_status: "not_emitted",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-compat-1b.sql_source_free_runtime_blocked",
+        required_future_evidence: "parser_binder_literal_semantics_generated_source_certificate_output_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "no SQL parser/binder/planner/runtime claim",
+    },
+    UniversalCompatibilityRow {
+        id: "rest_flight_adbc",
+        surface: "REST / Flight / ADBC",
+        family: "remote_and_data_plane_api",
+        direction: "api",
+        support_status: "report-only",
+        runtime_supported: false,
+        smoke_supported: false,
+        report_only: true,
+        credential_required: true,
+        network_required: true,
+        source_io_performed: false,
+        output_io_performed: false,
+        native_io_certificate_status: "not_emitted",
+        generated_source_certificate_status: "not_applicable",
+        blocker_id: "gar-compat-1a.rest_flight_adbc_runtime_blocked",
+        required_future_evidence: "transport_contract_auth_lifecycle_result_delivery_no_fallback_parity",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "no production API/server/data-plane bridge claim",
+    },
+    UniversalCompatibilityRow {
+        id: "foundry",
+        surface: "Foundry",
+        family: "platform_integration",
+        direction: "api",
+        support_status: "report-only",
+        runtime_supported: false,
+        smoke_supported: false,
+        report_only: true,
+        credential_required: true,
+        network_required: true,
+        source_io_performed: false,
+        output_io_performed: false,
+        native_io_certificate_status: "not_emitted",
+        generated_source_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-compat-1a.foundry_platform_proof_missing",
+        required_future_evidence: "real_foundry_environment_output_api_governance_lineage_no_external_compute_proof",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "future validation target only",
+    },
+];
 
 const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
     ComputeCapabilityRow {
@@ -2973,6 +3370,7 @@ pub(crate) enum CapabilityDiscoveryScope {
     Workflow,
     RemoteApi,
     CrossCg,
+    Compatibility,
 }
 
 impl CapabilityDiscoveryScope {
@@ -3009,6 +3407,9 @@ impl CapabilityDiscoveryScope {
             Some("cross-cg" | "cross_cg" | "integrated" | "integrated-certification") => {
                 Ok(Self::CrossCg)
             }
+            Some("compatibility" | "universal-compatibility" | "universal_compatibility") => {
+                Ok(Self::Compatibility)
+            }
             Some(value) => Err(cli_unknown_arg_error("capabilities", value)),
         }
     }
@@ -3041,6 +3442,7 @@ impl CapabilityDiscoveryScope {
             Self::Workflow => "workflow",
             Self::RemoteApi => "remote_api",
             Self::CrossCg => "cross_cg",
+            Self::Compatibility => "compatibility",
         }
     }
 
@@ -3132,6 +3534,9 @@ pub(crate) fn certification_fields(
         | CapabilityDiscoveryScope::Workflow
         | CapabilityDiscoveryScope::RemoteApi
         | CapabilityDiscoveryScope::CrossCg => {}
+        CapabilityDiscoveryScope::Compatibility => {
+            append_universal_compatibility_fields(&mut fields);
+        }
         CapabilityDiscoveryScope::Sql => append_sql_certification_fields(report, &mut fields),
         CapabilityDiscoveryScope::Functions => {
             append_function_certification_fields(report, &mut fields);
@@ -4551,6 +4956,212 @@ fn append_full_certification_fields(
     );
 }
 
+fn universal_compatibility_row_order() -> String {
+    UNIVERSAL_COMPATIBILITY_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn universal_compatibility_status_count(status: &str) -> usize {
+    UNIVERSAL_COMPATIBILITY_ROWS
+        .iter()
+        .filter(|row| row.support_status == status)
+        .count()
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "universal_compatibility_scoreboard_schema_version",
+        UNIVERSAL_COMPATIBILITY_SCOREBOARD_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_scoreboard_id",
+        UNIVERSAL_COMPATIBILITY_SCOREBOARD_ID,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_scoreboard_docs_ref",
+        UNIVERSAL_COMPATIBILITY_DOCS_REF,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_scoreboard_data_ref",
+        UNIVERSAL_COMPATIBILITY_DATA_REF,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_support_status_vocabulary",
+        UNIVERSAL_COMPATIBILITY_SUPPORT_STATUS_VOCABULARY,
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_row_count",
+        UNIVERSAL_COMPATIBILITY_ROWS.len(),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_row_order",
+        &universal_compatibility_row_order(),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_runtime_supported_count",
+        universal_compatibility_status_count("runtime-supported"),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_smoke_supported_count",
+        universal_compatibility_status_count("smoke-supported"),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_report_only_count",
+        universal_compatibility_status_count("report-only"),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_blocked_count",
+        universal_compatibility_status_count("blocked"),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_claim_boundary",
+        UNIVERSAL_COMPATIBILITY_CLAIM_BOUNDARY,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_runtime_coverage_distinct_from_plan_coverage",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_no_unsupported_surface_advertised_supported",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_all_rows_fallback_attempted_false",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_all_rows_external_engine_invoked_false",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_table_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_foundry_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_sql_dataframe_runtime_supported",
+        false,
+    );
+
+    for row in UNIVERSAL_COMPATIBILITY_ROWS {
+        let prefix = format!("universal_compatibility_row_{}", row.id);
+        push_field(fields, &format!("{prefix}_surface"), row.surface);
+        push_field(fields, &format!("{prefix}_surface_family"), row.family);
+        push_field(fields, &format!("{prefix}_direction"), row.direction);
+        push_field(
+            fields,
+            &format!("{prefix}_support_status"),
+            row.support_status,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_runtime_supported"),
+            row.runtime_supported,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_smoke_supported"),
+            row.smoke_supported,
+        );
+        push_bool_field(fields, &format!("{prefix}_report_only"), row.report_only);
+        push_bool_field(
+            fields,
+            &format!("{prefix}_credential_required"),
+            row.credential_required,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_network_required"),
+            row.network_required,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_source_io_performed"),
+            row.source_io_performed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_output_io_performed"),
+            row.output_io_performed,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_native_io_certificate_status"),
+            row.native_io_certificate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_generated_source_certificate_status"),
+            row.generated_source_certificate_status,
+        );
+        push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+        push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+        push_field(
+            fields,
+            &format!("{prefix}_required_future_evidence"),
+            row.required_future_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_boundary"),
+            row.claim_boundary,
+        );
+    }
+}
+
+fn universal_compatibility_text(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> String {
+    format!(
+        "{}\nuniversal compatibility scoreboard: {}\nrows: {}\nruntime_supported: {}\nsmoke_supported: {}\nreport_only: {}\nblocked: {}\nfallback execution: disabled\nexternal engine invocation: disabled\nclaim boundary: capability map only",
+        certification_summary_header(report, scope),
+        UNIVERSAL_COMPATIBILITY_SCOREBOARD_SCHEMA_VERSION,
+        UNIVERSAL_COMPATIBILITY_ROWS.len(),
+        universal_compatibility_status_count("runtime-supported"),
+        universal_compatibility_status_count("smoke-supported"),
+        universal_compatibility_status_count("report-only"),
+        universal_compatibility_status_count("blocked"),
+    )
+}
+
 fn certification_text(
     report: &CapabilityCertificationReport,
     scope: CapabilityDiscoveryScope,
@@ -4589,6 +5200,7 @@ fn certification_text(
         | CapabilityDiscoveryScope::CrossCg => {
             unreachable!("cross-CG parity scopes use dedicated parity reports")
         }
+        CapabilityDiscoveryScope::Compatibility => universal_compatibility_text(report, scope),
     }
 }
 
