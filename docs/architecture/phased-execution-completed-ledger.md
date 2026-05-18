@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-GEN-1A/GAR-GEN-1B GeneratedSourceCertificate contract and no-dataset smoke separation
+  - Primary files:
+    - `shardloom-core/src/generated_source.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+  - Scope: add a report-only generated-source certificate contract and harden no-dataset smoke
+    separation without implementing generated-output execution, SQL/DataFrame runtime, S3/object-store
+    writes, Foundry invocation, package publication, external-engine fallback, or any performance or
+    production claim.
+  - Checklist:
+    - [x] Add `shardloom.generated_source_certificate_contract.v1` in `shardloom-core` with stable
+          cases for `no_dataset_smoke`, `user_generated_source`, and
+          `engine_native_generated_source`.
+    - [x] Expose the contract through `capabilities sql`, `capabilities python`,
+          `capabilities dataframe`, `capabilities universal-adapters`, and
+          `capabilities api-surfaces`.
+    - [x] Keep `no_dataset_smoke` smoke-only with `input_dataset_count=0`,
+          `source_io_performed=false`, `generated_source_created=false`,
+          `output_io_performed=false`, and
+          `generated_source_certificate_status=not_applicable_no_generated_rows`.
+    - [x] Keep user-generated and engine-native generated-source rows report-only with deterministic
+          blockers and no runtime execution.
+    - [x] Add Python typed accessors through `CapabilityView.generated_source_contract` so users and
+          agents can inspect the contract without scraping raw fields.
+    - [x] Remove GAR-GEN-1A and GAR-GEN-1B from the active Planned queue and update compute-flow,
+          Python, Foundry, GAR, traceability, and website docs.
+  - Evidence/verification:
+    - `cargo test -p shardloom-core generated_source --lib`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+    - `python -m compileall -q python/src python/tests`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - The completed slice may claim only that ShardLoom has a report-only
+      `GeneratedSourceCertificate` contract and explicit no-dataset smoke separation in capability
+      views.
+    - It does not authorize generated-output runtime, output data claims, SQL/DataFrame runtime,
+      object-store/lakehouse support, Foundry production support, package publication,
+      Spark replacement, performance/superiority claims, or production readiness.
+  - Fallback boundary:
+    - Contract and capability rows require `fallback_attempted=false`,
+      `fallback_execution_allowed=false`, `external_engine_invoked=false`,
+      `generated_source_contract_object_store_io_performed=false`, and
+      `generated_source_contract_foundry_runtime_invoked=false`.
+
 - [x] Session label: GAR-FLOW-1C direct transient filter/projection/limit CSV smoke path
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`

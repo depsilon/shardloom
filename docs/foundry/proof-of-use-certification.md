@@ -72,7 +72,9 @@ Future Foundry generated-output proof must stay separate from no-dataset smoke:
     calendar/date dimension, or deterministic synthetic profile
   - ShardLoom writes output and emits generated-source and output evidence
 
-Generated-output proof fields should align with the `GAR-GEN-1` contract:
+Generated-output proof fields should align with the `GAR-GEN-1` contract. The current CLI/Python
+capability view exposes that report-only vocabulary as
+`shardloom.generated_source_certificate_contract.v1`; it is not runtime proof:
 
 ```text
 input_dataset_count=0
@@ -90,6 +92,16 @@ generated_source_certificate_status
 fallback_attempted=false
 external_engine_invoked=false
 claim_gate_status
+```
+
+Current no-dataset smoke remains explicitly non-generated-output:
+
+```text
+input_dataset_count=0
+source_io_performed=false
+generated_source_created=false
+output_io_performed=false
+generated_source_certificate_status=not_applicable_no_generated_rows
 ```
 
 S3/object-store boundaries remain blocked for this proof. Foundry generated-output smoke should write

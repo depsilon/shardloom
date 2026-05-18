@@ -8,7 +8,7 @@
 - **Status:** `planned`
 - **Execution mode:** `planned_generated_source`
 - **Engine mode:** `batch`
-- **Claim boundary:** Planned generated-output contract only; no current source-free runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, or package-publication claim.
+- **Claim boundary:** Report-only GeneratedSourceCertificate contract only; no current source-free runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, or package-publication claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Source-free generated output boundary is planned. The blocker and evidence requi
 
 ## Blocker
 
-No-input smoke exists, but generated-output execution needs a GeneratedSourceCertificate, deterministic generation evidence, and output sink proof before it can be supported.
+No-input smoke and the report-only GeneratedSourceCertificate contract exist, but generated-output execution still needs deterministic generation evidence and output sink proof before it can be supported.
 
 ## Internal Flow
 
@@ -39,7 +39,7 @@ No-input smoke exists, but generated-output execution needs a GeneratedSourceCer
 
 ## Expected Output Or Evidence
 
-Future rows should distinguish no_dataset_smoke from user_generated_source and engine_native_generated_source.
+Current capability rows distinguish no_dataset_smoke from user_generated_source and engine_native_generated_source; future runtime rows must add generated-source and output evidence.
 
 ## Common Mistakes
 

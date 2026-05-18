@@ -810,10 +810,11 @@ plan before coding.
   aggregations, windows, writes, schema/data-quality helpers, materialization/notebook display,
   input boundaries, SQL frontend posture, claim boundaries, required evidence, and
   no-fallback/no-external-engine posture.
-- [ ] `GAR-GEN-1` source-free generated-output execution remains planned. The next work is a
-  `GeneratedSourceCertificate` contract and capability rows that separate `no_dataset_smoke`,
-  `user_generated_source`, and `engine_native_generated_source` without promoting SQL/DataFrame
-  runtime, output data claims, or object-store/Foundry runtime.
+- [ ] `GAR-GEN-1` source-free generated-output runtime remains planned. `GAR-GEN-1A/1B` now add
+  the report-only `GeneratedSourceCertificate` contract and capability rows that separate
+  `no_dataset_smoke`, `user_generated_source`, and `engine_native_generated_source`; the remaining
+  GAR-GEN work is scoped generated-output runtime plus output-sink evidence without promoting broad
+  SQL/DataFrame runtime, object-store/Foundry runtime, or output data claims before evidence exists.
 - [ ] `GAR-NOVEL-1A` keeps `GeneratedSourceCertificate` aligned with Python/API docs,
   SQL/DataFrame capability rows, Foundry proof docs, and future lineage/telemetry/confidence refs
   without adding generated-output runtime.
@@ -1309,8 +1310,9 @@ plan before coding.
   support for local files, Vortex, generated outputs, Python/DataFrame, SQL, databases, object
   stores, table formats, REST/Flight/ADBC, and Foundry.
 - [ ] `GAR-GEN-1` is now the compute-flow follow-up for source-free generated-output execution.
-  The flow distinguishes no-dataset smoke from user-generated rows and engine-native generator nodes,
-  and requires generated-source plus output-sink evidence before any generated-output claim.
+  The flow now has report-only contract rows that distinguish no-dataset smoke from user-generated
+  rows and engine-native generator nodes, and it still requires generated-source plus output-sink
+  evidence before any generated-output runtime claim.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

@@ -30,6 +30,7 @@ pub mod execution_certificate;
 pub mod expression;
 pub mod extension;
 pub mod feature_footprint;
+pub mod generated_source;
 pub mod hybrid_engine;
 pub mod input;
 pub mod live_engine;
@@ -158,6 +159,11 @@ pub use extension::{
 pub use feature_footprint::{
     ExternalBaselineAvailability, FeatureFootprintGate, FeatureFootprintGateStatus,
     FeatureFootprintReport,
+};
+pub use generated_source::{
+    GeneratedSourceCaseKind, GeneratedSourceCertificateContractReport,
+    GeneratedSourceCertificateContractRow, GeneratedSourceCertificateStatus,
+    GeneratedSourceSupportStatus,
 };
 
 pub use hybrid_engine::{

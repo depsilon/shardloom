@@ -142,9 +142,9 @@ use_cases:
     inputs: [none, generated_rows, range, values, calendar_dimension]
     outputs: [planned_local_output_artifact, generated_source_certificate]
     evidence_fields: [input_dataset_count=0, source_io_performed=false, generated_source_created=true, generated_source_kind, generated_source_schema_digest, generated_source_row_count, output_io_performed, generated_source_certificate_status, output_native_io_certificate_status, fallback_attempted=false, external_engine_invoked=false, claim_gate_status]
-    claim_boundary: "Planned generated-output contract only; no current source-free runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, or package-publication claim."
-    blocked_explanation: "No-input smoke exists, but generated-output execution needs a GeneratedSourceCertificate, deterministic generation evidence, and output sink proof before it can be supported."
-    expected_output_evidence: "Future rows should distinguish no_dataset_smoke from user_generated_source and engine_native_generated_source."
+    claim_boundary: "Report-only GeneratedSourceCertificate contract only; no current source-free runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, or package-publication claim."
+    blocked_explanation: "No-input smoke and the report-only GeneratedSourceCertificate contract exist, but generated-output execution still needs deterministic generation evidence and output sink proof before it can be supported."
+    expected_output_evidence: "Current capability rows distinguish no_dataset_smoke from user_generated_source and engine_native_generated_source; future runtime rows must add generated-source and output evidence."
     common_mistakes: [confusing_no_dataset_smoke_with_generated_output, claiming_source_native_io_without_source_read, writing_to_s3]
     references: [docs/architecture/compute-engine-flow-reference.md, docs/foundry/proof-of-use-certification.md, python/README.md, docs/architecture/phased-execution-plan.md]
     related_use_cases: [first-10-minutes-local-smoke, foundry-local-proof-boundary, output-result-sink-and-fanout-boundary]

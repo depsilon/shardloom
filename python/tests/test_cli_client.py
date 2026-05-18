@@ -22,6 +22,7 @@ from shardloom import (
     DataFrameMethodCapabilityMatrix,
     EngineCapabilityMatrix,
     ExecutionResultEnvelopeView,
+    GeneratedSourceCertificateContract,
     LocalVortexPrimitiveSmokeReport,
     ShardLoomBinaryNotFoundError,
     ShardLoomClient,
@@ -925,6 +926,36 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "planner_readiness_external_engine_invoked", "value": "false"},
                             {"key": "planner_readiness_fallback_attempted", "value": "false"},
                         ])
+                    if scope in {"python", "sql", "dataframe", "api-surfaces"}:
+                        fields.extend([
+                            {"key": "generated_source_contract_schema_version", "value": "shardloom.generated_source_certificate_contract.v1"},
+                            {"key": "generated_source_contract_report_id", "value": "gar-gen-1.generated_source_certificate_contract"},
+                            {"key": "generated_source_certificate_schema_version", "value": "shardloom.generated_source_certificate.v1"},
+                            {"key": "generated_source_support_status_vocabulary", "value": "smoke_only,report_only,planned_runtime"},
+                            {"key": "generated_source_case_count", "value": "3"},
+                            {"key": "generated_source_case_order", "value": "no_dataset_smoke,user_generated_source,engine_native_generated_source"},
+                            {"key": "generated_source_required_field_order", "value": "input_dataset_count,source_io_performed,generated_source_created,generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,generated_source_seed,generation_deterministic,output_io_performed,output_native_io_certificate_status,generated_source_certificate_status,fallback_attempted,external_engine_invoked,claim_gate_status"},
+                            {"key": "generated_source_contract_claim_gate_status", "value": "not_claim_grade"},
+                            {"key": "generated_source_contract_fallback_attempted", "value": "false"},
+                            {"key": "generated_source_contract_external_engine_invoked", "value": "false"},
+                            {"key": "generated_source_contract_object_store_io_performed", "value": "false"},
+                            {"key": "generated_source_contract_foundry_runtime_invoked", "value": "false"},
+                            {"key": "generated_source_contract_broad_sql_dataframe_claim_allowed", "value": "false"},
+                            {"key": "no_dataset_smoke_support_status", "value": "smoke_only"},
+                            {"key": "no_dataset_smoke_generated_source_certificate_status", "value": "not_applicable_no_generated_rows"},
+                            {"key": "no_dataset_smoke_generated_source_created", "value": "false"},
+                            {"key": "no_dataset_smoke_output_io_performed", "value": "false"},
+                            {"key": "no_dataset_smoke_claim_gate_status", "value": "smoke_only"},
+                            {"key": "user_generated_source_support_status", "value": "report_only"},
+                            {"key": "user_generated_source_blocker_id", "value": "gar-gen-1.user_generated_source_runtime_not_implemented"},
+                            {"key": "engine_native_generated_source_support_status", "value": "report_only"},
+                            {"key": "engine_native_generated_source_blocker_id", "value": "gar-gen-1.engine_native_generated_source_runtime_not_implemented"},
+                            {"key": "input_dataset_count", "value": "0"},
+                            {"key": "source_io_performed", "value": "false"},
+                            {"key": "generated_source_created", "value": "false"},
+                            {"key": "output_io_performed", "value": "false"},
+                            {"key": "generated_source_certificate_status", "value": "not_applicable_no_generated_rows"},
+                        ])
                     if scope in {"workflow", "remote-api", "cross-cg"}:
                         fields.extend([
                             {"key": "severity", "value": "error"},
@@ -962,7 +993,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.python.field("scope"), "python")
         self.assertEqual(capabilities.python.support_status, "report_only")
         self.assertEqual(capabilities.python.claim_gate_status, "not_claim_grade")
-        self.assertEqual(capabilities.python.claim_gate_statuses, ("not_claim_grade",))
+        self.assertEqual(
+            capabilities.python.claim_gate_statuses,
+            ("not_claim_grade", "smoke_only"),
+        )
         self.assertFalse(capabilities.python.runtime_execution)
         self.assertFalse(capabilities.python.data_read)
         self.assertFalse(capabilities.python.write_io)
@@ -990,7 +1024,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.sql_support.claim_gate_status, "not_claim_grade")
         self.assertEqual(
             capabilities.sql_support.claim_gate_statuses,
-            ("not_claim_grade",),
+            ("not_claim_grade", "smoke_only"),
         )
         self.assertEqual(
             capabilities.sql_support.sql_planner_readiness_rows,
@@ -1011,6 +1045,49 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(capabilities.sql_support.external_engine_invoked)
         self.assertTrue(capabilities.sql_support.posture.report_only)
         self.assertFalse(capabilities.sql_support.posture.claim_grade)
+        generated_source = capabilities.python.generated_source_contract
+        self.assertIsInstance(generated_source, GeneratedSourceCertificateContract)
+        self.assertTrue(generated_source.present)
+        self.assertEqual(
+            generated_source.case_order,
+            (
+                "no_dataset_smoke",
+                "user_generated_source",
+                "engine_native_generated_source",
+            ),
+        )
+        self.assertEqual(generated_source.claim_gate_status, "not_claim_grade")
+        self.assertTrue(generated_source.all_no_fallback_no_external_engine)
+        self.assertTrue(generated_source.no_object_store_or_foundry_runtime)
+        self.assertFalse(generated_source.broad_sql_dataframe_claim_allowed)
+        self.assertTrue(generated_source.no_dataset_smoke_separate_from_generated_output)
+        self.assertEqual(generated_source.no_dataset_smoke.support_status, "smoke_only")
+        self.assertEqual(
+            generated_source.no_dataset_smoke.generated_source_certificate_status,
+            "not_applicable_no_generated_rows",
+        )
+        self.assertFalse(generated_source.no_dataset_smoke.generated_source_created)
+        self.assertFalse(generated_source.no_dataset_smoke.output_io_performed)
+        self.assertEqual(
+            generated_source.user_generated_source.blocker_id,
+            "gar-gen-1.user_generated_source_runtime_not_implemented",
+        )
+        self.assertEqual(
+            generated_source.engine_native_generated_source.support_status,
+            "report_only",
+        )
+        self.assertEqual(
+            capabilities.sql_support.generated_source_contract.schema_version,
+            "shardloom.generated_source_certificate_contract.v1",
+        )
+        self.assertEqual(
+            capabilities.dataframe.generated_source_contract.user_generated_source.support_status,
+            "report_only",
+        )
+        self.assertEqual(
+            capabilities.api_surfaces.generated_source_contract.engine_native_generated_source.blocker_id,
+            "gar-gen-1.engine_native_generated_source_runtime_not_implemented",
+        )
         self.assertTrue(capabilities.dataframe.planner_readiness_non_executing)
         dataframe_methods = capabilities.dataframe_method_matrix
         self.assertIsInstance(dataframe_methods, DataFrameMethodCapabilityMatrix)

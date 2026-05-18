@@ -77,9 +77,12 @@ production, package-publication, or Spark-replacement claims.
 
 - **User goal:** create a reference table without an input dataset.
 - **Status:** planned/blocked.
-- **Blocked explanation:** no-input smoke exists, but generated-output execution still needs a
-  `GeneratedSourceCertificate` plus output sink proof.
-- **Expected output:** future generated-source and output evidence.
+- **Blocked explanation:** no-input smoke and the report-only `GeneratedSourceCertificate` contract
+  exist, but generated-output execution still needs deterministic generation evidence plus output
+  sink proof.
+- **Expected output:** current capability rows distinguish `no_dataset_smoke`,
+  `user_generated_source`, and `engine_native_generated_source`; future runtime rows must add
+  generated-source and output evidence.
 - **Evidence fields:** `input_dataset_count=0`, `source_io_performed=false`,
   `generated_source_created=true`, `generated_source_certificate_status`,
   `output_native_io_certificate_status`.

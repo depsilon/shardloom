@@ -401,9 +401,21 @@ declarations; joins, aggregations, windows, writes, schema/data-quality helpers,
 materialization, and notebook display remain deterministic unsupported
 diagnostic surfaces unless later evidence-backed slices promote them.
 
-Source-free generated-output APIs are also planned capability rows, not current
-runtime support. The future contract is tracked as `GAR-GEN-1` and separates
-three cases:
+Source-free generated-output APIs are also planned runtime surfaces, not current
+runtime support. The report-only contract is tracked as `GAR-GEN-1` and is
+exposed through capability views as `generated_source_contract`:
+
+```python
+caps = ctx.capabilities()
+contract = caps.python.generated_source_contract
+
+print(contract.schema_version)
+print(contract.case_order)
+print(contract.no_dataset_smoke_separate_from_generated_output)
+print(contract.all_no_fallback_no_external_engine)
+```
+
+The contract separates three cases:
 
 - `no_dataset_smoke`: status/capability/proof smoke only; no generated rows, no
   source Native I/O certificate, and no output data claim.
@@ -422,8 +434,12 @@ ctx.literal_table(...).write(...)
 ctx.calendar(...).write(...)
 ```
 
-These calls are not runtime-supported yet. When they become supported, generated
-output must report `input_dataset_count=0`, `source_io_performed=false`,
+These calls are not runtime-supported yet. Current no-dataset smoke rows report
+`input_dataset_count=0`, `source_io_performed=false`,
+`generated_source_created=false`, `output_io_performed=false`, and
+`generated_source_certificate_status=not_applicable_no_generated_rows`. When
+generated-output runtime becomes supported, it must report
+`input_dataset_count=0`, `source_io_performed=false`,
 `generated_source_created=true`, `generated_source_kind`,
 `generated_source_schema_digest`, `generated_source_row_count`,
 `generated_source_plan_digest`, optional `generated_source_seed`,

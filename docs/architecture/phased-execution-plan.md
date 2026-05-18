@@ -801,7 +801,9 @@ separate evidence-bearing slices admit them.
       user-facing generated-output runtime.
     - First-class Python, SQL, or DataFrame-style generated output execution is not
       runtime-supported.
-    - GAR-GEN-1 adds the deeper `GeneratedSourceCertificate` planning lane.
+    - GAR-GEN-1A/1B now expose a report-only `GeneratedSourceCertificate` contract and keep
+      no-dataset smoke separate from generated-output execution through core, CLI, and Python
+      capability views.
   - Next slice outcome:
     - Add a compatibility-level source-free generated-output contract row that links the scoreboard,
       Python capability surfaces, SQL/DataFrame posture, and Foundry proof boundary to GAR-GEN-1.
@@ -843,8 +845,8 @@ separate evidence-bearing slices admit them.
     - No hidden pandas, Polars, DuckDB, DataFusion, Spark, database, object-store, or Foundry compute
       execution.
   - Dependencies/blockers:
-    - GAR-GEN-1A certificate contract, output sink evidence model, Python API decision, SQL/DataFrame
-      admission rows, and Foundry output API proof boundary.
+    - Output sink evidence model, Python API decision, SQL/DataFrame admission rows, compatibility
+      scoreboard/status projection, and Foundry output API proof boundary.
 - [ ] GAR-COMPAT-1C S3/GCS/ADLS runtime admission ladder
   - Source: RFC 0008; RFC 0019; RFC 0028; RFC 0031; current object-store report-only planner;
     object-store byte-range gates; `docs/architecture/object-store-request-planner.md`;
@@ -986,106 +988,6 @@ separate evidence-bearing slices admit them.
     - Connector dependency/license review, credential/effect policy, snapshot semantics, import and
       export certificate model, and Python/CLI capability projection.
 
-- [ ] GAR-GEN-1A generated-source certificate and capability contract
-  - Source: RFC 0031; RFC 0032; RFC 0033; RFC 0036; RFC 0037; RFC 0039;
-    `docs/architecture/compute-engine-flow-reference.md`;
-    `docs/foundry/proof-of-use-certification.md`; `python/README.md`.
-  - Current state:
-    - No-input smoke/capability behavior exists, but it is status/capability/smoke only.
-    - Benchmark synthetic fixtures exist, but they are benchmark setup and must not be reported as
-      user-facing generated-output runtime.
-    - DataFrame/query-builder and SQL posture is report-only; source-free SQL/DataFrame execution is
-      not claimable.
-    - S3/object-store read/write remains report-only/gated.
-  - Next slice outcome:
-    - Add a report-only `GeneratedSourceCertificate` contract and capability rows that distinguish
-      `no_dataset_smoke`, `user_generated_source`, and `engine_native_generated_source`.
-  - User-visible surface:
-    - CLI capability/report output, Python capability/DataFrame matrix, compute-flow docs, Foundry
-      proof docs, and typed envelope certificate references.
-  - Implementation scope:
-    - Certificate/report structs, capability rows, Python typed accessors, snapshot tests, docs, and
-      release-readiness metadata.
-  - Evidence required:
-    - correctness refs: deterministic generated-row fixture expectations for promoted runtime paths.
-    - benchmark refs: none required for report-only contract; required before performance claims.
-    - execution certificate refs: required for any future generated-output runtime.
-    - Native I/O certificate refs: no source Native I/O certificate when `input_dataset_count=0`;
-      output Native I/O certificate refs required when output is written.
-    - materialization/decode refs: generated-row materialization and sink boundary refs.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - `no_dataset_smoke` remains separate from generated-output execution and reports no source Native
-      I/O certificate, no generated rows, and no output data claim.
-    - `user_generated_source` reports that user Python code created rows and ShardLoom consumed them
-      as generated/literal input only when deterministic generation evidence exists.
-    - `engine_native_generated_source` names generator nodes such as `range`, `sequence`, `values`,
-      `literal_table`, `calendar`, and deterministic synthetic profiles without claiming runtime
-      support before implementation evidence.
-    - Required fields are defined: `input_dataset_count=0`, `source_io_performed=false`,
-      `generated_source_created`, `generated_source_kind`, `generated_source_schema_digest`,
-      `generated_source_row_count`, `generated_source_plan_digest`, `generated_source_seed`,
-      `generation_deterministic`, `output_io_performed`, `output_native_io_certificate_status`,
-      `generated_source_certificate_status`, `fallback_attempted=false`,
-      `external_engine_invoked=false`, and `claim_gate_status`.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - capability snapshot tests when report structs/accessors are added.
-    - Python typed-view tests when Python accessors are added.
-    - `git diff --check`
-  - Non-goals:
-    - No generated-output execution, SQL parser/runtime, DataFrame runtime, S3 runtime,
-      object-store write, Foundry invocation, package publication, or external engine fallback in
-      the contract-only slice.
-  - Claim boundary:
-    - This slice may claim only that source-free generated-output support has a report-only planning
-      contract. It does not allow output data, SQL/DataFrame runtime, object-store/lakehouse,
-      Foundry production, performance, or Spark-displacement claims.
-  - Fallback boundary:
-    - Report-only surfaces must keep `fallback_attempted=false`,
-      `fallback_execution_allowed=false`, and `external_engine_invoked=false`.
-  - Dependencies/blockers:
-    - Typed envelope certificate-slot compatibility, capability matrix ownership, Python wrapper
-      accessors, and output sink certificate model.
-- [ ] GAR-GEN-1B no-dataset smoke separation hardening
-  - Source: GAR-GEN-1A; RFC 0012; RFC 0036; Foundry proof docs; release-readiness docs.
-  - Current state:
-    - No-input smoke appears in capability/proof surfaces, but future generated-output work needs a
-      stronger distinction from actual generated rows and written output.
-  - Next slice outcome:
-    - Harden diagnostics, docs, and report fields so `no_dataset_smoke` cannot be confused with
-      source-free generated-output execution.
-  - User-visible surface:
-    - CLI status/capability output, Foundry proof report, release readiness docs, Python typed views.
-  - Implementation scope:
-    - Existing no-dataset smoke reports, proof scripts, docs, and snapshot tests.
-  - Evidence required:
-    - correctness refs: no data execution assertion.
-    - execution certificate refs: absent or `not_applicable` for data execution.
-    - Native I/O certificate refs: source certificate absent; output certificate absent unless a
-      non-data proof artifact is explicitly written.
-    - policy/no-fallback refs: no source I/O, no output data I/O, no external engine.
-  - Acceptance:
-    - Reports expose `input_dataset_count=0`, `source_io_performed=false`,
-      `generated_source_created=false`, `output_io_performed=false`,
-      `generated_source_certificate_status=not_applicable`, and
-      `claim_gate_status=smoke_only|not_claim_grade`.
-    - No source Native I/O certificate is claimed.
-    - No output data claim is created.
-  - Verification:
-    - existing no-dataset smoke/proof tests.
-    - release readiness metadata tests.
-    - Python compileall if Python surfaces change.
-    - `git diff --check`
-  - Non-goals:
-    - No generated rows, SQL/DataFrame execution, output dataset write, S3/object-store write, or
-      Foundry runtime invocation.
-  - Claim boundary:
-    - May claim only no-dataset status/proof smoke. It is not generated-output runtime evidence.
-  - Fallback boundary:
-    - `fallback_attempted=false`, `external_engine_invoked=false`, and no external compute.
-  - Dependencies/blockers:
-    - GAR-GEN-1A certificate vocabulary.
 - [ ] GAR-GEN-1C user-generated source local-output fixture smoke
   - Source: GAR-GEN-1A; RFC 0032; RFC 0033; RFC 0037; RFC 0039.
   - Current state:

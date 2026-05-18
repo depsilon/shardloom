@@ -351,13 +351,14 @@ candidates.
   Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, or package-readiness claim.
 - **source-free generated output**: a planned execution flow where ShardLoom writes output without
   reading an input dataset. It is distinct from no-dataset smoke and benchmark fixture generation.
-  It requires `input_dataset_count=0`, `source_io_performed=false`, generated-source evidence,
-  output sink evidence, and no-fallback evidence before any output data claim is allowed.
-- **GeneratedSourceCertificate**: planned certificate evidence for user-created rows or
-  ShardLoom-native generator nodes. It records the generated source kind, schema digest, row count,
-  plan digest, optional seed, deterministic status, and claim gate. It does not replace output
-  Native I/O evidence, and no source Native I/O certificate is claimed when no source dataset was
-  read.
+  The current `GeneratedSourceCertificate` contract is report-only; runtime support still requires
+  `input_dataset_count=0`, `source_io_performed=false`, generated-source evidence, output sink
+  evidence, and no-fallback evidence before any output data claim is allowed.
+- **GeneratedSourceCertificate**: report-only contract today and planned certificate evidence for
+  user-created rows or ShardLoom-native generator nodes. It records the generated source kind,
+  schema digest, row count, plan digest, optional seed, deterministic status, and claim gate. It
+  does not replace output Native I/O evidence, and no source Native I/O certificate is claimed when
+  no source dataset was read.
 - **Vortex-native execution provider**: upstream Vortex array, compute, scan, source, or sink API,
   or ShardLoom-owned Vortex-aware kernel, admitted through ShardLoom policy and reported through
   ShardLoom certificates. It is native execution, not fallback, only when the provider boundary,
