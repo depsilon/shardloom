@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-NOVEL-1A GeneratedSourceCertificate and source-free evidence alignment
+  - Primary files:
+    - `shardloom-core/src/generated_source.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/evidence-native-generated-execution-observability-confidence.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the generated-source cross-surface alignment slice by adding
+    `shardloom.generated_source_evidence_alignment.v1` as a report-only capability matrix. The
+    matrix aligns the GeneratedSourceCertificate/source-free API posture with future OpenLineage,
+    OpenTelemetry, Bayesian confidence, and Foundry generated-output boundary refs.
+  - Checklist:
+    - [x] Add core report/row structs for GAR-NOVEL-1A alignment.
+    - [x] Expose alignment fields in CLI capability discovery for SQL, Python, DataFrame, and API
+      surfaces.
+    - [x] Add Python typed accessors and tests for the alignment matrix.
+    - [x] Document the alignment model in architecture, Python, compute-flow, and Foundry proof docs.
+    - [x] Move the active GAR-NOVEL-1A item out of the Planned queue.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python website/build_static_pages.py`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - Report-only alignment only. This does not emit OpenLineage events, enable OpenTelemetry export,
+      fit a Bayesian confidence model, invoke Foundry, add SQL/DataFrame runtime, add object-store or
+      lakehouse output, publish packages, or create production/performance/Spark-replacement claims.
+  - Fallback boundary:
+    - `fallback_attempted=false` and `external_engine_invoked=false` remain explicit at report and
+      row level. External engines, object stores, and Foundry are not fallback execution paths.
+
 - [x] Session label: GAR-GEN-1F Foundry generated-output proof boundary
   - Primary files:
     - `scripts/foundry_proof_of_use.py`

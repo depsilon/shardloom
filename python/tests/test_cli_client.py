@@ -25,6 +25,7 @@ from shardloom import (
     EvidenceAwareOptimizerTraceReport,
     ExecutionResultEnvelopeView,
     GeneratedSourceCertificateContract,
+    GeneratedSourceEvidenceAlignmentReport,
     LocalVortexPrimitiveSmokeReport,
     ShardLoomBinaryNotFoundError,
     ShardLoomClient,
@@ -1064,6 +1065,53 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": f"{row_id}_external_engine_invoked", "value": "false"},
                                 {"key": f"{row_id}_fallback_execution_allowed", "value": "false"},
                             ])
+                        alignment_rows = [
+                            ("no_dataset_smoke", "smoke_only", "no_dataset_smoke", "false", "not_applicable_no_generated_rows", "not_emitted_no_output_data", "not_emitted_no_generated_rows", "not_emitted_smoke_only", "not_applicable_smoke_only", "not_applicable", "gar-novel-1a.no_dataset_smoke_not_generated_output", "no_dataset_smoke_status,capability_envelope,no_fallback_evidence", "smoke_only"),
+                            ("python_generated_source_write", "fixture_smoke_supported", "user_generated_source_or_engine_native_generated_source", "true", "required_for_runtime", "required_for_runtime_output", "report_only_generated_source_facet_ref", "report_only_result_sink_span_ref", "advisory_ref_only", "not_applicable_local_output", "none_scoped_local_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("sql_dataframe_source_free", "report_only", "sql_dataframe_report_only", "false", "not_emitted_report_only", "not_emitted_report_only", "mapped_report_only_no_event", "mapped_report_only_no_export", "advisory_schema_only", "not_applicable", "gar-novel-1a.sql_dataframe_runtime_not_implemented", "parser_binder_or_dataframe_plan,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "not_claim_grade"),
+                            ("foundry_generated_output", "report_only", "foundry_report_only", "false", "not_emitted_report_only", "not_emitted_report_only", "mapped_report_only_no_event", "mapped_report_only_no_export", "not_applicable_until_runtime_proof", "shardloom.foundry_generated_output_boundary.v1", "gar-gen-1f.foundry_output_api_not_invoked", "foundry_output_api_evidence,result_dataset_written,evidence_dataset_written,generated_source_certificate,output_native_io_certificate,no_fallback_evidence", "not_claim_grade"),
+                        ]
+                        fields.extend([
+                            {"key": "generated_source_evidence_alignment_schema_version", "value": "shardloom.generated_source_evidence_alignment.v1"},
+                            {"key": "generated_source_evidence_alignment_report_id", "value": "gar-novel-1a.generated_source_cross_surface_alignment"},
+                            {"key": "generated_source_evidence_alignment_docs_ref", "value": "docs/architecture/evidence-native-generated-execution-observability-confidence.md"},
+                            {"key": "generated_source_evidence_alignment_contract_ref", "value": "shardloom.generated_source_certificate_contract.v1"},
+                            {"key": "generated_source_evidence_alignment_api_admission_ref", "value": "shardloom.generated_source_api_admission.v1"},
+                            {"key": "generated_source_evidence_alignment_openlineage_ref", "value": "GAR-NOVEL-1B.report_only_facets"},
+                            {"key": "generated_source_evidence_alignment_opentelemetry_ref", "value": "GAR-NOVEL-1C.report_only_spans"},
+                            {"key": "generated_source_evidence_alignment_bayesian_confidence_ref", "value": "GAR-NOVEL-1D.report_only_confidence"},
+                            {"key": "generated_source_evidence_alignment_row_count", "value": str(len(alignment_rows))},
+                            {"key": "generated_source_evidence_alignment_row_order", "value": ",".join(row[0] for row in alignment_rows)},
+                            {"key": "generated_source_evidence_alignment_openlineage_export_enabled", "value": "false"},
+                            {"key": "generated_source_evidence_alignment_opentelemetry_export_enabled", "value": "false"},
+                            {"key": "generated_source_evidence_alignment_opentelemetry_network_exporter_enabled", "value": "false"},
+                            {"key": "generated_source_evidence_alignment_bayesian_confidence_enabled", "value": "false"},
+                            {"key": "generated_source_evidence_alignment_foundry_runtime_invoked", "value": "false"},
+                            {"key": "generated_source_evidence_alignment_object_store_io_performed", "value": "false"},
+                            {"key": "generated_source_evidence_alignment_fallback_attempted", "value": "false"},
+                            {"key": "generated_source_evidence_alignment_external_engine_invoked", "value": "false"},
+                            {"key": "generated_source_evidence_alignment_all_rows_no_fallback_no_external_engine", "value": "true"},
+                            {"key": "generated_source_evidence_alignment_claim_gate_status", "value": "not_claim_grade"},
+                        ])
+                        for row in alignment_rows:
+                            row_id, support, case, runtime, generated_cert, output_cert, lineage, telemetry, confidence, foundry_ref, blocker, evidence, claim = row
+                            prefix = f"generated_source_evidence_alignment_row_{row_id}"
+                            fields.extend([
+                                {"key": f"{prefix}_support_status", "value": support},
+                                {"key": f"{prefix}_source_free_case", "value": case},
+                                {"key": f"{prefix}_runtime_execution", "value": runtime},
+                                {"key": f"{prefix}_generated_source_certificate_status", "value": generated_cert},
+                                {"key": f"{prefix}_output_native_io_certificate_status", "value": output_cert},
+                                {"key": f"{prefix}_openlineage_facet_status", "value": lineage},
+                                {"key": f"{prefix}_opentelemetry_span_status", "value": telemetry},
+                                {"key": f"{prefix}_bayesian_confidence_status", "value": confidence},
+                                {"key": f"{prefix}_foundry_boundary_ref", "value": foundry_ref},
+                                {"key": f"{prefix}_blocker_id", "value": blocker},
+                                {"key": f"{prefix}_required_evidence", "value": evidence},
+                                {"key": f"{prefix}_claim_gate_status", "value": claim},
+                                {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                                {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                            ])
                     if scope in {"workflow", "remote-api", "cross-cg"}:
                         fields.extend([
                             {"key": "severity", "value": "error"},
@@ -1267,6 +1315,54 @@ class ShardLoomClientTests(unittest.TestCase):
             capabilities.api_surfaces.generated_source_api_admission.row(
                 "python_ctx_calendar"
             ).report_only
+        )
+        evidence_alignment = capabilities.python.generated_source_evidence_alignment
+        self.assertIsInstance(
+            evidence_alignment, GeneratedSourceEvidenceAlignmentReport
+        )
+        self.assertTrue(evidence_alignment.present)
+        self.assertEqual(
+            evidence_alignment.schema_version,
+            "shardloom.generated_source_evidence_alignment.v1",
+        )
+        self.assertEqual(
+            evidence_alignment.row_order,
+            (
+                "no_dataset_smoke",
+                "python_generated_source_write",
+                "sql_dataframe_source_free",
+                "foundry_generated_output",
+            ),
+        )
+        self.assertEqual(evidence_alignment.claim_gate_status, "not_claim_grade")
+        self.assertTrue(evidence_alignment.all_no_fallback_no_external_engine)
+        self.assertFalse(evidence_alignment.openlineage_export_enabled)
+        self.assertFalse(evidence_alignment.opentelemetry_export_enabled)
+        self.assertFalse(evidence_alignment.opentelemetry_network_exporter_enabled)
+        self.assertFalse(evidence_alignment.bayesian_confidence_enabled)
+        self.assertEqual(
+            evidence_alignment.row("python_generated_source_write").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(
+            evidence_alignment.row("python_generated_source_write").runtime_execution
+        )
+        self.assertEqual(
+            evidence_alignment.row("sql_dataframe_source_free").support_status,
+            "report_only",
+        )
+        self.assertFalse(
+            evidence_alignment.row("sql_dataframe_source_free").runtime_execution
+        )
+        self.assertEqual(
+            evidence_alignment.row("foundry_generated_output").foundry_boundary_ref,
+            "shardloom.foundry_generated_output_boundary.v1",
+        )
+        self.assertEqual(
+            capabilities.sql_support.generated_source_evidence_alignment.row(
+                "sql_dataframe_source_free"
+            ).claim_gate_status,
+            "not_claim_grade",
         )
         self.assertTrue(capabilities.dataframe.planner_readiness_non_executing)
         dataframe_methods = capabilities.dataframe_method_matrix

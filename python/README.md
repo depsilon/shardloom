@@ -404,6 +404,9 @@ diagnostic surfaces unless later evidence-backed slices promote them.
 Source-free generated-output APIs are tracked under `GAR-GEN-1`. The full
 contract is exposed through capability views as `generated_source_contract`, and
 the per-API admission matrix is exposed as `generated_source_api_admission`.
+`GAR-NOVEL-1A` also exposes `generated_source_evidence_alignment`, which ties the same
+GeneratedSourceCertificate rows to report-only OpenLineage, OpenTelemetry, Bayesian-confidence,
+and Foundry generated-output boundary refs without enabling exporters or platform runtime.
 Two scoped local JSONL smoke paths are runtime-supported: caller-provided rows
 and one ShardLoom-native range generator. SQL and broader DataFrame forms remain
 report-only unless a later evidence-backed slice admits them:
@@ -412,6 +415,7 @@ report-only unless a later evidence-backed slice admits them:
 caps = ctx.capabilities()
 contract = caps.python.generated_source_contract
 admission = caps.python.generated_source_api_admission
+alignment = caps.python.generated_source_evidence_alignment
 
 print(contract.schema_version)
 print(contract.case_order)
@@ -421,6 +425,10 @@ print(admission.row("python_ctx_from_rows").support_status)
 print(admission.row("python_ctx_range").runtime_execution)
 print(admission.row("sql_values").blocker_id)
 print(admission.all_no_fallback_no_external_engine)
+print(alignment.schema_version)
+print(alignment.openlineage_export_enabled)
+print(alignment.opentelemetry_network_exporter_enabled)
+print(alignment.row("foundry_generated_output").foundry_boundary_ref)
 ```
 
 The universal compatibility view also projects the same source-free generated-output posture so

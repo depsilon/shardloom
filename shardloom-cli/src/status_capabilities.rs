@@ -10,9 +10,9 @@ use shardloom_core::{
     ArchitectureRuntimeClaimGateReport, CapabilityCertificationReport,
     CapabilityCertificationStatus, CommandStatus, EngineCapabilities, EngineCapabilityMatrixReport,
     GeneratedSourceApiAdmissionMatrix, GeneratedSourceCertificateContractReport,
-    MaterializationPolicyReport, OutputFormat, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
-    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
+    GeneratedSourceEvidenceAlignmentReport, MaterializationPolicyReport, OutputFormat,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
+    ShardLoomError, SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
     WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
     output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
     plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
@@ -4542,6 +4542,7 @@ fn append_sql_certification_fields(
     append_sql_dataframe_planner_readiness_fields(fields);
     append_generated_source_certificate_contract_fields(fields);
     append_generated_source_api_admission_fields(fields);
+    append_generated_source_evidence_alignment_fields(fields);
 }
 
 fn append_sql_dataframe_planner_readiness_fields(fields: &mut Vec<(String, String)>) {
@@ -4918,6 +4919,186 @@ fn append_generated_source_api_admission_fields(fields: &mut Vec<(String, String
             fields,
             &format!("{prefix}_fallback_execution_allowed"),
             row.fallback_execution_allowed,
+        );
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_generated_source_evidence_alignment_fields(fields: &mut Vec<(String, String)>) {
+    let report = GeneratedSourceEvidenceAlignmentReport::report_only();
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_contract_ref",
+        report.generated_source_contract_ref,
+    );
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_api_admission_ref",
+        report.generated_source_api_admission_ref,
+    );
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_openlineage_ref",
+        report.openlineage_facets_ref,
+    );
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_opentelemetry_ref",
+        report.opentelemetry_spans_ref,
+    );
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_bayesian_confidence_ref",
+        report.bayesian_confidence_ref,
+    );
+    push_count_field(
+        fields,
+        "generated_source_evidence_alignment_row_count",
+        report.rows.len(),
+    );
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_row_order",
+        &report.row_order().join(","),
+    );
+    push_bool_field(
+        fields,
+        "generated_source_evidence_alignment_openlineage_export_enabled",
+        report.openlineage_export_enabled,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_evidence_alignment_opentelemetry_export_enabled",
+        report.opentelemetry_export_enabled,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_evidence_alignment_opentelemetry_network_exporter_enabled",
+        report.opentelemetry_network_exporter_enabled,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_evidence_alignment_bayesian_confidence_enabled",
+        report.bayesian_confidence_enabled,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_evidence_alignment_foundry_runtime_invoked",
+        report.foundry_runtime_invoked,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_evidence_alignment_object_store_io_performed",
+        report.object_store_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_evidence_alignment_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_evidence_alignment_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "generated_source_evidence_alignment_all_rows_no_fallback_no_external_engine",
+        report.all_rows_fallback_free(),
+    );
+    push_field(
+        fields,
+        "generated_source_evidence_alignment_claim_gate_status",
+        report.claim_gate_status,
+    );
+
+    for row in &report.rows {
+        let prefix = format!("generated_source_evidence_alignment_row_{}", row.row_id);
+        push_field(
+            fields,
+            &format!("{prefix}_surface"),
+            row.user_visible_surface,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_source_free_case"),
+            row.source_free_case,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_support_status"),
+            row.support_status.as_str(),
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_runtime_execution"),
+            row.runtime_execution,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_generated_source_certificate_status"),
+            row.generated_source_certificate_status.as_str(),
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_output_native_io_certificate_status"),
+            row.output_native_io_certificate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_openlineage_facet_status"),
+            row.openlineage_facet_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_opentelemetry_span_status"),
+            row.opentelemetry_span_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_bayesian_confidence_status"),
+            row.bayesian_confidence_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_foundry_boundary_ref"),
+            row.foundry_boundary_ref,
+        );
+        push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            row.required_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_fallback_attempted"),
+            row.fallback_attempted,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_external_engine_invoked"),
+            row.external_engine_invoked,
         );
     }
 }
@@ -7397,6 +7578,7 @@ fn world_class_surface_fields(
             | CapabilityDiscoveryScope::ApiSurfaces
     ) {
         append_generated_source_api_admission_fields(&mut fields);
+        append_generated_source_evidence_alignment_fields(&mut fields);
     }
     fields
 }

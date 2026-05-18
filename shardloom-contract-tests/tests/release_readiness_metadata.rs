@@ -1017,10 +1017,19 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "ctx.range(",
         "none_scoped_local_range_jsonl_smoke_only",
         "shardloom.generated_source_api_admission.v1",
+        "shardloom.generated_source_evidence_alignment.v1",
+        "GAR-NOVEL-1A",
         "python_ctx_from_rows",
         "python_ctx_range",
+        "python_generated_source_write",
         "sql_values",
+        "sql_dataframe_source_free",
+        "foundry_generated_output",
         "dataframe_generated_with_column",
+        "openlineage_export_enabled=false",
+        "opentelemetry_export_enabled=false",
+        "opentelemetry_network_exporter_enabled=false",
+        "bayesian_confidence_enabled=false",
     ] {
         assert!(
             compute_flow.contains(required),
@@ -1031,6 +1040,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     let python_readme = read_repo_file("python/README.md");
     assert!(python_readme.contains("generated_source_contract"));
     assert!(python_readme.contains("generated_source_api_admission"));
+    assert!(python_readme.contains("generated_source_evidence_alignment"));
     assert!(python_readme.contains("ctx.from_rows("));
     assert!(python_readme.contains("ctx.range("));
     assert!(python_readme.contains("no_dataset_smoke_separate_from_generated_output"));
@@ -1038,10 +1048,30 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     let python_context = read_repo_file("python/src/shardloom/context.py");
     assert!(python_context.contains("GeneratedSourceCertificateContract"));
     assert!(python_context.contains("GeneratedSourceApiAdmissionMatrix"));
+    assert!(python_context.contains("GeneratedSourceEvidenceAlignmentReport"));
     assert!(python_context.contains("GeneratedSourceCaseCapability"));
     assert!(python_context.contains("GeneratedRowsSource"));
     assert!(python_context.contains("GeneratedRangeSource"));
     assert!(python_context.contains("all_no_fallback_no_external_engine"));
+
+    let generated_architecture = read_repo_file(
+        "docs/architecture/evidence-native-generated-execution-observability-confidence.md",
+    );
+    for required in [
+        "shardloom.generated_source_evidence_alignment.v1",
+        "gar-novel-1a.generated_source_cross_surface_alignment",
+        "openlineage_export_enabled=false",
+        "opentelemetry_network_exporter_enabled=false",
+        "bayesian_confidence_enabled=false",
+        "foundry_runtime_invoked=false",
+        "object_store_io_performed=false",
+        "foundry_generated_output",
+    ] {
+        assert!(
+            generated_architecture.contains(required),
+            "missing GAR-NOVEL-1A architecture field {required}"
+        );
+    }
 }
 
 #[test]

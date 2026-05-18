@@ -119,6 +119,54 @@ const GENERATED_SOURCE_API_ADMISSION_ROW_SUFFIXES: [&str; 12] = [
     "fallback_execution_allowed",
 ];
 
+const GENERATED_SOURCE_EVIDENCE_ALIGNMENT_FIELD_KEYS: [&str; 20] = [
+    "generated_source_evidence_alignment_schema_version",
+    "generated_source_evidence_alignment_report_id",
+    "generated_source_evidence_alignment_docs_ref",
+    "generated_source_evidence_alignment_contract_ref",
+    "generated_source_evidence_alignment_api_admission_ref",
+    "generated_source_evidence_alignment_openlineage_ref",
+    "generated_source_evidence_alignment_opentelemetry_ref",
+    "generated_source_evidence_alignment_bayesian_confidence_ref",
+    "generated_source_evidence_alignment_row_count",
+    "generated_source_evidence_alignment_row_order",
+    "generated_source_evidence_alignment_openlineage_export_enabled",
+    "generated_source_evidence_alignment_opentelemetry_export_enabled",
+    "generated_source_evidence_alignment_opentelemetry_network_exporter_enabled",
+    "generated_source_evidence_alignment_bayesian_confidence_enabled",
+    "generated_source_evidence_alignment_foundry_runtime_invoked",
+    "generated_source_evidence_alignment_object_store_io_performed",
+    "generated_source_evidence_alignment_fallback_attempted",
+    "generated_source_evidence_alignment_external_engine_invoked",
+    "generated_source_evidence_alignment_all_rows_no_fallback_no_external_engine",
+    "generated_source_evidence_alignment_claim_gate_status",
+];
+
+const GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_IDS: [&str; 4] = [
+    "no_dataset_smoke",
+    "python_generated_source_write",
+    "sql_dataframe_source_free",
+    "foundry_generated_output",
+];
+
+const GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_SUFFIXES: [&str; 15] = [
+    "surface",
+    "source_free_case",
+    "support_status",
+    "runtime_execution",
+    "generated_source_certificate_status",
+    "output_native_io_certificate_status",
+    "openlineage_facet_status",
+    "opentelemetry_span_status",
+    "bayesian_confidence_status",
+    "foundry_boundary_ref",
+    "blocker_id",
+    "required_evidence",
+    "claim_gate_status",
+    "fallback_attempted",
+    "external_engine_invoked",
+];
+
 const SQL_FIELD_KEYS: [&str; 35] = [
     "scope",
     "schema_version",
@@ -180,6 +228,23 @@ fn with_generated_source_api_admission_fields(base_keys: &[&'static str]) -> Vec
             GENERATED_SOURCE_API_ADMISSION_ROW_SUFFIXES
                 .into_iter()
                 .map(|suffix| format!("{row_id}_{suffix}")),
+        );
+    }
+    keys
+}
+
+fn with_generated_source_alignment_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = with_generated_source_api_admission_fields(base_keys);
+    keys.extend(
+        GENERATED_SOURCE_EVIDENCE_ALIGNMENT_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_IDS {
+        keys.extend(
+            GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("generated_source_evidence_alignment_row_{row_id}_{suffix}")),
         );
     }
     keys
@@ -780,7 +845,7 @@ fn capability_discovery_json_field_keys_are_stable() {
     let keys: Vec<String> = keys.into_iter().map(str::to_string).collect();
     assert_eq!(
         keys.as_slice(),
-        with_generated_source_api_admission_fields(SQL_FIELD_KEYS.as_slice()).as_slice(),
+        with_generated_source_alignment_fields(SQL_FIELD_KEYS.as_slice()).as_slice(),
         "scope=sql"
     );
 
@@ -789,16 +854,16 @@ fn capability_discovery_json_field_keys_are_stable() {
         let keys = field_keys(&output);
         let keys: Vec<String> = keys.into_iter().map(str::to_string).collect();
         let expected_keys = match scope {
-            "python" | "api-surfaces" => with_generated_source_api_admission_fields(
-                WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
-            ),
+            "python" | "api-surfaces" => {
+                with_generated_source_alignment_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+            }
             "universal-adapters" => {
                 with_generated_source_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
                     .into_iter()
                     .map(str::to_string)
                     .collect()
             }
-            "dataframe" => with_generated_source_api_admission_fields(
+            "dataframe" => with_generated_source_alignment_fields(
                 DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
             ),
             _ => WORLD_CLASS_SURFACE_FIELD_KEYS

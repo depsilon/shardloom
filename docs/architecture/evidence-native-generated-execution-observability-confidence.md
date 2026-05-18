@@ -34,6 +34,11 @@ References:
 ## Generated-Source Contract
 
 Source-free generated output is not no-dataset smoke.
+The current executable surface is intentionally narrow: Python `ctx.from_rows([...]).write(...)`
+and `ctx.range(...).write(...)` can write scoped local JSONL fixture-smoke outputs with
+`GeneratedSourceCertificate` and output Native I/O evidence. SQL literal/`VALUES`, broad DataFrame
+builders, Foundry generated-output, object-store output, and lakehouse/table output remain
+report-only or blocked until separate evidence lands.
 
 | Case | Meaning | Evidence posture | Claim boundary |
 | --- | --- | --- | --- |
@@ -63,6 +68,44 @@ claim_gate_status
 
 No source Native I/O certificate is emitted when no source dataset exists. Output evidence is still
 required for output claims.
+
+## GAR-NOVEL-1A Cross-Surface Alignment Report
+
+`GAR-NOVEL-1A` adds the report-only capability alignment schema:
+
+```text
+schema_version=shardloom.generated_source_evidence_alignment.v1
+report_id=gar-novel-1a.generated_source_cross_surface_alignment
+generated_source_contract_ref=shardloom.generated_source_certificate_contract.v1
+generated_source_api_admission_ref=shardloom.generated_source_api_admission.v1
+openlineage_facets_ref=GAR-NOVEL-1B.report_only_facets
+opentelemetry_spans_ref=GAR-NOVEL-1C.report_only_spans
+bayesian_confidence_ref=GAR-NOVEL-1D.report_only_confidence
+openlineage_export_enabled=false
+opentelemetry_export_enabled=false
+opentelemetry_network_exporter_enabled=false
+bayesian_confidence_enabled=false
+foundry_runtime_invoked=false
+object_store_io_performed=false
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status=not_claim_grade
+```
+
+The row order is:
+
+```text
+no_dataset_smoke
+python_generated_source_write
+sql_dataframe_source_free
+foundry_generated_output
+```
+
+This alignment report is a coordination layer. It lets CLI and Python capability views show that
+generated-source evidence, future OpenLineage facets, future OpenTelemetry spans, future Bayesian
+confidence, and Foundry generated-output boundaries all use the same no-fallback/no-external-engine
+vocabulary. It does not emit OpenLineage events, configure an OpenTelemetry exporter, fit a Bayesian
+model, invoke Foundry, or write object-store output.
 
 ## OpenLineage Facet Mapping
 
@@ -150,7 +193,7 @@ Rules:
 
 ## Non-Goals
 
-- No generated-output runtime in this report-only design.
+- No additional generated-output runtime beyond the scoped local Python JSONL fixture smokes.
 - No SQL/DataFrame runtime claim.
 - No Foundry production claim.
 - No OpenLineage backend integration.
