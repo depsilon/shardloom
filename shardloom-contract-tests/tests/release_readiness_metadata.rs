@@ -420,6 +420,9 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
         "release-security-gate-report.json",
         "clean_conda_env_install_status",
         "public_release_claim_allowed",
+        "package-channel readiness matrix",
+        "package-channel-readiness-matrix.json",
+        "python scripts/check_package_channel_readiness.py",
         "feature/build matrix execution evidence",
         "typed_envelope_compatibility",
         "cargo fmt --all -- --check",
@@ -551,10 +554,96 @@ fn release_package_docs_workflow_and_examples_are_present() {
     assert!(package_names.contains("PyPI: `shardloom`"));
     assert!(package_names.contains("`shardloom-cli`, `shardloom-python`, `shardloom`"));
     assert!(package_names.contains("`shardloom-protocol`, `shardloom-client`"));
+    assert!(package_names.contains("package-channel-readiness-matrix.md"));
+    assert!(package_names.contains("shardloom.package_channel_readiness_matrix.v1"));
     assert!(package_names.contains("TestPyPI Dry Run"));
     assert!(package_names.contains("Do not publish current internal crates"));
     assert!(package_names.contains("publish-approved"));
     assert!(package_names.contains("scripts\\release_dry_run_proof.py"));
+
+    let package_channel_doc = read_repo_file("docs/release/package-channel-readiness-matrix.md");
+    for required in [
+        "shardloom.package_channel_readiness_matrix.v1",
+        "python scripts\\check_package_channel_readiness.py",
+        "GitHub pre-release",
+        "TestPyPI",
+        "PyPI Trusted Publisher/OIDC",
+        "Homebrew tap",
+        "Scoop",
+        "winget",
+        "conda-forge",
+        "GHCR container",
+        "crates.io future",
+        "Internal Rust crates remain unpublished",
+        "Package access does not imply production readiness",
+        "runtime fallback dependency",
+    ] {
+        assert!(
+            package_channel_doc.contains(required),
+            "missing package channel readiness doc field {required}"
+        );
+    }
+
+    let package_channel_matrix =
+        read_repo_file("docs/release/package-channel-readiness-matrix.json");
+    for required in [
+        "shardloom.package_channel_readiness_matrix.v1",
+        "\"public_package_release_claim_allowed\": false",
+        "\"publication_attempted\": false",
+        "\"tag_created\": false",
+        "\"secrets_required\": false",
+        "\"fallback_engine_dependency_added\": false",
+        "\"external_engine_runtime_dependency_added\": false",
+        "\"package_access_implies_production_readiness\": false",
+        "\"github_prerelease\"",
+        "\"testpypi\"",
+        "\"pypi\"",
+        "\"homebrew_tap\"",
+        "\"scoop\"",
+        "\"winget\"",
+        "\"conda_forge\"",
+        "\"ghcr_container\"",
+        "\"crates_io_future\"",
+        "Trusted Publisher/OIDC",
+        "\"internal_crates_publish_allowed\": false",
+        "\"runtime_fallback_dependency_allowed\": false",
+        "future stable public protocol/client crates",
+    ] {
+        assert!(
+            package_channel_matrix.contains(required),
+            "missing package channel readiness matrix field {required}"
+        );
+    }
+
+    let package_channel_script = read_repo_file("scripts/check_package_channel_readiness.py");
+    for required in [
+        "shardloom.package_channel_readiness_matrix.v1",
+        "shardloom.package_channel_readiness_report.v1",
+        "EXPECTED_CHANNEL_IDS",
+        "github_prerelease",
+        "testpypi",
+        "pypi",
+        "homebrew_tap",
+        "scoop",
+        "winget",
+        "conda_forge",
+        "ghcr_container",
+        "crates_io_future",
+        "Trusted Publisher",
+        "OIDC",
+        "no internal crate publication",
+        "public_package_release_claim_allowed",
+        "runtime_fallback_dependency_allowed",
+        "external_engine_runtime_dependency_allowed",
+        "publication_attempted",
+        "tag_created",
+        "secrets_required",
+    ] {
+        assert!(
+            package_channel_script.contains(required),
+            "missing package channel readiness script field {required}"
+        );
+    }
 
     let sbom = read_repo_file("docs/release/sbom-generation-plan.md");
     assert!(sbom.contains("Rust Workspace SBOM"));
@@ -971,6 +1060,11 @@ fn hard_release_readiness_gate_docs_are_present() {
         "cargo test --workspace --all-targets",
         "python -m build python",
         "shardloom.global_architecture_runtime_claim_gate.v1",
+        "shardloom.package_channel_readiness_matrix.v1",
+        "python scripts\\check_package_channel_readiness.py",
+        "target/package-channel-readiness-report.json",
+        "Trusted Publisher/OIDC",
+        "Internal Rust crates remain unpublished",
         "global-architecture-gate",
         "public_release_claim_allowed=false",
         "status=blocked",

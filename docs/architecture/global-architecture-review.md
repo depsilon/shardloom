@@ -510,11 +510,13 @@ plan before coding.
 - Current read: Release gates and dry-run evidence exist; publication is not complete.
 - Evidence: `shardloom-core/src/release.rs`, `shardloom-cli/src/packaging_deployment.rs`,
   `scripts/check_release_readiness.py`, `scripts/release_dry_run_proof.py`,
-  `scripts/release_provenance_dry_run.py`, `scripts/run_release_validation_evidence.py`
+  `scripts/release_provenance_dry_run.py`, `scripts/run_release_validation_evidence.py`,
+  `scripts/check_package_channel_readiness.py`,
+  `docs/release/package-channel-readiness-matrix.json`
 - [x] Release-readiness, provenance, SBOM, security, packaging, and no-fallback gate evidence
   surfaces exist.
 - [x] Local dry-run workflows avoid package publication and external side effects.
-- [ ] `GAR-COMMERCIAL-1A` and `GAR-COMMERCIAL-1B` add adoption and package-channel readiness
+- [x] `GAR-COMMERCIAL-1A` and `GAR-COMMERCIAL-1B` add adoption and package-channel readiness
   follow-through: one documented local smoke path plus a channel matrix for GitHub pre-release,
   TestPyPI, PyPI, Homebrew, Scoop/winget, conda-forge, GHCR, and future public Rust API crates. No
   channel may be marked ready without install/uninstall, clean install, smoke, SBOM/checksum,

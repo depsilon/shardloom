@@ -31,6 +31,7 @@ The gate aggregates:
 - clean Conda environment install proof
 - release security gate report
 - package metadata, license, repository, and homepage metadata
+- package-channel readiness matrix and channel-specific install/smoke/provenance/rollback proof
 - feature/build matrix execution evidence
 - typed-envelope compatibility posture
 - required validation command evidence
@@ -48,6 +49,7 @@ python -m build python
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 cargo run -q -p shardloom-cli -- global-architecture-gate --format json
 python scripts\check_release_security_gate.py
+python scripts\check_package_channel_readiness.py
 ```
 
 The local evidence runner records the feature/build matrix and required validation command status:
@@ -85,8 +87,27 @@ The global architecture gate uses schema
 own workload-scoped evidence.
 
 The broader release process must also attach clean Conda proof, benchmark smoke evidence,
-package metadata/license proof, SBOM/checksum/provenance evidence, runtime no-fallback dependency
-audit, and release notes or known-unsupported-path evidence before public claims are allowed.
+package metadata/license proof, package-channel proof, SBOM/checksum/provenance evidence, runtime
+no-fallback dependency audit, and release notes or known-unsupported-path evidence before public
+claims are allowed.
+
+The package-channel matrix uses schema `shardloom.package_channel_readiness_matrix.v1`:
+
+```powershell
+python scripts\check_package_channel_readiness.py
+```
+
+It writes:
+
+```text
+target/package-channel-readiness-report.json
+```
+
+The matrix is valid when blocked channels are explicit, but the hard release gate remains blocked
+until each channel has channel-specific install, uninstall, clean-install, smoke, SBOM/checksum/
+provenance, rollback/yank/delete/deprecate, and authorization evidence. PyPI and TestPyPI require
+Trusted Publisher/OIDC posture. Internal Rust crates remain unpublished; crates.io is limited to
+future stable public API crates.
 
 `GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Portable release artifacts
 remain the normal `release` profile artifacts unless a separate release gate explicitly admits a
@@ -113,12 +134,14 @@ python scripts\release_dry_run_proof.py --require-clean-conda
 
 ## Claim Rule
 
-`public_release_claim_allowed` and `public_package_claim_allowed` must remain false unless every gate
-passes. Public claims must be generated from evidence artifacts, not prose.
+`public_release_claim_allowed` and `public_package_claim_allowed` must remain false unless every
+gate passes, including package-channel readiness. Public claims must be generated from evidence
+artifacts, not prose.
 
 ## Current Expected State
 
-When proof artifacts are missing, stale, or lack clean Conda evidence, the gate is expected to emit:
+When proof artifacts are missing, stale, lack clean Conda evidence, or lack package-channel
+readiness evidence, the gate is expected to emit:
 
 ```text
 status=blocked
@@ -128,8 +151,8 @@ public_release_claim_allowed=false
 That blocked result is correct release behavior. It prevents accidental publication when any runtime,
 protocol, packaging, benchmark, provenance, security, or unsupported-path proof is missing.
 
-With current validation evidence, release security evidence, and a dry-run transcript containing
-`clean_conda_env_install_status=passed`, the gate emits:
+With current validation evidence, release security evidence, a dry-run transcript containing
+`clean_conda_env_install_status=passed`, and a fully ready package-channel matrix, the gate emits:
 
 ```text
 status=passed

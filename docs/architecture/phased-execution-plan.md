@@ -562,54 +562,17 @@ getting-started docs, release proof docs, example metadata, and contract tests. 
 local technical-preview evidence only; it does not publish packages, create release tags, claim
 production readiness, claim performance/Spark replacement, expand SQL/DataFrame/object-store/
 lakehouse/Foundry runtime support, or weaken no-fallback policy.
-- [ ] GAR-COMMERCIAL-1B package channel readiness matrix
-  - Source: RFC 0024; RFC 0030; release security/provenance docs; package-name readiness; PyPI
-    Trusted Publishing/OIDC docs; TestPyPI, GitHub Releases, Homebrew, Scoop, winget, conda-forge,
-    GHCR, and crates.io channel expectations;
-    `docs/architecture/adoption-commercial-readiness-friction-reduction.md`.
-  - Current state:
-    - Internal Rust crates are `publish=false`.
-    - Python package metadata exists.
-    - Release provenance, SBOM/checksum dry-run, package-name readiness, and local dry-run proof
-      exist.
-    - Public package/channel publication is not complete.
-  - Next slice outcome:
-    - Add a channel matrix for GitHub pre-release, TestPyPI, PyPI, Homebrew tap, Scoop/winget,
-      conda-forge, GHCR container, and future crates.io public API crates.
-  - User-visible surface:
-    - Release docs, README release posture, website/status or release page, package readiness report.
-  - Implementation scope:
-    - Channel readiness docs/report rows, release gate metadata, expected commands, rollback/yank
-      policy, and validation hooks. Do not publish packages.
-  - Evidence required:
-    - install command.
-    - uninstall command.
-    - clean install proof.
-    - smoke check.
-    - SBOM/checksum/provenance.
-    - rollback/yank/delete/deprecate policy.
-    - channel-specific auth/provenance refs, including PyPI Trusted Publisher/OIDC for PyPI.
-  - Acceptance:
-    - No channel is marked ready without proof.
-    - PyPI uses Trusted Publisher/OIDC.
-    - Internal Rust crates remain unpublished.
-    - crates.io is limited to future stable public API crates, not current internal crates.
-  - Verification:
-    - release readiness metadata tests.
-    - package/provenance dry-run tests if report fields change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No package publication, release tag, OCI push, package-channel submission, signing key use,
-      secret creation, or dependency expansion.
-  - Claim boundary:
-    - Package access does not imply production readiness.
-  - Fallback boundary:
-    - Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, or another
-      external query engine as a runtime fallback dependency.
-  - Dependencies/blockers:
-    - Hard release-readiness gate, trusted publisher setup, maintainer approval, SBOM/provenance,
-      clean install proof, and API/schema stability gate.
+GAR-COMMERCIAL-1B is complete and recorded in the completed ledger.
+`docs/release/package-channel-readiness-matrix.json` now provides
+`shardloom.package_channel_readiness_matrix.v1` for GitHub pre-release, TestPyPI, PyPI, Homebrew
+tap, Scoop, winget, conda-forge, GHCR container, and future crates.io public API crates. The matrix
+is validated by `scripts/check_package_channel_readiness.py` and consumed by
+`scripts/check_release_readiness.py`; every channel remains blocked until channel-specific install,
+uninstall, clean-install, smoke, SBOM/checksum/provenance, rollback/yank/delete/deprecate, and
+authorization proof exists. PyPI/TestPyPI require Trusted Publisher/OIDC posture, internal Rust
+crates remain unpublished, crates.io is limited to future stable public API crates, and package
+access does not imply production, performance, Spark-replacement, SQL/DataFrame, object-store/
+lakehouse, Foundry, or fallback-execution readiness.
 - [ ] GAR-COMMERCIAL-1C compatibility scorecard and buyer-facing status page
   - Source: GAR-COMPAT-1A; universal compatibility scoreboard; known unsupported paths;
     website/status; public technical-preview readiness;

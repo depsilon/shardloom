@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMMERCIAL-1B package channel readiness matrix
+  - Primary files:
+    - `docs/release/package-channel-readiness-matrix.json`
+    - `docs/release/package-channel-readiness-matrix.md`
+    - `scripts/check_package_channel_readiness.py`
+    - `scripts/check_release_readiness.py`
+    - `scripts/run_release_validation_evidence.py`
+    - `docs/release/package-name-readiness.md`
+    - `docs/release/hard-release-readiness-gate.md`
+    - `docs/architecture/adoption-commercial-readiness-friction-reduction.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `README.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the package-channel readiness slice by adding a machine-readable
+    `shardloom.package_channel_readiness_matrix.v1` for GitHub pre-release, TestPyPI, PyPI,
+    Homebrew tap, Scoop, winget, conda-forge, GHCR container, and future crates.io public API
+    crates; adding a validator; and wiring the matrix into hard release-readiness validation.
+  - Checklist:
+    - [x] Add per-channel install, uninstall, proof, authorization, rollback/yank, and claim-boundary
+          rows.
+    - [x] Keep every public package channel blocked until channel-specific clean-install, smoke,
+          SBOM/checksum/provenance, and rollback/yank/delete/deprecate evidence exists.
+    - [x] Require PyPI/TestPyPI Trusted Publisher/OIDC posture before release-grade Python package
+          claims.
+    - [x] Keep internal Rust crates unpublished and limit crates.io to future stable public API
+          crates.
+    - [x] Add release-gate integration and contract-test coverage so package claims cannot become
+          ready by prose.
+  - Evidence and verification:
+    - `python scripts\check_package_channel_readiness.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python -m compileall -q scripts`
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - Package-channel readiness is blocked release evidence only. This slice does not publish
+      packages, create tags, push containers, submit manifests/feedstocks, claim production
+      readiness, claim performance/Spark replacement, or authorize SQL/DataFrame, object-store/
+      lakehouse, Foundry, distributed, or package-publication readiness.
+  - Fallback boundary:
+    - The matrix and validators require no-publication/no-tag/no-secret/no-fallback posture.
+      Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or
+      another external query engine as a ShardLoom runtime fallback dependency.
+
 - [x] Session label: GAR-COMMERCIAL-1A one-command local install and smoke proof
   - Primary files:
     - `scripts/release_dry_run_proof.py`
