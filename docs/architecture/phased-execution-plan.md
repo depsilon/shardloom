@@ -573,49 +573,15 @@ authorization proof exists. PyPI/TestPyPI require Trusted Publisher/OIDC posture
 crates remain unpublished, crates.io is limited to future stable public API crates, and package
 access does not imply production, performance, Spark-replacement, SQL/DataFrame, object-store/
 lakehouse, Foundry, or fallback-execution readiness.
-- [ ] GAR-COMMERCIAL-1C compatibility scorecard and buyer-facing status page
-  - Source: GAR-COMPAT-1A; universal compatibility scoreboard; known unsupported paths;
-    website/status; public technical-preview readiness;
-    `docs/architecture/adoption-commercial-readiness-friction-reduction.md`.
-  - Current state:
-    - Status exists across docs and website/status, but users still have to infer maturity from
-      architecture language.
-    - Universal compatibility scoreboard exists as a report-only architecture doc.
-  - Next slice outcome:
-    - Publish a human-readable scorecard/status page organized by `supported`, `smoke-supported`,
-      `report-only`, `blocked`, `planned`, and `not planned` so users can answer "Can I use this
-      for X?" quickly.
-  - User-visible surface:
-    - `website/status.html`, README, website get-started, and compatibility docs.
-  - Implementation scope:
-    - Website/status generation, README links, status labels, compatibility scoreboard projection,
-      and claim-safety validation. No runtime expansion.
-  - Evidence required:
-    - status refs: scoreboard row refs and known unsupported path refs.
-    - claim refs: public-preview and release claim boundaries.
-    - policy/no-fallback refs: fallback and external-engine status for supported/smoke rows.
-    - freshness refs: source doc timestamp or generated artifact metadata.
-  - Acceptance:
-    - Users can answer "Can I use this for X?" in under 2 minutes.
-    - Unsupported paths are not hidden.
-    - Status labels distinguish runtime support from report-only/planned posture.
-    - Public page does not imply production, performance, Spark replacement, SQL/DataFrame,
-      object-store/lakehouse, Foundry, package, or external platform readiness.
-  - Verification:
-    - `python scripts/check_website_readiness.py`
-    - website static asset validation if generated pages change.
-    - release readiness metadata tests.
-    - `git diff --check`
-  - Non-goals:
-    - No runtime expansion, benchmark rerun, package publication, or new claim.
-  - Claim boundary:
-    - Buyer-facing status is a maturity map, not a production support commitment.
-  - Fallback boundary:
-    - Status rows must preserve no-fallback/no-external-engine posture and must not hide unsupported
-      diagnostics.
-  - Dependencies/blockers:
-    - GAR-COMPAT-1A typed scoreboard projection, known unsupported path ownership, website generator,
-      and claim-safety checks.
+GAR-COMMERCIAL-1C is complete and recorded in the completed ledger. `website/status.html` now
+includes a generated buyer-facing "Can I use this?" matrix sourced from the universal compatibility
+scoreboard and package-channel readiness matrix, with rows grouped across `runtime-supported`,
+`smoke-supported`, `report-only`, `blocked`, `planned`, and `not-planned` posture. The matrix keeps
+unsupported paths visible, links every row to source refs, preserves `fallback_attempted=false` and
+`external_engine_invoked=false`, and is enforced by `scripts/check_website_readiness.py`. It is a
+maturity map only and does not add runtime support, publish packages, rerun benchmarks, or create
+production, performance, Spark-replacement, SQL/DataFrame, object-store/lakehouse, Foundry, package,
+or fallback-execution claims.
 - [ ] GAR-COMMERCIAL-1D enterprise evidence export pack
   - Source: GAR-NOVEL-1B; GAR-NOVEL-1C; operational evidence policy; OpenLineage; OpenTelemetry;
     ShardLoom evidence envelope;

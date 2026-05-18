@@ -998,6 +998,46 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
             "missing Python compatibility scoreboard field {required}"
         );
     }
+
+    let status_page = read_repo_file("website/status.html");
+    for required in [
+        "Answer common capability questions in under two minutes.",
+        "runtime supported",
+        "smoke supported",
+        "report only",
+        "blocked",
+        "planned",
+        "not planned",
+        "Public package channels",
+        "Hidden fallback engine execution",
+        "Spark-displacement claim",
+        "Production SQL/DataFrame, object-store, lakehouse, or Foundry claim",
+        "docs/architecture/universal-compatibility-coverage-scoreboard.json",
+        "docs/release/package-channel-readiness-matrix.json",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "public_package_release_claim_allowed=false",
+    ] {
+        assert!(
+            status_page.contains(required),
+            "missing website status scorecard field {required}"
+        );
+    }
+
+    let website_readiness = read_repo_file("scripts/check_website_readiness.py");
+    for required in [
+        "Answer common capability questions in under two minutes.",
+        "Public package channels",
+        "docs/architecture/universal-compatibility-coverage-scoreboard.json",
+        "docs/release/package-channel-readiness-matrix.json",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            website_readiness.contains(required),
+            "missing website readiness status-scorecard check {required}"
+        );
+    }
 }
 
 #[test]

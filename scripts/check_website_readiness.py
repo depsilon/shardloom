@@ -277,6 +277,26 @@ def main() -> int:
         if not (website / "assets" / "data" / "compute-engine-flow-reference.md").exists():
             blockers.append("missing local compute-flow reference snapshot")
 
+        status_page = website / "status.html"
+        if status_page.exists():
+            status_text = status_page.read_text(encoding="utf-8")
+            for required in [
+                "Answer common capability questions in under two minutes.",
+                "runtime supported",
+                "smoke supported",
+                "report only",
+                "blocked",
+                "planned",
+                "not planned",
+                "Public package channels",
+                "docs/architecture/universal-compatibility-coverage-scoreboard.json",
+                "docs/release/package-channel-readiness-matrix.json",
+                "fallback_attempted=false",
+                "external_engine_invoked=false",
+            ]:
+                if required not in status_text:
+                    blockers.append(f"status page missing buyer-facing scorecard field: {required}")
+
         manifest_path = website / "assets" / "benchmarks" / "latest" / "manifest.json"
         if manifest_path.exists():
             try:

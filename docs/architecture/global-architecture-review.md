@@ -942,9 +942,10 @@ plan before coding.
 - [ ] `GAR-COMPAT-1` is the user-workflow compatibility scoreboard for source/sink/adapters. It
   separates plan/report coverage from runtime coverage for local files, Vortex, generated-output
   APIs, external databases, object stores, table formats, REST/Flight/ADBC, and Foundry.
-- [ ] `GAR-COMMERCIAL-1C` and `GAR-COMMERCIAL-1F` add buyer-facing status and workflow recipes so
-  users can quickly determine whether ShardLoom supports, smoke-supports, reports-only, blocks, or
-  does not plan common workflows without hiding unsupported paths.
+- [x] `GAR-COMMERCIAL-1C` adds a generated buyer-facing website/status matrix so users can quickly
+  determine whether ShardLoom supports, smoke-supports, reports-only, blocks, plans, or does not
+  plan common surfaces without reading the phase plan.
+- [ ] `GAR-COMMERCIAL-1F` adds workflow recipes without hiding unsupported paths.
 - [x] `GAR-IOREUSE-1D` adds a report-only cross-format fanout benchmark and workflow lane. It shows
   required fanout case IDs, reusable source/prepared/output planning fields, deterministic blocker
   IDs/reasons, timing/reuse columns, `fanout_output_count=0`, and no-fallback/no-external-engine

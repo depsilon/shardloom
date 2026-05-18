@@ -55,6 +55,7 @@
     </section>
     <nav class="page-subnav" aria-label="Status sections">
       <div class="shell">
+        <a href="#can-i-use-this">Can I use this?</a>
         <a href="#supported">Supported local smoke</a>
         <a href="#fixture">Fixture-smoke</a>
         <a href="#compatibility">Compatibility</a>
@@ -64,6 +65,58 @@
         <a href="#not-claimed">Not claimed</a>
       </div>
     </nav>
+<section id="can-i-use-this" class="status-scorecard">
+      <div class="shell">
+        <p class="eyebrow">Can I use this?</p>
+        <h2>Answer common capability questions in under two minutes.</h2>
+        <p class="section-lede">This matrix projects the universal compatibility scoreboard, known unsupported paths, and package-channel release boundary into one buyer-facing status view. It is a maturity map, not runtime expansion.</p>
+        <div class="metric-row"><div class="metric"><strong>1</strong><span>runtime supported</span></div>
+<div class="metric"><strong>8</strong><span>smoke supported</span></div>
+<div class="metric"><strong>7</strong><span>report only</span></div>
+<div class="metric"><strong>3</strong><span>blocked</span></div>
+<div class="metric"><strong>3</strong><span>planned</span></div>
+<div class="metric"><strong>3</strong><span>not planned</span></div></div>
+        <div class="telemetry-signal-grid status-key" aria-label="Status vocabulary">
+          <article class="signal-card"><span class="claim-badge supported">runtime supported</span><p>A scoped runtime path exists; claim boundaries still apply.</p></article>
+<article class="signal-card"><span class="claim-badge fixture">smoke supported</span><p>A narrow local or fixture smoke exists; broad support is not implied.</p></article>
+<article class="signal-card"><span class="claim-badge report-only">report only</span><p>The surface can be described or diagnosed without execution support.</p></article>
+<article class="signal-card"><span class="claim-badge blocked">blocked</span><p>The surface must remain unavailable or emit deterministic blockers.</p></article>
+<article class="signal-card"><span class="claim-badge planned">planned</span><p>The phase plan carries a future work item, not current support.</p></article>
+<article class="signal-card"><span class="claim-badge blocked">not planned</span><p>The public posture intentionally does not make or pursue this claim.</p></article>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Surface or claim</th><th>Status</th><th>What this means</th><th>Evidence or blocker</th><th>Reference</th></tr></thead>
+            <tbody><tr><td><strong>CSV</strong><span>local_compatibility_file</span></td><td><span class="claim-badge fixture">smoke supported</span></td><td>Compatibility import evidence only; not pure query speed or universal CSV runtime.</td><td>fixture_smoke_only; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>JSONL / NDJSON / JSON</strong><span>local_compatibility_file</span></td><td><span class="claim-badge fixture">smoke supported</span></td><td>Scoped local JSONL compatibility evidence only; no general JSON document/database claim.</td><td>fixture_smoke_only; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Parquet</strong><span>local_compatibility_file</span></td><td><span class="claim-badge fixture">smoke supported</span></td><td>Parquet preparation evidence only; no lakehouse/table runtime claim.</td><td>fixture_smoke_only; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Arrow IPC</strong><span>local_compatibility_file</span></td><td><span class="claim-badge fixture">smoke supported</span></td><td>Interop boundary only; no blanket Arrow-native runtime claim.</td><td>fixture_smoke_only; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Avro</strong><span>local_compatibility_file</span></td><td><span class="claim-badge fixture">smoke supported</span></td><td>Scoped compatibility import evidence only; no native Avro execution claim.</td><td>fixture_smoke_only; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>ORC</strong><span>local_compatibility_file</span></td><td><span class="claim-badge fixture">smoke supported</span></td><td>Scoped compatibility import evidence only; no native ORC execution claim.</td><td>fixture_smoke_only; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Excel</strong><span>local_desktop_document_file</span></td><td><span class="claim-badge blocked">blocked</span></td><td>Excel source/sink support is not claimed.</td><td>not_claim_grade; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>SQLite</strong><span>database_file</span></td><td><span class="claim-badge report-only">report only</span></td><td>SQLite import/export support is not claimed.</td><td>not_claim_grade; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Postgres / MySQL</strong><span>database_service</span></td><td><span class="claim-badge report-only">report only</span></td><td>External databases are not fallback engines or supported runtime connectors.</td><td>not_claim_grade; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>JDBC / ODBC</strong><span>connector_bridge</span></td><td><span class="claim-badge report-only">report only</span></td><td>JDBC/ODBC bridge availability is not claimed.</td><td>not_claim_grade; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>S3 / GCS / ADLS</strong><span>object_store</span></td><td><span class="claim-badge blocked">blocked</span></td><td>No object-store runtime, credential, network, read, write, or commit claim.</td><td>not_claim_grade; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Iceberg / Delta / Hudi</strong><span>table_lakehouse_format</span></td><td><span class="claim-badge report-only">report only</span></td><td>No production lakehouse, table runtime, or commit claim.</td><td>not_claim_grade; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Vortex</strong><span>native_file_layout</span></td><td><span class="claim-badge supported">runtime supported</span></td><td>Scoped local Vortex evidence only; no universal runtime or performance claim.</td><td>fixture_smoke_only; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Generated / source-free outputs</strong><span>generated_source</span></td><td><span class="claim-badge fixture">smoke supported</span></td><td>Local user-row and range JSONL fixture-smoke generated-output runtime only.</td><td>fixture_smoke_only; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Python rows / DataFrame</strong><span>user_api</span></td><td><span class="claim-badge fixture">smoke supported</span></td><td>User-layer posture only; no broad DataFrame runtime claim.</td><td>fixture_smoke_only; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>SQL VALUES / literals</strong><span>sql_frontend</span></td><td><span class="claim-badge report-only">report only</span></td><td>No SQL parser, binder, planner, runtime, generated-source certificate, or SQL execution claim.</td><td>not_claim_grade; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>REST / Flight / ADBC</strong><span>remote_and_data_plane_api</span></td><td><span class="claim-badge report-only">report only</span></td><td>No production API, server, remote execution, or data-plane bridge claim.</td><td>not_claim_grade; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Foundry</strong><span>platform_integration</span></td><td><span class="claim-badge report-only">report only</span></td><td>Future validation target only; no endorsement or production claim.</td><td>not_claim_grade; fallback_attempted=false; external_engine_invoked=false</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code></td></tr>
+<tr><td><strong>Public package channels</strong><span>release_distribution</span></td><td><span class="claim-badge blocked">blocked</span></td><td>Public package channels remain blocked until channel-specific install, uninstall, smoke, SBOM/checksum/provenance, and rollback evidence exists.</td><td>0 ready channels; public_package_release_claim_allowed=false</td><td><code>docs/release/package-channel-readiness-matrix.json</code></td></tr>
+<tr><td><strong>Enterprise evidence export pack</strong><span>adoption_workflow</span></td><td><span class="claim-badge planned">planned</span></td><td>OpenLineage/OpenTelemetry/ShardLoom evidence export pack remains planned and opt-in; no network backend is invoked by default.</td><td>GAR-COMMERCIAL-1D planned</td><td><code>docs/architecture/phased-execution-plan.md</code></td></tr>
+<tr><td><strong>Foundry dev-stack starter</strong><span>platform_integration</span></td><td><span class="claim-badge planned">planned</span></td><td>Foundry starter kit remains a local/dev-stack target, not Foundry production support or Marketplace proof.</td><td>GAR-COMMERCIAL-1E planned</td><td><code>docs/architecture/phased-execution-plan.md</code></td></tr>
+<tr><td><strong>Workflow recipe library</strong><span>documentation</span></td><td><span class="claim-badge planned">planned</span></td><td>Recipe coverage is planned for common workflows and blocked diagnostics; it does not add runtime support by itself.</td><td>GAR-COMMERCIAL-1F planned</td><td><code>docs/architecture/phased-execution-plan.md</code></td></tr>
+<tr><td><strong>Hidden fallback engine execution</strong><span>claim_boundary</span></td><td><span class="claim-badge blocked">not planned</span></td><td>ShardLoom does not plan to silently run unsupported work through Spark, DuckDB, DataFusion, Polars, pandas, or another fallback engine.</td><td>fallback_attempted=false; external_engine_invoked=false</td><td><code>README.md</code></td></tr>
+<tr><td><strong>Spark-displacement claim</strong><span>claim_boundary</span></td><td><span class="claim-badge blocked">not planned</span></td><td>ShardLoom is not presented as an Apache Spark substitute; external engines are baseline context only.</td><td>claim_gate_status=not_claim_grade</td><td><code>docs/benchmarks/baseline-comparison-boundary.md</code></td></tr>
+<tr><td><strong>Production SQL/DataFrame, object-store, lakehouse, or Foundry claim</strong><span>claim_boundary</span></td><td><span class="claim-badge blocked">not planned</span></td><td>Production claims for these surfaces are not planned without future workload-scoped runtime evidence and release gates.</td><td>public claim gates closed</td><td><code>docs/release/known-unsupported-paths.md</code></td></tr></tbody>
+          </table>
+        </div>
+        <p class="section-note">Every supported or smoke-supported row remains scoped. Unsupported and blocked rows stay visible so users do not infer production SQL/DataFrame, object-store/lakehouse, Foundry, package-publication, performance, Spark-replacement, or fallback-engine support.</p>
+      </div>
+    </section>
     <section id="supported">
       <div class="shell">
         <p class="eyebrow">Evidence-backed local surface</p>
