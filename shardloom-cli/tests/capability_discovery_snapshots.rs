@@ -167,6 +167,62 @@ const GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_SUFFIXES: [&str; 15] = [
     "external_engine_invoked",
 ];
 
+const OPENLINEAGE_FACET_MAPPING_FIELD_KEYS: [&str; 23] = [
+    "openlineage_facet_mapping_schema_version",
+    "openlineage_facet_mapping_report_id",
+    "openlineage_facet_mapping_gar_id",
+    "openlineage_facet_mapping_docs_ref",
+    "openlineage_facet_mapping_object_model_ref",
+    "openlineage_facet_mapping_facets_ref",
+    "openlineage_facet_mapping_custom_facets_ref",
+    "openlineage_facet_mapping_producer_placeholder",
+    "openlineage_facet_mapping_schema_url_base_placeholder",
+    "openlineage_facet_mapping_row_count",
+    "openlineage_facet_mapping_row_order",
+    "openlineage_facet_mapping_export_enabled",
+    "openlineage_facet_mapping_event_emitted",
+    "openlineage_facet_mapping_network_call_performed",
+    "openlineage_facet_mapping_backend_configured",
+    "openlineage_facet_mapping_client_dependency_added",
+    "openlineage_facet_mapping_schema_published",
+    "openlineage_facet_mapping_redaction_policy_required",
+    "openlineage_facet_mapping_retention_policy_required",
+    "openlineage_facet_mapping_opt_in_required",
+    "openlineage_facet_mapping_all_rows_report_only",
+    "openlineage_facet_mapping_all_rows_no_fallback_no_external_engine",
+    "openlineage_facet_mapping_claim_gate_status",
+];
+
+const OPENLINEAGE_FACET_MAPPING_ROW_IDS: [&str; 7] = [
+    "execution_mode",
+    "no_fallback",
+    "native_io_certificate",
+    "materialization_boundary",
+    "claim_gate",
+    "generated_source",
+    "vortex_artifact",
+];
+
+const OPENLINEAGE_FACET_MAPPING_ROW_SUFFIXES: [&str; 17] = [
+    "facet_name",
+    "facet_key",
+    "openlineage_entity",
+    "shardloom_evidence_fields",
+    "schema_url_placeholder",
+    "schema_version",
+    "producer",
+    "facet_status",
+    "export_enabled",
+    "event_emitted",
+    "network_call_performed",
+    "redaction_required",
+    "retention_policy_required",
+    "claim_gate_status",
+    "claim_boundary",
+    "fallback_attempted",
+    "external_engine_invoked",
+];
+
 const SQL_FIELD_KEYS: [&str; 35] = [
     "scope",
     "schema_version",
@@ -245,6 +301,23 @@ fn with_generated_source_alignment_fields(base_keys: &[&'static str]) -> Vec<Str
             GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_SUFFIXES
                 .into_iter()
                 .map(|suffix| format!("generated_source_evidence_alignment_row_{row_id}_{suffix}")),
+        );
+    }
+    keys
+}
+
+fn with_openlineage_facet_mapping_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys: Vec<String> = base_keys.iter().copied().map(str::to_string).collect();
+    keys.extend(
+        OPENLINEAGE_FACET_MAPPING_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in OPENLINEAGE_FACET_MAPPING_ROW_IDS {
+        keys.extend(
+            OPENLINEAGE_FACET_MAPPING_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("openlineage_facet_mapping_row_{row_id}_{suffix}")),
         );
     }
     keys
@@ -866,6 +939,9 @@ fn capability_discovery_json_field_keys_are_stable() {
             "dataframe" => with_generated_source_alignment_fields(
                 DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
             ),
+            "observability" => {
+                with_openlineage_facet_mapping_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+            }
             _ => WORLD_CLASS_SURFACE_FIELD_KEYS
                 .into_iter()
                 .map(str::to_string)

@@ -222,10 +222,10 @@ pub use observability::{
     KernelProfile, MetricCategory, MetricKind, MetricSample, MetricUnit, ObservabilityMetricValue,
     ObservabilityPlan, ObservabilityPlanStatus, ObservabilitySchemaArea,
     ObservabilitySchemaCoverageEntry, ObservabilitySchemaCoverageReport, ObservabilitySchemaStatus,
-    ObservabilitySurface, ObservedField, OperatorProfile, RedactionStatus,
-    RuntimeObservabilityReport, SensitivityLevel, StructuredEvent, StructuredEventKind,
-    TraceSpanCategory, TraceSpanId, TraceSpanSkeleton, TraceSpanStatus,
-    plan_observability_schema_coverage,
+    ObservabilitySurface, ObservedField, OpenLineageFacetMappingReport, OpenLineageFacetMappingRow,
+    OperatorProfile, RedactionStatus, RuntimeObservabilityReport, SensitivityLevel,
+    StructuredEvent, StructuredEventKind, TraceSpanCategory, TraceSpanId, TraceSpanSkeleton,
+    TraceSpanStatus, plan_observability_schema_coverage,
 };
 pub use operational_contracts::{
     BenchmarkConstitution, CostSimulationReport, EvidenceArtifactEnvelope, EvidenceArtifactSafety,

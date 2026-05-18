@@ -1176,6 +1176,216 @@ class GeneratedSourceEvidenceAlignmentReport:
 
 
 @dataclass(frozen=True, slots=True)
+class OpenLineageFacetMappingRow:
+    """One report-only ShardLoom-owned OpenLineage custom facet mapping row."""
+
+    row_id: str
+    facet_name: str | None
+    facet_key: str | None
+    openlineage_entity: str | None
+    shardloom_evidence_fields: tuple[str, ...]
+    schema_url_placeholder: str | None
+    schema_version: str | None
+    producer: str | None
+    facet_status: str | None
+    export_enabled: bool | None
+    event_emitted: bool | None
+    network_call_performed: bool | None
+    redaction_required: bool | None
+    retention_policy_required: bool | None
+    claim_gate_status: str | None
+    claim_boundary: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+
+    @property
+    def report_only_no_export(self) -> bool:
+        """Whether this facet row is a schema placeholder with no export effects."""
+
+        return (
+            self.facet_status == "report_only_schema_placeholder"
+            and self.export_enabled is False
+            and self.event_emitted is False
+            and self.network_call_performed is False
+        )
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether this row preserves no fallback and no external engine execution."""
+
+        return self.fallback_attempted is False and self.external_engine_invoked is False
+
+
+@dataclass(frozen=True, slots=True)
+class OpenLineageFacetMappingReport:
+    """Typed view over GAR-NOVEL-1B OpenLineage facet mapping fields."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the report schema version."""
+
+        return self.capability.field("openlineage_facet_mapping_schema_version")
+
+    @property
+    def report_id(self) -> str | None:
+        """Return the report identifier."""
+
+        return self.capability.field("openlineage_facet_mapping_report_id")
+
+    @property
+    def gar_id(self) -> str | None:
+        """Return the GAR item that owns this report."""
+
+        return self.capability.field("openlineage_facet_mapping_gar_id")
+
+    @property
+    def docs_ref(self) -> str | None:
+        """Return the architecture document that owns the mapping."""
+
+        return self.capability.field("openlineage_facet_mapping_docs_ref")
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return facet mapping row IDs in stable order."""
+
+        return _split_csv(self.capability.field("openlineage_facet_mapping_row_order"))
+
+    @property
+    def present(self) -> bool:
+        """Whether this capability exposes the GAR-NOVEL-1B mapping report."""
+
+        return self.schema_version is not None
+
+    @property
+    def export_enabled(self) -> bool:
+        """Whether OpenLineage export is enabled by this capability view."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "openlineage_facet_mapping_export_enabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def event_emitted(self) -> bool:
+        """Whether this report emitted an OpenLineage event."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "openlineage_facet_mapping_event_emitted",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def network_call_performed(self) -> bool:
+        """Whether this report performed a network call."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "openlineage_facet_mapping_network_call_performed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def schema_published(self) -> bool:
+        """Whether public OpenLineage facet schemas have been published."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "openlineage_facet_mapping_schema_published",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def all_rows_report_only(self) -> bool:
+        """Whether all row mappings are report-only no-export placeholders."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "openlineage_facet_mapping_all_rows_report_only",
+                False,
+            )
+            is True
+            and all(self.row(row_id).report_only_no_export for row_id in self.row_order)
+        )
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether the report and all rows preserve no-fallback policy."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "openlineage_facet_mapping_all_rows_no_fallback_no_external_engine",
+                False,
+            )
+            is True
+            and all(self.row(row_id).no_fallback_no_external_engine for row_id in self.row_order)
+        )
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the mapping-level claim gate status."""
+
+        return self.capability.field("openlineage_facet_mapping_claim_gate_status")
+
+    def row(self, row_id: str) -> OpenLineageFacetMappingRow:
+        """Return one OpenLineage facet mapping row."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(f"OpenLineage facet mapping row {row_id!r} is not present")
+        prefix = f"openlineage_facet_mapping_row_{normalized}"
+        return OpenLineageFacetMappingRow(
+            row_id=normalized,
+            facet_name=self.capability.field(f"{prefix}_facet_name"),
+            facet_key=self.capability.field(f"{prefix}_facet_key"),
+            openlineage_entity=self.capability.field(f"{prefix}_openlineage_entity"),
+            shardloom_evidence_fields=_split_csv(
+                self.capability.field(f"{prefix}_shardloom_evidence_fields")
+            ),
+            schema_url_placeholder=self.capability.field(
+                f"{prefix}_schema_url_placeholder"
+            ),
+            schema_version=self.capability.field(f"{prefix}_schema_version"),
+            producer=self.capability.field(f"{prefix}_producer"),
+            facet_status=self.capability.field(f"{prefix}_facet_status"),
+            export_enabled=self.capability.envelope.field_bool(
+                f"{prefix}_export_enabled"
+            ),
+            event_emitted=self.capability.envelope.field_bool(
+                f"{prefix}_event_emitted"
+            ),
+            network_call_performed=self.capability.envelope.field_bool(
+                f"{prefix}_network_call_performed"
+            ),
+            redaction_required=self.capability.envelope.field_bool(
+                f"{prefix}_redaction_required"
+            ),
+            retention_policy_required=self.capability.envelope.field_bool(
+                f"{prefix}_retention_policy_required"
+            ),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            claim_boundary=self.capability.field(f"{prefix}_claim_boundary"),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UniversalCompatibilityRow:
     """One row from the universal source/sink compatibility scoreboard."""
 
@@ -2528,6 +2738,12 @@ class CapabilityView:
         return GeneratedSourceEvidenceAlignmentReport(self)
 
     @property
+    def openlineage_facet_mapping(self) -> OpenLineageFacetMappingReport:
+        """Return GAR-NOVEL-1B OpenLineage facet mapping posture."""
+
+        return OpenLineageFacetMappingReport(self)
+
+    @property
     def universal_compatibility_scoreboard(self) -> UniversalCompatibilityScoreboard:
         """Return universal source/sink compatibility coverage posture."""
 
@@ -2747,6 +2963,12 @@ class ContextCapabilities:
         return self.scope("api-surfaces")
 
     @property
+    def observability(self) -> CapabilityView:
+        """Return observability/lineage capability state."""
+
+        return self.scope("observability")
+
+    @property
     def remote_api(self) -> CapabilityView:
         """Return CG-23 remote/API capability parity state."""
 
@@ -2905,6 +3127,11 @@ class ShardLoomContext:
         """Return deployment/package capability discovery."""
 
         return self._capability_view("deployment", check=check)
+
+    def observability(self, *, check: bool = True) -> CapabilityView:
+        """Return observability/lineage capability discovery."""
+
+        return self._capability_view("observability", check=check)
 
     def certification(self, *, check: bool = True) -> CapabilityView:
         """Return certification capability discovery."""

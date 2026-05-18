@@ -522,51 +522,14 @@ no-external-engine fields and does not enable exporters, telemetry network calls
 decisioning, SQL/DataFrame runtime, Foundry runtime, object-store writes, package publication, or
 production/performance claims.
 
-- [ ] GAR-NOVEL-1B OpenLineage evidence facets
-  - Source: RFC 0018; RFC 0035; RFC 0036; operational evidence policy; ShardLoom evidence envelope;
-    OpenLineage run/job/dataset/facet model;
-    `docs/architecture/evidence-native-generated-execution-observability-confidence.md`.
-  - Current state:
-    - ShardLoom evidence is internal/JSON oriented.
-    - RFC 0035 names OpenLineage posture, and Python/report surfaces expose that facets are mapped,
-      but no OpenLineage export exists.
-  - Next slice outcome:
-    - Add report-only design and optional future schema placeholders for ShardLoom-owned custom
-      OpenLineage facets: `ExecutionModeFacet`, `NoFallbackFacet`,
-      `NativeIoCertificateFacet`, `MaterializationBoundaryFacet`, `ClaimGateFacet`,
-      `GeneratedSourceFacet`, and `VortexArtifactFacet`.
-  - User-visible surface:
-    - Docs, future CLI export docs, future lineage capability rows, and release/readiness claim
-      checks.
-  - Implementation scope:
-    - Facet mapping docs/report rows, capability fields, redaction/export policy fields, and tests.
-      Do not emit lineage events or add a backend/client dependency in this slice.
-  - Evidence required:
-    - mapping refs: ShardLoom evidence field to run/job/input dataset/output dataset facet.
-    - schema refs: ShardLoom-owned facet name, producer, schema URL/version placeholder.
-    - safety refs: redaction policy, retention policy, export opt-in policy.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - No lineage event is emitted by default.
-    - Export remains opt-in.
-    - No external network call occurs without explicit policy.
-    - Facets preserve claim gate, generated-source, materialization, Native I/O, Vortex artifact, and
-      no-fallback evidence without implying backend integration.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - protocol/capability snapshot tests if report fields change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No lineage backend integration, event emitter, network client, Foundry lineage claim, schema
-      publication, or dependency expansion.
-  - Claim boundary:
-    - Report-only lineage facet design; not production lineage support.
-  - Fallback boundary:
-    - Lineage export can never authorize fallback execution or external engine invocation.
-  - Dependencies/blockers:
-    - Evidence artifact safety, redaction/retention policy, schema publication decision, and explicit
-      export policy.
+GAR-NOVEL-1B is complete and recorded in the completed ledger. Observability capability views now
+expose `shardloom.openlineage_facet_mapping.v1`, a report-only mapping from ShardLoom execution
+mode, no-fallback, Native I/O certificate, materialization boundary, claim gate, generated-source,
+and Vortex artifact evidence into ShardLoom-owned future OpenLineage custom facet placeholders. The
+mapping keeps export disabled, event emission disabled, schema publication disabled, backend/client
+dependency disabled, network calls disabled, `fallback_attempted=false`,
+`external_engine_invoked=false`, and `claim_gate_status=not_claim_grade`.
+
 - [ ] GAR-NOVEL-1C OpenTelemetry execution trace export contract
   - Source: RFC 0018; RFC 0035; benchmark stage timing model; runtime timing/evidence fields;
     OpenTelemetry trace/span/attribute/exporter concepts;

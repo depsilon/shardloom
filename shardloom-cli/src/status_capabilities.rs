@@ -10,9 +10,10 @@ use shardloom_core::{
     ArchitectureRuntimeClaimGateReport, CapabilityCertificationReport,
     CapabilityCertificationStatus, CommandStatus, EngineCapabilities, EngineCapabilityMatrixReport,
     GeneratedSourceApiAdmissionMatrix, GeneratedSourceCertificateContractReport,
-    GeneratedSourceEvidenceAlignmentReport, MaterializationPolicyReport, OutputFormat,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
-    ShardLoomError, SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
+    GeneratedSourceEvidenceAlignmentReport, MaterializationPolicyReport,
+    OpenLineageFacetMappingReport, OutputFormat, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
+    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
     WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
     output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
     plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
@@ -5103,6 +5104,195 @@ fn append_generated_source_evidence_alignment_fields(fields: &mut Vec<(String, S
     }
 }
 
+#[allow(clippy::too_many_lines)]
+fn append_openlineage_facet_mapping_fields(fields: &mut Vec<(String, String)>) {
+    let report = OpenLineageFacetMappingReport::report_only();
+    push_field(
+        fields,
+        "openlineage_facet_mapping_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "openlineage_facet_mapping_report_id",
+        report.report_id,
+    );
+    push_field(fields, "openlineage_facet_mapping_gar_id", report.gar_id);
+    push_field(
+        fields,
+        "openlineage_facet_mapping_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "openlineage_facet_mapping_object_model_ref",
+        report.openlineage_object_model_ref,
+    );
+    push_field(
+        fields,
+        "openlineage_facet_mapping_facets_ref",
+        report.openlineage_facets_ref,
+    );
+    push_field(
+        fields,
+        "openlineage_facet_mapping_custom_facets_ref",
+        report.openlineage_custom_facets_ref,
+    );
+    push_field(
+        fields,
+        "openlineage_facet_mapping_producer_placeholder",
+        report.producer_placeholder,
+    );
+    push_field(
+        fields,
+        "openlineage_facet_mapping_schema_url_base_placeholder",
+        report.schema_url_base_placeholder,
+    );
+    push_count_field(
+        fields,
+        "openlineage_facet_mapping_row_count",
+        report.rows.len(),
+    );
+    push_field(
+        fields,
+        "openlineage_facet_mapping_row_order",
+        &report.row_order().join(","),
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_export_enabled",
+        report.export_enabled,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_event_emitted",
+        report.event_emitted,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_network_call_performed",
+        report.network_call_performed,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_backend_configured",
+        report.backend_configured,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_client_dependency_added",
+        report.client_dependency_added,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_schema_published",
+        report.schema_published,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_redaction_policy_required",
+        report.redaction_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_retention_policy_required",
+        report.retention_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_opt_in_required",
+        report.opt_in_required,
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_all_rows_report_only",
+        report.all_rows_report_only(),
+    );
+    push_bool_field(
+        fields,
+        "openlineage_facet_mapping_all_rows_no_fallback_no_external_engine",
+        report.all_rows_fallback_free(),
+    );
+    push_field(
+        fields,
+        "openlineage_facet_mapping_claim_gate_status",
+        report.claim_gate_status,
+    );
+
+    for row in &report.rows {
+        let prefix = format!("openlineage_facet_mapping_row_{}", row.row_id);
+        push_field(fields, &format!("{prefix}_facet_name"), row.facet_name);
+        push_field(fields, &format!("{prefix}_facet_key"), row.facet_key);
+        push_field(
+            fields,
+            &format!("{prefix}_openlineage_entity"),
+            row.openlineage_entity,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_shardloom_evidence_fields"),
+            row.shardloom_evidence_fields,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_schema_url_placeholder"),
+            row.schema_url_placeholder,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_schema_version"),
+            row.schema_version,
+        );
+        push_field(fields, &format!("{prefix}_producer"), row.producer);
+        push_field(fields, &format!("{prefix}_facet_status"), row.facet_status);
+        push_bool_field(
+            fields,
+            &format!("{prefix}_export_enabled"),
+            row.export_enabled,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_event_emitted"),
+            row.event_emitted,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_network_call_performed"),
+            row.network_call_performed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_redaction_required"),
+            row.redaction_required,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_retention_policy_required"),
+            row.retention_policy_required,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_boundary"),
+            row.claim_boundary,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_fallback_attempted"),
+            row.fallback_attempted,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_external_engine_invoked"),
+            row.external_engine_invoked,
+        );
+    }
+}
+
 fn append_function_certification_fields(
     report: &CapabilityCertificationReport,
     fields: &mut Vec<(String, String)>,
@@ -7579,6 +7769,9 @@ fn world_class_surface_fields(
     ) {
         append_generated_source_api_admission_fields(&mut fields);
         append_generated_source_evidence_alignment_fields(&mut fields);
+    }
+    if scope == CapabilityDiscoveryScope::Observability {
+        append_openlineage_facet_mapping_fields(&mut fields);
     }
     fields
 }
