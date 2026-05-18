@@ -175,6 +175,19 @@ resolution, network effects, lakehouse production support, Spark-replacement, or
 vocabulary only; they do not prove coordinator, worker, task lease, remote split execution, retry,
 fragment merge, network API, distributed runtime, Spark-replacement, or performance claims.
 
+`GAR-SCALE-1G` adds a scale benchmark profile contract to benchmark rows and artifacts. Rows now
+include
+`scale_benchmark_profile_schema_version=shardloom.traditional_analytics.scale_benchmark_profile.v1`,
+profile vocabulary for `local_stress`, `larger_than_memory_local`, `many_small_files`,
+`partitioned_table_metadata`, `object_store_report_only`, `table_metadata_report_only`,
+`foundry_dev_stack_scale_proof`, and `distributed_report_only`, plus row metrics for rows, input
+bytes, file count, split count, peak memory, spill bytes, shuffle bytes, retry count, correctness
+digest, synthetic-evidence status, public-leaderboard separation, no-fallback evidence, and
+`scale_benchmark_claim_gate_status=not_scale_benchmark_grade`. Scale benchmark profiles are
+publishing/evidence posture only. Synthetic metadata-only rows cannot become runtime scale proof,
+and actual large-volume evidence requires real input bytes, correctness proof, a declared resource
+envelope, no-fallback evidence, and the relevant runtime gates.
+
 `GAR-PERF-1B` adds the source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md` and propagates
 `source_state_coverage_*` fields into prepared/native batch evidence. Those

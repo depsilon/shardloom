@@ -767,9 +767,13 @@ plan before coding.
   report-only `shardloom.traditional_analytics.distributed_protocol.v1` row contract with
   coordinator, worker, task lease, task attempt, split, retry, result-fragment, merge, no-fallback
   fields, `distributed_claim_status=report_only`, and
-  `distributed_claim_gate_status=not_distributed_runtime_grade`. The remaining follow-through must
-  add scale benchmark and Foundry scale proof boundaries before any scale claim can be promoted
-  beyond local evidence. Synthetic
+  `distributed_claim_gate_status=not_distributed_runtime_grade`. `GAR-SCALE-1G` now adds
+  `shardloom.traditional_analytics.scale_benchmark_profile.v1` with scale benchmark profile
+  definitions, required scenario/metric vocabulary, row-level publishing posture, synthetic
+  metadata-only boundaries, real-input-byte/correctness proof requirements, public-leaderboard
+  separation, no-fallback fields, and `scale_benchmark_claim_gate_status=not_scale_benchmark_grade`.
+  The remaining follow-through must add Foundry scale proof boundaries before any scale claim can
+  be promoted beyond local evidence. Synthetic
   metadata-only evidence, report-only protocol rows, external baselines, and managed-platform
   orchestration cannot satisfy ShardLoom runtime scale claims, Spark-replacement claims, or
   no-fallback/no-external-engine proof.

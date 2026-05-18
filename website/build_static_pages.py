@@ -2878,9 +2878,34 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         {manifest_panel}
       </div>
     </section>
+    <section id="scale-profiles" class="doc-section">
+      <div class="shell">
+        <p class="eyebrow">Scale profile boundary</p>
+        <h2>Scale Profiles Are Evidence Plans, Not Any-Volume Claims</h2>
+        <p class="section-lede">The benchmark contract now names scale-oriented profiles such as <code>local_stress</code>, <code>larger_than_memory_local</code>, <code>many_small_files</code>, <code>partitioned_table_metadata</code>, <code>object_store_report_only</code>, <code>table_metadata_report_only</code>, <code>foundry_dev_stack_scale_proof</code>, and <code>distributed_report_only</code>. Current public rows remain local smoke or report-only posture unless real input bytes, correctness proof, declared resource envelope, no-fallback evidence, and the relevant runtime gates are attached.</p>
+        <div class="telemetry-signal-grid" aria-label="Scale benchmark profile boundaries">
+          <article class="signal-card telemetry-card">
+            <span class="claim-badge blocked">not any-volume</span>
+            <h3>Actual scale proof requires workload bytes</h3>
+            <p>Synthetic metadata can document a plan or blocker, but it cannot become runtime scale evidence.</p>
+          </article>
+          <article class="signal-card telemetry-card">
+            <span class="claim-badge report-only">separate profiles</span>
+            <h3>Local smoke stays separate</h3>
+            <p>Scale benchmark profiles are not mixed into public leaderboard rows or timing rankings.</p>
+          </article>
+          <article class="signal-card telemetry-card">
+            <span class="claim-badge supported"><code>fallback_attempted=false</code></span>
+            <h3>No fallback boundary remains visible</h3>
+            <p>External engines can be baselines or oracles only; they cannot satisfy ShardLoom scale evidence.</p>
+          </article>
+        </div>
+      </div>
+    </section>
     <nav class="page-subnav" aria-label="Benchmark evidence sections">
       <div class="shell">
         <a href="#artifact-profile">Artifact profile</a>
+        <a href="#scale-profiles">Scale profiles</a>
         <a href="#takeaways">Key takeaways</a>
         <a href="#why-raw-speed">Raw speed axis</a>
         <a href="#user-layer">User layer</a>

@@ -451,76 +451,9 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-GAR-SCALE-1A through GAR-SCALE-1F are complete and recorded in the completed ledger. The active
-follow-through begins with scale benchmark profiles and synthetic scale evidence; all non-local scale
+GAR-SCALE-1A through GAR-SCALE-1G are complete and recorded in the completed ledger. The active
+follow-through begins with the Foundry scale proof boundary; all non-local scale
 classes remain blocked or report-only until later slices attach runtime evidence.
-
-- [ ] GAR-SCALE-1G scale benchmark profiles and synthetic scale evidence
-  - Source:
-    - Benchmark profile matrix and static benchmark publishing workflow.
-    - GAR-SCALE-1A scale taxonomy.
-    - GAR-SCALE-1B split manifests.
-    - GAR-SCALE-1C memory/spill/backpressure contract.
-    - GAR-SCALE-1D shuffle/repartition evidence.
-    - GAR-SCALE-1E object-store/table ladder.
-  - Current state:
-    - Current benchmark profiles focus on smoke, full local, Spark-context, extended local, GPU
-      optional, object-store optional, and I/O reuse/fanout planning.
-    - Scale-oriented profiles are not first-class.
-    - Current public benchmark page must remain evidence, not a scale/performance leaderboard.
-  - Next slice outcome:
-    - Add scale-oriented benchmark profile definitions and synthetic metadata-only evidence rules
-      without requiring immediate massive hardware or changing current local benchmark volumes.
-  - User-visible surface:
-    - Benchmark docs, website/benchmarks, benchmark manifests, and release-readiness gates.
-  - Implementation scope:
-    - Benchmark profile docs/schema, artifact manifest fields, completeness checks, website
-      interpretation text, and deterministic unsupported/synthetic rows. Runtime large-volume
-      execution is a later slice.
-  - Evidence required:
-    - `scale_profile`
-    - `rows`
-    - `input_bytes`
-    - `file_count`
-    - `split_count`
-    - `peak_memory_bytes`
-    - `spill_bytes`
-    - `shuffle_bytes`
-    - `retry_count`
-    - `correctness_digest`
-    - `fallback_attempted=false`
-    - `external_engine_invoked=false`
-    - `claim_gate_status`
-  - Acceptance:
-    - Profiles are defined for `local_stress`, `larger_than_memory_local`, `many_small_files`,
-      `partitioned_table_metadata`, `object_store_report_only`, `table_metadata_report_only`,
-      `foundry_dev_stack_scale_proof`, and `distributed_report_only`.
-    - Required scenarios include 10M/100M row local stress where feasible, data larger than a
-      configured memory budget, many-small-files scan, partition pruning, skewed group-by, broadcast
-      candidate join, shuffle join, CDC overlay over a large base, dirty/schema-drift write path, and
-      output fanout.
-    - Scale benchmarks are separated from local smoke and public leaderboard rows.
-    - Synthetic metadata-only scale evidence cannot become a runtime scale claim.
-    - Actual large-volume evidence requires real input bytes and correctness proof.
-  - Verification:
-    - Benchmark profile validation tests.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No benchmark volume change in this planning slice, no performance/superiority claim, no
-      object-store runtime, no distributed runtime, and no Spark replacement claim.
-  - Dependencies/blockers:
-    - Benchmark profile registry, artifact manifest schema, completeness gate, hardware/resource
-      disclosure, correctness proof, and website benchmark interpretation updates.
-  - Claim boundary:
-    - Scale profiles describe evidence posture. They cannot claim scale readiness unless backed by
-      real workload bytes, correctness proof, no-fallback evidence, and the relevant runtime gates.
-  - Fallback boundary:
-    - External benchmark engines remain baseline-only and cannot satisfy ShardLoom scale evidence.
-  - Ledger rule:
-    - When complete, move profile/schema details and benchmark interpretation boundaries to the
-      completed ledger.
 
 - [ ] GAR-SCALE-1H Foundry scale proof boundary
   - Source:

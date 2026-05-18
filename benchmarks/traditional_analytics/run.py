@@ -1057,6 +1057,62 @@ DISTRIBUTED_PROTOCOL_FIELDS = (
     "distributed_claim_gate_status",
     "distributed_claim_boundary",
 )
+SCALE_BENCHMARK_PROFILE_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.scale_benchmark_profile.v1"
+)
+SCALE_BENCHMARK_PROFILE_VOCABULARY = (
+    "not_requested_local_smoke",
+    "local_stress",
+    "larger_than_memory_local",
+    "many_small_files",
+    "partitioned_table_metadata",
+    "object_store_report_only",
+    "table_metadata_report_only",
+    "foundry_dev_stack_scale_proof",
+    "distributed_report_only",
+    "external_baseline_only",
+)
+SCALE_BENCHMARK_PROFILE_STATUS_VOCABULARY = (
+    "not_requested_local_smoke",
+    "local_smoke_current",
+    "planned",
+    "blocked",
+    "report_only",
+    "external_baseline_only",
+)
+SCALE_BENCHMARK_SYNTHETIC_EVIDENCE_VOCABULARY = (
+    "not_synthetic_local_smoke",
+    "synthetic_metadata_only_not_runtime_claim",
+    "requires_real_input_bytes",
+    "external_baseline_only",
+)
+SCALE_BENCHMARK_PROFILE_FIELDS = (
+    "scale_benchmark_profile_schema_version",
+    "scale_benchmark_profile_vocabulary",
+    "scale_benchmark_profile_status_vocabulary",
+    "scale_benchmark_synthetic_evidence_vocabulary",
+    "scale_benchmark_profile",
+    "scale_benchmark_profile_status",
+    "scale_benchmark_profile_id",
+    "scale_benchmark_profile_digest",
+    "scale_benchmark_rows",
+    "scale_benchmark_input_bytes",
+    "scale_benchmark_file_count",
+    "scale_benchmark_split_count",
+    "scale_benchmark_peak_memory_bytes",
+    "scale_benchmark_spill_bytes",
+    "scale_benchmark_shuffle_bytes",
+    "scale_benchmark_retry_count",
+    "scale_benchmark_correctness_digest",
+    "scale_benchmark_synthetic_evidence_status",
+    "scale_benchmark_runtime_claim_allowed",
+    "scale_benchmark_public_leaderboard_included",
+    "scale_benchmark_actual_large_volume_evidence",
+    "scale_benchmark_fallback_attempted",
+    "scale_benchmark_external_engine_invoked",
+    "scale_benchmark_claim_gate_status",
+    "scale_benchmark_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -7086,6 +7142,157 @@ def distributed_protocol_contract_metadata(
     }
 
 
+def scale_benchmark_profile_for_row(metrics: dict[str, Any]) -> str:
+    dataset_profile = str(metrics.get("dataset_profile") or "")
+    if dataset_profile == "many_small_files":
+        return "many_small_files"
+    if dataset_profile == "partitioned_by_date":
+        return "partitioned_table_metadata"
+    return "not_requested_local_smoke"
+
+
+def scale_benchmark_profile_status_for_row(
+    engine: str, status: str, profile: str
+) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "blocked"
+    if status != "success":
+        return "blocked"
+    if profile in {"many_small_files", "partitioned_table_metadata"}:
+        return "local_smoke_current"
+    return "not_requested_local_smoke"
+
+
+def scale_benchmark_synthetic_status_for_row(profile: str) -> str:
+    if profile in {"object_store_report_only", "table_metadata_report_only"}:
+        return "synthetic_metadata_only_not_runtime_claim"
+    if profile in {"larger_than_memory_local", "local_stress"}:
+        return "requires_real_input_bytes"
+    return "not_synthetic_local_smoke"
+
+
+def scale_benchmark_profile_contract_metadata(
+    engine: str,
+    scenario: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    is_shardloom = is_shardloom_engine(engine)
+    profile = (
+        scale_benchmark_profile_for_row(metrics)
+        if is_shardloom
+        else "external_baseline_only"
+    )
+    profile_status = scale_benchmark_profile_status_for_row(
+        engine, status, profile
+    )
+    input_bytes = first_meaningful_field(
+        metrics.get("data_volume_bytes"),
+        metrics.get("bytes_read"),
+        metrics.get("byte_size"),
+        0,
+    )
+    rows = first_meaningful_field(
+        metrics.get("row_count_estimate"),
+        metrics.get("rows_scanned"),
+        "unknown",
+    )
+    split_count = first_meaningful_field(
+        metrics.get("split_count"),
+        metrics.get("split_manifest_split_count"),
+        0,
+    )
+    spill_bytes = (
+        parse_optional_int(metrics.get("spill_bytes_written")) or 0
+    ) + (parse_optional_int(metrics.get("spill_bytes_read")) or 0)
+    shuffle_bytes = (
+        parse_optional_int(metrics.get("shuffle_bytes_written")) or 0
+    ) + (parse_optional_int(metrics.get("shuffle_bytes_read")) or 0)
+    digest = canonical_digest(
+        {
+            "engine": engine,
+            "input_bytes": input_bytes,
+            "profile": profile,
+            "rows": rows,
+            "scale_benchmark_profile_schema": (
+                SCALE_BENCHMARK_PROFILE_SCHEMA_VERSION
+            ),
+            "scenario": scenario,
+            "status": status,
+        }
+    )
+    return {
+        "scale_benchmark_profile_schema_version": (
+            SCALE_BENCHMARK_PROFILE_SCHEMA_VERSION
+        ),
+        "scale_benchmark_profile_vocabulary": ",".join(
+            SCALE_BENCHMARK_PROFILE_VOCABULARY
+        ),
+        "scale_benchmark_profile_status_vocabulary": ",".join(
+            SCALE_BENCHMARK_PROFILE_STATUS_VOCABULARY
+        ),
+        "scale_benchmark_synthetic_evidence_vocabulary": ",".join(
+            SCALE_BENCHMARK_SYNTHETIC_EVIDENCE_VOCABULARY
+        ),
+        "scale_benchmark_profile": profile,
+        "scale_benchmark_profile_status": profile_status,
+        "scale_benchmark_profile_id": (
+            f"scale-benchmark-profile:{digest[:12]}" if is_shardloom else "none"
+        ),
+        "scale_benchmark_profile_digest": digest if is_shardloom else "none",
+        "scale_benchmark_rows": rows if is_shardloom else "external_baseline_only",
+        "scale_benchmark_input_bytes": input_bytes
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_benchmark_file_count": first_meaningful_field(
+            metrics.get("file_count"), 0
+        )
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_benchmark_split_count": split_count
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_benchmark_peak_memory_bytes": metrics.get("peak_memory_bytes")
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_benchmark_spill_bytes": spill_bytes
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_benchmark_shuffle_bytes": shuffle_bytes
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_benchmark_retry_count": 0
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_benchmark_correctness_digest": "not_emitted_no_scale_profile"
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_benchmark_synthetic_evidence_status": (
+            scale_benchmark_synthetic_status_for_row(profile)
+            if is_shardloom
+            else "external_baseline_only"
+        ),
+        "scale_benchmark_runtime_claim_allowed": False,
+        "scale_benchmark_public_leaderboard_included": False,
+        "scale_benchmark_actual_large_volume_evidence": False,
+        "scale_benchmark_fallback_attempted": False,
+        "scale_benchmark_external_engine_invoked": False,
+        "scale_benchmark_claim_gate_status": "not_scale_benchmark_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_benchmark_claim_boundary": (
+            "Scale benchmark profile evidence is posture and publishing metadata only. "
+            "Current rows are local smoke or report-only profile rows; synthetic "
+            "metadata cannot become runtime scale proof, and actual large-volume claims "
+            "require real input bytes, correctness proof, declared resource envelope, "
+            "no-fallback evidence, and the relevant runtime gates."
+        ),
+    }
+
+
 def optimizer_trace_contract_metadata(engine: str) -> dict[str, Any]:
     is_shardloom = is_shardloom_engine(engine)
     return {
@@ -8014,6 +8221,55 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         if metrics.get("distributed_external_engine_invoked") is not False:
             raise RuntimeError(
                 "distributed protocol cannot report external engine execution"
+            )
+        missing_scale_benchmark_fields = [
+            field for field in SCALE_BENCHMARK_PROFILE_FIELDS if field not in metrics
+        ]
+        if missing_scale_benchmark_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted scale benchmark profile fields: "
+                + ", ".join(missing_scale_benchmark_fields)
+            )
+        if metrics.get("scale_benchmark_profile_schema_version") != (
+            SCALE_BENCHMARK_PROFILE_SCHEMA_VERSION
+        ):
+            raise RuntimeError("scale benchmark profile rows must preserve schema version")
+        if (
+            metrics.get("scale_benchmark_profile")
+            not in SCALE_BENCHMARK_PROFILE_VOCABULARY
+        ):
+            raise RuntimeError("ShardLoom row reported unknown scale benchmark profile")
+        if (
+            metrics.get("scale_benchmark_profile_status")
+            not in SCALE_BENCHMARK_PROFILE_STATUS_VOCABULARY
+        ):
+            raise RuntimeError(
+                "ShardLoom row reported unknown scale benchmark profile status"
+            )
+        if (
+            metrics.get("scale_benchmark_synthetic_evidence_status")
+            not in SCALE_BENCHMARK_SYNTHETIC_EVIDENCE_VOCABULARY
+        ):
+            raise RuntimeError(
+                "ShardLoom row reported unknown synthetic scale evidence status"
+            )
+        if metrics.get("scale_benchmark_runtime_claim_allowed") is not False:
+            raise RuntimeError("GAR-SCALE-1G cannot allow runtime scale claims")
+        if metrics.get("scale_benchmark_public_leaderboard_included") is not False:
+            raise RuntimeError("scale profiles must stay out of public leaderboard rows")
+        if metrics.get("scale_benchmark_actual_large_volume_evidence") is not False:
+            raise RuntimeError(
+                "GAR-SCALE-1G cannot report actual large-volume evidence yet"
+            )
+        if metrics.get("scale_benchmark_claim_gate_status") != (
+            "not_scale_benchmark_grade"
+        ):
+            raise RuntimeError("scale benchmark profile cannot upgrade claim status")
+        if metrics.get("scale_benchmark_fallback_attempted") is not False:
+            raise RuntimeError("scale benchmark profile cannot report fallback attempts")
+        if metrics.get("scale_benchmark_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "scale benchmark profile cannot report external engine execution"
             )
         missing_split_manifest_fields = [
             field for field in SPLIT_MANIFEST_FIELDS if field not in metrics
@@ -9232,6 +9488,74 @@ def distributed_protocol_matrix(results: list[dict[str, Any]]) -> list[dict[str,
     return rows
 
 
+def scale_benchmark_profile_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "scale_benchmark_profile_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "scale_benchmark_profile": metrics.get("scale_benchmark_profile"),
+                "scale_benchmark_profile_status": metrics.get(
+                    "scale_benchmark_profile_status"
+                ),
+                "scale_benchmark_rows": metrics.get("scale_benchmark_rows"),
+                "scale_benchmark_input_bytes": metrics.get(
+                    "scale_benchmark_input_bytes"
+                ),
+                "scale_benchmark_file_count": metrics.get(
+                    "scale_benchmark_file_count"
+                ),
+                "scale_benchmark_split_count": metrics.get(
+                    "scale_benchmark_split_count"
+                ),
+                "scale_benchmark_peak_memory_bytes": metrics.get(
+                    "scale_benchmark_peak_memory_bytes"
+                ),
+                "scale_benchmark_spill_bytes": metrics.get(
+                    "scale_benchmark_spill_bytes"
+                ),
+                "scale_benchmark_shuffle_bytes": metrics.get(
+                    "scale_benchmark_shuffle_bytes"
+                ),
+                "scale_benchmark_retry_count": metrics.get(
+                    "scale_benchmark_retry_count"
+                ),
+                "scale_benchmark_correctness_digest": metrics.get(
+                    "scale_benchmark_correctness_digest"
+                ),
+                "scale_benchmark_synthetic_evidence_status": metrics.get(
+                    "scale_benchmark_synthetic_evidence_status"
+                ),
+                "scale_benchmark_runtime_claim_allowed": metrics.get(
+                    "scale_benchmark_runtime_claim_allowed"
+                ),
+                "scale_benchmark_public_leaderboard_included": metrics.get(
+                    "scale_benchmark_public_leaderboard_included"
+                ),
+                "scale_benchmark_actual_large_volume_evidence": metrics.get(
+                    "scale_benchmark_actual_large_volume_evidence"
+                ),
+                "scale_benchmark_claim_gate_status": metrics.get(
+                    "scale_benchmark_claim_gate_status"
+                ),
+                "scale_benchmark_fallback_attempted": metrics.get(
+                    "scale_benchmark_fallback_attempted"
+                ),
+                "scale_benchmark_external_engine_invoked": metrics.get(
+                    "scale_benchmark_external_engine_invoked"
+                ),
+            }
+        )
+    return rows
+
+
 def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -10037,6 +10361,14 @@ def failed_result(
             metrics=metrics,
         )
     )
+    metrics.update(
+        scale_benchmark_profile_contract_metadata(
+            engine,
+            scenario,
+            status=status,
+            metrics=metrics,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -10608,6 +10940,14 @@ def successful_result_from_iterations(
     )
     metrics.update(
         distributed_protocol_contract_metadata(
+            runner.name,
+            scenario,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+        )
+    )
+    metrics.update(
+        scale_benchmark_profile_contract_metadata(
             runner.name,
             scenario,
             status="success" if stable else "unstable_output",
@@ -11659,6 +11999,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "shuffle_scale_fields": list(SHUFFLE_SCALE_FIELDS),
         "object_table_scale_fields": list(OBJECT_TABLE_SCALE_FIELDS),
         "distributed_protocol_fields": list(DISTRIBUTED_PROTOCOL_FIELDS),
+        "scale_benchmark_profile_fields": list(SCALE_BENCHMARK_PROFILE_FIELDS),
         "scale_claim_fields": list(SCALE_CLAIM_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
@@ -12062,6 +12403,199 @@ def distributed_protocol_contract() -> dict[str, Any]:
             "It does not prove distributed runtime, Spark-level execution, remote-worker "
             "execution, managed-platform execution, retryable distributed work, or "
             "performance superiority."
+        ),
+    }
+
+
+def scale_benchmark_profile_definitions() -> list[dict[str, Any]]:
+    common_runtime_proof = [
+        "real input bytes",
+        "correctness digest over the claimed workload",
+        "declared memory/resource envelope",
+        "no-fallback and no-external-engine evidence",
+        "runtime-specific scale gate evidence",
+    ]
+    return [
+        {
+            "profile": "local_stress",
+            "current_status": "planned",
+            "required_scenarios": [
+                "10M row local stress where feasible",
+                "100M row local stress where feasible",
+                "skewed group-by",
+                "large join with broadcast candidate",
+                "CDC overlay over large base",
+            ],
+            "evidence_requirements": common_runtime_proof,
+            "claim_boundary": (
+                "local stress is not larger-than-memory, object-store, distributed, "
+                "or Spark-replacement proof"
+            ),
+        },
+        {
+            "profile": "larger_than_memory_local",
+            "current_status": "blocked",
+            "required_scenarios": [
+                "data larger than configured memory budget",
+                "operator spill or deterministic block",
+                "spill cleanup proof",
+            ],
+            "evidence_requirements": common_runtime_proof
+            + ["spill/backpressure evidence"],
+            "claim_boundary": "requires real input bytes and spill/backpressure proof",
+        },
+        {
+            "profile": "many_small_files",
+            "current_status": "local_smoke_current",
+            "required_scenarios": [
+                "many-small-files scan",
+                "partition pruning",
+                "dirty/schema-drift write path",
+            ],
+            "evidence_requirements": common_runtime_proof
+            + ["file-count and split-count evidence"],
+            "claim_boundary": (
+                "small-file smoke rows are workflow evidence, not scale or "
+                "performance claims"
+            ),
+        },
+        {
+            "profile": "partitioned_table_metadata",
+            "current_status": "planned",
+            "required_scenarios": [
+                "partitioned table metadata",
+                "partition pruning",
+                "large metadata manifest smoke",
+            ],
+            "evidence_requirements": common_runtime_proof
+            + ["metadata-only marker when runtime table scan is not admitted"],
+            "claim_boundary": (
+                "metadata-only rows cannot become table runtime or table commit proof"
+            ),
+        },
+        {
+            "profile": "object_store_report_only",
+            "current_status": "report_only",
+            "required_scenarios": [
+                "object-store URI classification",
+                "object-store split-planning report",
+                "object-store blocked diagnostic",
+            ],
+            "evidence_requirements": [
+                "credential policy",
+                "network effect status",
+                "synthetic metadata-only marker",
+                "object-store runtime gate remains blocked",
+            ],
+            "claim_boundary": "no object-store read, write, or commit runtime claim",
+        },
+        {
+            "profile": "table_metadata_report_only",
+            "current_status": "report_only",
+            "required_scenarios": [
+                "table metadata read posture",
+                "table snapshot planning posture",
+                "table commit blocked diagnostic",
+            ],
+            "evidence_requirements": [
+                "table metadata marker",
+                "synthetic metadata-only marker",
+                "table runtime and commit gates remain blocked",
+            ],
+            "claim_boundary": "table metadata posture is not table runtime or commit proof",
+        },
+        {
+            "profile": "foundry_dev_stack_scale_proof",
+            "current_status": "planned",
+            "required_scenarios": [
+                "Foundry dev-stack scale proof",
+                "staged input bytes",
+                "output evidence dataset",
+            ],
+            "evidence_requirements": common_runtime_proof
+            + ["Foundry runtime and Spark invocation fields"],
+            "claim_boundary": (
+                "Foundry dev-stack proof is not Foundry production support"
+            ),
+        },
+        {
+            "profile": "distributed_report_only",
+            "current_status": "report_only",
+            "required_scenarios": [
+                "distributed coordinator protocol",
+                "remote worker protocol",
+                "task lease and retry protocol",
+                "fragment merge protocol",
+            ],
+            "evidence_requirements": [
+                "distributed protocol vocabulary",
+                "remote_worker_invoked=false until runtime proof",
+                "synthetic metadata-only marker",
+            ],
+            "claim_boundary": "distributed report-only protocol is not remote runtime proof",
+        },
+    ]
+
+
+def scale_benchmark_profile_contract() -> dict[str, Any]:
+    return {
+        "contract_id": SCALE_BENCHMARK_PROFILE_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/scale-readiness-contract.md",
+        "companion_reference": "docs/benchmarks/local-taxonomy-benchmark.md",
+        "profile_vocabulary": list(SCALE_BENCHMARK_PROFILE_VOCABULARY),
+        "status_vocabulary": list(SCALE_BENCHMARK_PROFILE_STATUS_VOCABULARY),
+        "synthetic_evidence_vocabulary": list(
+            SCALE_BENCHMARK_SYNTHETIC_EVIDENCE_VOCABULARY
+        ),
+        "row_fields": list(SCALE_BENCHMARK_PROFILE_FIELDS),
+        "profile_definitions": scale_benchmark_profile_definitions(),
+        "required_metric_names": [
+            "rows",
+            "input_bytes",
+            "file_count",
+            "split_count",
+            "peak_memory_bytes",
+            "spill_bytes",
+            "shuffle_bytes",
+            "retry_count",
+            "correctness_digest",
+            "fallback_attempted=false",
+            "external_engine_invoked=false",
+            "claim_gate_status",
+        ],
+        "required_scenarios": [
+            "10M/100M row local stress where feasible",
+            "data larger than configured memory budget",
+            "many-small-files scan",
+            "partition pruning",
+            "skewed group-by",
+            "large join with broadcast candidate",
+            "large join requiring shuffle",
+            "CDC overlay over large base",
+            "dirty/schema-drift write path",
+            "output fanout",
+        ],
+        "current_scope": (
+            "scale benchmark profile registry and row-level publishing posture only; "
+            "current benchmark volumes are unchanged"
+        ),
+        "synthetic_metadata_rule": (
+            "Synthetic metadata-only evidence may explain a plan, blocker, or report-only "
+            "profile, but it cannot become runtime scale evidence or public benchmark proof."
+        ),
+        "actual_large_volume_rule": (
+            "Actual large-volume evidence requires real input bytes, correctness proof, "
+            "declared resource envelope, no-fallback evidence, and relevant runtime gates."
+        ),
+        "no_fallback_rule": (
+            "External engines remain baselines or oracles only and cannot satisfy ShardLoom "
+            "scale benchmark evidence."
+        ),
+        "claim_boundary": (
+            "GAR-SCALE-1G defines scale benchmark profiles and publishing boundaries. "
+            "It does not change benchmark volumes, admit larger-than-memory runtime, "
+            "object-store/table runtime, distributed runtime, Foundry production support, "
+            "performance claims, superiority claims, or Spark-replacement claims."
         ),
     }
 
@@ -12499,6 +13033,62 @@ def render_distributed_protocol_contract(artifact: dict[str, Any]) -> str:
         markdown_table(["Field", "Value"], rows)
         + "\n\n"
         + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
+def render_scale_benchmark_profile_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["scale_benchmark_profile_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Profile vocabulary", ", ".join(contract["profile_vocabulary"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        [
+            "Synthetic evidence vocabulary",
+            ", ".join(contract["synthetic_evidence_vocabulary"]),
+        ],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Required metrics", ", ".join(contract["required_metric_names"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["Synthetic metadata rule", str(contract["synthetic_metadata_rule"])],
+        ["Actual large-volume rule", str(contract["actual_large_volume_rule"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    scenario_rows = [
+        ["Required scenario", value] for value in contract["required_scenarios"]
+    ]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Value"], scenario_rows)
+    )
+
+
+def render_scale_benchmark_profile_definitions(artifact: dict[str, Any]) -> str:
+    rows = []
+    for profile in artifact["scale_benchmark_profile_contract"][
+        "profile_definitions"
+    ]:
+        rows.append(
+            [
+                profile["profile"],
+                profile["current_status"],
+                ", ".join(profile["required_scenarios"]),
+                ", ".join(profile["evidence_requirements"]),
+                profile["claim_boundary"],
+            ]
+        )
+    return markdown_table(
+        [
+            "Profile",
+            "Current status",
+            "Required scenarios",
+            "Evidence requirements",
+            "Claim boundary",
+        ],
+        rows,
     )
 
 
@@ -13554,6 +14144,91 @@ def render_distributed_protocol_matrix(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_scale_benchmark_profile_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["scale_benchmark_profile_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["scale_benchmark_profile"]),
+                str(row["scale_benchmark_profile_status"]),
+                str(row["scale_benchmark_rows"]),
+                str(row["scale_benchmark_input_bytes"]),
+                str(row["scale_benchmark_file_count"]),
+                str(row["scale_benchmark_split_count"]),
+                str(row["scale_benchmark_peak_memory_bytes"]),
+                str(row["scale_benchmark_spill_bytes"]),
+                str(row["scale_benchmark_shuffle_bytes"]),
+                str(row["scale_benchmark_retry_count"]),
+                str(row["scale_benchmark_correctness_digest"]),
+                str(row["scale_benchmark_synthetic_evidence_status"]),
+                str(row["scale_benchmark_runtime_claim_allowed"]),
+                str(row["scale_benchmark_public_leaderboard_included"]),
+                str(row["scale_benchmark_actual_large_volume_evidence"]),
+                str(row["scale_benchmark_claim_gate_status"]),
+                str(row["scale_benchmark_fallback_attempted"]),
+                str(row["scale_benchmark_external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "not_requested_local_smoke",
+                "blocked",
+                "unknown",
+                "0",
+                "0",
+                "0",
+                "none",
+                "0",
+                "0",
+                "0",
+                "not_emitted_no_scale_profile",
+                "synthetic_metadata_only_not_runtime_claim",
+                "false",
+                "false",
+                "false",
+                "not_scale_benchmark_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Scale profile",
+            "Profile status",
+            "Rows",
+            "Input bytes",
+            "Files",
+            "Splits",
+            "Peak memory",
+            "Spill bytes",
+            "Shuffle bytes",
+            "Retries",
+            "Correctness digest",
+            "Synthetic status",
+            "Runtime claim allowed",
+            "Leaderboard included",
+            "Actual large volume",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
 def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
     rows = []
     for row in artifact["output_plan_matrix"]:
@@ -14542,6 +15217,16 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_distributed_protocol_contract(artifact),
         "",
+        "## Scale Benchmark Profile Contract",
+        "",
+        "This contract defines scale-oriented benchmark profiles and synthetic metadata-only boundaries without changing current local benchmark volumes or admitting scale/runtime claims.",
+        "",
+        render_scale_benchmark_profile_contract(artifact),
+        "",
+        "## Scale Benchmark Profile Definitions",
+        "",
+        render_scale_benchmark_profile_definitions(artifact),
+        "",
         "## VortexPreparedState Contract",
         "",
         "This contract makes prepared Vortex artifact identity, preparation timing separation, source-state linkage, and scoped reuse posture visible without implying output support or performance claims.",
@@ -14641,6 +15326,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "Distributed protocol rows are report-only. Current rows do not invoke coordinators, remote workers, task leases, retries, fragment merges, network APIs, managed platforms, or fallback engines.",
         "",
         render_distributed_protocol_matrix(artifact),
+        "",
+        "## ShardLoom Scale Benchmark Profile Matrix",
+        "",
+        "Scale benchmark profile rows separate local smoke, planned scale profiles, synthetic metadata-only posture, and actual large-volume evidence requirements. They are not public leaderboard rows and cannot upgrade claim status.",
+        "",
+        render_scale_benchmark_profile_matrix(artifact),
         "",
         "## ShardLoom VortexPreparedState Evidence Matrix",
         "",
@@ -14985,6 +15676,7 @@ def main() -> int:
         "shuffle_scale_contract": shuffle_scale_contract(),
         "object_table_scale_contract": object_table_scale_contract(),
         "distributed_protocol_contract": distributed_protocol_contract(),
+        "scale_benchmark_profile_contract": scale_benchmark_profile_contract(),
         "scale_claim_contract": scale_claim_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
@@ -15002,6 +15694,7 @@ def main() -> int:
         "shuffle_scale_matrix": shuffle_scale_matrix(results),
         "object_table_scale_matrix": object_table_scale_matrix(results),
         "distributed_protocol_matrix": distributed_protocol_matrix(results),
+        "scale_benchmark_profile_matrix": scale_benchmark_profile_matrix(results),
         "output_plan_matrix": output_plan_matrix(results),
         "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
         "cache_invalidation_matrix": cache_invalidation_matrix(results),
