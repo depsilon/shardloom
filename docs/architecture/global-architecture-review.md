@@ -724,12 +724,13 @@ plan before coding.
   count/byte/peak-RSS `not_available` statuses, `buffer_pool_enabled=false`,
   `buffer_reuse_count=0`, deterministic reuse blockers, correctness/evidence posture, no unsafe
   lifetime shortcuts, and no-fallback/no-external-engine fields.
-- [ ] `GAR-IOREUSE-1` adds planned I/O reuse and cross-format fanout evidence. `GAR-IOREUSE-1A`
-  and `GAR-IOREUSE-1B` now establish SourceState and VortexPreparedState benchmark/report contracts
-  for local source discovery/schema/parse posture and prepared artifact identity/digest/reuse
-  posture. The next work is reusable output planning, fanout, layer fingerprints, invalidation
-  reasons, evidence-safe reuse levels, benchmark timing fields, and no-fallback/no-external-engine
-  evidence so reuse cannot silently become claim-grade or performance proof.
+- [ ] `GAR-IOREUSE-1` adds planned I/O reuse and cross-format fanout evidence. `GAR-IOREUSE-1A`,
+  `GAR-IOREUSE-1B`, and `GAR-IOREUSE-1C` now establish SourceState, VortexPreparedState, and
+  OutputPlan benchmark/report contracts for local source discovery/schema/parse posture, prepared
+  artifact identity/digest/reuse posture, and scoped local Vortex result-sink output posture. The
+  next work is cross-format fanout, layer fingerprints, invalidation reasons, evidence-safe reuse
+  levels, benchmark timing fields, and no-fallback/no-external-engine evidence so reuse cannot
+  silently become claim-grade or performance proof.
 - [ ] Broad CG-5/CG-6 coverage, production stateful reuse runtime, and performance/superiority
   claims remain incomplete.
 
@@ -774,12 +775,13 @@ plan before coding.
   runtime-supported, smoke-supported, report-only, blocked, or not-planned. It still needs typed
   website/status and Python capability projection before users or agents can consume the matrix as
   a stable machine surface.
-- [ ] `GAR-IOREUSE-1C` through `GAR-IOREUSE-1F` add the remaining Native I/O reuse ladder after
+- [ ] `GAR-IOREUSE-1D` through `GAR-IOREUSE-1F` add the remaining Native I/O reuse ladder after
   `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract and
-  `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract:
+  `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract and
+  `GAR-IOREUSE-1C` established the scoped OutputPlan benchmark/report contract:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
-  SinkArtifact`. The next work is to keep output planning, fanout, invalidation, and sink artifacts
-  reusable and independently certified without coupling input format to output format.
+  SinkArtifact`. The next work is to keep fanout, invalidation, and sink artifacts reusable and
+  independently certified without coupling input format to output format.
 - [ ] CG-19 is not universal across object-store/range-read, streaming sinks, table/catalog,
   external adapters, and all production source/sink paths.
 
@@ -1266,10 +1268,13 @@ plan before coding.
   parse/decode plan digest, reuse hit/reason, no-fallback fields, and claim boundaries in benchmark
   artifacts. `GAR-IOREUSE-1B` now exposes VortexPreparedState identity, digest, prepared artifact
   refs/digests, source-state linkage, preparation timing separation, reuse hit/reason, no-fallback
-  fields, and claim boundaries in benchmark artifacts. The remaining flow must add OutputPlan,
-  fanout, invalidation, and sink evidence while preserving distinct direct-transient,
-  compatibility-import-certified, prepared-vortex, and native-vortex lanes without adding
-  object-store/lakehouse, performance, or fallback claims.
+  fields, and claim boundaries in benchmark artifacts. `GAR-IOREUSE-1C` now exposes OutputPlan
+  identity, digest, target format/schema/location posture, metadata preservation/materialization
+  fields, local Vortex write/replay refs, sink artifact refs/digests, no-fallback fields, and claim
+  boundaries in benchmark artifacts. The remaining flow must add fanout, invalidation, and broader
+  sink evidence while preserving distinct direct-transient, compatibility-import-certified,
+  prepared-vortex, and native-vortex lanes without adding object-store/lakehouse, performance, or
+  fallback claims.
 - [ ] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and
   confidence follow-up. OpenLineage facets and OpenTelemetry spans remain opt-in/report-only, and
   Bayesian confidence can block claims but cannot upgrade claim status by itself.

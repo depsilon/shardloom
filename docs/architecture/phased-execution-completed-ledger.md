@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1C output-side OutputPlan benchmark evidence
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+  - Scope: define and expose a scoped local OutputPlan benchmark/report contract for output-plan
+    identity, digest, target format/schema/location posture, metadata preservation/materialization
+    fields, local Vortex write/replay refs, sink artifact refs/digests, and no-fallback policy.
+  - Checklist:
+    - [x] Add `shardloom.traditional_analytics.output_plan.v1` and required `output_plan_*` row
+          fields for contract vocabulary, status, identity, digest, target format/location/schema,
+          partition/compression/encoding/write mode, metadata preservation, materialization, reuse
+          posture, write timing, replay status, output Native I/O status, sink artifact identity,
+          no-fallback fields, and claim boundary.
+    - [x] Add an OutputPlan contract object and Markdown evidence matrix so output-plan posture is
+          visible in JSON and human reports.
+    - [x] Wire existing local Vortex result-sink proof into `output_plan_supported` rows only when
+          write/replay evidence is present; rows without output requests remain explicit
+          `not_needed` posture.
+    - [x] Preserve Vortex as the highest-fidelity local output target and keep object-store,
+          lakehouse/table commit, Foundry production output, external writer engines, and
+          cross-format fanout out of scope.
+    - [x] Remove the active GAR-IOREUSE-1C item from the Planned queue and update architecture,
+          traceability, benchmark, compute-flow, and website compute-flow docs.
+  - Evidence/verification:
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 100 --iterations 1 --skip-shardloom-native --shardloom-result-sink --output target/codex-gar-ioreuse-1c-smoke/traditional.json`
+    - `python -m compileall -q benchmarks/traditional_analytics website scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+  - Claim boundary:
+    - The completed slice may claim only local OutputPlan evidence visibility and scoped local
+      Vortex result-sink output-plan posture in benchmark artifacts.
+    - It does not authorize cross-format fanout, object-store or lakehouse runtime, table commit,
+      production SQL/DataFrame support, Foundry support, package publication, performance,
+      superiority, Spark replacement, or broad claim-grade sink support.
+  - Fallback boundary:
+    - Every ShardLoom OutputPlan row must keep `output_plan_fallback_attempted=false` and
+      `output_plan_external_engine_invoked=false`.
+    - External engines remain baseline-only and are not ShardLoom output-plan providers or fallback
+      execution.
+
 - [x] Session label: GAR-IOREUSE-1B decoupled VortexPreparedState benchmark evidence
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`
