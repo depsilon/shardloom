@@ -820,6 +820,182 @@ class GeneratedSourceCertificateContract:
 
 
 @dataclass(frozen=True, slots=True)
+class GeneratedSourceApiAdmissionRow:
+    """Support and evidence posture for one source-free generated-output API form."""
+
+    row_id: str
+    support_status: str | None
+    runtime_execution: bool | None
+    data_read: bool | None
+    write_io: bool | None
+    source_io_performed: bool | None
+    generated_source_created: bool | None
+    blocker_id: str | None
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+    fallback_execution_allowed: bool | None
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the row preserves no-fallback and no-external-engine posture."""
+
+        return (
+            self.fallback_attempted is False
+            and self.external_engine_invoked is False
+            and self.fallback_execution_allowed is False
+        )
+
+    @property
+    def fixture_smoke_supported(self) -> bool:
+        """Whether the row is a scoped fixture-smoke runtime surface."""
+
+        return self.support_status == "fixture_smoke_supported"
+
+    @property
+    def report_only(self) -> bool:
+        """Whether the row is capability vocabulary without runtime execution."""
+
+        return self.support_status == "report_only"
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratedSourceApiAdmissionMatrix:
+    """Typed view over source-free SQL/DataFrame/Python/API admission rows."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the source-free API admission matrix schema version."""
+
+        return self.capability.field("generated_source_api_admission_schema_version")
+
+    @property
+    def matrix_id(self) -> str | None:
+        """Return the source-free API admission matrix identifier."""
+
+        return self.capability.field("generated_source_api_admission_matrix_id")
+
+    @property
+    def present(self) -> bool:
+        """Whether this capability exposes the source-free API admission matrix."""
+
+        return self.schema_version is not None
+
+    @property
+    def support_status_vocabulary(self) -> tuple[str, ...]:
+        """Return supported posture tokens for admission rows."""
+
+        return _split_csv(
+            self.capability.field("generated_source_api_admission_support_status_vocabulary")
+        )
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return source-free admission row IDs in stable order."""
+
+        return _split_csv(self.capability.field("generated_source_api_admission_row_order"))
+
+    @property
+    def python_row_order(self) -> tuple[str, ...]:
+        """Return Python admission rows."""
+
+        return _split_csv(
+            self.capability.field("generated_source_api_admission_python_row_order")
+        )
+
+    @property
+    def sql_row_order(self) -> tuple[str, ...]:
+        """Return SQL admission rows."""
+
+        return _split_csv(
+            self.capability.field("generated_source_api_admission_sql_row_order")
+        )
+
+    @property
+    def dataframe_row_order(self) -> tuple[str, ...]:
+        """Return DataFrame admission rows."""
+
+        return _split_csv(
+            self.capability.field("generated_source_api_admission_dataframe_row_order")
+        )
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the admission-matrix claim gate status."""
+
+        return self.capability.field("generated_source_api_admission_claim_gate_status")
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every exposed row preserves no fallback and no external engine."""
+
+        keys = (
+            "generated_source_api_admission_fallback_attempted",
+            "generated_source_api_admission_external_engine_invoked",
+            "generated_source_api_admission_fallback_execution_allowed",
+        )
+        if not all(self.capability.field(key) is not None for key in keys):
+            return False
+        return (
+            self.capability.envelope.field_bool(keys[0], True) is False
+            and self.capability.envelope.field_bool(keys[1], True) is False
+            and self.capability.envelope.field_bool(keys[2], True) is False
+            and all(self.row(row_id).no_fallback_no_external_engine for row_id in self.row_order)
+        )
+
+    @property
+    def broad_sql_dataframe_claim_allowed(self) -> bool:
+        """Whether broad SQL/DataFrame generated-output claims are allowed."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "generated_source_api_admission_broad_sql_dataframe_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    def row(self, row_id: str) -> GeneratedSourceApiAdmissionRow:
+        """Return one source-free API admission row by ID."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(f"source-free generated-output admission row {row_id!r} is not present")
+        return GeneratedSourceApiAdmissionRow(
+            row_id=normalized,
+            support_status=self.capability.field(f"{normalized}_support_status"),
+            runtime_execution=self.capability.envelope.field_bool(
+                f"{normalized}_runtime_execution"
+            ),
+            data_read=self.capability.envelope.field_bool(f"{normalized}_data_read"),
+            write_io=self.capability.envelope.field_bool(f"{normalized}_write_io"),
+            source_io_performed=self.capability.envelope.field_bool(
+                f"{normalized}_source_io_performed"
+            ),
+            generated_source_created=self.capability.envelope.field_bool(
+                f"{normalized}_generated_source_created"
+            ),
+            blocker_id=self.capability.field(f"{normalized}_blocker_id"),
+            required_evidence=_split_csv(
+                self.capability.field(f"{normalized}_required_evidence")
+            ),
+            claim_gate_status=self.capability.field(f"{normalized}_claim_gate_status"),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{normalized}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{normalized}_external_engine_invoked"
+            ),
+            fallback_execution_allowed=self.capability.envelope.field_bool(
+                f"{normalized}_fallback_execution_allowed"
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityView:
     """Typed convenience view over one capability-discovery envelope."""
 
@@ -837,6 +1013,27 @@ class CapabilityView:
         """Return capability fields as a mapping."""
 
         return self.envelope.field_map
+
+    @property
+    def _fields_without_source_free_admission_metadata(self) -> Mapping[str, str]:
+        """Return fields excluding static source-free admission row effect metadata."""
+
+        excluded_prefixes = (
+            "generated_source_api_admission_",
+            "python_ctx_",
+            "python_generated_source_",
+            "sql_literal_",
+            "sql_values",
+            "sql_source_free_",
+            "sql_generate_series_",
+            "dataframe_source_free_",
+            "dataframe_generated_",
+        )
+        return {
+            key: value
+            for key, value in self.fields.items()
+            if not key.startswith(excluded_prefixes)
+        }
 
     @property
     def diagnostics(self) -> tuple[Diagnostic, ...]:
@@ -976,7 +1173,7 @@ class CapabilityView:
         """Whether this capability view reports runtime execution."""
 
         return _any_field_bool(
-            self.fields,
+            self._fields_without_source_free_admission_metadata,
             exact=(
                 "runtime_execution",
                 "runtime_execution_performed",
@@ -996,7 +1193,7 @@ class CapabilityView:
         """Whether this capability view reports data-read I/O."""
 
         return _any_field_bool(
-            self.fields,
+            self._fields_without_source_free_admission_metadata,
             exact=("data_read", "read_io"),
             suffixes=("_data_read", "_read_io"),
         )
@@ -1006,7 +1203,7 @@ class CapabilityView:
         """Whether this capability view reports write I/O."""
 
         return _any_field_bool(
-            self.fields,
+            self._fields_without_source_free_admission_metadata,
             exact=("write_io", "manifest_write_io"),
             suffixes=("_write_io", "_manifest_write_io"),
         )
@@ -1113,6 +1310,12 @@ class CapabilityView:
         """Return source-free generated-output contract posture exposed by this capability."""
 
         return GeneratedSourceCertificateContract(self)
+
+    @property
+    def generated_source_api_admission(self) -> GeneratedSourceApiAdmissionMatrix:
+        """Return source-free SQL/DataFrame/Python/API admission posture."""
+
+        return GeneratedSourceApiAdmissionMatrix(self)
 
     @property
     def planner_readiness_claim_gate_status(self) -> str | None:

@@ -22,7 +22,7 @@ $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=co
 
 ## Blocker
 
-Sequence, VALUES/literal-table, calendar/date dimension, synthetic profile, SQL VALUES/literal execution, broad DataFrame execution, object-store writes, and Foundry generated-output runtime remain blocked/report-only until separate evidence lands.
+The source-free API admission matrix now exposes report-only rows for ctx.literal_table, ctx.calendar, SQL literal SELECT, SQL VALUES, SQL source-free projection, SQL generate_series/range vocabulary, DataFrame source-free projection, and generated with_column. Sequence, VALUES/literal-table, calendar/date dimension, synthetic profile, SQL execution, broad DataFrame execution, object-store writes, and Foundry generated-output runtime remain blocked/report-only until separate evidence lands.
 
 ## Internal Flow
 
@@ -39,6 +39,9 @@ Sequence, VALUES/literal-table, calendar/date dimension, synthetic profile, SQL 
 - `output_io_performed`
 - `generated_source_certificate_status`
 - `output_native_io_certificate_status`
+- `generated_source_api_admission_schema_version`
+- `support_status`
+- `blocker_id`
 - `fallback_attempted=false`
 - `external_engine_invoked=false`
 - `claim_gate_status`

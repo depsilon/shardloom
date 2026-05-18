@@ -988,53 +988,14 @@ separate evidence-bearing slices admit them.
     - Connector dependency/license review, credential/effect policy, snapshot semantics, import and
       export certificate model, and Python/CLI capability projection.
 
-- [ ] GAR-GEN-1E source-free SQL/DataFrame/API admission matrix
-  - Source: GAR-GEN-1A; GAR-0032-A; GAR-0032-B; RFC 0032; RFC 0033; RFC 0037.
-  - Current state:
-    - GAR-GEN-1C supports scoped local user-row JSONL output through
-      `generated-source-user-rows-smoke` and Python `ctx.from_rows([...]).write(...)`.
-    - GAR-GEN-1D supports scoped local engine-native range JSONL output through
-      `generated-source-range-smoke` and Python `ctx.range(...).write(...)`.
-    - SQL and broader DataFrame/query-builder capability rows remain report-only for literal
-      `SELECT`, SQL `VALUES`, source-free projection, literal tables, calendar generators, and
-      expression-backed generated columns.
-  - Next slice outcome:
-    - Extend SQL/DataFrame/Python capability surfaces to classify `ctx.range`, `ctx.from_rows`,
-      `ctx.literal_table`, `ctx.calendar`, `ctx.write`, SQL literal `SELECT`, SQL `VALUES`,
-      source-free projection, and admitted `generate_series`/`range` vocabulary.
-  - User-visible surface:
-    - Python capability view, DataFrame method matrix, SQL capability rows, docs, and diagnostics.
-  - Implementation scope:
-    - Capability report rows, Python typed accessors, docs, and snapshot tests.
-  - Evidence required:
-    - diagnostic/no-fallback refs for report-only rows.
-    - generated-source/output certificate refs only for runtime-supported rows.
-  - Acceptance:
-    - Each method/query form reports `support_status`, `runtime_execution`, `data_read`,
-      `write_io`, `source_io_performed`, `generated_source_created`, blocker ID, required evidence,
-      and claim boundary.
-    - Report-only rows never parse or execute SQL, materialize rows, write output, resolve
-      credentials, probe object stores, or invoke external engines.
-  - Verification:
-    - capability snapshot tests.
-    - Python typed capability tests.
-    - release readiness metadata tests.
-    - `git diff --check`
-  - Non-goals:
-    - No SQL parser/binder/runtime, broad DataFrame runtime, package publication, object-store
-      runtime, or external engine fallback.
-  - Claim boundary:
-    - Capability vocabulary only unless a child runtime slice adds evidence.
-  - Fallback boundary:
-    - `fallback_attempted=false`, `external_engine_invoked=false`, and
-      `fallback_execution_allowed=false`.
-  - Dependencies/blockers:
-    - GAR-GEN-1A, GAR-0032-A SQL readiness, GAR-0032-B DataFrame method matrix.
 - [ ] GAR-GEN-1F Foundry generated-output proof boundary
   - Source: GAR-GEN-1A; RFC 0036; `docs/foundry/proof-of-use-certification.md`.
   - Current state:
     - Foundry proof is local Foundry-style only; it includes no-dataset smoke and local Vortex smoke,
       but it does not implement Foundry generated-output runtime.
+    - GAR-GEN-1E now exposes source-free Python, SQL, DataFrame, and API admission rows through
+      `shardloom.generated_source_api_admission.v1`; Foundry generated-output remains
+      report-only and must not be inferred from those local admission rows.
   - Next slice outcome:
     - Add a report-only Foundry generated-output boundary that requires future generated-output smoke
       to write through Foundry output APIs instead of direct S3/object-store paths.

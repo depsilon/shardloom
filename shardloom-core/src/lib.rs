@@ -161,9 +161,9 @@ pub use feature_footprint::{
     FeatureFootprintReport,
 };
 pub use generated_source::{
-    GeneratedSourceCaseKind, GeneratedSourceCertificateContractReport,
-    GeneratedSourceCertificateContractRow, GeneratedSourceCertificateStatus,
-    GeneratedSourceSupportStatus,
+    GeneratedSourceApiAdmissionMatrix, GeneratedSourceApiAdmissionRow, GeneratedSourceCaseKind,
+    GeneratedSourceCertificateContractReport, GeneratedSourceCertificateContractRow,
+    GeneratedSourceCertificateStatus, GeneratedSourceSupportStatus,
 };
 
 pub use hybrid_engine::{

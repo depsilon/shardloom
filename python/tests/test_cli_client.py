@@ -20,6 +20,7 @@ from shardloom import (
     ContextCapabilities,
     CapabilityView,
     DataFrameMethodCapabilityMatrix,
+    GeneratedSourceApiAdmissionMatrix,
     EngineCapabilityMatrix,
     ExecutionResultEnvelopeView,
     GeneratedSourceCertificateContract,
@@ -957,6 +958,57 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "output_io_performed", "value": "false"},
                             {"key": "generated_source_certificate_status", "value": "not_applicable_no_generated_rows"},
                         ])
+                        api_rows = [
+                            ("python_ctx_from_rows", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_ctx_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_range_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_ctx_literal_table", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.literal_table_runtime_not_implemented", "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "not_claim_grade"),
+                            ("python_ctx_calendar", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.calendar_runtime_not_implemented", "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "not_claim_grade"),
+                            ("python_generated_source_write", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_supported_generated_source_write_smokes_only", "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("sql_literal_select", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_literal_select_runtime_not_implemented", "sql_parser,sql_binder,sql_planner,literal_projection_semantics,generated_source_certificate,output_native_io_certificate", "not_claim_grade"),
+                            ("sql_values", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_values_runtime_not_implemented", "sql_parser,sql_binder,values_table_semantics,generated_source_certificate,output_native_io_certificate", "not_claim_grade"),
+                            ("sql_source_free_projection", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_source_free_projection_runtime_not_implemented", "sql_expression_semantics,projection_plan_digest,generated_source_certificate,execution_certificate", "not_claim_grade"),
+                            ("sql_generate_series_range", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_generate_series_range_runtime_not_implemented", "sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate", "not_claim_grade"),
+                            ("dataframe_source_free_projection", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented", "typed_expression_contract,projection_plan_digest,generated_source_certificate,execution_certificate", "not_claim_grade"),
+                            ("dataframe_generated_with_column", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented", "expression_engine,type_coercion,determinism_policy,generated_source_certificate,execution_certificate", "not_claim_grade"),
+                        ]
+                        fields.extend([
+                            {"key": "generated_source_api_admission_schema_version", "value": "shardloom.generated_source_api_admission.v1"},
+                            {"key": "generated_source_api_admission_matrix_id", "value": "gar-gen-1e.source_free_api_admission"},
+                            {"key": "generated_source_api_admission_support_status_vocabulary", "value": "smoke_only,fixture_smoke_supported,report_only,planned_runtime"},
+                            {"key": "generated_source_api_admission_claim_gate_status", "value": "not_claim_grade"},
+                            {"key": "generated_source_api_admission_row_count", "value": str(len(api_rows))},
+                            {"key": "generated_source_api_admission_row_order", "value": ",".join(row[0] for row in api_rows)},
+                            {"key": "generated_source_api_admission_python_row_order", "value": ",".join(row[0] for row in api_rows if row[0].startswith("python_"))},
+                            {"key": "generated_source_api_admission_sql_row_order", "value": ",".join(row[0] for row in api_rows if row[0].startswith("sql_"))},
+                            {"key": "generated_source_api_admission_dataframe_row_order", "value": ",".join(row[0] for row in api_rows if row[0].startswith("dataframe_"))},
+                            {"key": "generated_source_api_admission_blocker_ids", "value": ",".join(row[7] for row in api_rows)},
+                            {"key": "generated_source_api_admission_required_evidence", "value": ",".join(row[8] for row in api_rows)},
+                            {"key": "generated_source_api_admission_runtime_execution", "value": "true"},
+                            {"key": "generated_source_api_admission_data_read", "value": "false"},
+                            {"key": "generated_source_api_admission_write_io", "value": "true"},
+                            {"key": "generated_source_api_admission_source_io_performed", "value": "false"},
+                            {"key": "generated_source_api_admission_generated_source_created", "value": "true"},
+                            {"key": "generated_source_api_admission_fallback_attempted", "value": "false"},
+                            {"key": "generated_source_api_admission_external_engine_invoked", "value": "false"},
+                            {"key": "generated_source_api_admission_fallback_execution_allowed", "value": "false"},
+                            {"key": "generated_source_api_admission_broad_sql_dataframe_claim_allowed", "value": "false"},
+                        ])
+                        for row in api_rows:
+                            row_id, support, runtime, data_read, write_io, source_io, generated, blocker, evidence, claim = row
+                            fields.extend([
+                                {"key": f"{row_id}_support_status", "value": support},
+                                {"key": f"{row_id}_runtime_execution", "value": runtime},
+                                {"key": f"{row_id}_data_read", "value": data_read},
+                                {"key": f"{row_id}_write_io", "value": write_io},
+                                {"key": f"{row_id}_source_io_performed", "value": source_io},
+                                {"key": f"{row_id}_generated_source_created", "value": generated},
+                                {"key": f"{row_id}_blocker_id", "value": blocker},
+                                {"key": f"{row_id}_required_evidence", "value": evidence},
+                                {"key": f"{row_id}_claim_gate_status", "value": claim},
+                                {"key": f"{row_id}_fallback_attempted", "value": "false"},
+                                {"key": f"{row_id}_external_engine_invoked", "value": "false"},
+                                {"key": f"{row_id}_fallback_execution_allowed", "value": "false"},
+                            ])
                     if scope in {"workflow", "remote-api", "cross-cg"}:
                         fields.extend([
                             {"key": "severity", "value": "error"},
@@ -1100,6 +1152,66 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             capabilities.api_surfaces.generated_source_contract.engine_native_generated_source.blocker_id,
             "none_scoped_local_range_jsonl_smoke_only",
+        )
+        api_admission = capabilities.python.generated_source_api_admission
+        self.assertIsInstance(api_admission, GeneratedSourceApiAdmissionMatrix)
+        self.assertTrue(api_admission.present)
+        self.assertEqual(
+            api_admission.python_row_order,
+            (
+                "python_ctx_from_rows",
+                "python_ctx_range",
+                "python_ctx_literal_table",
+                "python_ctx_calendar",
+                "python_generated_source_write",
+            ),
+        )
+        self.assertEqual(
+            api_admission.sql_row_order,
+            (
+                "sql_literal_select",
+                "sql_values",
+                "sql_source_free_projection",
+                "sql_generate_series_range",
+            ),
+        )
+        self.assertEqual(
+            api_admission.dataframe_row_order,
+            (
+                "dataframe_source_free_projection",
+                "dataframe_generated_with_column",
+            ),
+        )
+        self.assertEqual(api_admission.claim_gate_status, "not_claim_grade")
+        self.assertTrue(api_admission.all_no_fallback_no_external_engine)
+        self.assertFalse(api_admission.broad_sql_dataframe_claim_allowed)
+        self.assertTrue(
+            api_admission.row("python_ctx_from_rows").fixture_smoke_supported
+        )
+        self.assertTrue(api_admission.row("python_ctx_range").runtime_execution)
+        self.assertTrue(api_admission.row("python_generated_source_write").write_io)
+        self.assertTrue(api_admission.row("sql_values").report_only)
+        self.assertFalse(api_admission.row("sql_values").runtime_execution)
+        self.assertEqual(
+            api_admission.row("sql_values").blocker_id,
+            "gar-gen-1.sql_values_runtime_not_implemented",
+        )
+        self.assertEqual(
+            capabilities.sql_support.generated_source_api_admission.row(
+                "sql_literal_select"
+            ).support_status,
+            "report_only",
+        )
+        self.assertEqual(
+            capabilities.dataframe.generated_source_api_admission.row(
+                "dataframe_generated_with_column"
+            ).claim_gate_status,
+            "not_claim_grade",
+        )
+        self.assertTrue(
+            capabilities.api_surfaces.generated_source_api_admission.row(
+                "python_ctx_calendar"
+            ).report_only
         )
         self.assertTrue(capabilities.dataframe.planner_readiness_non_executing)
         dataframe_methods = capabilities.dataframe_method_matrix

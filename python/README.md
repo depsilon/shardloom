@@ -402,18 +402,25 @@ materialization, and notebook display remain deterministic unsupported
 diagnostic surfaces unless later evidence-backed slices promote them.
 
 Source-free generated-output APIs are tracked under `GAR-GEN-1`. The full
-contract is exposed through capability views as `generated_source_contract`.
+contract is exposed through capability views as `generated_source_contract`, and
+the per-API admission matrix is exposed as `generated_source_api_admission`.
 Two scoped local JSONL smoke paths are runtime-supported: caller-provided rows
-and one ShardLoom-native range generator:
+and one ShardLoom-native range generator. SQL and broader DataFrame forms remain
+report-only unless a later evidence-backed slice admits them:
 
 ```python
 caps = ctx.capabilities()
 contract = caps.python.generated_source_contract
+admission = caps.python.generated_source_api_admission
 
 print(contract.schema_version)
 print(contract.case_order)
 print(contract.no_dataset_smoke_separate_from_generated_output)
 print(contract.all_no_fallback_no_external_engine)
+print(admission.row("python_ctx_from_rows").support_status)
+print(admission.row("python_ctx_range").runtime_execution)
+print(admission.row("sql_values").blocker_id)
+print(admission.all_no_fallback_no_external_engine)
 ```
 
 The supported user-row local smoke uses Python rows supplied by the caller,
@@ -490,6 +497,20 @@ ctx.calendar(...).write(...)
 
 `ctx.literal_table`, `ctx.calendar`, SQL `VALUES`/literal execution, and broad
 DataFrame expression execution are not runtime-supported yet. Current
+source-free API admission rows classify:
+
+- `python_ctx_from_rows`, `python_ctx_range`, and `python_generated_source_write`
+  as `fixture_smoke_supported` only for scoped local JSONL generated-output
+  smokes with generated-source and output evidence.
+- `python_ctx_literal_table`, `python_ctx_calendar`, SQL literal `SELECT`, SQL
+  `VALUES`, SQL source-free projection, SQL `generate_series`/`range`
+  vocabulary, DataFrame source-free projection, and generated `with_column`
+  forms as `report_only` with deterministic blocker IDs such as
+  `gar-gen-1.sql_values_runtime_not_implemented`.
+
+Admission capability discovery does not parse SQL, bind names, plan a query,
+generate rows, write output, probe object stores, invoke Foundry, or invoke
+external engines for report-only rows. Current
 no-dataset smoke rows report
 `input_dataset_count=0`, `source_io_performed=false`,
 `generated_source_created=false`, `output_io_performed=false`, and

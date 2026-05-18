@@ -67,6 +67,58 @@ const GENERATED_SOURCE_FIELD_KEYS: [&str; 28] = [
     "generated_source_certificate_status",
 ];
 
+const GENERATED_SOURCE_API_ADMISSION_FIELD_KEYS: [&str; 20] = [
+    "generated_source_api_admission_schema_version",
+    "generated_source_api_admission_matrix_id",
+    "generated_source_api_admission_support_status_vocabulary",
+    "generated_source_api_admission_claim_gate_status",
+    "generated_source_api_admission_row_count",
+    "generated_source_api_admission_row_order",
+    "generated_source_api_admission_python_row_order",
+    "generated_source_api_admission_sql_row_order",
+    "generated_source_api_admission_dataframe_row_order",
+    "generated_source_api_admission_blocker_ids",
+    "generated_source_api_admission_required_evidence",
+    "generated_source_api_admission_runtime_execution",
+    "generated_source_api_admission_data_read",
+    "generated_source_api_admission_write_io",
+    "generated_source_api_admission_source_io_performed",
+    "generated_source_api_admission_generated_source_created",
+    "generated_source_api_admission_fallback_attempted",
+    "generated_source_api_admission_external_engine_invoked",
+    "generated_source_api_admission_fallback_execution_allowed",
+    "generated_source_api_admission_broad_sql_dataframe_claim_allowed",
+];
+
+const GENERATED_SOURCE_API_ADMISSION_ROW_IDS: [&str; 11] = [
+    "python_ctx_from_rows",
+    "python_ctx_range",
+    "python_ctx_literal_table",
+    "python_ctx_calendar",
+    "python_generated_source_write",
+    "sql_literal_select",
+    "sql_values",
+    "sql_source_free_projection",
+    "sql_generate_series_range",
+    "dataframe_source_free_projection",
+    "dataframe_generated_with_column",
+];
+
+const GENERATED_SOURCE_API_ADMISSION_ROW_SUFFIXES: [&str; 12] = [
+    "support_status",
+    "runtime_execution",
+    "data_read",
+    "write_io",
+    "source_io_performed",
+    "generated_source_created",
+    "blocker_id",
+    "required_evidence",
+    "claim_gate_status",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "fallback_execution_allowed",
+];
+
 const SQL_FIELD_KEYS: [&str; 35] = [
     "scope",
     "schema_version",
@@ -111,6 +163,26 @@ fn with_generated_source_fields(base_keys: &[&'static str]) -> Vec<&'static str>
         .copied()
         .chain(GENERATED_SOURCE_FIELD_KEYS)
         .collect()
+}
+
+fn with_generated_source_api_admission_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys: Vec<String> = with_generated_source_fields(base_keys)
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+    keys.extend(
+        GENERATED_SOURCE_API_ADMISSION_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in GENERATED_SOURCE_API_ADMISSION_ROW_IDS {
+        keys.extend(
+            GENERATED_SOURCE_API_ADMISSION_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("{row_id}_{suffix}")),
+        );
+    }
+    keys
 }
 
 const FUNCTION_FIELD_KEYS: [&str; 13] = [
@@ -705,23 +777,34 @@ fn capability_discovery_json_field_keys_are_stable() {
 
     let output = run_capabilities_scope("sql");
     let keys = field_keys(&output);
+    let keys: Vec<String> = keys.into_iter().map(str::to_string).collect();
     assert_eq!(
         keys.as_slice(),
-        with_generated_source_fields(SQL_FIELD_KEYS.as_slice()).as_slice(),
+        with_generated_source_api_admission_fields(SQL_FIELD_KEYS.as_slice()).as_slice(),
         "scope=sql"
     );
 
     for scope in WORLD_CLASS_SURFACE_SCOPES {
         let output = run_capabilities_scope(scope);
         let keys = field_keys(&output);
+        let keys: Vec<String> = keys.into_iter().map(str::to_string).collect();
         let expected_keys = match scope {
-            "python" | "universal-adapters" | "api-surfaces" => {
+            "python" | "api-surfaces" => with_generated_source_api_admission_fields(
+                WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
+            ),
+            "universal-adapters" => {
                 with_generated_source_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+                    .into_iter()
+                    .map(str::to_string)
+                    .collect()
             }
-            "dataframe" => {
-                with_generated_source_fields(DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
-            }
-            _ => WORLD_CLASS_SURFACE_FIELD_KEYS.to_vec(),
+            "dataframe" => with_generated_source_api_admission_fields(
+                DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
+            ),
+            _ => WORLD_CLASS_SURFACE_FIELD_KEYS
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
         };
         assert_eq!(keys.as_slice(), expected_keys.as_slice(), "scope={scope}");
     }
@@ -937,6 +1020,93 @@ fn generated_source_capability_contract_separates_no_dataset_smoke() {
         assert!(output.contains(&string_field_pair(
             "generated_source_certificate_status",
             "not_applicable_no_generated_rows"
+        )));
+    }
+}
+
+#[test]
+fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
+    for scope in ["sql", "python", "dataframe", "api-surfaces"] {
+        let output = run_capabilities_scope(scope);
+        assert!(output.contains(&string_field_pair(
+            "generated_source_api_admission_schema_version",
+            "shardloom.generated_source_api_admission.v1"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "generated_source_api_admission_matrix_id",
+            "gar-gen-1e.source_free_api_admission"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "generated_source_api_admission_claim_gate_status",
+            "not_claim_grade"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "generated_source_api_admission_python_row_order",
+            "python_ctx_from_rows,python_ctx_range,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "generated_source_api_admission_sql_row_order",
+            "sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "generated_source_api_admission_dataframe_row_order",
+            "dataframe_source_free_projection,dataframe_generated_with_column"
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_api_admission_data_read",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_api_admission_source_io_performed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_api_admission_fallback_attempted",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_api_admission_external_engine_invoked",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_api_admission_fallback_execution_allowed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "generated_source_api_admission_broad_sql_dataframe_claim_allowed",
+            false
+        )));
+        assert!(output.contains(&string_field_pair(
+            "python_ctx_from_rows_support_status",
+            "fixture_smoke_supported"
+        )));
+        assert!(output.contains(&field_pair("python_ctx_from_rows_runtime_execution", true)));
+        assert!(output.contains(&field_pair("python_ctx_from_rows_write_io", true)));
+        assert!(output.contains(&field_pair(
+            "python_ctx_from_rows_source_io_performed",
+            false
+        )));
+        assert!(output.contains(&string_field_pair(
+            "python_ctx_range_blocker_id",
+            "none_scoped_local_range_jsonl_smoke_only"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "python_ctx_literal_table_blocker_id",
+            "gar-gen-1.literal_table_runtime_not_implemented"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "python_ctx_calendar_support_status",
+            "report_only"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "sql_values_blocker_id",
+            "gar-gen-1.sql_values_runtime_not_implemented"
+        )));
+        assert!(output.contains(&field_pair("sql_values_runtime_execution", false)));
+        assert!(output.contains(&field_pair("sql_values_generated_source_created", false)));
+        assert!(output.contains(&string_field_pair(
+            "dataframe_generated_with_column_blocker_id",
+            "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented"
         )));
     }
 }

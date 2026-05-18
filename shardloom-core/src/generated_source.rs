@@ -238,9 +238,399 @@ impl GeneratedSourceCertificateContractReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct GeneratedSourceApiAdmissionRow {
+    pub row_id: &'static str,
+    pub user_visible_surface: &'static str,
+    pub support_status: GeneratedSourceSupportStatus,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub source_io_performed: bool,
+    pub generated_source_created: bool,
+    pub blocker_id: &'static str,
+    pub required_evidence: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl GeneratedSourceApiAdmissionRow {
+    #[must_use]
+    pub const fn python_ctx_from_rows() -> Self {
+        Self {
+            row_id: "python_ctx_from_rows",
+            user_visible_surface: "Python ctx.from_rows([...]).write(local_jsonl)",
+            support_status: GeneratedSourceSupportStatus::FixtureSmokeSupported,
+            runtime_execution: true,
+            data_read: false,
+            write_io: true,
+            source_io_performed: false,
+            generated_source_created: true,
+            blocker_id: "none_scoped_local_jsonl_smoke_only",
+            required_evidence: "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "Only scoped local user-row JSONL generated-output fixture smoke is admitted; no broad DataFrame, SQL, object-store, Foundry, production, or performance claim.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn python_ctx_range() -> Self {
+        Self {
+            row_id: "python_ctx_range",
+            user_visible_surface: "Python ctx.range(...).write(local_jsonl)",
+            support_status: GeneratedSourceSupportStatus::FixtureSmokeSupported,
+            runtime_execution: true,
+            data_read: false,
+            write_io: true,
+            source_io_performed: false,
+            generated_source_created: true,
+            blocker_id: "none_scoped_local_range_jsonl_smoke_only",
+            required_evidence: "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "Only scoped local range JSONL generated-output fixture smoke is admitted; sequence, values, literal_table, calendar, SQL, broad DataFrame, object-store, Foundry, production, and performance claims remain blocked.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn python_ctx_literal_table() -> Self {
+        Self {
+            row_id: "python_ctx_literal_table",
+            user_visible_surface: "Python ctx.literal_table(...).write(...)",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            source_io_performed: false,
+            generated_source_created: false,
+            blocker_id: "gar-gen-1.literal_table_runtime_not_implemented",
+            required_evidence: "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Literal-table generation is capability vocabulary only; no rows are generated and no output is written.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn python_ctx_calendar() -> Self {
+        Self {
+            row_id: "python_ctx_calendar",
+            user_visible_surface: "Python ctx.calendar(...).write(...)",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            source_io_performed: false,
+            generated_source_created: false,
+            blocker_id: "gar-gen-1.calendar_runtime_not_implemented",
+            required_evidence: "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Calendar/date dimension generation is capability vocabulary only; no rows are generated and no output is written.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn python_generated_source_write() -> Self {
+        Self {
+            row_id: "python_generated_source_write",
+            user_visible_surface: "Python GeneratedRowsSource/GeneratedRangeSource.write(local_jsonl)",
+            support_status: GeneratedSourceSupportStatus::FixtureSmokeSupported,
+            runtime_execution: true,
+            data_read: false,
+            write_io: true,
+            source_io_performed: false,
+            generated_source_created: true,
+            blocker_id: "none_supported_generated_source_write_smokes_only",
+            required_evidence: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "Generated-source write is admitted only for supported local user_rows and range JSONL smokes; unsupported generator kinds remain blocked/report-only.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn sql_literal_select() -> Self {
+        Self {
+            row_id: "sql_literal_select",
+            user_visible_surface: "SQL SELECT literal expressions",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            source_io_performed: false,
+            generated_source_created: false,
+            blocker_id: "gar-gen-1.sql_literal_select_runtime_not_implemented",
+            required_evidence: "sql_parser,sql_binder,sql_planner,literal_projection_semantics,generated_source_certificate,output_native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "SQL literal SELECT is report-only; no parser, binder, planner, runtime, row generation, or output write is executed.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn sql_values() -> Self {
+        Self {
+            row_id: "sql_values",
+            user_visible_surface: "SQL VALUES (...)",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            source_io_performed: false,
+            generated_source_created: false,
+            blocker_id: "gar-gen-1.sql_values_runtime_not_implemented",
+            required_evidence: "sql_parser,sql_binder,values_table_semantics,generated_source_certificate,output_native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "SQL VALUES is report-only; no parser, binder, planner, runtime, row generation, or output write is executed.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn sql_source_free_projection() -> Self {
+        Self {
+            row_id: "sql_source_free_projection",
+            user_visible_surface: "SQL source-free projection",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            source_io_performed: false,
+            generated_source_created: false,
+            blocker_id: "gar-gen-1.sql_source_free_projection_runtime_not_implemented",
+            required_evidence: "sql_expression_semantics,projection_plan_digest,generated_source_certificate,execution_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Source-free SQL projection is report-only; no SQL runtime or output claim is admitted.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn sql_generate_series_range() -> Self {
+        Self {
+            row_id: "sql_generate_series_range",
+            user_visible_surface: "SQL generate_series/range vocabulary",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            source_io_performed: false,
+            generated_source_created: false,
+            blocker_id: "gar-gen-1.sql_generate_series_range_runtime_not_implemented",
+            required_evidence: "sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "SQL generate_series/range is admitted as vocabulary only; use Python ctx.range for the scoped runtime smoke.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn dataframe_source_free_projection() -> Self {
+        Self {
+            row_id: "dataframe_source_free_projection",
+            user_visible_surface: "DataFrame source-free projection",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            source_io_performed: false,
+            generated_source_created: false,
+            blocker_id: "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented",
+            required_evidence: "typed_expression_contract,projection_plan_digest,generated_source_certificate,execution_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "DataFrame source-free projection is report-only outside the scoped local user_rows and range write smokes.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn dataframe_generated_with_column() -> Self {
+        Self {
+            row_id: "dataframe_generated_with_column",
+            user_visible_surface: "DataFrame generated with_column",
+            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+            source_io_performed: false,
+            generated_source_created: false,
+            blocker_id: "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented",
+            required_evidence: "expression_engine,type_coercion,determinism_policy,generated_source_certificate,execution_certificate",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Generated DataFrame columns are report-only; expression-backed generation and output are not runtime-supported.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn fallback_free(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn is_python(&self) -> bool {
+        self.row_id.starts_with("python_")
+    }
+
+    #[must_use]
+    pub fn is_sql(&self) -> bool {
+        self.row_id.starts_with("sql_")
+    }
+
+    #[must_use]
+    pub fn is_dataframe(&self) -> bool {
+        self.row_id.starts_with("dataframe_")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct GeneratedSourceApiAdmissionMatrix {
+    pub schema_version: &'static str,
+    pub matrix_id: &'static str,
+    pub rows: Vec<GeneratedSourceApiAdmissionRow>,
+    pub support_status_vocabulary: &'static str,
+    pub claim_gate_status: &'static str,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub source_io_performed: bool,
+    pub generated_source_created: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub broad_sql_dataframe_claim_allowed: bool,
+}
+
+impl GeneratedSourceApiAdmissionMatrix {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.generated_source_api_admission.v1",
+            matrix_id: "gar-gen-1e.source_free_api_admission",
+            rows: vec![
+                GeneratedSourceApiAdmissionRow::python_ctx_from_rows(),
+                GeneratedSourceApiAdmissionRow::python_ctx_range(),
+                GeneratedSourceApiAdmissionRow::python_ctx_literal_table(),
+                GeneratedSourceApiAdmissionRow::python_ctx_calendar(),
+                GeneratedSourceApiAdmissionRow::python_generated_source_write(),
+                GeneratedSourceApiAdmissionRow::sql_literal_select(),
+                GeneratedSourceApiAdmissionRow::sql_values(),
+                GeneratedSourceApiAdmissionRow::sql_source_free_projection(),
+                GeneratedSourceApiAdmissionRow::sql_generate_series_range(),
+                GeneratedSourceApiAdmissionRow::dataframe_source_free_projection(),
+                GeneratedSourceApiAdmissionRow::dataframe_generated_with_column(),
+            ],
+            support_status_vocabulary: "smoke_only,fixture_smoke_supported,report_only,planned_runtime",
+            claim_gate_status: "not_claim_grade",
+            runtime_execution: true,
+            data_read: false,
+            write_io: true,
+            source_io_performed: false,
+            generated_source_created: true,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+            broad_sql_dataframe_claim_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn python_row_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.is_python())
+            .map(|row| row.row_id)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn sql_row_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.is_sql())
+            .map(|row| row.row_id)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn dataframe_row_order(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.is_dataframe())
+            .map(|row| row.row_id)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.blocker_id).collect()
+    }
+
+    #[must_use]
+    pub fn required_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.required_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn row_for(&self, row_id: &str) -> Option<&GeneratedSourceApiAdmissionRow> {
+        self.rows.iter().find(|row| row.row_id == row_id)
+    }
+
+    #[must_use]
+    pub fn all_rows_fallback_free(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && !self.fallback_execution_allowed
+            && self
+                .rows
+                .iter()
+                .all(GeneratedSourceApiAdmissionRow::fallback_free)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{GeneratedSourceCaseKind, GeneratedSourceCertificateContractReport};
+    use super::{
+        GeneratedSourceApiAdmissionMatrix, GeneratedSourceCaseKind,
+        GeneratedSourceCertificateContractReport,
+    };
 
     #[test]
     fn report_only_contract_separates_no_dataset_smoke_from_generated_output() {
@@ -292,5 +682,58 @@ mod tests {
         assert_eq!(engine_range.claim_gate_status, "fixture_smoke_only");
         assert!(engine_range.required_generator_kinds.contains("range("));
         assert!(engine_range.claim_boundary.contains("range JSONL"));
+    }
+
+    #[test]
+    fn api_admission_matrix_classifies_supported_and_report_only_source_free_forms() {
+        let matrix = GeneratedSourceApiAdmissionMatrix::report_only();
+        assert_eq!(
+            matrix.python_row_order(),
+            vec![
+                "python_ctx_from_rows",
+                "python_ctx_range",
+                "python_ctx_literal_table",
+                "python_ctx_calendar",
+                "python_generated_source_write",
+            ]
+        );
+        assert_eq!(
+            matrix.sql_row_order(),
+            vec![
+                "sql_literal_select",
+                "sql_values",
+                "sql_source_free_projection",
+                "sql_generate_series_range",
+            ]
+        );
+        assert_eq!(
+            matrix.dataframe_row_order(),
+            vec![
+                "dataframe_source_free_projection",
+                "dataframe_generated_with_column",
+            ]
+        );
+        assert!(matrix.all_rows_fallback_free());
+        assert!(!matrix.data_read);
+        assert!(!matrix.source_io_performed);
+        assert!(!matrix.broad_sql_dataframe_claim_allowed);
+
+        let from_rows = matrix
+            .row_for("python_ctx_from_rows")
+            .expect("python from_rows row");
+        assert_eq!(from_rows.support_status.as_str(), "fixture_smoke_supported");
+        assert!(from_rows.runtime_execution);
+        assert!(from_rows.write_io);
+        assert!(from_rows.generated_source_created);
+
+        let sql_values = matrix.row_for("sql_values").expect("sql values row");
+        assert_eq!(sql_values.support_status.as_str(), "report_only");
+        assert!(!sql_values.runtime_execution);
+        assert!(!sql_values.write_io);
+        assert!(!sql_values.generated_source_created);
+        assert_eq!(
+            sql_values.blocker_id,
+            "gar-gen-1.sql_values_runtime_not_implemented"
+        );
     }
 }
