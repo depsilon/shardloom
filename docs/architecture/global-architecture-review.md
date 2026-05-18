@@ -990,9 +990,10 @@ plan before coding.
 - [x] `GAR-NOVEL-1C` adds planned report-only OpenTelemetry trace mapping follow-through. No
   telemetry exporter, network call, backend integration, or production API claim is authorized by
   those rows alone.
-- [ ] `GAR-COMMERCIAL-1D` adds the planned enterprise evidence export pack: ShardLoom JSON,
-  OpenLineage facets, OpenTelemetry spans/metrics, and optional Markdown summary. Export remains
-  opt-in, no-network by default, redacted, and not a production observability claim.
+- [x] `GAR-COMMERCIAL-1D` adds the report-only enterprise evidence export pack with
+  `shardloom.enterprise_evidence_export_pack.v1`, ShardLoom JSON evidence, OpenLineage facet
+  payload previews, OpenTelemetry span/metric payload previews, optional Markdown summary,
+  redaction report, opt-in/no-network/no-backend posture, and no production observability claim.
 - [ ] HTTP listener, remote execution, Flight/ADBC runtime bridge, broker integration, production
   API, and dependency-expanded server remain incomplete.
 

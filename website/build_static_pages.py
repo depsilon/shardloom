@@ -444,10 +444,10 @@ def render_public_status_scorecard_section() -> str:
             {
                 "label": "Enterprise evidence export pack",
                 "family": "adoption_workflow",
-                "status": "planned",
-                "answer": "OpenLineage/OpenTelemetry/ShardLoom evidence export pack remains planned and opt-in; no network backend is invoked by default.",
-                "evidence": "GAR-COMMERCIAL-1D planned",
-                "reference": "docs/architecture/phased-execution-plan.md",
+                "status": "report-only",
+                "answer": "A report-only enterprise evidence export-pack contract exists for ShardLoom JSON, OpenLineage facet payload previews, OpenTelemetry span/metric payload previews, optional Markdown summaries, and redaction reports. No exporter or backend runs by default.",
+                "evidence": "shardloom.enterprise_evidence_export_pack.v1; network_calls_by_default=false; backend_integration_configured=false",
+                "reference": "docs/release/enterprise-evidence-export-pack.json",
             },
             {
                 "label": "Foundry dev-stack starter",

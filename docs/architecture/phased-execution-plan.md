@@ -582,52 +582,19 @@ unsupported paths visible, links every row to source refs, preserves `fallback_a
 maturity map only and does not add runtime support, publish packages, rerun benchmarks, or create
 production, performance, Spark-replacement, SQL/DataFrame, object-store/lakehouse, Foundry, package,
 or fallback-execution claims.
-- [ ] GAR-COMMERCIAL-1D enterprise evidence export pack
-  - Source: GAR-NOVEL-1B; GAR-NOVEL-1C; operational evidence policy; OpenLineage; OpenTelemetry;
-    ShardLoom evidence envelope;
-    `docs/architecture/adoption-commercial-readiness-friction-reduction.md`.
-  - Current state:
-    - Evidence is ShardLoom-native JSON.
-    - OpenLineage and OpenTelemetry mappings are report-only and no-export by default.
-    - No export pack, backend integration, or network exporter exists.
-  - Next slice outcome:
-    - Define an opt-in enterprise evidence export pack containing ShardLoom JSON, OpenLineage facets,
-      OpenTelemetry spans/metrics, and an optional Markdown summary.
-  - User-visible surface:
-    - Docs, future CLI export command docs, enterprise evaluation checklist, and sample local
-      artifact bundle.
-  - Implementation scope:
-    - Export pack design, redaction policy, local artifact layout, capability/status rows, and tests.
-      Do not add network export or backend integration in this slice.
-  - Evidence required:
-    - ShardLoom JSON evidence refs.
-    - OpenLineage facet mapping refs.
-    - OpenTelemetry span/metric mapping refs.
-    - Markdown summary refs.
-    - redaction, retention, export opt-in, and no-network policy refs.
-    - policy/no-fallback refs.
-  - Acceptance:
-    - Export is opt-in.
-    - No network calls happen by default.
-    - Secret/path/query/schema/sample redaction policy exists.
-    - Export pack does not upgrade support or claim status.
-  - Verification:
-    - release readiness metadata tests.
-    - evidence artifact safety tests if report fields change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No lineage backend integration, OTel exporter, collector config, network call, external
-      service dependency, Foundry claim, or production observability claim.
-  - Claim boundary:
-    - Commercial value is evidence portability into existing stacks; it is not production readiness
-      or managed-platform certification.
-  - Fallback boundary:
-    - Evidence export cannot invoke external engines, external services, credentials, object-store
-      I/O, or fallback execution by default.
-  - Dependencies/blockers:
-    - GAR-NOVEL-1B/C mappings, evidence artifact safety, redaction/retention policy, and explicit
-      opt-in config.
+GAR-COMMERCIAL-1D is complete and recorded in the completed ledger. The report-only enterprise
+evidence export pack is now defined by `docs/release/enterprise-evidence-export-pack.md` and
+`docs/release/enterprise-evidence-export-pack.json` with schema
+`shardloom.enterprise_evidence_export_pack.v1`, a local artifact layout for ShardLoom JSON,
+OpenLineage facet payloads, OpenTelemetry span/metric payloads, optional Markdown summaries, and a
+required redaction report. `scripts/check_enterprise_evidence_export_pack.py` validates opt-in,
+local-only, no-network/no-backend/no-event/no-trace/no-metric/no-log posture, redaction/retention
+policy, `fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status=not_claim_grade`. This slice does not implement exporters, configure collectors,
+emit events/traces/metrics/logs, invoke Foundry, resolve credentials, call object stores, publish
+packages, add dependencies, expand runtime support, or create production observability,
+managed-platform, performance, Spark-displacement, SQL/DataFrame, object-store/lakehouse, Foundry,
+package, or fallback-execution claims.
 - [ ] GAR-COMMERCIAL-1E Foundry dev-stack starter kit
   - Source: RFC 0036; Foundry proof-of-use docs; local Foundry-style transform example;
     GAR-GEN-1F; GAR-COMMERCIAL-1A;

@@ -1,0 +1,155 @@
+{
+  "schema_version": "shardloom.enterprise_evidence_export_pack.v1",
+  "gar_id": "GAR-COMMERCIAL-1D",
+  "status": "report-only",
+  "claim_gate_status": "not_claim_grade",
+  "export_pack_runtime_supported": false,
+  "export_pack_enabled_by_default": false,
+  "opt_in_required": true,
+  "network_calls_by_default": false,
+  "backend_integration_configured": false,
+  "lineage_event_emitted": false,
+  "telemetry_trace_emitted": false,
+  "telemetry_metric_emitted": false,
+  "telemetry_log_emitted": false,
+  "markdown_summary_generated_by_default": false,
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "object_store_io_performed": false,
+  "credential_resolution_performed": false,
+  "foundry_runtime_invoked": false,
+  "claim_boundary": "The enterprise evidence export pack is a report-only, opt-in, local-first packaging contract. It does not emit lineage events, traces, metrics, logs, network calls, backend integrations, production observability claims, Foundry claims, package-publication claims, runtime support, performance claims, Spark-displacement claims, SQL/DataFrame claims, object-store/lakehouse claims, or claim-grade evidence by itself.",
+  "fallback_boundary": "Evidence export cannot invoke external engines, external services, credentials, object stores, managed platforms, or fallback execution by default.",
+  "source_refs": [
+    "docs/architecture/evidence-native-generated-execution-observability-confidence.md",
+    "docs/architecture/adoption-commercial-readiness-friction-reduction.md",
+    "docs/rfcs/0018-observability-tracing-profiling.md",
+    "docs/rfcs/0035-rest-event-remote-api-surface.md"
+  ],
+  "local_artifact_layout": {
+    "root_directory": "target/enterprise-evidence-export-pack/<run-id>/",
+    "manifest": "manifest.json",
+    "files": [
+      {
+        "path": "shardloom-evidence.json",
+        "component_id": "shardloom_json_evidence_bundle",
+        "status": "planned_local_artifact"
+      },
+      {
+        "path": "openlineage-facets.json",
+        "component_id": "openlineage_custom_facets",
+        "status": "report_only_not_emitted"
+      },
+      {
+        "path": "opentelemetry-trace.json",
+        "component_id": "opentelemetry_spans_metrics",
+        "status": "report_only_not_emitted"
+      },
+      {
+        "path": "summary.md",
+        "component_id": "markdown_summary",
+        "status": "optional_planned_local_artifact"
+      },
+      {
+        "path": "redaction-report.json",
+        "component_id": "redaction_report",
+        "status": "required_before_export"
+      }
+    ]
+  },
+  "artifact_components": [
+    {
+      "component_id": "shardloom_json_evidence_bundle",
+      "display_name": "ShardLoom JSON evidence bundle",
+      "required_for_pack": true,
+      "default_enabled": false,
+      "source_schema_ref": "ShardLoom execution evidence envelope",
+      "network_effect_status": "none",
+      "backend_integration_status": "none",
+      "redaction_status": "required_before_export"
+    },
+    {
+      "component_id": "openlineage_custom_facets",
+      "display_name": "OpenLineage custom facet payloads",
+      "required_for_pack": true,
+      "default_enabled": false,
+      "source_schema_ref": "shardloom.openlineage_facet_mapping.v1",
+      "network_effect_status": "none",
+      "backend_integration_status": "none",
+      "redaction_status": "required_before_export"
+    },
+    {
+      "component_id": "opentelemetry_spans_metrics",
+      "display_name": "OpenTelemetry span and metric payloads",
+      "required_for_pack": true,
+      "default_enabled": false,
+      "source_schema_ref": "shardloom.opentelemetry_trace_export_contract.v1",
+      "network_effect_status": "none",
+      "backend_integration_status": "none",
+      "redaction_status": "required_before_export"
+    },
+    {
+      "component_id": "markdown_summary",
+      "display_name": "Optional Markdown evidence summary",
+      "required_for_pack": false,
+      "default_enabled": false,
+      "source_schema_ref": "shardloom.enterprise_evidence_summary.v1",
+      "network_effect_status": "none",
+      "backend_integration_status": "none",
+      "redaction_status": "required_before_export"
+    }
+  ],
+  "redaction_policy": {
+    "policy_id": "strict_local_enterprise_redaction",
+    "required": true,
+    "redacted_fields": [
+      "secrets",
+      "credentials",
+      "access_tokens",
+      "environment_variables",
+      "full_local_paths",
+      "query_text",
+      "schema_names",
+      "sample_values",
+      "endpoint_urls",
+      "object_store_credentials",
+      "platform_dataset_identifiers"
+    ],
+    "allowed_field_classes": [
+      "schema_version",
+      "run_id",
+      "execution_mode",
+      "engine_mode",
+      "claim_gate_status",
+      "fallback_attempted",
+      "external_engine_invoked",
+      "artifact_digests",
+      "row_counts",
+      "byte_counts",
+      "timing_millis",
+      "certificate_status",
+      "redacted_refs"
+    ],
+    "path_policy": "Use redacted path refs or digests by default; full local paths require explicit local debug opt-in and must not be emitted to portable packs.",
+    "sample_policy": "No raw sample values by default."
+  },
+  "retention_policy": {
+    "default_storage": "local target directory only",
+    "upload_by_default": false,
+    "backend_retention_configured": false,
+    "future_cleanup_command": "shardloom evidence export-pack clean --run-id <run-id>",
+    "retention_claim_boundary": "Retention policy is local-report-only until an implementation records cleanup proof."
+  },
+  "opt_in_controls": {
+    "future_cli_command": "shardloom evidence export-pack --output <dir> --local-only",
+    "future_cli_local_only_default": true,
+    "future_network_export_flag": "not available in this slice",
+    "requires_explicit_output_directory": true,
+    "requires_redaction_report": true
+  },
+  "validation": {
+    "validator": "python scripts/check_enterprise_evidence_export_pack.py",
+    "report_schema_version": "shardloom.enterprise_evidence_export_pack_report.v1",
+    "required_doc_ref": "docs/release/enterprise-evidence-export-pack.md"
+  }
+}

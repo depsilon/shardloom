@@ -50,10 +50,15 @@ Current local proof exists, but public distribution is not complete:
 - `docs/release/package-channel-readiness-matrix.md` and
   `docs/release/package-channel-readiness-matrix.json` track channel-specific install, uninstall,
   clean-install, smoke, SBOM/checksum/provenance, rollback/yank, and authorization evidence.
+- `docs/release/enterprise-evidence-export-pack.md` and
+  `docs/release/enterprise-evidence-export-pack.json` define the opt-in local-first evidence export
+  pack contract for ShardLoom JSON, OpenLineage facet payloads, OpenTelemetry span/metric payloads,
+  optional Markdown summaries, and redaction reports.
 - `website/status.html` is a public posture board with a generated buyer-facing "Can I use this?"
   matrix sourced from the universal compatibility scoreboard and package-channel readiness matrix.
 - Real package publication, release tags, OCI pushes, Homebrew/Scoop/winget/conda-forge submission,
-  and crates.io publication remain blocked until release gates pass.
+  crates.io publication, lineage/telemetry backend export, and managed observability integration
+  remain blocked until release and opt-in evidence gates pass.
 
 ## One-Command Local Proof Target
 
@@ -132,7 +137,7 @@ The current public status board renders a first-class "Can I use this?" matrix w
   `planned`, and `not-planned`
 - rows sourced from `docs/architecture/universal-compatibility-coverage-scoreboard.json`
 - package-channel rows sourced from `docs/release/package-channel-readiness-matrix.json`
-- planned adoption rows for enterprise evidence export, Foundry starter, and workflow recipes
+- a report-only enterprise evidence export row plus planned Foundry starter and workflow recipe rows
 - explicit not-planned rows for hidden fallback execution, Spark replacement claims, and production
   SQL/DataFrame/object-store/lakehouse/Foundry claims
 - visible `fallback_attempted=false`, `external_engine_invoked=false`, and
@@ -145,12 +150,20 @@ This matrix is a maturity map, not a runtime-support expansion.
 The enterprise export pack should make ShardLoom-native evidence usable in common governance and
 observability workflows without creating network side effects by default.
 
+The source of truth is `docs/release/enterprise-evidence-export-pack.json` with schema
+`shardloom.enterprise_evidence_export_pack.v1`. Validate it with:
+
+```powershell
+python scripts\check_enterprise_evidence_export_pack.py
+```
+
 Pack contents:
 
 - ShardLoom JSON evidence bundle
 - OpenLineage custom facets
 - OpenTelemetry spans and selected metrics
 - optional Markdown summary
+- redaction report
 
 Rules:
 
@@ -160,6 +173,35 @@ Rules:
 - Secret, credential, local path, query text, schema name, and sample-value redaction policy must be
   explicit.
 - Export does not upgrade runtime support or claim status.
+
+Current report-only defaults:
+
+```text
+export_pack_runtime_supported=false
+export_pack_enabled_by_default=false
+opt_in_required=true
+network_calls_by_default=false
+backend_integration_configured=false
+lineage_event_emitted=false
+telemetry_trace_emitted=false
+telemetry_metric_emitted=false
+telemetry_log_emitted=false
+claim_gate_status=not_claim_grade
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+The planned local artifact layout is:
+
+```text
+target/enterprise-evidence-export-pack/<run-id>/
+  manifest.json
+  shardloom-evidence.json
+  openlineage-facets.json
+  opentelemetry-trace.json
+  summary.md
+  redaction-report.json
+```
 
 ## Foundry Dev-Stack Starter
 
