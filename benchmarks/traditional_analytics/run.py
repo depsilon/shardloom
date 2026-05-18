@@ -1463,6 +1463,21 @@ def is_shardloom_engine(engine: str) -> bool:
     return engine.startswith("shardloom")
 
 
+UNSUPPORTED_ROW_STATUSES = {"unsupported", "unsupported_format"}
+NON_EXECUTED_BLOCKED_ROW_STATUSES = {
+    "blocked",
+    "engine_startup_error",
+    "execution_error",
+    "failed",
+    "missing_dependency",
+    "timeout",
+}
+
+
+def shardloom_blocked_non_execution_status(status: str) -> bool:
+    return status in NON_EXECUTED_BLOCKED_ROW_STATUSES
+
+
 def expand_engine_aliases(engine_names: tuple[str, ...]) -> tuple[str, ...]:
     expanded: list[str] = []
     for engine in engine_names:
@@ -5519,7 +5534,7 @@ def source_state_compression(data_format: str) -> str:
 def source_state_reuse_reason(engine: str, evidence: dict[str, Any], status: str) -> str:
     if not is_shardloom_engine(engine):
         return "external baseline rows do not create or reuse ShardLoom SourceState"
-    if status in {"unsupported", "unsupported_format", "execution_error"}:
+    if status in UNSUPPORTED_ROW_STATUSES | NON_EXECUTED_BLOCKED_ROW_STATUSES:
         return "row did not execute; SourceState posture is deterministic but not reusable"
     if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
         return str(
@@ -5584,9 +5599,9 @@ def source_state_contract_metadata(
         source_state_status = "external_baseline_only"
     elif not supported_format:
         source_state_status = "unsupported"
-    elif status in {"unsupported", "unsupported_format"}:
+    elif status in UNSUPPORTED_ROW_STATUSES:
         source_state_status = "unsupported"
-    elif status == "execution_error":
+    elif shardloom_blocked_non_execution_status(status):
         source_state_status = "blocked"
     elif batch_reuse_allowed:
         source_state_status = "source_state_reuse_supported"
@@ -5644,7 +5659,7 @@ def prepared_state_reuse_reason(
 ) -> str:
     if not is_shardloom_engine(engine):
         return "external baseline rows do not create or reuse ShardLoom VortexPreparedState"
-    if status in {"unsupported", "unsupported_format", "execution_error"}:
+    if status in UNSUPPORTED_ROW_STATUSES | NON_EXECUTED_BLOCKED_ROW_STATUSES:
         return "row did not execute; prepared-state posture is deterministic but not reusable"
     if engine == "shardloom-direct-transient":
         return "direct transient smoke does not create or reuse VortexPreparedState"
@@ -5697,9 +5712,9 @@ def prepared_state_contract_metadata(
     )
     if not is_shardloom:
         prepared_state_status = "external_baseline_only"
-    elif status in {"unsupported", "unsupported_format"}:
+    elif status in UNSUPPORTED_ROW_STATUSES:
         prepared_state_status = "unsupported"
-    elif status == "execution_error":
+    elif shardloom_blocked_non_execution_status(status):
         prepared_state_status = "blocked"
     elif engine == "shardloom-direct-transient":
         prepared_state_status = "not_needed"
@@ -5787,7 +5802,7 @@ def output_plan_reuse_reason(
 ) -> str:
     if not is_shardloom_engine(engine):
         return "external baseline rows do not create or reuse ShardLoom OutputPlan"
-    if status in {"unsupported", "unsupported_format", "execution_error"}:
+    if status in UNSUPPORTED_ROW_STATUSES | NON_EXECUTED_BLOCKED_ROW_STATUSES:
         return "row did not execute; output-plan posture is deterministic but not reusable"
     if output_plan_reuse_hit:
         return "output plan was reused by the benchmark row"
@@ -5835,9 +5850,9 @@ def output_plan_contract_metadata(
     output_plan_reuse_hit = False
     if not is_shardloom:
         output_plan_status = "external_baseline_only"
-    elif status in {"unsupported", "unsupported_format"}:
+    elif status in UNSUPPORTED_ROW_STATUSES:
         output_plan_status = "unsupported"
-    elif status == "execution_error":
+    elif shardloom_blocked_non_execution_status(status):
         output_plan_status = "blocked"
     elif output_written:
         output_plan_status = "output_plan_supported"
@@ -5916,10 +5931,15 @@ def cache_invalidation_status_reason(
 ) -> str:
     if not is_shardloom_engine(engine):
         return "external baseline rows do not create or validate ShardLoom reusable state"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported row cannot validate reusable state"
-    if status == "execution_error":
+    if shardloom_blocked_non_execution_status(status):
         return "execution error blocks reusable state validation"
+    if status != "success":
+        return (
+            f"row status {status} cannot validate cache consistency; cache_valid=false "
+            "is intentional for non-success evidence rows"
+        )
     if cache_status == "not_needed":
         return "no reusable source/prepared/output state is needed for this row"
     if source_path_count == 0:
@@ -5952,15 +5972,19 @@ def cache_invalidation_contract_metadata(
     source_size = sum(source_sizes)
     source_mtimes = [path.stat().st_mtime_ns for path in existing_sources]
     source_mtime: int | str = max(source_mtimes) if source_mtimes else "not_applicable"
+    source_file_fingerprints = [
+        {
+            "location": source_state_path_text(path),
+            "mtime_ns": path.stat().st_mtime_ns,
+            "size": path.stat().st_size,
+        }
+        for path in existing_sources
+    ]
     source_content_digest = canonical_digest(
         {
             "fingerprint_kind": "local_file_size_mtime_schema_plan_digest",
             "schema_digest": metrics.get("schema_digest", "none"),
-            "source_locations": [
-                source_state_path_text(path) for path in existing_sources
-            ],
-            "source_mtime": source_mtime,
-            "source_size": source_size,
+            "source_file_fingerprints": source_file_fingerprints,
         }
     )
     plan_digest = canonical_digest(
@@ -5979,10 +6003,10 @@ def cache_invalidation_contract_metadata(
     if not is_shardloom:
         cache_status = "external_baseline_only"
         cache_valid = False
-    elif status in {"unsupported", "unsupported_format"}:
+    elif status in UNSUPPORTED_ROW_STATUSES:
         cache_status = "unsupported"
         cache_valid = False
-    elif status == "execution_error":
+    elif shardloom_blocked_non_execution_status(status):
         cache_status = "blocked"
         cache_valid = False
     elif not existing_sources and metrics.get("source_state_status") == "not_needed":
@@ -6431,6 +6455,7 @@ def bayesian_advisor_contract_metadata(
     engine: str,
     metrics: dict[str, Any],
     *,
+    status: str = "success",
     evidence: dict[str, Any] | None = None,
     execution_mode: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -6521,9 +6546,10 @@ def bayesian_advisor_contract_metadata(
     ]
     if metrics.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
         evidence_refs.append("session_runtime_batch_runner_fields")
+    successful_row = status == "success"
     confidence = (
         "low_report_only"
-        if metrics.get("wall_time_millis") is not None
+        if successful_row and metrics.get("wall_time_millis") is not None
         else "insufficient_evidence"
     )
     reuse_threshold_status = (
@@ -6589,16 +6615,17 @@ def scenario_requires_scale_shuffle(scenario: str) -> bool:
         "hash join",
         "join + aggregate",
         "multi-key group by",
+        "null-heavy aggregate",
         "top-N per group",
-        "row-number window",
-        "CDC overlay",
+        "row number window",
+        "small change over large base",
     }
 
 
 def scale_claim_status_for_row(engine: str, status: str, metrics: dict[str, Any]) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
     if status != "success":
         return "blocked"
@@ -6698,11 +6725,12 @@ def scale_claim_contract_metadata(
 def split_manifest_status_for_row(engine: str, status: str, metrics: dict[str, Any]) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
-    if status == "execution_error":
+    if shardloom_blocked_non_execution_status(status):
         return "blocked"
-    if parse_optional_int(metrics.get("file_count")):
+    file_count = parse_optional_int(metrics.get("file_count")) or 0
+    if file_count == 1:
         return "single_local_split_report_only"
     return "split_manifest_report_only"
 
@@ -6710,9 +6738,9 @@ def split_manifest_status_for_row(engine: str, status: str, metrics: dict[str, A
 def split_claim_status_for_row(engine: str, status: str) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
-    if status == "execution_error":
+    if shardloom_blocked_non_execution_status(status):
         return "blocked"
     return "not_split_scale_grade"
 
@@ -6823,7 +6851,7 @@ def split_manifest_contract_metadata(
 def memory_spill_status_for_row(engine: str, status: str) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
     if status != "success":
         return "blocked"
@@ -6833,7 +6861,7 @@ def memory_spill_status_for_row(engine: str, status: str) -> str:
 def memory_spill_claim_status_for_row(engine: str, status: str) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
     if status != "success":
         return "blocked"
@@ -6908,7 +6936,7 @@ def shuffle_evidence_status_for_row(
 ) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
     if status != "success":
         return "blocked"
@@ -6920,7 +6948,7 @@ def shuffle_evidence_status_for_row(
 def shuffle_claim_status_for_row(engine: str, status: str) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
     if status != "success":
         return "blocked"
@@ -6936,9 +6964,9 @@ def local_shuffle_strategy_for_scenario(scenario: str) -> str:
         "null-heavy aggregate",
     }:
         return "local_group_by_not_scale_shuffle_proof"
-    if scenario in {"top-N per group", "row-number window"}:
+    if scenario in {"top-N per group", "row number window"}:
         return "local_ordered_partition_not_scale_shuffle_proof"
-    if scenario == "CDC overlay":
+    if scenario == "small change over large base":
         return "local_overlay_not_scale_shuffle_proof"
     return "not_required_for_current_local_smoke_row"
 
@@ -7014,7 +7042,7 @@ def shuffle_scale_contract_metadata(
 def object_table_ladder_status_for_row(engine: str, status: str) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
     if status != "success":
         return "blocked"
@@ -7108,7 +7136,7 @@ def object_table_scale_contract_metadata(
 def distributed_protocol_status_for_row(engine: str, status: str) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
     if status != "success":
         return "blocked"
@@ -7190,7 +7218,7 @@ def scale_benchmark_profile_status_for_row(
 ) -> str:
     if not is_shardloom_engine(engine):
         return "external_baseline_only"
-    if status in {"unsupported", "unsupported_format"}:
+    if status in UNSUPPORTED_ROW_STATUSES:
         return "blocked"
     if status != "success":
         return "blocked"
@@ -7617,15 +7645,16 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "benchmark row omitted fused pipeline fields: "
             + ", ".join(missing_fused_pipeline_fields)
         )
-    missing_compressed_kernel_registry_fields = [
-        field for field in COMPRESSED_KERNEL_REGISTRY_FIELDS if field not in metrics
-    ]
-    if missing_compressed_kernel_registry_fields:
-        raise RuntimeError(
-            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
-            "benchmark row omitted compressed kernel registry fields: "
-            + ", ".join(missing_compressed_kernel_registry_fields)
-        )
+    if result.get("status") == "success":
+        missing_compressed_kernel_registry_fields = [
+            field for field in COMPRESSED_KERNEL_REGISTRY_FIELDS if field not in metrics
+        ]
+        if missing_compressed_kernel_registry_fields:
+            raise RuntimeError(
+                f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+                "benchmark row omitted compressed kernel registry fields: "
+                + ", ".join(missing_compressed_kernel_registry_fields)
+            )
     missing_scan_pushdown_fields = [
         field for field in SCAN_PUSHDOWN_FIELDS if field not in metrics
     ]
@@ -8462,6 +8491,26 @@ def annotate_result(
     result["claim_gate_status"] = readiness["claim_gate_status"]
     result["claim_grade_requirements_met"] = readiness["claim_grade_requirements_met"]
     result["claim_grade_missing_evidence"] = readiness["claim_grade_missing_evidence"]
+    metrics = result.get("metrics")
+    if isinstance(metrics, dict):
+        metrics["dataset_profile"] = dataset_profile
+        metrics["claim_gate_status"] = result["claim_gate_status"]
+        metrics.update(
+            scale_claim_contract_metadata(
+                str(result["engine"]),
+                str(result["scenario_base"]),
+                status=str(result["status"]),
+                metrics=metrics,
+            )
+        )
+        metrics.update(
+            scale_benchmark_profile_contract_metadata(
+                str(result["engine"]),
+                str(result["scenario_base"]),
+                status=str(result["status"]),
+                metrics=metrics,
+            )
+        )
     result["benchmark_constitution"] = benchmark_constitution(
         result, cache_mode, dataset_profile
     )
@@ -10441,6 +10490,7 @@ def failed_result(
         bayesian_advisor_contract_metadata(
             engine,
             metrics,
+            status=status,
             execution_mode=execution_mode,
         )
     )
@@ -11025,6 +11075,7 @@ def successful_result_from_iterations(
         bayesian_advisor_contract_metadata(
             runner.name,
             metrics,
+            status="success" if stable else "unstable_output",
             evidence=evidence,
             execution_mode=execution_mode,
         )
@@ -11104,7 +11155,8 @@ def successful_result_from_iterations(
             }
         )
         for field in BATCH_RUNNER_ADMISSION_FIELDS:
-            metrics.setdefault(field, evidence.get(field))
+            if field in evidence:
+                metrics.setdefault(field, evidence[field])
         for field in SESSION_RUNTIME_FIELDS:
             value = evidence.get(field)
             if field.endswith("_count") or field.endswith("_entry_count"):
@@ -11120,9 +11172,14 @@ def successful_result_from_iterations(
             else:
                 metrics.setdefault(field, value)
         for field in ALLOCATION_RESOURCE_PROFILE_FIELDS:
-            value = evidence.get(field)
+            if field not in evidence:
+                continue
+            value = evidence[field]
             if field in ("allocation_count", "buffer_reuse_count"):
-                metrics.setdefault(field, parse_optional_int(value))
+                metrics.setdefault(
+                    field,
+                    value if value == "not_available" else parse_optional_int(value),
+                )
             elif field in (
                 "buffer_pool_enabled",
                 "unsafe_lifetime_shortcut_used",
@@ -11364,6 +11421,7 @@ def native_microbenchmark_blocked_row(
     command: list[str] | None = None,
 ) -> dict[str, Any]:
     spec = native_microbenchmark_spec(primitive_family)
+    support_status = "unsupported" if status in UNSUPPORTED_ROW_STATUSES else "blocked"
     return native_microbenchmark_error(
         spec["name"],
         status,
@@ -11371,7 +11429,7 @@ def native_microbenchmark_blocked_row(
         command=command,
         primitive_family=primitive_family,
         primitive=spec["primitive"],
-        support_status=spec["support_status"],
+        support_status=support_status,
     )
 
 

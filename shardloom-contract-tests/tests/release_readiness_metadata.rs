@@ -41,6 +41,25 @@ fn completed_gar_session_count(completed_ledger: &str) -> usize {
         .count()
 }
 
+fn yaml_top_level_section_item_count(content: &str, section: &str) -> usize {
+    let section_header = format!("{section}:");
+    let mut in_section = false;
+    let mut count = 0;
+    for line in content.lines() {
+        if line == section_header {
+            in_section = true;
+            continue;
+        }
+        if in_section && !line.starts_with(' ') && !line.is_empty() {
+            break;
+        }
+        if in_section && line.starts_with("  - id:") {
+            count += 1;
+        }
+    }
+    count
+}
+
 #[test]
 fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
     let pyproject = read_repo_file("python/pyproject.toml");
@@ -1736,14 +1755,15 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
     }
 
     let generated_dir = repo_root().join("docs/use-cases/generated");
+    let expected_generated_count = yaml_top_level_section_item_count(&index, "use_cases");
     let generated_count = fs::read_dir(&generated_dir)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", generated_dir.display()))
         .filter_map(Result::ok)
         .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "md"))
         .count();
-    assert!(
-        generated_count >= 16,
-        "expected at least 16 generated use-case docs, found {generated_count}"
+    assert_eq!(
+        generated_count, expected_generated_count,
+        "generated use-case docs must match use-case index count"
     );
 
     let glossary = read_repo_file("docs/use-cases/field-guide/README.md");
@@ -1821,6 +1841,8 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         "smoke_supported",
         "report_only",
         "blocked",
+        "planned",
+        "unsupported",
     ] {
         assert!(
             website_index.contains(required),

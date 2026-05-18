@@ -13,7 +13,11 @@ from typing import Any
 from urllib.parse import urlparse
 from xml.etree import ElementTree
 
-from check_use_case_index import EXPLANATION_STATUSES, load_index as load_use_case_index
+from check_use_case_index import (
+    EXPLANATION_STATUSES,
+    SUPPORTED_STATUSES,
+    load_index as load_use_case_index,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,7 +97,7 @@ BRAND_GUARDRAIL_PHRASES = [
     r"\bVault-Tec\b",
     r"\bPip-Boy\b",
     r"\bBethesda\b",
-    r"\bModal GPU Glossary\b",
+    r"\bModal\b",
     r"\bmodal\.com\b",
     r"\bPalantir\b",
 ]
@@ -102,6 +106,10 @@ PRIVATE_MEMO_PHRASES = [
     r"\binternal-only\b",
     r"\bdo not publish\b",
 ]
+PAGEFIND_MODAL_COMPONENT_RE = re.compile(
+    r"\b(?:pagefind-modal(?:-[a-z]+)?|pf-modal(?:-[a-z]+)?|modal-trigger)\b",
+    re.IGNORECASE,
+)
 RAW_GITHUB_HOST = "raw.githubusercontent.com"
 URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+")
 FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS = [
@@ -239,6 +247,8 @@ def check_patterns(
     combined = re.compile("|".join(f"(?:{pattern})" for pattern in patterns), re.IGNORECASE)
     for path in files:
         text = path.read_text(encoding="utf-8")
+        if label.startswith("third-party brand reference"):
+            text = PAGEFIND_MODAL_COMPONENT_RE.sub("pagefind-search-component", text)
         if combined.search(text):
             blockers.append(f"{label}: {rel(path, root)}")
 
@@ -316,7 +326,12 @@ def main() -> int:
 
         check_patterns(public_scan_files, CLAIM_PHRASES, website, blockers, "forbidden public claim phrase")
         check_patterns(public_scan_files, PACKAGE_CLAIM_PHRASES, website, blockers, "package-publication claim phrase")
-        check_patterns(runtime_scan_files, BRAND_GUARDRAIL_PHRASES, website, blockers, "third-party brand reference in runtime surface")
+        brand_scan_files = [
+            path
+            for path in runtime_scan_files
+            if not rel(path, website).startswith("pagefind/")
+        ]
+        check_patterns(brand_scan_files, BRAND_GUARDRAIL_PHRASES, website, blockers, "third-party brand reference in runtime surface")
         check_patterns(public_scan_files, PRIVATE_MEMO_PHRASES, website, blockers, "private memo reference")
 
         site_css = website / "assets" / "site.css"
@@ -515,13 +530,21 @@ def main() -> int:
                     for use_case in use_case_data.get("use_cases", [])
                     if isinstance(use_case, dict) and use_case.get("id")
                 }
+                # Every use case still needs a runnable example or blocker explanation;
+                # supported statuses require runnable examples, while explanation statuses
+                # require blocked explanations so support cannot be inferred from blockers.
                 for use_case_id, use_case in indexed_use_cases.items():
                     expected_page = website / "use-cases" / f"{use_case_id}.html"
                     if not expected_page.exists():
                         blockers.append(f"use-case index missing generated website page: {use_case_id}")
-                    if not use_case.get("runnable_example") and not use_case.get("blocked_explanation"):
+                    status = str(use_case.get("status"))
+                    if status in SUPPORTED_STATUSES and not use_case.get("runnable_example"):
                         blockers.append(
-                            f"use case {use_case_id} must have a runnable example or blocker explanation"
+                            f"use case {use_case_id} status {status} requires runnable_example"
+                        )
+                    if status in EXPLANATION_STATUSES and not use_case.get("blocked_explanation"):
+                        blockers.append(
+                            f"use case {use_case_id} status {status} requires blocked_explanation"
                         )
         else:
             blockers.append("missing docs/use-cases/use-case-index.yml")

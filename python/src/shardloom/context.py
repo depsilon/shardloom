@@ -708,7 +708,12 @@ class ETLWorkflowCapabilityMatrix:
     def from_capability(cls, capability: "CapabilityView") -> "ETLWorkflowCapabilityMatrix":
         """Build the static ETL workflow matrix from the workflow capability view."""
 
-        return cls(capability=capability, rows=ETL_WORKFLOW_CAPABILITY_ROWS)
+        rows = (
+            ETL_WORKFLOW_CAPABILITY_ROWS
+            if capability.field("etl_workflow_matrix_schema_version")
+            else ()
+        )
+        return cls(capability=capability, rows=rows)
 
     @property
     def schema_version(self) -> str | None:

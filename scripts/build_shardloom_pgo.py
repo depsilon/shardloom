@@ -24,6 +24,7 @@ DEFAULT_TRAINING_COMMAND = (
     "--engines shardloom-prepared-vortex "
     "--formats csv,parquet "
     "--include-taxonomy-extra "
+    "--shardloom-build-profile release-pgo "
     "--rows 10000 "
     "--iterations 1 "
     "--no-markdown"

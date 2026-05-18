@@ -4950,58 +4950,9 @@ fn append_generated_source_certificate_contract_fields(fields: &mut Vec<(String,
         "generated_source_contract_broad_sql_dataframe_claim_allowed",
         report.broad_sql_dataframe_claim_allowed,
     );
-    push_field(
-        fields,
-        "no_dataset_smoke_support_status",
-        no_dataset_smoke.support_status.as_str(),
-    );
-    push_field(
-        fields,
-        "no_dataset_smoke_generated_source_certificate_status",
-        no_dataset_smoke
-            .generated_source_certificate_status
-            .as_str(),
-    );
-    push_bool_field(
-        fields,
-        "no_dataset_smoke_generated_source_created",
-        no_dataset_smoke.generated_source_created,
-    );
-    push_bool_field(
-        fields,
-        "no_dataset_smoke_output_io_performed",
-        no_dataset_smoke.output_io_performed,
-    );
-    push_field(
-        fields,
-        "no_dataset_smoke_claim_gate_status",
-        no_dataset_smoke.claim_gate_status,
-    );
-    push_field(
-        fields,
-        "user_generated_source_support_status",
-        user_generated_source.support_status.as_str(),
-    );
-    push_field(
-        fields,
-        "user_generated_source_blocker_id",
-        user_generated_source.blocker_id,
-    );
-    push_field(
-        fields,
-        "user_generated_source_claim_gate_status",
-        user_generated_source.claim_gate_status,
-    );
-    push_field(
-        fields,
-        "engine_native_generated_source_support_status",
-        engine_native_generated_source.support_status.as_str(),
-    );
-    push_field(
-        fields,
-        "engine_native_generated_source_blocker_id",
-        engine_native_generated_source.blocker_id,
-    );
+    append_generated_source_case_contract_fields(fields, no_dataset_smoke);
+    append_generated_source_case_contract_fields(fields, user_generated_source);
+    append_generated_source_case_contract_fields(fields, engine_native_generated_source);
     push_count_field(
         fields,
         "input_dataset_count",
@@ -5029,6 +4980,85 @@ fn append_generated_source_certificate_contract_fields(fields: &mut Vec<(String,
         no_dataset_smoke
             .generated_source_certificate_status
             .as_str(),
+    );
+}
+
+fn append_generated_source_case_contract_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &shardloom_core::GeneratedSourceCertificateContractRow,
+) {
+    let prefix = row.case_kind.as_str();
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status.as_str(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_generated_source_certificate_status"),
+        row.generated_source_certificate_status.as_str(),
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_input_dataset_count"),
+        usize::try_from(row.input_dataset_count)
+            .expect("GeneratedSourceCertificate input_dataset_count fits usize"),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_source_io_performed"),
+        row.source_io_performed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_generated_source_created"),
+        row.generated_source_created,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_output_io_performed"),
+        row.output_io_performed,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_source_native_io_certificate_status"),
+        row.source_native_io_certificate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_output_native_io_certificate_status"),
+        row.output_native_io_certificate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_required_generator_kinds"),
+        row.required_generator_kinds,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_required_evidence_fields"),
+        row.required_evidence_fields,
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        row.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        row.external_engine_invoked,
     );
 }
 

@@ -645,6 +645,20 @@ const API_SURFACE_CAPABILITY_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "wrapper_connector_registry_external_engine_invoked",
     "wrapper_connector_registry_all_rows_no_fallback_no_external_engine",
     "wrapper_connector_registry_claim_gate_status",
+    "unstructured_adapter_capability_schema_version",
+    "unstructured_adapter_capability_matrix_id",
+    "unstructured_adapter_capability_docs_ref",
+    "unstructured_adapter_capability_support_status_vocabulary",
+    "unstructured_adapter_capability_claim_gate_status",
+    "unstructured_adapter_capability_row_count",
+    "unstructured_adapter_capability_row_order",
+    "unstructured_adapter_capability_runtime_execution",
+    "unstructured_adapter_capability_source_io_performed",
+    "unstructured_adapter_capability_sink_io_performed",
+    "unstructured_adapter_capability_model_call_performed",
+    "unstructured_adapter_capability_network_probe_performed",
+    "unstructured_adapter_capability_fallback_attempted",
+    "unstructured_adapter_capability_external_engine_invoked",
 ];
 
 const CAPABILITIES_API_SURFACE_SNAPSHOT_KEYS: &[&str] = &[
@@ -666,6 +680,10 @@ const CAPABILITIES_API_SURFACE_SNAPSHOT_KEYS: &[&str] = &[
     "wrapper_connector_registry_blocked_count",
     "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
     "wrapper_connector_registry_claim_gate_status",
+    "unstructured_adapter_capability_schema_version",
+    "unstructured_adapter_capability_row_count",
+    "unstructured_adapter_capability_row_order",
+    "unstructured_adapter_capability_claim_gate_status",
 ];
 
 const LOCAL_COUNT_NATIVE_IO_SOURCE_REPORT_PAYLOAD_KEYS: &[&str] = &[

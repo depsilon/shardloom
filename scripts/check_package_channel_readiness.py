@@ -41,7 +41,6 @@ FORBIDDEN_TRUE_FIELDS = [
 ]
 
 TOP_LEVEL_FALSE_FIELDS = [
-    "public_package_release_claim_allowed",
     "publication_attempted",
     "tag_created",
     "secrets_required",
@@ -118,6 +117,7 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
     if seen_ids != EXPECTED_CHANNEL_IDS:
         blockers.append(f"channel order/ids mismatch: {seen_ids}")
 
+    ready_rows: list[dict[str, Any]] = []
     for row in channels:
         if not isinstance(row, dict):
             blockers.append("channel rows must be objects")
@@ -153,11 +153,9 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
                 blockers.append(prefix + f"{field} must be false")
         if row.get("human_approval_required") is not True:
             blockers.append(prefix + "human_approval_required must be true")
-        if not isinstance(row.get("current_blockers"), list) or not row.get("current_blockers"):
-            blockers.append(prefix + "current_blockers must be a non-empty list until ready")
-
         is_ready = row.get("ready") is True
         if is_ready:
+            ready_rows.append(row)
             if row.get("status") != "ready":
                 blockers.append(prefix + "ready=true requires status=ready")
             for field in READY_PROOF_FIELDS:
@@ -167,6 +165,8 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
                 blockers.append(prefix + "ready=true requires no current_blockers")
         elif row.get("status") == "ready":
             blockers.append(prefix + "status=ready requires ready=true")
+        elif not isinstance(row.get("current_blockers"), list) or not row.get("current_blockers"):
+            blockers.append(prefix + "current_blockers must be a non-empty list until ready")
 
         if channel_id in {"testpypi", "pypi"}:
             requirement = row.get("auth_provenance_requirement", "")
@@ -184,6 +184,22 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
                 blockers.append(prefix + "claim boundary must limit crates.io to future stable public crates")
             if "no internal crate publication" not in requirement:
                 blockers.append(prefix + "auth requirement must forbid internal crate publication")
+
+    all_channels_ready = len(ready_rows) == len(EXPECTED_CHANNEL_IDS)
+    public_claim_allowed = matrix.get("public_package_release_claim_allowed")
+    if public_claim_allowed is True:
+        if matrix.get("status") != "ready":
+            blockers.append(
+                "public_package_release_claim_allowed=true requires top-level status=ready"
+            )
+        if not all_channels_ready:
+            blockers.append(
+                "public_package_release_claim_allowed=true requires every channel ready"
+            )
+    elif public_claim_allowed is not False:
+        blockers.append("public_package_release_claim_allowed must be boolean")
+    if matrix.get("status") == "ready" and not all_channels_ready:
+        blockers.append("top-level status=ready requires every channel ready")
 
     return blockers
 

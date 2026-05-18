@@ -957,23 +957,17 @@ impl TraditionalGroupCategoryMetricState {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
-struct TraditionalRankedMetricRow {
-    group_key: u32,
-    id: u64,
-    metric: f64,
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[derive(Debug, Clone, PartialEq)]
 struct TraditionalRankedMetricState {
-    rows: Vec<TraditionalRankedMetricRow>,
+    global_top_rows: Vec<(u64, f64)>,
+    top_rows_by_group: std::collections::BTreeMap<u32, Vec<(u64, f64)>>,
     stats: TraditionalStreamingScanStats,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalRankedMetricState {
     fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
-        let mut rows = Vec::new();
+        let mut global_top_rows = std::collections::BinaryHeap::<GlobalTopKCandidate>::new();
+        let mut top_rows_by_group = std::collections::BTreeMap::<u32, Vec<(u64, f64)>>::new();
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["group_key", "id", "metric"],
@@ -993,17 +987,40 @@ impl TraditionalRankedMetricState {
                         metrics.len()
                     )));
                 }
-                rows.extend(group_keys.into_iter().zip(ids).zip(metrics).map(
-                    |((group_key, id), metric)| TraditionalRankedMetricRow {
-                        group_key,
-                        id,
-                        metric,
-                    },
-                ));
+                for ((group_key, id), metric) in group_keys.into_iter().zip(ids).zip(metrics) {
+                    global_top_rows.push(GlobalTopKCandidate::new(id, metric));
+                    if global_top_rows.len() > 10 {
+                        let _ = global_top_rows.pop();
+                    }
+                    let rows = top_rows_by_group.entry(group_key).or_default();
+                    rows.push((id, metric));
+                    rows.sort_by(|left, right| {
+                        right
+                            .1
+                            .total_cmp(&left.1)
+                            .then_with(|| left.0.cmp(&right.0))
+                    });
+                    rows.truncate(3);
+                }
                 Ok(())
             },
         )?;
-        Ok(Self { rows, stats })
+        let mut global_top_rows = global_top_rows.into_vec();
+        global_top_rows.sort_by(|left, right| {
+            right
+                .metric
+                .total_cmp(&left.metric)
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        let global_top_rows = global_top_rows
+            .into_iter()
+            .map(|row| (row.id, row.metric))
+            .collect();
+        Ok(Self {
+            global_top_rows,
+            top_rows_by_group,
+            stats,
+        })
     }
 }
 
@@ -1348,11 +1365,20 @@ impl TraditionalVortexBatchSourceState {
         } else {
             None
         };
-        let date_null_metric_state_consumer_count = scenarios
+        let date_null_metric_state_candidate_count = scenarios
             .iter()
             .filter(|scenario| date_null_metric_state_reuse_candidate(**scenario))
             .count();
-        let date_null_metric_state = if date_null_metric_state_consumer_count > 1 {
+        let date_null_metric_state_has_distinct_consumers = scenarios
+            .contains(&TraditionalAnalyticsScenario::NullHeavyAggregate)
+            && scenarios.contains(&TraditionalAnalyticsScenario::PartitionPruning);
+        let date_null_metric_state_consumer_count = if date_null_metric_state_has_distinct_consumers
+        {
+            date_null_metric_state_candidate_count
+        } else {
+            0
+        };
+        let date_null_metric_state = if date_null_metric_state_has_distinct_consumers {
             Some(TraditionalDateNullMetricState::from_path(fact_vortex)?)
         } else {
             None
@@ -2394,7 +2420,7 @@ impl TraditionalDirectTransientReport {
             ),
             (
                 "runtime_scheduler_ref".to_string(),
-                "direct_transient_csv_selective_filter".to_string(),
+                format!("direct_transient_csv_{scenario_slug}"),
             ),
             ("runtime_task_count".to_string(), "1".to_string()),
             ("runtime_scheduled_task_count".to_string(), "1".to_string()),
@@ -5260,7 +5286,9 @@ fn scan_pushdown_filter_columns(scenario: TraditionalAnalyticsScenario) -> Vec<&
         | TraditionalAnalyticsScenario::FilterProjectionLimit => vec!["flag", "value"],
         TraditionalAnalyticsScenario::JoinAggregate => vec!["fact.value"],
         TraditionalAnalyticsScenario::PartitionPruning => vec!["event_date"],
-        TraditionalAnalyticsScenario::CleanCastFilterWrite => vec!["dirty_flag", "dirty_numeric"],
+        TraditionalAnalyticsScenario::CleanCastFilterWrite => {
+            vec!["dirty_flag", "dirty_numeric", "raw_event_time"]
+        }
         TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => vec!["raw_event_time"],
         _ => Vec::new(),
     }
@@ -6215,6 +6243,7 @@ fn fused_pipeline_evidence_fields(
         report.scenario,
         TraditionalAnalyticsScenario::GroupByAggregation
             | TraditionalAnalyticsScenario::MultiKeyGroupBy
+            | TraditionalAnalyticsScenario::RowNumberWindow
     );
     let fused_pipeline_used =
         filter_project_limit_used || selection_vector_metric_used || top_k_projection_used;
@@ -7731,6 +7760,7 @@ struct TraditionalStreamingScanStats {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn run_traditional_direct_transient_csv_smoke_enabled(
     request: TraditionalAnalyticsRequest,
 ) -> Result<TraditionalDirectTransientReport> {
@@ -12870,25 +12900,7 @@ fn run_streaming_sort_top_k_scenario_with_ranked_metric_state(
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = ranked_state.stats.clone();
-    let mut top_rows = std::collections::BinaryHeap::<GlobalTopKCandidate>::new();
-    for row in &ranked_state.rows {
-        top_rows.push(GlobalTopKCandidate::new(row.id, row.metric));
-        if top_rows.len() > 10 {
-            let _ = top_rows.pop();
-        }
-    }
-    let mut rows = top_rows.into_vec();
-    rows.sort_by(|left, right| {
-        right
-            .metric
-            .total_cmp(&left.metric)
-            .then_with(|| left.id.cmp(&right.id))
-    });
-    let result_rows = rows
-        .into_iter()
-        .map(|row| (row.id, row.metric))
-        .collect::<Vec<_>>();
-    let result_json = top_rows_json(&result_rows);
+    let result_json = top_rows_json(&ranked_state.global_top_rows);
     let rows_materialized = result_rows_materialized(&result_json)?;
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -12971,20 +12983,10 @@ fn run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = ranked_state.stats.clone();
-    let mut top_by_group = std::collections::BTreeMap::<u32, Vec<(u64, f64)>>::new();
-    for row in &ranked_state.rows {
-        let rows = top_by_group.entry(row.group_key).or_default();
-        rows.push((row.id, row.metric));
-        rows.sort_by(|left, right| {
-            right
-                .1
-                .total_cmp(&left.1)
-                .then_with(|| left.0.cmp(&right.0))
-        });
-        rows.truncate(max_rank);
-    }
+    let top_by_group = ranked_state.top_rows_by_group.clone();
     let mut ranked = Vec::new();
-    for (group_key, rows) in top_by_group {
+    for (group_key, mut rows) in top_by_group {
+        rows.truncate(max_rank);
         for (index, (id, metric)) in rows.into_iter().enumerate() {
             ranked.push((group_key, id, metric, usize_to_u64(index + 1)?));
         }
@@ -13068,12 +13070,8 @@ fn run_streaming_partition_pruning_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
-    if !fact_vortex_has_non_empty_event_date(fact_path)? {
-        return Err(ShardLoomError::InvalidOperation(
-            "partition pruning requires an event_date fixture column".to_string(),
-        ));
-    }
     let mut accum = TraditionalGroupAccum::default();
+    let mut has_non_empty_event_date = false;
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["event_date", "metric"],
@@ -13094,6 +13092,7 @@ fn run_streaming_partition_pruning_scenario(
                 )));
             }
             for (event_date, metric) in event_dates.into_iter().zip(metrics) {
+                has_non_empty_event_date |= !event_date.is_empty();
                 if partition_pruning_date_range_contains(&event_date) {
                     accum.add(metric);
                 }
@@ -13101,6 +13100,11 @@ fn run_streaming_partition_pruning_scenario(
             Ok(())
         },
     )?;
+    if !has_non_empty_event_date {
+        return Err(ShardLoomError::InvalidOperation(
+            "partition pruning requires an event_date fixture column".to_string(),
+        ));
+    }
     Ok(TraditionalScenarioExecution {
         result_json: scalar_result_json(accum.row_count, accum.metric_sum),
         fact_rows: stats.source_row_count,
@@ -13110,28 +13114,6 @@ fn run_streaming_partition_pruning_scenario(
         rows_materialized: 1,
         evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
     })
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn fact_vortex_has_non_empty_event_date(fact_path: &std::path::Path) -> Result<bool> {
-    let mut has_non_empty_event_date = false;
-    scan_fact_vortex_projected(fact_path, &["event_date"], None, |fields, chunk_rows| {
-        if !fields.contains_key("event_date") {
-            return Err(ShardLoomError::InvalidOperation(
-                "partition pruning requires an event_date fixture column".to_string(),
-            ));
-        }
-        let event_dates = utf8_field(fields, "event_date")?;
-        if event_dates.len() != chunk_rows {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "partition pruning event_date validation chunk length mismatch: chunk_rows={chunk_rows}, event_date_len={}",
-                event_dates.len()
-            )));
-        }
-        has_non_empty_event_date |= event_dates.iter().any(|event_date| !event_date.is_empty());
-        Ok(())
-    })?;
-    Ok(has_non_empty_event_date)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
