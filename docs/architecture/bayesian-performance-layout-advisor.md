@@ -98,6 +98,16 @@ The uncertainty reason explicitly says the posterior model is not fit and that t
 population is local smoke evidence. This keeps current benchmark rows useful for interpretation
 without implying a performance recommendation.
 
+GAR-NOVEL-1D adds the companion artifact-level report
+`shardloom.traditional_analytics.bayesian_claim_confidence.v1`. That report records future
+claim-confidence fields for posterior runtime distribution, credible interval, regression
+probability, minimum-run policy, benchmark population refs, release policy refs, uncertainty reason,
+and claim boundary. It is also report-only/not-fit: current artifacts set
+`posterior_runtime_distribution=not_fit`, `credible_interval=not_computed`,
+`probability_of_regression=not_computed`, `claim_upgrade_allowed=false`,
+`runtime_decision_applied=false`, `layout_decision_applied=false`, `benchmark_recomputed=false`,
+`fallback_attempted=false`, and `external_engine_invoked=false`.
+
 ## Claim Boundary
 
 The advisor cannot:

@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-NOVEL-1D Bayesian claim-confidence and regression model
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/evidence-native-generated-execution-observability-confidence.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/bayesian-performance-layout-advisor.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the Bayesian claim-confidence slice by adding
+    `shardloom.traditional_analytics.bayesian_claim_confidence.v1` to the traditional analytics
+    benchmark artifact as a report-only/not-fit schema for posterior runtime distribution, credible
+    interval, regression probability, minimum-run policy, evidence population refs, release policy
+    refs, uncertainty reason, and claim boundary.
+  - Checklist:
+    - [x] Add benchmark artifact fields and Markdown rendering for the claim-confidence report.
+    - [x] Document the report-only/not-fit schema in the evidence-native observability/confidence
+      architecture doc and compute-flow reference.
+    - [x] Update GAR, phase plan, completed ledger, traceability, and benchmark docs.
+    - [x] Add contract tests that lock the report-only, no-fallback, no-external-engine, no-claim
+      posture.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q benchmarks/traditional_analytics scripts python/src python/tests website`
+    - `python website/build_static_pages.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - Report-only claim-confidence schema only. The current posterior runtime distribution is
+      `not_fit`, credible intervals and regression probability are `not_computed`, and the report
+      cannot upgrade `claim_gate_status`, recompute benchmarks, apply runtime/layout decisions,
+      authorize performance or superiority claims, publish packages, or imply Spark-replacement,
+      SQL/DataFrame, object-store/lakehouse, Foundry, production, or release readiness.
+  - Fallback boundary:
+    - `fallback_attempted=false` and `external_engine_invoked=false` remain explicit. Confidence
+      modeling cannot invoke external engines, external services, credentials, object-store I/O, or
+      fallback execution.
+
 - [x] Session label: GAR-NOVEL-1C OpenTelemetry execution trace export contract
   - Primary files:
     - `shardloom-core/src/observability.rs`

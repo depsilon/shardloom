@@ -210,6 +210,28 @@ fn bayesian_performance_layout_advisor_remains_report_only() {
         "def bayesian_advisor_contract_metadata(",
         "def bayesian_advisor_contract(",
         "def render_bayesian_advisor_contract(",
+        "BAYESIAN_CLAIM_CONFIDENCE_SCHEMA_VERSION",
+        "shardloom.traditional_analytics.bayesian_claim_confidence.v1",
+        "gar-novel-1d.bayesian_claim_confidence",
+        "gar-novel-1d.report_only.v1",
+        "BAYESIAN_CLAIM_CONFIDENCE_FIELDS",
+        "bayesian_claim_confidence_posterior_runtime_distribution",
+        "bayesian_claim_confidence_credible_interval",
+        "bayesian_claim_confidence_probability_of_regression",
+        "bayesian_claim_confidence_minimum_iterations_for_claim_grade",
+        "bayesian_claim_confidence_input_evidence_refs",
+        "bayesian_claim_confidence_claim_blocking_allowed",
+        "bayesian_claim_confidence_claim_upgrade_allowed",
+        "bayesian_claim_confidence_runtime_decision_applied",
+        "bayesian_claim_confidence_layout_decision_applied",
+        "bayesian_claim_confidence_benchmark_recomputed",
+        "bayesian_claim_confidence_fallback_attempted",
+        "bayesian_claim_confidence_external_engine_invoked",
+        "bayesian_claim_confidence_claim_gate_status",
+        "def bayesian_claim_confidence_report(",
+        "def render_bayesian_claim_confidence_report(",
+        "report_only_not_fit",
+        "advisory_only_not_claim_grade",
         "advisory_only",
     ] {
         assert!(
@@ -239,9 +261,11 @@ fn bayesian_performance_layout_advisor_remains_report_only() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(plan.contains("docs/architecture/bayesian-performance-layout-advisor.md"));
     assert!(!plan.contains("- [ ] GAR-PERF-1D Bayesian performance"));
+    assert!(!plan.contains("- [ ] GAR-NOVEL-1D Bayesian claim-confidence"));
 
     let gar = read_repo_file("docs/architecture/global-architecture-review.md");
     assert!(gar.contains("- [x] `GAR-PERF-1`"));
+    assert!(gar.contains("- [x] `GAR-NOVEL-1D`"));
 }
 
 #[test]
@@ -1023,6 +1047,15 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "GAR-NOVEL-1A",
         "GAR-NOVEL-1B",
         "GAR-NOVEL-1C",
+        "GAR-NOVEL-1D",
+        "shardloom.traditional_analytics.bayesian_claim_confidence.v1",
+        "posterior_runtime_distribution=not_fit",
+        "credible_interval=not_computed",
+        "probability_of_regression=not_computed",
+        "runtime_decision_applied=false",
+        "layout_decision_applied=false",
+        "benchmark_recomputed=false",
+        "claim_gate_status=advisory_only_not_claim_grade",
         "python_ctx_from_rows",
         "python_ctx_range",
         "python_generated_source_write",
@@ -1077,6 +1110,15 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "gar-novel-1b.openlineage_facet_mapping",
         "shardloom.opentelemetry_trace_export_contract.v1",
         "gar-novel-1c.opentelemetry_trace_export_contract",
+        "shardloom.traditional_analytics.bayesian_claim_confidence.v1",
+        "gar-novel-1d.bayesian_claim_confidence",
+        "posterior_runtime_distribution=not_fit",
+        "credible_interval=not_computed",
+        "probability_of_regression=not_computed",
+        "runtime_decision_applied=false",
+        "layout_decision_applied=false",
+        "benchmark_recomputed=false",
+        "claim_gate_status=advisory_only_not_claim_grade",
         "request_admission",
         "source_read",
         "compatibility_parse",

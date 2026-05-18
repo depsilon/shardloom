@@ -540,51 +540,15 @@ collection disabled, network calls disabled, allowlisted attributes required, re
 policy required, `fallback_attempted=false`, `external_engine_invoked=false`, and
 `claim_gate_status=not_claim_grade`.
 
-- [ ] GAR-NOVEL-1D Bayesian claim-confidence and regression model
-  - Source: GAR-PERF-1D; RFC 0029; RFC 0040; claim gate model; benchmark evidence model;
-    `docs/architecture/evidence-native-generated-execution-observability-confidence.md`.
-  - Current state:
-    - Claim-grade gates are rule/evidence based.
-    - GAR-PERF-1D now emits adjacent report-only Bayesian performance/layout advisor fields for
-      confidence and uncertainty, but those fields are not a fitted posterior regression model.
-  - Next slice outcome:
-    - Add a report-only Bayesian claim-confidence schema with `posterior_runtime_distribution`,
-      `credible_interval`, `probability_of_regression`, `minimum_iterations_for_claim_grade`, and
-      `uncertainty_reason`.
-  - User-visible surface:
-    - Benchmark evidence docs, claim-gate docs, future release readiness report, website benchmark
-      interpretation when evidence exists.
-  - Implementation scope:
-    - Confidence schema docs/report rows, claim-gate integration plan, benchmark evidence refs, and
-      tests. Do not use the model to change runtime or claims in this slice.
-  - Evidence required:
-    - benchmark refs: benchmark constitution, run manifest, local environment, scenario population.
-    - statistical refs: posterior model version, credible interval, sample size, uncertainty reason.
-    - claim refs: current claim gate status, blockers, release/performance claim policy.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - Bayesian output is advisory.
-    - It cannot upgrade claim status alone.
-    - It can block release/performance claims when uncertainty is high.
-    - It names the benchmark population and evidence refs used to compute uncertainty.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - benchmark/claim-gate snapshot tests if report fields change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No runtime auto-optimization, no hidden mode/layout decisioning, no performance claim, no
-      benchmark recomputation, and no public superiority/replacement claim.
-  - Claim boundary:
-    - Advisory confidence can block claims but cannot create claim-grade status without the existing
-      correctness, benchmark, execution-certificate, Native I/O, materialization, policy, and
-      no-fallback gates.
-  - Fallback boundary:
-    - Confidence modeling cannot invoke external engines, external services, object-store I/O,
-      credentials, or fallback execution.
-  - Dependencies/blockers:
-    - Stable benchmark evidence schema, release claim-gate policy, minimum-run policy, and
-      statistical model review.
+GAR-NOVEL-1D is complete and recorded in the completed ledger. Benchmark artifacts now expose
+`shardloom.traditional_analytics.bayesian_claim_confidence.v1` as a report-only/not-fit
+claim-confidence schema for posterior runtime distribution, credible interval, regression
+probability, minimum-run policy, benchmark population refs, release policy refs, uncertainty
+reason, and claim boundary. The schema can only block future claims after a fitted model and
+release gate exist; it cannot upgrade `claim_gate_status`, recompute benchmarks, apply runtime or
+layout decisions, invoke external engines or services, weaken no-fallback evidence, or create
+performance, superiority, Spark-replacement, package, SQL/DataFrame, object-store/lakehouse,
+Foundry, production, or release claims.
 
 #### GAR-COMMERCIAL-1 - Adoption And Commercial-Readiness Friction Reduction
 
