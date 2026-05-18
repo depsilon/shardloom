@@ -147,6 +147,26 @@
           </table>
         </div>
         <p class="section-note">Object-store summary: <code>runtime_supported=false</code>, <code>public_no_credential_read_supported=false</code>, <code>authenticated_read_supported=false</code>, <code>byte_range_read_supported=false</code>, <code>write_staging_supported=false</code>, <code>commit_protocol_supported=false</code>.</p>
+        <div class="section-spacer"></div>
+        <h3>Iceberg/Delta/Hudi boundary matrix</h3>
+        <p class="section-lede">This report-only matrix separates local manifest metadata smoke from Iceberg, Delta, and Hudi runtime support. Table scans, snapshot/time travel, appends, merge/update/delete, commits, rollbacks, catalog interaction, and object-store-backed table runtime remain blocked.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Row</th><th>Status</th><th>Local smoke</th><th>Data read</th><th>Commit</th><th>Boundary</th></tr></thead>
+            <tbody><tr><td><strong>table_metadata_read</strong><span>metadata_read</span></td><td><span class="claim-badge report-only">report-only</span></td><td>true</td><td>false</td><td>false</td><td>Local manifest metadata smoke is related evidence only; Iceberg, Delta, and Hudi metadata runtime is not supported.</td></tr>
+<tr><td><strong>table_scan</strong><span>table_scan</span></td><td><span class="claim-badge blocked">blocked</span></td><td>false</td><td>false</td><td>false</td><td>Table-format scan/data read remains blocked and is separate from local metadata smoke.</td></tr>
+<tr><td><strong>snapshot_time_travel</strong><span>snapshot_time_travel</span></td><td><span class="claim-badge blocked">blocked</span></td><td>false</td><td>false</td><td>false</td><td>Snapshot and time-travel semantics are not runtime-supported.</td></tr>
+<tr><td><strong>partition_evolution</strong><span>partition_evolution</span></td><td><span class="claim-badge report-only">report-only</span></td><td>true</td><td>false</td><td>false</td><td>Partition-evolution compatibility remains planning/report evidence only.</td></tr>
+<tr><td><strong>delete_tombstone</strong><span>delete_tombstone</span></td><td><span class="claim-badge report-only">report-only</span></td><td>true</td><td>false</td><td>false</td><td>Local delete/tombstone fixture smoke is related evidence only; table-format delete runtime is blocked.</td></tr>
+<tr><td><strong>append</strong><span>append</span></td><td><span class="claim-badge blocked">blocked</span></td><td>false</td><td>false</td><td>false</td><td>Table append remains blocked and does not follow from output-file writer support.</td></tr>
+<tr><td><strong>merge_update_delete</strong><span>merge_update_delete</span></td><td><span class="claim-badge blocked">blocked</span></td><td>false</td><td>false</td><td>false</td><td>Merge/update/delete table operations remain blocked.</td></tr>
+<tr><td><strong>commit</strong><span>commit</span></td><td><span class="claim-badge blocked">blocked</span></td><td>false</td><td>false</td><td>false</td><td>Table commit remains blocked and separate from metadata planning, output files, and object-store commit posture.</td></tr>
+<tr><td><strong>rollback</strong><span>rollback</span></td><td><span class="claim-badge blocked">blocked</span></td><td>false</td><td>false</td><td>false</td><td>Rollback and recovery semantics remain blocked.</td></tr>
+<tr><td><strong>catalog_interaction</strong><span>catalog_interaction</span></td><td><span class="claim-badge blocked">blocked</span></td><td>false</td><td>false</td><td>false</td><td>External catalog interaction remains blocked; local catalog refs are not catalog runtime.</td></tr>
+<tr><td><strong>object_store_coupling</strong><span>object_store_coupling</span></td><td><span class="claim-badge blocked">blocked</span></td><td>false</td><td>false</td><td>false</td><td>Object-store-backed table runtime remains blocked until object-store read/write/commit gates are independently admitted.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="section-note">Table-format summary: <code>runtime_supported=false</code>, <code>local_metadata_smoke_available=true</code>, <code>table_scan_supported=false</code>, <code>table_write_supported=false</code>, <code>table_commit_supported=false</code>, <code>object_store_runtime_supported=false</code>.</p>
         <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>

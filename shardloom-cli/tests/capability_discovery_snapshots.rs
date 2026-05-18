@@ -915,6 +915,9 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
         "universal_compatibility_object_store_ladder_schema_version",
         "universal_compatibility_object_store_ladder_id",
         "universal_compatibility_object_store_ladder_row_order",
+        "universal_compatibility_table_format_matrix_schema_version",
+        "universal_compatibility_table_format_matrix_id",
+        "universal_compatibility_table_format_matrix_row_order",
     ] {
         assert!(
             output.contains(&format!("{{\"key\":\"{key}\",\"value\":")),
@@ -975,6 +978,7 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
     )));
     assert_generated_output_compatibility_fields(&output);
     assert_object_store_ladder_fields(&output);
+    assert_table_format_matrix_fields(&output);
 }
 
 fn assert_generated_output_compatibility_fields(output: &str) {
@@ -1068,6 +1072,55 @@ fn assert_object_store_ladder_fields(output: &str) {
     }
     assert!(output.contains(&field_pair(
         "universal_compatibility_object_store_ladder_all_rows_no_effects",
+        true
+    )));
+}
+
+fn assert_table_format_matrix_fields(output: &str) {
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_table_format_matrix_schema_version",
+        "shardloom.universal_compatibility.table_format_boundary_matrix.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_table_format_matrix_row_order",
+        "table_metadata_read,table_scan,snapshot_time_travel,partition_evolution,delete_tombstone,append,merge_update_delete,commit,rollback,catalog_interaction,object_store_coupling"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_table_format_matrix_row_table_metadata_read_support_status",
+        "report-only"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_table_format_matrix_row_table_scan_blocker_id",
+        "gar-compat-1d.table_scan_runtime_blocked"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_table_format_matrix_row_commit_blocker_id",
+        "gar-compat-1d.table_commit_blocked"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_table_format_matrix_local_metadata_smoke_available",
+        true
+    )));
+    for key in [
+        "universal_compatibility_table_format_matrix_runtime_supported",
+        "universal_compatibility_table_format_matrix_table_metadata_read_supported",
+        "universal_compatibility_table_format_matrix_table_scan_supported",
+        "universal_compatibility_table_format_matrix_table_write_supported",
+        "universal_compatibility_table_format_matrix_table_commit_supported",
+        "universal_compatibility_table_format_matrix_table_rollback_supported",
+        "universal_compatibility_table_format_matrix_catalog_interaction_supported",
+        "universal_compatibility_table_format_matrix_object_store_runtime_supported",
+        "universal_compatibility_table_format_matrix_external_table_format_dependency_added",
+        "universal_compatibility_table_format_matrix_fallback_attempted",
+        "universal_compatibility_table_format_matrix_external_engine_invoked",
+    ] {
+        assert!(
+            output.contains(&field_pair(key, false)),
+            "missing false key={key}"
+        );
+    }
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_table_format_matrix_all_rows_no_io_no_fallback",
         true
     )));
 }

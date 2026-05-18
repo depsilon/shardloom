@@ -290,7 +290,8 @@ Supporting docs:
     and the GAR-COMPAT-1C admission ladder projection in the universal compatibility scoreboard.
 - `docs/architecture/table-intelligence-layer.md`
   - Role: CG-9 schema/table/catalog/CDC/layout/compaction evidence reference.
-  - Status rule: table/catalog runtime work is represented by `GAR-0020` and `GAR-0028`.
+  - Status rule: table/catalog runtime work is represented by `GAR-0020`, `GAR-0028`, and the
+    GAR-COMPAT-1D table-format boundary projection in the universal compatibility scoreboard.
 - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
   - Role: report-only universal source/sink/adapter/user-surface compatibility map covering local
     files, Vortex, generated/source-free output, databases, warehouses, object stores, table
@@ -486,52 +487,15 @@ full-file read, local cache, write staging, and commit protocol as separate repo
 gates with credential resolution, network probes, provider probes, object-store I/O, writes,
 commits, fallback, and external engine invocation disabled.
 
-- [ ] GAR-COMPAT-1D table-format boundary matrix: Iceberg, Delta, Hudi
-  - Source: RFC 0020; RFC 0028; RFC 0031; object-store/lakehouse commit semantics gate;
-    table/catalog compatibility expectations;
-    `docs/architecture/table-intelligence-layer.md`;
-    `docs/architecture/universal-compatibility-coverage-scoreboard.md`.
-  - Current state:
-    - Table/lakehouse commit semantics are gated/report-only.
-    - Local manifest-backed metadata smoke exists, but it does not imply Iceberg, Delta, or Hudi
-      runtime support.
-  - Next slice outcome:
-    - Add a table-format boundary matrix for Iceberg, Delta, and Hudi behaviors and claim blockers.
-  - User-visible surface:
-    - Docs, website/status, capability views, table/catalog diagnostics, and release-readiness
-      claim checks.
-  - Implementation scope:
-    - Matrix rows for table scan, metadata read, snapshot/time travel, partition evolution,
-      delete/tombstone, append, merge/update/delete, commit, rollback, catalog interaction, and
-      object-store coupling.
-  - Evidence required:
-    - metadata refs: table metadata source, snapshot refs, schema/partition refs.
-    - data refs: scan/read support status, delete/tombstone status, CDC/overlay boundary.
-    - write refs: append, merge/update/delete, commit, rollback, idempotency, and cleanup blockers.
-    - Native I/O certificate refs: only for scoped runtime-supported rows.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - Each table-format behavior is classified as runtime-supported, smoke-supported, report-only,
-      blocked, or not-planned.
-    - Metadata smoke does not imply table scan, table write, table commit, or production lakehouse
-      runtime.
-    - Object-store read/write/commit dependencies remain explicit blockers.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - table/catalog report snapshot tests when rows change.
-    - `git diff --check`
-  - Non-goals:
-    - No table-format dependency expansion, object-store runtime, catalog probe, table scan, table
-      write, commit, rollback, or production lakehouse claim.
-  - Claim boundary:
-    - Table-format boundary matrix only; no Iceberg, Delta, Hudi, lakehouse, or catalog runtime
-      support claim.
-  - Fallback boundary:
-    - External table engines, query engines, catalogs, and platform runtimes are not fallback
-      execution paths.
-  - Dependencies/blockers:
-    - Table-format dependency/license approval, object-store runtime ladder, commit protocol,
-      catalog policy, metadata fidelity, and table workload certification.
+GAR-COMPAT-1D is complete and recorded in the completed ledger. The compatibility scoreboard now
+projects `shardloom.universal_compatibility.table_format_boundary_matrix.v1` across CLI, Python,
+website/status, table-intelligence docs, compute-flow, GAR, and release-readiness checks. The matrix
+keeps Iceberg/Delta/Hudi metadata read, table scan, snapshot/time-travel, partition evolution,
+delete/tombstone, append, merge/update/delete, commit, rollback, catalog interaction, and
+object-store coupling as separate report-only or blocked gates. Local metadata and delete/tombstone
+smokes remain related evidence only, with catalog I/O, object-store I/O, table metadata/data reads,
+writes, commits, rollbacks, fallback, and external engine invocation disabled.
+
 - [ ] GAR-COMPAT-1E database and warehouse import/export boundary
   - Source: RFC 0030; RFC 0031; RFC 0032; RFC 0033; RFC 0037; user compatibility expectations;
     Python client/adapters; `docs/architecture/universal-compatibility-coverage-scoreboard.md`.

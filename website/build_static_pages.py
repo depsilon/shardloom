@@ -486,6 +486,37 @@ def render_compatibility_scoreboard_section() -> str:
         object_store_ladder_html = "\n".join(
             line.rstrip() for line in object_store_ladder_html.splitlines()
         ).strip()
+    table_format_matrix = scoreboard.get("table_format_boundary_matrix", {})
+    table_format_rows = table_format_matrix.get("rows", [])
+    table_format_table_rows = "\n".join(
+        "<tr>"
+        f"<td><strong>{esc(row.get('row_id'))}</strong><span>{esc(row.get('behavior'))}</span></td>"
+        f"<td><span class=\"claim-badge {status_class(str(row.get('support_status', 'blocked')).replace('-', '_'))}\">{esc(row.get('support_status'))}</span></td>"
+        f"<td>{status_value(row.get('local_metadata_smoke_related'))}</td>"
+        f"<td>{status_value(row.get('table_data_read_allowed'))}</td>"
+        f"<td>{status_value(row.get('commit_allowed'))}</td>"
+        f"<td>{esc(row.get('claim_boundary'))}</td>"
+        "</tr>"
+        for row in table_format_rows
+        if isinstance(row, dict)
+    )
+    table_format_matrix_html = ""
+    if table_format_table_rows:
+        table_format_matrix_html = f"""
+        <div class="section-spacer"></div>
+        <h3>Iceberg/Delta/Hudi boundary matrix</h3>
+        <p class="section-lede">This report-only matrix separates local manifest metadata smoke from Iceberg, Delta, and Hudi runtime support. Table scans, snapshot/time travel, appends, merge/update/delete, commits, rollbacks, catalog interaction, and object-store-backed table runtime remain blocked.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Row</th><th>Status</th><th>Local smoke</th><th>Data read</th><th>Commit</th><th>Boundary</th></tr></thead>
+            <tbody>{table_format_table_rows}</tbody>
+          </table>
+        </div>
+        <p class="section-note">Table-format summary: <code>runtime_supported={status_value(table_format_matrix.get('runtime_supported'))}</code>, <code>local_metadata_smoke_available={status_value(table_format_matrix.get('local_metadata_smoke_available'))}</code>, <code>table_scan_supported={status_value(table_format_matrix.get('table_scan_supported'))}</code>, <code>table_write_supported={status_value(table_format_matrix.get('table_write_supported'))}</code>, <code>table_commit_supported={status_value(table_format_matrix.get('table_commit_supported'))}</code>, <code>object_store_runtime_supported={status_value(table_format_matrix.get('object_store_runtime_supported'))}</code>.</p>
+        """
+        table_format_matrix_html = "\n".join(
+            line.rstrip() for line in table_format_matrix_html.splitlines()
+        ).strip()
     runtime_count = sum(
         1
         for row in rows
@@ -524,6 +555,7 @@ def render_compatibility_scoreboard_section() -> str:
         </div>
         {generated_contract_html}
         {object_store_ladder_html}
+        {table_format_matrix_html}
         <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>"""
