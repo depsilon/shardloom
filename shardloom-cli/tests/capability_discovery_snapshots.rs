@@ -360,6 +360,59 @@ const OPENTELEMETRY_TRACE_EXPORT_SPAN_SUFFIXES: [&str; 19] = [
     "external_engine_invoked",
 ];
 
+const EXTERNAL_EFFECT_BLOCKER_FIELD_KEYS: [&str; 15] = [
+    "external_effect_blocker_matrix_schema_version",
+    "external_effect_blocker_matrix_id",
+    "external_effect_blocker_docs_ref",
+    "external_effect_blocker_support_status_vocabulary",
+    "external_effect_blocker_claim_gate_status",
+    "external_effect_blocker_row_count",
+    "external_effect_blocker_row_order",
+    "external_effect_blocker_blocker_ids",
+    "external_effect_blocker_required_evidence",
+    "external_effect_blocker_all_effects_blocked",
+    "external_effect_blocker_runtime_execution",
+    "external_effect_blocker_credential_resolution_performed",
+    "external_effect_blocker_network_probe_performed",
+    "external_effect_blocker_fallback_attempted",
+    "external_effect_blocker_external_engine_invoked",
+];
+
+const EXTERNAL_EFFECT_BLOCKER_ROW_IDS: [&str; 12] = [
+    "sql_udf",
+    "rust_udf",
+    "wasm_udf",
+    "python_udf",
+    "external_service_udf",
+    "api_call",
+    "llm_call",
+    "embedding_generation",
+    "vector_search",
+    "plugin_execution",
+    "media_extraction",
+    "network_egress",
+];
+
+const EXTERNAL_EFFECT_BLOCKER_ROW_SUFFIXES: [&str; 17] = [
+    "family",
+    "operation",
+    "support_status",
+    "permission_status",
+    "effect_status",
+    "blocker_id",
+    "diagnostic_code",
+    "required_evidence",
+    "credential_required",
+    "network_required",
+    "sandbox_required",
+    "model_or_embedding_call",
+    "data_egress_possible",
+    "materialization_boundary_required",
+    "runtime_execution",
+    "effect_executed",
+    "claim_boundary",
+];
+
 const SQL_FIELD_KEYS: [&str; 35] = [
     "scope",
     "schema_version",
@@ -489,6 +542,23 @@ fn with_observability_contract_fields(base_keys: &[&'static str]) -> Vec<String>
             OPENTELEMETRY_TRACE_EXPORT_SPAN_SUFFIXES
                 .into_iter()
                 .map(|suffix| format!("opentelemetry_trace_export_span_{span_id}_{suffix}")),
+        );
+    }
+    keys
+}
+
+fn with_external_effect_blocker_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys: Vec<String> = base_keys.iter().copied().map(str::to_string).collect();
+    keys.extend(
+        EXTERNAL_EFFECT_BLOCKER_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in EXTERNAL_EFFECT_BLOCKER_ROW_IDS {
+        keys.extend(
+            EXTERNAL_EFFECT_BLOCKER_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("external_effect_blocker_row_{row_id}_{suffix}")),
         );
     }
     keys
@@ -1155,6 +1225,13 @@ fn capability_discovery_json_field_keys_are_stable() {
             "observability" => {
                 with_observability_contract_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
             }
+            "udfs"
+            | "event-api-saas-adapters"
+            | "unstructured-media"
+            | "extensions"
+            | "security-governance" => {
+                with_external_effect_blocker_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+            }
             _ => WORLD_CLASS_SURFACE_FIELD_KEYS
                 .into_iter()
                 .map(str::to_string)
@@ -1244,6 +1321,75 @@ fn capability_discovery_scope_values_are_stable() {
             )),
             "scope={scope}"
         );
+    }
+}
+
+#[test]
+fn udf_and_effectful_capabilities_expose_external_effect_blockers() {
+    for scope in [
+        "udfs",
+        "event-api-saas-adapters",
+        "unstructured-media",
+        "extensions",
+        "security-governance",
+    ] {
+        let output = run_capabilities_scope(scope);
+        assert!(output.contains(&string_field_pair(
+            "external_effect_blocker_matrix_schema_version",
+            "shardloom.external_effect_blocker_matrix.v1"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "external_effect_blocker_matrix_id",
+            "gar-0032-c.udf_external_effect_blockers"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "external_effect_blocker_claim_gate_status",
+            "not_claim_grade"
+        )));
+        assert!(output.contains(&field_pair(
+            "external_effect_blocker_all_effects_blocked",
+            true
+        )));
+        assert!(output.contains(&field_pair(
+            "external_effect_blocker_runtime_execution",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "external_effect_blocker_network_probe_performed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "external_effect_blocker_fallback_attempted",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "external_effect_blocker_external_engine_invoked",
+            false
+        )));
+        for row in [
+            "sql_udf",
+            "python_udf",
+            "external_service_udf",
+            "api_call",
+            "llm_call",
+            "embedding_generation",
+            "plugin_execution",
+            "media_extraction",
+            "network_egress",
+        ] {
+            assert!(output.contains(&string_field_pair(
+                &format!("external_effect_blocker_row_{row}_support_status"),
+                "blocked"
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("external_effect_blocker_row_{row}_runtime_execution"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("external_effect_blocker_row_{row}_effect_executed"),
+                false
+            )));
+        }
     }
 }
 

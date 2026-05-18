@@ -889,6 +889,13 @@ plan before coding.
   `support_status=unsupported`, `claim_gate_status=not_claim_grade`, `parser_executed=false`,
   `binder_executed=false`, and `planner_executed=false` so SQL text requests have deterministic
   diagnostics without parser, binder, planner, runtime, external engine, or fallback execution.
+- [x] `GAR-0032-C` adds `shardloom.external_effect_blocker_matrix.v1` and
+  `docs/architecture/udf-external-effect-blocker-matrix.md` so UDFs, API calls, LLM calls,
+  embedding generation, vector search, plugin execution, media extraction, and network egress are
+  classified with deterministic permission/effect blockers. The rows keep
+  `support_status=blocked`, `permission_status=policy_required`,
+  `effect_status=denied_by_default`, `runtime_execution=false`, `effect_executed=false`,
+  `fallback_attempted=false`, and `external_engine_invoked=false`.
 - [ ] `GAR-GEN-1` source-free generated-output runtime remains partially planned. `GAR-GEN-1A/1B`
   add the report-only `GeneratedSourceCertificate` contract and capability rows that separate
   `no_dataset_smoke`, `user_generated_source`, and `engine_native_generated_source`; `GAR-GEN-1C`
@@ -922,7 +929,7 @@ plan before coding.
   support. Python rows/DataFrame, SQL VALUES/literals, REST/Flight/ADBC, external databases, and
   generated/source-free output remain report-only or blocked unless a narrower evidence-bearing
   slice upgrades the row.
-- [ ] Executable SQL parser/binder/runtime, DataFrame execution, UDF, notebook runtime, universal
+- [ ] Executable SQL parser/binder/runtime, DataFrame execution, UDF runtime, notebook runtime, universal
   adapter, unstructured/media, and best-default certification remain incomplete.
 
 ### RFC 0033 - User Data Workflow and ETL Surface

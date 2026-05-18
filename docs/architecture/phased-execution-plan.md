@@ -1190,19 +1190,15 @@ SQL parser/binder readiness posture in
 `parser_executed=false`, `binder_executed=false`, and `planner_executed=false` fields. SQL remains
 diagnostic/report-only with no parser dependency, binder, planner, runtime execution, external
 engine invocation, or fallback.
-- [ ] GAR-0032-C UDF and external-effect blocker matrix
-  - Source: RFC 0032; RFC 0011; RFC 0019.
-  - Current state: UDF/effectful operations are report-only/unsupported.
-  - Next slice outcome: classify UDFs, API calls, LLM calls, embeddings, and external effects with
-    permission/effect blockers.
-  - User-visible surface: CLI capability view, docs, diagnostics.
-  - Implementation scope: capability report, effect budget report, diagnostics, tests.
-  - Evidence required: policy/security/no-fallback refs.
-  - Acceptance: every external effect defaults to blocked and cannot execute without explicit policy.
-  - Verification: effect budget tests, security policy tests.
-  - Non-goals: no UDF, network, model, embedding, or external effect execution.
-  - Fallback/claim boundary: no external-effect runtime claim.
-  - Dependencies/blockers: GAR-0019 credential/policy and GAR-0023 sandbox.
+GAR-0032-C UDF and external-effect blocker matrix is complete.
+GAR-0032-C is complete and recorded in the completed ledger. The completed slice adds
+`shardloom.external_effect_blocker_matrix.v1` to `effect-budget-plan --format json` and relevant
+capability views, documents the posture in
+`docs/architecture/udf-external-effect-blocker-matrix.md`, and keeps SQL/Rust/WASM/Python/external
+service UDFs, API calls, LLM calls, embedding generation, vector search, plugin execution, media
+extraction, and network egress `blocked` with `permission_status=policy_required`,
+`effect_status=denied_by_default`, `runtime_execution=false`, `effect_executed=false`,
+`fallback_attempted=false`, and `external_engine_invoked=false`.
 - [ ] GAR-0032-D unstructured/media and universal adapter capability matrix
   - Source: RFC 0032; RFC 0033; RFC 0037.
   - Current state: unstructured/media/universal adapter surfaces are not executable broadly.

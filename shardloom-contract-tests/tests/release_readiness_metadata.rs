@@ -2534,6 +2534,92 @@ fn gar_0032_a_sql_parser_binder_readiness_remains_diagnostic_only() {
 }
 
 #[test]
+fn gar_0032_c_udf_external_effect_blockers_remain_denied_by_default() {
+    let effect_budget = read_repo_file("shardloom-core/src/effect_budget.rs");
+    for required in [
+        "ExternalEffectBlockerMatrix",
+        "shardloom.external_effect_blocker_matrix.v1",
+        "gar-0032-c.udf_external_effect_blockers",
+        "support_status: \"blocked\"",
+        "permission_status: \"policy_required\"",
+        "effect_status: \"denied_by_default\"",
+        "runtime_execution: false",
+        "effect_executed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "sql_udf",
+        "python_udf",
+        "external_service_udf",
+        "api_call",
+        "llm_call",
+        "embedding_generation",
+        "vector_search",
+        "plugin_execution",
+        "media_extraction",
+        "network_egress",
+    ] {
+        assert!(
+            effect_budget.contains(required),
+            "missing external-effect blocker contract marker {required}"
+        );
+    }
+
+    let operational = read_repo_file("shardloom-cli/src/operational_hardening.rs");
+    for required in [
+        "append_external_effect_blocker_matrix_fields",
+        "external_effect_blocker_matrix_schema_version",
+        "external_effect_blocker_all_effects_blocked",
+        "external_effect_blocker_external_engine_invoked",
+    ] {
+        assert!(
+            operational.contains(required),
+            "missing effect-budget matrix field marker {required}"
+        );
+    }
+
+    let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    assert!(capabilities.contains("append_external_effect_blocker_matrix_fields"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::Udfs"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::SecurityGovernance"));
+
+    let doc = read_repo_file("docs/architecture/udf-external-effect-blocker-matrix.md");
+    for required in [
+        "GAR-0032-C",
+        "support_status=blocked",
+        "permission_status=policy_required",
+        "effect_status=denied_by_default",
+        "runtime_execution=false",
+        "effect_executed=false",
+        "external_effect_blocker_external_engine_invoked=false",
+        "no UDF registry",
+        "no fallback execution",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing external-effect blocker doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0032-C"));
+    assert!(plan.contains("GAR-0032-C UDF and external-effect blocker matrix is complete"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0032-C UDF and external-effect blocker matrix"));
+    assert!(completed.contains("shardloom.external_effect_blocker_matrix.v1"));
+    assert!(completed.contains("runtime_execution=false"));
+    assert!(completed.contains("effect_executed=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0032-C` adds `shardloom.external_effect_blocker_matrix.v1`"));
+    assert!(gar.contains("UDF runtime, notebook runtime"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("CG-20, GAR-0032-A, GAR-0032-C"));
+    assert!(traceability.contains("policy-required diagnostics"));
+}
+
+#[test]
 fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
     let typed_doc = read_repo_file("docs/architecture/typed-command-result-envelope.md");
     for required in [

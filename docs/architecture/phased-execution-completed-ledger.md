@@ -16,6 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0032-C UDF and external-effect blocker matrix
+  - Primary files:
+    - `shardloom-core/src/effect_budget.rs`
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/effect_budget_plan_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `docs/architecture/udf-external-effect-blocker-matrix.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: classify UDFs, API calls, LLM calls, embeddings, vector search, plugin execution, media
+    extraction, and network egress as deterministic blocked/report-only rows.
+  - Checklist:
+    - [x] Add `shardloom.external_effect_blocker_matrix.v1` with row-level blocker ids, required
+          evidence, permission status, effect status, and claim boundaries.
+    - [x] Attach the matrix to `effect-budget-plan --format json`.
+    - [x] Attach the matrix to UDF, event/API/SaaS, unstructured/media, extension, and
+          security/governance capability views.
+    - [x] Move GAR-0032-C out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test effect_budget_plan_snapshots`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a diagnostic/report-only blocker matrix. It does not add UDF execution, plugin
+      loading, WASM runtime, Python UDF execution, API clients, LLM clients, embedding models,
+      vector indexes, media extraction, credential resolution, network calls, model invocation,
+      data egress, production SQL/DataFrame/object-store/lakehouse/Foundry support, performance
+      claims, Spark-displacement claims, or package publication.
+  - Fallback boundary:
+    - Every row preserves `runtime_execution=false`, `effect_executed=false`,
+      `external_engine_invoked=false`, and `fallback_attempted=false`.
+
 - [x] Session label: GAR-0032-A SQL parser/binder report-only readiness
   - Primary files:
     - `shardloom-cli/src/workflow_planning.rs`

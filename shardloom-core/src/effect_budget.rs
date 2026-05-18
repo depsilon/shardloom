@@ -164,6 +164,295 @@ impl EffectBudgetStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExternalEffectBlockerRow {
+    pub row_id: &'static str,
+    pub family: &'static str,
+    pub operation: &'static str,
+    pub support_status: &'static str,
+    pub permission_status: &'static str,
+    pub effect_status: &'static str,
+    pub blocker_id: &'static str,
+    pub diagnostic_code: &'static str,
+    pub required_evidence: &'static str,
+    pub credential_required: bool,
+    pub network_required: bool,
+    pub sandbox_required: bool,
+    pub model_or_embedding_call: bool,
+    pub data_egress_possible: bool,
+    pub materialization_boundary_required: bool,
+    pub runtime_execution: bool,
+    pub effect_executed: bool,
+    pub claim_boundary: &'static str,
+}
+
+impl ExternalEffectBlockerRow {
+    #[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
+    const fn blocked(
+        row_id: &'static str,
+        family: &'static str,
+        operation: &'static str,
+        blocker_id: &'static str,
+        required_evidence: &'static str,
+        credential_required: bool,
+        network_required: bool,
+        sandbox_required: bool,
+        model_or_embedding_call: bool,
+        data_egress_possible: bool,
+        materialization_boundary_required: bool,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            row_id,
+            family,
+            operation,
+            support_status: "blocked",
+            permission_status: "policy_required",
+            effect_status: "denied_by_default",
+            blocker_id,
+            diagnostic_code: "SL_BLOCKED_EXTERNAL_EFFECT",
+            required_evidence,
+            credential_required,
+            network_required,
+            sandbox_required,
+            model_or_embedding_call,
+            data_egress_possible,
+            materialization_boundary_required,
+            runtime_execution: false,
+            effect_executed: false,
+            claim_boundary,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExternalEffectBlockerMatrix {
+    pub schema_version: &'static str,
+    pub matrix_id: &'static str,
+    pub docs_ref: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<ExternalEffectBlockerRow>,
+    pub runtime_execution: bool,
+    pub credential_resolution_performed: bool,
+    pub network_probe_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl ExternalEffectBlockerMatrix {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.external_effect_blocker_matrix.v1",
+            matrix_id: "gar-0032-c.udf_external_effect_blockers",
+            docs_ref: "docs/architecture/udf-external-effect-blocker-matrix.md",
+            claim_gate_status: "not_claim_grade",
+            rows: vec![
+                ExternalEffectBlockerRow::blocked(
+                    "sql_udf",
+                    "udf",
+                    "SQL-defined UDF",
+                    "gar-0032-c.sql_udf_runtime_blocked",
+                    "sql_parser,binder,function_registry,determinism_policy,effect_budget_certificate,no_fallback_evidence",
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    true,
+                    "SQL-defined UDFs remain blocked; no parser, binder, planner, function registry, runtime, or fallback execution is added.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "rust_udf",
+                    "udf",
+                    "Rust-native UDF",
+                    "gar-0032-c.rust_udf_runtime_blocked",
+                    "function_registry,abi_contract,sandbox_policy,determinism_policy,effect_budget_certificate,no_fallback_evidence",
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    true,
+                    "Rust UDFs remain blocked until registry, ABI, sandbox, determinism, and evidence contracts exist.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "wasm_udf",
+                    "udf",
+                    "WASM UDF",
+                    "gar-0032-c.wasm_udf_runtime_blocked",
+                    "wasm_runtime_policy,sandbox_policy,fuel_budget,memory_budget,effect_budget_certificate,no_fallback_evidence",
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    true,
+                    "WASM UDFs remain blocked; no WASM runtime, sandbox, fuel, memory, or execution claim is added.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "python_udf",
+                    "udf",
+                    "Python UDF",
+                    "gar-0032-c.python_udf_runtime_blocked",
+                    "python_boundary,materialization_policy,sandbox_policy,redaction_policy,effect_budget_certificate,no_fallback_evidence",
+                    false,
+                    false,
+                    true,
+                    false,
+                    true,
+                    true,
+                    "Python UDFs remain blocked; no Python function execution, materialization, data egress, or fallback path is added.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "external_service_udf",
+                    "udf",
+                    "External service UDF",
+                    "gar-0032-c.external_service_udf_runtime_blocked",
+                    "credential_policy,network_policy,request_budget,idempotency_policy,audit_trail,effect_budget_certificate,no_fallback_evidence",
+                    true,
+                    true,
+                    true,
+                    false,
+                    true,
+                    true,
+                    "External service UDFs remain blocked; no credentials, network call, request execution, or external fallback is added.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "api_call",
+                    "external_effect",
+                    "API call",
+                    "gar-0032-c.api_call_runtime_blocked",
+                    "credential_policy,network_policy,rate_limit_policy,redaction_policy,audit_trail,effect_budget_certificate,no_fallback_evidence",
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    true,
+                    "API calls remain blocked; no network request, credential resolution, or SaaS/REST runtime claim is added.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "llm_call",
+                    "external_effect",
+                    "LLM call",
+                    "gar-0032-c.llm_call_runtime_blocked",
+                    "model_policy,credential_policy,network_policy,cost_budget,redaction_policy,audit_trail,effect_budget_certificate,no_fallback_evidence",
+                    true,
+                    true,
+                    false,
+                    true,
+                    true,
+                    true,
+                    "LLM calls remain blocked; no model invocation, prompt egress, credential use, or network call is added.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "embedding_generation",
+                    "external_effect",
+                    "Embedding generation",
+                    "gar-0032-c.embedding_generation_runtime_blocked",
+                    "model_policy,credential_policy,network_policy,vector_schema,redaction_policy,effect_budget_certificate,no_fallback_evidence",
+                    true,
+                    true,
+                    false,
+                    true,
+                    true,
+                    true,
+                    "Embedding generation remains blocked; no model call, vector generation, network effect, or claim-grade vector support is added.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "vector_search",
+                    "external_effect",
+                    "Vector search",
+                    "gar-0032-c.vector_search_runtime_blocked",
+                    "vector_index_contract,query_semantics,credential_policy,network_policy,effect_budget_certificate,no_fallback_evidence",
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    true,
+                    "Vector search remains blocked; no index, model, remote service, or similarity-runtime claim is added.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "plugin_execution",
+                    "extension",
+                    "Plugin execution",
+                    "gar-0032-c.plugin_execution_runtime_blocked",
+                    "plugin_manifest,abi_contract,sandbox_policy,permission_policy,audit_trail,effect_budget_certificate,no_fallback_evidence",
+                    false,
+                    false,
+                    true,
+                    false,
+                    true,
+                    true,
+                    "Plugin execution remains blocked until manifest, ABI, permission, sandbox, and audit evidence exist.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "media_extraction",
+                    "unstructured_media",
+                    "Media extraction",
+                    "gar-0032-c.media_extraction_runtime_blocked",
+                    "media_parser_policy,dependency_policy,redaction_policy,materialization_policy,effect_budget_certificate,no_fallback_evidence",
+                    false,
+                    false,
+                    true,
+                    false,
+                    true,
+                    true,
+                    "Media extraction remains blocked; no OCR, transcription, parser dependency, model call, or extraction runtime is added.",
+                ),
+                ExternalEffectBlockerRow::blocked(
+                    "network_egress",
+                    "external_effect",
+                    "Network egress",
+                    "gar-0032-c.network_egress_blocked",
+                    "network_policy,credential_policy,redaction_policy,request_budget,audit_trail,effect_budget_certificate,no_fallback_evidence",
+                    true,
+                    true,
+                    false,
+                    false,
+                    true,
+                    true,
+                    "Network egress remains denied by default; no runtime network effect is authorized by this matrix.",
+                ),
+            ],
+            runtime_execution: false,
+            credential_resolution_performed: false,
+            network_probe_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.blocker_id).collect()
+    }
+
+    #[must_use]
+    pub fn required_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.required_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn all_effects_blocked(&self) -> bool {
+        self.rows.iter().all(|row| {
+            row.support_status == "blocked" && !row.runtime_execution && !row.effect_executed
+        }) && !self.runtime_execution
+            && !self.credential_resolution_performed
+            && !self.network_probe_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectBudgetEntry {
     pub scope: EffectBudgetScope,
     pub status: EffectBudgetStatus,
@@ -457,6 +746,40 @@ mod tests {
                 .scope_order()
                 .contains(&EffectBudgetScope::NetworkEgress.as_str())
         );
+    }
+
+    #[test]
+    fn external_effect_blocker_matrix_denies_every_effect_by_default() {
+        let matrix = ExternalEffectBlockerMatrix::report_only();
+        assert_eq!(
+            matrix.schema_version,
+            "shardloom.external_effect_blocker_matrix.v1"
+        );
+        assert_eq!(matrix.claim_gate_status, "not_claim_grade");
+        assert!(matrix.all_effects_blocked());
+        assert!(!matrix.runtime_execution);
+        assert!(!matrix.credential_resolution_performed);
+        assert!(!matrix.network_probe_performed);
+        assert!(!matrix.fallback_attempted);
+        assert!(!matrix.external_engine_invoked);
+        assert!(matrix.row_order().contains(&"python_udf"));
+        assert!(matrix.row_order().contains(&"llm_call"));
+        assert!(matrix.row_order().contains(&"embedding_generation"));
+        assert!(matrix.row_order().contains(&"network_egress"));
+        assert!(
+            matrix
+                .rows
+                .iter()
+                .all(|row| row.support_status == "blocked")
+        );
+        assert!(
+            matrix
+                .rows
+                .iter()
+                .all(|row| row.effect_status == "denied_by_default")
+        );
+        assert!(matrix.rows.iter().all(|row| !row.runtime_execution));
+        assert!(matrix.rows.iter().all(|row| !row.effect_executed));
     }
 
     #[test]

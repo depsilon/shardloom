@@ -61,3 +61,67 @@ fn effect_budget_json_preserves_no_probe_no_fallback_defaults() {
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
 }
+
+#[test]
+fn effect_budget_json_exposes_udf_external_effect_blocker_matrix() {
+    let output = run_effect_budget_plan_json();
+
+    assert!(output.contains(&field(
+        "external_effect_blocker_matrix_schema_version",
+        "shardloom.external_effect_blocker_matrix.v1"
+    )));
+    assert!(output.contains(&field(
+        "external_effect_blocker_matrix_id",
+        "gar-0032-c.udf_external_effect_blockers"
+    )));
+    assert!(output.contains(&field(
+        "external_effect_blocker_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "external_effect_blocker_row_order",
+        "sql_udf,rust_udf,wasm_udf,python_udf,external_service_udf,api_call,llm_call,embedding_generation,vector_search,plugin_execution,media_extraction,network_egress"
+    )));
+    assert!(output.contains(&field(
+        "external_effect_blocker_all_effects_blocked",
+        "true"
+    )));
+    assert!(output.contains(&field("external_effect_blocker_runtime_execution", "false")));
+    assert!(output.contains(&field(
+        "external_effect_blocker_credential_resolution_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "external_effect_blocker_network_probe_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "external_effect_blocker_external_engine_invoked",
+        "false"
+    )));
+    for (row, credential, network, sandbox, model) in [
+        ("python_udf", "false", "false", "true", "false"),
+        ("external_service_udf", "true", "true", "true", "false"),
+        ("api_call", "true", "true", "false", "false"),
+        ("llm_call", "true", "true", "false", "true"),
+        ("embedding_generation", "true", "true", "false", "true"),
+        ("network_egress", "true", "true", "false", "false"),
+    ] {
+        let prefix = format!("external_effect_blocker_row_{row}");
+        assert!(output.contains(&field(&format!("{prefix}_support_status"), "blocked")));
+        assert!(output.contains(&field(
+            &format!("{prefix}_permission_status"),
+            "policy_required"
+        )));
+        assert!(output.contains(&field(
+            &format!("{prefix}_effect_status"),
+            "denied_by_default"
+        )));
+        assert!(output.contains(&field(&format!("{prefix}_credential_required"), credential)));
+        assert!(output.contains(&field(&format!("{prefix}_network_required"), network)));
+        assert!(output.contains(&field(&format!("{prefix}_sandbox_required"), sandbox)));
+        assert!(output.contains(&field(&format!("{prefix}_model_or_embedding_call"), model)));
+        assert!(output.contains(&field(&format!("{prefix}_runtime_execution"), "false")));
+        assert!(output.contains(&field(&format!("{prefix}_effect_executed"), "false")));
+    }
+}
