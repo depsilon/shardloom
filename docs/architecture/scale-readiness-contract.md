@@ -1,6 +1,6 @@
 # Scale Readiness Contract
 
-Status: implemented report-only contracts for `GAR-SCALE-1A` through `GAR-SCALE-1D`.
+Status: implemented report-only contracts for `GAR-SCALE-1A` through `GAR-SCALE-1E`.
 
 ShardLoom must not claim literal "any volume" support. Scale readiness is a declared resource and
 evidence contract, not a slogan. A row can become scale-grade only when it proves the appropriate
@@ -270,6 +270,98 @@ Any future shuffle/repartition claim requires partitioning strategy evidence, ta
 bytes, local-combine/global-merge evidence when used, broadcast admission proof, skew strategy
 evidence, spill/retry evidence, correctness digests over the claimed workload, and remote-worker
 evidence before any distributed shuffle claim.
+
+## Object-Store And Table-Scale Ladder Contract
+
+`GAR-SCALE-1E` adds
+`object_table_ladder_schema_version=shardloom.traditional_analytics.object_table_scale_ladder.v1`
+and a report-only object-store/table-scale ladder to benchmark rows.
+
+The ladder separates object-store URI parsing, listing, split planning, byte-range read, streaming
+read, write staging, commit, table metadata read, snapshot scan, append, merge/update/delete,
+commit, and rollback. Current local rows do not admit object-store runtime, table runtime, table
+commit, credential resolution, network probes, or lakehouse production support.
+
+ShardLoom object-store/table rows carry:
+
+```text
+object_table_ladder_schema_version
+object_table_ladder_status_vocabulary
+object_table_ladder_status
+object_table_ladder_id
+object_table_ladder_digest
+object_store_uri_parse_status
+object_store_listing_status
+object_store_split_planning_status
+object_store_byte_range_read_status
+object_store_streaming_read_status
+object_store_write_staging_status
+object_store_commit_status
+table_metadata_read_status
+table_snapshot_scan_status
+table_append_status
+table_merge_update_delete_status
+table_commit_status
+table_rollback_status
+credential_policy_status
+network_effect_status
+listing_strategy
+object_version_or_etag
+split_manifest_id
+commit_protocol
+idempotency_key
+rollback_status
+table_snapshot_id
+table_manifest_count
+table_data_file_count
+object_store_involved
+table_format_involved
+object_store_read_claim_gate_status
+object_store_write_claim_gate_status
+table_runtime_claim_gate_status
+table_commit_claim_gate_status
+object_table_ladder_fallback_attempted=false
+object_table_ladder_external_engine_invoked=false
+object_table_ladder_claim_gate_status
+object_table_ladder_claim_boundary
+```
+
+For `GAR-SCALE-1E`, current rows must keep:
+
+```text
+object_store_listing_status=blocked_no_object_store_runtime
+object_store_split_planning_status=blocked_no_object_store_runtime
+object_store_byte_range_read_status=blocked_no_object_store_runtime
+object_store_streaming_read_status=blocked_no_object_store_runtime
+object_store_write_staging_status=blocked_no_object_store_runtime
+object_store_commit_status=blocked_no_object_store_commit
+table_snapshot_scan_status=blocked_no_table_runtime
+table_append_status=blocked_no_table_commit
+table_merge_update_delete_status=blocked_no_table_commit
+table_commit_status=blocked_no_table_commit
+table_rollback_status=blocked_no_table_commit
+credential_policy_status=not_required_local_filesystem
+network_effect_status=not_allowed_no_network_effects
+listing_strategy=not_applicable_local_filesystem
+commit_protocol=not_admitted_local_result_sink_only
+rollback_status=not_applicable_no_commit
+table_snapshot_id=none
+table_manifest_count=0
+table_data_file_count=0
+object_store_involved=false
+table_format_involved=false
+object_store_read_claim_gate_status=not_object_store_runtime_grade
+object_store_write_claim_gate_status=not_object_store_runtime_grade
+table_runtime_claim_gate_status=not_table_runtime_grade
+table_commit_claim_gate_status=not_table_commit_grade
+object_table_ladder_claim_gate_status=not_object_table_scale_grade
+object_table_ladder_fallback_attempted=false
+object_table_ladder_external_engine_invoked=false
+```
+
+Object-store read, object-store write, table runtime, and table commit remain separate claim gates.
+A table metadata read or snapshot listing posture cannot imply table runtime, and table runtime
+cannot imply append, merge/update/delete, commit, or rollback support.
 
 ## Claim Gate
 
