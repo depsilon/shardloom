@@ -50,7 +50,8 @@ Current local proof exists, but public distribution is not complete:
 - `docs/release/package-channel-readiness-matrix.md` and
   `docs/release/package-channel-readiness-matrix.json` track channel-specific install, uninstall,
   clean-install, smoke, SBOM/checksum/provenance, rollback/yank, and authorization evidence.
-- `website/status.html` is a public posture board.
+- `website/status.html` is a public posture board with a generated buyer-facing "Can I use this?"
+  matrix sourced from the universal compatibility scoreboard and package-channel readiness matrix.
 - Real package publication, release tags, OCI pushes, Homebrew/Scoop/winget/conda-forge submission,
   and crates.io publication remain blocked until release gates pass.
 
@@ -124,6 +125,20 @@ not planned
 Unsupported paths must remain visible, including production SQL/DataFrame, object-store/lakehouse,
 Foundry, external databases/warehouses, REST/Flight/ADBC, performance/superiority claims, and Spark
 replacement claims.
+
+The current public status board renders a first-class "Can I use this?" matrix with:
+
+- status vocabulary for `runtime-supported`, `smoke-supported`, `report-only`, `blocked`,
+  `planned`, and `not-planned`
+- rows sourced from `docs/architecture/universal-compatibility-coverage-scoreboard.json`
+- package-channel rows sourced from `docs/release/package-channel-readiness-matrix.json`
+- planned adoption rows for enterprise evidence export, Foundry starter, and workflow recipes
+- explicit not-planned rows for hidden fallback execution, Spark replacement claims, and production
+  SQL/DataFrame/object-store/lakehouse/Foundry claims
+- visible `fallback_attempted=false`, `external_engine_invoked=false`, and
+  `public_package_release_claim_allowed=false` evidence where applicable
+
+This matrix is a maturity map, not a runtime-support expansion.
 
 ## Enterprise Evidence Export Pack
 

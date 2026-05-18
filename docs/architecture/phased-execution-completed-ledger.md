@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMMERCIAL-1C compatibility scorecard and buyer-facing status page
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/status.html`
+    - `scripts/check_website_readiness.py`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/adoption-commercial-readiness-friction-reduction.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the buyer-facing adoption status slice by projecting the universal compatibility
+    scoreboard and package-channel readiness matrix into a generated public "Can I use this?"
+    status matrix.
+  - Checklist:
+    - [x] Add first-class status metrics and status vocabulary for `runtime-supported`,
+          `smoke-supported`, `report-only`, `blocked`, `planned`, and `not-planned` posture.
+    - [x] Render all compatibility scoreboard rows plus package-channel, planned adoption, and
+          intentionally not-planned claim-boundary rows.
+    - [x] Keep every row source-linked and expose evidence/blocker fields such as
+          `fallback_attempted=false`, `external_engine_invoked=false`, and
+          `public_package_release_claim_allowed=false`.
+    - [x] Extend website readiness checks and contract tests so the buyer-facing matrix cannot
+          silently disappear.
+  - Evidence and verification:
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `python -m compileall -q scripts website`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Buyer-facing status is a maturity map and support-boundary explainer only. It does not add
+      runtime support, package publication, release tags, benchmark evidence, production readiness,
+      performance/Spark replacement, broad SQL/DataFrame, object-store/lakehouse, Foundry, or
+      external platform claims.
+  - Fallback boundary:
+    - Status rows must preserve no-fallback/no-external-engine posture. The matrix explicitly marks
+      hidden fallback engine execution as not planned.
+
 - [x] Session label: GAR-COMMERCIAL-1B package channel readiness matrix
   - Primary files:
     - `docs/release/package-channel-readiness-matrix.json`

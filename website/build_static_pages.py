@@ -28,6 +28,7 @@ USE_CASE_PAGES = WEBSITE / "use-cases"
 COMPATIBILITY_SCOREBOARD_DATA = (
     ROOT / "docs" / "architecture" / "universal-compatibility-coverage-scoreboard.json"
 )
+PACKAGE_CHANNEL_MATRIX_DATA = ROOT / "docs" / "release" / "package-channel-readiness-matrix.json"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
@@ -383,6 +384,162 @@ def load_compatibility_scoreboard() -> dict[str, Any]:
     if not COMPATIBILITY_SCOREBOARD_DATA.exists():
         return {"rows": []}
     return json.loads(COMPATIBILITY_SCOREBOARD_DATA.read_text(encoding="utf-8"))
+
+
+def load_package_channel_matrix() -> dict[str, Any]:
+    if not PACKAGE_CHANNEL_MATRIX_DATA.exists():
+        return {"channels": []}
+    return json.loads(PACKAGE_CHANNEL_MATRIX_DATA.read_text(encoding="utf-8"))
+
+
+def support_status_class(status: str) -> str:
+    return status_class(status.replace("-", "_").replace(" ", "_"))
+
+
+def render_public_status_scorecard_section() -> str:
+    scoreboard = load_compatibility_scoreboard()
+    package_matrix = load_package_channel_matrix()
+    status_order = [
+        "runtime-supported",
+        "smoke-supported",
+        "report-only",
+        "blocked",
+        "planned",
+        "not-planned",
+    ]
+    rows: list[dict[str, Any]] = []
+    for row in scoreboard.get("rows", []):
+        if not isinstance(row, dict):
+            continue
+        rows.append(
+            {
+                "label": row.get("surface"),
+                "family": row.get("surface_family"),
+                "status": row.get("support_status"),
+                "answer": row.get("claim_boundary"),
+                "evidence": (
+                    f"{row.get('claim_gate_status')}; "
+                    "fallback_attempted=false; external_engine_invoked=false"
+                ),
+                "reference": "docs/architecture/universal-compatibility-coverage-scoreboard.json",
+            }
+        )
+    ready_channels = [
+        row
+        for row in package_matrix.get("channels", [])
+        if isinstance(row, dict) and row.get("ready") is True
+    ]
+    rows.append(
+        {
+            "label": "Public package channels",
+            "family": "release_distribution",
+            "status": "blocked",
+            "answer": "Public package channels remain blocked until channel-specific install, uninstall, smoke, SBOM/checksum/provenance, and rollback evidence exists.",
+            "evidence": f"{len(ready_channels)} ready channels; public_package_release_claim_allowed=false",
+            "reference": "docs/release/package-channel-readiness-matrix.json",
+        }
+    )
+    rows.extend(
+        [
+            {
+                "label": "Enterprise evidence export pack",
+                "family": "adoption_workflow",
+                "status": "planned",
+                "answer": "OpenLineage/OpenTelemetry/ShardLoom evidence export pack remains planned and opt-in; no network backend is invoked by default.",
+                "evidence": "GAR-COMMERCIAL-1D planned",
+                "reference": "docs/architecture/phased-execution-plan.md",
+            },
+            {
+                "label": "Foundry dev-stack starter",
+                "family": "platform_integration",
+                "status": "planned",
+                "answer": "Foundry starter kit remains a local/dev-stack target, not Foundry production support or Marketplace proof.",
+                "evidence": "GAR-COMMERCIAL-1E planned",
+                "reference": "docs/architecture/phased-execution-plan.md",
+            },
+            {
+                "label": "Workflow recipe library",
+                "family": "documentation",
+                "status": "planned",
+                "answer": "Recipe coverage is planned for common workflows and blocked diagnostics; it does not add runtime support by itself.",
+                "evidence": "GAR-COMMERCIAL-1F planned",
+                "reference": "docs/architecture/phased-execution-plan.md",
+            },
+            {
+                "label": "Hidden fallback engine execution",
+                "family": "claim_boundary",
+                "status": "not-planned",
+                "answer": "ShardLoom does not plan to silently run unsupported work through Spark, DuckDB, DataFusion, Polars, pandas, or another fallback engine.",
+                "evidence": "fallback_attempted=false; external_engine_invoked=false",
+                "reference": "README.md",
+            },
+            {
+                "label": "Spark-displacement claim",
+                "family": "claim_boundary",
+                "status": "not-planned",
+                "answer": "ShardLoom is not presented as an Apache Spark substitute; external engines are baseline context only.",
+                "evidence": "claim_gate_status=not_claim_grade",
+                "reference": "docs/benchmarks/baseline-comparison-boundary.md",
+            },
+            {
+                "label": "Production SQL/DataFrame, object-store, lakehouse, or Foundry claim",
+                "family": "claim_boundary",
+                "status": "not-planned",
+                "answer": "Production claims for these surfaces are not planned without future workload-scoped runtime evidence and release gates.",
+                "evidence": "public claim gates closed",
+                "reference": "docs/release/known-unsupported-paths.md",
+            },
+        ]
+    )
+    counts = {status: 0 for status in status_order}
+    for row in rows:
+        status = str(row.get("status", "report-only"))
+        counts[status] = counts.get(status, 0) + 1
+    metrics = "\n".join(
+        f'<div class="metric"><strong>{counts.get(status, 0)}</strong><span>{esc(status.replace("-", " "))}</span></div>'
+        for status in status_order
+    )
+    table_rows = "\n".join(
+        "<tr>"
+        f"<td><strong>{esc(row.get('label'))}</strong><span>{esc(row.get('family'))}</span></td>"
+        f"<td><span class=\"claim-badge {support_status_class(str(row.get('status')))}\">{esc(str(row.get('status')).replace('-', ' '))}</span></td>"
+        f"<td>{esc(row.get('answer'))}</td>"
+        f"<td>{esc(row.get('evidence'))}</td>"
+        f"<td><code>{esc(row.get('reference'))}</code></td>"
+        "</tr>"
+        for row in rows
+    )
+    status_key = "\n".join(
+        f'<article class="signal-card"><span class="claim-badge {support_status_class(status)}">{esc(status.replace("-", " "))}</span><p>{esc(description)}</p></article>'
+        for status, description in [
+            ("runtime-supported", "A scoped runtime path exists; claim boundaries still apply."),
+            ("smoke-supported", "A narrow local or fixture smoke exists; broad support is not implied."),
+            ("report-only", "The surface can be described or diagnosed without execution support."),
+            ("blocked", "The surface must remain unavailable or emit deterministic blockers."),
+            ("planned", "The phase plan carries a future work item, not current support."),
+            ("not-planned", "The public posture intentionally does not make or pursue this claim."),
+        ]
+    )
+    return f"""
+    <section id="can-i-use-this" class="status-scorecard">
+      <div class="shell">
+        <p class="eyebrow">Can I use this?</p>
+        <h2>Answer common capability questions in under two minutes.</h2>
+        <p class="section-lede">This matrix projects the universal compatibility scoreboard, known unsupported paths, and package-channel release boundary into one buyer-facing status view. It is a maturity map, not runtime expansion.</p>
+        <div class="metric-row">{metrics}</div>
+        <div class="telemetry-signal-grid status-key" aria-label="Status vocabulary">
+          {status_key}
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Surface or claim</th><th>Status</th><th>What this means</th><th>Evidence or blocker</th><th>Reference</th></tr></thead>
+            <tbody>{table_rows}</tbody>
+          </table>
+        </div>
+        <p class="section-note">Every supported or smoke-supported row remains scoped. Unsupported and blocked rows stay visible so users do not infer production SQL/DataFrame, object-store/lakehouse, Foundry, package-publication, performance, Spark-replacement, or fallback-engine support.</p>
+      </div>
+    </section>
+    """.strip()
 
 
 def render_compatibility_scoreboard_section() -> str:
@@ -818,6 +975,7 @@ def status_page() -> str:
     </section>
     <nav class="page-subnav" aria-label="Status sections">
       <div class="shell">
+        <a href="#can-i-use-this">Can I use this?</a>
         <a href="#supported">Supported local smoke</a>
         <a href="#fixture">Fixture-smoke</a>
         <a href="#compatibility">Compatibility</a>
@@ -827,6 +985,7 @@ def status_page() -> str:
         <a href="#not-claimed">Not claimed</a>
       </div>
     </nav>
+{render_public_status_scorecard_section()}
     <section id="supported">
       <div class="shell">
         <p class="eyebrow">Evidence-backed local surface</p>
@@ -1201,6 +1360,7 @@ def status_class(status: str) -> str:
         "smoke_supported": "fixture",
         "report_only": "report-only",
         "planned": "planned",
+        "not_planned": "blocked",
         "blocked": "blocked",
         "unsupported": "blocked",
     }
