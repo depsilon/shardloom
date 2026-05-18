@@ -451,75 +451,9 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-- [ ] GAR-SCALE-1A scale-class taxonomy and claim gate
-  - Source:
-    - Spark cluster architecture and SQL tuning docs as comparison pressure only.
-    - ShardLoom benchmark artifact and phased execution plan.
-    - Vortex Scan API split/source model.
-    - Iceberg/Delta scale and table-format expectations.
-    - RFC 0014; RFC 0016; RFC 0017; RFC 0020; RFC 0026; RFC 0029; RFC 0031; RFC 0034; RFC 0036.
-  - Current state:
-    - ShardLoom has local smoke, prepared/native, source-state reuse, and benchmark publishing
-      evidence.
-    - Current benchmark artifacts are not Spark-scale proof.
-    - Object-store, table/lakehouse, distributed execution, and managed-platform scale remain gated.
-    - There is no first-class scale-class claim gate that can fail closed before public copy,
-      benchmark rows, or status pages imply "any volume".
-  - Next slice outcome:
-    - Add the scale-class taxonomy and scale-claim gate as an architecture/report contract.
-    - Require every future scale row to select one explicit scale class or fail closed.
-  - User-visible surface:
-    - Phased plan, compute-flow docs, benchmark docs/artifacts, website/status, release-readiness
-      checks, and future Python/CLI capability views.
-  - Implementation scope:
-    - Add scale taxonomy docs, benchmark row schema expectations, release-readiness metadata checks,
-      and website/status claim language. Do not change current benchmark volumes.
-  - Evidence required:
-    - `scale_profile`
-    - `scale_claim_status`
-    - `data_volume_bytes`
-    - `row_count_estimate`
-    - `file_count`
-    - `partition_count`
-    - `split_count`
-    - `memory_budget_bytes`
-    - `spill_budget_bytes`
-    - `shuffle_required`
-    - `object_store_involved`
-    - `table_format_involved`
-    - `remote_workers_involved`
-    - `retry_policy_status`
-    - `output_commit_status`
-    - `fallback_attempted=false`
-    - `external_engine_invoked=false`
-    - `claim_gate_status`
-  - Acceptance:
-    - No row, page, README section, or benchmark artifact can claim Spark-level or any-volume
-      support without a scale class and scale claim status.
-    - Current local benchmarks remain local smoke/local claim evidence only.
-    - Larger-than-memory, split-parallel, object-store, table, distributed, Foundry, and managed
-      platform claims fail closed until evidence admits them.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No distributed runtime, object-store runtime, table commit, benchmark volume change,
-      performance claim, Spark replacement claim, package publication, or Foundry production claim.
-  - Dependencies/blockers:
-    - Scale taxonomy doc ownership, benchmark row schema ownership, website/status claim checks, and
-      future workload evidence for any status promotion.
-  - Claim boundary:
-    - This slice may claim a scale-readiness taxonomy and fail-closed claim gate only.
-    - It does not authorize any-volume support, Spark displacement, distributed runtime,
-      object-store/table runtime, Foundry production support, or performance superiority.
-  - Fallback boundary:
-    - External engines may be baselines or correctness oracles only; they cannot satisfy ShardLoom
-      scale evidence or execute unsupported work as fallback.
-  - Ledger rule:
-    - When complete, move the completed session details to
-      `docs/architecture/phased-execution-completed-ledger.md` and remove this active planned item.
+GAR-SCALE-1A is complete and recorded in the completed ledger. The active follow-through begins with
+SplitManifest and split-native execution contracts; all non-local scale classes remain blocked or
+report-only until later slices attach runtime evidence.
 
 - [ ] GAR-SCALE-1B split manifest and split-native execution contract
   - Source:
