@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-1I visual density and readability refinement
+  - Primary files:
+    - `website/assets/site.css`
+    - `website/build_static_pages.py`
+    - `website/field-guide/*.html`
+    - `website/pagefind/`
+    - `website/validate_static_assets.js`
+    - `scripts/check_website_readiness.py`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: refine the generated Field Guide and shared website visual system for dense atlas
+    browsing without adding a framework, changing runtime behavior, recomputing benchmarks, or
+    changing support claims.
+  - Checklist:
+    - [x] Reduce global display/header scale and hero spacing so page titles no longer dominate the
+          first viewport on desktop or mobile.
+    - [x] Add reusable density components: `atlas-density-note`, `category-toc-band`,
+          `compact-term-row`, `status-chip`, `reference-badge`, `related-concepts-rail`, and
+          `sticky-in-page-toc`.
+    - [x] Render the Field Guide index as 75 compact dossier rows across 11 concept families, with
+          blocked/report-only status and evidence-field counts visible in each row.
+    - [x] Keep generated dossier pages source-linked and add reusable related-concept/use-case rails.
+    - [x] Extend website readiness and static asset validators so the density system cannot be
+          accidentally dropped.
+    - [x] Rebuild committed static pages and Pagefind 1.5.2 search assets.
+    - [x] Move GAR-WEB-ATLAS-1I out of the active Planned queue.
+  - Evidence and verification:
+    - `python website/build_static_pages.py`
+    - `python -m pagefind --site website`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - browser/manual visual smoke of `/field-guide/` and `/field-guide/prepared-vortex`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - This is public-site readability and density work only. It does not add runtime behavior,
+      benchmark recomputation, package publication, production readiness, performance or superiority
+      claims, Spark-displacement claims, SQL/DataFrame runtime, object-store/lakehouse runtime, or
+      Foundry production support.
+  - Fallback boundary:
+    - Visual labels preserve the no-fallback and external-baseline-only posture. Public semantics for
+      `fallback_attempted=false` and `external_engine_invoked=false` remain unchanged.
+
 - [x] Session label: GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate
   - Primary files:
     - `docs/architecture/website-atlas-framework-decision.md`

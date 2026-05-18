@@ -1656,9 +1656,9 @@ def related_concept_links(slugs: list[str]) -> str:
     for slug_value in slugs:
         concept = concept_by_slug(slug_value)
         links.append(
-            f'<a class="claim-badge" href="{concept_url(slug_value)}">{esc(concept["title"])}</a>'
+            f'<a class="claim-badge reference-badge" href="{concept_url(slug_value)}">{esc(concept["title"])}</a>'
         )
-    return "<div>" + "".join(links) + "</div>"
+    return '<div class="related-concepts-rail">' + "".join(links) + "</div>"
 
 
 def related_use_case_links(ids: list[str]) -> str:
@@ -1669,9 +1669,9 @@ def related_use_case_links(ids: list[str]) -> str:
     for use_case_id in ids:
         label = titles.get(use_case_id, use_case_id.replace("-", " "))
         links.append(
-            f'<a class="claim-badge" href="/use-cases/{esc(use_case_id)}">{esc(label)}</a>'
+            f'<a class="claim-badge reference-badge" href="/use-cases/{esc(use_case_id)}">{esc(label)}</a>'
         )
-    return "<div>" + "".join(links) + "</div>"
+    return '<div class="related-concepts-rail">' + "".join(links) + "</div>"
 
 
 def reading_path_term_links(slugs: list[str]) -> str:
@@ -1700,10 +1700,13 @@ def clean_generated_html(text: str) -> str:
 
 
 def field_guide_index_page() -> str:
+    grouped_concepts = field_guide_concepts_by_category()
     category_links = "".join(
-        f'<a class="claim-badge" href="#{slug(category)}">{esc(category)}</a>'
-        for category, _ in field_guide_concepts_by_category()
+        f'<a class="reference-badge" href="#{slug(category)}"><span>{esc(category)}</span><strong>{len(concepts)}</strong></a>'
+        for category, concepts in grouped_concepts
     )
+    total_concepts = len(FIELD_GUIDE_CONCEPTS)
+    total_categories = len(grouped_concepts)
     reading_paths = "".join(
         f"""
           <article class="reading-path-card" id="{slug(path['id'])}">
@@ -1736,18 +1739,20 @@ def field_guide_index_page() -> str:
             </div>
             <span>{len(concepts)} dossier{"s" if len(concepts) != 1 else ""}</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
             {''.join(
                 f'''
-                <article class="field-guide-card">
-                  <span class="claim-badge {status_class(concept['status'])}" data-status="{esc(concept['status'])}">{esc(status_label(concept['status']))}</span>
-                  <h3>{esc(concept['title'])}</h3>
-                  <p>{esc(concept['summary'])}</p>
-                  <div class="field-guide-meta">
-                    <span>{esc(concept['category'])}</span>
-                    <span>{len(concept['evidence'])} evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge {status_class(concept['status'])}" data-status="{esc(concept['status'])}">{esc(status_label(concept['status']))}</span>
+                    <h3><a href="{concept_url(concept['slug'])}">{esc(concept['title'])}</a></h3>
+                    <p>{esc(concept['summary'])}</p>
                   </div>
-                  <div class="action-row"><a class="button" href="{concept_url(concept['slug'])}">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">{esc(concept['category'])}</span>
+                    <span class="reference-badge">{len(concept['evidence'])} evidence fields</span>
+                    <a class="button compact-action" href="{concept_url(concept['slug'])}">Open dossier</a>
+                  </div>
                 </article>
                 '''
                 for concept in concepts
@@ -1793,6 +1798,11 @@ def field_guide_index_page() -> str:
             </pagefind-modal>
           </div>
         </div>
+        <div class="atlas-density-note" aria-label="Field Guide density and status summary">
+          <span class="status-chip supported">{total_concepts} dossiers</span>
+          <span class="status-chip report-only">{total_categories} concept families</span>
+          <span class="status-chip blocked">blocked and report-only states stay visible</span>
+        </div>
         <div class="section-header-row">
           <div>
             <p class="eyebrow">Reading paths</p>
@@ -1801,7 +1811,7 @@ def field_guide_index_page() -> str:
           <p>Each path links to exact dossiers and use cases while keeping support boundaries visible.</p>
         </div>
         <div class="reading-path-grid">{reading_paths}</div>
-        <div class="terminal-panel field-guide-toc">
+        <div class="terminal-panel field-guide-toc category-toc-band">
           <p class="eyebrow">Table of contents</p>
           <h2>Jump by concept family.</h2>
           <div>{category_links}</div>
@@ -1858,7 +1868,7 @@ def field_guide_concept_page(
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
-        <aside class="dossier-sidebar">
+        <aside class="dossier-sidebar sticky-in-page-toc">
           <h2>In this dossier</h2>
           <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>

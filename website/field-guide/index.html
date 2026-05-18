@@ -85,6 +85,11 @@
             </pagefind-modal>
           </div>
         </div>
+        <div class="atlas-density-note" aria-label="Field Guide density and status summary">
+          <span class="status-chip supported">75 dossiers</span>
+          <span class="status-chip report-only">11 concept families</span>
+          <span class="status-chip blocked">blocked and report-only states stay visible</span>
+        </div>
         <div class="section-header-row">
           <div>
             <p class="eyebrow">Reading paths</p>
@@ -106,7 +111,7 @@
             </div>
             <div class="reading-path-links">
               <strong>Use cases</strong>
-              <div><a class="claim-badge" href="/use-cases/first-10-minutes-local-smoke">First 10 minutes local smoke</a><a class="claim-badge" href="/use-cases/evidence-audit-claim-gates">Evidence, audit, and claim gates</a></div>
+              <div class="related-concepts-rail"><a class="claim-badge reference-badge" href="/use-cases/first-10-minutes-local-smoke">First 10 minutes local smoke</a><a class="claim-badge reference-badge" href="/use-cases/evidence-audit-claim-gates">Evidence, audit, and claim gates</a></div>
             </div>
             <p class="reading-path-boundary">Orientation content explains current posture only and does not imply production or package-release readiness.</p>
           </article>
@@ -124,7 +129,7 @@
             </div>
             <div class="reading-path-links">
               <strong>Use cases</strong>
-              <div><a class="claim-badge" href="/use-cases/first-10-minutes-local-smoke">First 10 minutes local smoke</a><a class="claim-badge" href="/use-cases/local-file-etl-cleanup-smoke">Local file ETL smoke</a><a class="claim-badge" href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a></div>
+              <div class="related-concepts-rail"><a class="claim-badge reference-badge" href="/use-cases/first-10-minutes-local-smoke">First 10 minutes local smoke</a><a class="claim-badge reference-badge" href="/use-cases/local-file-etl-cleanup-smoke">Local file ETL smoke</a><a class="claim-badge reference-badge" href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a></div>
             </div>
             <p class="reading-path-boundary">Local workflow recipes remain scoped technical-preview evidence, not production ETL or object-store support.</p>
           </article>
@@ -142,7 +147,7 @@
             </div>
             <div class="reading-path-links">
               <strong>Use cases</strong>
-              <div><a class="claim-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a><a class="claim-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a></div>
+              <div class="related-concepts-rail"><a class="claim-badge reference-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a><a class="claim-badge reference-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a></div>
             </div>
             <p class="reading-path-boundary">Benchmark reading paths do not create performance, superiority, or Spark-displacement claims.</p>
           </article>
@@ -160,7 +165,7 @@
             </div>
             <div class="reading-path-links">
               <strong>Use cases</strong>
-              <div><a class="claim-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a><a class="claim-badge" href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a></div>
+              <div class="related-concepts-rail"><a class="claim-badge reference-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a><a class="claim-badge reference-badge" href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a></div>
             </div>
             <p class="reading-path-boundary">Vortex-native explanations are scoped by artifact, operator, evidence, and claim gates.</p>
           </article>
@@ -178,7 +183,7 @@
             </div>
             <div class="reading-path-links">
               <strong>Use cases</strong>
-              <div><a class="claim-badge" href="/use-cases/python-wrapper-client-smoke">Python wrapper and client smoke</a><a class="claim-badge" href="/use-cases/source-free-generated-output-boundary">Source-free generated output boundary</a><a class="claim-badge" href="/use-cases/sql-dataframe-capability-posture">SQL and DataFrame capability posture</a></div>
+              <div class="related-concepts-rail"><a class="claim-badge reference-badge" href="/use-cases/python-wrapper-client-smoke">Python wrapper and client smoke</a><a class="claim-badge reference-badge" href="/use-cases/source-free-generated-output-boundary">Source-free generated output boundary</a><a class="claim-badge reference-badge" href="/use-cases/sql-dataframe-capability-posture">SQL and DataFrame capability posture</a></div>
             </div>
             <p class="reading-path-boundary">Python ergonomics and report-only SQL/DataFrame diagnostics do not imply broad SQL/DataFrame runtime support.</p>
           </article>
@@ -196,7 +201,7 @@
             </div>
             <div class="reading-path-links">
               <strong>Use cases</strong>
-              <div><a class="claim-badge" href="/use-cases/object-store-boundary-report">Object-store and cloud storage boundary</a><a class="claim-badge" href="/use-cases/table-lakehouse-boundary-report">Table and lakehouse boundary</a><a class="claim-badge" href="/use-cases/package-channel-readiness-boundary">Package, release, and install channel boundary</a></div>
+              <div class="related-concepts-rail"><a class="claim-badge reference-badge" href="/use-cases/object-store-boundary-report">Object-store and cloud storage boundary</a><a class="claim-badge reference-badge" href="/use-cases/table-lakehouse-boundary-report">Table and lakehouse boundary</a><a class="claim-badge reference-badge" href="/use-cases/package-channel-readiness-boundary">Package, release, and install channel boundary</a></div>
             </div>
             <p class="reading-path-boundary">Blocked reading paths make unsupported surfaces visible and do not hide fallback execution.</p>
           </article>
@@ -214,15 +219,15 @@
             </div>
             <div class="reading-path-links">
               <strong>Use cases</strong>
-              <div><a class="claim-badge" href="/use-cases/foundry-local-proof-boundary">Foundry-style local proof boundary</a><a class="claim-badge" href="/use-cases/object-store-boundary-report">Object-store and cloud storage boundary</a><a class="claim-badge" href="/use-cases/package-channel-readiness-boundary">Package, release, and install channel boundary</a></div>
+              <div class="related-concepts-rail"><a class="claim-badge reference-badge" href="/use-cases/foundry-local-proof-boundary">Foundry-style local proof boundary</a><a class="claim-badge reference-badge" href="/use-cases/object-store-boundary-report">Object-store and cloud storage boundary</a><a class="claim-badge reference-badge" href="/use-cases/package-channel-readiness-boundary">Package, release, and install channel boundary</a></div>
             </div>
             <p class="reading-path-boundary">Platform context is boundary documentation only; no Foundry, distributed, object-store, or managed-platform claim is created.</p>
           </article>
         </div>
-        <div class="terminal-panel field-guide-toc">
+        <div class="terminal-panel field-guide-toc category-toc-band">
           <p class="eyebrow">Table of contents</p>
           <h2>Jump by concept family.</h2>
-          <div><a class="claim-badge" href="#start-here">Start Here</a><a class="claim-badge" href="#execution-modes">Execution Modes</a><a class="claim-badge" href="#engine-modes">Engine Modes</a><a class="claim-badge" href="#vortex-runtime">Vortex Runtime</a><a class="claim-badge" href="#evidence-and-claims">Evidence And Claims</a><a class="claim-badge" href="#benchmark-telemetry">Benchmark Telemetry</a><a class="claim-badge" href="#user-workflows">User Workflows</a><a class="claim-badge" href="#i-o-and-output">I/O And Output</a><a class="claim-badge" href="#platform-boundaries">Platform Boundaries</a><a class="claim-badge" href="#performance-architecture">Performance Architecture</a><a class="claim-badge" href="#release-and-trust">Release And Trust</a></div>
+          <div><a class="reference-badge" href="#start-here"><span>Start Here</span><strong>5</strong></a><a class="reference-badge" href="#execution-modes"><span>Execution Modes</span><strong>6</strong></a><a class="reference-badge" href="#engine-modes"><span>Engine Modes</span><strong>5</strong></a><a class="reference-badge" href="#vortex-runtime"><span>Vortex Runtime</span><strong>8</strong></a><a class="reference-badge" href="#evidence-and-claims"><span>Evidence And Claims</span><strong>10</strong></a><a class="reference-badge" href="#benchmark-telemetry"><span>Benchmark Telemetry</span><strong>6</strong></a><a class="reference-badge" href="#user-workflows"><span>User Workflows</span><strong>8</strong></a><a class="reference-badge" href="#i-o-and-output"><span>I/O And Output</span><strong>9</strong></a><a class="reference-badge" href="#platform-boundaries"><span>Platform Boundaries</span><strong>5</strong></a><a class="reference-badge" href="#performance-architecture"><span>Performance Architecture</span><strong>8</strong></a><a class="reference-badge" href="#release-and-trust"><span>Release And Trust</span><strong>5</strong></a></div>
         </div>
       </div>
     </section>
@@ -237,61 +242,71 @@
             </div>
             <span>5 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="technical-preview">technical preview</span>
-                  <h3>What Is ShardLoom?</h3>
-                  <p>ShardLoom is a pre-release Vortex-first local compute engine foundation that exposes execution evidence instead of hiding unsupported work.</p>
-                  <div class="field-guide-meta">
-                    <span>Start Here</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="technical-preview">technical preview</span>
+                    <h3><a href="/field-guide/what-is-shardloom">What Is ShardLoom?</a></h3>
+                    <p>ShardLoom is a pre-release Vortex-first local compute engine foundation that exposes execution evidence instead of hiding unsupported work.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/what-is-shardloom">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Start Here</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/what-is-shardloom">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="core-contract">core contract</span>
-                  <h3>Vortex-First</h3>
-                  <p>Vortex-first means ShardLoom treats Vortex layouts as the native substrate for scoped local execution and evidence.</p>
-                  <div class="field-guide-meta">
-                    <span>Start Here</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="core-contract">core contract</span>
+                    <h3><a href="/field-guide/vortex-first">Vortex-First</a></h3>
+                    <p>Vortex-first means ShardLoom treats Vortex layouts as the native substrate for scoped local execution and evidence.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/vortex-first">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Start Here</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/vortex-first">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="core-contract">core contract</span>
-                  <h3>No Fallback</h3>
-                  <p>ShardLoom must not silently delegate unsupported execution to another query engine.</p>
-                  <div class="field-guide-meta">
-                    <span>Start Here</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="core-contract">core contract</span>
+                    <h3><a href="/field-guide/no-fallback">No Fallback</a></h3>
+                    <p>ShardLoom must not silently delegate unsupported execution to another query engine.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/no-fallback">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Start Here</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/no-fallback">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-differentiator">current differentiator</span>
-                  <h3>Evidence-Certified Compute</h3>
-                  <p>Evidence-certified compute means a supported run records what executed, what materialized, what stayed native, and which claims remain closed.</p>
-                  <div class="field-guide-meta">
-                    <span>Start Here</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-differentiator">current differentiator</span>
+                    <h3><a href="/field-guide/evidence-certified-compute">Evidence-Certified Compute</a></h3>
+                    <p>Evidence-certified compute means a supported run records what executed, what materialized, what stayed native, and which claims remain closed.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/evidence-certified-compute">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Start Here</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/evidence-certified-compute">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="pre-release">pre release</span>
-                  <h3>Technical Preview</h3>
-                  <p>Technical preview is the public posture for ShardLoom while package publication, production APIs, broad SQL/DataFrame runtime, and scale claims remain gated.</p>
-                  <div class="field-guide-meta">
-                    <span>Start Here</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="pre-release">pre release</span>
+                    <h3><a href="/field-guide/technical-preview">Technical Preview</a></h3>
+                    <p>Technical preview is the public posture for ShardLoom while package publication, production APIs, broad SQL/DataFrame runtime, and scale claims remain gated.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/technical-preview">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Start Here</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/technical-preview">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -305,72 +320,84 @@
             </div>
             <span>6 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-vocabulary">current vocabulary</span>
-                  <h3>Execution Modes</h3>
-                  <p>Execution modes identify the source and preparation lane that a run used.</p>
-                  <div class="field-guide-meta">
-                    <span>Execution Modes</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-vocabulary">current vocabulary</span>
+                    <h3><a href="/field-guide/execution-modes">Execution Modes</a></h3>
+                    <p>Execution modes identify the source and preparation lane that a run used.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/execution-modes">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Execution Modes</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/execution-modes">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-certification-lane">current certification lane</span>
-                  <h3>Compatibility Import Certified</h3>
-                  <p>The compatibility lane imports local compatibility data into Vortex evidence paths and records certification costs.</p>
-                  <div class="field-guide-meta">
-                    <span>Execution Modes</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-certification-lane">current certification lane</span>
+                    <h3><a href="/field-guide/compatibility-import-certified">Compatibility Import Certified</a></h3>
+                    <p>The compatibility lane imports local compatibility data into Vortex evidence paths and records certification costs.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/compatibility-import-certified">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Execution Modes</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/compatibility-import-certified">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="runtime-development-lane">runtime development lane</span>
-                  <h3>Prepared Vortex</h3>
-                  <p>Prepared Vortex is the current runtime-development lane for already prepared Vortex artifacts.</p>
-                  <div class="field-guide-meta">
-                    <span>Execution Modes</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="runtime-development-lane">runtime development lane</span>
+                    <h3><a href="/field-guide/prepared-vortex">Prepared Vortex</a></h3>
+                    <p>Prepared Vortex is the current runtime-development lane for already prepared Vortex artifacts.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/prepared-vortex">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Execution Modes</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/prepared-vortex">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-runtime-lane">scoped runtime lane</span>
-                  <h3>Native Vortex</h3>
-                  <p>Native Vortex is the lane for scoped execution over existing Vortex artifacts.</p>
-                  <div class="field-guide-meta">
-                    <span>Execution Modes</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-runtime-lane">scoped runtime lane</span>
+                    <h3><a href="/field-guide/native-vortex">Native Vortex</a></h3>
+                    <p>Native Vortex is the lane for scoped execution over existing Vortex artifacts.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/native-vortex">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Execution Modes</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/native-vortex">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="report-only">report only</span>
-                  <h3>Direct Compatibility Transient</h3>
-                  <p>Direct compatibility transient is the planned lane for local compatibility data that does not first persist through Vortex.</p>
-                  <div class="field-guide-meta">
-                    <span>Execution Modes</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="report-only">report only</span>
+                    <h3><a href="/field-guide/direct-compatibility-transient">Direct Compatibility Transient</a></h3>
+                    <p>Direct compatibility transient is the planned lane for local compatibility data that does not first persist through Vortex.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/direct-compatibility-transient">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Execution Modes</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/direct-compatibility-transient">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="transparent-selection">transparent selection</span>
-                  <h3>Auto Execution Mode</h3>
-                  <p>Auto mode is a transparent admission and selection path, not a hidden global fast-mode toggle.</p>
-                  <div class="field-guide-meta">
-                    <span>Execution Modes</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="transparent-selection">transparent selection</span>
+                    <h3><a href="/field-guide/auto-execution-mode">Auto Execution Mode</a></h3>
+                    <p>Auto mode is a transparent admission and selection path, not a hidden global fast-mode toggle.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/auto-execution-mode">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Execution Modes</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/auto-execution-mode">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -384,61 +411,71 @@
             </div>
             <span>5 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-vocabulary">current vocabulary</span>
-                  <h3>Engine Modes</h3>
-                  <p>Engine modes describe ShardLoom&#x27;s internal batch, live, hybrid, or auto execution fabric posture.</p>
-                  <div class="field-guide-meta">
-                    <span>Engine Modes</span>
-                    <span>5 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-vocabulary">current vocabulary</span>
+                    <h3><a href="/field-guide/engine-modes">Engine Modes</a></h3>
+                    <p>Engine modes describe ShardLoom&#x27;s internal batch, live, hybrid, or auto execution fabric posture.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/engine-modes">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Engine Modes</span>
+                    <span class="reference-badge">5 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/engine-modes">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-local">scoped local</span>
-                  <h3>Batch Engine</h3>
-                  <p>The batch engine is the finite, snapshot-oriented ShardLoom execution mode currently used by local smoke and prepared/native rows.</p>
-                  <div class="field-guide-meta">
-                    <span>Engine Modes</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-local">scoped local</span>
+                    <h3><a href="/field-guide/batch-engine">Batch Engine</a></h3>
+                    <p>The batch engine is the finite, snapshot-oriented ShardLoom execution mode currently used by local smoke and prepared/native rows.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/batch-engine">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Engine Modes</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/batch-engine">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="report-only">report only</span>
-                  <h3>Live Engine</h3>
-                  <p>The live engine is the planned continuous native execution posture for unbounded or change-oriented inputs.</p>
-                  <div class="field-guide-meta">
-                    <span>Engine Modes</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="report-only">report only</span>
+                    <h3><a href="/field-guide/live-engine">Live Engine</a></h3>
+                    <p>The live engine is the planned continuous native execution posture for unbounded or change-oriented inputs.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/live-engine">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Engine Modes</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/live-engine">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="report-only">report only</span>
-                  <h3>Hybrid Engine</h3>
-                  <p>The hybrid engine is the planned posture for cold Vortex data plus warm or hot delta/state overlays.</p>
-                  <div class="field-guide-meta">
-                    <span>Engine Modes</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="report-only">report only</span>
+                    <h3><a href="/field-guide/hybrid-engine">Hybrid Engine</a></h3>
+                    <p>The hybrid engine is the planned posture for cold Vortex data plus warm or hot delta/state overlays.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/hybrid-engine">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Engine Modes</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/hybrid-engine">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
-                  <h3>Fixture Smoke</h3>
-                  <p>Fixture smoke means a narrow local or generated fixture proves a contract without broad support claims.</p>
-                  <div class="field-guide-meta">
-                    <span>Engine Modes</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
+                    <h3><a href="/field-guide/fixture-smoke">Fixture Smoke</a></h3>
+                    <p>Fixture smoke means a narrow local or generated fixture proves a contract without broad support claims.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/fixture-smoke">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Engine Modes</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/fixture-smoke">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -452,94 +489,110 @@
             </div>
             <span>8 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="core-contract">core contract</span>
-                  <h3>Vortex-Native</h3>
-                  <p>Vortex-native means ShardLoom treats Vortex representation as the native execution and persistence target where scoped evidence admits it.</p>
-                  <div class="field-guide-meta">
-                    <span>Vortex Runtime</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="core-contract">core contract</span>
+                    <h3><a href="/field-guide/vortex-native">Vortex-Native</a></h3>
+                    <p>Vortex-native means ShardLoom treats Vortex representation as the native execution and persistence target where scoped evidence admits it.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/vortex-native">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Vortex Runtime</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/vortex-native">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="runtime-development-artifact">runtime development artifact</span>
-                  <h3>Prepared Vortex Artifact</h3>
-                  <p>A prepared Vortex artifact is the reusable Vortex representation used to separate preparation from query/runtime timing.</p>
-                  <div class="field-guide-meta">
-                    <span>Vortex Runtime</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="runtime-development-artifact">runtime development artifact</span>
+                    <h3><a href="/field-guide/prepared-vortex-artifact">Prepared Vortex Artifact</a></h3>
+                    <p>A prepared Vortex artifact is the reusable Vortex representation used to separate preparation from query/runtime timing.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/prepared-vortex-artifact">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Vortex Runtime</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/prepared-vortex-artifact">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
-                  <h3>Source-Backed Scan</h3>
-                  <p>Source-backed scan evidence reports how a prepared/native row scanned source-backed Vortex data and what pushdown/materialization posture applied.</p>
-                  <div class="field-guide-meta">
-                    <span>Vortex Runtime</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
+                    <h3><a href="/field-guide/source-backed-scan">Source-Backed Scan</a></h3>
+                    <p>Source-backed scan evidence reports how a prepared/native row scanned source-backed Vortex data and what pushdown/materialization posture applied.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/source-backed-scan">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Vortex Runtime</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/source-backed-scan">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="report-only-to-scoped">report only to scoped</span>
-                  <h3>Vortex Scan API</h3>
-                  <p>The Vortex Scan API is the upstream scan/source concept ShardLoom maps into scoped prepared/native pushdown evidence or deterministic blockers.</p>
-                  <div class="field-guide-meta">
-                    <span>Vortex Runtime</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="report-only-to-scoped">report only to scoped</span>
+                    <h3><a href="/field-guide/vortex-scan-api">Vortex Scan API</a></h3>
+                    <p>The Vortex Scan API is the upstream scan/source concept ShardLoom maps into scoped prepared/native pushdown evidence or deterministic blockers.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/vortex-scan-api">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Vortex Runtime</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/vortex-scan-api">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
-                  <h3>Encoded Predicate Provider</h3>
-                  <p>Encoded predicate provider evidence records when a scoped selective-filter row can use encoded filter-column inputs without claiming full encoded-native execution.</p>
-                  <div class="field-guide-meta">
-                    <span>Vortex Runtime</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
+                    <h3><a href="/field-guide/encoded-predicate-provider">Encoded Predicate Provider</a></h3>
+                    <p>Encoded predicate provider evidence records when a scoped selective-filter row can use encoded filter-column inputs without claiming full encoded-native execution.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/encoded-predicate-provider">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Vortex Runtime</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/encoded-predicate-provider">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
-                  <h3>Selection Vector</h3>
-                  <p>A selection vector records selected row positions from an admitted predicate path so later work can avoid unnecessary row materialization.</p>
-                  <div class="field-guide-meta">
-                    <span>Vortex Runtime</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
+                    <h3><a href="/field-guide/selection-vector">Selection Vector</a></h3>
+                    <p>A selection vector records selected row positions from an admitted predicate path so later work can avoid unnecessary row materialization.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/selection-vector">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Vortex Runtime</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/selection-vector">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-runtime-pattern">current runtime pattern</span>
-                  <h3>Residual-Native</h3>
-                  <p>Residual-native means ShardLoom performs remaining operator work itself after admitted pushdown, without using an external engine fallback.</p>
-                  <div class="field-guide-meta">
-                    <span>Vortex Runtime</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-runtime-pattern">current runtime pattern</span>
+                    <h3><a href="/field-guide/residual-native">Residual-Native</a></h3>
+                    <p>Residual-native means ShardLoom performs remaining operator work itself after admitted pushdown, without using an external engine fallback.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/residual-native">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Vortex Runtime</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/residual-native">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="claim-gated">claim gated</span>
-                  <h3>Encoded-Native</h3>
-                  <p>Encoded-native means an operator executes directly over encoded representation with sufficient correctness and materialization evidence.</p>
-                  <div class="field-guide-meta">
-                    <span>Vortex Runtime</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="claim-gated">claim gated</span>
+                    <h3><a href="/field-guide/encoded-native">Encoded-Native</a></h3>
+                    <p>Encoded-native means an operator executes directly over encoded representation with sufficient correctness and materialization evidence.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/encoded-native">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Vortex Runtime</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/encoded-native">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -553,116 +606,136 @@
             </div>
             <span>10 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
-                  <h3>Native I/O Certificate</h3>
-                  <p>A Native I/O certificate records whether a scoped run used the approved ShardLoom/Vortex-native I/O path.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+                    <h3><a href="/field-guide/native-io-certificate">Native I/O Certificate</a></h3>
+                    <p>A Native I/O certificate records whether a scoped run used the approved ShardLoom/Vortex-native I/O path.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/native-io-certificate">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/native-io-certificate">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
-                  <h3>Execution Certificate</h3>
-                  <p>An execution certificate is the structured record that ties an admitted run to execution, policy, and claim-gate evidence.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+                    <h3><a href="/field-guide/execution-certificate">Execution Certificate</a></h3>
+                    <p>An execution certificate is the structured record that ties an admitted run to execution, policy, and claim-gate evidence.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/execution-certificate">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/execution-certificate">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
-                  <h3>Materialization Boundary</h3>
-                  <p>A materialization boundary records where data was decoded, materialized, converted, or kept native.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>5 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+                    <h3><a href="/field-guide/materialization-boundary">Materialization Boundary</a></h3>
+                    <p>A materialization boundary records where data was decoded, materialized, converted, or kept native.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/materialization-boundary">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">5 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/materialization-boundary">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-evidence-level">current evidence level</span>
-                  <h3>Result-Sink Replay</h3>
-                  <p>Result-sink replay is the heavier proof path that writes, reopens, and verifies output evidence when full replay is requested.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-evidence-level">current evidence level</span>
+                    <h3><a href="/field-guide/result-sink-replay">Result-Sink Replay</a></h3>
+                    <p>Result-sink replay is the heavier proof path that writes, reopens, and verifies output evidence when full replay is requested.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/result-sink-replay">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/result-sink-replay">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="core-contract">core contract</span>
-                  <h3>Claim Gates</h3>
-                  <p>Claim gates state whether a row is claim-grade, fixture-smoke, report-only, blocked, unsupported, or not claim-grade.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="core-contract">core contract</span>
+                    <h3><a href="/field-guide/claim-gates">Claim Gates</a></h3>
+                    <p>Claim gates state whether a row is claim-grade, fixture-smoke, report-only, blocked, unsupported, or not claim-grade.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/claim-gates">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/claim-gates">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="core-contract">core contract</span>
-                  <h3>No-Fallback Evidence</h3>
-                  <p>No-fallback evidence keeps fallback and external-engine invocation fields visible on capability, benchmark, and certificate rows.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="core-contract">core contract</span>
+                    <h3><a href="/field-guide/no-fallback-evidence">No-Fallback Evidence</a></h3>
+                    <p>No-fallback evidence keeps fallback and external-engine invocation fields visible on capability, benchmark, and certificate rows.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/no-fallback-evidence">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/no-fallback-evidence">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="status-vocabulary">status vocabulary</span>
-                  <h3>Report-Only</h3>
-                  <p>Report-only means ShardLoom can describe, classify, or diagnose a surface without executing it.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="status-vocabulary">status vocabulary</span>
+                    <h3><a href="/field-guide/report-only">Report-Only</a></h3>
+                    <p>Report-only means ShardLoom can describe, classify, or diagnose a surface without executing it.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/report-only">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/report-only">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="status-vocabulary">status vocabulary</span>
-                  <h3>Blocked Status</h3>
-                  <p>Blocked means a surface must fail closed until required policy, evidence, dependency, or runtime gates are satisfied.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="status-vocabulary">status vocabulary</span>
+                    <h3><a href="/field-guide/blocked-status">Blocked Status</a></h3>
+                    <p>Blocked means a surface must fail closed until required policy, evidence, dependency, or runtime gates are satisfied.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/blocked-status">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/blocked-status">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-diagnostic-pattern">current diagnostic pattern</span>
-                  <h3>Unsupported Diagnostics</h3>
-                  <p>Unsupported diagnostics are deterministic reports for paths ShardLoom does not currently execute.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-diagnostic-pattern">current diagnostic pattern</span>
+                    <h3><a href="/field-guide/unsupported-diagnostics">Unsupported Diagnostics</a></h3>
+                    <p>Unsupported diagnostics are deterministic reports for paths ShardLoom does not currently execute.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/unsupported-diagnostics">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/unsupported-diagnostics">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="core-boundary">core boundary</span>
-                  <h3>External Baseline Only</h3>
-                  <p>External-baseline-only means other engines may provide comparison context or correctness oracles but never ShardLoom fallback execution.</p>
-                  <div class="field-guide-meta">
-                    <span>Evidence And Claims</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="core-boundary">core boundary</span>
+                    <h3><a href="/field-guide/external-baseline-only">External Baseline Only</a></h3>
+                    <p>External-baseline-only means other engines may provide comparison context or correctness oracles but never ShardLoom fallback execution.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/external-baseline-only">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Evidence And Claims</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/external-baseline-only">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -676,72 +749,84 @@
             </div>
             <span>6 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
-                  <h3>Benchmark Telemetry</h3>
-                  <p>Benchmark telemetry is evidence and attribution, not a speed leaderboard.</p>
-                  <div class="field-guide-meta">
-                    <span>Benchmark Telemetry</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+                    <h3><a href="/field-guide/benchmark-telemetry">Benchmark Telemetry</a></h3>
+                    <p>Benchmark telemetry is evidence and attribution, not a speed leaderboard.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/benchmark-telemetry">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Benchmark Telemetry</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/benchmark-telemetry">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
-                  <h3>Local Timing Context</h3>
-                  <p>Local timing context decomposes local benchmark stages so compatibility import, preparation, scan, compute, sink, and evidence costs stay visible.</p>
-                  <div class="field-guide-meta">
-                    <span>Benchmark Telemetry</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+                    <h3><a href="/field-guide/local-timing-context">Local Timing Context</a></h3>
+                    <p>Local timing context decomposes local benchmark stages so compatibility import, preparation, scan, compute, sink, and evidence costs stay visible.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/local-timing-context">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Benchmark Telemetry</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/local-timing-context">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-smoke-evidence">current smoke evidence</span>
-                  <h3>Prepared/Native Batch Smoke</h3>
-                  <p>Prepared/native batch smoke records single-process scoped rows for prepared Vortex and native Vortex development paths.</p>
-                  <div class="field-guide-meta">
-                    <span>Benchmark Telemetry</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-smoke-evidence">current smoke evidence</span>
+                    <h3><a href="/field-guide/prepared-native-batch-smoke">Prepared/Native Batch Smoke</a></h3>
+                    <p>Prepared/native batch smoke records single-process scoped rows for prepared Vortex and native Vortex development paths.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/prepared-native-batch-smoke">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Benchmark Telemetry</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/prepared-native-batch-smoke">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
-                  <h3>Source-State Reuse</h3>
-                  <p>Source-state reuse records whether source discovery, schema, parse, or operator state can be reused across scoped benchmark work.</p>
-                  <div class="field-guide-meta">
-                    <span>Benchmark Telemetry</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
+                    <h3><a href="/field-guide/source-state-reuse">Source-State Reuse</a></h3>
+                    <p>Source-state reuse records whether source discovery, schema, parse, or operator state can be reused across scoped benchmark work.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/source-state-reuse">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Benchmark Telemetry</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/source-state-reuse">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-publishing-contract">current publishing contract</span>
-                  <h3>Benchmark Artifact Manifest</h3>
-                  <p>The benchmark artifact manifest records expected lanes, available lanes, missing lanes, environment, versions, and claim boundaries for static publishing.</p>
-                  <div class="field-guide-meta">
-                    <span>Benchmark Telemetry</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-publishing-contract">current publishing contract</span>
+                    <h3><a href="/field-guide/benchmark-artifact-manifest">Benchmark Artifact Manifest</a></h3>
+                    <p>The benchmark artifact manifest records expected lanes, available lanes, missing lanes, environment, versions, and claim boundaries for static publishing.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/benchmark-artifact-manifest">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Benchmark Telemetry</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/benchmark-artifact-manifest">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-publishing-contract">current publishing contract</span>
-                  <h3>Benchmark Profile</h3>
-                  <p>Benchmark profiles separate smoke, full-local, Spark-context, extended, GPU, object-store, and fanout evidence lanes.</p>
-                  <div class="field-guide-meta">
-                    <span>Benchmark Telemetry</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-publishing-contract">current publishing contract</span>
+                    <h3><a href="/field-guide/benchmark-profile">Benchmark Profile</a></h3>
+                    <p>Benchmark profiles separate smoke, full-local, Spark-context, extended, GPU, object-store, and fanout evidence lanes.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/benchmark-profile">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Benchmark Telemetry</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/benchmark-profile">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -755,94 +840,110 @@
             </div>
             <span>8 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="ready-local-docs">ready local docs</span>
-                  <h3>First 10 Minutes</h3>
-                  <p>The first-10-minutes path is the shortest local orientation path for running smoke checks and inspecting evidence.</p>
-                  <div class="field-guide-meta">
-                    <span>User Workflows</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="ready-local-docs">ready local docs</span>
+                    <h3><a href="/field-guide/first-ten-minutes">First 10 Minutes</a></h3>
+                    <p>The first-10-minutes path is the shortest local orientation path for running smoke checks and inspecting evidence.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/first-ten-minutes">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">User Workflows</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/first-ten-minutes">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-local-client">current local client</span>
-                  <h3>Python Wrapper Client</h3>
-                  <p>The Python wrapper client exposes local capability and smoke surfaces without adding external engine fallback dependencies.</p>
-                  <div class="field-guide-meta">
-                    <span>User Workflows</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-local-client">current local client</span>
+                    <h3><a href="/field-guide/python-wrapper-client">Python Wrapper Client</a></h3>
+                    <p>The Python wrapper client exposes local capability and smoke surfaces without adding external engine fallback dependencies.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/python-wrapper-client">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">User Workflows</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/python-wrapper-client">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-local-smoke">scoped local smoke</span>
-                  <h3>Source-Free Generated Output</h3>
-                  <p>Source-free generated output separates no-dataset smoke from user-generated rows and ShardLoom-native generator plans that can write local outputs.</p>
-                  <div class="field-guide-meta">
-                    <span>User Workflows</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-local-smoke">scoped local smoke</span>
+                    <h3><a href="/field-guide/source-free-generated-output">Source-Free Generated Output</a></h3>
+                    <p>Source-free generated output separates no-dataset smoke from user-generated rows and ShardLoom-native generator plans that can write local outputs.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/source-free-generated-output">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">User Workflows</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/source-free-generated-output">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="fixture-smoke">fixture smoke</span>
-                  <h3>Dirty CSV Cleanup</h3>
-                  <p>Dirty CSV cleanup is a local fixture family for parsing, validation, clean/cast posture, and evidence boundaries.</p>
-                  <div class="field-guide-meta">
-                    <span>User Workflows</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="fixture-smoke">fixture smoke</span>
+                    <h3><a href="/field-guide/dirty-csv-cleanup">Dirty CSV Cleanup</a></h3>
+                    <p>Dirty CSV cleanup is a local fixture family for parsing, validation, clean/cast posture, and evidence boundaries.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/dirty-csv-cleanup">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">User Workflows</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/dirty-csv-cleanup">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="fixture-smoke">fixture smoke</span>
-                  <h3>Nested JSON Field Scan</h3>
-                  <p>Nested JSON field scan is a fixture family for extracting selected structured values while keeping materialization and claim boundaries visible.</p>
-                  <div class="field-guide-meta">
-                    <span>User Workflows</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="fixture-smoke">fixture smoke</span>
+                    <h3><a href="/field-guide/nested-json-field-scan">Nested JSON Field Scan</a></h3>
+                    <p>Nested JSON field scan is a fixture family for extracting selected structured values while keeping materialization and claim boundaries visible.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/nested-json-field-scan">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">User Workflows</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/nested-json-field-scan">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="fixture-smoke">fixture smoke</span>
-                  <h3>CDC Overlay</h3>
-                  <p>CDC overlay is a local fixture pattern for applying small changes over a larger base while preserving explicit evidence boundaries.</p>
-                  <div class="field-guide-meta">
-                    <span>User Workflows</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="fixture-smoke">fixture smoke</span>
+                    <h3><a href="/field-guide/cdc-overlay">CDC Overlay</a></h3>
+                    <p>CDC overlay is a local fixture pattern for applying small changes over a larger base while preserving explicit evidence boundaries.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/cdc-overlay">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">User Workflows</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/cdc-overlay">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
-                  <h3>Result-Sink Proof</h3>
-                  <p>Result-sink proof records output write, replay, digest, and boundary evidence where supported by the scoped workflow.</p>
-                  <div class="field-guide-meta">
-                    <span>User Workflows</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+                    <h3><a href="/field-guide/result-sink-proof">Result-Sink Proof</a></h3>
+                    <p>Result-sink proof records output write, replay, digest, and boundary evidence where supported by the scoped workflow.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/result-sink-proof">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">User Workflows</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/result-sink-proof">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="report-only-to-planned">report only to planned</span>
-                  <h3>Output Fanout</h3>
-                  <p>Output fanout is the planned ability to reuse prepared state while writing multiple local output formats through explicit OutputPlans.</p>
-                  <div class="field-guide-meta">
-                    <span>User Workflows</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="report-only-to-planned">report only to planned</span>
+                    <h3><a href="/field-guide/output-fanout">Output Fanout</a></h3>
+                    <p>Output fanout is the planned ability to reuse prepared state while writing multiple local output formats through explicit OutputPlans.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/output-fanout">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">User Workflows</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/output-fanout">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -856,105 +957,123 @@
             </div>
             <span>9 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-local">scoped local</span>
-                  <h3>CSV Local Input</h3>
-                  <p>CSV local input is one of the local compatibility surfaces that can participate in certified local or fixture-smoke workflows.</p>
-                  <div class="field-guide-meta">
-                    <span>I/O And Output</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-local">scoped local</span>
+                    <h3><a href="/field-guide/csv-local-input">CSV Local Input</a></h3>
+                    <p>CSV local input is one of the local compatibility surfaces that can participate in certified local or fixture-smoke workflows.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/csv-local-input">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">I/O And Output</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/csv-local-input">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-local">scoped local</span>
-                  <h3>Parquet Local Input</h3>
-                  <p>Parquet local input is a local compatibility surface with explicit evidence and claim boundaries.</p>
-                  <div class="field-guide-meta">
-                    <span>I/O And Output</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-local">scoped local</span>
+                    <h3><a href="/field-guide/parquet-local-input">Parquet Local Input</a></h3>
+                    <p>Parquet local input is a local compatibility surface with explicit evidence and claim boundaries.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/parquet-local-input">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">I/O And Output</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/parquet-local-input">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-local">scoped local</span>
-                  <h3>JSONL Local Input</h3>
-                  <p>JSONL local input supports selected local fixture and compatibility workflows with explicit decode/materialization evidence.</p>
-                  <div class="field-guide-meta">
-                    <span>I/O And Output</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-local">scoped local</span>
+                    <h3><a href="/field-guide/jsonl-local-input">JSONL Local Input</a></h3>
+                    <p>JSONL local input supports selected local fixture and compatibility workflows with explicit decode/materialization evidence.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/jsonl-local-input">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">I/O And Output</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/jsonl-local-input">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="compatibility-boundary">compatibility boundary</span>
-                  <h3>Arrow IPC Boundary</h3>
-                  <p>Arrow IPC is an interoperability and compatibility boundary, not ShardLoom&#x27;s internal execution substrate.</p>
-                  <div class="field-guide-meta">
-                    <span>I/O And Output</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="compatibility-boundary">compatibility boundary</span>
+                    <h3><a href="/field-guide/arrow-ipc-boundary">Arrow IPC Boundary</a></h3>
+                    <p>Arrow IPC is an interoperability and compatibility boundary, not ShardLoom&#x27;s internal execution substrate.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/arrow-ipc-boundary">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">I/O And Output</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/arrow-ipc-boundary">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="compatibility-boundary">compatibility boundary</span>
-                  <h3>Avro/ORC Boundary</h3>
-                  <p>Avro and ORC are compatibility surfaces that require format-specific evidence before support can be claimed.</p>
-                  <div class="field-guide-meta">
-                    <span>I/O And Output</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="compatibility-boundary">compatibility boundary</span>
+                    <h3><a href="/field-guide/avro-orc-boundary">Avro/ORC Boundary</a></h3>
+                    <p>Avro and ORC are compatibility surfaces that require format-specific evidence before support can be claimed.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/avro-orc-boundary">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">I/O And Output</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/avro-orc-boundary">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="highest-fidelity-target">highest fidelity target</span>
-                  <h3>Vortex Result Artifact</h3>
-                  <p>A Vortex result artifact is the highest-fidelity persistence target for ShardLoom-native outputs where a scoped path is admitted.</p>
-                  <div class="field-guide-meta">
-                    <span>I/O And Output</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="highest-fidelity-target">highest fidelity target</span>
+                    <h3><a href="/field-guide/vortex-result-artifact">Vortex Result Artifact</a></h3>
+                    <p>A Vortex result artifact is the highest-fidelity persistence target for ShardLoom-native outputs where a scoped path is admitted.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/vortex-result-artifact">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">I/O And Output</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/vortex-result-artifact">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="planned-contract">planned contract</span>
-                  <h3>OutputPlan Reuse</h3>
-                  <p>OutputPlan reuse separates sink/write planning from input format so a prepared source can fan out to multiple local outputs without coupling input and output types.</p>
-                  <div class="field-guide-meta">
-                    <span>I/O And Output</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="planned-contract">planned contract</span>
+                    <h3><a href="/field-guide/output-plan-reuse">OutputPlan Reuse</a></h3>
+                    <p>OutputPlan reuse separates sink/write planning from input format so a prepared source can fan out to multiple local outputs without coupling input and output types.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/output-plan-reuse">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">I/O And Output</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/output-plan-reuse">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="blocked-report-only">blocked report only</span>
-                  <h3>Object-Store Boundary</h3>
-                  <p>The object-store boundary keeps S3, GCS, and ADLS parsing/planning separate from runtime reads, writes, credentials, and commits.</p>
-                  <div class="field-guide-meta">
-                    <span>I/O And Output</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="blocked-report-only">blocked report only</span>
+                    <h3><a href="/field-guide/object-store-boundary">Object-Store Boundary</a></h3>
+                    <p>The object-store boundary keeps S3, GCS, and ADLS parsing/planning separate from runtime reads, writes, credentials, and commits.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/object-store-boundary">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">I/O And Output</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/object-store-boundary">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="blocked-report-only">blocked report only</span>
-                  <h3>Table/Lakehouse Boundary</h3>
-                  <p>The table/lakehouse boundary separates metadata smoke, table scans, appends, deletes, commits, rollbacks, and object-store-backed runtime claims.</p>
-                  <div class="field-guide-meta">
-                    <span>I/O And Output</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="blocked-report-only">blocked report only</span>
+                    <h3><a href="/field-guide/table-lakehouse-boundary">Table/Lakehouse Boundary</a></h3>
+                    <p>The table/lakehouse boundary separates metadata smoke, table scans, appends, deletes, commits, rollbacks, and object-store-backed runtime claims.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/table-lakehouse-boundary">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">I/O And Output</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/table-lakehouse-boundary">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -968,61 +1087,71 @@
             </div>
             <span>5 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="local-style-proof">local style proof</span>
-                  <h3>Foundry Dev-Stack Smoke</h3>
-                  <p>Foundry dev-stack smoke is a local/style-only proof path that keeps real Foundry runtime and compute invocation disabled.</p>
-                  <div class="field-guide-meta">
-                    <span>Platform Boundaries</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="local-style-proof">local style proof</span>
+                    <h3><a href="/field-guide/foundry-dev-stack-smoke">Foundry Dev-Stack Smoke</a></h3>
+                    <p>Foundry dev-stack smoke is a local/style-only proof path that keeps real Foundry runtime and compute invocation disabled.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/foundry-dev-stack-smoke">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Platform Boundaries</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/foundry-dev-stack-smoke">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="report-only">report only</span>
-                  <h3>REST Control Plane</h3>
-                  <p>The REST control plane is a future API surface for capability, planning, lifecycle, and evidence, not a current HTTP listener.</p>
-                  <div class="field-guide-meta">
-                    <span>Platform Boundaries</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="report-only">report only</span>
+                    <h3><a href="/field-guide/rest-control-plane">REST Control Plane</a></h3>
+                    <p>The REST control plane is a future API surface for capability, planning, lifecycle, and evidence, not a current HTTP listener.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/rest-control-plane">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Platform Boundaries</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/rest-control-plane">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="planned-report-only">planned report only</span>
-                  <h3>MCP Agent API</h3>
-                  <p>The MCP agent API is a future agent-facing control surface for safe discovery, validation, explanation, and evidence access.</p>
-                  <div class="field-guide-meta">
-                    <span>Platform Boundaries</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="planned-report-only">planned report only</span>
+                    <h3><a href="/field-guide/mcp-agent-api">MCP Agent API</a></h3>
+                    <p>The MCP agent API is a future agent-facing control surface for safe discovery, validation, explanation, and evidence access.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/mcp-agent-api">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Platform Boundaries</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/mcp-agent-api">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="blocked-until-proof">blocked until proof</span>
-                  <h3>Package Channel Boundary</h3>
-                  <p>Package channel boundaries distinguish local package proof from GitHub pre-release, TestPyPI, PyPI, Homebrew, Scoop, winget, conda-forge, GHCR, and crates.io claims.</p>
-                  <div class="field-guide-meta">
-                    <span>Platform Boundaries</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="blocked-until-proof">blocked until proof</span>
+                    <h3><a href="/field-guide/package-channel-boundary">Package Channel Boundary</a></h3>
+                    <p>Package channel boundaries distinguish local package proof from GitHub pre-release, TestPyPI, PyPI, Homebrew, Scoop, winget, conda-forge, GHCR, and crates.io claims.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/package-channel-boundary">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Platform Boundaries</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/package-channel-boundary">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="report-only">report only</span>
-                  <h3>Universal Adapter Catalog</h3>
-                  <p>The universal adapter catalog classifies source, sink, catalog, object-store, relational, warehouse, API, SaaS, and media adapters by maturity and blockers.</p>
-                  <div class="field-guide-meta">
-                    <span>Platform Boundaries</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="report-only">report only</span>
+                    <h3><a href="/field-guide/universal-adapter-catalog">Universal Adapter Catalog</a></h3>
+                    <p>The universal adapter catalog classifies source, sink, catalog, object-store, relational, warehouse, API, SaaS, and media adapters by maturity and blockers.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/universal-adapter-catalog">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Platform Boundaries</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/universal-adapter-catalog">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -1036,94 +1165,110 @@
             </div>
             <span>8 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-vocabulary">current vocabulary</span>
-                  <h3>Evidence Level</h3>
-                  <p>Evidence level reports proof depth independently from execution mode: minimal runtime, certified, or full replay.</p>
-                  <div class="field-guide-meta">
-                    <span>Performance Architecture</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-vocabulary">current vocabulary</span>
+                    <h3><a href="/field-guide/evidence-level">Evidence Level</a></h3>
+                    <p>Evidence level reports proof depth independently from execution mode: minimal runtime, certified, or full replay.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/evidence-level">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Performance Architecture</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/evidence-level">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="runtime-development">runtime development</span>
-                  <h3>Minimal Runtime Evidence Level</h3>
-                  <p>Minimal runtime omits heavy replay proof unless requested while preserving no-fallback and not-claim-grade posture.</p>
-                  <div class="field-guide-meta">
-                    <span>Performance Architecture</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="runtime-development">runtime development</span>
+                    <h3><a href="/field-guide/minimal-runtime">Minimal Runtime Evidence Level</a></h3>
+                    <p>Minimal runtime omits heavy replay proof unless requested while preserving no-fallback and not-claim-grade posture.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/minimal-runtime">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Performance Architecture</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/minimal-runtime">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
-                  <h3>Certified Evidence Level</h3>
-                  <p>Certified evidence level emits normal execution, Native I/O, materialization, policy, and claim-gate evidence for a scoped local run.</p>
-                  <div class="field-guide-meta">
-                    <span>Performance Architecture</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+                    <h3><a href="/field-guide/certified-evidence-level">Certified Evidence Level</a></h3>
+                    <p>Certified evidence level emits normal execution, Native I/O, materialization, policy, and claim-gate evidence for a scoped local run.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/certified-evidence-level">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Performance Architecture</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/certified-evidence-level">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
-                  <h3>Full Replay Evidence Level</h3>
-                  <p>Full replay adds result-sink replay proof to certified evidence for deeper output verification.</p>
-                  <div class="field-guide-meta">
-                    <span>Performance Architecture</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-evidence">current evidence</span>
+                    <h3><a href="/field-guide/full-replay-evidence-level">Full Replay Evidence Level</a></h3>
+                    <p>Full replay adds result-sink replay proof to certified evidence for deeper output verification.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/full-replay-evidence-level">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Performance Architecture</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/full-replay-evidence-level">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
-                  <h3>Fused Operator Pipeline</h3>
-                  <p>Fused operator pipeline evidence records when scoped prepared/native paths avoid intermediate full-table materialization across adjacent operators.</p>
-                  <div class="field-guide-meta">
-                    <span>Performance Architecture</span>
-                    <span>3 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
+                    <h3><a href="/field-guide/fused-operator-pipeline">Fused Operator Pipeline</a></h3>
+                    <p>Fused operator pipeline evidence records when scoped prepared/native paths avoid intermediate full-table materialization across adjacent operators.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/fused-operator-pipeline">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Performance Architecture</span>
+                    <span class="reference-badge">3 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/fused-operator-pipeline">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
-                  <h3>Compressed/Encoded Kernel Registry</h3>
-                  <p>The encoded kernel registry records encoding/operator admission, execution, decode, materialization, and claim blockers.</p>
-                  <div class="field-guide-meta">
-                    <span>Performance Architecture</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-evidence">scoped evidence</span>
+                    <h3><a href="/field-guide/compressed-encoded-kernel-registry">Compressed/Encoded Kernel Registry</a></h3>
+                    <p>The encoded kernel registry records encoding/operator admission, execution, decode, materialization, and claim blockers.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/compressed-encoded-kernel-registry">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Performance Architecture</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/compressed-encoded-kernel-registry">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="scoped-batch-runtime">scoped batch runtime</span>
-                  <h3>ShardLoom Session</h3>
-                  <p>ShardLoomSession is a scoped in-process session concept for reusing prepared artifacts, metadata, source state, and evidence recorder state across local batch rows.</p>
-                  <div class="field-guide-meta">
-                    <span>Performance Architecture</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="scoped-batch-runtime">scoped batch runtime</span>
+                    <h3><a href="/field-guide/shardloom-session">ShardLoom Session</a></h3>
+                    <p>ShardLoomSession is a scoped in-process session concept for reusing prepared artifacts, metadata, source state, and evidence recorder state across local batch rows.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/shardloom-session">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Performance Architecture</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/shardloom-session">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="report-only-scale-contract">report only scale contract</span>
-                  <h3>Scale Profile</h3>
-                  <p>Scale profiles define bounded-memory, split, spill, shuffle, object-store, table, distributed, and Foundry scale evidence classes without claiming any-volume support.</p>
-                  <div class="field-guide-meta">
-                    <span>Performance Architecture</span>
-                    <span>5 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="report-only-scale-contract">report only scale contract</span>
+                    <h3><a href="/field-guide/scale-profile">Scale Profile</a></h3>
+                    <p>Scale profiles define bounded-memory, split, spill, shuffle, object-store, table, distributed, and Foundry scale evidence classes without claiming any-volume support.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/scale-profile">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Performance Architecture</span>
+                    <span class="reference-badge">5 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/scale-profile">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
@@ -1137,61 +1282,71 @@
             </div>
             <span>5 dossiers</span>
           </div>
-          <div class="field-guide-grid">
+          <div class="compact-term-list">
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="blocked-until-proof">blocked until proof</span>
-                  <h3>Package Publication Boundary</h3>
-                  <p>Package publication boundaries keep local install proof separate from public package release, tags, channels, and registry claims.</p>
-                  <div class="field-guide-meta">
-                    <span>Release And Trust</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="blocked-until-proof">blocked until proof</span>
+                    <h3><a href="/field-guide/package-publication-boundary">Package Publication Boundary</a></h3>
+                    <p>Package publication boundaries keep local install proof separate from public package release, tags, channels, and registry claims.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/package-publication-boundary">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Release And Trust</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/package-publication-boundary">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-gate">current gate</span>
-                  <h3>Release Readiness Gate</h3>
-                  <p>The release readiness gate checks security, provenance, architecture traceability, package proof, unsupported paths, and claim boundaries before release claims are allowed.</p>
-                  <div class="field-guide-meta">
-                    <span>Release And Trust</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-gate">current gate</span>
+                    <h3><a href="/field-guide/release-readiness-gate">Release Readiness Gate</a></h3>
+                    <p>The release readiness gate checks security, provenance, architecture traceability, package proof, unsupported paths, and claim boundaries before release claims are allowed.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/release-readiness-gate">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Release And Trust</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/release-readiness-gate">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-reporting">current reporting</span>
-                  <h3>Security/Governance Report</h3>
-                  <p>Security and governance reports track credentials, redaction, external effects, destructive operations, path safety, and no-fallback posture.</p>
-                  <div class="field-guide-meta">
-                    <span>Release And Trust</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-reporting">current reporting</span>
+                    <h3><a href="/field-guide/security-governance-report">Security/Governance Report</a></h3>
+                    <p>Security and governance reports track credentials, redaction, external effects, destructive operations, path safety, and no-fallback posture.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/security-governance-report">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Release And Trust</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/security-governance-report">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="current-gate">current gate</span>
-                  <h3>License And Provenance</h3>
-                  <p>License and provenance checks keep dependency licensing, SBOMs, checksums, attestations, and copied-code risks visible before publication.</p>
-                  <div class="field-guide-meta">
-                    <span>Release And Trust</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="current-gate">current gate</span>
+                    <h3><a href="/field-guide/license-provenance">License And Provenance</a></h3>
+                    <p>License and provenance checks keep dependency licensing, SBOMs, checksums, attestations, and copied-code risks visible before publication.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/license-provenance">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Release And Trust</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/license-provenance">Open dossier</a>
+                  </div>
                 </article>
 
-                <article class="field-guide-card">
-                  <span class="claim-badge report-only" data-status="core-contract">core contract</span>
-                  <h3>Public Claim Boundary</h3>
-                  <p>Public claim boundaries map each user-visible claim to required correctness, benchmark, certificate, Native I/O, security, release, and no-fallback evidence.</p>
-                  <div class="field-guide-meta">
-                    <span>Release And Trust</span>
-                    <span>4 evidence fields</span>
+                <article class="field-guide-card compact-term-row">
+                  <div class="compact-term-main">
+                    <span class="claim-badge report-only" data-status="core-contract">core contract</span>
+                    <h3><a href="/field-guide/public-claim-boundary">Public Claim Boundary</a></h3>
+                    <p>Public claim boundaries map each user-visible claim to required correctness, benchmark, certificate, Native I/O, security, release, and no-fallback evidence.</p>
                   </div>
-                  <div class="action-row"><a class="button" href="/field-guide/public-claim-boundary">Open dossier</a></div>
+                  <div class="field-guide-meta">
+                    <span class="reference-badge">Release And Trust</span>
+                    <span class="reference-badge">4 evidence fields</span>
+                    <a class="button compact-action" href="/field-guide/public-claim-boundary">Open dossier</a>
+                  </div>
                 </article>
 
           </div>
