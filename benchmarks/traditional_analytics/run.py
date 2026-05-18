@@ -738,6 +738,41 @@ BUILD_PROFILE_FIELDS = (
     "build_profile_claim_gate_status",
     "build_profile_claim_boundary",
 )
+BAYESIAN_ADVISOR_SCHEMA_VERSION = "shardloom.traditional_analytics.bayesian_advisor.v1"
+BAYESIAN_ADVISOR_VERSION = "gar-perf-1d.report_only.v1"
+BAYESIAN_ADVISOR_STATUS_VOCABULARY = (
+    "report_only",
+    "external_baseline_only",
+    "insufficient_evidence",
+)
+BAYESIAN_ADVISOR_FIELDS = (
+    "bayesian_advisor_schema_version",
+    "bayesian_advisor_version",
+    "bayesian_advisor_status",
+    "bayesian_advisor_confidence",
+    "bayesian_advisor_uncertainty_reason",
+    "bayesian_advisor_input_evidence_refs",
+    "bayesian_advisor_claim_gate_status",
+    "bayesian_advisor_execution_mode_recommendation_status",
+    "bayesian_advisor_requested_execution_mode",
+    "bayesian_advisor_selected_execution_mode",
+    "bayesian_advisor_mode_recommendation",
+    "bayesian_advisor_source_state_reuse_threshold_status",
+    "bayesian_advisor_source_state_reuse_threshold",
+    "bayesian_advisor_batch_rows_status",
+    "bayesian_advisor_batch_rows_recommendation",
+    "bayesian_advisor_target_partition_bytes_status",
+    "bayesian_advisor_target_partition_bytes",
+    "bayesian_advisor_max_parallelism_status",
+    "bayesian_advisor_max_parallelism",
+    "bayesian_advisor_layout_write_choice_status",
+    "bayesian_advisor_layout_write_choice",
+    "bayesian_advisor_runtime_decision_applied",
+    "bayesian_advisor_auto_mode_transparent",
+    "bayesian_advisor_fallback_attempted",
+    "bayesian_advisor_external_engine_invoked",
+    "bayesian_advisor_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -5717,6 +5752,156 @@ def build_profile_contract_metadata(
     return evidence
 
 
+def bayesian_advisor_contract_metadata(
+    engine: str,
+    metrics: dict[str, Any],
+    *,
+    evidence: dict[str, Any] | None = None,
+    execution_mode: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    execution_mode = execution_mode or {}
+    is_shardloom = is_shardloom_engine(engine)
+    selected_mode = str(
+        execution_mode.get("selected_execution_mode")
+        or evidence.get("selected_execution_mode")
+        or metrics.get("selected_execution_mode")
+        or ("external_baseline_only" if not is_shardloom else "unknown")
+    )
+    requested_mode = str(
+        execution_mode.get("requested_execution_mode")
+        or evidence.get("requested_execution_mode")
+        or metrics.get("requested_execution_mode")
+        or ("external_baseline_only" if not is_shardloom else "auto")
+    )
+    source_state_hit = parse_optional_bool(metrics.get("source_state_reuse_hit"))
+    prepared_state_hit = parse_optional_bool(metrics.get("prepared_state_reuse_hit"))
+    output_plan_hit = parse_optional_bool(metrics.get("output_plan_reuse_hit"))
+    target_partition_bytes = first_meaningful_field(
+        evidence.get("target_partition_bytes"),
+        metrics.get("target_partition_bytes"),
+        "not_available",
+    )
+    max_parallelism = first_meaningful_field(
+        evidence.get("applied_max_parallelism"),
+        evidence.get("runtime_max_parallelism"),
+        metrics.get("applied_max_parallelism"),
+        metrics.get("runtime_max_parallelism"),
+        "not_available",
+    )
+    if not is_shardloom:
+        return {
+            "bayesian_advisor_schema_version": BAYESIAN_ADVISOR_SCHEMA_VERSION,
+            "bayesian_advisor_version": BAYESIAN_ADVISOR_VERSION,
+            "bayesian_advisor_status": "external_baseline_only",
+            "bayesian_advisor_confidence": "not_applicable",
+            "bayesian_advisor_uncertainty_reason": (
+                "external baseline rows are not ShardLoom advisor evidence"
+            ),
+            "bayesian_advisor_input_evidence_refs": "none",
+            "bayesian_advisor_claim_gate_status": "external_baseline_only",
+            "bayesian_advisor_execution_mode_recommendation_status": (
+                "external_baseline_only"
+            ),
+            "bayesian_advisor_requested_execution_mode": requested_mode,
+            "bayesian_advisor_selected_execution_mode": selected_mode,
+            "bayesian_advisor_mode_recommendation": "none",
+            "bayesian_advisor_source_state_reuse_threshold_status": (
+                "external_baseline_only"
+            ),
+            "bayesian_advisor_source_state_reuse_threshold": "none",
+            "bayesian_advisor_batch_rows_status": "external_baseline_only",
+            "bayesian_advisor_batch_rows_recommendation": "none",
+            "bayesian_advisor_target_partition_bytes_status": "external_baseline_only",
+            "bayesian_advisor_target_partition_bytes": "none",
+            "bayesian_advisor_max_parallelism_status": "external_baseline_only",
+            "bayesian_advisor_max_parallelism": "none",
+            "bayesian_advisor_layout_write_choice_status": "external_baseline_only",
+            "bayesian_advisor_layout_write_choice": "none",
+            "bayesian_advisor_runtime_decision_applied": False,
+            "bayesian_advisor_auto_mode_transparent": True,
+            "bayesian_advisor_fallback_attempted": False,
+            "bayesian_advisor_external_engine_invoked": False,
+            "bayesian_advisor_claim_boundary": (
+                "External baseline rows are context only and are not ShardLoom "
+                "advisor evidence."
+            ),
+        }
+    evidence_refs = [
+        "execution_mode_attribution_contract",
+        "source_state_contract",
+        "prepared_state_contract",
+        "output_plan_contract",
+        "cache_invalidation_contract",
+        "reuse_level_contract",
+        "build_profile_contract",
+        "runtime_resource_policy_fields",
+        "layout_advisor_report",
+    ]
+    if metrics.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
+        evidence_refs.append("session_runtime_batch_runner_fields")
+    confidence = (
+        "low_report_only"
+        if metrics.get("wall_time_millis") is not None
+        else "insufficient_evidence"
+    )
+    reuse_threshold_status = (
+        "observed_reuse_hit"
+        if source_state_hit or prepared_state_hit or output_plan_hit
+        else "insufficient_population"
+    )
+    batch_rows = first_meaningful_field(
+        evidence.get("target_batch_rows"),
+        metrics.get("target_batch_rows"),
+        "not_available",
+    )
+    return {
+        "bayesian_advisor_schema_version": BAYESIAN_ADVISOR_SCHEMA_VERSION,
+        "bayesian_advisor_version": BAYESIAN_ADVISOR_VERSION,
+        "bayesian_advisor_status": "report_only",
+        "bayesian_advisor_confidence": confidence,
+        "bayesian_advisor_uncertainty_reason": (
+            "posterior model not fit; benchmark population is local smoke evidence "
+            "and cannot support automatic runtime, layout, or performance decisions"
+        ),
+        "bayesian_advisor_input_evidence_refs": ",".join(evidence_refs),
+        "bayesian_advisor_claim_gate_status": "advisory_only",
+        "bayesian_advisor_execution_mode_recommendation_status": "advisory_only",
+        "bayesian_advisor_requested_execution_mode": requested_mode,
+        "bayesian_advisor_selected_execution_mode": selected_mode,
+        "bayesian_advisor_mode_recommendation": (
+            f"preserve selected_execution_mode={selected_mode}; no automatic mode change"
+        ),
+        "bayesian_advisor_source_state_reuse_threshold_status": reuse_threshold_status,
+        "bayesian_advisor_source_state_reuse_threshold": (
+            "not_computed_until_multi_run_posterior_evidence_exists"
+        ),
+        "bayesian_advisor_batch_rows_status": "observed_not_recommended",
+        "bayesian_advisor_batch_rows_recommendation": batch_rows,
+        "bayesian_advisor_target_partition_bytes_status": "observed_not_recommended",
+        "bayesian_advisor_target_partition_bytes": target_partition_bytes,
+        "bayesian_advisor_max_parallelism_status": "observed_not_recommended",
+        "bayesian_advisor_max_parallelism": max_parallelism,
+        "bayesian_advisor_layout_write_choice_status": "report_only_no_write_choice",
+        "bayesian_advisor_layout_write_choice": first_meaningful_field(
+            evidence.get("layout_advisor_encoding_strategy"),
+            evidence.get("layout_advisor_read_write_tradeoff"),
+            "no_layout_write_choice_applied",
+        ),
+        "bayesian_advisor_runtime_decision_applied": False,
+        "bayesian_advisor_auto_mode_transparent": requested_mode != "auto"
+        or selected_mode != "auto",
+        "bayesian_advisor_fallback_attempted": False,
+        "bayesian_advisor_external_engine_invoked": False,
+        "bayesian_advisor_claim_boundary": (
+            "Bayesian advisor evidence is report-only. It can explain uncertainty and "
+            "name candidate mode/resource/layout evidence, but it cannot silently change "
+            "execution mode, source-state reuse, batch sizing, target partition bytes, max "
+            "parallelism, layout/write choices, claim status, or public performance posture."
+        ),
+    }
+
+
 def optimizer_trace_contract_metadata(engine: str) -> dict[str, Any]:
     is_shardloom = is_shardloom_engine(engine)
     return {
@@ -6329,6 +6514,31 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         elif metrics.get("target_cpu_native_enabled") is not False:
             raise RuntimeError(
                 "portable ShardLoom build profiles cannot enable target-cpu=native"
+            )
+        missing_bayesian_advisor_fields = [
+            field for field in BAYESIAN_ADVISOR_FIELDS if field not in metrics
+        ]
+        if missing_bayesian_advisor_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted Bayesian advisor evidence fields: "
+                + ", ".join(missing_bayesian_advisor_fields)
+            )
+        if (
+            metrics.get("bayesian_advisor_schema_version")
+            != BAYESIAN_ADVISOR_SCHEMA_VERSION
+        ):
+            raise RuntimeError("Bayesian advisor rows must preserve schema version")
+        if metrics.get("bayesian_advisor_status") != "report_only":
+            raise RuntimeError("Bayesian advisor must remain report_only for ShardLoom rows")
+        if metrics.get("bayesian_advisor_claim_gate_status") != "advisory_only":
+            raise RuntimeError("Bayesian advisor cannot upgrade claim status")
+        if metrics.get("bayesian_advisor_runtime_decision_applied") is not False:
+            raise RuntimeError("Bayesian advisor cannot apply runtime decisions")
+        if metrics.get("bayesian_advisor_fallback_attempted") is not False:
+            raise RuntimeError("Bayesian advisor cannot report fallback attempts")
+        if metrics.get("bayesian_advisor_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "Bayesian advisor cannot report external engine execution"
             )
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
@@ -7092,6 +7302,56 @@ def build_profile_contract() -> dict[str, Any]:
             "package/release claims, or imply Spark replacement, SQL/DataFrame, object-store/"
             "lakehouse, Foundry, or production support."
         ),
+    }
+
+
+def bayesian_advisor_contract() -> dict[str, Any]:
+    return {
+        "contract_id": BAYESIAN_ADVISOR_SCHEMA_VERSION,
+        "advisor_version": BAYESIAN_ADVISOR_VERSION,
+        "canonical_reference": (
+            "docs/architecture/bayesian-performance-layout-advisor.md"
+        ),
+        "companion_reference": (
+            "docs/architecture/performance-attribution-and-execution-structure.md"
+        ),
+        "status_vocabulary": list(BAYESIAN_ADVISOR_STATUS_VOCABULARY),
+        "row_fields": list(BAYESIAN_ADVISOR_FIELDS),
+        "advisor_surfaces": [
+            "execution mode recommendation",
+            "source-state reuse threshold",
+            "batch rows",
+            "target partition bytes",
+            "max parallelism",
+            "layout/write choice",
+        ],
+        "current_scope": (
+            "report-only Bayesian advisor contract over existing benchmark, "
+            "source-state, runtime resource, build-profile, and layout-advisor evidence"
+        ),
+        "no_fallback_rule": (
+            "Advisor rows must preserve bayesian_advisor_fallback_attempted=false and "
+            "bayesian_advisor_external_engine_invoked=false."
+        ),
+        "decision_rule": (
+            "The advisor never silently changes execution mode, reuse policy, batch sizing, "
+            "target partition bytes, max parallelism, or layout/write choices."
+        ),
+        "claim_boundary": (
+            "Bayesian advisor output is advisory_only and cannot upgrade claim_gate_status, "
+            "prove performance, authorize public package/release claims, or imply Spark "
+            "replacement, SQL/DataFrame, object-store/lakehouse, Foundry, or production support."
+        ),
+        "non_goals": [
+            "runtime decisioning",
+            "automatic layout rewrite",
+            "object-store write or compaction",
+            "performance or superiority claims",
+            "Spark-displacement claims",
+            "SQL/DataFrame runtime",
+            "Foundry production support",
+            "package publication",
+        ],
     }
 
 
@@ -7923,6 +8183,13 @@ def failed_result(
     )
     metrics.update(optimizer_trace_contract_metadata(engine))
     metrics.update(build_profile_contract_metadata(engine))
+    metrics.update(
+        bayesian_advisor_contract_metadata(
+            engine,
+            metrics,
+            execution_mode=execution_mode,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -8444,6 +8711,14 @@ def successful_result_from_iterations(
     )
     metrics.update(optimizer_trace_contract_metadata(runner.name))
     metrics.update(build_profile_contract_metadata(runner.name, digest if stable else None))
+    metrics.update(
+        bayesian_advisor_contract_metadata(
+            runner.name,
+            metrics,
+            evidence=evidence,
+            execution_mode=execution_mode,
+        )
+    )
     if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
         metrics.update(
             {
@@ -9483,6 +9758,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "scan_pushdown_fields": list(SCAN_PUSHDOWN_FIELDS),
         "optimizer_trace_fields": list(OPTIMIZER_TRACE_FIELDS),
         "build_profile_fields": list(BUILD_PROFILE_FIELDS),
+        "bayesian_advisor_fields": list(BAYESIAN_ADVISOR_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
             "compatibility_import_certified": (
@@ -9827,6 +10103,7 @@ def render_execution_mode_attribution_contract(artifact: dict[str, Any]) -> str:
         ],
         ["Scan pushdown fields", ", ".join(contract["scan_pushdown_fields"])],
         ["Build-profile fields", ", ".join(contract["build_profile_fields"])],
+        ["Bayesian advisor fields", ", ".join(contract["bayesian_advisor_fields"])],
         ["Unknown stage values", str(contract["unknown_stage_value_policy"])],
         ["Claim boundary", str(contract["claim_boundary"])],
         ["Operator claim boundary", str(contract["operator_claim_boundary"])],
@@ -10038,6 +10315,29 @@ def render_build_profile_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_bayesian_advisor_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["bayesian_advisor_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Advisor version", str(contract["advisor_version"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["Decision rule", str(contract["decision_rule"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    surface_rows = [["Advisor surface", value] for value in contract["advisor_surfaces"]]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], surface_rows + non_goal_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -10066,6 +10366,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom rows carry cache invalidation contract fields for local source/prepared/plan/output fingerprint posture; cache_valid means current-row fingerprints are internally consistent, not that a persistent cache hit or performance improvement occurred.",
         "ShardLoom rows carry evidence-safe reuse-level fields and a reuse_level_matrix so discovery, schema, parse-plan, prepared-state, operator-source-state, output-plan, and replay reuse statuses remain visible without upgrading claim gates.",
         "ShardLoom rows carry build-profile evidence for release, release-lto, release-pgo, and release-native-benchmark posture. release-native-benchmark is host-native and benchmark-only; PGO rows are report-only unless a merged profile artifact and training workload are recorded.",
+        "ShardLoom rows carry a report-only Bayesian advisor contract for execution-mode, source-state reuse, batch sizing, partition sizing, parallelism, and layout/write-choice uncertainty. It never applies runtime decisions and remains advisory_only.",
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -11454,6 +11755,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_build_profile_contract(artifact),
         "",
+        "## Bayesian Performance And Layout Advisor Contract",
+        "",
+        "This contract records advisory-only confidence and uncertainty fields for future mode, reuse, sizing, parallelism, and layout decisions. It never applies decisions or upgrades claim status.",
+        "",
+        render_bayesian_advisor_contract(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -11819,6 +12126,7 @@ def main() -> int:
         "cache_invalidation_contract": cache_invalidation_contract(),
         "reuse_level_contract": reuse_level_contract(),
         "build_profile_contract": build_profile_contract(),
+        "bayesian_advisor_contract": bayesian_advisor_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,

@@ -16,6 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-1D Bayesian performance and layout advisor report-only contract
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/bayesian-performance-layout-advisor.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/evidence-native-generated-execution-observability-confidence.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: add the `shardloom.traditional_analytics.bayesian_advisor.v1` report-only benchmark
+    contract for future execution-mode, source-state reuse, batch-row, target-partition,
+    max-parallelism, and layout/write-choice confidence modeling without fitting a posterior model,
+    applying runtime decisions, changing layout, publishing packages, or making performance claims.
+  - Checklist:
+    - [x] Emit `bayesian_advisor_*` fields on ShardLoom benchmark rows.
+    - [x] Add `bayesian_advisor_contract` to benchmark artifacts and Markdown reports.
+    - [x] Record advisor version, confidence, uncertainty reason, input evidence refs, selected
+          execution mode, candidate sizing/layout surfaces, advisory-only claim gate, and no-fallback
+          evidence.
+    - [x] Keep `bayesian_advisor_runtime_decision_applied=false`,
+          `bayesian_advisor_fallback_attempted=false`, and
+          `bayesian_advisor_external_engine_invoked=false`.
+    - [x] Add the architecture reference doc and move GAR-PERF-1D out of the active Planned queue.
+  - Evidence/verification:
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - The advisor is advisory-only confidence/uncertainty evidence. It cannot upgrade
+      `claim_gate_status`, prove performance, authorize release/package claims, or imply
+      Spark-replacement, SQL/DataFrame, object-store/lakehouse, Foundry, or production support.
+  - Fallback boundary:
+    - The advisor invokes no external engines, services, probes, credentials, object-store I/O, or
+      fallback execution.
+
 - [x] Session label: GAR-PERF-2H optimized build profiles and PGO benchmark lane
   - Primary files:
     - `Cargo.toml`

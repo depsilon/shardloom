@@ -193,6 +193,58 @@ fn optimized_build_profiles_preserve_portable_release_boundary() {
 }
 
 #[test]
+fn bayesian_performance_layout_advisor_remains_report_only() {
+    let benchmark = read_repo_file("benchmarks/traditional_analytics/run.py");
+    for required in [
+        "BAYESIAN_ADVISOR_SCHEMA_VERSION",
+        "shardloom.traditional_analytics.bayesian_advisor.v1",
+        "gar-perf-1d.report_only.v1",
+        "BAYESIAN_ADVISOR_FIELDS",
+        "bayesian_advisor_confidence",
+        "bayesian_advisor_uncertainty_reason",
+        "bayesian_advisor_input_evidence_refs",
+        "bayesian_advisor_claim_gate_status",
+        "bayesian_advisor_runtime_decision_applied",
+        "bayesian_advisor_fallback_attempted",
+        "bayesian_advisor_external_engine_invoked",
+        "def bayesian_advisor_contract_metadata(",
+        "def bayesian_advisor_contract(",
+        "def render_bayesian_advisor_contract(",
+        "advisory_only",
+    ] {
+        assert!(
+            benchmark.contains(required),
+            "missing Bayesian advisor benchmark contract text {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/architecture/bayesian-performance-layout-advisor.md");
+    for required in [
+        "Status: implemented report-only contract for GAR-PERF-1D",
+        "Decision: `wrap_vortex_concept`",
+        "bayesian_advisor_runtime_decision_applied=false",
+        "bayesian_advisor_claim_gate_status=advisory_only",
+        "bayesian_advisor_fallback_attempted=false",
+        "bayesian_advisor_external_engine_invoked=false",
+        "is not a fitted posterior model",
+        "Future Bayesian output can block a claim",
+        "claim valid by",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing Bayesian advisor doc field {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(plan.contains("docs/architecture/bayesian-performance-layout-advisor.md"));
+    assert!(!plan.contains("- [ ] GAR-PERF-1D Bayesian performance"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("- [x] `GAR-PERF-1`"));
+}
+
+#[test]
 fn dependency_audit_scaffolding_documents_policy_and_tools() {
     let deny = read_repo_file("deny.toml");
     for allowed in [

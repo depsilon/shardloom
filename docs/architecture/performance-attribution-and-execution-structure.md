@@ -560,6 +560,34 @@ Build-profile evidence is not performance proof. It cannot create performance, s
 Spark-displacement, production, package/public-release, SQL/DataFrame, object-store/lakehouse, or
 Foundry claims.
 
+## Bayesian Performance And Layout Advisor
+
+`GAR-PERF-1D` adds a report-only Bayesian advisor contract to the traditional analytics benchmark
+artifact. It records confidence and uncertainty around future advisory surfaces without applying
+runtime decisions:
+
+```text
+execution mode recommendation
+source-state reuse threshold
+batch rows
+target partition bytes
+max parallelism
+layout/write choice
+```
+
+Rows expose `bayesian_advisor_schema_version`, `bayesian_advisor_version`,
+`bayesian_advisor_confidence`, `bayesian_advisor_uncertainty_reason`, input evidence refs,
+decision-surface statuses, `bayesian_advisor_runtime_decision_applied=false`,
+`bayesian_advisor_fallback_attempted=false`,
+`bayesian_advisor_external_engine_invoked=false`, and
+`bayesian_advisor_claim_gate_status=advisory_only`.
+
+The current advisor contract is not a fitted posterior model. It is a stable report surface for
+local benchmark evidence and future Bayesian confidence models. It cannot silently change mode,
+reuse, batch sizing, partition sizing, parallelism, or layout/write choices, and it cannot create
+performance, superiority, Spark-displacement, production, package, SQL/DataFrame, object-store/
+lakehouse, or Foundry claims.
+
 ## Native Microbenchmark Rows
 
 `GAR-PERF-2I` adds first-class native microbenchmark suite rows. These rows measure one primitive or
