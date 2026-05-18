@@ -504,13 +504,14 @@ deterministic buffer-reuse blocker until safe reuse exists.
 These rows are resource-profile evidence only. They are not speed, memory-efficiency, production,
 SQL/DataFrame, object-store/lakehouse, Foundry, or Spark-replacement claims.
 
-## Optimized Build Profiles And PGO Queue
+## Optimized Build Profiles And PGO Lane
 
-`GAR-PERF-2H` tracks the planned optimized build-profile and PGO benchmark lane. The harness already
-records `shardloom_build_profile`, but future artifacts need a fuller build-profile contract before
-optimized binaries can be interpreted.
+`GAR-PERF-2H` adds explicit optimized build-profile evidence for benchmark rows. The harness accepts
+`debug`, `release`, `release-lto`, `release-pgo`, and `release-native-benchmark` through
+`--shardloom-build-profile`, records compiler/toolchain posture in JSON/Markdown artifacts, and
+keeps build time excluded from per-scenario timing.
 
-Future benchmark rows should expose:
+Benchmark rows expose:
 
 ```text
 build_profile
@@ -532,16 +533,17 @@ pgo_training_workload_digest
 build_reproducibility_status
 portable_release_artifact
 benchmark_only_build
-correctness_digest
+build_profile_correctness_digest
 fallback_attempted=false
 external_engine_invoked=false
 claim_gate_status
 ```
 
-Planned build lanes are `release-lto`, `release-pgo`, and `release-native-benchmark`.
-`target-cpu=native` belongs only to the benchmark-only native lane, not portable release artifacts.
-PGO rows must record the training workload and profile artifact refs. These rows are build/config
-evidence only and are not public performance rankings.
+`release-lto` is the portable ThinLTO lane. `release-pgo` is a benchmark-only PGO lane and remains
+report-only unless a merged profile is supplied through `SHARDLOOM_PGO_PROFILE`.
+`release-native-benchmark` is host-native and benchmark-only; `target-cpu=native` is never portable
+release/package evidence. These rows are build/config evidence only and are not public performance
+rankings.
 
 ## Native Microbenchmark Suite
 

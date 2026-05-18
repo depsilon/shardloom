@@ -171,12 +171,12 @@ Supporting docs:
     claims, and claim-grade use remain unclaimed until represented by later evidence-bearing
     slices.
 - `docs/architecture/optimized-build-profiles-pgo-benchmark-lane.md`
-  - Role: report-only GAR-PERF-2H reference for optimized Cargo build profiles and a reproducible
-    PGO/native benchmark lane.
-  - Status rule: defines build-profile vocabulary, PGO workflow requirements, target-CPU-native
-    boundaries, benchmark row fields, and release portability rules only. Cargo profile
-    implementation, benchmark script changes, PGO smoke artifacts, and release-gate enforcement must
-    remain represented by `GAR-PERF-2H` or later evidence-bearing slices.
+  - Role: GAR-PERF-2H reference for optimized Cargo build profiles and a reproducible PGO/native
+    benchmark lane.
+  - Status rule: build-profile vocabulary, Cargo profiles, benchmark row fields, PGO helper flow,
+    target-CPU-native boundaries, and release portability rules are complete and recorded in the
+    ledger. Actual PGO profile artifacts, benchmark reruns under optimized profiles, and any
+    claim-grade use must remain represented by later evidence-bearing slices.
 - `docs/architecture/capability-certification-sequencing.md`
   - Role: CG-20 sequencing ledger and implementation-order reference.
   - Status rule: phase-plan checklist owns planned CG-20 work items. Remaining approximate/sketch
@@ -403,110 +403,6 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
     - Advisor cannot invoke external engines, probes, credentials, or object-store I/O.
   - Dependencies/blockers:
     - stable benchmark evidence schema, resource sizing fields, and claim-gate policy.
-
-#### GAR-PERF-2 - Evidence-Level Runtime Tiering
-
-- [ ] GAR-PERF-2H optimized build profiles and PGO benchmark lane
-  - Source:
-    - Cargo release/profile docs:
-      `https://doc.rust-lang.org/cargo/reference/profiles.html`.
-    - rustc PGO docs:
-      `https://doc.rust-lang.org/rustc/profile-guided-optimization.html`.
-    - rustc codegen options:
-      `https://doc.rust-lang.org/rustc/codegen-options/index.html`.
-    - `Cargo.toml`.
-    - `benchmarks/traditional_analytics/run.py`.
-    - `docs/architecture/optimized-build-profiles-pgo-benchmark-lane.md`.
-    - `docs/release/hard-release-readiness-gate.md`.
-  - Current state:
-    - The workspace uses the normal Cargo release profile for optimized local builds.
-    - No formal `release-lto`, `release-pgo`, or `release-native-benchmark` profile is established.
-    - The benchmark harness already records `shardloom_build_profile`, but it does not yet record a
-      complete build-profile evidence contract for LTO, PGO, target CPU, reproducibility, or release
-      portability.
-  - Next slice outcome:
-    - Add performance build-profile planning and, when safe, implement explicit build lanes:
-      - `release-lto`.
-      - `release-pgo`.
-      - `release-native-benchmark`.
-    - Document and script a reproducible PGO flow from instrumented build, training workload,
-      `llvm-profdata` merge, and profile-use rebuild.
-    - Keep portable release artifacts separate from host-native benchmark artifacts.
-  - User-visible surface:
-    - benchmark docs.
-    - release docs.
-    - benchmark fairness parameters and JSON/Markdown artifacts.
-    - future release-readiness profile checks.
-  - Implementation scope:
-    - `Cargo.toml` custom profiles where manifest settings are appropriate.
-    - benchmark scripts and harness row schema.
-    - release/readiness docs and optional release gate checks.
-    - PGO helper script or documented command sequence.
-  - Evidence required:
-    - `build_profile`.
-    - `build_profile_kind`.
-    - `rustc_version`.
-    - `cargo_version`.
-    - `target_triple`.
-    - `target_cpu_policy`.
-    - `target_cpu_native_enabled`.
-    - `lto_enabled`.
-    - `lto_mode`.
-    - `codegen_units`.
-    - `pgo_status`.
-    - `pgo_profile_generate_status`.
-    - `pgo_profile_use_status`.
-    - `pgo_profile_artifact_ref`.
-    - `pgo_training_workload_ref`.
-    - `pgo_training_workload_digest`.
-    - `build_reproducibility_status`.
-    - `portable_release_artifact`.
-    - `benchmark_only_build`.
-    - `correctness_digest`.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-    - `claim_gate_status`.
-  - Acceptance:
-    - Portable release artifacts remain portable and do not use `target-cpu=native`.
-    - `target-cpu=native` is benchmark-only and clearly labeled as host-local.
-    - PGO lane is documented and reproducible from checked-in commands or scripts.
-    - Benchmark harness records build profile and LTO/PGO/native status.
-    - `cargo build --profile release-lto` succeeds after profile implementation.
-    - Claims remain blocked until a claim-grade benchmark gate passes.
-  - Verification:
-    - build `release-lto`.
-    - optional PGO smoke with `profile-generate`, benchmark training run, `llvm-profdata merge`, and
-      `profile-use` rebuild.
-    - benchmark harness row-contract test for build-profile fields.
-    - release-readiness test that portable artifacts do not use `target-cpu=native`.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `python -m compileall -q benchmarks/traditional_analytics scripts`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - no replacement of the default release build.
-    - no hidden `RUSTFLAGS` in release workflows.
-    - no `target-cpu=native` for portable release artifacts.
-    - no package publication or release tag.
-    - no performance/superiority claim.
-  - Claim boundary:
-    - Build-profile evidence may say which local binary/profile produced a benchmark row and which
-      compiler settings were recorded.
-    - It does not authorize performance, superiority, Spark-displacement, production,
-      SQL/DataFrame, object-store/lakehouse, Foundry, package, or public release claims.
-  - Fallback boundary:
-    - Build profiles and PGO lanes cannot add or invoke Spark, DataFusion, DuckDB, Polars, Velox,
-      pandas, or any other external engine as runtime fallback.
-  - Ledger rule:
-    - When complete, move the detailed completed session to
-      `docs/architecture/phased-execution-completed-ledger.md` with profile build logs, optional PGO
-      smoke artifacts, benchmark row-contract refs, release-readiness refs, and claim-boundary
-      evidence.
-  - Dependencies/blockers:
-    - Cargo profile design, rustc/rustup toolchain policy, `llvm-tools-preview`/`llvm-profdata`
-      availability for PGO, benchmark training workload selection, build-profile row schema, and
-      release portability gate.
 
 #### GAR-BENCH-PUB-1 - Complete Competitor Benchmark Publishing And Static Artifact Ingestion
 

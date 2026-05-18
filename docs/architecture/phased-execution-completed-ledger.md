@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2H optimized build profiles and PGO benchmark lane
+  - Primary files:
+    - `Cargo.toml`
+    - `benchmarks/traditional_analytics/run.py`
+    - `scripts/build_shardloom_pgo.py`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `docs/architecture/optimized-build-profiles-pgo-benchmark-lane.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/performance-attribution-and-execution-structure.md`
+    - `docs/architecture/vortex-runtime-utilization-audit.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/release/hard-release-readiness-gate.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add explicit optimized Cargo profile lanes and a benchmark build-profile evidence
+    contract for local ShardLoom benchmark binaries without replacing the default release build,
+    publishing packages, creating release tags, or making performance/production claims.
+  - Checklist:
+    - [x] Add `release-lto`, `release-pgo`, and `release-native-benchmark` Cargo profiles.
+    - [x] Extend `--shardloom-build-profile` to accept `debug`, `release`, `release-lto`,
+          `release-pgo`, and `release-native-benchmark`.
+    - [x] Emit `shardloom.traditional_analytics.build_profile.v1` fields for build profile,
+          rustc/cargo versions, target triple, target CPU policy, LTO mode, codegen units, PGO
+          status, profile/training refs, reproducibility status, portable-release status,
+          benchmark-only status, correctness digest linkage, no-fallback status, and claim gate.
+    - [x] Keep `release-native-benchmark` host-native and benchmark-only with explicit
+          `-Ctarget-cpu=native`; portable rows keep `target_cpu_native_enabled=false`.
+    - [x] Add `scripts/build_shardloom_pgo.py` as the print-only-by-default PGO helper for
+          profile-generate, representative training run, `llvm-profdata merge`, and profile-use
+          rebuild.
+    - [x] Move GAR-PERF-2H out of the active Planned queue and update benchmark, compute-flow,
+          release, GAR, traceability, and performance attribution docs.
+  - Evidence/verification:
+    - `cargo build --profile release-lto -p shardloom-cli`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q benchmarks/traditional_analytics scripts`
+    - `python scripts/check_website_readiness.py`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Build-profile evidence is compiler/configuration evidence only. It does not authorize
+      performance, superiority, Spark-displacement, production, SQL/DataFrame, object-store/
+      lakehouse, Foundry, package, or public release claims.
+  - Fallback boundary:
+    - `build_profile_fallback_attempted=false` and
+      `build_profile_external_engine_invoked=false` are required for ShardLoom rows; optimized
+      build profiles cannot introduce external fallback engines.
+
 - [x] Session label: GAR-PERF-2B evidence-aware logical optimizer trace
   - Primary files:
     - `shardloom-plan/src/optimizer.rs`

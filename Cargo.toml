@@ -28,3 +28,14 @@ unsafe_code = "forbid"
 [workspace.lints.clippy]
 all = "warn"
 pedantic = "warn"
+
+[profile.release-lto]
+inherits = "release"
+lto = "thin"
+codegen-units = 1
+
+[profile.release-pgo]
+inherits = "release-lto"
+
+[profile.release-native-benchmark]
+inherits = "release-lto"

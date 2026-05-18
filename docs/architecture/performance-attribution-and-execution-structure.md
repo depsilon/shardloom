@@ -511,11 +511,11 @@ or package claims.
 
 ## Optimized Build Profiles And PGO
 
-`GAR-PERF-2H` adds the planned optimized build-profile and PGO benchmark lane. This layer makes
+`GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. This layer makes
 compiler/build configuration part of the evidence model so timing rows can be interpreted without
 guessing which binary produced them.
 
-Planned lanes:
+Implemented lanes:
 
 ```text
 release-lto
@@ -523,7 +523,7 @@ release-pgo
 release-native-benchmark
 ```
 
-Rows should report:
+Rows report:
 
 ```text
 build_profile
@@ -545,16 +545,16 @@ pgo_training_workload_digest
 build_reproducibility_status
 portable_release_artifact
 benchmark_only_build
-correctness_digest
+build_profile_correctness_digest
 fallback_attempted=false
 external_engine_invoked=false
 claim_gate_status
 ```
 
-The default release build remains the portable release baseline. `target-cpu=native` is allowed only
-inside explicitly labeled host-local benchmark rows. PGO rows need a reproducible
+The default release build remains the portable release baseline. `target-cpu=native` is applied only
+by the explicit `release-native-benchmark` harness path. PGO rows need a reproducible
 instrumented-build, training-run, `llvm-profdata` merge, and profile-use rebuild sequence, plus
-training workload refs.
+training workload refs; without `SHARDLOOM_PGO_PROFILE`, `release-pgo` remains report-only.
 
 Build-profile evidence is not performance proof. It cannot create performance, superiority,
 Spark-displacement, production, package/public-release, SQL/DataFrame, object-store/lakehouse, or

@@ -185,6 +185,39 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"optimizer_external_engine_invoked\""));
     assert!(script.contains("\"optimizer_claim_gate_status\""));
     assert!(script.contains("\"optimizer_benchmark_trace_ref\""));
+    assert!(script.contains("BUILD_PROFILE_FIELDS"));
+    assert!(script.contains("\"build_profile_schema_version\""));
+    assert!(script.contains("\"build_profile\""));
+    assert!(script.contains("\"build_profile_kind\""));
+    assert!(script.contains("\"rustc_version\""));
+    assert!(script.contains("\"cargo_version\""));
+    assert!(script.contains("\"target_triple\""));
+    assert!(script.contains("\"target_cpu_policy\""));
+    assert!(script.contains("\"target_cpu_native_enabled\""));
+    assert!(script.contains("\"lto_enabled\""));
+    assert!(script.contains("\"lto_mode\""));
+    assert!(script.contains("\"codegen_units\""));
+    assert!(script.contains("\"pgo_status\""));
+    assert!(script.contains("\"pgo_profile_generate_status\""));
+    assert!(script.contains("\"pgo_profile_use_status\""));
+    assert!(script.contains("\"pgo_profile_artifact_ref\""));
+    assert!(script.contains("\"pgo_training_workload_ref\""));
+    assert!(script.contains("\"pgo_training_workload_digest\""));
+    assert!(script.contains("\"build_reproducibility_status\""));
+    assert!(script.contains("\"portable_release_artifact\""));
+    assert!(script.contains("\"benchmark_only_build\""));
+    assert!(script.contains("\"build_profile_correctness_digest\""));
+    assert!(script.contains("\"build_profile_fallback_attempted\""));
+    assert!(script.contains("\"build_profile_external_engine_invoked\""));
+    assert!(script.contains("\"build_profile_claim_gate_status\""));
+    assert!(script.contains("def build_profile_contract("));
+    assert!(script.contains("def render_build_profile_contract("));
+    assert!(script.contains("\"build_profile_contract\""));
+    assert!(script.contains("\"release-lto\""));
+    assert!(script.contains("\"release-pgo\""));
+    assert!(script.contains("\"release-native-benchmark\""));
+    assert!(script.contains("-Ctarget-cpu=native"));
+    assert!(script.contains("SHARDLOOM_PGO_PROFILE"));
     assert!(script.contains("--shardloom-evidence-level"));
     assert!(script.contains("--evidence-level"));
     assert!(script.contains("\"reproducible_benchmark_row\""));
@@ -365,6 +398,15 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"taxonomy_extra_included\"",
         "\"stress_lane_included\"",
         "\"shardloom_build_profile\"",
+        "\"shardloom_build_profile_kind\"",
+        "\"shardloom_target_cpu_policy\"",
+        "\"shardloom_target_cpu_native_enabled\"",
+        "\"shardloom_lto_enabled\"",
+        "\"shardloom_lto_mode\"",
+        "\"shardloom_codegen_units\"",
+        "\"shardloom_pgo_status\"",
+        "\"shardloom_portable_release_artifact\"",
+        "\"shardloom_benchmark_only_build\"",
         "\"shardloom_build_time_excluded\"",
         "\"fused_pipeline_schema_version\"",
         "\"fused_pipeline_report_id\"",

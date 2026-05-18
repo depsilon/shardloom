@@ -114,6 +114,85 @@ fn cargo_metadata_marks_current_workspace_crates_internal() {
 }
 
 #[test]
+fn optimized_build_profiles_preserve_portable_release_boundary() {
+    let workspace = read_repo_file("Cargo.toml");
+    for required in [
+        "[profile.release-lto]",
+        "inherits = \"release\"",
+        "lto = \"thin\"",
+        "codegen-units = 1",
+        "[profile.release-pgo]",
+        "inherits = \"release-lto\"",
+        "[profile.release-native-benchmark]",
+    ] {
+        assert!(
+            workspace.contains(required),
+            "missing optimized Cargo profile field {required}"
+        );
+    }
+    assert!(
+        !workspace.contains("target-cpu=native") && !workspace.contains("target-cpu = \"native\""),
+        "portable Cargo profiles must not encode target-cpu=native"
+    );
+
+    let benchmark = read_repo_file("benchmarks/traditional_analytics/run.py");
+    for required in [
+        "BUILD_PROFILE_FIELDS",
+        "shardloom.traditional_analytics.build_profile.v1",
+        "release-lto",
+        "release-pgo",
+        "release-native-benchmark",
+        "-Ctarget-cpu=native",
+        "SHARDLOOM_PGO_PROFILE",
+        "release-native-benchmark is host-native and benchmark-only",
+        "build_profile_fallback_attempted",
+        "build_profile_external_engine_invoked",
+        "build_profile_claim_gate_status",
+    ] {
+        assert!(
+            benchmark.contains(required),
+            "missing build-profile benchmark contract text {required}"
+        );
+    }
+
+    let hard_gate = read_repo_file("docs/release/hard-release-readiness-gate.md");
+    for required in [
+        "release-lto",
+        "release-pgo",
+        "release-native-benchmark",
+        "target-cpu=native",
+        "benchmark-only",
+        "cannot satisfy public release/package evidence",
+        "profile-generate",
+        "llvm-profdata",
+        "profile-use",
+    ] {
+        assert!(
+            hard_gate.contains(required),
+            "missing hard release build-profile boundary text {required}"
+        );
+    }
+
+    let pgo_script = read_repo_file("scripts/build_shardloom_pgo.py");
+    for required in [
+        "shardloom.pgo_build_helper.v1",
+        "profile-generate",
+        "llvm-profdata",
+        "-Cprofile-use",
+        "SHARDLOOM_PGO_PROFILE",
+        "benchmark_only_build",
+        "portable_release_artifact",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ] {
+        assert!(
+            pgo_script.contains(required),
+            "missing PGO helper script field {required}"
+        );
+    }
+}
+
+#[test]
 fn dependency_audit_scaffolding_documents_policy_and_tools() {
     let deny = read_repo_file("deny.toml");
     for allowed in [

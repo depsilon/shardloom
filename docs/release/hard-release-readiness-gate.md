@@ -88,11 +88,14 @@ The broader release process must also attach clean Conda proof, benchmark smoke 
 package metadata/license proof, SBOM/checksum/provenance evidence, runtime no-fallback dependency
 audit, and release notes or known-unsupported-path evidence before public claims are allowed.
 
-`GAR-PERF-2H` adds the future optimized build-profile and PGO benchmark lane. Until that gate is
-implemented, portable release artifacts remain the normal release-profile artifacts. Any
-`release-native-benchmark` or `target-cpu=native` build is benchmark-only and cannot satisfy public
-release/package evidence. PGO artifacts must record training workload refs, profile artifact refs,
-and claim gates before they can appear in benchmark evidence.
+`GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Portable release artifacts
+remain the normal `release` profile artifacts unless a separate release gate explicitly admits a
+portable optimized profile. `release-lto` is portable ThinLTO benchmark evidence, `release-pgo` is
+benchmark-only unless a merged profile artifact is supplied through `SHARDLOOM_PGO_PROFILE`, and
+`release-native-benchmark` applies `target-cpu=native` only in the benchmark harness. Any
+`release-native-benchmark` or `target-cpu=native` build is benchmark-only and cannot satisfy public release/package evidence. PGO artifacts must record training workload refs, profile artifact refs,
+`profile-generate`, `llvm-profdata` merge, `profile-use`, and claim gates before they can appear in
+benchmark evidence.
 
 `clean_conda_env_install_status=passed` is required for a public-release pass. A source-local clean
 venv install is useful P8.2 evidence, but it is not a substitute for the clean Conda proof required
