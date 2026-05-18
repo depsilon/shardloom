@@ -51,46 +51,66 @@
         <p class="eyebrow">Field Guide dossier</p>
         <h1>Compatibility Import Certified</h1>
         <p class="lede">The compatibility lane imports local compatibility data into Vortex evidence paths and records certification costs.</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge report-only" data-status="current-certification-lane">current certification lane</span>
+          <span>Execution Modes</span>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
         <aside class="dossier-sidebar">
           <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>
           <a href="#how">How ShardLoom uses it</a>
-          <a href="#proof">What it proves</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
           <a href="#boundary">Claim boundary</a>
-          <a href="#sources">Source docs</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
         </aside>
         <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>The compatibility lane imports local compatibility data into Vortex evidence paths and records certification costs.</p>
+          </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
-            <p>It helps prove workflow coverage, but it carries parse, import, write/reopen, scan, sink, and evidence overhead.</p>
+            <p>This concept helps users interpret ShardLoom&#x27;s execution modes posture without reading the phase plan or RFCs first.</p>
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>The benchmark page decomposes compatibility parse, Vortex import, Vortex write, Vortex scan, operator, sink, and evidence fields.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as compatibility_parse_millis, compatibility_to_vortex_import_millis, vortex_write_millis, vortex_scan_millis.</p>
           </section>
-          <section id="proof">
-            <p class="eyebrow">What it proves</p>
-            <p>It can show that a compatibility input moved through a Vortex-backed evidence workflow without fallback.</p>
-            <h3>What it does not prove</h3>
-            <p>It is not pure query speed and should not be ranked against direct-file engine baselines.</p>
-            <h3>Evidence fields</h3>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>Current status is <code>current-certification-lane</code>. Treat that status exactly as shown; scoped, smoke, report-only, planned, blocked, or unsupported posture must not be read as broader runtime support.</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
+            <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
             <ul><li><code>compatibility_parse_millis</code></li><li><code>compatibility_to_vortex_import_millis</code></li><li><code>vortex_write_millis</code></li><li><code>vortex_scan_millis</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>Certification-lane evidence is not public speed, superiority, or best-default proof.</p>
             <p>Certification-lane evidence is not public speed, superiority, or best-default proof.</p>
           </section>
-          <section id="sources">
-            <p class="eyebrow">Source docs</p>
-            <ul><li><code>website/benchmarks.html</code></li><li><code>benchmarks/traditional_analytics/README.md</code></li></ul>
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>Use the linked use cases when a runnable or blocked workflow is available for this concept.</p>
+            <div><a class="claim-badge" href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a><a class="claim-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a></div>
           </section>
-          <section class="related-concepts">
+          <section id="related" class="related-concepts">
             <p class="eyebrow">Related concepts</p>
             <div><a class="claim-badge" href="/field-guide/prepared-vortex">Prepared Vortex</a><a class="claim-badge" href="/field-guide/benchmark-telemetry">Benchmark Telemetry</a><a class="claim-badge" href="/field-guide/claim-gates">Claim Gates</a></div>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/website/benchmarks.html"><code>website/benchmarks.html</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/benchmarks/traditional_analytics/README.md"><code>benchmarks/traditional_analytics/README.md</code></a></li></ul>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>

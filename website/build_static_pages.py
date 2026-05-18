@@ -25,6 +25,7 @@ DATA_DIR = WEBSITE / "assets" / "data"
 BENCHMARK_LATEST_DIR = WEBSITE / "assets" / "benchmarks" / "latest"
 DOC_USE_CASES = ROOT / "docs" / "use-cases"
 USE_CASE_PAGES = WEBSITE / "use-cases"
+FIELD_GUIDE_INDEX_PATH = WEBSITE / "content" / "field-guide-index.json"
 COMPATIBILITY_SCOREBOARD_DATA = (
     ROOT / "docs" / "architecture" / "universal-compatibility-coverage-scoreboard.json"
 )
@@ -1070,7 +1071,7 @@ def status_page() -> str:
     )
 
 
-FIELD_GUIDE_CONCEPTS: list[dict[str, Any]] = [
+FALLBACK_FIELD_GUIDE_CONCEPTS: list[dict[str, Any]] = [
     {
         "slug": "no-fallback",
         "title": "No Fallback",
@@ -1204,6 +1205,147 @@ FIELD_GUIDE_CONCEPTS: list[dict[str, Any]] = [
 ]
 
 
+REQUIRED_FIELD_GUIDE_CATEGORIES = [
+    "Start Here",
+    "Execution Modes",
+    "Engine Modes",
+    "Vortex Runtime",
+    "Evidence And Claims",
+    "Benchmark Telemetry",
+    "User Workflows",
+    "I/O And Output",
+    "Platform Boundaries",
+    "Performance Architecture",
+    "Release And Trust",
+]
+
+
+def field_guide_values(values: Any) -> list[str]:
+    if isinstance(values, list):
+        return [str(value) for value in values]
+    if values is None:
+        return []
+    return [str(values)]
+
+
+def normalize_field_guide_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    evidence_fields = field_guide_values(entry.get("evidence_fields"))
+    related_terms = field_guide_values(entry.get("related_terms"))
+    related_use_cases = field_guide_values(entry.get("related_use_cases"))
+    reference_files = field_guide_values(entry.get("reference_files"))
+    status = str(entry["status"])
+    title = str(entry["title"])
+    category = str(entry["category"])
+    summary = str(entry["summary"])
+    claim_boundary = str(entry["claim_boundary"])
+    evidence_sample = ", ".join(evidence_fields[:4]) if evidence_fields else "its evidence fields"
+    return {
+        "slug": str(entry["slug"]),
+        "title": title,
+        "category": category,
+        "status": status,
+        "summary": summary,
+        "answer": str(entry.get("answer") or summary),
+        "why": str(
+            entry.get("why")
+            or (
+                f"This concept helps users interpret ShardLoom's {category.lower()} "
+                "posture without reading the phase plan or RFCs first."
+            )
+        ),
+        "how": str(
+            entry.get("how")
+            or (
+                "ShardLoom surfaces this through docs, capability/status pages, "
+                f"use cases, or evidence fields such as {evidence_sample}."
+            )
+        ),
+        "current_support": str(
+            entry.get("current_support")
+            or (
+                f"Current status is `{status}`. Treat that status exactly as "
+                "shown; scoped, smoke, report-only, planned, blocked, or unsupported "
+                "posture must not be read as broader runtime support."
+            )
+        ),
+        "proves": str(
+            entry.get("proves")
+            or (
+                "It helps identify the exact evidence or documentation surface "
+                "that applies to this concept."
+            )
+        ),
+        "not_proves": str(entry.get("not_proves") or claim_boundary),
+        "try_it": str(
+            entry.get("try_it")
+            or (
+                "Use the linked use cases when a runnable or blocked workflow is "
+                "available for this concept."
+                if related_use_cases
+                else "No single quick recipe is attached yet; use the reference files as the source of truth."
+            )
+        ),
+        "evidence": evidence_fields,
+        "related": related_terms,
+        "related_use_cases": related_use_cases,
+        "sources": reference_files,
+        "boundary": claim_boundary,
+    }
+
+
+def load_field_guide_concepts() -> list[dict[str, Any]]:
+    if not FIELD_GUIDE_INDEX_PATH.exists():
+        return FALLBACK_FIELD_GUIDE_CONCEPTS
+    data = load_json_file(FIELD_GUIDE_INDEX_PATH)
+    if data.get("schema_version") != "shardloom.field_guide_index.v1":
+        raise ValueError(f"Unsupported Field Guide index schema: {data.get('schema_version')}")
+    categories = field_guide_values(data.get("categories"))
+    missing_categories = [
+        category for category in REQUIRED_FIELD_GUIDE_CATEGORIES if category not in categories
+    ]
+    if missing_categories:
+        raise ValueError(f"Field Guide index missing categories: {', '.join(missing_categories)}")
+    entries = data.get("entries")
+    if not isinstance(entries, list):
+        raise ValueError("Field Guide index must contain an entries list")
+    if len(entries) < 50:
+        raise ValueError("Field Guide index must contain at least 50 entries")
+    concepts = [normalize_field_guide_entry(entry) for entry in entries]
+    seen: set[str] = set()
+    for concept in concepts:
+        slug_value = concept["slug"]
+        if slug_value in seen:
+            raise ValueError(f"Duplicate Field Guide slug: {slug_value}")
+        seen.add(slug_value)
+        for key in ("title", "category", "status", "summary", "boundary"):
+            if not concept.get(key):
+                raise ValueError(f"Field Guide entry {slug_value} missing {key}")
+        if concept["category"] not in categories:
+            raise ValueError(
+                f"Field Guide entry {slug_value} uses unknown category {concept['category']}"
+            )
+    missing_related = [
+        f"{concept['slug']} -> {related_slug}"
+        for concept in concepts
+        for related_slug in concept["related"]
+        if related_slug not in seen
+    ]
+    if missing_related:
+        raise ValueError(
+            "Field Guide entries reference unknown related terms: "
+            + ", ".join(missing_related)
+        )
+    return concepts
+
+
+FIELD_GUIDE_CONCEPTS = load_field_guide_concepts()
+FIELD_GUIDE_CATEGORIES = (
+    field_guide_values(load_json_file(FIELD_GUIDE_INDEX_PATH).get("categories"))
+    if FIELD_GUIDE_INDEX_PATH.exists()
+    else REQUIRED_FIELD_GUIDE_CATEGORIES
+)
+
+
 def concept_url(slug_value: str) -> str:
     return f"/field-guide/{slug_value}"
 
@@ -1219,17 +1361,105 @@ def bullet_list(items: list[str]) -> str:
     return "<ul>" + "".join(f"<li>{inline_markdown(item)}</li>" for item in items) + "</ul>"
 
 
+_USE_CASE_TITLE_LOOKUP: dict[str, str] | None = None
+
+
+def use_case_title_lookup() -> dict[str, str]:
+    global _USE_CASE_TITLE_LOOKUP
+    if _USE_CASE_TITLE_LOOKUP is None:
+        data = load_index(DOC_USE_CASES / "use-case-index.yml")
+        _USE_CASE_TITLE_LOOKUP = {
+            str(use_case["id"]): str(use_case["title"])
+            for use_case in data.get("use_cases", [])
+        }
+    return _USE_CASE_TITLE_LOOKUP
+
+
+def source_file_links(paths: list[str]) -> str:
+    if not paths:
+        return "<p>No source reference attached yet.</p>"
+    links = [
+        f'<a href="{esc(normalize_link(path))}"><code>{esc(path)}</code></a>'
+        for path in paths
+    ]
+    return "<ul>" + "".join(f"<li>{link}</li>" for link in links) + "</ul>"
+
+
+def related_concept_links(slugs: list[str]) -> str:
+    if not slugs:
+        return "<p>No directly related concept attached yet.</p>"
+    links = []
+    for slug_value in slugs:
+        concept = concept_by_slug(slug_value)
+        links.append(
+            f'<a class="claim-badge" href="{concept_url(slug_value)}">{esc(concept["title"])}</a>'
+        )
+    return "<div>" + "".join(links) + "</div>"
+
+
+def related_use_case_links(ids: list[str]) -> str:
+    if not ids:
+        return "<p>No related use case page is attached yet.</p>"
+    titles = use_case_title_lookup()
+    links = []
+    for use_case_id in ids:
+        label = titles.get(use_case_id, use_case_id.replace("-", " "))
+        links.append(
+            f'<a class="claim-badge" href="/use-cases/{esc(use_case_id)}">{esc(label)}</a>'
+        )
+    return "<div>" + "".join(links) + "</div>"
+
+
+def field_guide_concepts_by_category() -> list[tuple[str, list[dict[str, Any]]]]:
+    grouped: list[tuple[str, list[dict[str, Any]]]] = []
+    for category in FIELD_GUIDE_CATEGORIES:
+        concepts = [
+            concept for concept in FIELD_GUIDE_CONCEPTS if concept["category"] == category
+        ]
+        if concepts:
+            grouped.append((category, concepts))
+    return grouped
+
+
+def clean_generated_html(text: str) -> str:
+    return "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
+
+
 def field_guide_index_page() -> str:
-    cards = "".join(
+    category_links = "".join(
+        f'<a class="claim-badge" href="#{slug(category)}">{esc(category)}</a>'
+        for category, _ in field_guide_concepts_by_category()
+    )
+    category_sections = "".join(
         f"""
-          <article class="field-guide-card">
-            <span class="claim-badge">Dossier</span>
-            <h3>{esc(concept['title'])}</h3>
-            <p>{esc(concept['answer'])}</p>
-            <div class="action-row"><a class="button" href="{concept_url(concept['slug'])}">Open dossier</a></div>
-          </article>
+        <section class="field-guide-category" id="{slug(category)}">
+          <div class="field-guide-category-header">
+            <div>
+              <p class="eyebrow">Category</p>
+              <h2>{esc(category)}</h2>
+            </div>
+            <span>{len(concepts)} dossier{"s" if len(concepts) != 1 else ""}</span>
+          </div>
+          <div class="field-guide-grid">
+            {''.join(
+                f'''
+                <article class="field-guide-card">
+                  <span class="claim-badge {status_class(concept['status'])}" data-status="{esc(concept['status'])}">{esc(status_label(concept['status']))}</span>
+                  <h3>{esc(concept['title'])}</h3>
+                  <p>{esc(concept['summary'])}</p>
+                  <div class="field-guide-meta">
+                    <span>{esc(concept['category'])}</span>
+                    <span>{len(concept['evidence'])} evidence fields</span>
+                  </div>
+                  <div class="action-row"><a class="button" href="{concept_url(concept['slug'])}">Open dossier</a></div>
+                </article>
+                '''
+                for concept in concepts
+            )}
+          </div>
+        </section>
         """
-        for concept in FIELD_GUIDE_CONCEPTS
+        for category, concepts in field_guide_concepts_by_category()
     )
     body = f"""
     <section class="doc-hero field-guide-hero">
@@ -1237,12 +1467,21 @@ def field_guide_index_page() -> str:
         {page_header_logo()}
         <p class="eyebrow">Field Guide</p>
         <h1>Technical dossiers for auditable compute.</h1>
-        <p class="lede">Short, source-linked explanations of the terms that matter when reading ShardLoom evidence: execution modes, no-fallback policy, Vortex-native paths, materialization boundaries, benchmark telemetry, and claim gates.</p>
+        <p class="lede">A source-linked atlas for reading ShardLoom evidence: execution modes, engine modes, Vortex-native paths, materialization boundaries, workflow recipes, benchmark telemetry, and public claim gates.</p>
+      </div>
+    </section>
+    <section class="doc-section field-guide-toc-section">
+      <div class="shell">
+        <div class="terminal-panel field-guide-toc">
+          <p class="eyebrow">Table of contents</p>
+          <h2>Jump by concept family.</h2>
+          <div>{category_links}</div>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell">
-        <div class="field-guide-grid">{cards}</div>
+        {category_sections}
       </div>
     </section>
     """
@@ -1260,10 +1499,8 @@ def field_guide_concept_page(
     previous_concept: dict[str, Any] | None,
     next_concept: dict[str, Any] | None,
 ) -> str:
-    related = "".join(
-        f'<a class="claim-badge" href="{concept_url(slug_value)}">{esc(concept_by_slug(slug_value)["title"])}</a>'
-        for slug_value in concept["related"]
-    )
+    related = related_concept_links(concept["related"])
+    related_use_cases = related_use_case_links(concept["related_use_cases"])
     prev_link = (
         f'<a class="button" href="{concept_url(previous_concept["slug"])}">Previous: {esc(previous_concept["title"])}</a>'
         if previous_concept
@@ -1274,7 +1511,7 @@ def field_guide_concept_page(
         if next_concept
         else ""
     )
-    source_links = bullet_list([f"`{source}`" for source in concept["sources"]])
+    source_links = source_file_links(concept["sources"])
     body = f"""
     <section class="doc-hero field-guide-hero">
       <div class="shell">
@@ -1282,19 +1519,31 @@ def field_guide_concept_page(
         <p class="eyebrow">Field Guide dossier</p>
         <h1>{esc(concept['title'])}</h1>
         <p class="lede">{esc(concept['answer'])}</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge {status_class(concept['status'])}" data-status="{esc(concept['status'])}">{esc(status_label(concept['status']))}</span>
+          <span>{esc(concept['category'])}</span>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
         <aside class="dossier-sidebar">
           <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>
           <a href="#how">How ShardLoom uses it</a>
-          <a href="#proof">What it proves</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
           <a href="#boundary">Claim boundary</a>
-          <a href="#sources">Source docs</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
         </aside>
         <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>{esc(concept['answer'])}</p>
+          </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
             <p>{esc(concept['why'])}</p>
@@ -1303,25 +1552,33 @@ def field_guide_concept_page(
             <p class="eyebrow">How ShardLoom uses it</p>
             <p>{esc(concept['how'])}</p>
           </section>
-          <section id="proof">
-            <p class="eyebrow">What it proves</p>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>{inline_markdown(concept['current_support'])}</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
             <p>{esc(concept['proves'])}</p>
-            <h3>What it does not prove</h3>
-            <p>{esc(concept['not_proves'])}</p>
-            <h3>Evidence fields</h3>
             {bullet_list([f"`{field}`" for field in concept['evidence']])}
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>{esc(concept['not_proves'])}</p>
             <p>{esc(concept['boundary'])}</p>
           </section>
-          <section id="sources">
-            <p class="eyebrow">Source docs</p>
-            {source_links}
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>{esc(concept['try_it'])}</p>
+            {related_use_cases}
           </section>
-          <section class="related-concepts">
+          <section id="related" class="related-concepts">
             <p class="eyebrow">Related concepts</p>
-            <div>{related}</div>
+            {related}
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            {source_links}
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>
@@ -1350,7 +1607,7 @@ def value_list(values: Any) -> list[str]:
 
 
 def status_label(status: str) -> str:
-    return status.replace("_", " ")
+    return status.replace("_", " ").replace("-", " ")
 
 
 def status_class(status: str) -> str:
@@ -1708,19 +1965,10 @@ def write_sitemap(use_cases: list[dict[str, Any]]) -> None:
         ("field-guide/", "0.8"),
         ("use-cases/", "0.9"),
         ("status", "0.8"),
-        ("field-guide/no-fallback", "0.6"),
-        ("field-guide/execution-modes", "0.6"),
-        ("field-guide/compatibility-import-certified", "0.6"),
-        ("field-guide/prepared-vortex", "0.6"),
-        ("field-guide/native-vortex", "0.6"),
-        ("field-guide/native-io-certificate", "0.6"),
-        ("field-guide/materialization-boundary", "0.6"),
-        ("field-guide/claim-gates", "0.6"),
-        ("field-guide/benchmark-telemetry", "0.6"),
-        ("field-guide/unsupported-diagnostics", "0.6"),
         ("compute-engine-flow", "0.8"),
         ("readme", "0.7"),
     ]
+    paths.extend((f"field-guide/{concept['slug']}", "0.6") for concept in FIELD_GUIDE_CONCEPTS)
     paths.extend((f"use-cases/{use_case['id']}", "0.6") for use_case in use_cases)
     urls = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -1745,7 +1993,10 @@ def write_sitemap(use_cases: list[dict[str, Any]]) -> None:
 def write_field_guide_pages() -> None:
     target_dir = WEBSITE / "field-guide"
     target_dir.mkdir(parents=True, exist_ok=True)
-    (target_dir / "index.html").write_text(field_guide_index_page(), encoding="utf-8")
+    (target_dir / "index.html").write_text(
+        clean_generated_html(field_guide_index_page()),
+        encoding="utf-8",
+    )
     for index, concept in enumerate(FIELD_GUIDE_CONCEPTS):
         previous_concept = FIELD_GUIDE_CONCEPTS[index - 1] if index > 0 else None
         next_concept = (
@@ -1754,7 +2005,9 @@ def write_field_guide_pages() -> None:
             else None
         )
         (target_dir / f"{concept['slug']}.html").write_text(
-            field_guide_concept_page(concept, previous_concept, next_concept),
+            clean_generated_html(
+                field_guide_concept_page(concept, previous_concept, next_concept)
+            ),
             encoding="utf-8",
         )
 

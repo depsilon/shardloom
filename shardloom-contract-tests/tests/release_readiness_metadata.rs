@@ -1902,6 +1902,132 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
 }
 
 #[test]
+fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1A"));
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1B"));
+    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1C Field Guide reading paths"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "GAR-WEB-ATLAS-1A/1B Field Guide taxonomy and dossier generator",
+        "website/content/field-guide-index.json",
+        "75 entries",
+        "python website/build_static_pages.py",
+        "node website/validate_static_assets.js",
+        "python scripts/check_website_readiness.py",
+        "No runtime behavior",
+        "fallback execution",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing Field Guide completed-ledger field {required}"
+        );
+    }
+
+    let index = read_repo_file("website/content/field-guide-index.json");
+    assert!(index.contains("\"schema_version\": \"shardloom.field_guide_index.v1\""));
+    assert!(
+        index.matches("\"slug\":").count() >= 50,
+        "Field Guide index should contain at least 50 entries"
+    );
+    for required in [
+        "\"Start Here\"",
+        "\"Execution Modes\"",
+        "\"Engine Modes\"",
+        "\"Vortex Runtime\"",
+        "\"Evidence And Claims\"",
+        "\"Benchmark Telemetry\"",
+        "\"User Workflows\"",
+        "\"I/O And Output\"",
+        "\"Platform Boundaries\"",
+        "\"Performance Architecture\"",
+        "\"Release And Trust\"",
+        "\"related_use_cases\"",
+        "\"reference_files\"",
+        "\"claim_boundary\"",
+    ] {
+        assert!(
+            index.contains(required),
+            "missing Field Guide index field {required}"
+        );
+    }
+
+    let generator = read_repo_file("website/build_static_pages.py");
+    for required in [
+        "FIELD_GUIDE_INDEX_PATH",
+        "load_field_guide_concepts",
+        "REQUIRED_FIELD_GUIDE_CATEGORIES",
+        "field_guide_concepts_by_category",
+        "Plain-English meaning",
+        "Current support",
+        "Evidence fields",
+        "What it does not claim",
+        "Try it / related use cases",
+        "Reference files",
+    ] {
+        assert!(
+            generator.contains(required),
+            "missing Field Guide generator field {required}"
+        );
+    }
+
+    let website_index = read_repo_file("website/field-guide/index.html");
+    for required in [
+        "Table of contents",
+        "Start Here",
+        "Execution Modes",
+        "Engine Modes",
+        "Vortex Runtime",
+        "Evidence And Claims",
+        "Benchmark Telemetry",
+        "User Workflows",
+        "I/O And Output",
+        "Platform Boundaries",
+        "Performance Architecture",
+        "Release And Trust",
+        "what-is-shardloom",
+        "output-plan-reuse",
+    ] {
+        assert!(
+            website_index.contains(required),
+            "missing generated Field Guide index field {required}"
+        );
+    }
+
+    let dossier = read_repo_file("website/field-guide/prepared-vortex.html");
+    for required in [
+        "Plain-English meaning",
+        "Why it matters",
+        "How ShardLoom uses it",
+        "Current support",
+        "Evidence fields",
+        "What it does not claim",
+        "Try it / related use cases",
+        "Related concepts",
+        "Reference files",
+        "claim-gated",
+    ] {
+        assert!(
+            dossier.contains(required),
+            "missing generated Field Guide dossier field {required}"
+        );
+    }
+
+    let sitemap = read_repo_file("website/sitemap.xml");
+    for required in [
+        "https://shardloom.io/field-guide/what-is-shardloom",
+        "https://shardloom.io/field-guide/output-plan-reuse",
+        "https://shardloom.io/field-guide/scale-profile",
+    ] {
+        assert!(
+            sitemap.contains(required),
+            "missing Field Guide sitemap URL {required}"
+        );
+    }
+}
+
+#[test]
 fn gar_0033_a_etl_workflow_capability_matrix_remains_claim_safe() {
     let doc = read_repo_file("docs/architecture/etl-workflow-capability-matrix.md");
     for required in [

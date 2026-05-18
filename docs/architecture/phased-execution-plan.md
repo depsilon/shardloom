@@ -671,125 +671,28 @@ Runtime boundary:
 Website and atlas work must not change ShardLoom runtime behavior, benchmark data, package
 publication state, execution claims, fallback policy, or release gates.
 
-- [ ] GAR-WEB-ATLAS-1A Field Guide taxonomy expansion
-  - Source:
-    - `website/field-guide/index.html`.
-    - `website/build_static_pages.py`.
-    - `docs/use-cases/field-guide/README.md`.
-    - `docs/architecture/canonical-terminology.md`.
-    - Modal GPU Glossary category/table-of-contents structure.
-  - Current state:
-    - The website has a useful Field Guide index and retro-future visual components.
-    - The current Field Guide is still too small and card-oriented to behave like a full technical
-      atlas.
-  - Next slice outcome:
-    - Add a complete ShardLoom Field Guide taxonomy with category groups and at least 50 planned or
-      initial entries.
-  - User-visible surface:
-    - `/field-guide/`, website navigation, sitemap, status/readme cross-links, and future search
-      indexing.
-  - Implementation scope:
-    - Add `website/content/field-guide-index.yml` or the existing equivalent content source.
-    - Regenerate `website/field-guide/index.html`.
-    - Preserve existing dossier links and ShardLoom visual identity.
-  - Evidence required:
-    - taxonomy refs: every entry has title, slug, category, summary, status, related terms, related
-      use cases, and exact reference files.
-    - claim refs: entries preserve technical-preview support posture.
-    - source refs: Modal is used only as an information-architecture reference, not copied design.
-  - Acceptance:
-    - Field Guide index is organized by category, not only as a flat card grid.
-    - Required categories exist: Start Here, Execution Modes, Engine Modes, Vortex Runtime,
-      Evidence And Claims, Benchmark Telemetry, User Workflows, I/O And Output, Platform
-      Boundaries, Performance Architecture, and Release And Trust.
-    - Existing Field Guide URLs still resolve.
-    - No unsupported path is described as runtime-supported.
-  - Verification:
-    - `python website/build_static_pages.py`
-    - `node website/validate_static_assets.js`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No Pagefind integration, Astro migration, runtime behavior, benchmark recomputation, package
-      publication, or new support claim.
-  - Claim boundary:
-    - Taxonomy entries are navigation and explanation only; they cannot upgrade any support or
-      claim status.
-  - Fallback boundary:
-    - Entries must preserve no-fallback/no-external-engine language and must not point unsupported
-      work to external engines as fallback.
-  - Dependencies/blockers:
-    - Current Field Guide generator shape, canonical terminology freshness, and use-case ids.
-  - Ledger rule:
-    - Move completed taxonomy expansion to the completed ledger with website readiness output.
-
-- [ ] GAR-WEB-ATLAS-1B Field Guide dossier page template
-  - Source:
-    - GAR-WEB-ATLAS-1A.
-    - Existing website Field Guide pages.
-    - `docs/use-cases/templates/use-case-template.md`.
-    - `docs/architecture/compute-engine-flow-reference.md`.
-  - Current state:
-    - Field Guide concepts exist, but the per-term page structure is not yet a full reusable dossier
-      system.
-  - Next slice outcome:
-    - Add one reusable dossier template for generated or hand-authored Field Guide terms.
-  - User-visible surface:
-    - `/field-guide/<slug>`, related use-case pages, search results, and reference links.
-  - Implementation scope:
-    - Add or update the Field Guide dossier template, content schema, generated static pages, and
-      website readiness validation.
-  - Evidence required:
-    - template refs: every dossier renders plain-English meaning, why it matters, how ShardLoom uses
-      it, current support, evidence fields, what it does not claim, related use cases, related
-      concepts, and reference files.
-    - status refs: every dossier has explicit support posture and claim boundary.
-    - source refs: references use exact repo paths.
-  - Acceptance:
-    - Every dossier can be understood by a non-expert without reading an RFC first.
-    - Every dossier has exact reference files and related concepts.
-    - Every claim-sensitive dossier states what ShardLoom does not claim.
-    - Generated pages remain deterministic.
-  - Verification:
-    - `python website/build_static_pages.py`
-    - `node website/validate_static_assets.js`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No runtime behavior, package publication, benchmark recomputation, Pagefind integration, or
-      framework migration.
-  - Claim boundary:
-    - Dossiers explain current posture and cannot create performance, production, Spark-replacement,
-      SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claims.
-  - Fallback boundary:
-    - Dossiers must keep external engines as baselines/oracles only and never fallback execution.
-  - Dependencies/blockers:
-    - GAR-WEB-ATLAS-1A taxonomy and stable reference-file paths.
-  - Ledger rule:
-    - Move completed template work to the completed ledger with generated-page validation output.
-
-- [ ] GAR-WEB-ATLAS-1C Field Guide category TOC and reading paths
+- [ ] GAR-WEB-ATLAS-1C Field Guide reading paths
   - Source:
     - GAR-WEB-ATLAS-1A and GAR-WEB-ATLAS-1B.
     - Current `website/field-guide/index.html`.
     - Modal GPU Glossary dense category TOC pattern.
   - Current state:
-    - Field Guide navigation is useful but still reads more like a project-site card grid than a
-      glossary table of contents.
+    - GAR-WEB-ATLAS-1A/1B added a machine-readable taxonomy, category anchors, and generated
+      dossier pages.
+    - The Field Guide still needs curated reading-path entrypoints that guide users by goal before
+      they inspect individual terms.
   - Next slice outcome:
-    - Add a dense category TOC and reading-path entrypoints above the raw card grid.
+    - Add reading-path entrypoints above the generated category sections.
   - User-visible surface:
     - `/field-guide/`, homepage Field Guide preview, status/use-case cross-links, and mobile
       navigation.
   - Implementation scope:
-    - Field Guide index template/content, CSS for compact glossary rows, category anchors, and
-      reading-path cards or rows.
+    - Field Guide index template/content, CSS for compact reading-path rows, and links to relevant
+      dossiers/use cases.
   - Evidence required:
-    - navigation refs: every category anchor resolves.
     - reading-path refs: each path links to relevant dossiers and use cases.
     - claim refs: reading paths preserve support-status language.
   - Acceptance:
-    - Users can jump directly to each concept category before scrolling through cards.
     - Required reading paths exist: New to ShardLoom; run a local workflow; understand benchmarks;
       understand Vortex-native paths; use Python/SQL/DataFrame; know what is blocked; and
       Foundry/platform context.

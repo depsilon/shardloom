@@ -51,51 +51,71 @@
         <p class="eyebrow">Field Guide dossier</p>
         <h1>No Fallback</h1>
         <p class="lede">ShardLoom must not silently delegate unsupported execution to another query engine.</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge report-only" data-status="core-contract">core contract</span>
+          <span>Start Here</span>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
         <aside class="dossier-sidebar">
           <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>
           <a href="#how">How ShardLoom uses it</a>
-          <a href="#proof">What it proves</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
           <a href="#boundary">Claim boundary</a>
-          <a href="#sources">Source docs</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
         </aside>
         <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>ShardLoom must not silently delegate unsupported execution to another query engine.</p>
+          </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
-            <p>The policy keeps evidence auditable: unsupported work becomes a deterministic diagnostic instead of an invisible execution handoff.</p>
+            <p>This concept helps users interpret ShardLoom&#x27;s start here posture without reading the phase plan or RFCs first.</p>
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>CLI, benchmark, and evidence rows expose fallback and external-engine fields so readers can see whether ShardLoom executed the supported path.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as fallback_attempted, external_engine_invoked, claim_gate_status, diagnostic_code.</p>
           </section>
-          <section id="proof">
-            <p class="eyebrow">What it proves</p>
-            <p>A supported row can show `fallback_attempted=false` and `external_engine_invoked=false` for its scoped workload.</p>
-            <h3>What it does not prove</h3>
-            <p>It does not prove every SQL, DataFrame, object-store, lakehouse, or adapter path is implemented.</p>
-            <h3>Evidence fields</h3>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>Current status is <code>core-contract</code>. Treat that status exactly as shown; scoped, smoke, report-only, planned, blocked, or unsupported posture must not be read as broader runtime support.</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
+            <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
             <ul><li><code>fallback_attempted</code></li><li><code>external_engine_invoked</code></li><li><code>claim_gate_status</code></li><li><code>diagnostic_code</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>No-fallback evidence is workload-scoped and does not create a broad production platform claim.</p>
             <p>No-fallback evidence is workload-scoped and does not create a broad production platform claim.</p>
           </section>
-          <section id="sources">
-            <p class="eyebrow">Source docs</p>
-            <ul><li><code>AGENTS.md</code></li><li><code>docs/rfcs/0002-no-fallback-and-vortex-io.md</code></li></ul>
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>Use the linked use cases when a runnable or blocked workflow is available for this concept.</p>
+            <div><a class="claim-badge" href="/use-cases/evidence-audit-claim-gates">Evidence, audit, and claim gates</a><a class="claim-badge" href="/use-cases/object-store-boundary-report">Object-store and cloud storage boundary</a></div>
           </section>
-          <section class="related-concepts">
+          <section id="related" class="related-concepts">
             <p class="eyebrow">Related concepts</p>
-            <div><a class="claim-badge" href="/field-guide/execution-modes">Execution Modes</a><a class="claim-badge" href="/field-guide/claim-gates">Claim Gates</a><a class="claim-badge" href="/field-guide/unsupported-diagnostics">Unsupported Diagnostics</a></div>
+            <div><a class="claim-badge" href="/field-guide/claim-gates">Claim Gates</a><a class="claim-badge" href="/field-guide/unsupported-diagnostics">Unsupported Diagnostics</a><a class="claim-badge" href="/field-guide/external-baseline-only">External Baseline Only</a></div>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/AGENTS.md"><code>AGENTS.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/rfcs/0002-no-fallback-and-vortex-io.md"><code>docs/rfcs/0002-no-fallback-and-vortex-io.md</code></a></li></ul>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>
-            
-            <a class="button primary" href="/field-guide/execution-modes">Next: Execution Modes</a>
+            <a class="button" href="/field-guide/vortex-first">Previous: Vortex-First</a>
+            <a class="button primary" href="/field-guide/evidence-certified-compute">Next: Evidence-Certified Compute</a>
           </nav>
         </article>
       </div>

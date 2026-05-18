@@ -51,51 +51,71 @@
         <p class="eyebrow">Field Guide dossier</p>
         <h1>Claim Gates</h1>
         <p class="lede">Claim gates state whether a row is claim-grade, fixture-smoke, report-only, blocked, unsupported, or not claim-grade.</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge report-only" data-status="core-contract">core contract</span>
+          <span>Evidence And Claims</span>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
         <aside class="dossier-sidebar">
           <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>
           <a href="#how">How ShardLoom uses it</a>
-          <a href="#proof">What it proves</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
           <a href="#boundary">Claim boundary</a>
-          <a href="#sources">Source docs</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
         </aside>
         <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>Claim gates state whether a row is claim-grade, fixture-smoke, report-only, blocked, unsupported, or not claim-grade.</p>
+          </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
-            <p>They keep public interpretation tied to available correctness, benchmark, certificate, and policy evidence.</p>
+            <p>This concept helps users interpret ShardLoom&#x27;s evidence and claims posture without reading the phase plan or RFCs first.</p>
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>Website, benchmark, and CLI outputs preserve `claim_gate_status` and explicit not-claimable posture.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as claim_gate_status, performance_claim_allowed, claim_boundary, support_status.</p>
           </section>
-          <section id="proof">
-            <p class="eyebrow">What it proves</p>
-            <p>A row can say which claim boundary applies to the current evidence.</p>
-            <h3>What it does not prove</h3>
-            <p>A claim gate label does not expand support beyond the named workload and evidence refs.</p>
-            <h3>Evidence fields</h3>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>Current status is <code>core-contract</code>. Treat that status exactly as shown; scoped, smoke, report-only, planned, blocked, or unsupported posture must not be read as broader runtime support.</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
+            <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
             <ul><li><code>claim_gate_status</code></li><li><code>performance_claim_allowed</code></li><li><code>claim_boundary</code></li><li><code>support_status</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>If evidence is missing, public claims stay closed.</p>
             <p>If evidence is missing, public claims stay closed.</p>
           </section>
-          <section id="sources">
-            <p class="eyebrow">Source docs</p>
-            <ul><li><code>docs/benchmarks/baseline-comparison-boundary.md</code></li><li><code>docs/architecture/phased-execution-plan.md</code></li></ul>
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>Use the linked use cases when a runnable or blocked workflow is available for this concept.</p>
+            <div><a class="claim-badge" href="/use-cases/evidence-audit-claim-gates">Evidence, audit, and claim gates</a><a class="claim-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a></div>
           </section>
-          <section class="related-concepts">
+          <section id="related" class="related-concepts">
             <p class="eyebrow">Related concepts</p>
-            <div><a class="claim-badge" href="/field-guide/benchmark-telemetry">Benchmark Telemetry</a><a class="claim-badge" href="/field-guide/no-fallback">No Fallback</a><a class="claim-badge" href="/field-guide/unsupported-diagnostics">Unsupported Diagnostics</a></div>
+            <div><a class="claim-badge" href="/field-guide/public-claim-boundary">Public Claim Boundary</a><a class="claim-badge" href="/field-guide/fixture-smoke">Fixture Smoke</a><a class="claim-badge" href="/field-guide/report-only">Report-Only</a></div>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/baseline-comparison-boundary.md"><code>docs/benchmarks/baseline-comparison-boundary.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-plan.md"><code>docs/architecture/phased-execution-plan.md</code></a></li></ul>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>
-            <a class="button" href="/field-guide/materialization-boundary">Previous: Materialization Boundary</a>
-            <a class="button primary" href="/field-guide/benchmark-telemetry">Next: Benchmark Telemetry</a>
+            <a class="button" href="/field-guide/result-sink-replay">Previous: Result-Sink Replay</a>
+            <a class="button primary" href="/field-guide/no-fallback-evidence">Next: No-Fallback Evidence</a>
           </nav>
         </article>
       </div>

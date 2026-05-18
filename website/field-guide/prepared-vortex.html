@@ -51,46 +51,66 @@
         <p class="eyebrow">Field Guide dossier</p>
         <h1>Prepared Vortex</h1>
         <p class="lede">Prepared Vortex is the current runtime-development lane for already prepared Vortex artifacts.</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge report-only" data-status="runtime-development-lane">runtime development lane</span>
+          <span>Execution Modes</span>
+        </div>
       </div>
     </section>
     <section class="doc-section">
       <div class="shell dossier-layout">
         <aside class="dossier-sidebar">
           <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
           <a href="#why">Why it matters</a>
           <a href="#how">How ShardLoom uses it</a>
-          <a href="#proof">What it proves</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
           <a href="#boundary">Claim boundary</a>
-          <a href="#sources">Source docs</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
         </aside>
         <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>Prepared Vortex is the current runtime-development lane for already prepared Vortex artifacts.</p>
+          </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
-            <p>It removes compatibility import from the timed path and makes prepared/native optimization work easier to interpret.</p>
+            <p>This concept helps users interpret ShardLoom&#x27;s execution modes posture without reading the phase plan or RFCs first.</p>
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>Prepared rows expose source-backed scan, Native I/O, materialization/decode, no-fallback, and claim-gate fields.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as prepared_vortex, source_backed_scan_*, native_io_certificate_status, materialization_boundary_report_emitted.</p>
           </section>
-          <section id="proof">
-            <p class="eyebrow">What it proves</p>
-            <p>A prepared row can show scoped local execution over prepared Vortex artifacts with explicit evidence fields.</p>
-            <h3>What it does not prove</h3>
-            <p>It does not prove generalized encoded aggregation, production SQL/DataFrame runtime, or superiority over other engines.</p>
-            <h3>Evidence fields</h3>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>Current status is <code>runtime-development-lane</code>. Treat that status exactly as shown; scoped, smoke, report-only, planned, blocked, or unsupported posture must not be read as broader runtime support.</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
+            <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
             <ul><li><code>prepared_vortex</code></li><li><code>source_backed_scan_*</code></li><li><code>native_io_certificate_status</code></li><li><code>materialization_boundary_report_emitted</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>Prepared Vortex is the main optimization direction, but current rows remain claim-gated.</p>
             <p>Prepared Vortex is the main optimization direction, but current rows remain claim-gated.</p>
           </section>
-          <section id="sources">
-            <p class="eyebrow">Source docs</p>
-            <ul><li><code>README.md</code></li><li><code>docs/architecture/compute-engine-flow-reference.md</code></li></ul>
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>Use the linked use cases when a runnable or blocked workflow is available for this concept.</p>
+            <div><a class="claim-badge" href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a><a class="claim-badge" href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a></div>
           </section>
-          <section class="related-concepts">
+          <section id="related" class="related-concepts">
             <p class="eyebrow">Related concepts</p>
-            <div><a class="claim-badge" href="/field-guide/native-vortex">Native Vortex</a><a class="claim-badge" href="/field-guide/materialization-boundary">Materialization Boundary</a><a class="claim-badge" href="/field-guide/benchmark-telemetry">Benchmark Telemetry</a></div>
+            <div><a class="claim-badge" href="/field-guide/native-vortex">Native Vortex</a><a class="claim-badge" href="/field-guide/source-backed-scan">Source-Backed Scan</a><a class="claim-badge" href="/field-guide/shardloom-session">ShardLoom Session</a></div>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/README.md"><code>README.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/in-process-session-runtime.md"><code>docs/architecture/in-process-session-runtime.md</code></a></li></ul>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>

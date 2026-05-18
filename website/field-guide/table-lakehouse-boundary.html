@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Table/Lakehouse Boundary - ShardLoom Field Guide</title>
+  <meta name="description" content="The table/lakehouse boundary separates metadata smoke, table scans, appends, deletes, commits, rollbacks, and object-store-backed runtime claims.">
+  <link rel="canonical" href="https://shardloom.io/field-guide/table-lakehouse-boundary">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <meta property="og:title" content="Table/Lakehouse Boundary - ShardLoom Field Guide">
+  <meta property="og:description" content="The table/lakehouse boundary separates metadata smoke, table scans, appends, deletes, commits, rollbacks, and object-store-backed runtime claims.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/field-guide/table-lakehouse-boundary">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="command-shell">
+  <header class="site-header mission-nav">
+    <div class="shell nav command-nav">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img class="brand-icon" src="/assets/logo/shardloom-favicon.png" alt="" width="36" height="36" aria-hidden="true">
+        <span class="sr-only">ShardLoom</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="" href="/">Home</a>
+<a class="active" aria-current="page" href="/field-guide/">Field Guide</a>
+<a class="" href="/use-cases/">Use Cases</a>
+<a class="" href="/benchmarks">Telemetry</a>
+<a class="" href="/compute-engine-flow">Compute Flow</a>
+<a class="" href="/status">Status</a>
+<a class="" href="/readme">Docs</a>
+<a class="" href="https://github.com/depsilon/shardloom">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="status-ribbon" role="note" aria-label="Public posture">
+    <div class="shell status-ribbon-inner">
+      <span><strong>Pre-release</strong> evidence-first local compute foundation</span>
+      <span><strong>No fallback</strong> external engines are baselines only</span>
+      <span><strong>Claim gate</strong> no performance or production platform claim</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="doc-hero field-guide-hero">
+      <div class="shell">
+        <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        <p class="eyebrow">Field Guide dossier</p>
+        <h1>Table/Lakehouse Boundary</h1>
+        <p class="lede">The table/lakehouse boundary separates metadata smoke, table scans, appends, deletes, commits, rollbacks, and object-store-backed runtime claims.</p>
+        <div class="dossier-status-row">
+          <span class="claim-badge report-only" data-status="blocked-report-only">blocked report only</span>
+          <span>I/O And Output</span>
+        </div>
+      </div>
+    </section>
+    <section class="doc-section">
+      <div class="shell dossier-layout">
+        <aside class="dossier-sidebar">
+          <h2>In this dossier</h2>
+          <a href="#meaning">Plain-English meaning</a>
+          <a href="#why">Why it matters</a>
+          <a href="#how">How ShardLoom uses it</a>
+          <a href="#support">Current support</a>
+          <a href="#evidence">Evidence fields</a>
+          <a href="#boundary">Claim boundary</a>
+          <a href="#try-it">Try it / use cases</a>
+          <a href="#related">Related concepts</a>
+          <a href="#sources">Reference files</a>
+        </aside>
+        <article class="dossier-body">
+          <section id="meaning">
+            <p class="eyebrow">Plain-English meaning</p>
+            <p>The table/lakehouse boundary separates metadata smoke, table scans, appends, deletes, commits, rollbacks, and object-store-backed runtime claims.</p>
+          </section>
+          <section id="why">
+            <p class="eyebrow">Why it matters</p>
+            <p>This concept helps users interpret ShardLoom&#x27;s i/o and output posture without reading the phase plan or RFCs first.</p>
+          </section>
+          <section id="how">
+            <p class="eyebrow">How ShardLoom uses it</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as table_metadata_read, table_snapshot_id, commit_protocol, claim_gate_status.</p>
+          </section>
+          <section id="support">
+            <p class="eyebrow">Current support</p>
+            <p>Current status is <code>blocked-report-only</code>. Treat that status exactly as shown; scoped, smoke, report-only, planned, blocked, or unsupported posture must not be read as broader runtime support.</p>
+          </section>
+          <section id="evidence">
+            <p class="eyebrow">Evidence fields</p>
+            <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
+            <ul><li><code>table_metadata_read</code></li><li><code>table_snapshot_id</code></li><li><code>commit_protocol</code></li><li><code>claim_gate_status</code></li></ul>
+          </section>
+          <section id="boundary">
+            <p class="eyebrow">Claim boundary</p>
+            <h3>What it does not claim</h3>
+            <p>Metadata smoke does not imply table runtime or table commit support.</p>
+            <p>Metadata smoke does not imply table runtime or table commit support.</p>
+          </section>
+          <section id="try-it">
+            <p class="eyebrow">Try it / related use cases</p>
+            <p>Use the linked use cases when a runnable or blocked workflow is available for this concept.</p>
+            <div><a class="claim-badge" href="/use-cases/table-lakehouse-boundary-report">Table and lakehouse boundary</a><a class="claim-badge" href="/use-cases/object-store-boundary-report">Object-store and cloud storage boundary</a></div>
+          </section>
+          <section id="related" class="related-concepts">
+            <p class="eyebrow">Related concepts</p>
+            <div><a class="claim-badge" href="/field-guide/object-store-boundary">Object-Store Boundary</a><a class="claim-badge" href="/field-guide/blocked-status">Blocked Status</a><a class="claim-badge" href="/field-guide/scale-profile">Scale Profile</a></div>
+          </section>
+          <section id="sources">
+            <p class="eyebrow">Reference files</p>
+            <ul><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-compatibility-coverage-scoreboard.md"><code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code></a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/table-intelligence-layer.md"><code>docs/architecture/table-intelligence-layer.md</code></a></li></ul>
+          </section>
+          <nav class="dossier-nav" aria-label="Dossier navigation">
+            <a class="button" href="/field-guide/">Field Guide index</a>
+            <a class="button" href="/field-guide/object-store-boundary">Previous: Object-Store Boundary</a>
+            <a class="button primary" href="/field-guide/foundry-dev-stack-smoke">Next: Foundry Dev-Stack Smoke</a>
+          </nav>
+        </article>
+      </div>
+    </section>
+    </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <strong>ShardLoom</strong>
+        <span>Apache-2.0 project code. Pre-release public evidence surface.</span>
+      </div>
+      <div>
+        <span>ShardLoom name, logo, and icon are brand assets; see <a href="/BRAND.md">BRAND.md</a>.</span>
+        <span>Independent downstream Vortex-first workflow layer; not an official Vortex project or Vortex-endorsed.</span>
+        <span>No performance, Spark-displacement, production SQL/DataFrame, object-store/lakehouse, Foundry, or package-publication claim.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

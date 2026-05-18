@@ -1428,6 +1428,70 @@ tr:last-child td {
   gap: 14px;
 }
 
+.field-guide-toc {
+  display: grid;
+  gap: 12px;
+}
+
+.field-guide-toc h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 1.8vw, 2rem);
+}
+
+.field-guide-toc > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.field-guide-category {
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
+}
+
+.field-guide-category:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.field-guide-category-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.field-guide-category-header h2 {
+  margin: 4px 0 0;
+  font-size: clamp(1.45rem, 2.1vw, 2.2rem);
+}
+
+.field-guide-category-header span,
+.field-guide-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 720;
+}
+
+.field-guide-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+}
+
+.dossier-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 720;
+}
+
 .dossier-layout {
   display: grid;
   grid-template-columns: minmax(220px, 0.28fr) minmax(0, 0.72fr);
