@@ -242,7 +242,16 @@ object-store paths.
 
 ## Workflow Recipes Library
 
-Recipes should be practical, copyable, and claim-safe.
+The workflow recipe library is a practical, copyable, claim-safe entry point for common local
+smokes, prepared/native direction, generated-output smokes, messy-data fixtures, result-sink proof,
+blocked object-store diagnostics, Foundry-style local proof, and benchmark interpretation.
+
+The source of truth is `docs/use-cases/recipes/recipe-index.json` with schema
+`shardloom.workflow_recipe_library.v1`. Validate it with:
+
+```powershell
+python scripts\check_workflow_recipes.py
+```
 
 Initial recipe families:
 
@@ -263,6 +272,19 @@ Each recipe must include:
 - evidence fields
 - claim boundary
 - no-fallback/no-external-engine fields
+
+Current recipe-library posture:
+
+```text
+status=report_only_documentation_surface
+claim_gate_status=not_claim_grade
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Recipes are documentation/adoption surfaces. They do not add runtime support, publish packages,
+rerun benchmarks, invoke object stores, invoke Foundry runtime, or create production/performance
+claims.
 
 ## Acceptance
 

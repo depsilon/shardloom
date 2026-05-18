@@ -945,7 +945,7 @@ plan before coding.
 - [x] `GAR-COMMERCIAL-1C` adds a generated buyer-facing website/status matrix so users can quickly
   determine whether ShardLoom supports, smoke-supports, reports-only, blocks, plans, or does not
   plan common surfaces without reading the phase plan.
-- [ ] `GAR-COMMERCIAL-1F` adds workflow recipes without hiding unsupported paths.
+- [x] `GAR-COMMERCIAL-1F` adds workflow recipes without hiding unsupported paths.
 - [x] `GAR-IOREUSE-1D` adds a report-only cross-format fanout benchmark and workflow lane. It shows
   required fanout case IDs, reusable source/prepared/output planning fields, deterministic blocker
   IDs/reasons, timing/reuse columns, `fanout_output_count=0`, and no-fallback/no-external-engine
@@ -1411,10 +1411,10 @@ plan before coding.
   confidence follow-up. OpenLineage facets are now mapped as opt-in/report-only placeholders;
   OpenTelemetry spans remain opt-in/report-only, and Bayesian confidence can block claims but
   cannot upgrade claim status by itself.
-- [ ] `GAR-COMMERCIAL-1` adds the adoption and commercial-readiness friction-reduction follow-up.
+- [x] `GAR-COMMERCIAL-1` adds the adoption and commercial-readiness friction-reduction follow-up.
   One-command local proof, package-channel readiness, buyer-facing status, enterprise evidence
-  export, Foundry dev-stack, and recipes must remain claim-safe and evidence-gated before any public
-  release or production/commercial readiness claim.
+  export, Foundry dev-stack, and workflow recipes now remain claim-safe and evidence-gated before
+  any public release or production/commercial readiness claim.
 - [ ] `GAR-DOCS-1` adds the Use Case Atlas and website status-matrix follow-up. The flow must be
   explainable to non-experts by use case, status, execution mode, engine mode, input, output,
   evidence fields, and blockers without requiring readers to inspect RFCs or benchmark internals.

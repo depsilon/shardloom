@@ -604,50 +604,17 @@ evidence-dataset blocker boundaries. `scripts/check_foundry_dev_stack_starter.py
 Foundry runtime, Foundry compute, Foundry Spark, Foundry output APIs, result/evidence datasets,
 direct S3/object-store I/O, credentials, network probes, external compute, external engines,
 fallback execution, production Foundry, Marketplace, and package claims remain disabled.
-- [ ] GAR-COMMERCIAL-1F workflow recipes library
-  - Source: RFC 0033; common ETL/user workflows; getting-started examples; benchmark scenarios;
-    known unsupported paths; universal compatibility scoreboard;
-    `docs/architecture/adoption-commercial-readiness-friction-reduction.md`.
-  - Current state:
-    - Examples exist, but recipes are not broad or organized around user adoption.
-    - Current benchmark scenarios cover useful families such as dirty CSV, nested JSON, CDC overlay,
-      prepared Vortex, result-sink replay, and unsupported diagnostics, but not all are exposed as
-      copyable user recipes.
-  - Next slice outcome:
-    - Add recipe docs for generated reference table, dirty CSV cleanup, nested JSON extraction, CDC
-      overlay, prepared Vortex query, local result-sink replay, unsupported diagnostic example, and
-      object-store blocked example.
-  - User-visible surface:
-    - `docs/getting-started/`, README, website field guide/get-started/status pages, and examples.
-  - Implementation scope:
-    - Recipe docs, minimal commands/code, expected outputs, evidence field checklist, claim boundary,
-      and validation docs. Runtime expansion is out of scope.
-  - Evidence required:
-    - recipe refs: command/code path and expected output artifact.
-    - evidence refs: execution mode, materialization/decode, Native I/O, generated-source where
-      relevant, output sink, claim gate, no-fallback fields.
-    - unsupported refs: deterministic blocker diagnostics for blocked recipes.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - Each recipe includes user goal, code, expected output, evidence fields, and claim boundary.
-    - Recipes reduce adoption friction by showing real workflows without hiding unsupported paths.
-    - Blocked recipes are useful diagnostics examples, not fake success paths.
-  - Verification:
-    - docs link/readiness checks.
-    - example smoke tests if executable examples change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No broad SQL/DataFrame runtime, object-store runtime, Foundry runtime, package publication,
-      benchmark recomputation, performance claim, or production ETL claim.
-  - Claim boundary:
-    - Recipes demonstrate scoped local technical-preview workflows and blocked diagnostics only.
-  - Fallback boundary:
-    - Recipes must not call Spark, DataFusion, DuckDB, Polars, pandas, external databases, object
-      stores, or Foundry as hidden fallback execution.
-  - Dependencies/blockers:
-    - GAR-GEN for generated reference table runtime, prepared/native smoke stability, website
-      recipe routing, and known unsupported path freshness.
+GAR-COMMERCIAL-1F is complete and recorded in the completed ledger.
+`docs/use-cases/recipes/README.md` and `docs/use-cases/recipes/recipe-index.json` now provide a
+validated workflow recipe library with schema `shardloom.workflow_recipe_library.v1` for no-dataset
+smoke, local CSV/Parquet certification, prepared/native direction, native Vortex posture,
+source-free generated reference tables, dirty CSV cleanup, nested JSON scan, CDC overlay, output
+fanout, object-store blocked diagnostics, Foundry dev-stack smoke, and benchmark interpretation.
+`scripts/check_workflow_recipes.py` validates recipe ids, use-case links, exact references, evidence
+fields, claim boundaries, blockers for report-only/blocked recipes, `fallback_attempted=false`, and
+`external_engine_invoked=false`. The recipe library is documentation/adoption surface only; it does
+not authorize runtime expansion, package publication, benchmark recomputation, object-store/runtime
+I/O, Foundry production support, performance claims, or fallback execution.
 
 #### GAR-DOCS-1 - Non-Expert Use Case Atlas
 
@@ -864,54 +831,14 @@ claim-safe and keep `ready_local`, `smoke_supported`, `report_only`, `planned`, 
   - Ledger rule:
     - Move coverage-gate completion to the completed ledger with validation output and any allowlist.
 
-- [ ] GAR-DOCS-1E non-expert recipe library
-  - Source:
-    - GAR-COMMERCIAL-1F.
-    - GAR-DOCS-1A through GAR-DOCS-1D.
-    - `docs/getting-started/examples.md`.
-    - `benchmarks/traditional_analytics/README.md`.
-    - `docs/benchmarks/local-taxonomy-benchmark.md`.
-  - Current state:
-    - Examples and benchmark scenarios exist, but recipes are not organized by non-expert workflow
-      goals.
-  - Next slice outcome:
-    - Add a recipe library for common user goals, with code/commands, expected outputs, evidence
-      fields, claim boundaries, and blocked examples.
-  - User-visible surface:
-    - `docs/use-cases/recipes/`, getting-started docs, README links, future website Field Guide.
-  - Implementation scope:
-    - Recipe docs for no-dataset smoke, local CSV certified result, local Parquet certified result,
-      prepared Vortex batch run, native Vortex input, source-free generated reference table,
-      dirty CSV cleanup, nested JSON scan, CDC overlay, output fanout, object-store blocked
-      diagnostic, Foundry dev-stack smoke, and benchmark evidence interpretation.
-  - Evidence required:
-    - runnable refs for current local/smoke recipes.
-    - expected-output refs for artifacts or diagnostic reports.
-    - claim-boundary refs for each recipe.
-    - no-fallback refs for every command path.
-  - Acceptance:
-    - Recipes are short enough for non-experts and explicit enough for agents.
-    - Every recipe has user goal, command or code snippet, expected output, evidence fields, claim
-      boundary, and reference links.
-    - Blocked recipes are presented as useful diagnostics, not fake success paths.
-    - Every recipe links back to its use-case index id.
-  - Verification:
-    - `python scripts/check_use_case_index.py`
-    - recipe link/readiness checks once added.
-    - example smoke tests only when executable examples change.
-    - `git diff --check`
-  - Non-goals:
-    - No new runtime scenarios, benchmark recomputation, package publication, performance claim, or
-      production workflow claim.
-  - Claim boundary:
-    - Recipes demonstrate scoped local technical-preview behavior and deterministic blockers only.
-  - Fallback boundary:
-    - Recipes must not call Spark, DataFusion, DuckDB, Polars, pandas, object stores, databases, or
-      Foundry as hidden fallback execution.
-  - Dependencies/blockers:
-    - GAR-DOCS-1B schema stability and freshness of benchmark scenario docs.
-  - Ledger rule:
-    - Move completed recipe docs to the completed ledger with validation output.
+GAR-DOCS-1E is complete and recorded with GAR-COMMERCIAL-1F in the completed ledger.
+`docs/use-cases/recipes/README.md` is now the non-expert recipe library, and
+`docs/use-cases/recipes/recipe-index.json` maps every recipe to a Use Case Atlas id with status,
+command or blocked explanation, expected output, evidence fields, exact reference files, claim
+boundary, and no-fallback/no-external-engine evidence. The validator
+`scripts/check_workflow_recipes.py` keeps blocked recipes diagnostic-only and prevents recipe docs
+from implying production workflow, broad SQL/DataFrame, object-store/lakehouse, Foundry,
+performance, package-publication, or fallback-execution claims.
 
 - [ ] GAR-DOCS-1F non-expert field guide glossary
   - Source:
