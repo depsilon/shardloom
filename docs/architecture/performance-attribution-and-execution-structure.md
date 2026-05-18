@@ -240,9 +240,10 @@ object-store/lakehouse claims, or public performance claims.
 
 ## Evidence-Aware Logical Optimizer
 
-`GAR-PERF-2B` adds the planned optimizer rule registry and optimizer trace layer. Optimizer trace
-evidence belongs beside timing and work-avoidance fields so a row can explain which rewrites were
-admitted, applied, blocked, unsupported, not applicable, or report-only.
+`GAR-PERF-2B` adds the report-only optimizer rule registry and optimizer trace layer. Optimizer
+trace evidence belongs beside timing and work-avoidance fields so a row can explain which rewrites
+were admitted, applied, blocked, unsupported, not applicable, or report-only. Current rows apply no
+rewrites and emit `claim_gate_status=not_claim_grade`.
 
 Initial rule families:
 
@@ -258,7 +259,7 @@ join ordering
 cardinality estimation
 ```
 
-Trace rows should expose:
+Trace rows expose:
 
 ```text
 optimizer_trace_id

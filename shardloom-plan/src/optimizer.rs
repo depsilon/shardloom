@@ -142,6 +142,455 @@ impl OptimizerRuleStatus {
     }
 }
 
+const EVIDENCE_AWARE_OPTIMIZER_SCHEMA_VERSION: &str = "shardloom.evidence_aware_optimizer_trace.v1";
+const EVIDENCE_AWARE_OPTIMIZER_REPORT_ID: &str = "gar-perf-2b.evidence_aware_logical_optimizer";
+const EVIDENCE_AWARE_OPTIMIZER_TRACE_ID: &str = "optimizer_trace.gar_perf_2b.report_only_registry";
+const EVIDENCE_AWARE_OPTIMIZER_REGISTRY_VERSION: &str = "gar-perf-2b.optimizer_registry.v1";
+const EVIDENCE_AWARE_OPTIMIZER_BENCHMARK_TRACE_REF: &str =
+    "optimizer-trace://gar-perf-2b.report-only-registry";
+const REPORT_ONLY_PLAN_DIGEST: &str = "not_emitted_report_only";
+const REPORT_ONLY_CORRECTNESS_REF: &str = "not_required_no_rewrite_applied";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptimizerTraceRuleFamily {
+    PredicatePushdown,
+    ProjectionPushdown,
+    SliceLimitPushdown,
+    CommonSubplanSourceStateReuse,
+    ExpressionSimplification,
+    ConstantFolding,
+    TypeCoercion,
+    JoinOrdering,
+    CardinalityEstimation,
+}
+
+impl OptimizerTraceRuleFamily {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::PredicatePushdown => "predicate_pushdown",
+            Self::ProjectionPushdown => "projection_pushdown",
+            Self::SliceLimitPushdown => "slice_limit_pushdown",
+            Self::CommonSubplanSourceStateReuse => "common_subplan_source_state_reuse",
+            Self::ExpressionSimplification => "expression_simplification",
+            Self::ConstantFolding => "constant_folding",
+            Self::TypeCoercion => "type_coercion",
+            Self::JoinOrdering => "join_ordering",
+            Self::CardinalityEstimation => "cardinality_estimation",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptimizerTraceRuleStatus {
+    Admitted,
+    Applied,
+    Blocked,
+    Unsupported,
+    NotApplicable,
+    ReportOnly,
+}
+
+impl OptimizerTraceRuleStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Admitted => "admitted",
+            Self::Applied => "applied",
+            Self::Blocked => "blocked",
+            Self::Unsupported => "unsupported",
+            Self::NotApplicable => "not_applicable",
+            Self::ReportOnly => "report_only",
+        }
+    }
+
+    #[must_use]
+    pub const fn admitted(&self) -> bool {
+        matches!(self, Self::Admitted | Self::Applied)
+    }
+
+    #[must_use]
+    pub const fn applied(&self) -> bool {
+        matches!(self, Self::Applied)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptimizerRewriteSafetyStatus {
+    ReportOnlyNoRewrite,
+    CorrectnessProofRequired,
+    BlockedUnsupportedSemantics,
+}
+
+impl OptimizerRewriteSafetyStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnlyNoRewrite => "report_only_no_rewrite",
+            Self::CorrectnessProofRequired => "correctness_proof_required",
+            Self::BlockedUnsupportedSemantics => "blocked_unsupported_semantics",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardinalityEstimationStatus {
+    NotNeeded,
+    Unknown,
+    StatisticsRequired,
+    ReportOnly,
+}
+
+impl CardinalityEstimationStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotNeeded => "not_needed",
+            Self::Unknown => "unknown",
+            Self::StatisticsRequired => "statistics_required",
+            Self::ReportOnly => "report_only",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct EvidenceAwareOptimizerRuleTrace {
+    pub rule_id: String,
+    pub optimizer_phase: OptimizerPhase,
+    pub rule_family: OptimizerTraceRuleFamily,
+    pub rule_status: OptimizerTraceRuleStatus,
+    pub blocked_reason: String,
+    pub before_plan_digest: String,
+    pub after_plan_digest: String,
+    pub rewrite_safety_status: OptimizerRewriteSafetyStatus,
+    pub evidence_preserved: bool,
+    pub no_fallback_preserved: bool,
+    pub claim_boundary_preserved: bool,
+    pub materialization_boundary_preserved: bool,
+    pub source_state_reuse_admitted: bool,
+    pub estimated_input_cardinality: String,
+    pub estimated_output_cardinality: String,
+    pub cardinality_estimation_status: CardinalityEstimationStatus,
+    pub correctness_smoke_ref: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: String,
+}
+
+impl EvidenceAwareOptimizerRuleTrace {
+    #[must_use]
+    pub fn report_only(rule_id: &str, family: OptimizerTraceRuleFamily, reason: &str) -> Self {
+        Self::new(
+            rule_id,
+            family,
+            OptimizerTraceRuleStatus::ReportOnly,
+            reason,
+            OptimizerRewriteSafetyStatus::ReportOnlyNoRewrite,
+            false,
+            CardinalityEstimationStatus::NotNeeded,
+        )
+    }
+
+    #[must_use]
+    pub fn admitted(
+        rule_id: &str,
+        family: OptimizerTraceRuleFamily,
+        reason: &str,
+        source_state_reuse_admitted: bool,
+    ) -> Self {
+        Self::new(
+            rule_id,
+            family,
+            OptimizerTraceRuleStatus::Admitted,
+            reason,
+            OptimizerRewriteSafetyStatus::CorrectnessProofRequired,
+            source_state_reuse_admitted,
+            CardinalityEstimationStatus::ReportOnly,
+        )
+    }
+
+    #[must_use]
+    pub fn blocked(rule_id: &str, family: OptimizerTraceRuleFamily, reason: &str) -> Self {
+        Self::new(
+            rule_id,
+            family,
+            OptimizerTraceRuleStatus::Blocked,
+            reason,
+            OptimizerRewriteSafetyStatus::BlockedUnsupportedSemantics,
+            false,
+            CardinalityEstimationStatus::Unknown,
+        )
+    }
+
+    #[must_use]
+    pub fn unsupported(rule_id: &str, family: OptimizerTraceRuleFamily, reason: &str) -> Self {
+        Self::new(
+            rule_id,
+            family,
+            OptimizerTraceRuleStatus::Unsupported,
+            reason,
+            OptimizerRewriteSafetyStatus::BlockedUnsupportedSemantics,
+            false,
+            CardinalityEstimationStatus::Unknown,
+        )
+    }
+
+    #[must_use]
+    pub fn not_applicable(rule_id: &str, family: OptimizerTraceRuleFamily, reason: &str) -> Self {
+        Self::new(
+            rule_id,
+            family,
+            OptimizerTraceRuleStatus::NotApplicable,
+            reason,
+            OptimizerRewriteSafetyStatus::ReportOnlyNoRewrite,
+            false,
+            CardinalityEstimationStatus::NotNeeded,
+        )
+    }
+
+    #[must_use]
+    fn new(
+        rule_id: &str,
+        family: OptimizerTraceRuleFamily,
+        status: OptimizerTraceRuleStatus,
+        reason: &str,
+        rewrite_safety_status: OptimizerRewriteSafetyStatus,
+        source_state_reuse_admitted: bool,
+        cardinality_estimation_status: CardinalityEstimationStatus,
+    ) -> Self {
+        Self {
+            rule_id: rule_id.to_string(),
+            optimizer_phase: OptimizerPhase::Logical,
+            rule_family: family,
+            rule_status: status,
+            blocked_reason: reason.to_string(),
+            before_plan_digest: REPORT_ONLY_PLAN_DIGEST.to_string(),
+            after_plan_digest: REPORT_ONLY_PLAN_DIGEST.to_string(),
+            rewrite_safety_status,
+            evidence_preserved: true,
+            no_fallback_preserved: true,
+            claim_boundary_preserved: true,
+            materialization_boundary_preserved: true,
+            source_state_reuse_admitted,
+            estimated_input_cardinality: "not_estimated_report_only".to_string(),
+            estimated_output_cardinality: "not_estimated_report_only".to_string(),
+            cardinality_estimation_status,
+            correctness_smoke_ref: REPORT_ONLY_CORRECTNESS_REF.to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct EvidenceAwareOptimizerTraceReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub optimizer_trace_id: String,
+    pub optimizer_registry_version: String,
+    pub optimizer_phase: OptimizerPhase,
+    pub rule_rows: Vec<EvidenceAwareOptimizerRuleTrace>,
+    pub benchmark_trace_ref: String,
+    pub support_status: String,
+    pub claim_gate_status: String,
+    pub runtime_execution: bool,
+    pub optimizer_execution: bool,
+    pub plan_rewritten: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub write_io: bool,
+    pub object_store_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub performance_claim_allowed: bool,
+    pub broad_sql_dataframe_claim_allowed: bool,
+}
+
+impl EvidenceAwareOptimizerTraceReport {
+    #[must_use]
+    pub fn gar_perf_2b_report_only() -> Self {
+        Self {
+            schema_version: EVIDENCE_AWARE_OPTIMIZER_SCHEMA_VERSION,
+            report_id: EVIDENCE_AWARE_OPTIMIZER_REPORT_ID.to_string(),
+            optimizer_trace_id: EVIDENCE_AWARE_OPTIMIZER_TRACE_ID.to_string(),
+            optimizer_registry_version: EVIDENCE_AWARE_OPTIMIZER_REGISTRY_VERSION.to_string(),
+            optimizer_phase: OptimizerPhase::Logical,
+            rule_rows: vec![
+                EvidenceAwareOptimizerRuleTrace::report_only(
+                    "predicate_pushdown",
+                    OptimizerTraceRuleFamily::PredicatePushdown,
+                    "predicate pushdown classification is visible, but no general logical rewrite is applied by this report-only trace",
+                ),
+                EvidenceAwareOptimizerRuleTrace::report_only(
+                    "projection_pushdown",
+                    OptimizerTraceRuleFamily::ProjectionPushdown,
+                    "projection pushdown classification is visible, but no broad projection rewrite is applied by this report-only trace",
+                ),
+                EvidenceAwareOptimizerRuleTrace::blocked(
+                    "slice_limit_pushdown",
+                    OptimizerTraceRuleFamily::SliceLimitPushdown,
+                    "limit/order/null semantics need scoped correctness smoke before this rewrite can be applied",
+                ),
+                EvidenceAwareOptimizerRuleTrace::admitted(
+                    "common_subplan_source_state_reuse",
+                    OptimizerTraceRuleFamily::CommonSubplanSourceStateReuse,
+                    "scoped source-state reuse evidence exists for prepared/native benchmark batches, but this optimizer trace does not rewrite plans",
+                    true,
+                ),
+                EvidenceAwareOptimizerRuleTrace::unsupported(
+                    "expression_simplification",
+                    OptimizerTraceRuleFamily::ExpressionSimplification,
+                    "expression simplification lacks a stable expression IR rewrite proof in this slice",
+                ),
+                EvidenceAwareOptimizerRuleTrace::unsupported(
+                    "constant_folding",
+                    OptimizerTraceRuleFamily::ConstantFolding,
+                    "constant folding lacks a stable expression IR rewrite proof in this slice",
+                ),
+                EvidenceAwareOptimizerRuleTrace::blocked(
+                    "type_coercion",
+                    OptimizerTraceRuleFamily::TypeCoercion,
+                    "type coercion rewrites need semantic-profile and null/error behavior proof",
+                ),
+                EvidenceAwareOptimizerRuleTrace::blocked(
+                    "join_ordering",
+                    OptimizerTraceRuleFamily::JoinOrdering,
+                    "join ordering needs cardinality, memory, spill, and correctness evidence before rewrite admission",
+                ),
+                EvidenceAwareOptimizerRuleTrace::not_applicable(
+                    "cardinality_estimation",
+                    OptimizerTraceRuleFamily::CardinalityEstimation,
+                    "no input plan is supplied to this report-only registry snapshot, so cardinality estimation is not run",
+                ),
+            ],
+            benchmark_trace_ref: EVIDENCE_AWARE_OPTIMIZER_BENCHMARK_TRACE_REF.to_string(),
+            support_status: "report_only".to_string(),
+            claim_gate_status: "not_claim_grade".to_string(),
+            runtime_execution: false,
+            optimizer_execution: false,
+            plan_rewritten: false,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            write_io: false,
+            object_store_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            performance_claim_allowed: false,
+            broad_sql_dataframe_claim_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub fn rule_row_order(&self) -> Vec<&str> {
+        self.rule_rows
+            .iter()
+            .map(|row| row.rule_id.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn rule_status_vocabulary() -> [&'static str; 6] {
+        [
+            "admitted",
+            "applied",
+            "blocked",
+            "unsupported",
+            "not_applicable",
+            "report_only",
+        ]
+    }
+
+    #[must_use]
+    pub fn rule_count(&self) -> usize {
+        self.rule_rows.len()
+    }
+
+    #[must_use]
+    pub fn applied_rule_count(&self) -> usize {
+        self.rule_rows
+            .iter()
+            .filter(|row| row.rule_status.applied())
+            .count()
+    }
+
+    #[must_use]
+    pub fn admitted_rule_count(&self) -> usize {
+        self.rule_rows
+            .iter()
+            .filter(|row| row.rule_status.admitted())
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_rule_count(&self) -> usize {
+        self.rule_rows
+            .iter()
+            .filter(|row| row.rule_status == OptimizerTraceRuleStatus::Blocked)
+            .count()
+    }
+
+    #[must_use]
+    pub fn unsupported_rule_count(&self) -> usize {
+        self.rule_rows
+            .iter()
+            .filter(|row| row.rule_status == OptimizerTraceRuleStatus::Unsupported)
+            .count()
+    }
+
+    #[must_use]
+    pub fn report_only_rule_count(&self) -> usize {
+        self.rule_rows
+            .iter()
+            .filter(|row| row.rule_status == OptimizerTraceRuleStatus::ReportOnly)
+            .count()
+    }
+
+    #[must_use]
+    pub fn not_applicable_rule_count(&self) -> usize {
+        self.rule_rows
+            .iter()
+            .filter(|row| row.rule_status == OptimizerTraceRuleStatus::NotApplicable)
+            .count()
+    }
+
+    #[must_use]
+    pub fn all_no_fallback_no_external_engine(&self) -> bool {
+        !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+            && self
+                .rule_rows
+                .iter()
+                .all(|row| !row.fallback_attempted && !row.external_engine_invoked)
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "evidence-aware optimizer trace\nschema_version: {}\ntrace: {}\nregistry: {}\nphase: {}\nrules: {}\napplied rewrites: {}\nclaim gate: {}\nfallback attempted: false\nexternal engine invoked: false",
+            self.schema_version,
+            self.optimizer_trace_id,
+            self.optimizer_registry_version,
+            self.optimizer_phase.as_str(),
+            self.rule_count(),
+            self.applied_rule_count(),
+            self.claim_gate_status
+        )
+    }
+}
+
+#[must_use]
+pub fn plan_evidence_aware_optimizer_trace() -> EvidenceAwareOptimizerTraceReport {
+    EvidenceAwareOptimizerTraceReport::gar_perf_2b_report_only()
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct OptimizerRuleDecision {
     pub rule_id: OptimizerRuleId,
@@ -1543,5 +1992,54 @@ mod tests {
         assert!(!report.fallback_execution_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.production_claim_allowed);
+    }
+
+    #[test]
+    fn evidence_aware_optimizer_trace_is_report_only_and_side_effect_free() {
+        let report = plan_evidence_aware_optimizer_trace();
+        assert_eq!(
+            report.schema_version,
+            EVIDENCE_AWARE_OPTIMIZER_SCHEMA_VERSION
+        );
+        assert_eq!(report.optimizer_phase, OptimizerPhase::Logical);
+        assert_eq!(report.support_status, "report_only");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.rule_count(), 9);
+        assert_eq!(report.applied_rule_count(), 0);
+        assert_eq!(report.admitted_rule_count(), 1);
+        assert_eq!(report.blocked_rule_count(), 3);
+        assert_eq!(report.unsupported_rule_count(), 2);
+        assert_eq!(report.not_applicable_rule_count(), 1);
+        assert_eq!(report.report_only_rule_count(), 2);
+        assert!(report.all_no_fallback_no_external_engine());
+        assert!(!report.optimizer_execution);
+        assert!(!report.plan_rewritten);
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.broad_sql_dataframe_claim_allowed);
+    }
+
+    #[test]
+    fn evidence_aware_optimizer_trace_preserves_rule_evidence_boundaries() {
+        let report = plan_evidence_aware_optimizer_trace();
+        let source_state = report
+            .rule_rows
+            .iter()
+            .find(|row| row.rule_id == "common_subplan_source_state_reuse")
+            .expect("source-state reuse row");
+        assert_eq!(source_state.rule_status, OptimizerTraceRuleStatus::Admitted);
+        assert!(source_state.source_state_reuse_admitted);
+        assert!(!source_state.rule_status.applied());
+        assert_eq!(source_state.before_plan_digest, REPORT_ONLY_PLAN_DIGEST);
+        assert_eq!(source_state.after_plan_digest, REPORT_ONLY_PLAN_DIGEST);
+
+        assert!(report.rule_rows.iter().all(|row| {
+            row.evidence_preserved
+                && row.no_fallback_preserved
+                && row.claim_boundary_preserved
+                && row.materialization_boundary_preserved
+                && !row.fallback_attempted
+                && !row.external_engine_invoked
+                && row.claim_gate_status == "not_claim_grade"
+        }));
     }
 }

@@ -106,7 +106,7 @@ or claim.
 | Evidence exports and confidence | Evidence artifacts, protocol parity rows, and internal timing fields exist. OpenLineage and OpenTelemetry posture is report-only; Bayesian confidence is not implemented. | GAR-NOVEL-1 defines report-only OpenLineage facets, OpenTelemetry span mapping, and Bayesian claim-confidence fields, all opt-in and no-network by default. | Export and confidence surfaces cannot upgrade runtime support, production readiness, performance, or claim status. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
 | Runtime evidence level | `traditional-analytics-vortex-batch-run` now emits first-class `evidence_level=minimal_runtime|certified|full_replay` fields beside execution mode for scoped prepared/native local artifacts. `minimal_runtime` blocks result-sink replay and reports `claim_gate_status=not_claim_grade`; `certified` emits normal certificate-bearing evidence without replay by default; `full_replay` requires result-sink replay proof. | Continue propagating the contract into future Python/API capability views and broader execution envelopes only where evidence exists. Later slices can add runtime-light benchmark lanes and policy views without hidden fast modes. | Every evidence level keeps `fallback_attempted=false`, `external_engine_invoked=false`, source/output digest status, and claim boundaries visible. Evidence level explains proof depth; it is not execution mode, performance evidence, SQL/DataFrame support, object-store/lakehouse support, Foundry support, or production readiness. |
-| Evidence-aware logical optimizer | Execution modes, Plan IR, explain/estimate diagnostics, and report-only adaptive optimizer/memory planning exist, but no general optimizer rule registry or rewrite trace is claimable. | GAR-PERF-2B adds an optimizer rule registry and report-only optimizer trace for predicate/projection/slice pushdown, common subplan/source-state reuse, expression simplification, constant folding, type coercion, join ordering, and cardinality estimation. | Optimizer trace evidence must preserve before/after plan digests, rewrite safety, evidence, materialization, no-fallback, and claim gates. It is not Polars/DataFusion parity, broad SQL/DataFrame runtime, or performance evidence. |
+| Evidence-aware logical optimizer | `optimizer-plan`, Python typed accessors, and benchmark row contracts now expose a report-only optimizer rule registry and trace for predicate/projection/slice pushdown, common subplan/source-state reuse, expression simplification, constant folding, type coercion, join ordering, and cardinality estimation. No runtime rewrite is applied. | Future slices can promote individual rules only with before/after plan digests, correctness smoke, materialization/decode proof, no-fallback evidence, and claim gates. | Optimizer trace evidence is classification/explainability evidence only. It is not Polars/DataFusion parity, broad SQL/DataFrame runtime, performance evidence, or an applied-rewrite claim. |
 | Vortex Scan pushdown | Prepared/native rows expose scoped `source_backed_scan_*` evidence, but filter/projection/limit pushdown is not complete or uniformly classified across every scenario family. | GAR-PERF-2C maps each prepared/native family to Vortex Scan filter/projection/limit evidence or a deterministic blocker, including filter-only versus output column read sets. | Pushdown evidence is source/provider-boundary evidence only. It is not an encoded-native operator claim, broad Source/Split runtime claim, SQL/DataFrame claim, object-store/lakehouse claim, or performance claim. |
 | Compressed/encoded kernel registry | GAR-PERF-2D now emits scoped `compressed_kernel_registry_*` evidence for selective-filter prepared/native rows. Observed `flag:fastlanes.bitpacked` and `value:vortex.sequence` filter inputs are admitted/executed as reader-generated selection-vector inputs; dictionary, constant, sorted/min-max, and FSST/string pairs remain deterministic blockers or not-available rows. | Later slices can broaden kernel families only with correctness, materialization/decode, certificate, no-fallback, and claim-gate evidence. | Registry admission is not encoded-native support. Rows keep canonicalization, decode, materialization, validity, no-fallback, and claim-gate evidence visible with `encoded_native_claim_allowed=false`. |
 | Fused operator pipeline | GAR-PERF-2E now emits scoped `fused_pipeline_*` evidence with family statuses, correctness digest parity fields, row counts, materialization/decode posture, deterministic blockers, and no-fallback fields. Executed scoped families are filter/projection/limit, filter/aggregate via selective-filter selection vectors, and top-k/projection; filter/group-by is blocked until a filtered grouped scenario exists. | Later slices can add stronger independent unfused runtime re-execution certificates and broader fused families only with correctness, materialization/decode, and claim-gate evidence. | Fusion evidence is scoped residual-native runtime evidence only. It is not an encoded-native operator claim, broad SQL/DataFrame claim, object-store/lakehouse claim, production claim, or public performance claim. |
@@ -1177,8 +1177,9 @@ Evidence level appears beside `execution_mode`, not in place of it. Batch rows e
 explicit claim boundary. This lets benchmark readers see proof overhead without treating
 evidence-light rows as public performance rankings or claim-grade evidence.
 
-`GAR-PERF-2B` is the planned evidence-aware logical optimizer layer. It adds an optimizer rule
-registry and report-only optimizer trace over ShardLoom Plan IR. The first rule families are:
+`GAR-PERF-2B` is the evidence-aware logical optimizer report-only layer. It adds an optimizer rule
+registry and optimizer trace over ShardLoom Plan IR without applying runtime rewrites. The first
+rule families are:
 
 - predicate pushdown.
 - projection pushdown.
@@ -1190,14 +1191,18 @@ registry and report-only optimizer trace over ShardLoom Plan IR. The first rule 
 - join ordering.
 - cardinality estimation.
 
-Optimizer trace rows should expose optimizer trace ID, registry version, phase, rule ID/family,
-admitted/applied/blocked/unsupported/not-applicable/report-only status, before/after plan digests,
-rewrite safety, `evidence_preserved=true`, `no_fallback_preserved=true`,
-`claim_boundary_preserved=true`, materialization boundary preservation, source-state reuse
-admission, cardinality estimates and estimation status, correctness smoke ref, no-fallback status,
-and a claim gate. An applied rewrite must preserve semantic, evidence, materialization/decode, and
-claim boundaries and must never call Polars, DataFusion, DuckDB, Spark, or another external engine
-as optimizer or execution fallback.
+Optimizer trace rows expose optimizer trace ID, registry version, phase, rule ID/family,
+admitted/applied/blocked/unsupported/not-applicable/report-only status, report-only before/after
+plan digest placeholders, rewrite safety, `evidence_preserved=true`,
+`no_fallback_preserved=true`, `claim_boundary_preserved=true`, materialization boundary
+preservation, source-state reuse admission, cardinality estimates and estimation status,
+correctness smoke refs, no-fallback status, and a claim gate. Current rows apply no rewrites:
+predicate/projection pushdown are `report_only`, slice/limit, type coercion, and join ordering are
+`blocked`, common subplan/source-state reuse is `admitted`, expression simplification and constant
+folding are `unsupported`, and cardinality estimation is `not_applicable`. Any future applied
+rewrite must preserve semantic, evidence, materialization/decode, and claim boundaries and must
+never call Polars, DataFusion, DuckDB, Spark, or another external engine as optimizer or execution
+fallback.
 
 Optimizer trace evidence is explainability and rewrite-safety evidence only. It does not authorize
 broad SQL/DataFrame runtime, Polars/DataFusion parity, performance, superiority,

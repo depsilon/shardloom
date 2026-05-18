@@ -413,10 +413,11 @@ R5.4.5 outcome:
   `kernel_executed`, `canonicalization_required`, `decoded`, `materialized`, and
   `encoded_native_claim_allowed` visible, and block unsupported encodings deterministically without
   fallback.
-- `GAR-PERF-2B` carries the future evidence-aware logical optimizer. Capability rows should
-  classify optimizer rules as admitted, applied, blocked, unsupported, not applicable, or report-only
-  with before/after plan digests, rewrite safety, evidence-preservation, materialization-boundary,
-  no-fallback, and claim-gate fields.
+- `GAR-PERF-2B` carries the report-only evidence-aware logical optimizer. Capability and benchmark
+  rows classify optimizer rules as admitted, applied, blocked, unsupported, not applicable, or
+  report-only with report-only before/after plan-digest placeholders, rewrite safety,
+  evidence-preservation, materialization-boundary, no-fallback, and claim-gate fields. Current rows
+  apply no rewrites.
 - `GAR-PERF-2G` carries the future allocation and buffer-pool optimization contract. Capability
   rows should classify allocation profiling and buffer reuse as supported, scoped, not measurable,
   blocked, unsupported, or not needed per buffer family, while keeping correctness/evidence parity,

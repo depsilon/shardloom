@@ -200,12 +200,12 @@ separate proof overhead from runtime path. `minimal_runtime` preserves `fallback
 certificates without replay by default; `full_replay` requires result-sink replay proof. Future
 Python, API, and broader benchmark rows should reuse the same contract only where evidence exists.
 
-`GAR-PERF-2B` adds the planned evidence-aware logical optimizer contract. Future benchmark rows
-should be able to reference optimizer traces with optimizer trace ID, registry version, rule
-ID/family/status, before/after plan digests, rewrite safety, evidence preservation, materialization
-boundary preservation, cardinality estimation status, correctness smoke refs, no-fallback fields,
-and claim gate. Optimizer trace refs are explainability evidence only unless an applied rewrite has
-correctness smoke and evidence-preserving before/after digests.
+`GAR-PERF-2B` adds the report-only evidence-aware logical optimizer contract. ShardLoom benchmark
+rows now reference optimizer traces with optimizer trace ID, registry version, rule statuses,
+report-only before/after plan-digest placeholders, rewrite safety, evidence preservation,
+materialization boundary preservation, cardinality estimation status, correctness smoke refs,
+no-fallback fields, and claim gate. Optimizer trace refs are explainability evidence only unless a
+future applied rewrite has correctness smoke and evidence-preserving before/after digests.
 
 `GAR-PERF-2C` adds the Vortex Scan API pushdown completion contract. Prepared/native rows classify
 filter, projection, and limit/slice pushdown separately, name filter-only columns and output

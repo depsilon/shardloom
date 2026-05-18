@@ -671,6 +671,37 @@ RUNTIME_EVIDENCE_LEVEL_FIELDS = (
     "evidence_level_external_engine_invoked",
     "evidence_level_claim_boundary",
 )
+OPTIMIZER_TRACE_SCHEMA_VERSION = "shardloom.evidence_aware_optimizer_trace.v1"
+OPTIMIZER_TRACE_FIELDS = (
+    "optimizer_trace_schema_version",
+    "optimizer_trace_id",
+    "optimizer_registry_version",
+    "optimizer_phase",
+    "optimizer_rule_status_vocabulary",
+    "optimizer_rule_order",
+    "optimizer_rule_statuses",
+    "optimizer_rule_admitted_count",
+    "optimizer_rule_applied_count",
+    "optimizer_rule_blocked_count",
+    "optimizer_rule_unsupported_count",
+    "optimizer_rule_not_applicable_count",
+    "optimizer_rule_report_only_count",
+    "optimizer_before_plan_digest_status",
+    "optimizer_after_plan_digest_status",
+    "optimizer_rewrite_safety_status",
+    "optimizer_evidence_preserved",
+    "optimizer_no_fallback_preserved",
+    "optimizer_claim_boundary_preserved",
+    "optimizer_materialization_boundary_preserved",
+    "optimizer_source_state_reuse_admitted",
+    "optimizer_cardinality_estimation_status",
+    "optimizer_correctness_smoke_ref",
+    "optimizer_fallback_attempted",
+    "optimizer_external_engine_invoked",
+    "optimizer_claim_gate_status",
+    "optimizer_benchmark_trace_ref",
+    "optimizer_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -5436,6 +5467,71 @@ def reuse_level_contract_metadata(
     }
 
 
+def optimizer_trace_contract_metadata(engine: str) -> dict[str, Any]:
+    is_shardloom = is_shardloom_engine(engine)
+    return {
+        "optimizer_trace_schema_version": OPTIMIZER_TRACE_SCHEMA_VERSION,
+        "optimizer_trace_id": (
+            "optimizer_trace.gar_perf_2b.report_only_registry"
+            if is_shardloom
+            else "not_applicable_external_baseline"
+        ),
+        "optimizer_registry_version": "gar-perf-2b.optimizer_registry.v1",
+        "optimizer_phase": "logical" if is_shardloom else "external_baseline_only",
+        "optimizer_rule_status_vocabulary": (
+            "admitted,applied,blocked,unsupported,not_applicable,report_only"
+        ),
+        "optimizer_rule_order": (
+            "predicate_pushdown,projection_pushdown,slice_limit_pushdown,"
+            "common_subplan_source_state_reuse,expression_simplification,"
+            "constant_folding,type_coercion,join_ordering,cardinality_estimation"
+        ),
+        "optimizer_rule_statuses": (
+            "predicate_pushdown=report_only;projection_pushdown=report_only;"
+            "slice_limit_pushdown=blocked;common_subplan_source_state_reuse=admitted;"
+            "expression_simplification=unsupported;constant_folding=unsupported;"
+            "type_coercion=blocked;join_ordering=blocked;cardinality_estimation=not_applicable"
+            if is_shardloom
+            else "external_baseline_only"
+        ),
+        "optimizer_rule_admitted_count": 1 if is_shardloom else 0,
+        "optimizer_rule_applied_count": 0,
+        "optimizer_rule_blocked_count": 3 if is_shardloom else 0,
+        "optimizer_rule_unsupported_count": 2 if is_shardloom else 0,
+        "optimizer_rule_not_applicable_count": 1 if is_shardloom else 0,
+        "optimizer_rule_report_only_count": 2 if is_shardloom else 0,
+        "optimizer_before_plan_digest_status": "not_emitted_report_only",
+        "optimizer_after_plan_digest_status": "not_emitted_report_only",
+        "optimizer_rewrite_safety_status": "report_only_no_rewrite",
+        "optimizer_evidence_preserved": True,
+        "optimizer_no_fallback_preserved": True,
+        "optimizer_claim_boundary_preserved": True,
+        "optimizer_materialization_boundary_preserved": True,
+        "optimizer_source_state_reuse_admitted": is_shardloom,
+        "optimizer_cardinality_estimation_status": (
+            "not_applicable_no_input_plan" if is_shardloom else "external_baseline_only"
+        ),
+        "optimizer_correctness_smoke_ref": "not_required_no_rewrite_applied",
+        "optimizer_fallback_attempted": False,
+        "optimizer_external_engine_invoked": False,
+        "optimizer_claim_gate_status": "not_claim_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "optimizer_benchmark_trace_ref": (
+            "optimizer-trace://gar-perf-2b.report-only-registry"
+            if is_shardloom
+            else "none"
+        ),
+        "optimizer_claim_boundary": (
+            "Optimizer trace fields classify report-only rewrite posture and source-state reuse "
+            "admission only; no optimizer rewrite was applied, no performance claim is allowed, "
+            "and this is not lazy optimizer parity, SQL/DataFrame runtime, object-store/lakehouse "
+            "runtime, Foundry support, production readiness, package readiness, or Spark "
+            "replacement evidence"
+        ),
+    }
+
+
 def rows_scanned(paths: DatasetPaths, scenario: str) -> int:
     if scenario in {
         "hash join",
@@ -5923,6 +6019,30 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         if metrics.get("claim_grade_requirements_met") is not False:
             raise RuntimeError(
                 "reuse-level evidence cannot mark claim-grade requirements met"
+            )
+        missing_optimizer_trace_fields = [
+            field for field in OPTIMIZER_TRACE_FIELDS if field not in metrics
+        ]
+        if missing_optimizer_trace_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted optimizer trace fields: "
+                + ", ".join(missing_optimizer_trace_fields)
+            )
+        if metrics.get("optimizer_trace_schema_version") != OPTIMIZER_TRACE_SCHEMA_VERSION:
+            raise RuntimeError("optimizer trace rows must preserve schema version")
+        if metrics.get("optimizer_rule_applied_count") != 0:
+            raise RuntimeError("report-only optimizer trace cannot apply rewrites")
+        if metrics.get("optimizer_fallback_attempted") is not False:
+            raise RuntimeError("optimizer trace evidence cannot report fallback attempts")
+        if metrics.get("optimizer_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "optimizer trace evidence cannot report external engine execution"
+            )
+        if metrics.get("optimizer_claim_gate_status") != "not_claim_grade":
+            raise RuntimeError("optimizer trace evidence cannot upgrade claim status")
+        if metrics.get("optimizer_source_state_reuse_admitted") is not True:
+            raise RuntimeError(
+                "optimizer trace should surface scoped source-state reuse admission"
             )
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
@@ -7464,6 +7584,7 @@ def failed_result(
             metrics=metrics,
         )
     )
+    metrics.update(optimizer_trace_contract_metadata(engine))
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -7983,6 +8104,7 @@ def successful_result_from_iterations(
             metrics=metrics,
         )
     )
+    metrics.update(optimizer_trace_contract_metadata(runner.name))
     if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
         metrics.update(
             {
@@ -9006,6 +9128,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "fused_pipeline_fields": list(FUSED_PIPELINE_FIELDS),
         "compressed_kernel_registry_fields": list(COMPRESSED_KERNEL_REGISTRY_FIELDS),
         "scan_pushdown_fields": list(SCAN_PUSHDOWN_FIELDS),
+        "optimizer_trace_fields": list(OPTIMIZER_TRACE_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
             "compatibility_import_certified": (
@@ -9066,12 +9189,14 @@ def persistent_runner_admission_gate() -> dict[str, Any]:
         + list(BATCH_RUNNER_ADMISSION_FIELDS)
         + list(SESSION_RUNTIME_FIELDS)
         + list(ALLOCATION_RESOURCE_PROFILE_FIELDS)
-        + list(RUNTIME_EVIDENCE_LEVEL_FIELDS),
+        + list(RUNTIME_EVIDENCE_LEVEL_FIELDS)
+        + list(OPTIMIZER_TRACE_FIELDS),
         "must_preserve": [
             "shardloom.output.v2 typed envelopes per run",
             "execution-mode selection fields",
             "Native I/O certificate refs and inline artifacts",
             "runtime evidence-level fields",
+            "optimizer trace refs without applied rewrites until correctness proof exists",
             "operator blocker matrix fields",
             "materialization/decode boundary fields",
             "result-sink replay evidence when result sinks are enabled",

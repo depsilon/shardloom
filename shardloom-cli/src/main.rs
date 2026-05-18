@@ -1571,9 +1571,9 @@ mod tests {
     }
 
     #[test]
-    fn optimizer_plan_returns_non_zero() {
+    fn optimizer_plan_returns_report_only_success() {
         let code = run(vec!["optimizer-plan".to_string()]);
-        assert_ne!(code, ExitCode::SUCCESS);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
