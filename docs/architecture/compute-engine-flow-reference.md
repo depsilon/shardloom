@@ -101,7 +101,7 @@ or claim.
 | User access | CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces and thin adapters are report-only or planned. | Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope. | No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. |
 | Adoption and commercial readiness | Source-local dry-run proof, first-10-minutes docs, website/status, and public-preview posture exist, but public package publication and channel readiness are incomplete. | GAR-COMMERCIAL-1 turns local proof, package channels, buyer-facing status, evidence export, Foundry starter, and recipes into claim-safe adoption surfaces. | Adoption surfaces reduce evaluation friction only; they do not authorize production, package release, performance, Spark-replacement, SQL/DataFrame, object-store/lakehouse, or Foundry claims. |
 | Universal compatibility coverage | `docs/architecture/universal-compatibility-coverage-scoreboard.md` now provides a report-only map for local files, Vortex, generated/source-free outputs, Python rows/DataFrame, SQL literals/VALUES, databases, warehouses, object stores, table formats, REST/Flight/ADBC, and Foundry. | GAR-COMPAT-1 promotes the map into typed website/status and Python capability surfaces while preserving blocked/report-only rows. | Compatibility coverage is a capability map, not a production, performance, Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, or package-readiness claim. |
-| I/O reuse and cross-format fanout | Prepared/native rows reuse selected source metadata and scenario-family source-state. GAR-IOREUSE-1A adds a universal local SourceState benchmark/report contract for source discovery/schema identity/fingerprints/parse-plan posture across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC rows. GAR-IOREUSE-1B adds a VortexPreparedState benchmark/report contract for prepared artifact refs/digests, preparation timing separation, source-state linkage, and scoped reuse posture. GAR-IOREUSE-1C adds an OutputPlan benchmark/report contract for scoped local Vortex result-sink planning, metadata preservation posture, write/replay refs, and sink artifact identity. GAR-IOREUSE-1D adds report-only fanout benchmark rows for required cross-format cases. GAR-IOREUSE-1E adds cache invalidation/fingerprint rows for current local source/prepared/plan/output posture. GAR-IOREUSE-1F adds evidence-safe reuse-level rows and a reuse-level matrix. Runtime fanout and generated-output sink artifact evidence remain planned. | GAR-IOREUSE-1 continues with runtime fanout and generated-output follow-through. | Input and output formats remain decoupled. SourceState, VortexPreparedState, OutputPlan, fanout matrix, cache invalidation evidence, and reuse-level evidence are not runtime cross-format fanout or persistent cache support by themselves, not a performance claim, and not object-store/lakehouse or Foundry production support. |
+| I/O reuse and cross-format fanout | Prepared/native rows reuse selected source metadata and scenario-family source-state. GAR-IOREUSE-1A adds a universal local SourceState benchmark/report contract for source discovery/schema identity/fingerprints/parse-plan posture across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC rows. GAR-IOREUSE-1B adds a VortexPreparedState benchmark/report contract for prepared artifact refs/digests, preparation timing separation, source-state linkage, and scoped reuse posture. GAR-IOREUSE-1C adds an OutputPlan benchmark/report contract for scoped local Vortex result-sink planning, metadata preservation posture, write/replay refs, and sink artifact identity. GAR-IOREUSE-1D adds report-only fanout benchmark rows for required cross-format cases. GAR-IOREUSE-1E adds cache invalidation/fingerprint rows for current local source/prepared/plan/output posture. GAR-IOREUSE-1F adds evidence-safe reuse-level rows and a reuse-level matrix. GAR-IOREUSE-1G adds report-only Foundry generated-output fanout posture to the local proof report. Runtime fanout and generated-output sink artifact evidence remain planned. | GAR-IOREUSE-1 follow-through now moves to runtime fanout, generated-source runtime, and claim-grade output evidence only through later scoped slices. | Input and output formats remain decoupled. SourceState, VortexPreparedState, OutputPlan, fanout matrix, cache invalidation evidence, reuse-level evidence, and Foundry generated-output fanout posture are not runtime cross-format fanout or persistent cache support by themselves, not a performance claim, and not object-store/lakehouse or Foundry production support. |
 | Source-free generated output | No-input smoke/capability behavior exists, and benchmark synthetic fixtures exist, but ShardLoom does not yet expose a first-class generated-output runtime for user rows or engine-native generator nodes. SQL/DataFrame/query-builder posture is report-only. | GAR-GEN-1 adds the planned `GeneratedSourceCertificate` contract, separates `no_dataset_smoke` from generated-output execution, and stages future Python, SQL, and DataFrame-style generated-source APIs. | No source Native I/O certificate is claimed when no source dataset is read. Local generated output needs generated-source evidence plus output sink evidence. S3/object-store and Foundry generated-output runtime remain report-only/gated. |
 | Evidence exports and confidence | Evidence artifacts, protocol parity rows, and internal timing fields exist. OpenLineage and OpenTelemetry posture is report-only; Bayesian confidence is not implemented. | GAR-NOVEL-1 defines report-only OpenLineage facets, OpenTelemetry span mapping, and Bayesian claim-confidence fields, all opt-in and no-network by default. | Export and confidence surfaces cannot upgrade runtime support, production readiness, performance, or claim status. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
@@ -599,9 +599,15 @@ adds credential, network, write, commit, retry, and certificate evidence. `GAR-G
 credential resolution, network probing, S3 reads, S3 writes, object-store commits, lakehouse writes,
 or object-store performance claims.
 
-Foundry generated-output smoke is a separate future proof target. It should write through Foundry
-output APIs, not direct S3/object-store paths, and it must not imply Foundry production support,
-Foundry certification, or third-party platform endorsement.
+Foundry generated-output smoke is a separate future proof target. The current local proof report
+now exposes report-only Foundry generated-output fanout posture through
+`shardloom.foundry_generated_output_fanout_posture.v1` with
+`generated_output_execution_performed=false`, `generated_source_created=false`,
+`fanout_output_count=0`, `direct_s3_write_invoked=false`, `foundry_spark_invoked=false`,
+`fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status=not_claim_grade`. A future runtime proof must write through Foundry output APIs,
+not direct S3/object-store paths, and it must not imply Foundry production support, Foundry
+certification, or third-party platform endorsement.
 
 ## Execution Modes And Engine Modes
 
@@ -1279,6 +1285,21 @@ traditional analytics benchmark JSON/Markdown report. Rows expose
 `reuse_level_matrix` with per-level status, hit, digest, allowed, blocker, invalidation reason,
 execution mode, evidence level, and output format. Reuse hits or misses are visibility evidence
 only; they do not prove correctness, output fidelity, performance, or production support.
+
+The current `GAR-IOREUSE-1G` slice implements report-only Foundry generated-output fanout posture in
+the local Foundry proof report. It exposes
+`schema_version=shardloom.foundry_generated_output_fanout_posture.v1`,
+`support_status=report_only`, `generated_output_execution_performed=false`,
+`no_dataset_smoke_separate_from_generated_output=true`, `input_dataset_count=0`,
+`source_io_performed=false`, `generated_source_created=false`,
+`generated_source_certificate_status=not_emitted_report_only`, `output_plan_id=null`,
+`fanout_output_count=0`, `output_io_performed=false`,
+`output_native_io_certificate_status=not_emitted_report_only`, `foundry_output_api_required=true`,
+`foundry_runtime_invoked=false`, `foundry_compute_invoked=false`, `foundry_spark_invoked=false`,
+`direct_s3_write_invoked=false`, `object_store_write_invoked=false`, no-fallback/no-external-engine
+fields, and `claim_gate_status=not_claim_grade`. This is posture/report evidence only; it is not
+generated-output execution, Foundry output API proof, direct S3/object-store support, package
+publication, or Foundry production support.
 
 The planned benchmark families are:
 

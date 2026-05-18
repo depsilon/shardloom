@@ -28,10 +28,11 @@ result-sink planning, metadata preservation posture, write/replay refs, and sink
 `GAR-IOREUSE-1D` adds the first-class fanout benchmark matrix for required cross-format output
 cases as deterministic report-only rows. `GAR-IOREUSE-1E` adds the cache invalidation/fingerprint
 benchmark contract for current-row local SourceState, VortexPreparedState, ExecutionPlan,
-OutputPlan, and SinkArtifact posture. Fanout runtime, persistent caches, reuse-level, and Foundry
-generated-output slices are still planned. This document does not implement object-store I/O,
-table/lakehouse commits, Foundry production support, performance claims, a persistent cache, or a
-hidden fast mode.
+OutputPlan, and SinkArtifact posture. `GAR-IOREUSE-1F` adds evidence-safe reuse-level visibility.
+`GAR-IOREUSE-1G` adds report-only Foundry generated-output fanout posture. Fanout runtime,
+persistent caches, generated-output runtime, and Foundry output API proof remain planned. This
+document does not implement object-store I/O, table/lakehouse commits, Foundry production support,
+performance claims, a persistent cache, or a hidden fast mode.
 
 ## Goals
 
@@ -460,22 +461,38 @@ fidelity output target. Metadata loss must be reported per output target.
 
 ## Foundry Generated-Output Boundary
 
-Foundry no-input/generated-output fanout remains planned/report-only in this bundle. A future
-Foundry-style smoke must use Foundry output APIs where applicable, not direct S3 writes, and must
-emit generated-source and output evidence without claiming Foundry production support.
+Implemented `GAR-IOREUSE-1G` adds report-only Foundry generated-output fanout posture to the local
+Foundry proof report. It does not execute generated output, invoke Foundry, write through Foundry
+output APIs, write direct S3/object-store outputs, or upgrade Foundry support. It makes the future
+proof shape machine-visible through a `shardloom.foundry_generated_output_fanout_posture.v1`
+object with blocked/report-only status.
 
-Required future Foundry generated-output fields:
+Current Foundry generated-output fanout posture fields:
 
 ```text
 input_dataset_count=0
-generated_source_created=true
-generated_source_certificate_status
-output_plan_id
-output_native_io_certificate_status
+source_io_performed=false
+generated_output_execution_performed=false
+generated_source_created=false
+generated_source_kind=planned_deterministic_literal_table
+generated_source_certificate_status=not_emitted_report_only
+source_native_io_certificate_status=not_applicable_no_source_dataset
+output_plan_id=null
+output_plan_reuse_hit=false
+fanout_output_count=0
+output_io_performed=false
+output_native_io_certificate_status=not_emitted_report_only
+result_dataset_output_status=not_written_report_only
+evidence_dataset_output_status=not_written_report_only
+foundry_output_api_required=true
 foundry_runtime_invoked=false unless real Foundry runtime proof exists
+foundry_compute_invoked=false unless real Foundry runtime proof exists
 foundry_spark_invoked=false
+direct_s3_write_invoked=false
+object_store_write_invoked=false
 fallback_attempted=false
 external_engine_invoked=false
+claim_gate_status=not_claim_grade
 ```
 
 No-input smoke and generated-output execution remain separate. Foundry output must go through
@@ -499,10 +516,12 @@ external_engine_invoked=false
 
 ## Acceptance For The Planning Bundle
 
-- The phase plan contains detailed remaining `GAR-IOREUSE-1F` through `GAR-IOREUSE-1G` slices, and
+- The phase plan contains detailed remaining GAR follow-up slices, and
   the completed ledger records `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, `GAR-IOREUSE-1C`,
-  `GAR-IOREUSE-1D`, and `GAR-IOREUSE-1E` as completed SourceState, VortexPreparedState, OutputPlan,
-  fanout benchmark matrix, and cache invalidation/fingerprint evidence.
+  `GAR-IOREUSE-1D`, `GAR-IOREUSE-1E`, `GAR-IOREUSE-1F`, and `GAR-IOREUSE-1G` as completed
+  SourceState, VortexPreparedState, OutputPlan, fanout benchmark matrix, cache
+  invalidation/fingerprint, evidence-safe reuse-level, and Foundry generated-output fanout posture
+  evidence.
 - Benchmark docs list the tracked benchmark families and metrics.
 - Compute-flow docs show the decoupled path:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`.

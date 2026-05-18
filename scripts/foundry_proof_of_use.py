@@ -16,6 +16,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.foundry_proof_of_use_report.v1"
+FOUNDRY_GENERATED_OUTPUT_FANOUT_SCHEMA_VERSION = (
+    "shardloom.foundry_generated_output_fanout_posture.v1"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -61,6 +64,55 @@ def load_json_if_present(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def foundry_generated_output_fanout_posture() -> dict[str, Any]:
+    return {
+        "schema_version": FOUNDRY_GENERATED_OUTPUT_FANOUT_SCHEMA_VERSION,
+        "support_status": "report_only",
+        "admission_status": "blocked_until_generated_source_and_foundry_output_api_evidence",
+        "generated_output_execution_performed": False,
+        "no_dataset_smoke_separate_from_generated_output": True,
+        "input_dataset_count": 0,
+        "source_io_performed": False,
+        "generated_source_created": False,
+        "generated_source_kind": "planned_deterministic_literal_table",
+        "generated_source_schema_digest": None,
+        "generated_source_row_count": 0,
+        "generated_source_plan_digest": None,
+        "generated_source_seed": None,
+        "generation_deterministic": None,
+        "generated_source_certificate_status": "not_emitted_report_only",
+        "source_native_io_certificate_status": "not_applicable_no_source_dataset",
+        "output_plan_id": None,
+        "output_plan_reuse_hit": False,
+        "fanout_output_count": 0,
+        "output_io_performed": False,
+        "output_native_io_certificate_status": "not_emitted_report_only",
+        "result_dataset_output_status": "not_written_report_only",
+        "evidence_dataset_output_status": "not_written_report_only",
+        "foundry_output_api_required": True,
+        "foundry_runtime_invoked": False,
+        "foundry_compute_invoked": False,
+        "foundry_spark_invoked": False,
+        "direct_s3_write_invoked": False,
+        "object_store_write_invoked": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "claim_gate_status": "not_claim_grade",
+        "claim_boundary": (
+            "Report-only Foundry generated-output fanout posture; not generated-output "
+            "runtime, not Foundry production support, not direct S3/object-store write "
+            "support, not package publication, and not a performance claim."
+        ),
+        "blockers": [
+            "generated_source_certificate_not_emitted",
+            "foundry_output_api_runtime_not_proven",
+            "output_native_io_certificate_not_emitted",
+            "result_dataset_not_written",
+            "evidence_dataset_not_written",
+        ],
+    }
 
 
 def main() -> int:
@@ -113,6 +165,7 @@ def main() -> int:
     transform = load_json_if_present(transform_output) or {}
     benchmark = load_json_if_present(benchmark_output) or {}
     passed = all(step["returncode"] == 0 for step in steps)
+    generated_output_fanout = foundry_generated_output_fanout_posture()
     report = {
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if passed else "blocked",
@@ -133,9 +186,14 @@ def main() -> int:
         "certificate_output_ref": str(transform_output),
         "benchmark_metrics_output_ref": str(benchmark_output) if benchmark_output.exists() else None,
         "materialization_staging_boundary_report_ref": "examples/foundry-lightweight-transform/expected-certificate-fields.json",
+        "foundry_generated_output_fanout_status": generated_output_fanout["support_status"],
+        "foundry_generated_output_fanout_ref": "foundry_generated_output_fanout_posture",
+        "foundry_generated_output_fanout_posture": generated_output_fanout,
         "foundry_runtime_invoked": False,
         "foundry_compute_invoked": False,
         "foundry_spark_invoked": False,
+        "direct_s3_write_invoked": False,
+        "object_store_write_invoked": False,
         "snowflake_databricks_bigquery_invoked": False,
         "virtual_tables_native_execution_claimed": False,
         "external_compute_boundary": "governed_handle_or_baseline_only",

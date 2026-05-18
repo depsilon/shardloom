@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1G Foundry generated-output fanout posture
+  - Primary files:
+    - `scripts/foundry_proof_of_use.py`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+  - Scope: add report-only Foundry generated-output fanout posture to the local Foundry proof
+    report without invoking Foundry, executing source-free generated output, writing direct S3 or
+    object-store outputs, publishing packages, or expanding ShardLoom runtime support.
+  - Checklist:
+    - [x] Add `shardloom.foundry_generated_output_fanout_posture.v1` to
+          `scripts/foundry_proof_of_use.py`.
+    - [x] Keep no-input smoke separate from generated-output execution through
+          `generated_output_execution_performed=false` and
+          `no_dataset_smoke_separate_from_generated_output=true`.
+    - [x] Expose current generated-source fields as report-only blockers:
+          `generated_source_created=false`,
+          `generated_source_certificate_status=not_emitted_report_only`, and
+          `source_native_io_certificate_status=not_applicable_no_source_dataset`.
+    - [x] Expose output/fanout fields as not-written report-only posture:
+          `output_plan_id=null`, `output_plan_reuse_hit=false`, `fanout_output_count=0`,
+          `output_io_performed=false`, and
+          `output_native_io_certificate_status=not_emitted_report_only`.
+    - [x] Add Foundry/object-store boundary fields:
+          `foundry_runtime_invoked=false`, `foundry_compute_invoked=false`,
+          `foundry_spark_invoked=false`, `direct_s3_write_invoked=false`,
+          `object_store_write_invoked=false`, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+    - [x] Remove GAR-IOREUSE-1G from the active Planned queue and update architecture,
+          traceability, Foundry proof, compute-flow, and website compute-flow docs.
+  - Evidence/verification:
+    - `python -m compileall -q scripts`
+    - `python scripts/foundry_proof_of_use.py --rows 8 --iterations 1 --skip-local-execution-smoke --output target/codex-gar-ioreuse-1g-foundry/report.json`
+    - smoke artifact inspection for `shardloom.foundry_generated_output_fanout_posture.v1`,
+      `support_status=report_only`, `generated_output_execution_performed=False`,
+      `fanout_output_count=0`, `direct_s3_write_invoked=False`,
+      `fallback_attempted=False`, and `external_engine_invoked=False`.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - The completed slice may claim only report-only Foundry generated-output fanout posture and
+      explicit blockers in the local proof report.
+    - It does not authorize generated-output runtime, Foundry production support, Foundry package
+      publication, direct S3/object-store writes, object-store/lakehouse support,
+      SQL/DataFrame support, performance/superiority claims, Spark replacement, or package/release
+      readiness.
+  - Fallback boundary:
+    - The posture requires `fallback_attempted=false`, `external_engine_invoked=false`,
+      `foundry_spark_invoked=false`, and `direct_s3_write_invoked=false`.
+
 - [x] Session label: GAR-IOREUSE-1F evidence-safe reuse-level benchmark evidence
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

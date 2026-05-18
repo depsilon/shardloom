@@ -272,6 +272,13 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     let foundry_script = read_repo_file("scripts/foundry_proof_of_use.py");
     for required in [
         "shardloom.foundry_proof_of_use_report.v1",
+        "shardloom.foundry_generated_output_fanout_posture.v1",
+        "foundry_generated_output_fanout_posture",
+        "foundry_generated_output_fanout_status",
+        "generated_output_execution_performed",
+        "generated_source_certificate_status",
+        "output_native_io_certificate_status",
+        "direct_s3_write_invoked",
         "foundry_runtime_invoked",
         "foundry_compute_invoked",
         "foundry_spark_invoked",
@@ -656,12 +663,18 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     let proof = read_repo_file("docs/foundry/proof-of-use-certification.md");
     for required in [
         "shardloom.foundry_proof_of_use_report.v1",
+        "shardloom.foundry_generated_output_fanout_posture.v1",
         "package_install_mode",
         "transform_import_proven",
         "cli_binary_resolved",
         "staged_dataset_path_explicit",
         "supported_local_native_execution_smoke_performed",
         "certificate_metrics_dataset_output_written",
+        "foundry_generated_output_fanout_status",
+        "generated_output_execution_performed=false",
+        "generated_source_certificate_status=not_emitted_report_only",
+        "output_native_io_certificate_status=not_emitted_report_only",
+        "direct_s3_write_invoked=false",
         "foundry_runtime_invoked=false",
         "foundry_compute_invoked=false",
         "fallback_attempted=false",
