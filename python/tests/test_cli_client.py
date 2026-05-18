@@ -1728,6 +1728,24 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "streaming_capability_matrix_blocked_row_count", "value": "2"},
                         {"key": "streaming_capability_matrix_diagnostic_code_order", "value": "SL_OBJECT_STORE_UNSUPPORTED,SL_MATERIALIZATION_REQUIRED,SL_NOT_IMPLEMENTED"},
                         {"key": "streaming_capability_matrix_all_rows_no_fallback_no_external_engine", "value": "true"},
+                        {"key": "live_hybrid_fabric_gate_schema_version", "value": "shardloom.live_hybrid_fabric_freshness_gate.v1"},
+                        {"key": "live_hybrid_fabric_gate_report_id", "value": "gar-0034-a.live_hybrid_fabric_freshness_gate"},
+                        {"key": "live_hybrid_fabric_gate_row_count", "value": "9"},
+                        {"key": "live_hybrid_fabric_gate_row_order", "value": "live_broker_adapter,live_durable_checkpoint_store,live_unbounded_scheduler,live_freshness_certificate,live_exactly_once_claim,hybrid_micro_segment_flush,hybrid_object_store_commit,hybrid_catalog_snapshot,baseline_oracle_boundary"},
+                        {"key": "live_hybrid_fabric_gate_blocked_row_count", "value": "7"},
+                        {"key": "live_hybrid_fabric_gate_report_only_row_count", "value": "1"},
+                        {"key": "live_hybrid_fabric_gate_fixture_smoke_row_count", "value": "1"},
+                        {"key": "live_hybrid_fabric_gate_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "live_hybrid_fabric_gate_freshness_claim_allowed", "value": "false"},
+                        {"key": "live_hybrid_fabric_gate_exactly_once_claim_allowed", "value": "false"},
+                        {"key": "live_hybrid_fabric_gate_production_live_claim_allowed", "value": "false"},
+                        {"key": "live_hybrid_fabric_gate_production_hybrid_claim_allowed", "value": "false"},
+                        {"key": "live_hybrid_fabric_gate_object_store_runtime_supported", "value": "false"},
+                        {"key": "live_hybrid_fabric_gate_broker_runtime_supported", "value": "false"},
+                        {"key": "live_hybrid_fabric_gate_state_store_runtime_supported", "value": "false"},
+                        {"key": "live_hybrid_fabric_gate_baseline_oracle_only", "value": "true"},
+                        {"key": "live_hybrid_fabric_gate_fallback_attempted", "value": "false"},
+                        {"key": "live_hybrid_fabric_gate_external_engine_invoked", "value": "false"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ],
@@ -1752,6 +1770,31 @@ class ShardLoomClientTests(unittest.TestCase):
             result.streaming_capability_diagnostic_codes,
         )
         self.assertTrue(result.streaming_capability_no_fallback_no_external_engine)
+        self.assertEqual(
+            result.live_hybrid_fabric_gate_schema_version,
+            "shardloom.live_hybrid_fabric_freshness_gate.v1",
+        )
+        self.assertEqual(
+            result.live_hybrid_fabric_gate_report_id,
+            "gar-0034-a.live_hybrid_fabric_freshness_gate",
+        )
+        self.assertIn("live_freshness_certificate", result.live_hybrid_fabric_gate_rows)
+        self.assertIn("baseline_oracle_boundary", result.live_hybrid_fabric_gate_rows)
+        self.assertEqual(result.live_hybrid_fabric_gate_blocked_row_count, 7)
+        self.assertEqual(result.live_hybrid_fabric_gate_report_only_row_count, 1)
+        self.assertEqual(result.live_hybrid_fabric_gate_fixture_smoke_row_count, 1)
+        self.assertEqual(result.live_hybrid_fabric_gate_claim_gate_status, "not_claim_grade")
+        self.assertFalse(result.live_hybrid_freshness_claim_allowed)
+        self.assertFalse(result.live_hybrid_exactly_once_claim_allowed)
+        self.assertFalse(result.live_hybrid_production_live_claim_allowed)
+        self.assertFalse(result.live_hybrid_production_hybrid_claim_allowed)
+        self.assertFalse(result.live_hybrid_object_store_runtime_supported)
+        self.assertFalse(result.live_hybrid_broker_runtime_supported)
+        self.assertFalse(result.live_hybrid_state_store_runtime_supported)
+        self.assertTrue(result.live_hybrid_baseline_oracle_only)
+        self.assertFalse(result.live_hybrid_fabric_gate_fallback_attempted)
+        self.assertFalse(result.live_hybrid_fabric_gate_external_engine_invoked)
+        self.assertTrue(result.live_hybrid_fabric_gate_no_fallback_no_external_engine)
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.external_engine_invoked)
 

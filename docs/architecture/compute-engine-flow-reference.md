@@ -376,6 +376,7 @@ Current engine-mode surfaces:
 | `hybrid` | `engine-selection-plan hybrid ...`, `hybrid-overlay-run` | Partially supported for in-memory base-plus-hot-delta fixture overlays with delta/freshness/execution/Native I/O certificate fields | No durable micro-segment writes, object-store commit, catalog snapshot discovery, or production hybrid claim. |
 | `auto` | `engine-selection-plan` default selection | Transparent selector; defaults to `batch` for bounded snapshot workloads and must report selected/rejected modes | Not a hidden engine and never a fallback route. |
 | `streaming capability` | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, `capabilities engines` | Full GAR-0013 matrix exists; local count fixture and zero-decode rows are scoped fixture-smoke, while object-store streaming and broker-backed live/hybrid rows are blocked | No broad streaming runtime, object-store streaming read, broker-backed production, or zero-copy compatibility claim. |
+| `live/hybrid fabric gate` | `engine-capability-matrix`, `capabilities engines`, Python `ctx.engine_capability_matrix()` | Full GAR-0034-A gate exists for broker/state-store, unbounded scheduler, freshness, exactly-once, object-store commit, catalog snapshot, and baseline/oracle rows | Fixture-scoped freshness only; production live/hybrid, broker/state-store, object-store/table/catalog, exactly-once, benchmark, and Spark-displacement claims remain blocked. |
 
 These commands are side-effect controlled:
 
@@ -383,15 +384,16 @@ These commands are side-effect controlled:
 engine-selection-plan: runtime_execution=false, data_read=false, write_io=false
 engine-capability-matrix: runtime_execution=false, data_read=false, write_io=false
 streaming capability matrix: runtime_execution=false, object_store_io=false, write_io=false
+live/hybrid fabric gate: runtime_execution=false, data_read=false, write_io=false, fallback_attempted=false, external_engine_invoked=false
 live-change-contract-plan: runtime_execution=false, data_read=false, write_io=false
 live-fixture-run: scoped fixture runtime, data_read=false, write_io=false, broker_io=false
 hybrid-overlay-run: scoped fixture runtime, data_read=false, write_io=false, object_store_io=false
 ```
 
-Planned updates are carried in the phase plan, especially `GAR-0034-A` for live/hybrid fabric
-blockers and freshness gates. Runtime-focused follow-through now shifts from the completed scoped
-prepared/native benchmark paths and CPU admission diagnostics toward kernel/provider expansion,
-source-backed API coverage, facade coverage, and other evidence-gated residual-native paths.
+`GAR-0034-A` is complete as a report-only/fail-closed gate. Runtime-focused follow-through now
+shifts from scoped prepared/native benchmark paths, CPU admission diagnostics, and live/hybrid
+fabric blockers toward kernel/provider expansion, source-backed API coverage, facade coverage, and
+other evidence-gated residual-native paths.
 
 ### View 5 - I/O, Evidence, And Downstream Use
 

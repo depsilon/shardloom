@@ -1248,19 +1248,13 @@ now exposed through `capabilities workflow --format json`, Python `ctx.etl_workf
 report-only SQL/DataFrame/data-quality API posture, and blocked object-store/table/production ETL
 rows explicit without adding runtime behavior, package publication, production ETL claims, or
 fallback execution.
-- [ ] GAR-0034-A live/hybrid fabric blocker and freshness gate
-  - Source: RFC 0034; live/hybrid event API docs; operational evidence policy hardening.
-  - Current state: live/hybrid engines and freshness/exactly-once claims are planning/report-only.
-  - Next slice outcome: gate for broker/state-store dependencies, object-store execution, freshness,
-    exactly-once, and baseline/oracle boundaries.
-  - User-visible surface: CLI live/hybrid plan, docs, release gate.
-  - Implementation scope: fabric report fields, diagnostics, tests.
-  - Evidence required: policy/no-fallback refs and freshness evidence if any lane is admitted.
-  - Acceptance: all live/hybrid runtime claims default to not claim-grade.
-  - Verification: live/hybrid contract tests, release readiness metadata tests.
-  - Non-goals: no broker, state store, object-store runtime, or streaming production behavior.
-  - Fallback/claim boundary: baselines/oracles remain comparison-only.
-  - Dependencies/blockers: GAR-0013 streaming and GAR-0008 object-store gates.
+GAR-0034-A is complete and recorded in the completed ledger. The live/hybrid fabric freshness gate
+is now exposed through `engine-capability-matrix --format json`, `capabilities engines --format
+json`, Python `ctx.engine_capability_matrix()`, and
+`docs/architecture/live-hybrid-fabric-freshness-gate.md`. It keeps fixture-scoped freshness
+evidence separate from production live/hybrid claims and keeps broker, state-store, object-store,
+catalog, exactly-once, benchmark, and Spark-displacement claims blocked without adding runtime
+behavior, external baselines as fallback, or new I/O effects.
 - [ ] GAR-0035-A REST server/runtime unsupported contract
   - Source: RFC 0035; execution mode protocol parity; typed envelope docs.
   - Current state: REST/Event/API contracts are documented; HTTP listener, remote execution,

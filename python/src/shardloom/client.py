@@ -600,6 +600,189 @@ class EngineCapabilityMatrix:
         )
 
     @property
+    def live_hybrid_fabric_gate_schema_version(self) -> str | None:
+        """Return the live/hybrid fabric gate schema version."""
+
+        return self.envelope.field("live_hybrid_fabric_gate_schema_version")
+
+    @property
+    def live_hybrid_fabric_gate_report_id(self) -> str | None:
+        """Return the live/hybrid fabric gate report identifier."""
+
+        return self.envelope.field("live_hybrid_fabric_gate_report_id")
+
+    @property
+    def live_hybrid_fabric_gate_rows(self) -> tuple[str, ...]:
+        """Return live/hybrid fabric gate row identifiers."""
+
+        return _csv_values(self.envelope.field("live_hybrid_fabric_gate_row_order"))
+
+    @property
+    def live_hybrid_fabric_gate_blocked_row_count(self) -> int:
+        """Return blocked rows in the live/hybrid fabric gate."""
+
+        return self.envelope.field_int("live_hybrid_fabric_gate_blocked_row_count", 0) or 0
+
+    @property
+    def live_hybrid_fabric_gate_report_only_row_count(self) -> int:
+        """Return report-only rows in the live/hybrid fabric gate."""
+
+        return (
+            self.envelope.field_int(
+                "live_hybrid_fabric_gate_report_only_row_count",
+                0,
+            )
+            or 0
+        )
+
+    @property
+    def live_hybrid_fabric_gate_fixture_smoke_row_count(self) -> int:
+        """Return fixture-smoke rows in the live/hybrid fabric gate."""
+
+        return (
+            self.envelope.field_int(
+                "live_hybrid_fabric_gate_fixture_smoke_row_count",
+                0,
+            )
+            or 0
+        )
+
+    @property
+    def live_hybrid_fabric_gate_claim_gate_status(self) -> str | None:
+        """Return the live/hybrid fabric gate claim-gate status."""
+
+        return self.envelope.field("live_hybrid_fabric_gate_claim_gate_status")
+
+    @property
+    def live_hybrid_freshness_claim_allowed(self) -> bool:
+        """Whether production live/hybrid freshness claims are allowed."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_freshness_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_exactly_once_claim_allowed(self) -> bool:
+        """Whether exactly-once live/hybrid claims are allowed."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_exactly_once_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_production_live_claim_allowed(self) -> bool:
+        """Whether production live-engine claims are allowed."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_production_live_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_production_hybrid_claim_allowed(self) -> bool:
+        """Whether production hybrid-engine claims are allowed."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_production_hybrid_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_object_store_runtime_supported(self) -> bool:
+        """Whether object-store runtime is supported by the live/hybrid gate."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_object_store_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_broker_runtime_supported(self) -> bool:
+        """Whether broker runtime is supported by the live/hybrid gate."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_broker_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_state_store_runtime_supported(self) -> bool:
+        """Whether durable state-store runtime is supported by the live/hybrid gate."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_state_store_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_baseline_oracle_only(self) -> bool:
+        """Whether external systems are baselines/oracles only."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_baseline_oracle_only",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_fabric_gate_fallback_attempted(self) -> bool:
+        """Whether the live/hybrid fabric gate attempted fallback."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_fallback_attempted",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_fabric_gate_external_engine_invoked(self) -> bool:
+        """Whether the live/hybrid fabric gate invoked an external engine."""
+
+        return (
+            self.envelope.field_bool(
+                "live_hybrid_fabric_gate_external_engine_invoked",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_hybrid_fabric_gate_no_fallback_no_external_engine(self) -> bool:
+        """Whether the live/hybrid fabric gate preserved no-fallback evidence."""
+
+        return (
+            not self.live_hybrid_fabric_gate_fallback_attempted
+            and not self.live_hybrid_fabric_gate_external_engine_invoked
+        )
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether matrix discovery reported fallback execution."""
 

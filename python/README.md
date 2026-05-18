@@ -157,12 +157,22 @@ print(selection.selected_engine_mode)
 print(selection.rejection_reasons)
 print(matrix.engine_modes)
 print(matrix.live_hybrid_claim_blocked_count)
+print(matrix.live_hybrid_fabric_gate_rows)
+print(matrix.live_hybrid_fabric_gate_claim_gate_status)
+print(matrix.live_hybrid_fabric_gate_no_fallback_no_external_engine)
 ```
 
 These calls do not execute workloads, probe brokers, write checkpoints, invoke
 external engines, or attempt fallback. They expose the same CG-22 contract as
 `shardloom engine-selection-plan`, `shardloom engine-capability-matrix`, and
 `shardloom capabilities engines`.
+
+`ctx.engine_capability_matrix()` also exposes the GAR-0034-A live/hybrid fabric
+freshness gate. The gate keeps broker, state-store, object-store, catalog,
+production freshness, and exactly-once claims blocked unless future
+workload-scoped evidence promotes them, while preserving
+`fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status=not_claim_grade`.
 
 The executable live surface is intentionally narrower: a deterministic
 in-memory fixture for filter, project, count, count_where, and group_count. It

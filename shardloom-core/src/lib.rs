@@ -138,8 +138,8 @@ pub use encoded::{
 pub use engine_modes::{
     Boundedness, EngineCapabilityMatrixReport, EngineCapabilityRow, EngineMode,
     EngineSelectionReport, EngineSelectionRequest, EngineSelectionStatus, EngineSupportStatus,
-    OutputMode, UpdateMode, boundedness_vocabulary, engine_mode_vocabulary, output_mode_vocabulary,
-    update_mode_vocabulary,
+    LiveHybridFabricFreshnessGateReport, LiveHybridFabricGateRow, OutputMode, UpdateMode,
+    boundedness_vocabulary, engine_mode_vocabulary, output_mode_vocabulary, update_mode_vocabulary,
 };
 pub use execution_certificate::{
     ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
