@@ -235,6 +235,9 @@ data_plane = ctx.rest_api_data_plane("standards-matrix")
 print(api.openapi_contract_path)
 print(api.represented_resources)
 print(api.discovery_endpoint_paths)
+print(api.rest_runtime_unsupported_rows)
+print(api.rest_runtime_unsupported_claim_gate_status)
+print(api.rest_runtime_no_server_no_fallback_no_external_engine)
 print(api.server_started)
 print(discovery.server_mode)
 print(discovery.contract_only)
@@ -282,6 +285,11 @@ shardloom rest-api-data-plane adbc-endpoint-requested --format json
 shardloom rest-api-data-plane standards-matrix --format json
 shardloom serve --mode discovery --format json
 ```
+
+The GAR-0035-A REST runtime unsupported gate keeps HTTP listener, remote execution, Flight/ADBC
+transport, external broker integration, and dependency-expanded server claims blocked. The REST
+contract remains a checked-in OpenAPI/reporting surface until separate workload, server lifecycle,
+security, Native I/O, execution-certificate, and no-fallback evidence exists.
 
 Lazy workflow planning is also available without adding pandas, Polars, Spark,
 DataFusion, or any other execution dependency:

@@ -1255,20 +1255,13 @@ json`, Python `ctx.engine_capability_matrix()`, and
 evidence separate from production live/hybrid claims and keeps broker, state-store, object-store,
 catalog, exactly-once, benchmark, and Spark-displacement claims blocked without adding runtime
 behavior, external baselines as fallback, or new I/O effects.
-- [ ] GAR-0035-A REST server/runtime unsupported contract
-  - Source: RFC 0035; execution mode protocol parity; typed envelope docs.
-  - Current state: REST/Event/API contracts are documented; HTTP listener, remote execution,
-    Flight/ADBC bridge, broker integration, and dependency-expanded server are not implemented.
-  - Next slice outcome: unsupported/runtime-readiness contract that mirrors CLI/Python fields and
-    blocks server claims.
-  - User-visible surface: REST/OpenAPI docs/schema, release readiness gate.
-  - Implementation scope: schema/docs, contract tests, release metadata.
-  - Evidence required: protocol parity refs and diagnostic/no-fallback refs.
-  - Acceptance: REST docs expose shared mode fields and deterministic unsupported diagnostics.
-  - Verification: default GAR verification plus schema snapshot tests if generated.
-  - Non-goals: no HTTP listener, remote execution, Flight/ADBC, broker, or server dependency.
-  - Fallback/claim boundary: REST remains report-only/unsupported for runtime execution.
-  - Dependencies/blockers: GAR-FLOW-3A parity report.
+GAR-0035-A is complete and recorded in the completed ledger. The REST server/runtime unsupported
+contract is now exposed through `rest-api-contract-plan --format json`, Python
+`ctx.rest_api_contract_plan()`, and
+`docs/architecture/rest-server-runtime-unsupported-contract.md`. It keeps OpenAPI/report-only REST
+planning separate from HTTP listener, remote execution, Flight/ADBC, broker, dependency-expanded
+server, production API, benchmark, and Spark-displacement claims while preserving no server start,
+no listener, no external engine, and no fallback.
 - [ ] GAR-0036-A Foundry package and proof boundary matrix
   - Source: RFC 0036; Foundry integration pack docs; release docs.
   - Current state: local Foundry proof docs exist; production `shardloom-foundry`, package

@@ -1009,6 +1009,13 @@ plan before coding.
   `shardloom.enterprise_evidence_export_pack.v1`, ShardLoom JSON evidence, OpenLineage facet
   payload previews, OpenTelemetry span/metric payload previews, optional Markdown summary,
   redaction report, opt-in/no-network/no-backend posture, and no production observability claim.
+- [x] `GAR-0035-A` adds `shardloom.rest_api_runtime_unsupported_contract.v1` to
+  `rest-api-contract-plan` and Python `ctx.rest_api_contract_plan()`. The gate keeps HTTP listener,
+  remote execution, Flight/ADBC transport, external broker integration, dependency-expanded server,
+  production API, benchmark, and Spark-displacement claims blocked while preserving
+  OpenAPI/plan-preview/result-delivery report-only rows, `server_started=false`,
+  `network_listener_opened=false`, `fallback_attempted=false`, `external_engine_invoked=false`, and
+  `claim_gate_status=not_claim_grade`.
 - [ ] HTTP listener, remote execution, Flight/ADBC runtime bridge, broker integration, production
   API, and dependency-expanded server remain incomplete.
 

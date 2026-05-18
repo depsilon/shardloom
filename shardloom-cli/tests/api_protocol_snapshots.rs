@@ -136,6 +136,50 @@ fn rest_api_contract_plan_json_exposes_execution_mode_parity_report() {
 }
 
 #[test]
+fn rest_api_contract_plan_json_exposes_runtime_unsupported_gate() {
+    let output = run_cli_json(&["rest-api-contract-plan", "--format", "json"]);
+
+    assert!(output.contains(&field(
+        "rest_runtime_unsupported_schema_version",
+        "shardloom.rest_api_runtime_unsupported_contract.v1"
+    )));
+    assert!(output.contains(&field(
+        "rest_runtime_unsupported_report_id",
+        "gar-0035-a.rest_api_runtime_unsupported_contract"
+    )));
+    assert!(output.contains(&field("rest_runtime_unsupported_row_count", "8")));
+    assert!(output.contains(&field("rest_runtime_unsupported_blocked_row_count", "5")));
+    assert!(output.contains(&field(
+        "rest_runtime_unsupported_report_only_row_count",
+        "3"
+    )));
+    assert!(output.contains(&field(
+        "rest_runtime_unsupported_row_order",
+        "http_listener_runtime,remote_execution_runtime,flight_adbc_transport_runtime,external_broker_integration,dependency_expanded_server,openapi_discovery_contract,plan_preview_contract,result_delivery_contract"
+    )));
+    assert!(output.contains(&field(
+        "rest_runtime_unsupported_diagnostic_codes",
+        "SL_REST_SERVER_UNSUPPORTED,SL_REMOTE_EXECUTION_UNSUPPORTED,SL_COLUMNAR_TRANSPORT_UNSUPPORTED,SL_EXTERNAL_BROKER_UNSUPPORTED,SL_SERVER_DEPENDENCY_UNSUPPORTED,SL_REPORT_ONLY_SURFACE,SL_REPORT_ONLY_SURFACE,SL_REPORT_ONLY_SURFACE"
+    )));
+    assert!(output.contains(&field(
+        "rest_runtime_unsupported_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field("rest_runtime_http_listener_supported", "false")));
+    assert!(output.contains(&field("rest_runtime_remote_execution_supported", "false")));
+    assert!(output.contains(&field(
+        "rest_runtime_flight_adbc_transport_supported",
+        "false"
+    )));
+    assert!(output.contains(&field("rest_runtime_external_broker_supported", "false")));
+    assert!(output.contains(&field("rest_runtime_dependency_expansion_allowed", "false")));
+    assert!(output.contains(&field("rest_runtime_server_started", "false")));
+    assert!(output.contains(&field("rest_runtime_network_listener_opened", "false")));
+    assert!(output.contains(&field("rest_runtime_external_engine_invoked", "false")));
+    assert!(output.contains(&field("rest_runtime_fallback_attempted", "false")));
+}
+
+#[test]
 fn rest_api_contract_plan_json_preserves_no_server_no_probe_policy() {
     let output = run_cli_json(&["rest-api-contract-plan", "--format", "json"]);
 
