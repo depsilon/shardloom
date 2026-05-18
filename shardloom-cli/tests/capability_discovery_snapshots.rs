@@ -223,6 +223,74 @@ const OPENLINEAGE_FACET_MAPPING_ROW_SUFFIXES: [&str; 17] = [
     "external_engine_invoked",
 ];
 
+const OPENTELEMETRY_TRACE_EXPORT_FIELD_KEYS: [&str; 31] = [
+    "opentelemetry_trace_export_schema_version",
+    "opentelemetry_trace_export_report_id",
+    "opentelemetry_trace_export_gar_id",
+    "opentelemetry_trace_export_docs_ref",
+    "opentelemetry_trace_export_traces_ref",
+    "opentelemetry_trace_export_common_ref",
+    "opentelemetry_trace_export_otlp_spec_ref",
+    "opentelemetry_trace_export_otlp_exporter_ref",
+    "opentelemetry_trace_export_schema_url_base_placeholder",
+    "opentelemetry_trace_export_row_count",
+    "opentelemetry_trace_export_row_order",
+    "opentelemetry_trace_export_trace_export_enabled",
+    "opentelemetry_trace_export_metric_export_enabled",
+    "opentelemetry_trace_export_log_export_enabled",
+    "opentelemetry_trace_export_otlp_exporter_configured",
+    "opentelemetry_trace_export_network_exporter_enabled",
+    "opentelemetry_trace_export_collector_configured",
+    "opentelemetry_trace_export_sdk_dependency_added",
+    "opentelemetry_trace_export_runtime_collection_enabled",
+    "opentelemetry_trace_export_trace_emitted",
+    "opentelemetry_trace_export_metric_emitted",
+    "opentelemetry_trace_export_log_emitted",
+    "opentelemetry_trace_export_network_call_performed",
+    "opentelemetry_trace_export_attribute_allowlist_required",
+    "opentelemetry_trace_export_redaction_policy_required",
+    "opentelemetry_trace_export_retention_policy_required",
+    "opentelemetry_trace_export_opt_in_required",
+    "opentelemetry_trace_export_all_rows_report_only",
+    "opentelemetry_trace_export_all_rows_no_fallback_no_external_engine",
+    "opentelemetry_trace_export_no_export_side_effects",
+    "opentelemetry_trace_export_claim_gate_status",
+];
+
+const OPENTELEMETRY_TRACE_EXPORT_SPAN_IDS: [&str; 9] = [
+    "request_admission",
+    "source_read",
+    "compatibility_parse",
+    "vortex_import",
+    "vortex_scan",
+    "operator_compute",
+    "result_sink",
+    "evidence_render",
+    "claim_gate",
+];
+
+const OPENTELEMETRY_TRACE_EXPORT_SPAN_SUFFIXES: [&str; 19] = [
+    "span_name",
+    "span_kind",
+    "timing_fields",
+    "shardloom_attribute_allowlist",
+    "redaction_policy",
+    "sensitive_fields",
+    "metric_refs",
+    "span_status",
+    "export_enabled",
+    "span_emitted",
+    "metric_emitted",
+    "log_emitted",
+    "network_exporter_enabled",
+    "redaction_required",
+    "retention_policy_required",
+    "claim_gate_status",
+    "claim_boundary",
+    "fallback_attempted",
+    "external_engine_invoked",
+];
+
 const SQL_FIELD_KEYS: [&str; 35] = [
     "scope",
     "schema_version",
@@ -318,6 +386,23 @@ fn with_openlineage_facet_mapping_fields(base_keys: &[&'static str]) -> Vec<Stri
             OPENLINEAGE_FACET_MAPPING_ROW_SUFFIXES
                 .into_iter()
                 .map(|suffix| format!("openlineage_facet_mapping_row_{row_id}_{suffix}")),
+        );
+    }
+    keys
+}
+
+fn with_observability_contract_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = with_openlineage_facet_mapping_fields(base_keys);
+    keys.extend(
+        OPENTELEMETRY_TRACE_EXPORT_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for span_id in OPENTELEMETRY_TRACE_EXPORT_SPAN_IDS {
+        keys.extend(
+            OPENTELEMETRY_TRACE_EXPORT_SPAN_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("opentelemetry_trace_export_span_{span_id}_{suffix}")),
         );
     }
     keys
@@ -940,7 +1025,7 @@ fn capability_discovery_json_field_keys_are_stable() {
                 DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
             ),
             "observability" => {
-                with_openlineage_facet_mapping_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+                with_observability_contract_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
             }
             _ => WORLD_CLASS_SURFACE_FIELD_KEYS
                 .into_iter()

@@ -61,6 +61,8 @@ from .context import (
     ObjectStoreAdmissionLadderRow,
     OpenLineageFacetMappingReport,
     OpenLineageFacetMappingRow,
+    OpenTelemetryTraceExportContractReport,
+    OpenTelemetryTraceExportSpanRow,
     ShardLoomContext,
     SourceFreeGeneratedOutputCompatibilityContract,
     SourceFreeGeneratedOutputCompatibilityRow,

@@ -11,9 +11,9 @@ use shardloom_core::{
     CapabilityCertificationStatus, CommandStatus, EngineCapabilities, EngineCapabilityMatrixReport,
     GeneratedSourceApiAdmissionMatrix, GeneratedSourceCertificateContractReport,
     GeneratedSourceEvidenceAlignmentReport, MaterializationPolicyReport,
-    OpenLineageFacetMappingReport, OutputFormat, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
-    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
+    OpenLineageFacetMappingReport, OpenTelemetryTraceExportContractReport, OutputFormat,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
+    ShardLoomError, SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
     WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
     output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
     plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
@@ -5293,6 +5293,237 @@ fn append_openlineage_facet_mapping_fields(fields: &mut Vec<(String, String)>) {
     }
 }
 
+#[allow(clippy::too_many_lines)]
+fn append_opentelemetry_trace_export_contract_fields(fields: &mut Vec<(String, String)>) {
+    let report = OpenTelemetryTraceExportContractReport::report_only();
+    push_field(
+        fields,
+        "opentelemetry_trace_export_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "opentelemetry_trace_export_report_id",
+        report.report_id,
+    );
+    push_field(fields, "opentelemetry_trace_export_gar_id", report.gar_id);
+    push_field(
+        fields,
+        "opentelemetry_trace_export_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "opentelemetry_trace_export_traces_ref",
+        report.opentelemetry_traces_ref,
+    );
+    push_field(
+        fields,
+        "opentelemetry_trace_export_common_ref",
+        report.opentelemetry_common_ref,
+    );
+    push_field(
+        fields,
+        "opentelemetry_trace_export_otlp_spec_ref",
+        report.otlp_spec_ref,
+    );
+    push_field(
+        fields,
+        "opentelemetry_trace_export_otlp_exporter_ref",
+        report.otlp_exporter_ref,
+    );
+    push_field(
+        fields,
+        "opentelemetry_trace_export_schema_url_base_placeholder",
+        report.schema_url_base_placeholder,
+    );
+    push_count_field(
+        fields,
+        "opentelemetry_trace_export_row_count",
+        report.rows.len(),
+    );
+    push_field(
+        fields,
+        "opentelemetry_trace_export_row_order",
+        &report.row_order().join(","),
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_trace_export_enabled",
+        report.trace_export_enabled,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_metric_export_enabled",
+        report.metric_export_enabled,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_log_export_enabled",
+        report.log_export_enabled,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_otlp_exporter_configured",
+        report.otlp_exporter_configured,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_network_exporter_enabled",
+        report.network_exporter_enabled,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_collector_configured",
+        report.collector_configured,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_sdk_dependency_added",
+        report.sdk_dependency_added,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_runtime_collection_enabled",
+        report.runtime_collection_enabled,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_trace_emitted",
+        report.trace_emitted,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_metric_emitted",
+        report.metric_emitted,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_log_emitted",
+        report.log_emitted,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_network_call_performed",
+        report.network_call_performed,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_attribute_allowlist_required",
+        report.attribute_allowlist_required,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_redaction_policy_required",
+        report.redaction_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_retention_policy_required",
+        report.retention_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_opt_in_required",
+        report.opt_in_required,
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_all_rows_report_only",
+        report.all_rows_report_only(),
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_all_rows_no_fallback_no_external_engine",
+        report.all_rows_fallback_free(),
+    );
+    push_bool_field(
+        fields,
+        "opentelemetry_trace_export_no_export_side_effects",
+        report.no_export_side_effects(),
+    );
+    push_field(
+        fields,
+        "opentelemetry_trace_export_claim_gate_status",
+        report.claim_gate_status,
+    );
+
+    for row in &report.rows {
+        let prefix = format!("opentelemetry_trace_export_span_{}", row.row_id);
+        push_field(fields, &format!("{prefix}_span_name"), row.span_name);
+        push_field(fields, &format!("{prefix}_span_kind"), row.span_kind);
+        push_field(
+            fields,
+            &format!("{prefix}_timing_fields"),
+            row.timing_fields,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_shardloom_attribute_allowlist"),
+            row.shardloom_attribute_allowlist,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_redaction_policy"),
+            row.redaction_policy,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_sensitive_fields"),
+            row.sensitive_fields,
+        );
+        push_field(fields, &format!("{prefix}_metric_refs"), row.metric_refs);
+        push_field(fields, &format!("{prefix}_span_status"), row.span_status);
+        push_bool_field(
+            fields,
+            &format!("{prefix}_export_enabled"),
+            row.export_enabled,
+        );
+        push_bool_field(fields, &format!("{prefix}_span_emitted"), row.span_emitted);
+        push_bool_field(
+            fields,
+            &format!("{prefix}_metric_emitted"),
+            row.metric_emitted,
+        );
+        push_bool_field(fields, &format!("{prefix}_log_emitted"), row.log_emitted);
+        push_bool_field(
+            fields,
+            &format!("{prefix}_network_exporter_enabled"),
+            row.network_exporter_enabled,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_redaction_required"),
+            row.redaction_required,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_retention_policy_required"),
+            row.retention_policy_required,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_boundary"),
+            row.claim_boundary,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_fallback_attempted"),
+            row.fallback_attempted,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_external_engine_invoked"),
+            row.external_engine_invoked,
+        );
+    }
+}
+
 fn append_function_certification_fields(
     report: &CapabilityCertificationReport,
     fields: &mut Vec<(String, String)>,
@@ -7772,6 +8003,7 @@ fn world_class_surface_fields(
     }
     if scope == CapabilityDiscoveryScope::Observability {
         append_openlineage_facet_mapping_fields(&mut fields);
+        append_opentelemetry_trace_export_contract_fields(&mut fields);
     }
     fields
 }

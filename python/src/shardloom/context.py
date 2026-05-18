@@ -1386,6 +1386,262 @@ class OpenLineageFacetMappingReport:
 
 
 @dataclass(frozen=True, slots=True)
+class OpenTelemetryTraceExportSpanRow:
+    """One report-only OpenTelemetry span mapping row."""
+
+    row_id: str
+    span_name: str | None
+    span_kind: str | None
+    timing_fields: tuple[str, ...]
+    shardloom_attribute_allowlist: tuple[str, ...]
+    redaction_policy: str | None
+    sensitive_fields: tuple[str, ...]
+    metric_refs: tuple[str, ...]
+    span_status: str | None
+    export_enabled: bool | None
+    span_emitted: bool | None
+    metric_emitted: bool | None
+    log_emitted: bool | None
+    network_exporter_enabled: bool | None
+    redaction_required: bool | None
+    retention_policy_required: bool | None
+    claim_gate_status: str | None
+    claim_boundary: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+
+    @property
+    def report_only_no_export(self) -> bool:
+        """Whether this row is a non-emitting report-only span placeholder."""
+
+        return (
+            self.span_status == "report_only_not_emitted"
+            and self.export_enabled is False
+            and self.span_emitted is False
+            and self.metric_emitted is False
+            and self.log_emitted is False
+            and self.network_exporter_enabled is False
+        )
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether this row preserves no fallback and no external engine execution."""
+
+        return self.fallback_attempted is False and self.external_engine_invoked is False
+
+
+@dataclass(frozen=True, slots=True)
+class OpenTelemetryTraceExportContractReport:
+    """Typed view over GAR-NOVEL-1C OpenTelemetry trace-export contract fields."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the OpenTelemetry trace-export contract schema version."""
+
+        return self.capability.field("opentelemetry_trace_export_schema_version")
+
+    @property
+    def report_id(self) -> str | None:
+        """Return the report identifier."""
+
+        return self.capability.field("opentelemetry_trace_export_report_id")
+
+    @property
+    def gar_id(self) -> str | None:
+        """Return the GAR item that owns this report."""
+
+        return self.capability.field("opentelemetry_trace_export_gar_id")
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return span mapping row IDs in stable order."""
+
+        return _split_csv(self.capability.field("opentelemetry_trace_export_row_order"))
+
+    @property
+    def present(self) -> bool:
+        """Whether this capability exposes the GAR-NOVEL-1C contract."""
+
+        return self.schema_version is not None
+
+    @property
+    def trace_export_enabled(self) -> bool:
+        """Whether trace export is enabled by this capability view."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_trace_export_enabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def metric_export_enabled(self) -> bool:
+        """Whether metric export is enabled by this capability view."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_metric_export_enabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def log_export_enabled(self) -> bool:
+        """Whether log export is enabled by this capability view."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_log_export_enabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def network_exporter_enabled(self) -> bool:
+        """Whether any network exporter is enabled."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_network_exporter_enabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def otlp_exporter_configured(self) -> bool:
+        """Whether an OTLP exporter is configured."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_otlp_exporter_configured",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def trace_emitted(self) -> bool:
+        """Whether this report emitted trace data."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_trace_emitted",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def network_call_performed(self) -> bool:
+        """Whether this report performed a network call."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_network_call_performed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def all_rows_report_only(self) -> bool:
+        """Whether all rows are report-only non-exporting span placeholders."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_all_rows_report_only",
+                False,
+            )
+            is True
+            and all(self.row(row_id).report_only_no_export for row_id in self.row_order)
+        )
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether the report and all rows preserve no-fallback policy."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_all_rows_no_fallback_no_external_engine",
+                False,
+            )
+            is True
+            and all(self.row(row_id).no_fallback_no_external_engine for row_id in self.row_order)
+        )
+
+    @property
+    def no_export_side_effects(self) -> bool:
+        """Whether the report has no exporter/backend/runtime side effects."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "opentelemetry_trace_export_no_export_side_effects",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the mapping-level claim gate status."""
+
+        return self.capability.field("opentelemetry_trace_export_claim_gate_status")
+
+    def row(self, row_id: str) -> OpenTelemetryTraceExportSpanRow:
+        """Return one OpenTelemetry span mapping row."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(f"OpenTelemetry trace export row {row_id!r} is not present")
+        prefix = f"opentelemetry_trace_export_span_{normalized}"
+        return OpenTelemetryTraceExportSpanRow(
+            row_id=normalized,
+            span_name=self.capability.field(f"{prefix}_span_name"),
+            span_kind=self.capability.field(f"{prefix}_span_kind"),
+            timing_fields=_split_csv(self.capability.field(f"{prefix}_timing_fields")),
+            shardloom_attribute_allowlist=_split_csv(
+                self.capability.field(f"{prefix}_shardloom_attribute_allowlist")
+            ),
+            redaction_policy=self.capability.field(f"{prefix}_redaction_policy"),
+            sensitive_fields=_split_csv(self.capability.field(f"{prefix}_sensitive_fields")),
+            metric_refs=_split_csv(self.capability.field(f"{prefix}_metric_refs")),
+            span_status=self.capability.field(f"{prefix}_span_status"),
+            export_enabled=self.capability.envelope.field_bool(
+                f"{prefix}_export_enabled"
+            ),
+            span_emitted=self.capability.envelope.field_bool(f"{prefix}_span_emitted"),
+            metric_emitted=self.capability.envelope.field_bool(
+                f"{prefix}_metric_emitted"
+            ),
+            log_emitted=self.capability.envelope.field_bool(f"{prefix}_log_emitted"),
+            network_exporter_enabled=self.capability.envelope.field_bool(
+                f"{prefix}_network_exporter_enabled"
+            ),
+            redaction_required=self.capability.envelope.field_bool(
+                f"{prefix}_redaction_required"
+            ),
+            retention_policy_required=self.capability.envelope.field_bool(
+                f"{prefix}_retention_policy_required"
+            ),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            claim_boundary=self.capability.field(f"{prefix}_claim_boundary"),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UniversalCompatibilityRow:
     """One row from the universal source/sink compatibility scoreboard."""
 
@@ -2742,6 +2998,12 @@ class CapabilityView:
         """Return GAR-NOVEL-1B OpenLineage facet mapping posture."""
 
         return OpenLineageFacetMappingReport(self)
+
+    @property
+    def opentelemetry_trace_export_contract(self) -> OpenTelemetryTraceExportContractReport:
+        """Return GAR-NOVEL-1C OpenTelemetry trace-export contract posture."""
+
+        return OpenTelemetryTraceExportContractReport(self)
 
     @property
     def universal_compatibility_scoreboard(self) -> UniversalCompatibilityScoreboard:

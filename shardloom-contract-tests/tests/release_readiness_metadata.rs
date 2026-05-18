@@ -1019,8 +1019,10 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "shardloom.generated_source_api_admission.v1",
         "shardloom.generated_source_evidence_alignment.v1",
         "shardloom.openlineage_facet_mapping.v1",
+        "shardloom.opentelemetry_trace_export_contract.v1",
         "GAR-NOVEL-1A",
         "GAR-NOVEL-1B",
+        "GAR-NOVEL-1C",
         "python_ctx_from_rows",
         "python_ctx_range",
         "python_generated_source_write",
@@ -1031,6 +1033,10 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "openlineage_export_enabled=false",
         "openlineage_facet_mapping_event_emitted=false",
         "openlineage_facet_mapping_network_call_performed=false",
+        "opentelemetry_trace_export_trace_export_enabled=false",
+        "opentelemetry_trace_export_otlp_exporter_configured=false",
+        "opentelemetry_trace_export_network_exporter_enabled=false",
+        "opentelemetry_trace_export_network_call_performed=false",
         "opentelemetry_export_enabled=false",
         "opentelemetry_network_exporter_enabled=false",
         "bayesian_confidence_enabled=false",
@@ -1055,6 +1061,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     assert!(python_context.contains("GeneratedSourceApiAdmissionMatrix"));
     assert!(python_context.contains("GeneratedSourceEvidenceAlignmentReport"));
     assert!(python_context.contains("OpenLineageFacetMappingReport"));
+    assert!(python_context.contains("OpenTelemetryTraceExportContractReport"));
     assert!(python_context.contains("GeneratedSourceCaseCapability"));
     assert!(python_context.contains("GeneratedRowsSource"));
     assert!(python_context.contains("GeneratedRangeSource"));
@@ -1068,6 +1075,28 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "gar-novel-1a.generated_source_cross_surface_alignment",
         "shardloom.openlineage_facet_mapping.v1",
         "gar-novel-1b.openlineage_facet_mapping",
+        "shardloom.opentelemetry_trace_export_contract.v1",
+        "gar-novel-1c.opentelemetry_trace_export_contract",
+        "request_admission",
+        "source_read",
+        "compatibility_parse",
+        "vortex_import",
+        "vortex_scan",
+        "operator_compute",
+        "result_sink",
+        "evidence_render",
+        "claim_gate",
+        "trace_export_enabled=false",
+        "metric_export_enabled=false",
+        "log_export_enabled=false",
+        "otlp_exporter_configured=false",
+        "network_exporter_enabled=false",
+        "collector_configured=false",
+        "sdk_dependency_added=false",
+        "runtime_collection_enabled=false",
+        "trace_emitted=false",
+        "metric_emitted=false",
+        "log_emitted=false",
         "ExecutionModeFacet",
         "NoFallbackFacet",
         "NativeIoCertificateFacet",

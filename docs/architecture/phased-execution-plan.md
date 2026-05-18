@@ -530,50 +530,16 @@ mapping keeps export disabled, event emission disabled, schema publication disab
 dependency disabled, network calls disabled, `fallback_attempted=false`,
 `external_engine_invoked=false`, and `claim_gate_status=not_claim_grade`.
 
-- [ ] GAR-NOVEL-1C OpenTelemetry execution trace export contract
-  - Source: RFC 0018; RFC 0035; benchmark stage timing model; runtime timing/evidence fields;
-    OpenTelemetry trace/span/attribute/exporter concepts;
-    `docs/architecture/evidence-native-generated-execution-observability-confidence.md`.
-  - Current state:
-    - ShardLoom has internal timing/evidence fields and benchmark stage timing fields.
-    - RFC 0035 names OpenTelemetry/OTLP posture, but no OTel trace, metric, log, exporter, or
-      collector integration exists.
-  - Next slice outcome:
-    - Define a report-only trace/span model for `request_admission`, `source_read`,
-      `compatibility_parse`, `vortex_import`, `vortex_scan`, `operator_compute`, `result_sink`,
-      `evidence_render`, and `claim_gate`.
-  - User-visible surface:
-    - Docs, future CLI env/config docs, future `runtime-report` or profile/certificate report rows.
-  - Implementation scope:
-    - Trace model docs/report rows, attribute allowlist, redaction rules, opt-in config schema, and
-      snapshot tests. Do not add an OTel dependency or exporter in this slice.
-  - Evidence required:
-    - span refs: timing field to span/attribute mapping.
-    - safety refs: redaction policy, secret/path/query-text handling, retention policy.
-    - export refs: `otel_export_enabled=false`, `otel_network_exporter_enabled=false` by default.
-    - policy/no-fallback refs: selected execution mode, claim gate, no-fallback/no-external-engine
-      fields.
-  - Acceptance:
-    - OTel export is opt-in.
-    - No network exporter is configured by default.
-    - Evidence fields map to trace attributes without leaking secrets.
-    - Observability support remains separate from runtime support and claim support.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - observability/protocol snapshot tests if report fields change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No OTel SDK dependency, OTLP exporter, collector config, live backend integration, production
-      tracing claim, or runtime profiling collector.
-  - Claim boundary:
-    - Observability support does not imply production runtime, performance, or platform support.
-  - Fallback boundary:
-    - Trace export cannot create external execution, fallback execution, credential resolution, or
-      network effects without explicit future policy.
-  - Dependencies/blockers:
-    - Evidence artifact safety, redaction/retention policy, dependency/license review, and explicit
-      opt-in configuration.
+GAR-NOVEL-1C is complete and recorded in the completed ledger. Observability capability views now
+expose `shardloom.opentelemetry_trace_export_contract.v1`, a report-only mapping from request
+admission, source read, compatibility parse, Vortex import, Vortex scan, operator compute, result
+sink, evidence render, and claim gate timing/evidence fields into future OpenTelemetry internal
+span placeholders. The mapping keeps trace/metric/log export disabled, OTLP exporter configuration
+disabled, collector/backend configuration disabled, SDK dependency expansion disabled, runtime
+collection disabled, network calls disabled, allowlisted attributes required, redaction/retention
+policy required, `fallback_attempted=false`, `external_engine_invoked=false`, and
+`claim_gate_status=not_claim_grade`.
+
 - [ ] GAR-NOVEL-1D Bayesian claim-confidence and regression model
   - Source: GAR-PERF-1D; RFC 0029; RFC 0040; claim gate model; benchmark evidence model;
     `docs/architecture/evidence-native-generated-execution-observability-confidence.md`.
@@ -772,7 +738,7 @@ dependency disabled, network calls disabled, `fallback_attempted=false`,
     `docs/architecture/adoption-commercial-readiness-friction-reduction.md`.
   - Current state:
     - Evidence is ShardLoom-native JSON.
-    - OpenLineage and OpenTelemetry mappings are planned/report-only.
+    - OpenLineage and OpenTelemetry mappings are report-only and no-export by default.
     - No export pack, backend integration, or network exporter exists.
   - Next slice outcome:
     - Define an opt-in enterprise evidence export pack containing ShardLoom JSON, OpenLineage facets,

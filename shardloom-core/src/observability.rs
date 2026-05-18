@@ -1649,6 +1649,406 @@ impl OpenLineageFacetMappingReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct OpenTelemetryTraceExportSpanRow {
+    pub row_id: &'static str,
+    pub span_name: &'static str,
+    pub span_kind: &'static str,
+    pub timing_fields: &'static str,
+    pub shardloom_attribute_allowlist: &'static str,
+    pub redaction_policy: &'static str,
+    pub sensitive_fields: &'static str,
+    pub metric_refs: &'static str,
+    pub span_status: &'static str,
+    pub export_enabled: bool,
+    pub span_emitted: bool,
+    pub metric_emitted: bool,
+    pub log_emitted: bool,
+    pub network_exporter_enabled: bool,
+    pub redaction_required: bool,
+    pub retention_policy_required: bool,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl OpenTelemetryTraceExportSpanRow {
+    const SPAN_KIND: &'static str = "internal";
+    const STATUS: &'static str = "report_only_not_emitted";
+    const REDACTION_POLICY: &'static str =
+        "allowlist_only_redact_paths_query_text_credentials_headers";
+
+    #[must_use]
+    pub const fn request_admission() -> Self {
+        Self {
+            row_id: "request_admission",
+            span_name: "shardloom.request_admission",
+            span_kind: Self::SPAN_KIND,
+            timing_fields: "request_admission_millis,total_runtime_millis",
+            shardloom_attribute_allowlist: "execution_mode,engine_mode,capability_admission_status,selected_mode_reason,claim_gate_status,fallback_attempted,external_engine_invoked",
+            redaction_policy: Self::REDACTION_POLICY,
+            sensitive_fields: "query_text,source_location,output_location,credential,headers",
+            metric_refs: "request_count,request_admission_millis",
+            span_status: Self::STATUS,
+            export_enabled: false,
+            span_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_exporter_enabled: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps request admission timing and no-fallback posture to a future internal span only; it does not emit traces or admit runtime support.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn source_read() -> Self {
+        Self {
+            row_id: "source_read",
+            span_name: "shardloom.source_read",
+            span_kind: Self::SPAN_KIND,
+            timing_fields: "source_read_millis,source_discovery_millis,schema_inference_millis,source_parse_millis",
+            shardloom_attribute_allowlist: "source_format,source_io_performed,source_state_digest,row_count_estimate,file_count,byte_size",
+            redaction_policy: Self::REDACTION_POLICY,
+            sensitive_fields: "source_location,object_uri,credential,headers",
+            metric_refs: "source_read_millis,input_bytes,rows_read",
+            span_status: Self::STATUS,
+            export_enabled: false,
+            span_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_exporter_enabled: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps local/source-read evidence only; it does not enable object-store reads, credential resolution, or external source probes.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn compatibility_parse() -> Self {
+        Self {
+            row_id: "compatibility_parse",
+            span_name: "shardloom.compatibility_parse",
+            span_kind: Self::SPAN_KIND,
+            timing_fields: "compatibility_parse_millis,compatibility_to_vortex_import_millis",
+            shardloom_attribute_allowlist: "source_format,compatibility_parse_status,generated_source_created,source_io_performed,source_state_digest",
+            redaction_policy: Self::REDACTION_POLICY,
+            sensitive_fields: "source_location,raw_parse_error,query_text",
+            metric_refs: "compatibility_parse_millis,parsed_rows",
+            span_status: Self::STATUS,
+            export_enabled: false,
+            span_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_exporter_enabled: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps compatibility import/certification cost only; it is not pure query-speed evidence and does not imply fallback execution.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn vortex_import() -> Self {
+        Self {
+            row_id: "vortex_import",
+            span_name: "shardloom.vortex_import",
+            span_kind: Self::SPAN_KIND,
+            timing_fields: "compatibility_to_vortex_import_millis,vortex_prepare_millis,vortex_write_millis,vortex_reopen_millis",
+            shardloom_attribute_allowlist: "prepared_state_digest,vortex_artifact_digest,layout_summary,encoding_summary,statistics_summary",
+            redaction_policy: Self::REDACTION_POLICY,
+            sensitive_fields: "vortex_artifact_ref,source_location,output_location",
+            metric_refs: "vortex_prepare_millis,vortex_write_millis,vortex_reopen_millis",
+            span_status: Self::STATUS,
+            export_enabled: false,
+            span_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_exporter_enabled: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps Vortex preparation/write/reopen timing only; it does not publish artifacts, invoke upstream query-engine integrations, or claim object-store/table runtime.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn vortex_scan() -> Self {
+        Self {
+            row_id: "vortex_scan",
+            span_name: "shardloom.vortex_scan",
+            span_kind: Self::SPAN_KIND,
+            timing_fields: "vortex_scan_millis,source_backed_scan_millis",
+            shardloom_attribute_allowlist: "scan_filter_pushed_down,scan_projection_pushed_down,scan_limit_pushed_down,data_decoded,data_materialized,source_backed_scan_used",
+            redaction_policy: Self::REDACTION_POLICY,
+            sensitive_fields: "predicate_text,source_location,vortex_artifact_ref",
+            metric_refs: "vortex_scan_millis,rows_scanned,columns_read",
+            span_status: Self::STATUS,
+            export_enabled: false,
+            span_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_exporter_enabled: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps scan pushdown/source-backed scan evidence only; it does not imply encoded-native execution unless separate end-to-end evidence allows it.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn operator_compute() -> Self {
+        Self {
+            row_id: "operator_compute",
+            span_name: "shardloom.operator_compute",
+            span_kind: Self::SPAN_KIND,
+            timing_fields: "operator_compute_millis",
+            shardloom_attribute_allowlist: "operator_execution_class,fused_pipeline_used,rows_scanned,rows_selected,rows_output,encoded_native_claim_allowed",
+            redaction_policy: Self::REDACTION_POLICY,
+            sensitive_fields: "expression_text,predicate_text,udf_body",
+            metric_refs: "operator_compute_millis,rows_selected,rows_output",
+            span_status: Self::STATUS,
+            export_enabled: false,
+            span_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_exporter_enabled: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps operator timing and execution class only; it does not enable UDFs, external effects, SQL/DataFrame runtime, or performance claims.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn result_sink() -> Self {
+        Self {
+            row_id: "result_sink",
+            span_name: "shardloom.result_sink",
+            span_kind: Self::SPAN_KIND,
+            timing_fields: "result_sink_write_millis,output_write_millis,output_replay_millis",
+            shardloom_attribute_allowlist: "output_io_performed,output_format,output_native_io_certificate_status,result_replay_verified,output_digest",
+            redaction_policy: Self::REDACTION_POLICY,
+            sensitive_fields: "output_location,object_uri,credential,headers",
+            metric_refs: "result_sink_write_millis,output_write_millis,output_replay_millis,bytes_written",
+            span_status: Self::STATUS,
+            export_enabled: false,
+            span_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_exporter_enabled: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps local result-sink/output evidence only; it does not imply object-store write, lakehouse commit, or Foundry output support.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn evidence_render() -> Self {
+        Self {
+            row_id: "evidence_render",
+            span_name: "shardloom.evidence_render",
+            span_kind: Self::SPAN_KIND,
+            timing_fields: "evidence_render_millis",
+            shardloom_attribute_allowlist: "execution_certificate_status,native_io_certificate_status,materialization_boundary,generated_source_certificate_status,claim_gate_status",
+            redaction_policy: Self::REDACTION_POLICY,
+            sensitive_fields: "certificate_path,evidence_artifact_path,raw_diagnostic_message",
+            metric_refs: "evidence_render_millis,evidence_artifact_count",
+            span_status: Self::STATUS,
+            export_enabled: false,
+            span_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_exporter_enabled: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps evidence-rendering cost and certificate refs only; it does not publish telemetry or upgrade claim status.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn claim_gate() -> Self {
+        Self {
+            row_id: "claim_gate",
+            span_name: "shardloom.claim_gate",
+            span_kind: Self::SPAN_KIND,
+            timing_fields: "claim_gate_millis,evidence_render_millis,total_runtime_millis",
+            shardloom_attribute_allowlist: "claim_gate_status,claim_boundary,performance_claim_allowed,production_claim_allowed,scale_claim_status",
+            redaction_policy: Self::REDACTION_POLICY,
+            sensitive_fields: "private_memo_ref,unredacted_claim_notes,customer_identifier",
+            metric_refs: "claim_gate_millis,claim_blocker_count",
+            span_status: Self::STATUS,
+            export_enabled: false,
+            span_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_exporter_enabled: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps claim-gate decisions only; telemetry cannot create production, performance, Spark-replacement, Foundry, package, or scale claims.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn report_only(&self) -> bool {
+        self.span_status == Self::STATUS
+            && !self.export_enabled
+            && !self.span_emitted
+            && !self.metric_emitted
+            && !self.log_emitted
+            && !self.network_exporter_enabled
+    }
+
+    #[must_use]
+    pub const fn fallback_free(&self) -> bool {
+        !self.fallback_attempted && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct OpenTelemetryTraceExportContractReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub docs_ref: &'static str,
+    pub opentelemetry_traces_ref: &'static str,
+    pub opentelemetry_common_ref: &'static str,
+    pub otlp_spec_ref: &'static str,
+    pub otlp_exporter_ref: &'static str,
+    pub schema_url_base_placeholder: &'static str,
+    pub rows: Vec<OpenTelemetryTraceExportSpanRow>,
+    pub trace_export_enabled: bool,
+    pub metric_export_enabled: bool,
+    pub log_export_enabled: bool,
+    pub otlp_exporter_configured: bool,
+    pub network_exporter_enabled: bool,
+    pub collector_configured: bool,
+    pub sdk_dependency_added: bool,
+    pub runtime_collection_enabled: bool,
+    pub trace_emitted: bool,
+    pub metric_emitted: bool,
+    pub log_emitted: bool,
+    pub network_call_performed: bool,
+    pub attribute_allowlist_required: bool,
+    pub redaction_policy_required: bool,
+    pub retention_policy_required: bool,
+    pub opt_in_required: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+}
+
+impl OpenTelemetryTraceExportContractReport {
+    #[must_use]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.opentelemetry_trace_export_contract.v1",
+            report_id: "gar-novel-1c.opentelemetry_trace_export_contract",
+            gar_id: "GAR-NOVEL-1C",
+            docs_ref: "docs/architecture/evidence-native-generated-execution-observability-confidence.md",
+            opentelemetry_traces_ref: "https://opentelemetry.io/docs/concepts/signals/traces/",
+            opentelemetry_common_ref: "https://opentelemetry.io/docs/specs/otel/common/",
+            otlp_spec_ref: "https://opentelemetry.io/docs/specs/otlp/",
+            otlp_exporter_ref: "https://opentelemetry.io/docs/specs/otel/protocol/exporter/",
+            schema_url_base_placeholder: "https://shardloom.io/schemas/opentelemetry/",
+            rows: vec![
+                OpenTelemetryTraceExportSpanRow::request_admission(),
+                OpenTelemetryTraceExportSpanRow::source_read(),
+                OpenTelemetryTraceExportSpanRow::compatibility_parse(),
+                OpenTelemetryTraceExportSpanRow::vortex_import(),
+                OpenTelemetryTraceExportSpanRow::vortex_scan(),
+                OpenTelemetryTraceExportSpanRow::operator_compute(),
+                OpenTelemetryTraceExportSpanRow::result_sink(),
+                OpenTelemetryTraceExportSpanRow::evidence_render(),
+                OpenTelemetryTraceExportSpanRow::claim_gate(),
+            ],
+            trace_export_enabled: false,
+            metric_export_enabled: false,
+            log_export_enabled: false,
+            otlp_exporter_configured: false,
+            network_exporter_enabled: false,
+            collector_configured: false,
+            sdk_dependency_added: false,
+            runtime_collection_enabled: false,
+            trace_emitted: false,
+            metric_emitted: false,
+            log_emitted: false,
+            network_call_performed: false,
+            attribute_allowlist_required: true,
+            redaction_policy_required: true,
+            retention_policy_required: true,
+            opt_in_required: true,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn all_rows_report_only(&self) -> bool {
+        self.rows
+            .iter()
+            .all(OpenTelemetryTraceExportSpanRow::report_only)
+    }
+
+    #[must_use]
+    pub fn all_rows_fallback_free(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .all(OpenTelemetryTraceExportSpanRow::fallback_free)
+    }
+
+    #[must_use]
+    pub const fn no_export_side_effects(&self) -> bool {
+        !self.trace_export_enabled
+            && !self.metric_export_enabled
+            && !self.log_export_enabled
+            && !self.otlp_exporter_configured
+            && !self.network_exporter_enabled
+            && !self.collector_configured
+            && !self.sdk_dependency_added
+            && !self.runtime_collection_enabled
+            && !self.trace_emitted
+            && !self.metric_emitted
+            && !self.log_emitted
+            && !self.network_call_performed
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1874,5 +2274,44 @@ mod tests {
         assert!(report.opt_in_required);
         assert!(!report.schema_published);
         assert_eq!(report.claim_gate_status, "not_claim_grade");
+    }
+
+    #[test]
+    fn opentelemetry_trace_export_contract_is_report_only_no_export() {
+        let report = OpenTelemetryTraceExportContractReport::report_only();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.opentelemetry_trace_export_contract.v1"
+        );
+        assert_eq!(
+            report.row_order(),
+            vec![
+                "request_admission",
+                "source_read",
+                "compatibility_parse",
+                "vortex_import",
+                "vortex_scan",
+                "operator_compute",
+                "result_sink",
+                "evidence_render",
+                "claim_gate",
+            ]
+        );
+        assert!(report.all_rows_report_only());
+        assert!(report.all_rows_fallback_free());
+        assert!(report.no_export_side_effects());
+        assert!(report.attribute_allowlist_required);
+        assert!(report.redaction_policy_required);
+        assert!(report.retention_policy_required);
+        assert!(report.opt_in_required);
+        assert!(!report.otlp_exporter_configured);
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(
+            report
+                .rows
+                .iter()
+                .all(|row| row.redaction_policy.contains("allowlist_only"))
+        );
     }
 }
