@@ -827,9 +827,13 @@ plan before coding.
   `external_engine_invoked=false`. `GAR-COMPAT-1B` adds
   `shardloom.universal_compatibility.generated_output_contract.v1` so no-dataset smoke, scoped
   Python generated-output smokes, SQL/DataFrame report-only rows, local-output-only posture, and
-  object-store/Foundry blockers are visible from compatibility/status surfaces. Remaining
-  GAR-COMPAT children own object-store ladders, table-format boundaries, and database/warehouse
-  import/export boundaries.
+  object-store/Foundry blockers are visible from compatibility/status surfaces. `GAR-COMPAT-1C`
+  adds `shardloom.universal_compatibility.object_store_admission_ladder.v1` so S3/GCS/ADLS URI
+  parse, credential policy, public read, authenticated read, byte-range read, full-file read, local
+  cache, write staging, and commit protocol are visible as separate report-only or blocked gates
+  while preserving no credential, network, provider-probe, object-store I/O, write, fallback, or
+  external-engine effects. Remaining GAR-COMPAT children own table-format boundaries and
+  database/warehouse import/export boundaries.
 - [x] `GAR-IOREUSE-1F` adds the remaining Native I/O reuse ladder after
   `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract and
   `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract and

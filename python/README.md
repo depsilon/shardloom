@@ -914,6 +914,18 @@ print(matrix.schema_version)
 print(matrix.row("vortex").support_status)
 print(matrix.row("object_store_s3_gcs_adls").support_status)
 print(matrix.all_rows_no_fallback_no_external_engine)
+
+object_store = matrix.object_store_admission_ladder
+print(object_store.schema_version)
+print(object_store.provider_scope)
+print(object_store.runtime_supported)
+for row in object_store.rows:
+    print(
+        row.row_id,
+        row.support_status,
+        row.credential_policy_status,
+        row.no_effects_no_fallback,
+    )
 ```
 
 The scoreboard maps local files, Vortex, generated outputs, Python rows,
@@ -921,6 +933,15 @@ SQL literals, databases, object stores, table/lakehouse formats, remote APIs,
 and Foundry to `runtime-supported`, `smoke-supported`, `report-only`,
 `blocked`, or `not-planned`. It is a capability map only, not a production,
 performance, SQL/DataFrame, object-store/lakehouse, Foundry, or package claim.
+The `object_store_admission_ladder` keeps S3/GCS/ADLS URI recognition,
+credential policy, public reads, authenticated reads, byte-range reads,
+full-file reads, local cache, write staging, and commit protocol as separate
+gates. Current rows keep credential resolution, provider probes, network
+probes, object-store I/O, writes, commits, external engines, and fallback
+disabled.
+Important row IDs include `object_store_uri_parse`, `credential_policy`,
+`public_no_credential_read`, `authenticated_read`, `byte_range_read`,
+`full_file_read`, `local_cache`, `write_staging`, and `commit_protocol`.
 
 The client also exposes advisory optimization reports:
 
