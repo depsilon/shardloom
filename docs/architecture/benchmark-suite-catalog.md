@@ -270,7 +270,7 @@ support status, row counts, decode/materialization status, `fallback_attempted=f
 `external_engine_invoked=false`, `claim_gate_status`, and an unsupported reason where applicable.
 
 `GAR-IOREUSE-1` adds the I/O reuse and cross-format fanout benchmark bundle. Current rows already
-emit SourceState and VortexPreparedState contracts for the stable path
+emit SourceState, VortexPreparedState, and OutputPlan contracts for the stable path
 `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
 SinkArtifact`; future fanout rows must continue using that path and must not couple input and
 output formats. Planned benchmark families are `io_reuse_and_fanout`, `source_state_reuse`,
@@ -284,9 +284,9 @@ Required future fanout metrics are `source_discovery_millis`, `schema_inference_
 `output_write_millis`, `output_replay_millis`, `total_runtime_millis`,
 `source_state_reuse_hit`, `prepared_state_reuse_hit`, `output_plan_reuse_hit`,
 `fanout_output_count`, `fallback_attempted=false`, `external_engine_invoked=false`, and
-`claim_gate_status`. SourceState and VortexPreparedState rows already expose their scoped subsets;
-remaining OutputPlan/fanout rows must separate one-shot speed from reuse/fanout timing and cannot
-mark any sink supported without output replay/evidence proof.
+`claim_gate_status`. SourceState, VortexPreparedState, and OutputPlan rows already expose their
+scoped subsets; remaining fanout rows must separate one-shot speed from reuse/fanout timing and
+cannot mark any sink supported without output replay/evidence proof.
 
 `runtime-report --format json` now mirrors this timing vocabulary as the
 GAR-0018-A report-only runtime-introspection schema. That command is an
@@ -466,6 +466,11 @@ evidence and do not replace the family-specific batch coverage matrix. GAR-IOREU
 separate VortexPreparedState IDs, digests, artifact refs/digests, preparation timing separation,
 source-state linkage, and reuse posture to the benchmark row contract; those fields do not imply
 output support, encoded-native coverage, object-store/lakehouse runtime, or performance claims.
+GAR-IOREUSE-1C adds separate OutputPlan IDs, digests, target format/schema/location posture,
+metadata preservation, local Vortex write/replay refs, sink artifact refs/digests, and no-fallback
+fields to the benchmark row contract; those fields do not imply cross-format fanout,
+object-store/lakehouse runtime, table commit support, production sink support, or performance
+claims.
 Remaining GAR-PERF-1 follow-ups are fused
 filter/project/limit and selection-vector execution plus the report-only Bayesian performance/layout
 advisor. These are evidence and architecture slices: benchmark outputs must remain local

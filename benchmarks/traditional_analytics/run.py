@@ -399,6 +399,44 @@ PREPARED_STATE_CONTRACT_FIELDS = (
     "prepared_state_claim_gate_status",
     "prepared_state_claim_boundary",
 )
+OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION = "shardloom.traditional_analytics.output_plan.v1"
+OUTPUT_PLAN_CONTRACT_STATUS_VOCABULARY = (
+    "output_plan_supported",
+    "not_needed",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+OUTPUT_PLAN_CONTRACT_FIELDS = (
+    "output_plan_contract_schema_version",
+    "output_plan_status_vocabulary",
+    "output_plan_status",
+    "output_plan_id",
+    "output_plan_digest",
+    "output_format",
+    "output_location",
+    "output_schema_digest",
+    "output_partitioning",
+    "output_compression",
+    "output_encoding",
+    "output_write_mode",
+    "output_plan_reuse_allowed",
+    "output_metadata_preservation_status",
+    "output_materialization_required",
+    "output_plan_reuse_hit",
+    "output_plan_reuse_reason",
+    "output_plan_millis",
+    "output_write_millis",
+    "result_replay_verified",
+    "output_native_io_certificate_status",
+    "sink_artifact_ref",
+    "sink_artifact_digest",
+    "output_plan_fallback_attempted",
+    "output_plan_external_engine_invoked",
+    "output_plan_claim_gate_status",
+    "output_plan_claim_boundary",
+)
 SESSION_RUNTIME_FIELDS = (
     "session_schema_version",
     "session_id",
@@ -4761,6 +4799,136 @@ def prepared_state_contract_metadata(
     }
 
 
+def output_plan_reuse_reason(
+    engine: str,
+    status: str,
+    output_plan_status: str,
+    output_written: bool,
+    output_plan_reuse_hit: bool,
+) -> str:
+    if not is_shardloom_engine(engine):
+        return "external baseline rows do not create or reuse ShardLoom OutputPlan"
+    if status in {"unsupported", "unsupported_format", "execution_error"}:
+        return "row did not execute; output-plan posture is deterministic but not reusable"
+    if output_plan_reuse_hit:
+        return "output plan was reused by the benchmark row"
+    if output_written:
+        return "local Vortex result-sink output plan executed, but no output-plan reuse hit was observed"
+    if output_plan_status == "not_needed":
+        return "no output sink was requested for this row"
+    return "output-plan reuse is report-only for this row"
+
+
+def output_plan_contract_metadata(
+    engine: str,
+    scenario: str,
+    data_format: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    output_written = parse_optional_bool(
+        evidence.get("computed_result_sink_written")
+    ) is True or metrics.get("result_sink_included") is True
+    result_replay_verified = (
+        parse_optional_bool(evidence.get("computed_result_sink_replay_verified")) is True
+    )
+    sink_artifact_ref = first_meaningful_field(
+        evidence.get("computed_result_vortex_path"),
+        "none",
+    )
+    sink_artifact_digest = first_meaningful_field(
+        evidence.get("computed_result_vortex_digest"),
+        "none",
+    )
+    schema_summary = first_meaningful_field(
+        evidence.get("computed_result_sink_schema_summary"),
+        "computed_result_schema_not_emitted",
+    )
+    output_format = "vortex" if output_written else "not_requested"
+    output_location = sink_artifact_ref if output_written else "not_requested"
+    output_schema_digest = (
+        canonical_digest(schema_summary) if output_written else "none"
+    )
+    output_plan_reuse_hit = False
+    if not is_shardloom:
+        output_plan_status = "external_baseline_only"
+    elif status in {"unsupported", "unsupported_format"}:
+        output_plan_status = "unsupported"
+    elif status == "execution_error":
+        output_plan_status = "blocked"
+    elif output_written:
+        output_plan_status = "output_plan_supported"
+    else:
+        output_plan_status = "not_needed"
+    output_plan_digest = canonical_digest(
+        {
+            "data_format": data_format,
+            "output_format": output_format,
+            "output_location": output_location,
+            "output_plan_schema": OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION,
+            "scenario": scenario,
+            "schema_digest": output_schema_digest,
+            "write_mode": "local_vortex_result_sink" if output_written else "none",
+        }
+    )
+    output_plan_id = (
+        f"output-plan:{output_format}:{output_plan_digest[:12]}"
+        if is_shardloom and output_written
+        else "none"
+    )
+    return {
+        "output_plan_contract_schema_version": OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION,
+        "output_plan_status_vocabulary": ",".join(
+            OUTPUT_PLAN_CONTRACT_STATUS_VOCABULARY
+        ),
+        "output_plan_status": output_plan_status,
+        "output_plan_id": output_plan_id,
+        "output_plan_digest": output_plan_digest if output_plan_id != "none" else "none",
+        "output_format": output_format if is_shardloom else "none",
+        "output_location": output_location if is_shardloom else "none",
+        "output_schema_digest": output_schema_digest,
+        "output_partitioning": "none",
+        "output_compression": "vortex_default" if output_written else "none",
+        "output_encoding": "vortex_native" if output_written else "none",
+        "output_write_mode": (
+            "local_vortex_result_sink" if output_written else "none"
+        ),
+        "output_plan_reuse_allowed": False,
+        "output_metadata_preservation_status": (
+            "native_vortex_highest_fidelity" if output_written else "not_applicable"
+        ),
+        "output_materialization_required": (
+            "result_sink_materializes_computed_result" if output_written else "not_applicable"
+        ),
+        "output_plan_reuse_hit": output_plan_reuse_hit,
+        "output_plan_reuse_reason": output_plan_reuse_reason(
+            engine, status, output_plan_status, output_written, output_plan_reuse_hit
+        ),
+        "output_plan_millis": None,
+        "output_write_millis": metrics.get("result_sink_write_millis"),
+        "result_replay_verified": result_replay_verified,
+        "output_native_io_certificate_status": first_meaningful_field(
+            evidence.get("computed_result_sink_native_io_certificate_status"),
+            "not_applicable" if not output_written else "missing",
+        ),
+        "sink_artifact_ref": sink_artifact_ref if output_written else "none",
+        "sink_artifact_digest": sink_artifact_digest if output_written else "none",
+        "output_plan_fallback_attempted": False,
+        "output_plan_external_engine_invoked": False,
+        "output_plan_claim_gate_status": "not_claim_grade",
+        "output_plan_claim_boundary": (
+            "OutputPlan evidence covers scoped local Vortex result-sink planning, metadata "
+            "preservation posture, write/replay refs, and no-fallback policy only; it is not "
+            "cross-format fanout, object-store/lakehouse/table commit, production, performance, "
+            "SQL/DataFrame, Foundry, package, release, or Spark-replacement evidence"
+        ),
+    }
+
+
 def rows_scanned(paths: DatasetPaths, scenario: str) -> int:
     if scenario in {
         "hash join",
@@ -5179,6 +5347,29 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             and metrics.get("prepared_state_reuse_allowed") is True
         ):
             raise RuntimeError("direct transient rows cannot report prepared-state reuse")
+        missing_output_plan_fields = [
+            field for field in OUTPUT_PLAN_CONTRACT_FIELDS if field not in metrics
+        ]
+        if missing_output_plan_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted OutputPlan contract fields: "
+                + ", ".join(missing_output_plan_fields)
+            )
+        if metrics.get("output_plan_fallback_attempted") is not False:
+            raise RuntimeError("OutputPlan evidence cannot report fallback attempts")
+        if metrics.get("output_plan_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "OutputPlan evidence cannot report external engine execution"
+            )
+        if metrics.get("output_plan_claim_gate_status") != "not_claim_grade":
+            raise RuntimeError("OutputPlan evidence cannot upgrade claim status")
+        if (
+            str(metrics.get("output_format")) in {"s3", "gcs", "adls", "object_store"}
+            or "://" in str(metrics.get("output_location"))
+        ):
+            raise RuntimeError(
+                "OutputPlan evidence cannot report object-store output in this slice"
+            )
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
         and result.get("status") == "success"
@@ -5715,6 +5906,41 @@ def prepared_state_contract() -> dict[str, Any]:
     }
 
 
+def output_plan_contract() -> dict[str, Any]:
+    return {
+        "contract_id": OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(OUTPUT_PLAN_CONTRACT_STATUS_VOCABULARY),
+        "row_fields": list(OUTPUT_PLAN_CONTRACT_FIELDS),
+        "current_scope": (
+            "scoped local Vortex result-sink planning, metadata preservation posture, "
+            "write/replay refs, sink artifact identity, and no-fallback visibility"
+        ),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> "
+            "OutputPlan -> SinkArtifact"
+        ),
+        "non_goals": [
+            "cross-format output fanout benchmark",
+            "object-store output runtime",
+            "lakehouse/table commit support",
+            "Foundry production output",
+            "production SQL/DataFrame runtime",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Output-plan rows must preserve output_plan_fallback_attempted=false "
+            "and output_plan_external_engine_invoked=false for ShardLoom rows."
+        ),
+        "claim_boundary": (
+            "OutputPlan evidence is scoped local output-planning evidence only. It does "
+            "not prove cross-format fanout, object-store/lakehouse/table commit, production, "
+            "performance, SQL/DataFrame, Foundry, package, release, or Spark-replacement readiness."
+        ),
+    }
+
+
 def source_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -5816,6 +6042,61 @@ def prepared_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "prepared_state_claim_boundary": metrics.get(
                     "prepared_state_claim_boundary"
                 ),
+            }
+        )
+    return rows
+
+
+def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "output_plan_contract_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "output_plan_status": metrics.get("output_plan_status"),
+                "output_plan_id": metrics.get("output_plan_id"),
+                "output_plan_digest": metrics.get("output_plan_digest"),
+                "output_format": metrics.get("output_format"),
+                "output_location": metrics.get("output_location"),
+                "output_schema_digest": metrics.get("output_schema_digest"),
+                "output_partitioning": metrics.get("output_partitioning"),
+                "output_compression": metrics.get("output_compression"),
+                "output_encoding": metrics.get("output_encoding"),
+                "output_write_mode": metrics.get("output_write_mode"),
+                "output_plan_reuse_allowed": metrics.get("output_plan_reuse_allowed"),
+                "output_metadata_preservation_status": metrics.get(
+                    "output_metadata_preservation_status"
+                ),
+                "output_materialization_required": metrics.get(
+                    "output_materialization_required"
+                ),
+                "output_plan_reuse_hit": metrics.get("output_plan_reuse_hit"),
+                "output_plan_reuse_reason": metrics.get("output_plan_reuse_reason"),
+                "output_plan_millis": metrics.get("output_plan_millis"),
+                "output_write_millis": metrics.get("output_write_millis"),
+                "result_replay_verified": metrics.get("result_replay_verified"),
+                "output_native_io_certificate_status": metrics.get(
+                    "output_native_io_certificate_status"
+                ),
+                "sink_artifact_ref": metrics.get("sink_artifact_ref"),
+                "sink_artifact_digest": metrics.get("sink_artifact_digest"),
+                "output_plan_claim_gate_status": metrics.get(
+                    "output_plan_claim_gate_status"
+                ),
+                "output_plan_fallback_attempted": metrics.get(
+                    "output_plan_fallback_attempted"
+                ),
+                "output_plan_external_engine_invoked": metrics.get(
+                    "output_plan_external_engine_invoked"
+                ),
+                "output_plan_claim_boundary": metrics.get("output_plan_claim_boundary"),
             }
         )
     return rows
@@ -6335,6 +6616,15 @@ def failed_result(
             selected_mode=execution_mode["selected_execution_mode"],
         )
     )
+    metrics.update(
+        output_plan_contract_metadata(
+            engine,
+            scenario,
+            data_format,
+            status=status,
+            metrics=metrics,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -6823,6 +7113,16 @@ def successful_result_from_iterations(
             metrics=metrics,
             evidence=evidence,
             selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
+        output_plan_contract_metadata(
+            runner.name,
+            scenario,
+            data_format,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            evidence=evidence,
         )
     )
     if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
@@ -8270,6 +8570,27 @@ def render_prepared_state_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_output_plan_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["output_plan_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -8293,6 +8614,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "Eligible prepared/native ShardLoom rows may use persistent_runner_status=single_process_batch_runner_supported; per-scenario CLI rows keep persistent_runner_status=process_per_scenario_attributed_not_reduced, and neither status permits a hidden fast mode or performance claim.",
         "ShardLoom rows carry SourceState contract fields for local source discovery, schema identity, parse/decode planning, fingerprinting, and scoped reuse posture; SourceState is input preparation evidence and never upgrades Vortex-native, output, object-store, SQL/DataFrame, production, or performance claims.",
         "ShardLoom prepared/native rows carry VortexPreparedState contract fields for prepared artifact refs, digests, preparation timing separation, source-state linkage, and scoped reuse posture; prepared-state evidence is not output support, encoded-native operator coverage, object-store/lakehouse support, or a performance claim.",
+        "ShardLoom rows carry OutputPlan contract fields for local output planning posture; only result-sink rows with explicit local Vortex write/replay evidence can report output_plan_supported, and this is not cross-format fanout, object-store/lakehouse support, or a production sink claim.",
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -8679,6 +9001,109 @@ def render_prepared_state_matrix(artifact: dict[str, Any]) -> str:
             "Vortex prepare",
             "Source Native I/O",
             "Materialization policy",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
+def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["output_plan_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["output_plan_status"]),
+                str(row["output_plan_id"]),
+                str(row["output_plan_digest"]),
+                str(row["output_format"]),
+                str(row["output_location"]).replace("|", "\\|"),
+                str(row["output_schema_digest"]),
+                str(row["output_partitioning"]),
+                str(row["output_compression"]),
+                str(row["output_encoding"]),
+                str(row["output_write_mode"]),
+                str(row["output_plan_reuse_allowed"]),
+                str(row["output_metadata_preservation_status"]),
+                str(row["output_materialization_required"]),
+                str(row["output_plan_reuse_hit"]),
+                str(row["output_plan_reuse_reason"]).replace("|", "\\|"),
+                format_metric(row["output_plan_millis"], " ms"),
+                format_metric(row["output_write_millis"], " ms"),
+                str(row["result_replay_verified"]),
+                str(row["output_native_io_certificate_status"]),
+                str(row["sink_artifact_ref"]).replace("|", "\\|"),
+                str(row["sink_artifact_digest"]),
+                str(row["output_plan_claim_gate_status"]),
+                str(row["output_plan_fallback_attempted"]),
+                str(row["output_plan_external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "false",
+                "none",
+                "none",
+                "false",
+                "no OutputPlan rows were emitted",
+                "n/a",
+                "n/a",
+                "false",
+                "none",
+                "none",
+                "none",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "OutputPlan status",
+            "OutputPlan id",
+            "OutputPlan digest",
+            "Output format",
+            "Output location",
+            "Output schema digest",
+            "Partitioning",
+            "Compression",
+            "Encoding",
+            "Write mode",
+            "Reuse allowed",
+            "Metadata preservation",
+            "Materialization",
+            "Reuse hit",
+            "Reuse reason",
+            "Output plan",
+            "Output write",
+            "Replay verified",
+            "Output Native I/O",
+            "Sink ref",
+            "Sink digest",
             "Claim gate",
             "Fallback",
             "External engine",
@@ -9335,6 +9760,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_prepared_state_contract(artifact),
         "",
+        "## OutputPlan Contract",
+        "",
+        "This contract makes local output-plan posture, target format/schema, metadata preservation, write/replay refs, and sink artifact identity visible without implying fanout, object-store, table commit, or production sink support.",
+        "",
+        render_output_plan_contract(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -9368,6 +9799,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "VortexPreparedState is prepared-artifact evidence. Reuse fields show whether prepared Vortex artifacts were eligible for reuse or reused; they do not upgrade claim_gate_status or create output/object-store/lakehouse/SQL/DataFrame support.",
         "",
         render_prepared_state_matrix(artifact),
+        "",
+        "## ShardLoom OutputPlan Evidence Matrix",
+        "",
+        "OutputPlan is output-planning evidence. Local Vortex result-sink rows can report scoped output-plan support only when write/replay evidence is present; other rows remain explicit `not_needed`, `report_only`, unsupported, or external-baseline posture.",
+        "",
+        render_output_plan_matrix(artifact),
         "",
         "## Resource Metrics",
         "",
@@ -9671,6 +10108,7 @@ def main() -> int:
         "persistent_runner_admission_gate": persistent_runner_admission_gate(),
         "source_state_contract": source_state_contract(),
         "prepared_state_contract": prepared_state_contract(),
+        "output_plan_contract": output_plan_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
@@ -9682,6 +10120,7 @@ def main() -> int:
         "format_preparation_matrix": format_preparation_matrix(results),
         "source_state_matrix": source_state_matrix(results),
         "prepared_state_matrix": prepared_state_matrix(results),
+        "output_plan_matrix": output_plan_matrix(results),
         "results": results,
         "shardloom_native_microbenchmarks": []
         if args.skip_shardloom_native

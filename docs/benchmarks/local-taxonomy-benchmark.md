@@ -131,6 +131,20 @@ artifact identity, digest, preparation timing separation, source-state linkage, 
 it is not output support, encoded-native operator coverage, object-store/lakehouse support,
 SQL/DataFrame runtime, or performance evidence.
 
+`GAR-IOREUSE-1C` adds a companion OutputPlan row contract to the benchmark artifact. Rows now carry
+`output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
+`output_plan_status`, `output_plan_id`, `output_plan_digest`, `output_format`, `output_location`,
+`output_schema_digest`, `output_partitioning`, `output_compression`, `output_encoding`,
+`output_write_mode`, `output_plan_reuse_allowed`, `output_metadata_preservation_status`,
+`output_materialization_required`, `output_plan_reuse_hit`, `output_plan_reuse_reason`,
+`output_plan_millis`, `output_write_millis`, `result_replay_verified`,
+`output_native_io_certificate_status`, `sink_artifact_ref`, `sink_artifact_digest`,
+`output_plan_fallback_attempted=false`, `output_plan_external_engine_invoked=false`,
+`output_plan_claim_gate_status=not_claim_grade`, and `output_plan_claim_boundary`. This
+output-plan contract covers scoped local Vortex result-sink planning, write/replay refs, metadata
+preservation posture, and sink artifact identity; it is not cross-format fanout, object-store/
+lakehouse support, table commit support, production sink support, or performance evidence.
+
 `GAR-PERF-1C` adds scoped fused-pipeline evidence for the current prepared/native
 filter/projection/limit row and selective-filter selection-vector metric aggregation row. The
 benchmark harness now carries `fused_pipeline_*` fields, including `fused_pipeline_used`,
@@ -277,8 +291,9 @@ generated source -> CSV + Parquet + Vortex outputs
 prepared Vortex -> multiple output formats
 ```
 
-The current SourceState and VortexPreparedState slices emit the source discovery/schema/parse and
-prepared artifact subsets above. Required future timing fields for the remaining fanout bundle:
+The current SourceState, VortexPreparedState, and OutputPlan slices emit the source
+discovery/schema/parse, prepared artifact, and local output-plan subsets above. Required future
+timing fields for the remaining fanout bundle:
 
 ```text
 operator_compute_millis

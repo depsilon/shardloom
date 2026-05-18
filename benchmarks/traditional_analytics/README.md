@@ -269,6 +269,19 @@ and `prepared_state_claim_boundary`. This prepared-state contract records scoped
 artifact identity, digest, source-state linkage, preparation timing separation, and reuse posture
 only; it is not output support, encoded-native coverage, object-store/lakehouse support, or a
 performance claim.
+`GAR-IOREUSE-1C` adds a separate OutputPlan contract to the benchmark JSON/Markdown artifact with
+`output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
+`output_plan_status_vocabulary`, `output_plan_status`, `output_plan_id`, `output_plan_digest`,
+`output_format`, `output_location`, `output_schema_digest`, `output_partitioning`,
+`output_compression`, `output_encoding`, `output_write_mode`, `output_plan_reuse_allowed`,
+`output_metadata_preservation_status`, `output_materialization_required`,
+`output_plan_reuse_hit`, `output_plan_reuse_reason`, `output_plan_millis`, `output_write_millis`,
+`result_replay_verified`, `output_native_io_certificate_status`, `sink_artifact_ref`,
+`sink_artifact_digest`, `output_plan_fallback_attempted=false`,
+`output_plan_external_engine_invoked=false`, `output_plan_claim_gate_status=not_claim_grade`, and
+`output_plan_claim_boundary`. Local Vortex result-sink rows can report
+`output_plan_status=output_plan_supported` only when write/replay evidence is present; rows without
+an output request remain explicit `not_needed` posture.
 
 The scoped direct-transient lane can be run explicitly:
 
@@ -321,14 +334,16 @@ contract to the benchmark JSON/Markdown artifact with
 `source_state_claim_boundary`. CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC rows can all report a
 SourceState posture. `GAR-IOREUSE-1B` adds the companion VortexPreparedState contract for local
 prepared artifact refs/digests, preparation timing separation, source-state linkage, and scoped
-reuse posture. Planned fanout families remain `io_reuse_and_fanout`, `source_state_reuse`,
+reuse posture. `GAR-IOREUSE-1C` adds the companion OutputPlan contract for local Vortex result-sink
+planning, metadata preservation posture, write/replay refs, and sink artifact identity. Planned
+fanout families remain `io_reuse_and_fanout`, `source_state_reuse`,
 `prepared_state_reuse`, `output_plan_reuse`, `cross_format_output`, and
 `generated_source_output`. Planned fanout cases include CSV input -> Parquet + JSONL + Vortex
 outputs, Parquet input -> CSV + Vortex outputs, JSONL input -> Parquet + Vortex outputs, generated
 source -> CSV + Parquet + Vortex outputs, and prepared Vortex -> multiple output formats. Future
-rows must add operator compute, output plan, output write, output replay, total runtime,
-output-plan reuse hits, fanout output count, no-fallback/no-external-engine fields, and claim gate
-status. These rows are local workflow/evidence rows, not a performance leaderboard.
+rows must add cross-format fanout, output-plan reuse hits, fanout output count, no-fallback/
+no-external-engine fields, and claim gate status. These rows are local workflow/evidence rows, not
+a performance leaderboard.
 `GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence for selective-filter
 prepared/native rows. Current rows classify bitpacked filter, sequence predicate, dictionary
 equality/group-by, constant count/filter, sorted min/max pruning, and FSST/dictionary string
@@ -450,6 +465,10 @@ GAR-IOREUSE-1B adds a separate VortexPreparedState identity/digest/reuse-posture
 benchmark row level. It does not replace prepared-artifact lifecycle fields and does not turn
 prepared artifact reuse into output support, encoded-native execution, object-store/lakehouse
 runtime, or a performance claim.
+GAR-IOREUSE-1C adds a separate OutputPlan identity/digest/status contract at the benchmark row
+level. It does not replace result-sink replay fields and does not turn local Vortex result-sink
+proof into cross-format fanout, object-store/lakehouse runtime, table commit, production sink
+support, or a performance claim.
 
 `GAR-PERF-2F` adds a scoped in-process session-backed prepared/native batch lane for local artifacts.
 Batch rows now expose `session_id`, explicit open/close/drop status, prepared-artifact

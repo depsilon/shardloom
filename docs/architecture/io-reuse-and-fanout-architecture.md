@@ -23,9 +23,11 @@ InputAdapter
 `GAR-IOREUSE-1A` implements the first benchmark/report contract for local SourceState evidence.
 `GAR-IOREUSE-1B` adds the companion VortexPreparedState benchmark/report contract for prepared
 artifact identity, digest, preparation timing separation, source-state linkage, and scoped reuse
-posture. OutputPlan, fanout, invalidation, reuse-level, and Foundry generated-output slices are
-still planned. This document does not implement object-store I/O, table/lakehouse commits, Foundry
-production support, performance claims, or a hidden fast mode.
+posture. `GAR-IOREUSE-1C` adds the OutputPlan benchmark/report contract for scoped local Vortex
+result-sink planning, metadata preservation posture, write/replay refs, and sink artifact identity.
+Fanout, invalidation, reuse-level, and Foundry generated-output slices are still planned. This
+document does not implement object-store I/O, table/lakehouse commits, Foundry production support,
+performance claims, or a hidden fast mode.
 
 ## Goals
 
@@ -185,9 +187,12 @@ Foundry output dataset, via transform wrapper
 S3/object-store, blocked until runtime proof
 ```
 
-Required future fields:
+Implemented `GAR-IOREUSE-1C` benchmark/report fields:
 
 ```text
+output_plan_contract_schema_version
+output_plan_status_vocabulary
+output_plan_status
 output_plan_id
 output_plan_digest
 output_format
@@ -198,15 +203,31 @@ output_compression
 output_encoding
 output_write_mode
 output_plan_reuse_allowed
+output_metadata_preservation_status
+output_materialization_required
 output_plan_reuse_hit
+output_plan_reuse_reason
+output_plan_millis
 output_write_millis
 result_replay_verified
 output_native_io_certificate_status
+sink_artifact_ref
+sink_artifact_digest
+output_plan_fallback_attempted=false
+output_plan_external_engine_invoked=false
+output_plan_claim_gate_status=not_claim_grade
+output_plan_claim_boundary
 ```
 
-Output planning is separate from input format. One prepared source may fan out to multiple local
-output formats when sink evidence exists. Local output, object-store write, and table/lakehouse
-commit semantics remain separate.
+The traditional analytics benchmark artifact and Markdown report now include a
+`shardloom.traditional_analytics.output_plan.v1` contract object and an OutputPlan evidence matrix.
+Local Vortex result-sink rows with write/replay evidence can report `output_plan_supported`.
+Rows without an output request report `not_needed`, unsupported rows stay explicit, and external
+baselines are `external_baseline_only`.
+
+Output planning is separate from input format. One prepared source may later fan out to multiple
+local output formats when sink evidence exists, but cross-format fanout is still a future slice.
+Local output, object-store write, and table/lakehouse commit semantics remain separate.
 
 ### SinkArtifact
 
@@ -237,16 +258,14 @@ generated source -> CSV + Parquet + Vortex outputs
 prepared Vortex -> multiple output formats
 ```
 
-Current `GAR-IOREUSE-1A` and `GAR-IOREUSE-1B` benchmark rows expose the SourceState and
-VortexPreparedState subsets listed above. Future fanout/reuse rows should additionally expose:
+Current `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, and `GAR-IOREUSE-1C` benchmark rows expose the
+SourceState, VortexPreparedState, and OutputPlan subsets listed above. Future fanout/reuse rows
+should additionally expose:
 
 ```text
 operator_compute_millis
-output_plan_millis
-output_write_millis
 output_replay_millis
 total_runtime_millis
-output_plan_reuse_hit
 fanout_output_count
 fallback_attempted=false
 external_engine_invoked=false
@@ -399,9 +418,9 @@ external_engine_invoked=false
 
 ## Acceptance For The Planning Bundle
 
-- The phase plan contains detailed remaining `GAR-IOREUSE-1C` through `GAR-IOREUSE-1G` slices, and
-  the completed ledger records `GAR-IOREUSE-1A` and `GAR-IOREUSE-1B` as completed SourceState and
-  VortexPreparedState benchmark/report evidence.
+- The phase plan contains detailed remaining `GAR-IOREUSE-1D` through `GAR-IOREUSE-1G` slices, and
+  the completed ledger records `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, and `GAR-IOREUSE-1C` as
+  completed SourceState, VortexPreparedState, and OutputPlan benchmark/report evidence.
 - Benchmark docs list the planned benchmark families and metrics.
 - Compute-flow docs show the decoupled path:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`.
