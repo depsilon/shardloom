@@ -2090,7 +2090,7 @@ def benchmark_manifest_panel(summary: dict[str, Any]) -> str:
     return f"""
         <div class="notice-panel benchmark-manifest-panel">
           <strong>Published artifact profile: <code>{esc(manifest.get('benchmark_profile'))}</code></strong>
-          <span>Artifact status: <code>{esc(manifest.get('artifact_status', 'unknown'))}</code>. The website renders committed benchmark artifacts; it does not import pandas, Polars, DuckDB, Spark, DataFusion, Dask, or Java at page-render time.</span>
+          <span>Artifact status: <code>{esc(manifest.get('artifact_status', 'unknown'))}</code>. The website renders committed benchmark artifacts; it does not import pandas, Polars, DuckDB, Spark, DataFusion, Dask, Java, GPU, or extended optional baseline packages at page-render time.</span>
         </div>
         {details_block('Benchmark lane availability from manifest', html_table(['Expected lane', 'Status', 'Profile policy', 'Version / reason'], lane_rows), 'raw-data-drawer manifest-drawer')}
     """

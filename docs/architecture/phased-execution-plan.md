@@ -369,86 +369,9 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 #### GAR-BENCH-PUB-1 - Complete Competitor Benchmark Publishing And Static Artifact Ingestion
 
-GAR-BENCH-PUB-1A, 1B, 1C, 1E, 1F, 1G, and 1H are complete and recorded in
-`docs/architecture/phased-execution-completed-ledger.md`. The active remaining work in this bundle is
-actual competitor-lane adapter expansion beyond the registry and publishing scaffolding.
-
-- [ ] GAR-BENCH-PUB-1D competitor-lane expansion
-  - Source:
-    - `benchmarks/traditional_analytics/benchmark_registry.py`.
-    - `scripts/check_benchmark_environment.py`.
-    - current lanes in `benchmarks/traditional_analytics/run.py`.
-    - external ecosystem docs for lane identity and profile fit.
-  - Current state:
-    - Benchmark publishing has a registry, profile matrix, preflight, static manifest ingestion,
-      completeness gate, website lane-availability panel, and runbook.
-    - The registry names split and extended lanes, but the harness still needs actual adapters,
-      smoke rows, or deterministic unavailable rows for every expanded lane.
-  - Next slice outcome:
-    - Expand baseline lane execution coverage with explicit profile membership and deterministic
-      unavailable-row handling.
-  - User-visible surface:
-    - benchmark reports.
-    - `website/benchmarks`.
-    - benchmark manifest lane availability panel.
-    - benchmark docs.
-  - Implementation scope:
-    - `benchmarks/traditional_analytics/run.py`.
-    - `benchmarks/traditional_analytics/benchmark_registry.py`.
-    - benchmark row/report schema.
-    - benchmark preflight and completeness checks.
-    - website benchmark renderer only if new lane-status fields need presentation changes.
-  - Add or split lanes:
-    - `polars-eager`.
-    - `polars-lazy`.
-    - `pyarrow-dataset`.
-    - `pyarrow-acero`.
-    - `clickhouse-local`.
-    - `daft`.
-    - `ray-data`.
-    - `cudf-gpu`.
-    - `ibis-duckdb`.
-    - `ibis-datafusion`.
-    - `ibis-polars`.
-  - Evidence required:
-    - lane profile membership.
-    - lane version or unavailable reason.
-    - backend engine for adapter lanes.
-    - hardware class for GPU lanes.
-    - scenario support status.
-    - `external_baseline_only=true`.
-    - `fallback_attempted=false` and `external_engine_invoked=false` for ShardLoom rows.
-  - Acceptance:
-    - Core CPU lanes appear in `full_local` with actual rows or deterministic unavailable rows.
-    - Spark lanes appear only in `full_local_plus_spark`.
-    - GPU lanes appear only in `gpu_optional`.
-    - Multimodal/workflow lanes appear only in `extended_local` or a dedicated workflow benchmark.
-    - Ibis lanes state the concrete backend and are not presented as independent engines unless the
-      backend is distinct.
-    - Missing optional lanes remain visible with install/preflight guidance or deterministic reason.
-  - Verification:
-    - lane availability preflight.
-    - focused benchmark smoke per new lane where feasible.
-    - missing optional lane report.
-    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - no performance/superiority claim.
-    - no attempt to make every optional lane mandatory.
-    - no GPU benchmark mixed into CPU-local profiles.
-    - no object-store benchmark without separate object-store runtime admission.
-  - Claim boundary:
-    - Extended competitor lanes are context only.
-    - Missing optional lanes cannot be used to imply ShardLoom advantage.
-  - Fallback boundary:
-    - External engines remain external baselines and must never execute ShardLoom rows as fallback.
-  - Ledger rule:
-    - When complete, move the detailed completed session to the completed ledger with lane registry
-      examples, unavailable-row examples, and profile membership evidence.
-  - Dependencies/blockers:
-    - full-local dependency environment, lane-specific adapters, and deterministic unsupported-row
-      schema decisions.
+GAR-BENCH-PUB-1A through GAR-BENCH-PUB-1H are complete and recorded in
+`docs/architecture/phased-execution-completed-ledger.md`. The remaining benchmark-publishing work is
+future evidence refresh or new benchmark families, not an active GAR-BENCH-PUB-1 planned item.
 
 #### GAR-IOREUSE-1 - I/O Reuse And Cross-Format Fanout
 

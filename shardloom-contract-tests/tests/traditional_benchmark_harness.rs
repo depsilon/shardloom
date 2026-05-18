@@ -8,9 +8,10 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"spark-default\""));
     assert!(script.contains("\"spark-local-tuned\""));
     assert!(script.contains("\"shardloom-prepared-vortex\""));
-    assert!(
-        script.contains("ENGINE_ALIASES = {\"spark\": (\"spark-default\", \"spark-local-tuned\")}")
-    );
+    assert!(script.contains("\"spark\": (\"spark-default\", \"spark-local-tuned\")"));
+    assert!(script.contains("\"polars\": (\"polars-eager\", \"polars-lazy\")"));
+    assert!(script.contains("\"native-vortex\": (\"shardloom-vortex\",)"));
+    assert!(script.contains("\"extended-local\": EXTENDED_OPTIONAL_ENGINE_ORDER[:-1]"));
     assert!(script.contains("\"fallback_execution_allowed\": False"));
     assert!(script.contains("\"external_engines_are_fallback\": False"));
     assert!(script.contains("\"performance_claim_allowed\": False"));
@@ -626,6 +627,21 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "def bayesian_advisor_contract_metadata(",
         "def bayesian_advisor_contract(",
         "def render_bayesian_advisor_contract(",
+        "\"polars-eager\"",
+        "\"polars-lazy\"",
+        "EXTENDED_OPTIONAL_ENGINE_ORDER",
+        "def polars_eager_runner(",
+        "def polars_lazy_runner(",
+        "def optional_external_report_only_runner(",
+        "\"pyarrow-dataset\"",
+        "\"pyarrow-acero\"",
+        "\"clickhouse-local\"",
+        "\"daft\"",
+        "\"ray-data\"",
+        "\"ibis-duckdb\"",
+        "\"ibis-datafusion\"",
+        "\"ibis-polars\"",
+        "\"cudf-gpu\"",
         "\"dask_blocksize\"",
         "\"dask_scheduler\"",
         "\"spark_requires_java\"",

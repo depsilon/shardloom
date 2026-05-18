@@ -8,12 +8,15 @@ external comparison engines:
 - ShardLoom prepared Vortex
 - ShardLoom direct transient CSV smoke
 - pandas
-- Polars
+- Polars eager
+- Polars lazy
 - DuckDB
 - Spark/PySpark default local profile
 - Spark/PySpark tuned local profile
 - DataFusion Python
 - Dask
+- optional extended local lanes: pyarrow dataset, pyarrow Acero, clickhouse-local, Daft, Ray Data,
+  Ibis adapters, and cuDF GPU
 
 The external engines are benchmark tooling only. They are never ShardLoom
 runtime dependencies and never execute unsupported ShardLoom plans as fallback engines.
@@ -583,6 +586,14 @@ or deploys the static site. Use `scripts/check_benchmark_environment.py` before 
 artifact and `scripts/check_benchmark_artifact_completeness.py` before publishing it. The runbook is
 `docs/benchmarks/static-benchmark-publishing-runbook.md`.
 
+The harness now splits the legacy `polars` alias into `polars-eager` and `polars-lazy`. The eager
+lane uses direct `read_*` DataFrame APIs; the lazy lane uses Polars `scan_*` LazyFrame APIs for
+CSV/JSONL/Parquet and records unsupported rows for scenarios not yet implemented in the lazy
+adapter. Optional extended lanes such as `pyarrow-dataset`, `pyarrow-acero`, `clickhouse-local`,
+`daft`, `ray-data`, `ibis-*`, and `cudf-gpu` are registered as explicit external-baseline lanes.
+When their dependencies or adapters are unavailable, rows remain visible as missing or unsupported
+with deterministic reasons instead of disappearing from the benchmark profile.
+
 `filter + projection + limit` now reports a scoped residual-native fused scan path for prepared/native
 rows when filter/projection pushdown runs without full-table materialization. `group by aggregation`
 now reports a scoped residual-native grouped scan path when projection pushdown over
@@ -830,8 +841,8 @@ benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_ana
 Run focused profile checks for supported ShardLoom taxonomy extras:
 
 ```powershell
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars,duckdb --formats csv --scenario "top-N per group" --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars,duckdb --formats csv --scenario "high-cardinality string group/distinct" --dataset-profile high_cardinality_strings --rows 100000 --iterations 3
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars-eager,polars-lazy,duckdb --formats csv --scenario "top-N per group" --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom,pandas,polars-eager,polars-lazy,duckdb --formats csv --scenario "high-cardinality string group/distinct" --dataset-profile high_cardinality_strings --rows 100000 --iterations 3
 ```
 
 The preset keeps managed platforms out, enables ShardLoom result-sink evidence, includes
@@ -858,7 +869,7 @@ external-adapter matrix instead of inferred from benchmark timing.
 Run one engine or one scenario while troubleshooting:
 
 ```powershell
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines polars --scenario "group by aggregation" --rows 10000 --iterations 1
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines polars-lazy --scenario "group by aggregation" --rows 10000 --iterations 1
 ```
 
 Run only ShardLoom's universal-I/O smoke row while troubleshooting its local
