@@ -1444,6 +1444,43 @@ tr:last-child td {
   gap: 8px;
 }
 
+.field-guide-search {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.field-guide-search h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 1.8vw, 2rem);
+}
+
+.field-guide-search p {
+  max-width: 860px;
+  margin: 0;
+  color: var(--muted);
+}
+
+.pagefind-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pagefind-controls pagefind-modal-trigger {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagefind-controls .pagefind-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
 .reading-path-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

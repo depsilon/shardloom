@@ -4,7 +4,11 @@ Copyright 2026 Dylan Justin Heinrich
 
 Licensed under the Apache License, Version 2.0.
 
-This source distribution does not intentionally include copied third-party
-implementation code requiring additional attribution notices. Third-party
-dependencies remain under their own licenses and notices, and release artifacts
-should include generated dependency license bundles where applicable.
+This source distribution intentionally commits generated Pagefind static-search
+website assets under `website/pagefind/` for the public documentation site.
+Those assets are covered by Pagefind's MIT license; see
+`docs/legal/static-website-third-party-assets.md`.
+
+Third-party dependencies remain under their own licenses and notices, and
+release artifacts should include generated dependency license bundles where
+applicable.

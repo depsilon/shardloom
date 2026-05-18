@@ -61,6 +61,12 @@ EXPECTED_ASSETS = [
     "assets/data/benchmark-evidence.json",
     "assets/benchmarks/latest/manifest.json",
     "assets/benchmarks/latest/benchmark-results.json",
+    "pagefind/pagefind-component-ui.css",
+    "pagefind/pagefind-component-ui.js",
+    "pagefind/pagefind-entry.json",
+    "pagefind/pagefind.js",
+    "pagefind/pagefind-worker.js",
+    "pagefind/wasm.en.pagefind",
 ]
 RUNTIME_SUFFIXES = (".html", ".js", ".css", ".xml", ".txt")
 RUNTIME_NAMES = {"_headers", "_redirects"}
@@ -85,7 +91,8 @@ BRAND_GUARDRAIL_PHRASES = [
     r"\bVault-Tec\b",
     r"\bPip-Boy\b",
     r"\bBethesda\b",
-    r"\bModal\b",
+    r"\bModal GPU Glossary\b",
+    r"\bmodal\.com\b",
     r"\bPalantir\b",
 ]
 PRIVATE_MEMO_PHRASES = [
@@ -279,6 +286,31 @@ def main() -> int:
 
         field_guide_index = website / "content" / "field-guide-index.json"
         field_guide_page = website / "field-guide" / "index.html"
+        pagefind_entry_path = website / "pagefind" / "pagefind-entry.json"
+        if pagefind_entry_path.exists():
+            try:
+                pagefind_entry = json.loads(pagefind_entry_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                blockers.append(f"Pagefind entry metadata is not valid JSON: {exc}")
+            else:
+                if pagefind_entry.get("version") != "1.5.2":
+                    blockers.append("Pagefind entry metadata must record version 1.5.2")
+                if (pagefind_entry.get("languages") or {}).get("en", {}).get("page_count", 0) < 90:
+                    blockers.append("Pagefind index must cover generated website pages")
+        else:
+            blockers.append("missing Pagefind entry metadata")
+
+        headers = website / "_headers"
+        if headers.exists():
+            headers_text = headers.read_text(encoding="utf-8")
+            for required in [
+                "/pagefind/*",
+                "worker-src 'self'",
+                "script-src 'self' 'wasm-unsafe-eval'",
+            ]:
+                if required not in headers_text:
+                    blockers.append(f"_headers missing Pagefind static-search policy: {required}")
+
         if field_guide_index.exists():
             try:
                 field_guide_data = json.loads(field_guide_index.read_text(encoding="utf-8"))
@@ -359,6 +391,13 @@ def main() -> int:
                 "Evidence And Claims",
                 "Performance Architecture",
                 "Release And Trust",
+                "Static search",
+                "pagefind-component-ui.css",
+                "pagefind-component-ui.js",
+                "pagefind-modal-trigger",
+                "pagefind-filter-dropdown",
+                'data-pagefind-filter="section"',
+                'data-pagefind-filter="status"',
             ]:
                 if required not in field_guide_text:
                     blockers.append(f"Field Guide index page missing atlas field: {required}")

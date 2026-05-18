@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-1D static Field Guide search with Pagefind
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/field-guide/index.html`
+    - `website/pagefind/`
+    - `website/_headers`
+    - `website/assets/site.css`
+    - `website/validate_static_assets.js`
+    - `scripts/check_website_readiness.py`
+    - `docs/legal/static-website-third-party-assets.md`
+    - `NOTICE`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add backend-free static search to the generated Field Guide and make the generated
+    Pagefind bundle a committed Cloudflare static asset.
+  - Checklist:
+    - [x] Add Pagefind component UI wiring on `/field-guide/` using local
+          `/pagefind/pagefind-component-ui.css` and `/pagefind/pagefind-component-ui.js`.
+    - [x] Index generated static pages with Pagefind 1.5.2 after `python
+          website/build_static_pages.py`.
+    - [x] Include generated Pagefind assets under `website/pagefind/` so the public site does not
+          need a runtime GitHub fetch, external search SaaS, or server-side search.
+    - [x] Add Pagefind filters for section, status, category, execution mode, and engine mode where
+          the generated page model has those values.
+    - [x] Add CSP and cache headers for Pagefind's same-origin JavaScript, worker, WASM, and search
+          chunks.
+    - [x] Extend website validation to require the local Pagefind bundle, Field Guide search UI,
+          filter metadata, and Pagefind entry metadata.
+    - [x] Document the committed Pagefind static-search bundle and MIT license posture.
+    - [x] Move GAR-WEB-ATLAS-1D out of the active Planned queue.
+  - Evidence and verification:
+    - `python website/build_static_pages.py`
+    - `python -m pagefind --site website` using Pagefind 1.5.2
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - Search discoverability is an educational website feature only. It does not add runtime
+      behavior, benchmark recomputation, package publication, production SQL/DataFrame support,
+      object-store/lakehouse runtime, Foundry production support, performance claims, or
+      Spark-displacement claims.
+  - Fallback boundary:
+    - Pagefind is not a ShardLoom runtime dependency or fallback engine. Search results preserve
+      blocked/report-only/no-fallback language and do not alter execution policy.
+
 - [x] Session label: GAR-WEB-ATLAS-1C Field Guide reading paths
   - Primary files:
     - `website/content/field-guide-index.json`
