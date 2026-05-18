@@ -362,9 +362,10 @@ pub use unstructured_workflow::{
 };
 pub use wrapper_architecture::{
     ClientCoreOperation, ClientWrapperArchitectureReport, ProtocolSchemaArtifact,
-    WrapperCapabilityReport, WrapperFamily, WrapperGoldenContractFixture,
-    WrapperGoldenContractFixtureCatalog, WrapperMaturityLevel, WrapperRegistryEntry,
-    WrapperTransportKind, plan_client_wrapper_architecture,
+    WrapperCapabilityReport, WrapperConnectorImplementationRegistryReport,
+    WrapperConnectorRegistryRow, WrapperConnectorSupportStatus, WrapperFamily,
+    WrapperGoldenContractFixture, WrapperGoldenContractFixtureCatalog, WrapperMaturityLevel,
+    WrapperRegistryEntry, WrapperTransportKind, plan_client_wrapper_architecture,
 };
 
 /// Canonical crate-level result type for `ShardLoom`.

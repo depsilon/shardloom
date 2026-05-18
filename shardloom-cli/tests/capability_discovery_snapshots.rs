@@ -167,6 +167,75 @@ const GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_SUFFIXES: [&str; 15] = [
     "external_engine_invoked",
 ];
 
+const WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS: [&str; 17] = [
+    "wrapper_connector_registry_schema_version",
+    "wrapper_connector_registry_report_id",
+    "wrapper_connector_registry_docs_ref",
+    "wrapper_connector_registry_support_status_vocabulary",
+    "wrapper_connector_registry_row_count",
+    "wrapper_connector_registry_row_order",
+    "wrapper_connector_registry_ready_local_count",
+    "wrapper_connector_registry_report_only_count",
+    "wrapper_connector_registry_blocked_count",
+    "wrapper_connector_registry_diagnostic_codes",
+    "wrapper_connector_registry_required_evidence",
+    "wrapper_connector_registry_dependency_expansion_allowed",
+    "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
+    "wrapper_connector_registry_fallback_attempted",
+    "wrapper_connector_registry_external_engine_invoked",
+    "wrapper_connector_registry_all_rows_no_fallback_no_external_engine",
+    "wrapper_connector_registry_claim_gate_status",
+];
+
+const WRAPPER_CONNECTOR_REGISTRY_ROW_IDS: [&str; 26] = [
+    "python_cli_json_client",
+    "python_typed_capability_views",
+    "python_generated_source_helpers",
+    "rust_client",
+    "typescript_javascript_client",
+    "go_client",
+    "java_jvm_client",
+    "dotnet_client",
+    "r_client",
+    "rest_openapi_generated_client",
+    "ci_report_viewer",
+    "foundry_transform_wrapper",
+    "python_dbapi",
+    "sqlalchemy",
+    "ibis",
+    "dbt",
+    "airflow",
+    "dagster",
+    "prefect",
+    "mcp",
+    "flight_sql",
+    "adbc",
+    "jdbc_via_flight_sql",
+    "odbc",
+    "bi_connector",
+    "grafana_datasource",
+];
+
+const WRAPPER_CONNECTOR_REGISTRY_ROW_SUFFIXES: [&str; 17] = [
+    "family",
+    "planned_package",
+    "maturity",
+    "primary_transport",
+    "support_status",
+    "user_visible_surface",
+    "implementation_evidence",
+    "deterministic_diagnostic_code",
+    "required_evidence",
+    "explicit_execution_available",
+    "dependency_added",
+    "network_listener_started",
+    "data_plane_bridge_supported",
+    "external_engine_invoked",
+    "fallback_attempted",
+    "claim_gate_status",
+    "claim_boundary",
+];
+
 const OPENLINEAGE_FACET_MAPPING_FIELD_KEYS: [&str; 23] = [
     "openlineage_facet_mapping_schema_version",
     "openlineage_facet_mapping_report_id",
@@ -369,6 +438,23 @@ fn with_generated_source_alignment_fields(base_keys: &[&'static str]) -> Vec<Str
             GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_SUFFIXES
                 .into_iter()
                 .map(|suffix| format!("generated_source_evidence_alignment_row_{row_id}_{suffix}")),
+        );
+    }
+    keys
+}
+
+fn with_wrapper_connector_registry_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = with_generated_source_alignment_fields(base_keys);
+    keys.extend(
+        WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in WRAPPER_CONNECTOR_REGISTRY_ROW_IDS {
+        keys.extend(
+            WRAPPER_CONNECTOR_REGISTRY_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("wrapper_connector_registry_row_{row_id}_{suffix}")),
         );
     }
     keys
@@ -1051,8 +1137,11 @@ fn capability_discovery_json_field_keys_are_stable() {
         let keys = field_keys(&output);
         let keys: Vec<String> = keys.into_iter().map(str::to_string).collect();
         let expected_keys = match scope {
-            "python" | "api-surfaces" => {
+            "python" => {
                 with_generated_source_alignment_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+            }
+            "api-surfaces" => {
+                with_wrapper_connector_registry_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
             }
             "universal-adapters" => {
                 with_generated_source_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
@@ -1667,6 +1756,88 @@ fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
             "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented"
         )));
     }
+}
+
+#[test]
+fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
+    let output = run_capabilities_scope("api-surfaces");
+
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_schema_version",
+        "shardloom.wrapper_connector_implementation_registry.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_report_id",
+        "gar-0037-a.wrapper_connector_implementation_registry"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_row_count",
+        "26"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_ready_local_count",
+        "3"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_report_only_count",
+        "9"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_blocked_count",
+        "14"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field_pair(
+        "wrapper_connector_registry_dependency_expansion_allowed",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "wrapper_connector_registry_fallback_attempted",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "wrapper_connector_registry_external_engine_invoked",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "wrapper_connector_registry_all_rows_no_fallback_no_external_engine",
+        true
+    )));
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_row_python_cli_json_client_support_status",
+        "ready_local"
+    )));
+    assert!(output.contains(&field_pair(
+        "wrapper_connector_registry_row_python_cli_json_client_explicit_execution_available",
+        true
+    )));
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_row_sqlalchemy_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "wrapper_connector_registry_row_flight_sql_deterministic_diagnostic_code",
+        "SL_COLUMNAR_TRANSPORT_UNSUPPORTED"
+    )));
+    assert!(output.contains(&field_pair(
+        "wrapper_connector_registry_row_flight_sql_data_plane_bridge_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "wrapper_connector_registry_row_mcp_external_engine_invoked",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "wrapper_connector_registry_row_mcp_fallback_attempted",
+        false
+    )));
 }
 
 #[test]

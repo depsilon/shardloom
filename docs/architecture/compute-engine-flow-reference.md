@@ -528,6 +528,13 @@ End-to-end contract:
   `capabilities sql`, `capabilities dataframe`, and Python `CapabilityView` accessors. It names
   SQL parse/bind/plan/execute and DataFrame lazy-plan/expression/join/aggregate/window readiness
   rows, but it does not execute a parser, binder, planner, DataFrame runtime, or fallback engine.
+- Wrapper and connector access now exposes `shardloom.wrapper_connector_implementation_registry.v1`
+  through `capabilities api-surfaces` and Python `ctx.wrapper_connector_registry()`. The registry
+  marks the source-tree Python CLI JSON wrapper and scoped local Python helper surfaces as
+  `ready_local`, generated clients/report viewers as `report_only`, and DB-API, SQLAlchemy, Ibis,
+  dbt, Airflow, Dagster, Prefect, MCP, Flight SQL, ADBC, JDBC/ODBC, BI, and Grafana connectors as
+  `blocked`. It does not start a server, add dependencies, open listeners, create a data-plane
+  bridge, invoke an external engine, or authorize wrapper ecosystem claims.
 - End-user and adapter surfaces may improve ergonomics, but they must not hide selected execution
   mode, unsupported diagnostics, materialization/decode boundaries, or claim-gate status.
 - Every source path reports what was read, what decoded, what materialized, what stayed native, and

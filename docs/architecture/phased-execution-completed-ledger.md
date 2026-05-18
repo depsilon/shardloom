@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0037-A wrapper and connector implementation registry
+  - Primary files:
+    - `shardloom-core/src/wrapper_architecture.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/wrapper-connector-implementation-registry.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: add a report-only implementation registry for client wrappers and ecosystem connectors so
+    current local Python wrapper support is visible without advertising generated clients, DB-API,
+    SQLAlchemy, Ibis, orchestration, MCP, Flight/ADBC, JDBC/ODBC, BI, Grafana, or Foundry package
+    runtime.
+  - Checklist:
+    - [x] Add `shardloom.wrapper_connector_implementation_registry.v1` to the wrapper architecture
+          contracts.
+    - [x] Expose the registry through `capabilities api-surfaces --format json`.
+    - [x] Add Python typed access through `ctx.capabilities().wrapper_connector_registry` and
+          `ctx.wrapper_connector_registry()`.
+    - [x] Classify rows as `ready_local`, `report_only`, or `blocked`.
+    - [x] Preserve `dependency_expansion_allowed=false`, `network_listener_started=false`,
+          `fallback_attempted=false`, `external_engine_invoked=false`, and
+          `claim_gate_status=not_claim_grade`.
+    - [x] Document the registry and move GAR-0037-A out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo test -p shardloom-core wrapper_architecture --lib`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a capability registry slice. It does not add generated clients, DB-API, SQLAlchemy,
+      Ibis, dbt, Airflow, Dagster, Prefect, MCP, Flight SQL, ADBC, JDBC/ODBC, BI, Grafana, Foundry
+      package, REST server, production API, broad SQL/DataFrame runtime, performance, or
+      Spark-displacement claims.
+  - Fallback boundary:
+    - The registry does not add dependencies, start a server, open listeners, create a data-plane
+      bridge, resolve credentials, probe networks, read datasets, write outputs, invoke external
+      engines, or attempt fallback.
+
 - [x] Session label: GAR-0035-A REST server/runtime unsupported contract
   - Primary files:
     - `shardloom-core/src/remote_api.rs`

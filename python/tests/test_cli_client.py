@@ -1238,6 +1238,91 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": f"{prefix}_fallback_attempted", "value": "false"},
                                 {"key": f"{prefix}_external_engine_invoked", "value": "false"},
                             ])
+                    if scope == "api-surfaces":
+                        wrapper_rows = [
+                            (
+                                "python_cli_json_client",
+                                "language_sdk",
+                                "shardloom-python",
+                                "w5_execute_certified_local_paths",
+                                "cli_subprocess",
+                                "ready_local",
+                                "python.src.shardloom.client",
+                                "source_tree_python_client",
+                                "none_supported_local_cli_json_wrapper",
+                                "output_envelope,no_fallback_policy",
+                                "true",
+                                "Ready local Python wrapper only",
+                            ),
+                            (
+                                "sqlalchemy",
+                                "python_ecosystem",
+                                "sqlalchemy-shardloom",
+                                "w0_declared_only",
+                                "rest_http",
+                                "blocked",
+                                "SQLAlchemy dialect",
+                                "not_implemented",
+                                "SL_SQLALCHEMY_CONNECTOR_UNSUPPORTED",
+                                "dialect_contract,no_fallback_policy",
+                                "false",
+                                "SQLAlchemy remains blocked",
+                            ),
+                        ]
+                        fields.extend([
+                            {"key": "wrapper_connector_registry_schema_version", "value": "shardloom.wrapper_connector_implementation_registry.v1"},
+                            {"key": "wrapper_connector_registry_report_id", "value": "gar-0037-a.wrapper_connector_implementation_registry"},
+                            {"key": "wrapper_connector_registry_docs_ref", "value": "docs/architecture/wrapper-connector-implementation-registry.md"},
+                            {"key": "wrapper_connector_registry_support_status_vocabulary", "value": "ready_local,report_only,blocked"},
+                            {"key": "wrapper_connector_registry_row_count", "value": str(len(wrapper_rows))},
+                            {"key": "wrapper_connector_registry_row_order", "value": ",".join(row[0] for row in wrapper_rows)},
+                            {"key": "wrapper_connector_registry_ready_local_count", "value": "1"},
+                            {"key": "wrapper_connector_registry_report_only_count", "value": "0"},
+                            {"key": "wrapper_connector_registry_blocked_count", "value": "1"},
+                            {"key": "wrapper_connector_registry_diagnostic_codes", "value": ",".join(row[8] for row in wrapper_rows)},
+                            {"key": "wrapper_connector_registry_required_evidence", "value": ",".join(row[9] for row in wrapper_rows)},
+                            {"key": "wrapper_connector_registry_dependency_expansion_allowed", "value": "false"},
+                            {"key": "wrapper_connector_registry_wrapper_ecosystem_claim_allowed", "value": "false"},
+                            {"key": "wrapper_connector_registry_fallback_attempted", "value": "false"},
+                            {"key": "wrapper_connector_registry_external_engine_invoked", "value": "false"},
+                            {"key": "wrapper_connector_registry_all_rows_no_fallback_no_external_engine", "value": "true"},
+                            {"key": "wrapper_connector_registry_claim_gate_status", "value": "not_claim_grade"},
+                        ])
+                        for row in wrapper_rows:
+                            (
+                                row_id,
+                                family,
+                                planned_package,
+                                maturity,
+                                transport,
+                                support_status,
+                                surface,
+                                evidence,
+                                diagnostic,
+                                required,
+                                explicit_execution,
+                                claim_boundary,
+                            ) = row
+                            prefix = f"wrapper_connector_registry_row_{row_id}"
+                            fields.extend([
+                                {"key": f"{prefix}_family", "value": family},
+                                {"key": f"{prefix}_planned_package", "value": planned_package},
+                                {"key": f"{prefix}_maturity", "value": maturity},
+                                {"key": f"{prefix}_primary_transport", "value": transport},
+                                {"key": f"{prefix}_support_status", "value": support_status},
+                                {"key": f"{prefix}_user_visible_surface", "value": surface},
+                                {"key": f"{prefix}_implementation_evidence", "value": evidence},
+                                {"key": f"{prefix}_deterministic_diagnostic_code", "value": diagnostic},
+                                {"key": f"{prefix}_required_evidence", "value": required},
+                                {"key": f"{prefix}_explicit_execution_available", "value": explicit_execution},
+                                {"key": f"{prefix}_dependency_added", "value": "false"},
+                                {"key": f"{prefix}_network_listener_started", "value": "false"},
+                                {"key": f"{prefix}_data_plane_bridge_supported", "value": "false"},
+                                {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                                {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                                {"key": f"{prefix}_claim_gate_status", "value": "not_claim_grade"},
+                                {"key": f"{prefix}_claim_boundary", "value": claim_boundary},
+                            ])
                     if scope in {"workflow", "remote-api", "cross-cg"}:
                         fields.extend([
                             {"key": "severity", "value": "error"},
@@ -1318,6 +1403,21 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.workflow.field("scope"), "workflow")
         self.assertEqual(capabilities.remote_api.field("scope"), "remote-api")
         self.assertEqual(capabilities.cross_cg.field("scope"), "cross-cg")
+        wrapper_registry = capabilities.wrapper_connector_registry
+        self.assertEqual(
+            wrapper_registry.schema_version,
+            "shardloom.wrapper_connector_implementation_registry.v1",
+        )
+        self.assertEqual(wrapper_registry.ready_local_count, 1)
+        self.assertEqual(wrapper_registry.blocked_count, 1)
+        self.assertFalse(wrapper_registry.wrapper_ecosystem_claim_allowed)
+        self.assertTrue(wrapper_registry.all_rows_no_fallback_no_external_engine)
+        self.assertTrue(wrapper_registry.row("python-cli-json-client").ready_local)
+        self.assertTrue(wrapper_registry.row("sqlalchemy").blocked)
+        self.assertEqual(
+            wrapper_registry.row("sqlalchemy").deterministic_diagnostic_code,
+            "SL_SQLALCHEMY_CONNECTOR_UNSUPPORTED",
+        )
         etl_workflows = capabilities.etl_workflow_matrix
         self.assertIsInstance(etl_workflows, ETLWorkflowCapabilityMatrix)
         self.assertEqual(
