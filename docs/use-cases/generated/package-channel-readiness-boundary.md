@@ -61,3 +61,13 @@ target/release-dry-run-proof/transcript.json records local source artifacts and 
 
 - `first-10-minutes-local-smoke`
 - `foundry-local-proof-boundary`
+
+## Related Field Guide Terms
+
+- `website/field-guide/technical-preview.html` - Technical Preview (`Start Here` / `pre-release`)
+- `website/field-guide/benchmark-artifact-manifest.html` - Benchmark Artifact Manifest (`Benchmark Telemetry` / `current-publishing-contract`)
+- `website/field-guide/package-channel-boundary.html` - Package Channel Boundary (`Platform Boundaries` / `blocked-until-proof`)
+- `website/field-guide/package-publication-boundary.html` - Package Publication Boundary (`Release And Trust` / `blocked-until-proof`)
+- `website/field-guide/release-readiness-gate.html` - Release Readiness Gate (`Release And Trust` / `current-gate`)
+- `website/field-guide/license-provenance.html` - License And Provenance (`Release And Trust` / `current-gate`)
+- `website/field-guide/public-claim-boundary.html` - Public Claim Boundary (`Release And Trust` / `core-contract`)

@@ -53,3 +53,14 @@ Status, smoke, and capabilities JSON with fallback_attempted=false and external_
 
 - `python-wrapper-client-smoke`
 - `evidence-audit-claim-gates`
+
+## Related Field Guide Terms
+
+- `website/field-guide/what-is-shardloom.html` - What Is ShardLoom? (`Start Here` / `technical-preview`)
+- `website/field-guide/batch-engine.html` - Batch Engine (`Engine Modes` / `scoped-local`)
+- `website/field-guide/fixture-smoke.html` - Fixture Smoke (`Engine Modes` / `scoped-evidence`)
+- `website/field-guide/execution-certificate.html` - Execution Certificate (`Evidence And Claims` / `current-evidence`)
+- `website/field-guide/first-ten-minutes.html` - First 10 Minutes (`User Workflows` / `ready-local-docs`)
+- `website/field-guide/source-free-generated-output.html` - Source-Free Generated Output (`User Workflows` / `scoped-local-smoke`)
+- `website/field-guide/package-channel-boundary.html` - Package Channel Boundary (`Platform Boundaries` / `blocked-until-proof`)
+- `website/field-guide/package-publication-boundary.html` - Package Publication Boundary (`Release And Trust` / `blocked-until-proof`)

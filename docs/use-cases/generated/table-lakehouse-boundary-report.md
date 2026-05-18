@@ -60,3 +60,10 @@ A report-only table compatibility plan or deterministic unsupported output.
 
 - `object-store-boundary-report`
 - `output-result-sink-and-fanout-boundary`
+
+## Related Field Guide Terms
+
+- `website/field-guide/blocked-status.html` - Blocked Status (`Evidence And Claims` / `status-vocabulary`)
+- `website/field-guide/table-lakehouse-boundary.html` - Table/Lakehouse Boundary (`I/O And Output` / `blocked-report-only`)
+- `website/field-guide/universal-adapter-catalog.html` - Universal Adapter Catalog (`Platform Boundaries` / `report-only`)
+- `website/field-guide/scale-profile.html` - Scale Profile (`Performance Architecture` / `report-only-scale-contract`)

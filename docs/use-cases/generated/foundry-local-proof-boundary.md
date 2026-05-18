@@ -57,3 +57,7 @@ A local proof report showing Foundry and external compute were not invoked.
 
 - `source-free-generated-output-boundary`
 - `package-channel-readiness-boundary`
+
+## Related Field Guide Terms
+
+- `website/field-guide/foundry-dev-stack-smoke.html` - Foundry Dev-Stack Smoke (`Platform Boundaries` / `local-style-proof`)

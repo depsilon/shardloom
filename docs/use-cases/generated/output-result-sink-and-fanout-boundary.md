@@ -57,3 +57,15 @@ A local result-sink proof artifact and future fanout fields only when admitted b
 - `compatibility-import-certified-local`
 - `source-free-generated-output-boundary`
 - `object-store-boundary-report`
+
+## Related Field Guide Terms
+
+- `website/field-guide/prepared-vortex-artifact.html` - Prepared Vortex Artifact (`Vortex Runtime` / `runtime-development-artifact`)
+- `website/field-guide/result-sink-replay.html` - Result-Sink Replay (`Evidence And Claims` / `current-evidence-level`)
+- `website/field-guide/source-state-reuse.html` - Source-State Reuse (`Benchmark Telemetry` / `scoped-evidence`)
+- `website/field-guide/result-sink-proof.html` - Result-Sink Proof (`User Workflows` / `current-evidence`)
+- `website/field-guide/output-fanout.html` - Output Fanout (`User Workflows` / `report-only-to-planned`)
+- `website/field-guide/vortex-result-artifact.html` - Vortex Result Artifact (`I/O And Output` / `highest-fidelity-target`)
+- `website/field-guide/output-plan-reuse.html` - OutputPlan Reuse (`I/O And Output` / `planned-contract`)
+- `website/field-guide/object-store-boundary.html` - Object-Store Boundary (`I/O And Output` / `blocked-report-only`)
+- `website/field-guide/full-replay-evidence-level.html` - Full Replay Evidence Level (`Performance Architecture` / `current-evidence`)

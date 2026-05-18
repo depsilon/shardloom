@@ -16,6 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-1E Use Case Atlas integration
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/use-cases/*.html`
+    - `website/pagefind/`
+    - `website/validate_static_assets.js`
+    - `scripts/check_use_case_backlinks.py`
+    - `docs/use-cases/generated/*.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make the generated Use Case Atlas and Field Guide bidirectionally linked so workflow
+    pages expose the Field Guide terms that point at them, and term pages continue to route users
+    into relevant workflows.
+  - Checklist:
+    - [x] Derive reverse Field Guide term links from the existing
+          `website/content/field-guide-index.json` `related_use_cases` data.
+    - [x] Render `Related Field Guide Terms` on every generated use-case website page.
+    - [x] Add `Related Field Guide Terms` to generated Markdown use-case docs.
+    - [x] Extend backlink validation so every use case has at least one related Field Guide term
+          and every generated use-case page links back to those terms.
+    - [x] Extend static website validation to require reverse Field Guide links on generated
+          use-case pages.
+    - [x] Refresh the committed Pagefind 1.5.2 index after regenerating static pages.
+    - [x] Move GAR-WEB-ATLAS-1E out of the active Planned queue.
+  - Evidence and verification:
+    - `python website/build_static_pages.py`
+    - `python -m pagefind --site website` using Pagefind 1.5.2
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q scripts website`
+    - `git diff --check`
+  - Claim boundary:
+    - Use-case and term crosslinks are navigation and explanation only. They do not change support
+      status, promote blocked/report-only capabilities, recompute benchmarks, publish packages,
+      or create production, performance, SQL/DataFrame, object-store/lakehouse, Foundry, or
+      Spark-displacement claims.
+  - Fallback boundary:
+    - Crosslinks preserve the existing use-case claim boundaries, `fallback_attempted=false`, and
+      `external_engine_invoked=false` semantics where applicable. No external engine is introduced
+      as a fallback or runtime dependency.
+
 - [x] Session label: GAR-WEB-ATLAS-1D static Field Guide search with Pagefind
   - Primary files:
     - `website/build_static_pages.py`

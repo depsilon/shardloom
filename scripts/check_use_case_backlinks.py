@@ -5,8 +5,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 from check_use_case_index import INDEX_PATH, REPO_ROOT, load_index, validate_index
@@ -36,10 +38,30 @@ def main() -> int:
     blockers = validate_index(data, repo_root)
     backlinks = repo_root / "docs" / "use-cases" / "reference-backlinks.md"
     generated = repo_root / "docs" / "use-cases" / "generated"
+    website_use_cases = repo_root / "website" / "use-cases"
+    field_guide_index = repo_root / "website" / "content" / "field-guide-index.json"
 
     backlink_text = backlinks.read_text(encoding="utf-8") if backlinks.exists() else ""
     if not backlink_text:
         blockers.append("missing docs/use-cases/reference-backlinks.md")
+
+    field_guide_terms_by_use_case: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    if not field_guide_index.exists():
+        blockers.append("missing website/content/field-guide-index.json")
+    else:
+        try:
+            field_guide_data = json.loads(field_guide_index.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            blockers.append(f"Field Guide index is not valid JSON: {exc}")
+            field_guide_data = {}
+        for entry in field_guide_data.get("entries") or []:
+            if not isinstance(entry, dict):
+                continue
+            slug = str(entry.get("slug") or "")
+            title = str(entry.get("title") or slug)
+            for related_use_case in values(entry, "related_use_cases"):
+                if slug:
+                    field_guide_terms_by_use_case[related_use_case].append((slug, title))
 
     for use_case in data.get("use_cases", []):
         if not isinstance(use_case, dict):
@@ -64,6 +86,27 @@ def main() -> int:
                 blockers.append(f"backlink ledger missing reference: {reference}")
         if not re.search(rf"\b{re.escape(use_case_id)}\b", backlink_text):
             blockers.append(f"backlink ledger missing use case id: {use_case_id}")
+        related_terms = field_guide_terms_by_use_case.get(use_case_id, [])
+        if not related_terms:
+            blockers.append(f"use case has no related Field Guide terms: {use_case_id}")
+        if "## Related Field Guide Terms" not in text:
+            blockers.append(f"generated page missing Related Field Guide Terms block: {use_case_id}")
+        website_page = website_use_cases / f"{use_case_id}.html"
+        website_text = website_page.read_text(encoding="utf-8") if website_page.exists() else ""
+        if not website_text:
+            blockers.append(f"missing generated website use-case page: {use_case_id}")
+        elif "Related Field Guide Terms" not in website_text:
+            blockers.append(f"website use-case page missing Related Field Guide Terms block: {use_case_id}")
+        for slug, title in related_terms:
+            markdown_ref = f"`website/field-guide/{slug}.html`"
+            if markdown_ref not in text:
+                blockers.append(
+                    f"generated page {use_case_id} missing Field Guide term link: {slug}"
+                )
+            if website_text and f'href="/field-guide/{slug}"' not in website_text:
+                blockers.append(
+                    f"website page {use_case_id} missing Field Guide term link: {slug}"
+                )
 
     if blockers:
         print("use-case backlink validation failed:", file=sys.stderr)

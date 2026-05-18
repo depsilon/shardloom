@@ -54,3 +54,8 @@ Python can import the package and invoke explicit status/capability commands thr
 
 - `first-10-minutes-local-smoke`
 - `sql-dataframe-capability-posture`
+
+## Related Field Guide Terms
+
+- `website/field-guide/first-ten-minutes.html` - First 10 Minutes (`User Workflows` / `ready-local-docs`)
+- `website/field-guide/python-wrapper-client.html` - Python Wrapper Client (`User Workflows` / `current-local-client`)
