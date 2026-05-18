@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">target\debug\shardloom capabilities sql --format json</code></pre>
           <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>SQL parse/bind/plan/execute and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof.</span></div>
+          <h2>Claim Boundary</h2>
+          <p>SQL/DataFrame readiness is inspectable but runtime execution is not broadly supported or production-claimable.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>sql_text, dataframe_api_request</span></article><article><strong>Execution mode</strong><span>report_only</span></article><article><strong>Engine mode</strong><span>none</span></article><article><strong>Outputs</strong><span>capability_report, deterministic_unsupported_diagnostics</span></article><article><strong>Evidence</strong><span>support_status=report_only, runtime_execution=false, planner_readiness_non_executing, claim_gate_status=not_claim_grade, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>SQL/DataFrame readiness is inspectable but runtime execution is not broadly supported or production-claimable.</span></article></div>
           <h2>Expected Evidence Fields</h2>

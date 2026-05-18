@@ -14,6 +14,10 @@
 
 Messy data fixture coverage has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.
+
 ## How To Try It
 
 ```powershell

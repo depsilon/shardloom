@@ -14,6 +14,10 @@
 
 Benchmark evidence, not leaderboard has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof.
+
 ## How To Try It
 
 ```powershell

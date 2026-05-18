@@ -14,6 +14,10 @@
 
 Compatibility import certified local workload has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Certification lane evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.
+
 ## How To Try It
 
 ```powershell

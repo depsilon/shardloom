@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario &quot;group by aggregation&quot; --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\shardloom-group-by-smoke.json --regenerate</code></pre>
           
+          <h2>Claim Boundary</h2>
+          <p>Cookbook scenarios are scoped local evidence; they do not imply broad SQL, DataFrame, optimizer parity, performance, or production analytics support.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>local_benchmark_fixture</span></article><article><strong>Execution mode</strong><span>compatibility_import_certified</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>scenario_timing_rows, correctness_digest, evidence_rows</span></article><article><strong>Evidence</strong><span>scenario, correctness_digest, execution_mode, operator_compute_millis, data_decoded, data_materialized, claim_gate_status, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>Cookbook scenarios are scoped local evidence; they do not imply broad SQL, DataFrame, optimizer parity, performance, or production analytics support.</span></article></div>
           <h2>Expected Evidence Fields</h2>

@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv,jsonl --scenario &quot;malformed timestamp / dirty CSV&quot; --dataset-profile dirty_csv --rows 1000 --iterations 1 --output target\shardloom-dirty-csv-smoke.json --regenerate</code></pre>
           
+          <h2>Claim Boundary</h2>
+          <p>Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>dirty_csv_fixture, nested_json_fixture, cdc_delta_overlay_fixture, null_heavy_fixture</span></article><article><strong>Execution mode</strong><span>compatibility_import_certified</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>local_benchmark_artifact, fixture_sidecars, evidence_rows</span></article><article><strong>Evidence</strong><span>scenario_family, dataset_profile, source_metadata_snapshot_status, source_state_reuse_hit, materialization_boundary, claim_gate_status, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.</span></article></div>
           <h2>Expected Evidence Fields</h2>

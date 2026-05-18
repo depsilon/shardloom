@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">python scripts\foundry_proof_of_use.py --rows 64 --iterations 1</code></pre>
           
+          <h2>Claim Boundary</h2>
+          <p>Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>none, local_style_fixture</span></article><article><strong>Execution mode</strong><span>no_dataset_smoke</span></article><article><strong>Engine mode</strong><span>batch_status</span></article><article><strong>Outputs</strong><span>local_foundry_style_report, certificate_metrics_dataset_output</span></article><article><strong>Evidence</strong><span>no_dataset_smoke_performed, transform_import_proven, cli_binary_resolved, foundry_runtime_invoked=false, foundry_compute_invoked=false, foundry_spark_invoked=false, fallback_attempted=false, external_engine_invoked=false, public_foundry_claim_allowed=false</span></article><article><strong>Claim gate</strong><span>Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.</span></article></div>
           <h2>Expected Evidence Fields</h2>

@@ -14,6 +14,10 @@
 
 Table and lakehouse boundary is blocked or unsupported until the listed evidence exists.
 
+## Claim Boundary
+
+No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim.
+
 ## How To Try It
 
 ```powershell

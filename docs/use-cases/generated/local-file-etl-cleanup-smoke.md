@@ -14,6 +14,10 @@
 
 Local file ETL smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replacement proof.
+
 ## How To Try It
 
 ```powershell

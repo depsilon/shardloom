@@ -41,6 +41,51 @@ const runtimeFiles = [
   "pagefind/pagefind-worker.js",
 ];
 const blockedGitHubRawHost = "raw." + "githubusercontent.com";
+const fieldGuideDossierRequiredFields = [
+  "Field Guide dossier",
+  "dossier-status-row",
+  "sticky-in-page-toc",
+  "id=\"meaning\"",
+  "id=\"why\"",
+  "id=\"how\"",
+  "id=\"support\"",
+  "id=\"evidence\"",
+  "id=\"boundary\"",
+  "id=\"try-it\"",
+  "id=\"related\"",
+  "id=\"sources\"",
+  "Plain-English meaning",
+  "Why it matters",
+  "How ShardLoom uses it",
+  "Current support",
+  "Evidence fields",
+  "What it does not claim",
+  "Try it / related use cases",
+  "Related concepts",
+  "Reference files",
+  "related-concepts-rail",
+  "claim-badge",
+  "data-citation-block=\"reference-files\"",
+  "What this proves:",
+];
+const useCasePublicReadinessFields = [
+  "Use Case Atlas",
+  "Plain-English Summary",
+  "Status Table",
+  "Claim Boundary",
+  "Internal Flow",
+  "Expected Evidence Fields",
+  "Expected Output Or Evidence",
+  "Common Mistakes",
+  "Reference Files",
+  "Related Field Guide Terms",
+  "Related Use Cases",
+  "Claim gate",
+  "fallback_attempted=false",
+  "external_engine_invoked=false",
+  "data-citation-block=\"reference-files\"",
+  "What this proves:",
+];
 
 function assert(condition, message) {
   if (!condition) {
@@ -221,6 +266,16 @@ for (const useCasePage of htmlRuntimeFiles.filter((relativePath) =>
   relativePath.startsWith("use-cases/") && relativePath !== "use-cases/index.html"
 )) {
   const source = read(useCasePage);
+  for (const required of useCasePublicReadinessFields) {
+    assert(
+      source.includes(required),
+      `${useCasePage} missing public-readiness field ${required}`,
+    );
+  }
+  assert(
+    source.includes("Quick Example") || source.includes("use-case-blocker"),
+    `${useCasePage} must render a runnable example or blocker explanation`,
+  );
   assert(
     source.includes("Related Field Guide Terms"),
     `${useCasePage} must render reverse Field Guide term links`,
@@ -243,6 +298,12 @@ for (const dossierPage of htmlRuntimeFiles.filter((relativePath) =>
   relativePath.startsWith("field-guide/") && relativePath !== "field-guide/index.html"
 )) {
   const source = read(dossierPage);
+  for (const required of fieldGuideDossierRequiredFields) {
+    assert(
+      source.includes(required),
+      `${dossierPage} missing public-readiness field ${required}`,
+    );
+  }
   assert(
     source.includes('data-citation-block="reference-files"'),
     `${dossierPage} must render a source-linked citation block`,

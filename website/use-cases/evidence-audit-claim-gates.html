@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1</code></pre>
           
+          <h2>Claim Boundary</h2>
+          <p>Audit fields explain scoped local evidence only; missing evidence blocks claims and never permits hidden fallback.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>local_certified_workload</span></article><article><strong>Execution mode</strong><span>compatibility_import_certified</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>execution_certificate, native_io_certificate, claim_gate_status, result_replay_evidence</span></article><article><strong>Evidence</strong><span>execution_mode, engine_mode, native_io_certificate_status, materialization_boundary, result_replay_verified, claim_gate_status, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>Audit fields explain scoped local evidence only; missing evidence blocks claims and never permits hidden fallback.</span></article></div>
           <h2>Expected Evidence Fields</h2>
