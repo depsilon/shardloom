@@ -777,7 +777,46 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed", "value": "false"},
                     {"key": "universal_compatibility_generated_output_all_rows_fallback_attempted_false", "value": "true"},
                     {"key": "universal_compatibility_generated_output_all_rows_external_engine_invoked_false", "value": "true"},
+                    {"key": "universal_compatibility_object_store_ladder_schema_version", "value": "shardloom.universal_compatibility.object_store_admission_ladder.v1"},
+                    {"key": "universal_compatibility_object_store_ladder_id", "value": "gar-compat-1c.object_store_runtime_admission_ladder"},
+                    {"key": "universal_compatibility_object_store_ladder_provider_scope", "value": "s3,gcs,adls"},
+                    {"key": "universal_compatibility_object_store_ladder_row_order", "value": "object_store_uri_parse,credential_policy,public_no_credential_read,authenticated_read,byte_range_read,write_staging,commit_protocol"},
+                    {"key": "universal_compatibility_object_store_ladder_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_object_store_ladder_all_rows_no_effects", "value": "true"},
                 ]
+                for row_id, stage, status, credential_policy_status, blocker in [
+                    ("object_store_uri_parse", "uri_parse", "report-only", "not_required_for_parse", "gar-compat-1c.uri_parse_only_no_provider_runtime"),
+                    ("credential_policy", "credential_policy", "blocked", "required_not_admitted", "gar-compat-1c.credential_resolution_blocked"),
+                    ("public_no_credential_read", "public_no_credential_read", "blocked", "public_read_policy_required", "gar-compat-1c.public_read_network_runtime_blocked"),
+                    ("authenticated_read", "authenticated_read", "blocked", "authenticated_read_policy_required", "gar-compat-1c.authenticated_read_runtime_blocked"),
+                    ("byte_range_read", "byte_range_read", "blocked", "read_policy_required", "gar-compat-1c.byte_range_read_runtime_blocked"),
+                    ("write_staging", "write_staging", "blocked", "write_policy_required", "gar-compat-1c.write_staging_runtime_blocked"),
+                    ("commit_protocol", "commit_protocol", "blocked", "commit_policy_required", "gar-compat-1c.commit_protocol_runtime_blocked"),
+                ]:
+                    prefix = f"universal_compatibility_object_store_ladder_row_{row_id}"
+                    fields.extend([
+                        {"key": f"{prefix}_provider_scope", "value": "s3,gcs,adls"},
+                        {"key": f"{prefix}_stage", "value": stage},
+                        {"key": f"{prefix}_support_status", "value": status},
+                        {"key": f"{prefix}_credential_policy_status", "value": credential_policy_status},
+                        {"key": f"{prefix}_credential_resolution_performed", "value": "false"},
+                        {"key": f"{prefix}_network_probe_allowed", "value": "false"},
+                        {"key": f"{prefix}_provider_probe_allowed", "value": "false"},
+                        {"key": f"{prefix}_byte_range_read_allowed", "value": "false"},
+                        {"key": f"{prefix}_full_file_read_allowed", "value": "false"},
+                        {"key": f"{prefix}_local_cache_allowed", "value": "false"},
+                        {"key": f"{prefix}_write_io_allowed", "value": "false"},
+                        {"key": f"{prefix}_commit_protocol_allowed", "value": "false"},
+                        {"key": f"{prefix}_object_store_io", "value": "false"},
+                        {"key": f"{prefix}_write_io", "value": "false"},
+                        {"key": f"{prefix}_native_io_certificate_status", "value": "not_emitted_blocked"},
+                        {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                        {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                        {"key": f"{prefix}_blocker_id", "value": blocker},
+                        {"key": f"{prefix}_required_evidence", "value": "future_evidence"},
+                        {"key": f"{prefix}_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": f"{prefix}_claim_boundary", "value": "claim boundary"},
+                    ])
                 for row_id, surface, family, status, runtime, write_io, generated, output_io, source_cert, output_cert, generated_cert, claim_status, blocker in [
                     ("no_dataset_smoke", "no-dataset smoke / capability proof", "no_dataset_smoke", "smoke-supported", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_no_output_data", "not_applicable_no_generated_rows", "smoke_only", "gar-gen-1.no_dataset_smoke_not_generated_output"),
                     ("python_ctx_from_rows", "Python ctx.from_rows([...]).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_jsonl_smoke_only"),
@@ -886,6 +925,25 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             generated.row("local_output_only_generated_source_posture").blocker_id,
             "gar-compat-1b.non_local_generated_output_blocked",
         )
+        object_store = scoreboard.object_store_admission_ladder
+        self.assertEqual(
+            object_store.schema_version,
+            "shardloom.universal_compatibility.object_store_admission_ladder.v1",
+        )
+        self.assertEqual(object_store.provider_scope, ("s3", "gcs", "adls"))
+        self.assertFalse(object_store.runtime_supported)
+        self.assertTrue(object_store.all_rows_no_effects)
+        self.assertTrue(object_store.row("object-store-uri-parse").no_effects_no_fallback)
+        self.assertEqual(object_store.row("credential_policy").support_status, "blocked")
+        self.assertEqual(
+            object_store.row("authenticated_read").credential_policy_status,
+            "authenticated_read_policy_required",
+        )
+        self.assertEqual(
+            object_store.row("byte_range_read").blocker_id,
+            "gar-compat-1c.byte_range_read_runtime_blocked",
+        )
+        self.assertFalse(object_store.row("write_staging").write_io_allowed)
 
     def test_context_exposes_rest_api_contract_views(self) -> None:
         binary = self.fake_cli(

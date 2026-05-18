@@ -130,6 +130,47 @@ The aggregate report is request-planning evidence only. It does not certify obje
 execution, distributed execution, object-store writes, table-format commit execution, provider
 probing, cloud credentials, or fallback behavior.
 
+## GAR-COMPAT-1C Universal Compatibility Admission Ladder
+
+The universal compatibility scoreboard projects the same fail-closed posture through
+`shardloom.universal_compatibility.object_store_admission_ladder.v1` so user-facing status,
+Python typed accessors, and website/status pages can answer "Can I use S3/GCS/ADLS?" without
+scraping this planner document.
+
+The ladder order is:
+
+```text
+object_store_uri_parse
+credential_policy
+public_no_credential_read
+authenticated_read
+byte_range_read
+full_file_read
+local_cache
+write_staging
+commit_protocol
+```
+
+Every ladder row keeps:
+
+```text
+credential_resolution_performed=false
+network_probe_allowed=false
+provider_probe_allowed=false
+object_store_io=false
+write_io=false
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status=not_claim_grade
+```
+
+`object_store_uri_parse` is report-only URI vocabulary. Public no-credential reads,
+authenticated reads, byte-range reads, full-file reads, local cache, write staging, and commit
+protocol remain blocked until separate runtime evidence exists. The ladder is status visibility
+only; it does not authorize credential lookup, provider probes, network traffic, object-store
+reads/writes, local cache runtime, commit protocol execution, table/lakehouse runtime, production
+use, performance claims, or fallback execution.
+
 ## Surface Order
 
 1. `range_planning`

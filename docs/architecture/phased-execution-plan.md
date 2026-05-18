@@ -286,7 +286,8 @@ Supporting docs:
 - `docs/architecture/object-store-request-planner.md`
   - Role: CG-10 request-planning, range/coalescing/scheduling/checkpoint/retry/commit evidence
     reference.
-  - Status rule: object-store runtime work is represented by `GAR-0008`, `GAR-0028`, and `GAR-0031`.
+  - Status rule: object-store runtime work is represented by `GAR-0008`, `GAR-0028`, `GAR-0031`,
+    and the GAR-COMPAT-1C admission ladder projection in the universal compatibility scoreboard.
 - `docs/architecture/table-intelligence-layer.md`
   - Role: CG-9 schema/table/catalog/CDC/layout/compaction evidence reference.
   - Status rule: table/catalog runtime work is represented by `GAR-0020` and `GAR-0028`.
@@ -477,53 +478,14 @@ generated-output execution, marks current Python `ctx.from_rows(...).write(...)`
 report-only, requires output evidence for output claims, emits no source Native I/O certificate when
 no source dataset is read, and keeps object-store/Foundry generated-output runtime blocked.
 
-- [ ] GAR-COMPAT-1C S3/GCS/ADLS runtime admission ladder
-  - Source: RFC 0008; RFC 0019; RFC 0028; RFC 0031; current object-store report-only planner;
-    object-store byte-range gates; `docs/architecture/object-store-request-planner.md`;
-    `docs/architecture/universal-compatibility-coverage-scoreboard.md`.
-  - Current state:
-    - Object-store range planning and request-shape reports exist.
-    - Runtime object-store I/O remains blocked: no credential resolution, network probe,
-      provider probe, byte-range read, full-file read, write staging, or commit protocol runtime.
-  - Next slice outcome:
-    - Define and expose a staged admission ladder for S3/GCS/ADLS runtime support without enabling
-      runtime I/O.
-  - User-visible surface:
-    - CLI object-store plan, Python capability view, website/status, object-store docs, and
-      deterministic unsupported diagnostics.
-  - Implementation scope:
-    - Capability/report rows for object-store URI parse, credential policy, signed or
-      no-credential public read, byte-range read, full-file read, local cache, write staging, and
-      commit protocol. Keep all runtime effects blocked in this slice.
-  - Evidence required:
-    - credential refs: `credential_policy_status`, `credential_resolution_performed=false`.
-    - network refs: `network_probe_allowed`, `provider_probe_allowed`, `object_store_io=false`.
-    - read refs: `byte_range_read_allowed`, full-file read blocker, cache blocker.
-    - write refs: `write_io=false`, staging/commit blocker, idempotency/rollback blocker.
-    - Native I/O certificate refs: absent or `not_applicable` until runtime proof exists.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - S3/GCS/ADLS are not advertised as runtime-supported until read/write proof exists.
-    - Public no-credential read and authenticated read are separated.
-    - Read support, local cache, write staging, and write/commit support are separated.
-    - Unsupported requests return deterministic blockers and do not perform network or credential
-      effects.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - object-store gate/report snapshot tests when report rows change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No object-store runtime, no network probe, no credential resolution, no byte-range read,
-      no full-file read, no object-store write, no commit protocol runtime, and no lakehouse claim.
-  - Claim boundary:
-    - Admission ladder/report-only visibility only; no object-store runtime support claim.
-  - Fallback boundary:
-    - No external engine, external database, object-store provider, or query-engine integration may
-      execute unsupported work.
-  - Dependencies/blockers:
-    - Credential/effect policy, provider selection, byte-range runtime proof, local cache safety,
-      write idempotency, commit/rollback semantics, and Native I/O certificates.
+GAR-COMPAT-1C is complete and recorded in the completed ledger. The compatibility scoreboard now
+projects `shardloom.universal_compatibility.object_store_admission_ladder.v1` across CLI, Python,
+website/status, object-store docs, compute-flow, GAR, and release-readiness checks. The ladder keeps
+S3/GCS/ADLS URI parse, credential policy, public read, authenticated read, byte-range read,
+full-file read, local cache, write staging, and commit protocol as separate report-only or blocked
+gates with credential resolution, network probes, provider probes, object-store I/O, writes,
+commits, fallback, and external engine invocation disabled.
+
 - [ ] GAR-COMPAT-1D table-format boundary matrix: Iceberg, Delta, Hudi
   - Source: RFC 0020; RFC 0028; RFC 0031; object-store/lakehouse commit semantics gate;
     table/catalog compatibility expectations;

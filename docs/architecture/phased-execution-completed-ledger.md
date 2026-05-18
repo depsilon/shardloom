@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMPAT-1C S3/GCS/ADLS runtime admission ladder
+  - Primary files:
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.json`
+    - `docs/architecture/object-store-request-planner.md`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `website/build_static_pages.py`
+    - `website/status.html`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the third universal compatibility slice by projecting S3/GCS/ADLS object-store
+    runtime admission posture into the compatibility scoreboard and public status surfaces. The
+    new `shardloom.universal_compatibility.object_store_admission_ladder.v1` ladder separates URI
+    parsing, credential policy, public no-credential read, authenticated read, byte-range read,
+    full-file read, local cache, write staging, and commit protocol while keeping all runtime
+    effects blocked.
+  - Checklist:
+    - [x] Add object-store admission ladder rows to CLI `capabilities compatibility --format json`
+          with stable row ordering, credential/read/write/commit gates, blocker IDs, required
+          evidence, claim boundaries, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+    - [x] Add Python typed accessors through
+          `ctx.compatibility_scoreboard().object_store_admission_ladder`.
+    - [x] Add the same ladder to
+          `docs/architecture/universal-compatibility-coverage-scoreboard.json` and document the
+          rows in the Markdown scoreboard.
+    - [x] Render the object-store ladder on the website status page from the JSON scoreboard.
+    - [x] Update object-store planner docs, compute-flow, GAR, RFC traceability, Python README,
+          and release-readiness checks.
+    - [x] Remove the active GAR-COMPAT-1C item from the Planned queue.
+  - Evidence/verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts website benchmarks/traditional_analytics`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - The ladder is a status/capability surface only. It may claim object-store URI parse
+      vocabulary visibility, but it does not add S3/GCS/ADLS runtime support, credential
+      resolution, provider probes, network traffic, byte-range reads, full-file reads, local cache
+      runtime, object-store writes, commit protocol execution, table/lakehouse runtime, production
+      readiness, performance, package publication, or Spark-replacement claims.
+  - Fallback boundary:
+    - No object-store ladder row invokes an object-store provider, database, query engine, Spark,
+      Foundry, or another external engine. All rows preserve `fallback_attempted=false`,
+      `external_engine_invoked=false`, `object_store_io=false`, and `write_io=false`.
+
 - [x] Session label: GAR-COMPAT-1B source-free generated output contract
   - Primary files:
     - `docs/architecture/universal-compatibility-coverage-scoreboard.md`

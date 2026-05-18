@@ -129,6 +129,24 @@
           </table>
         </div>
         <p class="section-note">Generated-output summary: <code>no_dataset_smoke_separate=true</code>, <code>local_output_only=true</code>, <code>object_store_runtime_supported=false</code>, <code>foundry_runtime_supported=false</code>, <code>broad_sql_dataframe_claim_allowed=false</code>.</p>
+        <div class="section-spacer"></div>
+        <h3>S3/GCS/ADLS admission ladder</h3>
+        <p class="section-lede">This report-only ladder separates object-store URI recognition, credential policy, public reads, authenticated reads, byte-range reads, full-file reads, local cache, write staging, and commit protocol. Every current row blocks credential resolution, provider probes, network probes, object-store I/O, writes, commits, fallback, and external engine invocation.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Row</th><th>Status</th><th>Credential policy</th><th>Object-store I/O</th><th>Boundary</th></tr></thead>
+            <tbody><tr><td><strong>object_store_uri_parse</strong><span>uri_parse</span></td><td><span class="claim-badge report-only">report-only</span></td><td>not_required_for_parse</td><td>false</td><td>Object-store URI recognition is report-only and does not perform provider, credential, network, read, write, or commit effects.</td></tr>
+<tr><td><strong>credential_policy</strong><span>credential_policy</span></td><td><span class="claim-badge blocked">blocked</span></td><td>required_not_admitted</td><td>false</td><td>Credential resolution remains blocked; no secrets are read and no provider credentials are resolved.</td></tr>
+<tr><td><strong>public_no_credential_read</strong><span>public_no_credential_read</span></td><td><span class="claim-badge blocked">blocked</span></td><td>public_read_policy_required</td><td>false</td><td>Public no-credential reads remain blocked until network/provider/read evidence exists.</td></tr>
+<tr><td><strong>authenticated_read</strong><span>authenticated_read</span></td><td><span class="claim-badge blocked">blocked</span></td><td>authenticated_read_policy_required</td><td>false</td><td>Authenticated object-store reads remain blocked; public and credentialed read admission are separate gates.</td></tr>
+<tr><td><strong>byte_range_read</strong><span>byte_range_read</span></td><td><span class="claim-badge blocked">blocked</span></td><td>read_policy_required</td><td>false</td><td>Byte-range reads remain blocked despite planning evidence; no object-store request is issued.</td></tr>
+<tr><td><strong>full_file_read</strong><span>full_file_read</span></td><td><span class="claim-badge blocked">blocked</span></td><td>read_policy_required</td><td>false</td><td>Full-file object-store reads remain blocked and distinct from byte-range reads.</td></tr>
+<tr><td><strong>local_cache</strong><span>local_cache</span></td><td><span class="claim-badge blocked">blocked</span></td><td>cache_source_policy_required</td><td>false</td><td>Local cache is planned as a future safety layer; it is not a runtime cache or support claim.</td></tr>
+<tr><td><strong>write_staging</strong><span>write_staging</span></td><td><span class="claim-badge blocked">blocked</span></td><td>write_policy_required</td><td>false</td><td>Object-store write staging remains blocked and separate from read support.</td></tr>
+<tr><td><strong>commit_protocol</strong><span>commit_protocol</span></td><td><span class="claim-badge blocked">blocked</span></td><td>commit_policy_required</td><td>false</td><td>Object-store commit remains blocked and does not imply table/lakehouse commit support.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="section-note">Object-store summary: <code>runtime_supported=false</code>, <code>public_no_credential_read_supported=false</code>, <code>authenticated_read_supported=false</code>, <code>byte_range_read_supported=false</code>, <code>write_staging_supported=false</code>, <code>commit_protocol_supported=false</code>.</p>
         <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>

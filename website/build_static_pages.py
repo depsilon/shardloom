@@ -456,6 +456,36 @@ def render_compatibility_scoreboard_section() -> str:
         generated_contract_html = "\n".join(
             line.rstrip() for line in generated_contract_html.splitlines()
         ).strip()
+    object_store_ladder = scoreboard.get("object_store_admission_ladder", {})
+    object_store_rows = object_store_ladder.get("rows", [])
+    object_store_table_rows = "\n".join(
+        "<tr>"
+        f"<td><strong>{esc(row.get('row_id'))}</strong><span>{esc(row.get('stage'))}</span></td>"
+        f"<td><span class=\"claim-badge {status_class(str(row.get('support_status', 'blocked')).replace('-', '_'))}\">{esc(row.get('support_status'))}</span></td>"
+        f"<td>{esc(row.get('credential_policy_status'))}</td>"
+        f"<td>{status_value(row.get('object_store_io'))}</td>"
+        f"<td>{esc(row.get('claim_boundary'))}</td>"
+        "</tr>"
+        for row in object_store_rows
+        if isinstance(row, dict)
+    )
+    object_store_ladder_html = ""
+    if object_store_table_rows:
+        object_store_ladder_html = f"""
+        <div class="section-spacer"></div>
+        <h3>S3/GCS/ADLS admission ladder</h3>
+        <p class="section-lede">This report-only ladder separates object-store URI recognition, credential policy, public reads, authenticated reads, byte-range reads, full-file reads, local cache, write staging, and commit protocol. Every current row blocks credential resolution, provider probes, network probes, object-store I/O, writes, commits, fallback, and external engine invocation.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Row</th><th>Status</th><th>Credential policy</th><th>Object-store I/O</th><th>Boundary</th></tr></thead>
+            <tbody>{object_store_table_rows}</tbody>
+          </table>
+        </div>
+        <p class="section-note">Object-store summary: <code>runtime_supported={status_value(object_store_ladder.get('runtime_supported'))}</code>, <code>public_no_credential_read_supported={status_value(object_store_ladder.get('public_no_credential_read_supported'))}</code>, <code>authenticated_read_supported={status_value(object_store_ladder.get('authenticated_read_supported'))}</code>, <code>byte_range_read_supported={status_value(object_store_ladder.get('byte_range_read_supported'))}</code>, <code>write_staging_supported={status_value(object_store_ladder.get('write_staging_supported'))}</code>, <code>commit_protocol_supported={status_value(object_store_ladder.get('commit_protocol_supported'))}</code>.</p>
+        """
+        object_store_ladder_html = "\n".join(
+            line.rstrip() for line in object_store_ladder_html.splitlines()
+        ).strip()
     runtime_count = sum(
         1
         for row in rows
@@ -493,6 +523,7 @@ def render_compatibility_scoreboard_section() -> str:
           </table>
         </div>
         {generated_contract_html}
+        {object_store_ladder_html}
         <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>"""

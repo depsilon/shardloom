@@ -123,6 +123,10 @@ const UNIVERSAL_COMPATIBILITY_GENERATED_OUTPUT_SCHEMA_VERSION: &str =
     "shardloom.universal_compatibility.generated_output_contract.v1";
 const UNIVERSAL_COMPATIBILITY_GENERATED_OUTPUT_CONTRACT_ID: &str =
     "gar-compat-1b.source_free_generated_output_contract";
+const UNIVERSAL_COMPATIBILITY_OBJECT_STORE_LADDER_SCHEMA_VERSION: &str =
+    "shardloom.universal_compatibility.object_store_admission_ladder.v1";
+const UNIVERSAL_COMPATIBILITY_OBJECT_STORE_LADDER_ID: &str =
+    "gar-compat-1c.object_store_runtime_admission_ladder";
 
 #[derive(Debug, Clone, Copy)]
 #[allow(clippy::struct_excessive_bools)]
@@ -163,6 +167,31 @@ struct GeneratedOutputCompatibilityRow {
     source_native_io_certificate_status: &'static str,
     output_native_io_certificate_status: &'static str,
     generated_source_certificate_status: &'static str,
+    blocker_id: &'static str,
+    required_evidence: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct ObjectStoreAdmissionLadderRow {
+    id: &'static str,
+    provider_scope: &'static str,
+    stage: &'static str,
+    support_status: &'static str,
+    credential_policy_status: &'static str,
+    credential_resolution_performed: bool,
+    network_probe_allowed: bool,
+    provider_probe_allowed: bool,
+    byte_range_read_allowed: bool,
+    full_file_read_allowed: bool,
+    local_cache_allowed: bool,
+    write_io_allowed: bool,
+    commit_protocol_allowed: bool,
+    object_store_io: bool,
+    write_io: bool,
+    native_io_certificate_status: &'static str,
     blocker_id: &'static str,
     required_evidence: &'static str,
     claim_gate_status: &'static str,
@@ -779,6 +808,207 @@ const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = 
         required_evidence: "expression_engine,type_coercion,determinism_policy,generated_source_certificate,execution_certificate",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "Generated DataFrame columns are report-only; expression-backed generation and output are not runtime-supported.",
+    },
+];
+
+const OBJECT_STORE_ADMISSION_LADDER_ROWS: &[ObjectStoreAdmissionLadderRow] = &[
+    ObjectStoreAdmissionLadderRow {
+        id: "object_store_uri_parse",
+        provider_scope: "s3,gcs,adls",
+        stage: "uri_parse",
+        support_status: "report-only",
+        credential_policy_status: "not_required_for_parse",
+        credential_resolution_performed: false,
+        network_probe_allowed: false,
+        provider_probe_allowed: false,
+        byte_range_read_allowed: false,
+        full_file_read_allowed: false,
+        local_cache_allowed: false,
+        write_io_allowed: false,
+        commit_protocol_allowed: false,
+        object_store_io: false,
+        write_io: false,
+        native_io_certificate_status: "not_emitted_report_only",
+        blocker_id: "gar-compat-1c.uri_parse_only_no_provider_runtime",
+        required_evidence: "uri_scheme_policy,provider_scope,unsupported_diagnostic,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Object-store URI recognition is report-only and does not perform provider, credential, network, read, write, or commit effects.",
+    },
+    ObjectStoreAdmissionLadderRow {
+        id: "credential_policy",
+        provider_scope: "s3,gcs,adls",
+        stage: "credential_policy",
+        support_status: "blocked",
+        credential_policy_status: "required_not_admitted",
+        credential_resolution_performed: false,
+        network_probe_allowed: false,
+        provider_probe_allowed: false,
+        byte_range_read_allowed: false,
+        full_file_read_allowed: false,
+        local_cache_allowed: false,
+        write_io_allowed: false,
+        commit_protocol_allowed: false,
+        object_store_io: false,
+        write_io: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1c.credential_resolution_blocked",
+        required_evidence: "credential_policy,secret_redaction,effect_budget,provider_capability_policy,audit_log_policy",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Credential resolution remains blocked; no secrets are read and no provider credentials are resolved.",
+    },
+    ObjectStoreAdmissionLadderRow {
+        id: "public_no_credential_read",
+        provider_scope: "s3,gcs,adls",
+        stage: "public_no_credential_read",
+        support_status: "blocked",
+        credential_policy_status: "public_read_policy_required",
+        credential_resolution_performed: false,
+        network_probe_allowed: false,
+        provider_probe_allowed: false,
+        byte_range_read_allowed: false,
+        full_file_read_allowed: false,
+        local_cache_allowed: false,
+        write_io_allowed: false,
+        commit_protocol_allowed: false,
+        object_store_io: false,
+        write_io: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1c.public_read_network_runtime_blocked",
+        required_evidence: "public_uri_policy,network_effect_policy,provider_probe_policy,read_certificate,request_budget,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Public no-credential reads remain blocked until network/provider/read evidence exists.",
+    },
+    ObjectStoreAdmissionLadderRow {
+        id: "authenticated_read",
+        provider_scope: "s3,gcs,adls",
+        stage: "authenticated_read",
+        support_status: "blocked",
+        credential_policy_status: "authenticated_read_policy_required",
+        credential_resolution_performed: false,
+        network_probe_allowed: false,
+        provider_probe_allowed: false,
+        byte_range_read_allowed: false,
+        full_file_read_allowed: false,
+        local_cache_allowed: false,
+        write_io_allowed: false,
+        commit_protocol_allowed: false,
+        object_store_io: false,
+        write_io: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1c.authenticated_read_runtime_blocked",
+        required_evidence: "credential_policy,network_effect_policy,provider_capability_policy,read_certificate,secret_redaction,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Authenticated object-store reads remain blocked; public and credentialed read admission are separate gates.",
+    },
+    ObjectStoreAdmissionLadderRow {
+        id: "byte_range_read",
+        provider_scope: "s3,gcs,adls",
+        stage: "byte_range_read",
+        support_status: "blocked",
+        credential_policy_status: "read_policy_required",
+        credential_resolution_performed: false,
+        network_probe_allowed: false,
+        provider_probe_allowed: false,
+        byte_range_read_allowed: false,
+        full_file_read_allowed: false,
+        local_cache_allowed: false,
+        write_io_allowed: false,
+        commit_protocol_allowed: false,
+        object_store_io: false,
+        write_io: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1c.byte_range_read_runtime_blocked",
+        required_evidence: "byte_range_provider_gate,range_read_certificate,native_io_certificate,request_budget,retry_policy,idempotency_key_contract",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Byte-range reads remain blocked despite planning evidence; no object-store request is issued.",
+    },
+    ObjectStoreAdmissionLadderRow {
+        id: "full_file_read",
+        provider_scope: "s3,gcs,adls",
+        stage: "full_file_read",
+        support_status: "blocked",
+        credential_policy_status: "read_policy_required",
+        credential_resolution_performed: false,
+        network_probe_allowed: false,
+        provider_probe_allowed: false,
+        byte_range_read_allowed: false,
+        full_file_read_allowed: false,
+        local_cache_allowed: false,
+        write_io_allowed: false,
+        commit_protocol_allowed: false,
+        object_store_io: false,
+        write_io: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1c.full_file_read_runtime_blocked",
+        required_evidence: "streaming_read_policy,range_or_full_file_read_certificate,memory_budget,materialization_boundary,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Full-file object-store reads remain blocked and distinct from byte-range reads.",
+    },
+    ObjectStoreAdmissionLadderRow {
+        id: "local_cache",
+        provider_scope: "s3,gcs,adls",
+        stage: "local_cache",
+        support_status: "blocked",
+        credential_policy_status: "cache_source_policy_required",
+        credential_resolution_performed: false,
+        network_probe_allowed: false,
+        provider_probe_allowed: false,
+        byte_range_read_allowed: false,
+        full_file_read_allowed: false,
+        local_cache_allowed: false,
+        write_io_allowed: false,
+        commit_protocol_allowed: false,
+        object_store_io: false,
+        write_io: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1c.local_cache_runtime_blocked",
+        required_evidence: "cache_fingerprint_policy,cache_invalidation_policy,credential_redaction,source_digest,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Local cache is planned as a future safety layer; it is not a runtime cache or support claim.",
+    },
+    ObjectStoreAdmissionLadderRow {
+        id: "write_staging",
+        provider_scope: "s3,gcs,adls",
+        stage: "write_staging",
+        support_status: "blocked",
+        credential_policy_status: "write_policy_required",
+        credential_resolution_performed: false,
+        network_probe_allowed: false,
+        provider_probe_allowed: false,
+        byte_range_read_allowed: false,
+        full_file_read_allowed: false,
+        local_cache_allowed: false,
+        write_io_allowed: false,
+        commit_protocol_allowed: false,
+        object_store_io: false,
+        write_io: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1c.write_staging_runtime_blocked",
+        required_evidence: "write_effect_policy,staging_prefix_policy,idempotency_key_contract,output_certificate,rollback_policy",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Object-store write staging remains blocked and separate from read support.",
+    },
+    ObjectStoreAdmissionLadderRow {
+        id: "commit_protocol",
+        provider_scope: "s3,gcs,adls",
+        stage: "commit_protocol",
+        support_status: "blocked",
+        credential_policy_status: "commit_policy_required",
+        credential_resolution_performed: false,
+        network_probe_allowed: false,
+        provider_probe_allowed: false,
+        byte_range_read_allowed: false,
+        full_file_read_allowed: false,
+        local_cache_allowed: false,
+        write_io_allowed: false,
+        commit_protocol_allowed: false,
+        object_store_io: false,
+        write_io: false,
+        native_io_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-compat-1c.commit_protocol_runtime_blocked",
+        required_evidence: "commit_protocol,idempotency_key,rollback_policy,cleanup_policy,output_commit_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Object-store commit remains blocked and does not imply table/lakehouse commit support.",
     },
 ];
 
@@ -5279,6 +5509,36 @@ fn generated_output_compatibility_all_rows_source_free() -> bool {
     })
 }
 
+fn object_store_admission_ladder_row_order() -> String {
+    OBJECT_STORE_ADMISSION_LADDER_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn object_store_admission_ladder_status_count(status: &str) -> usize {
+    OBJECT_STORE_ADMISSION_LADDER_ROWS
+        .iter()
+        .filter(|row| row.support_status == status)
+        .count()
+}
+
+fn object_store_admission_ladder_all_no_effects() -> bool {
+    OBJECT_STORE_ADMISSION_LADDER_ROWS.iter().all(|row| {
+        !row.credential_resolution_performed
+            && !row.network_probe_allowed
+            && !row.provider_probe_allowed
+            && !row.byte_range_read_allowed
+            && !row.full_file_read_allowed
+            && !row.local_cache_allowed
+            && !row.write_io_allowed
+            && !row.commit_protocol_allowed
+            && !row.object_store_io
+            && !row.write_io
+    })
+}
+
 #[allow(clippy::too_many_lines)]
 fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
     push_field(
@@ -5382,6 +5642,7 @@ fn append_universal_compatibility_fields(fields: &mut Vec<(String, String)>) {
         false,
     );
     append_universal_compatibility_generated_output_fields(fields);
+    append_universal_compatibility_object_store_ladder_fields(fields);
 
     for row in UNIVERSAL_COMPATIBILITY_ROWS {
         let prefix = format!("universal_compatibility_row_{}", row.id);
@@ -5612,6 +5873,224 @@ fn append_universal_compatibility_generated_output_fields(fields: &mut Vec<(Stri
             fields,
             &format!("{prefix}_generated_source_certificate_status"),
             row.generated_source_certificate_status,
+        );
+        push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+        push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+        push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            row.required_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_boundary"),
+            row.claim_boundary,
+        );
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_universal_compatibility_object_store_ladder_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "universal_compatibility_object_store_ladder_schema_version",
+        UNIVERSAL_COMPATIBILITY_OBJECT_STORE_LADDER_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_object_store_ladder_id",
+        UNIVERSAL_COMPATIBILITY_OBJECT_STORE_LADDER_ID,
+    );
+    push_field(
+        fields,
+        "universal_compatibility_object_store_ladder_provider_scope",
+        "s3,gcs,adls",
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_object_store_ladder_row_count",
+        OBJECT_STORE_ADMISSION_LADDER_ROWS.len(),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_object_store_ladder_row_order",
+        &object_store_admission_ladder_row_order(),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_object_store_ladder_report_only_count",
+        object_store_admission_ladder_status_count("report-only"),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_object_store_ladder_blocked_count",
+        object_store_admission_ladder_status_count("blocked"),
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_public_no_credential_read_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_authenticated_read_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_byte_range_read_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_full_file_read_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_local_cache_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_write_staging_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_commit_protocol_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_credential_resolution_performed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_network_probe_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_provider_probe_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_object_store_io",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_write_io",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_fallback_attempted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_external_engine_invoked",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_all_rows_no_effects",
+        object_store_admission_ladder_all_no_effects(),
+    );
+    push_field(
+        fields,
+        "universal_compatibility_object_store_ladder_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_field(
+        fields,
+        "universal_compatibility_object_store_ladder_claim_boundary",
+        "S3/GCS/ADLS admission ladder visibility only; no credential resolution, network probe, provider probe, object-store read, object-store write, cache, commit, table/lakehouse, production, performance, or Spark-replacement claim",
+    );
+
+    for row in OBJECT_STORE_ADMISSION_LADDER_ROWS {
+        let prefix = format!("universal_compatibility_object_store_ladder_row_{}", row.id);
+        push_field(
+            fields,
+            &format!("{prefix}_provider_scope"),
+            row.provider_scope,
+        );
+        push_field(fields, &format!("{prefix}_stage"), row.stage);
+        push_field(
+            fields,
+            &format!("{prefix}_support_status"),
+            row.support_status,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_credential_policy_status"),
+            row.credential_policy_status,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_credential_resolution_performed"),
+            row.credential_resolution_performed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_network_probe_allowed"),
+            row.network_probe_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_provider_probe_allowed"),
+            row.provider_probe_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_byte_range_read_allowed"),
+            row.byte_range_read_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_full_file_read_allowed"),
+            row.full_file_read_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_local_cache_allowed"),
+            row.local_cache_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_write_io_allowed"),
+            row.write_io_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_commit_protocol_allowed"),
+            row.commit_protocol_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_object_store_io"),
+            row.object_store_io,
+        );
+        push_bool_field(fields, &format!("{prefix}_write_io"), row.write_io);
+        push_field(
+            fields,
+            &format!("{prefix}_native_io_certificate_status"),
+            row.native_io_certificate_status,
         );
         push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
         push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);

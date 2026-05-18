@@ -1284,6 +1284,167 @@ class SourceFreeGeneratedOutputCompatibilityContract:
 
 
 @dataclass(frozen=True, slots=True)
+class ObjectStoreAdmissionLadderRow:
+    """One S3/GCS/ADLS object-store admission ladder row."""
+
+    row_id: str
+    provider_scope: str | None
+    stage: str | None
+    support_status: str | None
+    credential_policy_status: str | None
+    credential_resolution_performed: bool | None
+    network_probe_allowed: bool | None
+    provider_probe_allowed: bool | None
+    byte_range_read_allowed: bool | None
+    full_file_read_allowed: bool | None
+    local_cache_allowed: bool | None
+    write_io_allowed: bool | None
+    commit_protocol_allowed: bool | None
+    object_store_io: bool | None
+    write_io: bool | None
+    native_io_certificate_status: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+    blocker_id: str | None
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str | None
+    claim_boundary: str | None
+
+    @property
+    def no_effects_no_fallback(self) -> bool:
+        """Whether the ladder row remains side-effect-free and fallback-free."""
+
+        return (
+            self.credential_resolution_performed is False
+            and self.network_probe_allowed is False
+            and self.provider_probe_allowed is False
+            and self.byte_range_read_allowed is False
+            and self.full_file_read_allowed is False
+            and self.local_cache_allowed is False
+            and self.write_io_allowed is False
+            and self.commit_protocol_allowed is False
+            and self.object_store_io is False
+            and self.write_io is False
+            and self.fallback_attempted is False
+            and self.external_engine_invoked is False
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectStoreAdmissionLadder:
+    """Compatibility scoreboard projection for object-store runtime admission."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the object-store admission ladder schema version."""
+
+        return self.capability.field("universal_compatibility_object_store_ladder_schema_version")
+
+    @property
+    def ladder_id(self) -> str | None:
+        """Return the object-store admission ladder identifier."""
+
+        return self.capability.field("universal_compatibility_object_store_ladder_id")
+
+    @property
+    def provider_scope(self) -> tuple[str, ...]:
+        """Return providers covered by this ladder."""
+
+        return _split_csv(self.capability.field("universal_compatibility_object_store_ladder_provider_scope"))
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return admission ladder rows in stable order."""
+
+        return _split_csv(self.capability.field("universal_compatibility_object_store_ladder_row_order"))
+
+    @property
+    def rows(self) -> tuple[ObjectStoreAdmissionLadderRow, ...]:
+        """Return all object-store admission ladder rows."""
+
+        return tuple(self.row(row_id) for row_id in self.row_order)
+
+    @property
+    def runtime_supported(self) -> bool:
+        """Whether object-store runtime is supported by this ladder."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_object_store_ladder_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def all_rows_no_effects(self) -> bool:
+        """Whether every ladder row preserves no-effects/no-fallback posture."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_object_store_ladder_all_rows_no_effects",
+                False,
+            )
+            is True
+            and all(row.no_effects_no_fallback for row in self.rows)
+        )
+
+    def row(self, row_id: str) -> ObjectStoreAdmissionLadderRow:
+        """Return one object-store admission ladder row."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(f"object-store admission ladder row {row_id!r} is not present")
+        prefix = f"universal_compatibility_object_store_ladder_row_{normalized}"
+        return ObjectStoreAdmissionLadderRow(
+            row_id=normalized,
+            provider_scope=self.capability.field(f"{prefix}_provider_scope"),
+            stage=self.capability.field(f"{prefix}_stage"),
+            support_status=self.capability.field(f"{prefix}_support_status"),
+            credential_policy_status=self.capability.field(f"{prefix}_credential_policy_status"),
+            credential_resolution_performed=self.capability.envelope.field_bool(
+                f"{prefix}_credential_resolution_performed"
+            ),
+            network_probe_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_network_probe_allowed"
+            ),
+            provider_probe_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_provider_probe_allowed"
+            ),
+            byte_range_read_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_byte_range_read_allowed"
+            ),
+            full_file_read_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_full_file_read_allowed"
+            ),
+            local_cache_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_local_cache_allowed"
+            ),
+            write_io_allowed=self.capability.envelope.field_bool(f"{prefix}_write_io_allowed"),
+            commit_protocol_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_commit_protocol_allowed"
+            ),
+            object_store_io=self.capability.envelope.field_bool(f"{prefix}_object_store_io"),
+            write_io=self.capability.envelope.field_bool(f"{prefix}_write_io"),
+            native_io_certificate_status=self.capability.field(
+                f"{prefix}_native_io_certificate_status"
+            ),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+            blocker_id=self.capability.field(f"{prefix}_blocker_id"),
+            required_evidence=_split_csv(self.capability.field(f"{prefix}_required_evidence")),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            claim_boundary=self.capability.field(f"{prefix}_claim_boundary"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UniversalCompatibilityScoreboard:
     """Typed view over the universal source/sink compatibility scoreboard."""
 
@@ -1448,6 +1609,12 @@ class UniversalCompatibilityScoreboard:
         """Return the compatibility-level source-free generated-output contract."""
 
         return SourceFreeGeneratedOutputCompatibilityContract(self.capability)
+
+    @property
+    def object_store_admission_ladder(self) -> ObjectStoreAdmissionLadder:
+        """Return the S3/GCS/ADLS object-store admission ladder."""
+
+        return ObjectStoreAdmissionLadder(self.capability)
 
     def row(self, surface_id: str) -> UniversalCompatibilityRow:
         """Return one scoreboard row by surface ID."""

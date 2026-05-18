@@ -912,6 +912,9 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
         "universal_compatibility_generated_output_python_row_order",
         "universal_compatibility_generated_output_sql_row_order",
         "universal_compatibility_generated_output_dataframe_row_order",
+        "universal_compatibility_object_store_ladder_schema_version",
+        "universal_compatibility_object_store_ladder_id",
+        "universal_compatibility_object_store_ladder_row_order",
     ] {
         assert!(
             output.contains(&format!("{{\"key\":\"{key}\",\"value\":")),
@@ -971,6 +974,7 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
         true
     )));
     assert_generated_output_compatibility_fields(&output);
+    assert_object_store_ladder_fields(&output);
 }
 
 fn assert_generated_output_compatibility_fields(output: &str) {
@@ -1017,6 +1021,54 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed",
         false
+    )));
+}
+
+fn assert_object_store_ladder_fields(output: &str) {
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_object_store_ladder_schema_version",
+        "shardloom.universal_compatibility.object_store_admission_ladder.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_object_store_ladder_row_order",
+        "object_store_uri_parse,credential_policy,public_no_credential_read,authenticated_read,byte_range_read,full_file_read,local_cache,write_staging,commit_protocol"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_object_store_ladder_row_object_store_uri_parse_support_status",
+        "report-only"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_object_store_ladder_row_byte_range_read_blocker_id",
+        "gar-compat-1c.byte_range_read_runtime_blocked"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_object_store_ladder_row_authenticated_read_credential_policy_status",
+        "authenticated_read_policy_required"
+    )));
+    for key in [
+        "universal_compatibility_object_store_ladder_runtime_supported",
+        "universal_compatibility_object_store_ladder_public_no_credential_read_supported",
+        "universal_compatibility_object_store_ladder_authenticated_read_supported",
+        "universal_compatibility_object_store_ladder_byte_range_read_supported",
+        "universal_compatibility_object_store_ladder_full_file_read_supported",
+        "universal_compatibility_object_store_ladder_write_staging_supported",
+        "universal_compatibility_object_store_ladder_commit_protocol_supported",
+        "universal_compatibility_object_store_ladder_credential_resolution_performed",
+        "universal_compatibility_object_store_ladder_network_probe_allowed",
+        "universal_compatibility_object_store_ladder_provider_probe_allowed",
+        "universal_compatibility_object_store_ladder_object_store_io",
+        "universal_compatibility_object_store_ladder_write_io",
+        "universal_compatibility_object_store_ladder_fallback_attempted",
+        "universal_compatibility_object_store_ladder_external_engine_invoked",
+    ] {
+        assert!(
+            output.contains(&field_pair(key, false)),
+            "missing false key={key}"
+        );
+    }
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_object_store_ladder_all_rows_no_effects",
+        true
     )));
 }
 

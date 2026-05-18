@@ -192,6 +192,44 @@ universal_compatibility_generated_output_foundry_runtime_supported=false
 universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed=false
 ```
 
+### S3/GCS/ADLS Object-Store Admission Ladder
+
+The JSON projection also includes
+`object_store_admission_ladder.schema_version=shardloom.universal_compatibility.object_store_admission_ladder.v1`
+for the GAR-COMPAT-1C object-store runtime admission ladder. The ladder is provider-neutral across
+S3, GCS, and ADLS, and it keeps URI recognition, credential policy, public read, authenticated
+read, byte-range read, full-file read, local cache, write staging, and commit protocol as separate
+claim gates.
+
+| Row | Status | Credential policy | Read/write allowed | Boundary |
+| --- | --- | --- | --- | --- |
+| `object_store_uri_parse` | `report-only` | `not_required_for_parse` | no read/write | URI recognition only; no provider, credential, network, read, write, or commit effect. |
+| `credential_policy` | `blocked` | `required_not_admitted` | no read/write | Credential resolution remains blocked; no secrets are read. |
+| `public_no_credential_read` | `blocked` | `public_read_policy_required` | no read/write | Public no-credential reads remain blocked until network/provider/read evidence exists. |
+| `authenticated_read` | `blocked` | `authenticated_read_policy_required` | no read/write | Credentialed reads are a separate blocked gate from public reads. |
+| `byte_range_read` | `blocked` | `read_policy_required` | no read/write | Byte-range reads remain blocked despite planning evidence. |
+| `full_file_read` | `blocked` | `read_policy_required` | no read/write | Full-file reads remain blocked and distinct from byte-range reads. |
+| `local_cache` | `blocked` | `cache_source_policy_required` | no read/write | Cache planning is not a runtime cache or support claim. |
+| `write_staging` | `blocked` | `write_policy_required` | no read/write | Write staging remains blocked and separate from read support. |
+| `commit_protocol` | `blocked` | `commit_policy_required` | no read/write | Object-store commit remains blocked and does not imply table/lakehouse commit support. |
+
+Every object-store ladder row preserves:
+
+```text
+credential_resolution_performed=false
+network_probe_allowed=false
+provider_probe_allowed=false
+object_store_io=false
+write_io=false
+fallback_attempted=false
+external_engine_invoked=false
+claim_gate_status=not_claim_grade
+```
+
+The ladder exposes admission status only. It does not authorize credential resolution, provider
+probing, S3/GCS/ADLS reads, local cache runtime, writes, commit protocol execution, table/lakehouse
+runtime, production use, performance claims, or external fallback execution.
+
 ## Acceptance
 
 - Runtime coverage and plan/report coverage are distinct.
