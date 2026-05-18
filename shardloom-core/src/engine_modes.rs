@@ -526,6 +526,29 @@ pub struct EngineCapabilityMatrixReport {
     pub write_io: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiveHybridFabricGateRow {
+    pub row_id: &'static str,
+    pub status: &'static str,
+    pub applies_to: &'static str,
+    pub blocker_id: &'static str,
+    pub required_evidence: &'static str,
+    pub claim_boundary: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct LiveHybridFabricFreshnessGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub rows: Vec<LiveHybridFabricGateRow>,
+    pub fallback: FallbackStatus,
+    pub external_engine_invoked: bool,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub write_io: bool,
+}
+
 impl EngineCapabilityMatrixReport {
     #[must_use]
     pub fn cg22_contract() -> Self {
@@ -608,6 +631,160 @@ impl EngineCapabilityMatrixReport {
         format!(
             "engine capability matrix\n{rows}\nfallback execution: disabled\nexternal engine invoked: false"
         )
+    }
+}
+
+impl LiveHybridFabricFreshnessGateReport {
+    #[must_use]
+    pub fn gar0034a_current() -> Self {
+        Self {
+            schema_version: "shardloom.live_hybrid_fabric_freshness_gate.v1",
+            report_id: "gar-0034-a.live_hybrid_fabric_freshness_gate",
+            rows: vec![
+                live_hybrid_gate_row(
+                    "live_broker_adapter",
+                    "blocked",
+                    "live",
+                    "gar-0034.live.broker_adapter_runtime_blocked",
+                    "broker_adapter_contract,credential_policy,network_policy,checkpoint_policy,no_fallback_evidence",
+                    "No broker adapter runtime or production live ingestion claim.",
+                ),
+                live_hybrid_gate_row(
+                    "live_durable_checkpoint_store",
+                    "blocked",
+                    "live",
+                    "gar-0034.live.durable_checkpoint_store_blocked",
+                    "durable_checkpoint_store,restore_proof,state_certificate,no_fallback_evidence",
+                    "No durable checkpoint or recovery claim beyond scoped in-memory fixtures.",
+                ),
+                live_hybrid_gate_row(
+                    "live_unbounded_scheduler",
+                    "blocked",
+                    "live",
+                    "gar-0034.live.unbounded_scheduler_blocked",
+                    "unbounded_scheduler,backpressure_contract,watermark_policy,correctness_evidence,benchmark_evidence",
+                    "No production unbounded stream scheduler claim.",
+                ),
+                live_hybrid_gate_row(
+                    "live_freshness_certificate",
+                    "fixture_smoke_only",
+                    "live",
+                    "none_scoped_live_fixture_freshness_only",
+                    "freshness_certificate,freshness_lag_ms,watermark,checkpoint_id,no_fallback_evidence",
+                    "Freshness evidence is fixture-scoped and cannot become production freshness proof.",
+                ),
+                live_hybrid_gate_row(
+                    "live_exactly_once_claim",
+                    "blocked",
+                    "live",
+                    "gar-0034.live.exactly_once_claim_blocked",
+                    "idempotent_sink,checkpoint_commit_protocol,retry_recovery_proof,output_commit_evidence",
+                    "No exactly-once claim without checkpoint, commit, retry, and sink idempotency proof.",
+                ),
+                live_hybrid_gate_row(
+                    "hybrid_micro_segment_flush",
+                    "blocked",
+                    "hybrid",
+                    "gar-0034.hybrid.micro_segment_flush_write_blocked",
+                    "vortex_micro_segment_write,native_io_certificate,commit_recovery_evidence,layout_health_evidence",
+                    "Hybrid micro-segment flush remains evidence/planning only without write and commit proof.",
+                ),
+                live_hybrid_gate_row(
+                    "hybrid_object_store_commit",
+                    "blocked",
+                    "hybrid",
+                    "gar-0034.hybrid.object_store_commit_blocked",
+                    "object_store_runtime,commit_protocol,idempotency_key,rollback_status,no_fallback_evidence",
+                    "No object-store hybrid runtime or commit claim.",
+                ),
+                live_hybrid_gate_row(
+                    "hybrid_catalog_snapshot",
+                    "blocked",
+                    "hybrid",
+                    "gar-0034.hybrid.catalog_snapshot_discovery_blocked",
+                    "catalog_snapshot_discovery,table_metadata_policy,snapshot_consistency,credential_policy",
+                    "No external catalog or table snapshot runtime claim.",
+                ),
+                live_hybrid_gate_row(
+                    "baseline_oracle_boundary",
+                    "report_only",
+                    "live,hybrid",
+                    "none_baseline_oracle_boundary_only",
+                    "baseline_oracle_policy,no_fallback_evidence,external_engine_boundary",
+                    "External systems may be baselines or oracles only, never fallback engines.",
+                ),
+            ],
+            fallback: FallbackStatus::disabled_by_policy(),
+            external_engine_invoked: false,
+            runtime_execution: false,
+            data_read: false,
+            write_io: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> String {
+        self.rows
+            .iter()
+            .map(|row| row.row_id)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn blocked_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status == "blocked")
+            .count()
+    }
+
+    #[must_use]
+    pub fn report_only_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status == "report_only")
+            .count()
+    }
+
+    #[must_use]
+    pub fn fixture_smoke_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status == "fixture_smoke_only")
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> String {
+        self.rows
+            .iter()
+            .map(|row| row.blocker_id)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub const fn fallback_attempted(&self) -> bool {
+        self.fallback.attempted
+    }
+}
+
+const fn live_hybrid_gate_row(
+    row_id: &'static str,
+    status: &'static str,
+    applies_to: &'static str,
+    blocker_id: &'static str,
+    required_evidence: &'static str,
+    claim_boundary: &'static str,
+) -> LiveHybridFabricGateRow {
+    LiveHybridFabricGateRow {
+        row_id,
+        status,
+        applies_to,
+        blocker_id,
+        required_evidence,
+        claim_boundary,
     }
 }
 

@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0034-A live/hybrid fabric blocker and freshness gate
+  - Primary files:
+    - `shardloom-core/src/engine_modes.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/engine_fabric_planning.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `python/src/shardloom/client.py`
+    - `python/README.md`
+    - `docs/architecture/live-hybrid-fabric-freshness-gate.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-cli/tests/cg22_engine_fabric_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: add a fail-closed CG-22 live/hybrid fabric freshness gate that keeps broker,
+    state-store, object-store, catalog, production freshness, exactly-once, and baseline/oracle
+    boundaries visible without adding runtime behavior.
+  - Checklist:
+    - [x] Add `shardloom.live_hybrid_fabric_freshness_gate.v1` to the core engine-mode contracts.
+    - [x] Expose the gate through `engine-capability-matrix --format json` and
+          `capabilities engines --format json`.
+    - [x] Add Python typed access through `ctx.engine_capability_matrix()`.
+    - [x] Distinguish blocked live/hybrid fabric rows, fixture-smoke freshness evidence, and
+          report-only baseline/oracle posture.
+    - [x] Preserve `fallback_attempted=false`, `external_engine_invoked=false`, and
+          `claim_gate_status=not_claim_grade`.
+    - [x] Document the gate and move GAR-0034-A out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test cg22_engine_fabric_snapshots`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a report-only/fail-closed capability slice. It does not add broker-backed live
+      ingestion, durable state-store/checkpoint runtime, unbounded scheduler runtime, production
+      freshness, exactly-once, hybrid object-store commit, table/catalog runtime, benchmark,
+      performance, Spark-displacement, or package-publication claims.
+  - Fallback boundary:
+    - External systems remain comparison-only baselines or oracles and cannot satisfy ShardLoom
+      execution evidence or act as fallback engines. The gate does not read data, write data,
+      resolve credentials, probe networks, invoke external engines, or attempt fallback.
+
 - [x] Session label: GAR-0033-A ETL workflow and data-quality capability matrix
   - Primary files:
     - `shardloom-cli/src/status_capabilities.rs`

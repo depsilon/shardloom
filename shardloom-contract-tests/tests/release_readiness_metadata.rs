@@ -1997,6 +1997,143 @@ fn gar_0033_a_etl_workflow_capability_matrix_remains_claim_safe() {
 }
 
 #[test]
+fn gar_0034_a_live_hybrid_fabric_gate_remains_claim_safe() {
+    let doc = read_repo_file("docs/architecture/live-hybrid-fabric-freshness-gate.md");
+    for required in [
+        "shardloom.live_hybrid_fabric_freshness_gate.v1",
+        "GAR-0034-A",
+        "engine-capability-matrix --format json",
+        "capabilities engines --format json",
+        "ctx.engine_capability_matrix()",
+        "live_broker_adapter",
+        "live_durable_checkpoint_store",
+        "live_unbounded_scheduler",
+        "live_freshness_certificate",
+        "live_exactly_once_claim",
+        "hybrid_micro_segment_flush",
+        "hybrid_object_store_commit",
+        "hybrid_catalog_snapshot",
+        "baseline_oracle_boundary",
+        "live_hybrid_fabric_gate_blocked_row_count=7",
+        "live_hybrid_fabric_gate_report_only_row_count=1",
+        "live_hybrid_fabric_gate_fixture_smoke_row_count=1",
+        "broker_adapter_contract",
+        "durable_checkpoint_store",
+        "object_store_runtime",
+        "exactly_once_idempotency",
+        "baseline_oracle_policy",
+        "live_hybrid_fabric_gate_freshness_claim_allowed",
+        "live_hybrid_fabric_gate_exactly_once_claim_allowed",
+        "live_hybrid_fabric_gate_object_store_runtime_supported",
+        "live_hybrid_fabric_gate_broker_runtime_supported",
+        "live_hybrid_fabric_gate_state_store_runtime_supported",
+        "live_hybrid_fabric_gate_baseline_oracle_only=true",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status=not_claim_grade",
+        "No broker adapter runtime",
+        "No object-store hybrid runtime",
+        "never fallback engines",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0034-A live/hybrid gate doc field {required}"
+        );
+    }
+
+    let core = read_repo_file("shardloom-core/src/engine_modes.rs");
+    for required in [
+        "LiveHybridFabricFreshnessGateReport",
+        "LiveHybridFabricGateRow",
+        "gar0034a_current",
+        "shardloom.live_hybrid_fabric_freshness_gate.v1",
+        "gar-0034-a.live_hybrid_fabric_freshness_gate",
+        "live_broker_adapter",
+        "live_freshness_certificate",
+        "baseline_oracle_boundary",
+        "FallbackStatus::disabled_by_policy()",
+        "external_engine_invoked: false",
+        "runtime_execution: false",
+        "data_read: false",
+        "write_io: false",
+    ] {
+        assert!(
+            core.contains(required),
+            "missing core live/hybrid gate field {required}"
+        );
+    }
+
+    let cli_engine = read_repo_file("shardloom-cli/src/engine_fabric_planning.rs");
+    for required in [
+        "append_live_hybrid_fabric_gate_fields",
+        "live_hybrid_fabric_gate_schema_version",
+        "live_hybrid_fabric_gate_row_order",
+        "live_hybrid_fabric_gate_blocker_ids",
+        "live_hybrid_fabric_gate_required_evidence",
+        "live_hybrid_fabric_gate_claim_boundary",
+        "live_hybrid_fabric_gate_claim_gate_status",
+        "live_hybrid_fabric_gate_freshness_claim_allowed",
+        "live_hybrid_fabric_gate_exactly_once_claim_allowed",
+        "live_hybrid_fabric_gate_object_store_runtime_supported",
+        "live_hybrid_fabric_gate_broker_runtime_supported",
+        "live_hybrid_fabric_gate_state_store_runtime_supported",
+        "live_hybrid_fabric_gate_baseline_oracle_only",
+        "live_hybrid_fabric_gate_fallback_attempted",
+        "live_hybrid_fabric_gate_external_engine_invoked",
+    ] {
+        assert!(
+            cli_engine.contains(required),
+            "missing CLI engine live/hybrid gate field {required}"
+        );
+    }
+
+    let cli_caps = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    assert!(cli_caps.contains("append_live_hybrid_fabric_gate_fields"));
+
+    let python_client = read_repo_file("python/src/shardloom/client.py");
+    for required in [
+        "live_hybrid_fabric_gate_schema_version",
+        "live_hybrid_fabric_gate_rows",
+        "live_hybrid_fabric_gate_report_only_row_count",
+        "live_hybrid_fabric_gate_claim_gate_status",
+        "live_hybrid_freshness_claim_allowed",
+        "live_hybrid_exactly_once_claim_allowed",
+        "live_hybrid_object_store_runtime_supported",
+        "live_hybrid_broker_runtime_supported",
+        "live_hybrid_state_store_runtime_supported",
+        "live_hybrid_fabric_gate_no_fallback_no_external_engine",
+    ] {
+        assert!(
+            python_client.contains(required),
+            "missing Python live/hybrid gate accessor {required}"
+        );
+    }
+
+    let python_readme = read_repo_file("python/README.md");
+    assert!(python_readme.contains("live_hybrid_fabric_gate_rows"));
+    assert!(python_readme.contains("GAR-0034-A live/hybrid fabric"));
+    assert!(python_readme.contains("claim_gate_status=not_claim_grade"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0034-A"));
+    assert!(plan.contains("GAR-0034-A is complete and recorded in the completed ledger"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0034-A live/hybrid fabric blocker and freshness gate"));
+    assert!(completed.contains("shardloom.live_hybrid_fabric_freshness_gate.v1"));
+    assert!(completed.contains("baseline/oracle posture"));
+    assert!(completed.contains("fallback_attempted=false"));
+    assert!(completed.contains("external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0034-A` adds `shardloom.live_hybrid_fabric_freshness_gate.v1`"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("| GAR-0034-A | Live/hybrid fabric blocker and freshness gate"));
+    assert!(traceability.contains("`ctx.engine_capability_matrix()`"));
+}
+
+#[test]
 fn security_rfc_and_p80_completion_are_traceable() {
     let rfc =
         read_repo_file("docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md");

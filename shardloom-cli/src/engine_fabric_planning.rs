@@ -10,8 +10,9 @@ use shardloom_core::{
     Boundedness, CommandStatus, ContinuousViewCertificate, EngineCapabilityMatrixReport,
     EngineCapabilityRow, EngineMode, EngineSelectionReport, EngineSelectionRequest,
     FreshnessCertificate, HybridFixtureRunInput, HybridFixtureRunReport, LiveChangeContractReport,
-    LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport, OutputFormat, OutputMode,
-    ShardLoomError, StateCertificate, UpdateMode, boundedness_vocabulary, engine_mode_vocabulary,
+    LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport,
+    LiveHybridFabricFreshnessGateReport, OutputFormat, OutputMode, ShardLoomError,
+    StateCertificate, UpdateMode, boundedness_vocabulary, engine_mode_vocabulary,
     output_mode_vocabulary, plan_live_change_contract, run_hybrid_fixture, run_live_fixture,
     update_mode_vocabulary,
 };
@@ -446,10 +447,126 @@ fn engine_capability_matrix_fields(report: &EngineCapabilityMatrixReport) -> Vec
     );
     let streaming_matrix = StreamingCapabilityMatrixReport::gar0013_current();
     append_streaming_capability_matrix_summary_fields(&mut fields, &streaming_matrix);
+    let fabric_gate = LiveHybridFabricFreshnessGateReport::gar0034a_current();
+    append_live_hybrid_fabric_gate_fields(&mut fields, &fabric_gate);
     for row in &report.rows {
         append_engine_capability_row_fields(&mut fields, row);
     }
     fields
+}
+
+pub(crate) fn append_live_hybrid_fabric_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LiveHybridFabricFreshnessGateReport,
+) {
+    push_field(
+        fields,
+        "live_hybrid_fabric_gate_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "live_hybrid_fabric_gate_report_id",
+        report.report_id,
+    );
+    push_count_field(
+        fields,
+        "live_hybrid_fabric_gate_row_count",
+        report.rows.len(),
+    );
+    push_field(
+        fields,
+        "live_hybrid_fabric_gate_row_order",
+        &report.row_order(),
+    );
+    push_count_field(
+        fields,
+        "live_hybrid_fabric_gate_blocked_row_count",
+        report.blocked_row_count(),
+    );
+    push_count_field(
+        fields,
+        "live_hybrid_fabric_gate_report_only_row_count",
+        report.report_only_row_count(),
+    );
+    push_count_field(
+        fields,
+        "live_hybrid_fabric_gate_fixture_smoke_row_count",
+        report.fixture_smoke_row_count(),
+    );
+    push_field(
+        fields,
+        "live_hybrid_fabric_gate_blocker_ids",
+        &report.blocker_ids(),
+    );
+    push_field(
+        fields,
+        "live_hybrid_fabric_gate_required_evidence",
+        "broker_adapter_contract,durable_checkpoint_store,unbounded_scheduler,object_store_runtime,commit_protocol,freshness_certificate,state_certificate,delta_overlay_certificate,exactly_once_idempotency,baseline_oracle_policy,no_fallback_evidence",
+    );
+    push_field(
+        fields,
+        "live_hybrid_fabric_gate_claim_boundary",
+        "fixture-scoped live/hybrid evidence only; production live/hybrid freshness, exactly-once, object-store, table/catalog, broker, state-store, benchmark, and Spark-displacement claims remain blocked",
+    );
+    push_field(
+        fields,
+        "live_hybrid_fabric_gate_claim_gate_status",
+        "not_claim_grade",
+    );
+    append_live_hybrid_fabric_gate_claim_fields(fields, report);
+}
+
+fn append_live_hybrid_fabric_gate_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LiveHybridFabricFreshnessGateReport,
+) {
+    push_bool_field(
+        fields,
+        "live_hybrid_fabric_gate_freshness_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "live_hybrid_fabric_gate_exactly_once_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "live_hybrid_fabric_gate_production_live_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "live_hybrid_fabric_gate_production_hybrid_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "live_hybrid_fabric_gate_object_store_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "live_hybrid_fabric_gate_broker_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "live_hybrid_fabric_gate_state_store_runtime_supported",
+        false,
+    );
+    push_bool_field(fields, "live_hybrid_fabric_gate_baseline_oracle_only", true);
+    push_bool_field(
+        fields,
+        "live_hybrid_fabric_gate_fallback_attempted",
+        report.fallback_attempted(),
+    );
+    push_bool_field(
+        fields,
+        "live_hybrid_fabric_gate_external_engine_invoked",
+        report.external_engine_invoked,
+    );
 }
 
 fn live_change_contract_fields(report: &LiveChangeContractReport) -> Vec<(String, String)> {

@@ -116,6 +116,57 @@ fn engine_capability_matrix_separates_batch_live_and_hybrid_claims() {
         "streaming_capability_matrix_all_rows_no_fallback_no_external_engine",
         "true"
     )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_schema_version",
+        "shardloom.live_hybrid_fabric_freshness_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_report_id",
+        "gar-0034-a.live_hybrid_fabric_freshness_gate"
+    )));
+    assert!(output.contains(&field("live_hybrid_fabric_gate_row_count", "9")));
+    assert!(output.contains(&field("live_hybrid_fabric_gate_blocked_row_count", "7")));
+    assert!(output.contains(&field("live_hybrid_fabric_gate_report_only_row_count", "1")));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_fixture_smoke_row_count",
+        "1"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_freshness_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_exactly_once_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_object_store_runtime_supported",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_broker_runtime_supported",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_state_store_runtime_supported",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_baseline_oracle_only",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_fallback_attempted",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "live_hybrid_fabric_gate_external_engine_invoked",
+        "false"
+    )));
 }
 
 #[test]

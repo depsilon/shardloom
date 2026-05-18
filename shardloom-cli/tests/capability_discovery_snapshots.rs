@@ -424,7 +424,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const ENGINE_FIELD_KEYS: [&str; 86] = [
+const ENGINE_FIELD_KEYS: [&str; 107] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -478,6 +478,27 @@ const ENGINE_FIELD_KEYS: [&str; 86] = [
     "streaming_capability_matrix_write_io",
     "streaming_capability_matrix_fallback_attempted",
     "streaming_capability_matrix_external_engine_invoked",
+    "live_hybrid_fabric_gate_schema_version",
+    "live_hybrid_fabric_gate_report_id",
+    "live_hybrid_fabric_gate_row_count",
+    "live_hybrid_fabric_gate_row_order",
+    "live_hybrid_fabric_gate_blocked_row_count",
+    "live_hybrid_fabric_gate_report_only_row_count",
+    "live_hybrid_fabric_gate_fixture_smoke_row_count",
+    "live_hybrid_fabric_gate_blocker_ids",
+    "live_hybrid_fabric_gate_required_evidence",
+    "live_hybrid_fabric_gate_claim_boundary",
+    "live_hybrid_fabric_gate_claim_gate_status",
+    "live_hybrid_fabric_gate_freshness_claim_allowed",
+    "live_hybrid_fabric_gate_exactly_once_claim_allowed",
+    "live_hybrid_fabric_gate_production_live_claim_allowed",
+    "live_hybrid_fabric_gate_production_hybrid_claim_allowed",
+    "live_hybrid_fabric_gate_object_store_runtime_supported",
+    "live_hybrid_fabric_gate_broker_runtime_supported",
+    "live_hybrid_fabric_gate_state_store_runtime_supported",
+    "live_hybrid_fabric_gate_baseline_oracle_only",
+    "live_hybrid_fabric_gate_fallback_attempted",
+    "live_hybrid_fabric_gate_external_engine_invoked",
     "batch_support_status",
     "batch_production_claim_allowed",
     "batch_state_required",
@@ -1765,6 +1786,50 @@ fn engine_capability_discovery_exposes_cg22_contract_without_runtime_claims() {
     assert!(output.contains(&field_pair(
         "streaming_capability_matrix_all_blocked_rows_have_diagnostics",
         true
+    )));
+    assert!(output.contains(&string_field_pair(
+        "live_hybrid_fabric_gate_schema_version",
+        "shardloom.live_hybrid_fabric_freshness_gate.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "live_hybrid_fabric_gate_report_id",
+        "gar-0034-a.live_hybrid_fabric_freshness_gate"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "live_hybrid_fabric_gate_row_order",
+        "live_broker_adapter,live_durable_checkpoint_store,live_unbounded_scheduler,live_freshness_certificate,live_exactly_once_claim,hybrid_micro_segment_flush,hybrid_object_store_commit,hybrid_catalog_snapshot,baseline_oracle_boundary"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "live_hybrid_fabric_gate_blocked_row_count",
+        "7"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "live_hybrid_fabric_gate_fixture_smoke_row_count",
+        "1"
+    )));
+    assert!(output.contains(&field_pair(
+        "live_hybrid_fabric_gate_freshness_claim_allowed",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "live_hybrid_fabric_gate_exactly_once_claim_allowed",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "live_hybrid_fabric_gate_object_store_runtime_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "live_hybrid_fabric_gate_baseline_oracle_only",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "live_hybrid_fabric_gate_fallback_attempted",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "live_hybrid_fabric_gate_external_engine_invoked",
+        false
     )));
     assert!(output.contains(&field_pair("live_state_required", true)));
     assert!(output.contains(&field_pair("hybrid_checkpoint_required", true)));

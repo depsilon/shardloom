@@ -10,10 +10,11 @@ use shardloom_core::{
     ArchitectureRuntimeClaimGateReport, CapabilityCertificationReport,
     CapabilityCertificationStatus, CommandStatus, EngineCapabilities, EngineCapabilityMatrixReport,
     GeneratedSourceApiAdmissionMatrix, GeneratedSourceCertificateContractReport,
-    GeneratedSourceEvidenceAlignmentReport, MaterializationPolicyReport,
-    OpenLineageFacetMappingReport, OpenTelemetryTraceExportContractReport, OutputFormat,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
-    ShardLoomError, SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
+    GeneratedSourceEvidenceAlignmentReport, LiveHybridFabricFreshnessGateReport,
+    MaterializationPolicyReport, OpenLineageFacetMappingReport,
+    OpenTelemetryTraceExportContractReport, OutputFormat, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
+    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
     WorldClassSufficiencyReport, boundedness_vocabulary, engine_mode_vocabulary,
     output_mode_vocabulary, plan_global_architecture_runtime_claim_gate,
     plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
@@ -2515,6 +2516,8 @@ fn emit_engine_mode_capabilities(scope: CapabilityDiscoveryScope, format: Output
     push_field(&mut fields, "future_rest_view", "/v1/capabilities/engines");
     let streaming_matrix = StreamingCapabilityMatrixReport::gar0013_current();
     append_streaming_capability_matrix_summary_fields(&mut fields, &streaming_matrix);
+    let fabric_gate = LiveHybridFabricFreshnessGateReport::gar0034a_current();
+    crate::engine_fabric_planning::append_live_hybrid_fabric_gate_fields(&mut fields, &fabric_gate);
     for row in &matrix.rows {
         let prefix = row.engine_mode.as_str();
         push_field(

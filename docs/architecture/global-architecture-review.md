@@ -978,8 +978,16 @@ plan before coding.
 - [x] Batch, live, and hybrid modes are represented as ShardLoom-native contracts and report
   surfaces.
 - [x] External systems are represented as sources, sinks, or baselines only.
-- [ ] Production live/hybrid engines, broker/state-store dependencies, object-store execution,
-  freshness/exactly-once claims, and comparison-only baseline/oracle surfaces remain incomplete.
+- [x] `GAR-0034-A` adds `shardloom.live_hybrid_fabric_freshness_gate.v1` to
+  `engine-capability-matrix`, `capabilities engines`, and Python `ctx.engine_capability_matrix()`.
+  The gate keeps broker, durable checkpoint/state-store, unbounded scheduler, object-store commit,
+  table/catalog snapshot, production freshness, exactly-once, benchmark, and Spark-displacement
+  claims blocked while preserving fixture-scoped freshness evidence, baseline/oracle-only posture,
+  `fallback_attempted=false`, `external_engine_invoked=false`, and
+  `claim_gate_status=not_claim_grade`.
+- [ ] Production live/hybrid engines, broker/state-store runtime, object-store execution,
+  production freshness/exactly-once claims, and runtime baseline/oracle integrations remain
+  incomplete.
 
 ### RFC 0035 - REST, Event, and Remote API Surface
 
