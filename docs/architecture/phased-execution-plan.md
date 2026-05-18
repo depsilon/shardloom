@@ -157,11 +157,12 @@ Supporting docs:
     evidence-safe reuse levels, and Foundry generated-output fanout posture.
   - Status rule: defines the
     `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`
-    architecture and benchmark field vocabulary. GAR-IOREUSE-1A through GAR-IOREUSE-1D have
+    architecture and benchmark field vocabulary. GAR-IOREUSE-1A through GAR-IOREUSE-1E have
     established SourceState, VortexPreparedState, OutputPlan, and report-only fanout benchmark row
-    contracts. Runtime state caches, fanout writers, cache invalidation, evidence-safe reuse
-    levels, Foundry generated-output smoke, object-store I/O, table commits, and claim-grade use
-    must remain represented by `GAR-IOREUSE-1*` or later evidence-bearing slices.
+    contracts plus cache/fingerprint invalidation evidence. Runtime state caches, fanout writers,
+    evidence-safe reuse levels, Foundry generated-output smoke, object-store I/O, table commits,
+    and claim-grade use must remain represented by `GAR-IOREUSE-1*` or later evidence-bearing
+    slices.
 - `docs/architecture/allocation-buffer-pool-optimization.md`
   - Role: GAR-PERF-2G reference for scoped allocation/resource-profile evidence and buffer-pool
     blocker semantics across prepared/native local runtime paths.
@@ -744,105 +745,13 @@ InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPla
 
 The benchmark bundle vocabulary is `io_reuse_and_fanout`, `source_state_reuse`,
 `prepared_state_reuse`, `output_plan_reuse`, `cross_format_output`, and
-`generated_source_output`. SourceState, VortexPreparedState, OutputPlan, and report-only fanout
-benchmark row contracts are now established by GAR-IOREUSE-1A through GAR-IOREUSE-1D. The active
-follow-through starts with cache/fingerprint invalidation, then evidence-safe reuse levels and
-Foundry generated-output fanout posture. Runtime fanout writers, multi-output correctness/replay
-evidence, object-store output, lakehouse/table commit semantics, hidden fast modes, external engine
-fallback, and performance claims remain out of scope until separate evidence-bearing slices admit
-them.
-
-- [ ] GAR-IOREUSE-1E cache invalidation and fingerprint contract
-  - Source:
-    - GAR-IOREUSE-1A through GAR-IOREUSE-1D.
-    - `docs/architecture/io-reuse-and-fanout-architecture.md`.
-    - `docs/architecture/in-process-session-runtime.md`.
-    - RFC 0017 fault tolerance/cancellation/recovery.
-    - RFC 0029 certificates and state reuse.
-    - RFC 0031 Native I/O.
-  - Current state:
-    - Current prepared/native source-state reuse is scoped to one batch process and selected
-      scenario families, with source-state digests and preparation timing visible.
-    - There is no cross-layer invalidation contract for source fingerprints, prepared-state
-      fingerprints, output-plan fingerprints, Vortex version changes, policy changes, schema drift,
-      or target output changes.
-  - Next slice outcome:
-    - Define content-addressed fingerprints and invalidation rules for `SourceState`,
-      `VortexPreparedState`, `ExecutionPlan`, `OutputPlan`, and `SinkArtifact`.
-    - Ensure stale or mismatched state produces deterministic invalidation diagnostics rather than
-      hidden recomputation, stale reuse, or fallback.
-  - User-visible surface:
-    - CLI explain/capability output.
-    - benchmark rows.
-    - Python typed result/capability fields if exposed.
-    - docs/status.
-  - Implementation scope:
-    - fingerprint schema.
-    - cache-key/input-key report fields.
-    - invalidation reason taxonomy.
-    - benchmark row schema if fields are emitted.
-    - deterministic stale-state diagnostics.
-  - Evidence required:
-    - `source_fingerprint_kind`.
-    - `source_content_digest`.
-    - `source_mtime`.
-    - `source_size`.
-    - `object_etag`.
-    - `manifest_version`.
-    - `schema_digest`.
-    - `plan_digest`.
-    - `output_plan_digest`.
-    - `cache_valid`.
-    - `invalidation_reason`.
-    - `fallback_attempted=false`.
-    - `external_engine_invoked=false`.
-    - `claim_gate_status`.
-  - Acceptance:
-    - Every reusable layer has a stable fingerprint or explicit `not_fingerprintable` reason.
-    - State is invalidated on source changes, schema/dtype changes, Vortex version/API changes,
-      policy changes, output target changes, or evidence-level mismatch.
-    - Reuse is blocked when the source fingerprint changes.
-    - Reuse is blocked when schema or plan digest changes.
-    - Object-store ETag/version handling is planned but not runtime-claimed.
-    - Invalidated state cannot be counted as a reuse hit.
-    - Invalidation is visible in benchmark and explain surfaces when those fields are emitted.
-  - Verification:
-    - local file invalidation tests.
-    - schema-change tests.
-    - plan-change tests.
-    - fingerprint stability tests.
-    - invalidation matrix tests.
-    - benchmark row contract tests if fields are emitted.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`.
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`.
-    - `python scripts/check_website_readiness.py`.
-    - `git diff --check`.
-  - Non-goals:
-    - no persistent disk cache.
-    - no daemon/service cache.
-    - no distributed cache.
-    - no object-store cache.
-    - no runtime behavior in the planning slice.
-    - no performance claim.
-    - no external fallback.
-  - Claim boundary:
-    - Fingerprint evidence may claim only deterministic reuse eligibility, reuse rejection, or
-      invalidation reason for scoped local state.
-    - It does not authorize cache performance claims, production cache correctness, remote cache,
-      object-store/lakehouse, Foundry, package, or release claims.
-  - Security boundary:
-    - No secrets or credentials may appear in cache keys, fingerprints, digests, explain output, or
-      benchmark evidence.
-  - Fallback boundary:
-    - `fallback_attempted=false` and `external_engine_invoked=false` are required for reuse hits,
-      misses, invalidations, blockers, unsupported rows, and report-only rows.
-  - Ledger rule:
-    - When complete, move the detailed completed session to the completed ledger with fingerprint
-      stability refs, invalidation matrix refs, and no-fallback evidence.
-  - Dependencies/blockers:
-    - source/prepared/output fingerprint schema, schema/plan/output digest stability, policy/version
-      refs, local file metadata handling, object-store ETag/version posture, secret redaction
-      policy, and invalidation diagnostics.
+`generated_source_output`. SourceState, VortexPreparedState, OutputPlan, report-only fanout
+benchmark rows, and cache/fingerprint invalidation rows are now established by GAR-IOREUSE-1A
+through GAR-IOREUSE-1E. The active follow-through starts with evidence-safe reuse levels, then
+Foundry generated-output fanout posture. Runtime fanout writers, persistent caches, multi-output
+correctness/replay evidence, object-store output, lakehouse/table commit semantics, hidden fast
+modes, external engine fallback, and performance claims remain out of scope until separate
+evidence-bearing slices admit them.
 
 - [ ] GAR-IOREUSE-1F evidence-safe reuse levels
   - Source:

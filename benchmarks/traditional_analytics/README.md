@@ -290,6 +290,16 @@ multiple output formats. Current rows are deterministic `fanout_status=report_on
 `claim_gate_status=not_claim_grade`; local Vortex result-sink proof remains visible as
 `currently_proven_output_formats=vortex_result_sink_when_requested` when the artifact was generated
 with result-sink proof.
+`GAR-IOREUSE-1E` adds the first cache invalidation/fingerprint contract to the JSON/Markdown
+artifact with `cache_invalidation_contract_schema_version`, `cache_invalidation_status`,
+`cache_invalidation_layer_scope`, `source_content_digest`, `source_mtime`, `source_size`,
+`object_etag`, `manifest_version`, `plan_digest`, `cache_valid`, `invalidation_reason`,
+`cache_invalidation_fallback_attempted=false`,
+`cache_invalidation_external_engine_invoked=false`,
+`cache_invalidation_claim_gate_status=not_claim_grade`, and
+`cache_invalidation_redaction_status`. `cache_valid=true` means current-row local
+fingerprints are internally consistent; it is not a persistent cache hit, hidden fast mode, or
+performance evidence.
 
 The scoped direct-transient lane can be run explicitly:
 
@@ -351,7 +361,9 @@ JSONL + Vortex outputs, Parquet input -> CSV + Vortex outputs, JSONL input -> Pa
 outputs, generated source -> CSV + Parquet + Vortex outputs, and prepared Vortex -> multiple output
 formats. Future rows must replace those blockers with runtime cross-format fanout, output-plan
 reuse hits, fanout output count, no-fallback/no-external-engine fields, and claim gate status.
-These rows are local workflow/evidence rows, not a performance leaderboard.
+`GAR-IOREUSE-1E` adds cache invalidation/fingerprint rows for current local source/prepared/plan/
+output posture. These rows are local workflow/evidence rows, not a performance leaderboard,
+persistent cache, or cache-hit claim.
 `GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence for selective-filter
 prepared/native rows. Current rows classify bitpacked filter, sequence predicate, dictionary
 equality/group-by, constant count/filter, sorted min/max pruning, and FSST/dictionary string
@@ -480,6 +492,9 @@ support, or a performance claim.
 GAR-IOREUSE-1D adds a separate fanout benchmark matrix. It does not execute multi-output fanout and
 does not turn required fanout cases into supported outputs until future rows attach per-output
 write/replay/correctness evidence.
+GAR-IOREUSE-1E adds a separate cache invalidation/fingerprint matrix. It does not add a persistent
+disk cache, daemon/service cache, distributed cache, object-store cache, hidden fast mode, or cache
+performance claim.
 
 `GAR-PERF-2F` adds a scoped in-process session-backed prepared/native batch lane for local artifacts.
 Batch rows now expose `session_id`, explicit open/close/drop status, prepared-artifact

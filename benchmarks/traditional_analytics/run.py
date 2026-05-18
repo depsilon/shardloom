@@ -477,6 +477,40 @@ FANOUT_BENCHMARK_FIELDS = (
     "claim_gate_status",
     "claim_boundary",
 )
+CACHE_INVALIDATION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.cache_invalidation.v1"
+)
+CACHE_INVALIDATION_STATUS_VOCABULARY = (
+    "cache_valid",
+    "invalidated",
+    "not_needed",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+CACHE_INVALIDATION_CONTRACT_FIELDS = (
+    "cache_invalidation_contract_schema_version",
+    "cache_invalidation_status_vocabulary",
+    "cache_invalidation_status",
+    "cache_invalidation_layer_scope",
+    "source_fingerprint_kind",
+    "source_content_digest",
+    "source_mtime",
+    "source_size",
+    "object_etag",
+    "manifest_version",
+    "schema_digest",
+    "plan_digest",
+    "output_plan_digest",
+    "cache_valid",
+    "invalidation_reason",
+    "cache_invalidation_fallback_attempted",
+    "cache_invalidation_external_engine_invoked",
+    "cache_invalidation_claim_gate_status",
+    "cache_invalidation_redaction_status",
+    "cache_invalidation_claim_boundary",
+)
 FANOUT_BENCHMARK_CASES = (
     {
         "fanout_case_id": "csv_to_parquet_jsonl_vortex_outputs",
@@ -5011,6 +5045,129 @@ def output_plan_contract_metadata(
     }
 
 
+def cache_invalidation_status_reason(
+    engine: str,
+    status: str,
+    cache_status: str,
+    source_path_count: int,
+) -> str:
+    if not is_shardloom_engine(engine):
+        return "external baseline rows do not create or validate ShardLoom reusable state"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported row cannot validate reusable state"
+    if status == "execution_error":
+        return "execution error blocks reusable state validation"
+    if cache_status == "not_needed":
+        return "no reusable source/prepared/output state is needed for this row"
+    if source_path_count == 0:
+        return (
+            "source file fingerprint is not needed for this row; plan, prepared, and "
+            "output fingerprints remain explicit"
+        )
+    return (
+        "current row fingerprints are internally consistent; this is reuse eligibility "
+        "evidence, not a cache hit or performance claim"
+    )
+
+
+def cache_invalidation_contract_metadata(
+    engine: str,
+    paths: DatasetPaths,
+    scenario: str,
+    data_format: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    supported_format = data_format in FORMAT_ORDER
+    source_paths = source_state_paths(paths, scenario, data_format) if supported_format else ()
+    existing_sources = [path for path in source_paths if path.exists()]
+    source_sizes = [path.stat().st_size for path in existing_sources]
+    source_size = sum(source_sizes)
+    source_mtimes = [path.stat().st_mtime_ns for path in existing_sources]
+    source_mtime: int | str = max(source_mtimes) if source_mtimes else "not_applicable"
+    source_content_digest = canonical_digest(
+        {
+            "fingerprint_kind": "local_file_size_mtime_schema_plan_digest",
+            "schema_digest": metrics.get("schema_digest", "none"),
+            "source_locations": [
+                source_state_path_text(path) for path in existing_sources
+            ],
+            "source_mtime": source_mtime,
+            "source_size": source_size,
+        }
+    )
+    plan_digest = canonical_digest(
+        {
+            "data_format": data_format,
+            "execution_mode": evidence.get("selected_execution_mode")
+            or metrics.get("selected_execution_mode")
+            or "unknown",
+            "output_plan_digest": metrics.get("output_plan_digest", "none"),
+            "parse_decode_plan_digest": metrics.get("parse_decode_plan_digest", "none"),
+            "prepared_state_digest": metrics.get("prepared_state_digest", "none"),
+            "scenario": scenario,
+            "schema_digest": metrics.get("schema_digest", "none"),
+        }
+    )
+    if not is_shardloom:
+        cache_status = "external_baseline_only"
+        cache_valid = False
+    elif status in {"unsupported", "unsupported_format"}:
+        cache_status = "unsupported"
+        cache_valid = False
+    elif status == "execution_error":
+        cache_status = "blocked"
+        cache_valid = False
+    elif not existing_sources and metrics.get("source_state_status") == "not_needed":
+        cache_status = "not_needed"
+        cache_valid = True
+    elif status == "success":
+        cache_status = "cache_valid"
+        cache_valid = True
+    else:
+        cache_status = "report_only"
+        cache_valid = False
+    return {
+        "cache_invalidation_contract_schema_version": CACHE_INVALIDATION_SCHEMA_VERSION,
+        "cache_invalidation_status_vocabulary": ",".join(
+            CACHE_INVALIDATION_STATUS_VOCABULARY
+        ),
+        "cache_invalidation_status": cache_status,
+        "cache_invalidation_layer_scope": (
+            "SourceState,VortexPreparedState,ExecutionPlan,OutputPlan,SinkArtifact"
+        ),
+        "source_fingerprint_kind": "local_file_size_mtime_schema_plan_digest",
+        "source_content_digest": source_content_digest if is_shardloom else "none",
+        "source_mtime": source_mtime if is_shardloom else "not_applicable",
+        "source_size": source_size if is_shardloom else 0,
+        "object_etag": "not_applicable_local_filesystem",
+        "manifest_version": CACHE_INVALIDATION_SCHEMA_VERSION,
+        "schema_digest": metrics.get("schema_digest", "none"),
+        "plan_digest": plan_digest if is_shardloom else "none",
+        "output_plan_digest": metrics.get("output_plan_digest", "none"),
+        "cache_valid": cache_valid,
+        "invalidation_reason": cache_invalidation_status_reason(
+            engine, status, cache_status, len(existing_sources)
+        ),
+        "cache_invalidation_fallback_attempted": False,
+        "cache_invalidation_external_engine_invoked": False,
+        "cache_invalidation_claim_gate_status": "not_claim_grade",
+        "cache_invalidation_redaction_status": (
+            "no_credentials_or_tokens_in_fingerprint_fields"
+        ),
+        "cache_invalidation_claim_boundary": (
+            "Cache invalidation evidence covers current-row local fingerprint and reuse "
+            "eligibility posture only; it is not a persistent cache, cache hit, performance, "
+            "production, object-store/lakehouse, Foundry, package, release, or "
+            "Spark-replacement claim"
+        ),
+    }
+
+
 def rows_scanned(paths: DatasetPaths, scenario: str) -> int:
     if scenario in {
         "hash join",
@@ -5452,6 +5609,33 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError(
                 "OutputPlan evidence cannot report object-store output in this slice"
             )
+        missing_cache_invalidation_fields = [
+            field for field in CACHE_INVALIDATION_CONTRACT_FIELDS if field not in metrics
+        ]
+        if missing_cache_invalidation_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted cache invalidation contract fields: "
+                + ", ".join(missing_cache_invalidation_fields)
+            )
+        if metrics.get("cache_invalidation_fallback_attempted") is not False:
+            raise RuntimeError("cache invalidation evidence cannot report fallback attempts")
+        if metrics.get("cache_invalidation_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "cache invalidation evidence cannot report external engine execution"
+            )
+        if metrics.get("cache_invalidation_claim_gate_status") != "not_claim_grade":
+            raise RuntimeError("cache invalidation evidence cannot upgrade claim status")
+        if metrics.get("cache_invalidation_redaction_status") != (
+            "no_credentials_or_tokens_in_fingerprint_fields"
+        ):
+            raise RuntimeError(
+                "cache invalidation evidence must preserve credential redaction status"
+            )
+        if (
+            metrics.get("cache_invalidation_status") == "cache_valid"
+            and metrics.get("cache_valid") is not True
+        ):
+            raise RuntimeError("cache-valid rows must set cache_valid=true")
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
         and result.get("status") == "success"
@@ -6060,6 +6244,54 @@ def fanout_benchmark_contract() -> dict[str, Any]:
     }
 
 
+def cache_invalidation_contract() -> dict[str, Any]:
+    return {
+        "contract_id": CACHE_INVALIDATION_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(CACHE_INVALIDATION_STATUS_VOCABULARY),
+        "row_fields": list(CACHE_INVALIDATION_CONTRACT_FIELDS),
+        "current_scope": (
+            "deterministic local fingerprint and invalidation posture for "
+            "SourceState, VortexPreparedState, ExecutionPlan, OutputPlan, and "
+            "SinkArtifact benchmark rows without adding a persistent cache"
+        ),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> "
+            "OutputPlan -> SinkArtifact"
+        ),
+        "invalidation_rules": [
+            "source fingerprint changes block reuse",
+            "schema digest changes block reuse",
+            "plan digest changes block reuse",
+            "output plan digest changes block reuse",
+            "policy or evidence-level mismatch blocks reuse",
+            "object-store ETag/version handling is planned but not runtime-claimed",
+        ],
+        "non_goals": [
+            "persistent disk cache",
+            "daemon or service cache",
+            "distributed cache",
+            "object-store cache",
+            "performance or superiority claims",
+        ],
+        "redaction_boundary": (
+            "Cache keys, fingerprints, digests, explain output, and benchmark evidence "
+            "must not contain credentials, tokens, or private values."
+        ),
+        "no_fallback_rule": (
+            "Cache invalidation rows must preserve cache_invalidation_fallback_attempted=false "
+            "and cache_invalidation_external_engine_invoked=false."
+        ),
+        "claim_boundary": (
+            "Cache invalidation evidence may claim only deterministic reuse eligibility, "
+            "reuse rejection, or invalidation reason for scoped local state. It does not "
+            "authorize cache performance, production cache correctness, remote cache, "
+            "object-store/lakehouse, Foundry, package, release, or Spark-replacement claims."
+        ),
+    }
+
+
 def source_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -6274,6 +6506,54 @@ def fanout_benchmark_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any
                 "claim_boundary": (
                     "report-only fanout benchmark posture; not runtime support, not a "
                     "performance claim, and not object-store/lakehouse/table/Foundry support"
+                ),
+            }
+        )
+    return rows
+
+
+def cache_invalidation_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "cache_invalidation_contract_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "cache_invalidation_status": metrics.get("cache_invalidation_status"),
+                "cache_invalidation_layer_scope": metrics.get(
+                    "cache_invalidation_layer_scope"
+                ),
+                "source_fingerprint_kind": metrics.get("source_fingerprint_kind"),
+                "source_content_digest": metrics.get("source_content_digest"),
+                "source_mtime": metrics.get("source_mtime"),
+                "source_size": metrics.get("source_size"),
+                "object_etag": metrics.get("object_etag"),
+                "manifest_version": metrics.get("manifest_version"),
+                "schema_digest": metrics.get("schema_digest"),
+                "plan_digest": metrics.get("plan_digest"),
+                "output_plan_digest": metrics.get("output_plan_digest"),
+                "cache_valid": metrics.get("cache_valid"),
+                "invalidation_reason": metrics.get("invalidation_reason"),
+                "cache_invalidation_fallback_attempted": metrics.get(
+                    "cache_invalidation_fallback_attempted"
+                ),
+                "cache_invalidation_external_engine_invoked": metrics.get(
+                    "cache_invalidation_external_engine_invoked"
+                ),
+                "cache_invalidation_claim_gate_status": metrics.get(
+                    "cache_invalidation_claim_gate_status"
+                ),
+                "cache_invalidation_redaction_status": metrics.get(
+                    "cache_invalidation_redaction_status"
+                ),
+                "cache_invalidation_claim_boundary": metrics.get(
+                    "cache_invalidation_claim_boundary"
                 ),
             }
         )
@@ -6803,6 +7083,16 @@ def failed_result(
             metrics=metrics,
         )
     )
+    metrics.update(
+        cache_invalidation_contract_metadata(
+            engine,
+            paths,
+            scenario,
+            data_format,
+            status=status,
+            metrics=metrics,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -7296,6 +7586,17 @@ def successful_result_from_iterations(
     metrics.update(
         output_plan_contract_metadata(
             runner.name,
+            scenario,
+            data_format,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            evidence=evidence,
+        )
+    )
+    metrics.update(
+        cache_invalidation_contract_metadata(
+            runner.name,
+            paths,
             scenario,
             data_format,
             status="success" if stable else "unstable_output",
@@ -8790,6 +9091,31 @@ def render_fanout_benchmark_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_cache_invalidation_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["cache_invalidation_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["Redaction boundary", str(contract["redaction_boundary"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    invalidation_rows = [
+        ["Invalidation rule", value] for value in contract["invalidation_rules"]
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], invalidation_rows + non_goal_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -8815,6 +9141,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom prepared/native rows carry VortexPreparedState contract fields for prepared artifact refs, digests, preparation timing separation, source-state linkage, and scoped reuse posture; prepared-state evidence is not output support, encoded-native operator coverage, object-store/lakehouse support, or a performance claim.",
         "ShardLoom rows carry OutputPlan contract fields for local output planning posture; only result-sink rows with explicit local Vortex write/replay evidence can report output_plan_supported, and this is not cross-format fanout, object-store/lakehouse support, or a production sink claim.",
         "ShardLoom artifacts include an io_reuse_and_fanout matrix for required cross-format fanout cases; current rows are report-only blockers until a first-class fanout benchmark runtime writes and replays multiple local outputs.",
+        "ShardLoom rows carry cache invalidation contract fields for local source/prepared/plan/output fingerprint posture; cache_valid means current-row fingerprints are internally consistent, not that a persistent cache hit or performance improvement occurred.",
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -9371,6 +9698,88 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
             "Fallback",
             "External engine",
             "Claim gate",
+        ],
+        rows,
+    )
+
+
+def render_cache_invalidation_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["cache_invalidation_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["cache_invalidation_status"]),
+                str(row["cache_invalidation_layer_scope"]),
+                str(row["source_fingerprint_kind"]),
+                str(row["source_content_digest"]),
+                str(row["source_mtime"]),
+                format_bytes(row["source_size"]),
+                str(row["object_etag"]),
+                str(row["manifest_version"]),
+                str(row["schema_digest"]),
+                str(row["plan_digest"]),
+                str(row["output_plan_digest"]),
+                str(row["cache_valid"]),
+                str(row["invalidation_reason"]).replace("|", "\\|"),
+                str(row["cache_invalidation_fallback_attempted"]),
+                str(row["cache_invalidation_external_engine_invoked"]),
+                str(row["cache_invalidation_claim_gate_status"]),
+                str(row["cache_invalidation_redaction_status"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "none",
+                "none",
+                "none",
+                "not_applicable",
+                "n/a",
+                "not_applicable",
+                "none",
+                "none",
+                "none",
+                "none",
+                "false",
+                "no cache invalidation rows were emitted",
+                "false",
+                "false",
+                "not_claim_grade",
+                "no_credentials_or_tokens_in_fingerprint_fields",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Cache status",
+            "Layer scope",
+            "Source fingerprint",
+            "Source content digest",
+            "Source mtime",
+            "Source size",
+            "Object ETag",
+            "Manifest version",
+            "Schema digest",
+            "Plan digest",
+            "Output plan digest",
+            "Cache valid",
+            "Invalidation reason",
+            "Fallback",
+            "External engine",
+            "Claim gate",
+            "Credential redaction",
         ],
         rows,
     )
@@ -10036,6 +10445,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_fanout_benchmark_contract(artifact),
         "",
+        "## Cache Invalidation And Fingerprint Contract",
+        "",
+        "This contract makes local source/prepared/plan/output fingerprints and invalidation posture visible without adding a persistent cache, hidden fast mode, object-store cache, or performance claim.",
+        "",
+        render_cache_invalidation_contract(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -10081,6 +10496,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "Fanout rows list the required benchmark cases and current blockers. They are local workflow/evidence posture only, not runtime fanout support or speed rankings.",
         "",
         render_fanout_benchmark_matrix(artifact),
+        "",
+        "## ShardLoom Cache Invalidation And Fingerprint Matrix",
+        "",
+        "Cache invalidation rows expose current local fingerprint posture and deterministic reuse eligibility. They are not persistent cache hits, performance claims, or object-store cache support.",
+        "",
+        render_cache_invalidation_matrix(artifact),
         "",
         "## Resource Metrics",
         "",
@@ -10386,6 +10807,7 @@ def main() -> int:
         "prepared_state_contract": prepared_state_contract(),
         "output_plan_contract": output_plan_contract(),
         "fanout_benchmark_contract": fanout_benchmark_contract(),
+        "cache_invalidation_contract": cache_invalidation_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
@@ -10399,6 +10821,7 @@ def main() -> int:
         "prepared_state_matrix": prepared_state_matrix(results),
         "output_plan_matrix": output_plan_matrix(results),
         "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
+        "cache_invalidation_matrix": cache_invalidation_matrix(results),
         "results": results,
         "shardloom_native_microbenchmarks": []
         if args.skip_shardloom_native
