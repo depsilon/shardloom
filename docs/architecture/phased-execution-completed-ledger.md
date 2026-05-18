@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0035-A REST server/runtime unsupported contract
+  - Primary files:
+    - `shardloom-core/src/remote_api.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/rest-server-runtime-unsupported-contract.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: add a fail-closed CG-23 REST runtime unsupported contract that keeps OpenAPI/report-only
+    planning separate from HTTP listener, remote execution, Flight/ADBC, broker, and
+    dependency-expanded server claims.
+  - Checklist:
+    - [x] Add `shardloom.rest_api_runtime_unsupported_contract.v1` to the core REST/API contract
+          model.
+    - [x] Expose the gate through `rest-api-contract-plan --format json`.
+    - [x] Add Python typed access through `ctx.rest_api_contract_plan()`.
+    - [x] Distinguish blocked runtime rows from report-only OpenAPI, plan-preview, and
+          result-delivery contract rows.
+    - [x] Preserve `server_started=false`, `network_listener_opened=false`,
+          `fallback_attempted=false`, `external_engine_invoked=false`, and
+          `claim_gate_status=not_claim_grade`.
+    - [x] Document the gate and move GAR-0035-A out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a report-only/fail-closed capability slice. It does not add an HTTP listener, remote
+      execution, Flight/ADBC transport runtime, broker runtime, dependency-expanded server
+      packaging, object-store/table/catalog runtime, production API support, package publication,
+      benchmark, performance, or Spark-displacement claims.
+  - Fallback boundary:
+    - The contract does not start a server, open a listener, resolve credentials, probe networks,
+      read datasets, write outputs, invoke external engines, or attempt fallback. External systems
+      remain future transports, baselines, or integration references only.
+
 - [x] Session label: GAR-0034-A live/hybrid fabric blocker and freshness gate
   - Primary files:
     - `shardloom-core/src/engine_modes.rs`

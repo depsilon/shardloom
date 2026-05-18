@@ -18,6 +18,8 @@ pub const REST_API_EVENT_STREAM_SCHEMA_VERSION: &str = "shardloom.rest_api_event
 pub const REST_API_SECURITY_GOVERNANCE_SCHEMA_VERSION: &str =
     "shardloom.rest_api_security_governance.v1";
 pub const REST_API_DATA_PLANE_SCHEMA_VERSION: &str = "shardloom.rest_api_data_plane.v1";
+pub const REST_API_RUNTIME_UNSUPPORTED_SCHEMA_VERSION: &str =
+    "shardloom.rest_api_runtime_unsupported_contract.v1";
 pub const OPENAPI_CONTRACT_PATH: &str = "docs/api/shardloom-openapi-v1.yaml";
 pub const ASYNCAPI_EVENT_CONTRACT_PATH: &str = "docs/api/shardloom-asyncapi-events-v1.yaml";
 pub const OPENAPI_VERSION: &str = "3.2.0";
@@ -100,6 +102,39 @@ pub struct RestApiContractReport {
     pub fallback_execution_allowed: bool,
     pub fallback_attempted: bool,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiRuntimeUnsupportedRow {
+    pub surface_id: &'static str,
+    pub support_status: &'static str,
+    pub unsupported_diagnostic_code: &'static str,
+    pub blocker_id: &'static str,
+    pub required_future_evidence: &'static str,
+    pub claim_boundary: &'static str,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestApiRuntimeUnsupportedReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub rows: Vec<RestApiRuntimeUnsupportedRow>,
+    pub server_started: bool,
+    pub network_listener_opened: bool,
+    pub http_listener_supported: bool,
+    pub remote_execution_supported: bool,
+    pub flight_adbc_transport_supported: bool,
+    pub external_broker_supported: bool,
+    pub dependency_expansion_allowed: bool,
+    pub runtime_execution: bool,
+    pub query_execution: bool,
+    pub write_io: bool,
+    pub object_store_io: bool,
+    pub catalog_probe: bool,
+    pub credential_resolution: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -965,6 +1000,158 @@ pub struct RestApiDataPlaneReport {
     pub fallback_attempted: bool,
     pub execution_delegated: bool,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+impl RestApiRuntimeUnsupportedReport {
+    #[must_use]
+    pub fn gar0035a_current() -> Self {
+        Self {
+            schema_version: REST_API_RUNTIME_UNSUPPORTED_SCHEMA_VERSION,
+            report_id: "gar-0035-a.rest_api_runtime_unsupported_contract",
+            rows: vec![
+                rest_runtime_unsupported_row(
+                    "http_listener_runtime",
+                    "blocked",
+                    "SL_REST_SERVER_UNSUPPORTED",
+                    "gar-0035.rest.http_listener_runtime_blocked",
+                    "server_dependency_audit,listener_lifecycle_evidence,security_policy,no_fallback_evidence",
+                    "No HTTP listener or production REST server runtime claim.",
+                ),
+                rest_runtime_unsupported_row(
+                    "remote_execution_runtime",
+                    "blocked",
+                    "SL_REMOTE_EXECUTION_UNSUPPORTED",
+                    "gar-0035.rest.remote_execution_runtime_blocked",
+                    "workload_certificate,execution_certificate,native_io_certificate,remote_policy,no_fallback_evidence",
+                    "No remote execution claim without workload-scoped execution and certificate evidence.",
+                ),
+                rest_runtime_unsupported_row(
+                    "flight_adbc_transport_runtime",
+                    "blocked",
+                    "SL_COLUMNAR_TRANSPORT_UNSUPPORTED",
+                    "gar-0035.rest.flight_adbc_transport_blocked",
+                    "flight_server_lifecycle,adbc_endpoint_policy,columnar_transport_certificate,no_fallback_evidence",
+                    "No Flight or ADBC transport runtime claim.",
+                ),
+                rest_runtime_unsupported_row(
+                    "external_broker_integration",
+                    "blocked",
+                    "SL_EXTERNAL_BROKER_UNSUPPORTED",
+                    "gar-0035.rest.external_broker_blocked",
+                    "broker_policy,event_delivery_evidence,live_hybrid_fabric_gate,no_fallback_evidence",
+                    "No external broker integration or event-plane runtime claim.",
+                ),
+                rest_runtime_unsupported_row(
+                    "dependency_expanded_server",
+                    "blocked",
+                    "SL_SERVER_DEPENDENCY_UNSUPPORTED",
+                    "gar-0035.rest.dependency_expanded_server_blocked",
+                    "dependency_audit,security_review,license_review,release_gate,no_fallback_evidence",
+                    "No dependency-expanded server package or release claim.",
+                ),
+                rest_runtime_unsupported_row(
+                    "openapi_discovery_contract",
+                    "report_only",
+                    "SL_REPORT_ONLY_SURFACE",
+                    "none_openapi_discovery_contract_only",
+                    "checked_in_openapi_contract,side_effect_free_discovery,no_fallback_evidence",
+                    "OpenAPI discovery is contract-only and does not start a server.",
+                ),
+                rest_runtime_unsupported_row(
+                    "plan_preview_contract",
+                    "report_only",
+                    "SL_REPORT_ONLY_SURFACE",
+                    "none_plan_preview_contract_only",
+                    "plan_preview_fields,deterministic_unsupported_diagnostics,no_fallback_evidence",
+                    "Plan preview reports deterministic support posture without executing remotely.",
+                ),
+                rest_runtime_unsupported_row(
+                    "result_delivery_contract",
+                    "report_only",
+                    "SL_REPORT_ONLY_SURFACE",
+                    "none_result_delivery_contract_only",
+                    "result_policy_modes,data_plane_boundary,no_fallback_evidence",
+                    "Result delivery modes are declared as contract boundaries, not transport runtime.",
+                ),
+            ],
+            server_started: false,
+            network_listener_opened: false,
+            http_listener_supported: false,
+            remote_execution_supported: false,
+            flight_adbc_transport_supported: false,
+            external_broker_supported: false,
+            dependency_expansion_allowed: false,
+            runtime_execution: false,
+            query_execution: false,
+            write_io: false,
+            object_store_io: false,
+            catalog_probe: false,
+            credential_resolution: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> String {
+        self.rows
+            .iter()
+            .map(|row| row.surface_id)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn blocked_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.support_status == "blocked")
+            .count()
+    }
+
+    #[must_use]
+    pub fn report_only_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.support_status == "report_only")
+            .count()
+    }
+
+    #[must_use]
+    pub fn diagnostic_codes(&self) -> String {
+        self.rows
+            .iter()
+            .map(|row| row.unsupported_diagnostic_code)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> String {
+        self.rows
+            .iter()
+            .map(|row| row.blocker_id)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+}
+
+const fn rest_runtime_unsupported_row(
+    surface_id: &'static str,
+    support_status: &'static str,
+    unsupported_diagnostic_code: &'static str,
+    blocker_id: &'static str,
+    required_future_evidence: &'static str,
+    claim_boundary: &'static str,
+) -> RestApiRuntimeUnsupportedRow {
+    RestApiRuntimeUnsupportedRow {
+        surface_id,
+        support_status,
+        unsupported_diagnostic_code,
+        blocker_id,
+        required_future_evidence,
+        claim_boundary,
+    }
 }
 
 impl RestApiContractReport {
@@ -3774,6 +3961,41 @@ mod tests {
         assert!(!report.write_io);
         assert!(!report.fallback_attempted);
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn rest_api_runtime_unsupported_gate_blocks_server_runtime_claims() {
+        let report = RestApiRuntimeUnsupportedReport::gar0035a_current();
+
+        assert_eq!(
+            report.schema_version,
+            REST_API_RUNTIME_UNSUPPORTED_SCHEMA_VERSION
+        );
+        assert_eq!(
+            report.report_id,
+            "gar-0035-a.rest_api_runtime_unsupported_contract"
+        );
+        assert!(report.row_order().contains("http_listener_runtime"));
+        assert!(report.row_order().contains("remote_execution_runtime"));
+        assert!(report.row_order().contains("result_delivery_contract"));
+        assert_eq!(report.blocked_row_count(), 5);
+        assert_eq!(report.report_only_row_count(), 3);
+        assert!(
+            report
+                .diagnostic_codes()
+                .contains("SL_REMOTE_EXECUTION_UNSUPPORTED")
+        );
+        assert!(!report.server_started);
+        assert!(!report.network_listener_opened);
+        assert!(!report.http_listener_supported);
+        assert!(!report.remote_execution_supported);
+        assert!(!report.flight_adbc_transport_supported);
+        assert!(!report.external_broker_supported);
+        assert!(!report.dependency_expansion_allowed);
+        assert!(!report.runtime_execution);
+        assert!(!report.write_io);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.fallback_attempted);
     }
 
     #[test]

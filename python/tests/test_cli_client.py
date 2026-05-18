@@ -2422,6 +2422,22 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "execution_mode_selection_fields", "value": "requested_execution_mode,selected_execution_mode,mode_selection_reason,support_status,fallback_attempted,external_engine_invoked"},
                         {"key": "rest_execution_mode_support_status", "value": "report_only"},
                         {"key": "unsupported_execution_mode_diagnostic_code", "value": "SL_UNSUPPORTED_EXECUTION_MODE"},
+                        {"key": "rest_runtime_unsupported_schema_version", "value": "shardloom.rest_api_runtime_unsupported_contract.v1"},
+                        {"key": "rest_runtime_unsupported_report_id", "value": "gar-0035-a.rest_api_runtime_unsupported_contract"},
+                        {"key": "rest_runtime_unsupported_row_order", "value": "http_listener_runtime,remote_execution_runtime,flight_adbc_transport_runtime,external_broker_integration,dependency_expanded_server,openapi_discovery_contract,plan_preview_contract,result_delivery_contract"},
+                        {"key": "rest_runtime_unsupported_blocked_row_count", "value": "5"},
+                        {"key": "rest_runtime_unsupported_report_only_row_count", "value": "3"},
+                        {"key": "rest_runtime_unsupported_diagnostic_codes", "value": "SL_REST_SERVER_UNSUPPORTED,SL_REMOTE_EXECUTION_UNSUPPORTED,SL_COLUMNAR_TRANSPORT_UNSUPPORTED,SL_EXTERNAL_BROKER_UNSUPPORTED,SL_SERVER_DEPENDENCY_UNSUPPORTED,SL_REPORT_ONLY_SURFACE,SL_REPORT_ONLY_SURFACE,SL_REPORT_ONLY_SURFACE"},
+                        {"key": "rest_runtime_unsupported_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "rest_runtime_http_listener_supported", "value": "false"},
+                        {"key": "rest_runtime_remote_execution_supported", "value": "false"},
+                        {"key": "rest_runtime_flight_adbc_transport_supported", "value": "false"},
+                        {"key": "rest_runtime_external_broker_supported", "value": "false"},
+                        {"key": "rest_runtime_dependency_expansion_allowed", "value": "false"},
+                        {"key": "rest_runtime_server_started", "value": "false"},
+                        {"key": "rest_runtime_network_listener_opened", "value": "false"},
+                        {"key": "rest_runtime_external_engine_invoked", "value": "false"},
+                        {"key": "rest_runtime_fallback_attempted", "value": "false"},
                         {"key": "openapi_contract_artifact_checked_in", "value": "true"},
                         {"key": "server_started", "value": "false"},
                         {"key": "network_listener_opened", "value": "false"},
@@ -2451,6 +2467,29 @@ class ShardLoomClientTests(unittest.TestCase):
             result.unsupported_execution_mode_diagnostic_code,
             "SL_UNSUPPORTED_EXECUTION_MODE",
         )
+        self.assertEqual(
+            result.rest_runtime_unsupported_schema_version,
+            "shardloom.rest_api_runtime_unsupported_contract.v1",
+        )
+        self.assertEqual(
+            result.rest_runtime_unsupported_report_id,
+            "gar-0035-a.rest_api_runtime_unsupported_contract",
+        )
+        self.assertIn("http_listener_runtime", result.rest_runtime_unsupported_rows)
+        self.assertIn("result_delivery_contract", result.rest_runtime_unsupported_rows)
+        self.assertEqual(result.rest_runtime_unsupported_blocked_row_count, 5)
+        self.assertEqual(result.rest_runtime_unsupported_report_only_row_count, 3)
+        self.assertIn(
+            "SL_REMOTE_EXECUTION_UNSUPPORTED",
+            result.rest_runtime_unsupported_diagnostic_codes,
+        )
+        self.assertEqual(result.rest_runtime_unsupported_claim_gate_status, "not_claim_grade")
+        self.assertFalse(result.rest_runtime_http_listener_supported)
+        self.assertFalse(result.rest_runtime_remote_execution_supported)
+        self.assertFalse(result.rest_runtime_flight_adbc_transport_supported)
+        self.assertFalse(result.rest_runtime_external_broker_supported)
+        self.assertFalse(result.rest_runtime_dependency_expansion_allowed)
+        self.assertTrue(result.rest_runtime_no_server_no_fallback_no_external_engine)
         self.assertTrue(result.contract_artifact_checked_in)
         self.assertFalse(result.server_started)
         self.assertFalse(result.network_listener_opened)

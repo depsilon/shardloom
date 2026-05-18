@@ -2313,6 +2313,101 @@ class RestApiContractPlan:
         return self.envelope.field("unsupported_execution_mode_diagnostic_code")
 
     @property
+    def rest_runtime_unsupported_schema_version(self) -> str | None:
+        """Return the REST runtime unsupported gate schema version."""
+
+        return self.envelope.field("rest_runtime_unsupported_schema_version")
+
+    @property
+    def rest_runtime_unsupported_report_id(self) -> str | None:
+        """Return the REST runtime unsupported gate report identifier."""
+
+        return self.envelope.field("rest_runtime_unsupported_report_id")
+
+    @property
+    def rest_runtime_unsupported_rows(self) -> tuple[str, ...]:
+        """Return REST runtime unsupported gate row identifiers."""
+
+        return _csv_values(self.envelope.field("rest_runtime_unsupported_row_order"))
+
+    @property
+    def rest_runtime_unsupported_blocked_row_count(self) -> int:
+        """Return blocked rows in the REST runtime unsupported gate."""
+
+        return self.envelope.field_int("rest_runtime_unsupported_blocked_row_count", 0) or 0
+
+    @property
+    def rest_runtime_unsupported_report_only_row_count(self) -> int:
+        """Return report-only rows in the REST runtime unsupported gate."""
+
+        return self.envelope.field_int("rest_runtime_unsupported_report_only_row_count", 0) or 0
+
+    @property
+    def rest_runtime_unsupported_diagnostic_codes(self) -> tuple[str, ...]:
+        """Return diagnostics declared by the REST runtime unsupported gate."""
+
+        return _csv_values(self.envelope.field("rest_runtime_unsupported_diagnostic_codes"))
+
+    @property
+    def rest_runtime_unsupported_claim_gate_status(self) -> str | None:
+        """Return the REST runtime unsupported gate claim status."""
+
+        return self.envelope.field("rest_runtime_unsupported_claim_gate_status")
+
+    @property
+    def rest_runtime_http_listener_supported(self) -> bool:
+        """Whether the REST runtime gate supports an HTTP listener."""
+
+        return self.envelope.field_bool("rest_runtime_http_listener_supported", False) is True
+
+    @property
+    def rest_runtime_remote_execution_supported(self) -> bool:
+        """Whether the REST runtime gate supports remote execution."""
+
+        return self.envelope.field_bool("rest_runtime_remote_execution_supported", False) is True
+
+    @property
+    def rest_runtime_flight_adbc_transport_supported(self) -> bool:
+        """Whether the REST runtime gate supports Flight/ADBC transport."""
+
+        return (
+            self.envelope.field_bool(
+                "rest_runtime_flight_adbc_transport_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def rest_runtime_external_broker_supported(self) -> bool:
+        """Whether the REST runtime gate supports external brokers."""
+
+        return self.envelope.field_bool("rest_runtime_external_broker_supported", False) is True
+
+    @property
+    def rest_runtime_dependency_expansion_allowed(self) -> bool:
+        """Whether dependency-expanded server work is currently allowed."""
+
+        return (
+            self.envelope.field_bool(
+                "rest_runtime_dependency_expansion_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def rest_runtime_no_server_no_fallback_no_external_engine(self) -> bool:
+        """Whether REST runtime posture preserves no-server/no-fallback boundaries."""
+
+        return (
+            self.envelope.field_bool("rest_runtime_server_started", True) is False
+            and self.envelope.field_bool("rest_runtime_network_listener_opened", True) is False
+            and self.envelope.field_bool("rest_runtime_external_engine_invoked", True) is False
+            and self.envelope.field_bool("rest_runtime_fallback_attempted", True) is False
+        )
+
+    @property
     def contract_artifact_checked_in(self) -> bool:
         """Whether the checked-in OpenAPI contract artifact is reported present."""
 

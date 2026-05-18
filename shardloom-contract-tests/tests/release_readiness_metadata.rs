@@ -2134,6 +2134,140 @@ fn gar_0034_a_live_hybrid_fabric_gate_remains_claim_safe() {
 }
 
 #[test]
+fn gar_0035_a_rest_runtime_unsupported_contract_remains_claim_safe() {
+    let doc = read_repo_file("docs/architecture/rest-server-runtime-unsupported-contract.md");
+    for required in [
+        "shardloom.rest_api_runtime_unsupported_contract.v1",
+        "GAR-0035-A",
+        "rest-api-contract-plan --format json",
+        "ctx.rest_api_contract_plan()",
+        "http_listener_runtime",
+        "remote_execution_runtime",
+        "flight_adbc_transport_runtime",
+        "external_broker_integration",
+        "dependency_expanded_server",
+        "openapi_discovery_contract",
+        "plan_preview_contract",
+        "result_delivery_contract",
+        "SL_REST_SERVER_UNSUPPORTED",
+        "SL_REMOTE_EXECUTION_UNSUPPORTED",
+        "SL_COLUMNAR_TRANSPORT_UNSUPPORTED",
+        "SL_EXTERNAL_BROKER_UNSUPPORTED",
+        "SL_SERVER_DEPENDENCY_UNSUPPORTED",
+        "rest_runtime_unsupported_blocked_row_count=5",
+        "rest_runtime_unsupported_report_only_row_count=3",
+        "server_dependency_audit",
+        "listener_lifecycle_evidence",
+        "execution_certificate",
+        "native_io_certificate",
+        "columnar_transport_certificate",
+        "broker_policy",
+        "rest_runtime_http_listener_supported",
+        "rest_runtime_remote_execution_supported",
+        "rest_runtime_flight_adbc_transport_supported",
+        "rest_runtime_external_broker_supported",
+        "rest_runtime_dependency_expansion_allowed",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status=not_claim_grade",
+        "No HTTP listener",
+        "No remote execution claim",
+        "cannot act as fallback engines",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0035-A REST runtime doc field {required}"
+        );
+    }
+
+    let core = read_repo_file("shardloom-core/src/remote_api.rs");
+    for required in [
+        "REST_API_RUNTIME_UNSUPPORTED_SCHEMA_VERSION",
+        "RestApiRuntimeUnsupportedReport",
+        "RestApiRuntimeUnsupportedRow",
+        "gar0035a_current",
+        "shardloom.rest_api_runtime_unsupported_contract.v1",
+        "gar-0035-a.rest_api_runtime_unsupported_contract",
+        "http_listener_runtime",
+        "remote_execution_runtime",
+        "dependency_expanded_server",
+        "server_started: false",
+        "network_listener_opened: false",
+        "external_engine_invoked: false",
+        "fallback_attempted: false",
+    ] {
+        assert!(
+            core.contains(required),
+            "missing core REST runtime field {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/rest_api_planning.rs");
+    for required in [
+        "RestApiRuntimeUnsupportedReport",
+        "append_rest_api_runtime_unsupported_fields",
+        "rest_runtime_unsupported_schema_version",
+        "rest_runtime_unsupported_row_order",
+        "rest_runtime_unsupported_diagnostic_codes",
+        "rest_runtime_unsupported_claim_gate_status",
+        "rest_runtime_http_listener_supported",
+        "rest_runtime_remote_execution_supported",
+        "rest_runtime_flight_adbc_transport_supported",
+        "rest_runtime_external_broker_supported",
+        "rest_runtime_dependency_expansion_allowed",
+        "rest_runtime_external_engine_invoked",
+        "rest_runtime_fallback_attempted",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing CLI REST runtime field {required}"
+        );
+    }
+
+    let python_client = read_repo_file("python/src/shardloom/client.py");
+    for required in [
+        "rest_runtime_unsupported_schema_version",
+        "rest_runtime_unsupported_rows",
+        "rest_runtime_unsupported_blocked_row_count",
+        "rest_runtime_unsupported_report_only_row_count",
+        "rest_runtime_unsupported_diagnostic_codes",
+        "rest_runtime_unsupported_claim_gate_status",
+        "rest_runtime_http_listener_supported",
+        "rest_runtime_remote_execution_supported",
+        "rest_runtime_flight_adbc_transport_supported",
+        "rest_runtime_external_broker_supported",
+        "rest_runtime_dependency_expansion_allowed",
+        "rest_runtime_no_server_no_fallback_no_external_engine",
+    ] {
+        assert!(
+            python_client.contains(required),
+            "missing Python REST runtime accessor {required}"
+        );
+    }
+
+    let python_readme = read_repo_file("python/README.md");
+    assert!(python_readme.contains("rest_runtime_unsupported_rows"));
+    assert!(python_readme.contains("GAR-0035-A REST runtime unsupported gate"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0035-A"));
+    assert!(plan.contains("GAR-0035-A is complete and recorded in the completed ledger"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0035-A REST server/runtime unsupported contract"));
+    assert!(completed.contains("shardloom.rest_api_runtime_unsupported_contract.v1"));
+    assert!(completed.contains("server_started=false"));
+    assert!(completed.contains("external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0035-A` adds `shardloom.rest_api_runtime_unsupported_contract.v1`"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("| GAR-0035-A | REST server/runtime unsupported contract"));
+    assert!(traceability.contains("`ctx.rest_api_contract_plan()`"));
+}
+
+#[test]
 fn security_rfc_and_p80_completion_are_traceable() {
     let rfc =
         read_repo_file("docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md");

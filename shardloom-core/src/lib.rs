@@ -278,7 +278,8 @@ pub use remote_api::{
     RestApiMaturityStage, RestApiMaturityStatus, RestApiMcpContract, RestApiPlanPreviewReport,
     RestApiPlanPreviewScenario, RestApiPlanPreviewStage, RestApiPlanPreviewStatus,
     RestApiPlanStageStatus, RestApiProblemDetailsPreview, RestApiResultPolicyContract,
-    RestApiScopeContract, RestApiSecurityGovernanceReport, RestApiSecurityGovernanceScenario,
+    RestApiRuntimeUnsupportedReport, RestApiRuntimeUnsupportedRow, RestApiScopeContract,
+    RestApiSecurityGovernanceReport, RestApiSecurityGovernanceScenario,
     RestApiSecurityGovernanceStatus, RestApiStandardsBoundaryContract,
 };
 pub use rfc_coverage::{

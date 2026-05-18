@@ -10,7 +10,8 @@ use shardloom_core::{
     RestApiDataPlaneReport, RestApiDataPlaneScenario, RestApiDiscoveryModeReport,
     RestApiEventStreamReport, RestApiEventStreamScenario, RestApiLocalLifecycleReport,
     RestApiLocalLifecycleScenario, RestApiPlanPreviewReport, RestApiPlanPreviewScenario,
-    RestApiSecurityGovernanceReport, RestApiSecurityGovernanceScenario, ShardLoomError,
+    RestApiRuntimeUnsupportedReport, RestApiSecurityGovernanceReport,
+    RestApiSecurityGovernanceScenario, ShardLoomError,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -571,6 +572,8 @@ fn rest_api_contract_fields(
         "unsupported_execution_mode_required_future_evidence",
         report.unsupported_execution_mode_required_future_evidence,
     );
+    let runtime_gate = RestApiRuntimeUnsupportedReport::gar0035a_current();
+    append_rest_api_runtime_unsupported_fields(&mut fields, &runtime_gate);
     push_field(
         &mut fields,
         "result_policy_modes",
@@ -636,6 +639,133 @@ fn rest_api_contract_fields(
     );
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
+}
+
+fn append_rest_api_runtime_unsupported_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiRuntimeUnsupportedReport,
+) {
+    push_field(
+        fields,
+        "rest_runtime_unsupported_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "rest_runtime_unsupported_report_id",
+        report.report_id,
+    );
+    push_count_field(
+        fields,
+        "rest_runtime_unsupported_row_count",
+        report.rows.len(),
+    );
+    push_field(
+        fields,
+        "rest_runtime_unsupported_row_order",
+        &report.row_order(),
+    );
+    push_count_field(
+        fields,
+        "rest_runtime_unsupported_blocked_row_count",
+        report.blocked_row_count(),
+    );
+    push_count_field(
+        fields,
+        "rest_runtime_unsupported_report_only_row_count",
+        report.report_only_row_count(),
+    );
+    push_field(
+        fields,
+        "rest_runtime_unsupported_diagnostic_codes",
+        &report.diagnostic_codes(),
+    );
+    push_field(
+        fields,
+        "rest_runtime_unsupported_blocker_ids",
+        &report.blocker_ids(),
+    );
+    push_field(
+        fields,
+        "rest_runtime_unsupported_required_evidence",
+        "server_dependency_audit,listener_lifecycle_evidence,workload_certificate,execution_certificate,native_io_certificate,security_policy,columnar_transport_certificate,broker_policy,dependency_audit,no_fallback_evidence",
+    );
+    push_field(
+        fields,
+        "rest_runtime_unsupported_claim_boundary",
+        "OpenAPI and report-only REST planning are contract surfaces only; HTTP listener, remote execution, Flight/ADBC, broker integration, dependency-expanded server, production API, benchmark, and Spark-displacement claims remain blocked",
+    );
+    push_field(
+        fields,
+        "rest_runtime_unsupported_claim_gate_status",
+        "not_claim_grade",
+    );
+    append_rest_api_runtime_unsupported_policy_fields(fields, report);
+}
+
+fn append_rest_api_runtime_unsupported_policy_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RestApiRuntimeUnsupportedReport,
+) {
+    push_bool_field(
+        fields,
+        "rest_runtime_http_listener_supported",
+        report.http_listener_supported,
+    );
+    push_bool_field(
+        fields,
+        "rest_runtime_remote_execution_supported",
+        report.remote_execution_supported,
+    );
+    push_bool_field(
+        fields,
+        "rest_runtime_flight_adbc_transport_supported",
+        report.flight_adbc_transport_supported,
+    );
+    push_bool_field(
+        fields,
+        "rest_runtime_external_broker_supported",
+        report.external_broker_supported,
+    );
+    push_bool_field(
+        fields,
+        "rest_runtime_dependency_expansion_allowed",
+        report.dependency_expansion_allowed,
+    );
+    push_bool_field(fields, "rest_runtime_server_started", report.server_started);
+    push_bool_field(
+        fields,
+        "rest_runtime_network_listener_opened",
+        report.network_listener_opened,
+    );
+    push_bool_field(fields, "rest_runtime_execution", report.runtime_execution);
+    push_bool_field(
+        fields,
+        "rest_runtime_query_execution",
+        report.query_execution,
+    );
+    push_bool_field(fields, "rest_runtime_write_io", report.write_io);
+    push_bool_field(
+        fields,
+        "rest_runtime_object_store_io",
+        report.object_store_io,
+    );
+    push_bool_field(fields, "rest_runtime_catalog_probe", report.catalog_probe);
+    push_bool_field(
+        fields,
+        "rest_runtime_credential_resolution",
+        report.credential_resolution,
+    );
+    push_bool_field(
+        fields,
+        "rest_runtime_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "rest_runtime_fallback_attempted",
+        report.fallback_attempted,
+    );
 }
 
 fn rest_api_discovery_fields(report: &RestApiDiscoveryModeReport) -> Vec<(String, String)> {
