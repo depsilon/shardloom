@@ -702,6 +702,42 @@ OPTIMIZER_TRACE_FIELDS = (
     "optimizer_benchmark_trace_ref",
     "optimizer_claim_boundary",
 )
+BUILD_PROFILE_SCHEMA_VERSION = "shardloom.traditional_analytics.build_profile.v1"
+BUILD_PROFILE_STATUS_VOCABULARY = (
+    "portable_release_baseline",
+    "portable_lto",
+    "pgo_report_only",
+    "host_native_benchmark_only",
+    "development",
+    "external_baseline_only",
+)
+BUILD_PROFILE_FIELDS = (
+    "build_profile_schema_version",
+    "build_profile",
+    "build_profile_kind",
+    "rustc_version",
+    "cargo_version",
+    "target_triple",
+    "target_cpu_policy",
+    "target_cpu_native_enabled",
+    "lto_enabled",
+    "lto_mode",
+    "codegen_units",
+    "pgo_status",
+    "pgo_profile_generate_status",
+    "pgo_profile_use_status",
+    "pgo_profile_artifact_ref",
+    "pgo_training_workload_ref",
+    "pgo_training_workload_digest",
+    "build_reproducibility_status",
+    "portable_release_artifact",
+    "benchmark_only_build",
+    "build_profile_correctness_digest",
+    "build_profile_fallback_attempted",
+    "build_profile_external_engine_invoked",
+    "build_profile_claim_gate_status",
+    "build_profile_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -783,6 +819,7 @@ FORMAT_ORDER = ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
 DEFAULT_FORMAT_ORDER = ("csv", "parquet")
 SHARDLOOM_VORTEX_FORMAT = "vortex"
 SHARDLOOM_BUILD_TIMINGS: dict[str, float] = {}
+SHARDLOOM_BUILD_PROFILE_EVIDENCE_CACHE: dict[str, dict[str, Any]] = {}
 STRESS_SCENARIO_ORDER = (
     "scale stress skewed join aggregation",
     "scale stress multi-stage etl",
@@ -833,6 +870,13 @@ SCENARIO_BYTES = {
 DASK_BLOCKSIZE = "16MB"
 DASK_SCHEDULER = "threads"
 SHARDLOOM_BUILD_PROFILE = "release"
+SHARDLOOM_BUILD_PROFILES = (
+    "debug",
+    "release",
+    "release-lto",
+    "release-pgo",
+    "release-native-benchmark",
+)
 SHARDLOOM_RESULT_SINK = False
 SHARDLOOM_EVIDENCE_LEVEL = "certified"
 MIN_CLAIM_GRADE_ITERATIONS = 3
@@ -1153,8 +1197,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--shardloom-build-profile",
         default=SHARDLOOM_BUILD_PROFILE,
-        choices=("debug", "release"),
-        help="Build profile for the ShardLoom CLI used by benchmark rows. Build time is excluded from per-scenario timing.",
+        choices=SHARDLOOM_BUILD_PROFILES,
+        help=(
+            "Build profile for the ShardLoom CLI used by benchmark rows. Build time is "
+            "excluded from per-scenario timing. release-native-benchmark is host-native "
+            "and benchmark-only; release-pgo requires a separately generated profile to "
+            "be claim-relevant."
+        ),
     )
     parser.add_argument(
         "--cache-mode",
@@ -3183,11 +3232,17 @@ def workspace_root() -> Path:
 
 def shardloom_binary_path(root: Path, profile: str) -> Path:
     binary_name = "shardloom.exe" if os.name == "nt" else "shardloom"
-    target_profile = "release" if profile == "release" else "debug"
+    target_profile = profile if profile in SHARDLOOM_BUILD_PROFILES else "debug"
     target_root = Path(os.environ.get("CARGO_TARGET_DIR", root / "target"))
     if not target_root.is_absolute():
         target_root = root / target_root
     return target_root / target_profile / binary_name
+
+
+def append_rustflag(existing: str | None, flag: str) -> str:
+    if existing and flag in existing.split():
+        return existing
+    return f"{existing} {flag}".strip() if existing else flag
 
 
 def build_shardloom_cli(root: Path, features: str, profile: str) -> Path:
@@ -3205,8 +3260,16 @@ def build_shardloom_cli(root: Path, features: str, profile: str) -> Path:
     ]
     if profile == "release":
         build_command.append("--release")
+    elif profile != "debug":
+        build_command.extend(["--profile", profile])
     env = os.environ.copy()
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    if profile == "release-native-benchmark":
+        env["RUSTFLAGS"] = append_rustflag(env.get("RUSTFLAGS"), "-Ctarget-cpu=native")
+    if profile == "release-pgo" and env.get("SHARDLOOM_PGO_PROFILE"):
+        env["RUSTFLAGS"] = append_rustflag(
+            env.get("RUSTFLAGS"), f"-Cprofile-use={env['SHARDLOOM_PGO_PROFILE']}"
+        )
     completed = subprocess_run(build_command, root, env)
     if completed["returncode"] != 0:
         raise BenchmarkUnsupported(
@@ -5467,6 +5530,193 @@ def reuse_level_contract_metadata(
     }
 
 
+def tool_version_text(binary_name: str, args: tuple[str, ...] = ("--version",)) -> str:
+    binary = shutil.which(binary_name)
+    if binary is None:
+        return "missing"
+    env = os.environ.copy()
+    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    completed = subprocess_run([binary, *args], workspace_root(), env)
+    if completed["returncode"] != 0:
+        return "unavailable"
+    return completed["stdout"].strip().splitlines()[0] or "unknown"
+
+
+def rustc_target_triple() -> str:
+    rustc = shutil.which("rustc")
+    if rustc is None:
+        return "missing"
+    env = os.environ.copy()
+    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    completed = subprocess_run([rustc, "-vV"], workspace_root(), env)
+    if completed["returncode"] != 0:
+        return "unavailable"
+    for line in completed["stdout"].splitlines():
+        if line.startswith("host:"):
+            return line.split(":", 1)[1].strip()
+    return "unknown"
+
+
+def pgo_training_workload_ref(profile: str) -> str:
+    if profile != "release-pgo":
+        return "not_applicable"
+    return (
+        "benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex "
+        "--formats csv,parquet --include-taxonomy-extra --rows 10000 --iterations 1"
+    )
+
+
+def build_profile_template(profile: str) -> dict[str, Any]:
+    if profile == "debug":
+        return {
+            "build_profile_kind": "development",
+            "target_cpu_policy": "portable_default",
+            "target_cpu_native_enabled": False,
+            "lto_enabled": False,
+            "lto_mode": "none",
+            "codegen_units": "cargo_default_debug",
+            "pgo_status": "not_configured",
+            "pgo_profile_generate_status": "not_requested",
+            "pgo_profile_use_status": "not_requested",
+            "pgo_profile_artifact_ref": "none",
+            "build_reproducibility_status": "development_not_release_evidence",
+            "portable_release_artifact": False,
+            "benchmark_only_build": False,
+        }
+    if profile == "release":
+        return {
+            "build_profile_kind": "portable_release_baseline",
+            "target_cpu_policy": "portable_default",
+            "target_cpu_native_enabled": False,
+            "lto_enabled": False,
+            "lto_mode": "none",
+            "codegen_units": "cargo_default_release",
+            "pgo_status": "not_configured",
+            "pgo_profile_generate_status": "not_requested",
+            "pgo_profile_use_status": "not_requested",
+            "pgo_profile_artifact_ref": "none",
+            "build_reproducibility_status": "portable_baseline",
+            "portable_release_artifact": True,
+            "benchmark_only_build": False,
+        }
+    if profile == "release-lto":
+        return {
+            "build_profile_kind": "portable_lto",
+            "target_cpu_policy": "portable_default",
+            "target_cpu_native_enabled": False,
+            "lto_enabled": True,
+            "lto_mode": "thin",
+            "codegen_units": 1,
+            "pgo_status": "not_configured",
+            "pgo_profile_generate_status": "not_requested",
+            "pgo_profile_use_status": "not_requested",
+            "pgo_profile_artifact_ref": "none",
+            "build_reproducibility_status": "portable_optimized_local_artifact",
+            "portable_release_artifact": True,
+            "benchmark_only_build": False,
+        }
+    if profile == "release-pgo":
+        profile_ref = os.environ.get("SHARDLOOM_PGO_PROFILE", "")
+        pgo_use_status = "profile_use_artifact_configured" if profile_ref else "not_configured"
+        return {
+            "build_profile_kind": "pgo_report_only",
+            "target_cpu_policy": "portable_default",
+            "target_cpu_native_enabled": False,
+            "lto_enabled": True,
+            "lto_mode": "thin",
+            "codegen_units": 1,
+            "pgo_status": (
+                "profile_use_artifact_configured"
+                if profile_ref
+                else "report_only_missing_profile_use_artifact"
+            ),
+            "pgo_profile_generate_status": "documented_not_run_by_harness",
+            "pgo_profile_use_status": pgo_use_status,
+            "pgo_profile_artifact_ref": profile_ref or "none",
+            "build_reproducibility_status": "pgo_requires_recorded_training_workload",
+            "portable_release_artifact": False,
+            "benchmark_only_build": True,
+        }
+    if profile == "release-native-benchmark":
+        return {
+            "build_profile_kind": "host_native_benchmark_only",
+            "target_cpu_policy": "native_benchmark_only",
+            "target_cpu_native_enabled": True,
+            "lto_enabled": True,
+            "lto_mode": "thin",
+            "codegen_units": 1,
+            "pgo_status": "not_configured",
+            "pgo_profile_generate_status": "not_requested",
+            "pgo_profile_use_status": "not_requested",
+            "pgo_profile_artifact_ref": "none",
+            "build_reproducibility_status": "host_native_nonportable_benchmark_only",
+            "portable_release_artifact": False,
+            "benchmark_only_build": True,
+        }
+    return {
+        "build_profile_kind": "external_baseline_only",
+        "target_cpu_policy": "external_baseline_only",
+        "target_cpu_native_enabled": False,
+        "lto_enabled": False,
+        "lto_mode": "external_baseline_only",
+        "codegen_units": "external_baseline_only",
+        "pgo_status": "external_baseline_only",
+        "pgo_profile_generate_status": "external_baseline_only",
+        "pgo_profile_use_status": "external_baseline_only",
+        "pgo_profile_artifact_ref": "none",
+        "build_reproducibility_status": "external_baseline_only",
+        "portable_release_artifact": False,
+        "benchmark_only_build": False,
+    }
+
+
+def build_profile_toolchain_evidence(profile: str) -> dict[str, Any]:
+    cached = SHARDLOOM_BUILD_PROFILE_EVIDENCE_CACHE.get(profile)
+    if cached is not None:
+        return dict(cached)
+    evidence = {
+        "build_profile_schema_version": BUILD_PROFILE_SCHEMA_VERSION,
+        "build_profile": profile,
+        "rustc_version": tool_version_text("rustc"),
+        "cargo_version": tool_version_text("cargo"),
+        "target_triple": rustc_target_triple(),
+        **build_profile_template(profile),
+    }
+    training_ref = pgo_training_workload_ref(profile)
+    evidence["pgo_training_workload_ref"] = training_ref
+    evidence["pgo_training_workload_digest"] = (
+        canonical_digest(training_ref) if profile == "release-pgo" else "not_applicable"
+    )
+    SHARDLOOM_BUILD_PROFILE_EVIDENCE_CACHE[profile] = dict(evidence)
+    return evidence
+
+
+def build_profile_contract_metadata(
+    engine: str, correctness_digest: str | None = None
+) -> dict[str, Any]:
+    profile = SHARDLOOM_BUILD_PROFILE if is_shardloom_engine(engine) else "external_baseline_only"
+    evidence = build_profile_toolchain_evidence(profile)
+    evidence.update(
+        {
+            "build_profile_correctness_digest": correctness_digest or "not_available",
+            "build_profile_fallback_attempted": False,
+            "build_profile_external_engine_invoked": False,
+            "build_profile_claim_gate_status": (
+                "not_claim_grade"
+                if is_shardloom_engine(engine)
+                else "external_baseline_only"
+            ),
+            "build_profile_claim_boundary": (
+                "Build-profile evidence records compiler/configuration posture only; it does "
+                "not create performance, superiority, Spark-replacement, production, package, "
+                "release, SQL/DataFrame, object-store/lakehouse, or Foundry claims. "
+                "release-native-benchmark is host-native and benchmark-only."
+            ),
+        }
+    )
+    return evidence
+
+
 def optimizer_trace_contract_metadata(engine: str) -> dict[str, Any]:
     is_shardloom = is_shardloom_engine(engine)
     return {
@@ -6043,6 +6293,42 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         if metrics.get("optimizer_source_state_reuse_admitted") is not True:
             raise RuntimeError(
                 "optimizer trace should surface scoped source-state reuse admission"
+            )
+        missing_build_profile_fields = [
+            field for field in BUILD_PROFILE_FIELDS if field not in metrics
+        ]
+        if missing_build_profile_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted build-profile evidence fields: "
+                + ", ".join(missing_build_profile_fields)
+            )
+        if metrics.get("build_profile_schema_version") != BUILD_PROFILE_SCHEMA_VERSION:
+            raise RuntimeError("build-profile rows must preserve schema version")
+        if metrics.get("build_profile_fallback_attempted") is not False:
+            raise RuntimeError("build-profile evidence cannot report fallback attempts")
+        if metrics.get("build_profile_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "build-profile evidence cannot report external engine execution"
+            )
+        if metrics.get("build_profile_claim_gate_status") != "not_claim_grade":
+            raise RuntimeError("build-profile evidence cannot upgrade claim status")
+        build_profile = str(metrics.get("build_profile") or "")
+        if build_profile not in SHARDLOOM_BUILD_PROFILES:
+            raise RuntimeError(f"ShardLoom row reported unknown build profile: {build_profile}")
+        if build_profile == "release-native-benchmark":
+            if metrics.get("target_cpu_native_enabled") is not True:
+                raise RuntimeError(
+                    "release-native-benchmark rows must expose target-cpu=native"
+                )
+            if metrics.get("benchmark_only_build") is not True:
+                raise RuntimeError("release-native-benchmark must be benchmark-only")
+            if metrics.get("portable_release_artifact") is not False:
+                raise RuntimeError(
+                    "release-native-benchmark cannot satisfy portable release evidence"
+                )
+        elif metrics.get("target_cpu_native_enabled") is not False:
+            raise RuntimeError(
+                "portable ShardLoom build profiles cannot enable target-cpu=native"
             )
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
@@ -6754,6 +7040,57 @@ def reuse_level_contract() -> dict[str, Any]:
             "output fidelity, performance, production readiness, SQL/DataFrame runtime, "
             "object-store/lakehouse support, Foundry support, package readiness, release "
             "readiness, or Spark-replacement status."
+        ),
+    }
+
+
+def build_profile_contract() -> dict[str, Any]:
+    return {
+        "contract_id": BUILD_PROFILE_SCHEMA_VERSION,
+        "canonical_reference": (
+            "docs/architecture/optimized-build-profiles-pgo-benchmark-lane.md"
+        ),
+        "companion_reference": "docs/release/hard-release-readiness-gate.md",
+        "status_vocabulary": list(BUILD_PROFILE_STATUS_VOCABULARY),
+        "supported_profiles": list(SHARDLOOM_BUILD_PROFILES),
+        "row_fields": list(BUILD_PROFILE_FIELDS),
+        "current_scope": (
+            "compiler/toolchain/build-profile evidence for ShardLoom benchmark binaries, "
+            "including portable release, portable LTO, report-only PGO, and host-native "
+            "benchmark-only lanes"
+        ),
+        "profile_boundary": {
+            "release": "portable baseline; remains the default release-style benchmark build",
+            "release-lto": "portable ThinLTO optimized local artifact lane",
+            "release-pgo": (
+                "report-only PGO lane unless SHARDLOOM_PGO_PROFILE points to a merged "
+                "profile artifact"
+            ),
+            "release-native-benchmark": "host-native benchmark-only lane using target-cpu=native",
+        },
+        "pgo_workflow": [
+            "instrumented build with -Cprofile-generate",
+            "representative training workload run",
+            "llvm-profdata merge",
+            "profile-use rebuild with -Cprofile-use",
+        ],
+        "non_goals": [
+            "changing default cargo build --release",
+            "publishing package artifacts",
+            "using target-cpu=native for portable release evidence",
+            "performance or superiority claims",
+            "hidden fast mode",
+            "fallback execution",
+        ],
+        "no_fallback_rule": (
+            "Build-profile rows must preserve build_profile_fallback_attempted=false and "
+            "build_profile_external_engine_invoked=false for every ShardLoom row."
+        ),
+        "claim_boundary": (
+            "Build-profile evidence is configuration and reproducibility evidence only. "
+            "It cannot upgrade claim_gate_status, prove performance, authorize public "
+            "package/release claims, or imply Spark replacement, SQL/DataFrame, object-store/"
+            "lakehouse, Foundry, or production support."
         ),
     }
 
@@ -7585,6 +7922,7 @@ def failed_result(
         )
     )
     metrics.update(optimizer_trace_contract_metadata(engine))
+    metrics.update(build_profile_contract_metadata(engine))
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -8105,6 +8443,7 @@ def successful_result_from_iterations(
         )
     )
     metrics.update(optimizer_trace_contract_metadata(runner.name))
+    metrics.update(build_profile_contract_metadata(runner.name, digest if stable else None))
     if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
         metrics.update(
             {
@@ -9053,6 +9392,7 @@ def environment_report() -> dict[str, Any]:
 
 
 def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[str, Any]:
+    build_evidence = build_profile_toolchain_evidence(args.shardloom_build_profile)
     return {
         "status": "local_smoke_not_claim_grade",
         "rows": paths.rows,
@@ -9075,6 +9415,19 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "scenarios_requested": list(args.scenario_list),
         "taxonomy_extra_included": args.include_taxonomy_extra,
         "shardloom_build_profile": args.shardloom_build_profile,
+        "shardloom_build_profile_kind": build_evidence["build_profile_kind"],
+        "shardloom_target_cpu_policy": build_evidence["target_cpu_policy"],
+        "shardloom_target_cpu_native_enabled": build_evidence[
+            "target_cpu_native_enabled"
+        ],
+        "shardloom_lto_enabled": build_evidence["lto_enabled"],
+        "shardloom_lto_mode": build_evidence["lto_mode"],
+        "shardloom_codegen_units": build_evidence["codegen_units"],
+        "shardloom_pgo_status": build_evidence["pgo_status"],
+        "shardloom_portable_release_artifact": build_evidence[
+            "portable_release_artifact"
+        ],
+        "shardloom_benchmark_only_build": build_evidence["benchmark_only_build"],
         "shardloom_build_time_excluded": True,
         "shardloom_feature_gate": "vortex-traditional-analytics-benchmark",
         "shardloom_result_sink_enabled": args.shardloom_result_sink,
@@ -9129,6 +9482,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "compressed_kernel_registry_fields": list(COMPRESSED_KERNEL_REGISTRY_FIELDS),
         "scan_pushdown_fields": list(SCAN_PUSHDOWN_FIELDS),
         "optimizer_trace_fields": list(OPTIMIZER_TRACE_FIELDS),
+        "build_profile_fields": list(BUILD_PROFILE_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
             "compatibility_import_certified": (
@@ -9190,13 +9544,15 @@ def persistent_runner_admission_gate() -> dict[str, Any]:
         + list(SESSION_RUNTIME_FIELDS)
         + list(ALLOCATION_RESOURCE_PROFILE_FIELDS)
         + list(RUNTIME_EVIDENCE_LEVEL_FIELDS)
-        + list(OPTIMIZER_TRACE_FIELDS),
+        + list(OPTIMIZER_TRACE_FIELDS)
+        + list(BUILD_PROFILE_FIELDS),
         "must_preserve": [
             "shardloom.output.v2 typed envelopes per run",
             "execution-mode selection fields",
             "Native I/O certificate refs and inline artifacts",
             "runtime evidence-level fields",
             "optimizer trace refs without applied rewrites until correctness proof exists",
+            "build-profile evidence including LTO, PGO, and native benchmark-only boundaries",
             "operator blocker matrix fields",
             "materialization/decode boundary fields",
             "result-sink replay evidence when result sinks are enabled",
@@ -9411,7 +9767,17 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
         ["Taxonomy extras included", str(params["taxonomy_extra_included"])],
         [
             "ShardLoom build",
-            f"profile={params['shardloom_build_profile']}, feature={params['shardloom_feature_gate']}, build_time_excluded={params['shardloom_build_time_excluded']}",
+            (
+                f"profile={params['shardloom_build_profile']}, "
+                f"kind={params['shardloom_build_profile_kind']}, "
+                f"target_cpu={params['shardloom_target_cpu_policy']}, "
+                f"native={params['shardloom_target_cpu_native_enabled']}, "
+                f"lto={params['shardloom_lto_enabled']}:{params['shardloom_lto_mode']}, "
+                f"pgo={params['shardloom_pgo_status']}, "
+                f"benchmark_only={params['shardloom_benchmark_only_build']}, "
+                f"feature={params['shardloom_feature_gate']}, "
+                f"build_time_excluded={params['shardloom_build_time_excluded']}"
+            ),
         ],
         ["Cache mode", str(params["cache_mode"])],
         ["Timing scope", str(params["timing_scope"])],
@@ -9460,6 +9826,7 @@ def render_execution_mode_attribution_contract(artifact: dict[str, Any]) -> str:
             ", ".join(contract["compressed_kernel_registry_fields"]),
         ],
         ["Scan pushdown fields", ", ".join(contract["scan_pushdown_fields"])],
+        ["Build-profile fields", ", ".join(contract["build_profile_fields"])],
         ["Unknown stage values", str(contract["unknown_stage_value_policy"])],
         ["Claim boundary", str(contract["claim_boundary"])],
         ["Operator claim boundary", str(contract["operator_claim_boundary"])],
@@ -9643,6 +10010,34 @@ def render_reuse_level_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_build_profile_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["build_profile_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Supported profiles", ", ".join(contract["supported_profiles"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    profile_rows = [
+        [profile, boundary]
+        for profile, boundary in contract["profile_boundary"].items()
+    ]
+    workflow_rows = [["PGO workflow", value] for value in contract["pgo_workflow"]]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Profile", "Boundary"], profile_rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], workflow_rows + non_goal_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -9670,6 +10065,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom artifacts include an io_reuse_and_fanout matrix for required cross-format fanout cases; current rows are report-only blockers until a first-class fanout benchmark runtime writes and replays multiple local outputs.",
         "ShardLoom rows carry cache invalidation contract fields for local source/prepared/plan/output fingerprint posture; cache_valid means current-row fingerprints are internally consistent, not that a persistent cache hit or performance improvement occurred.",
         "ShardLoom rows carry evidence-safe reuse-level fields and a reuse_level_matrix so discovery, schema, parse-plan, prepared-state, operator-source-state, output-plan, and replay reuse statuses remain visible without upgrading claim gates.",
+        "ShardLoom rows carry build-profile evidence for release, release-lto, release-pgo, and release-native-benchmark posture. release-native-benchmark is host-native and benchmark-only; PGO rows are report-only unless a merged profile artifact and training workload are recorded.",
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -11052,6 +11448,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_reuse_level_contract(artifact),
         "",
+        "## Build Profile Contract",
+        "",
+        "This contract records compiler/toolchain posture, LTO, PGO, and host-native benchmark-only boundaries without turning build settings into performance or release claims.",
+        "",
+        render_build_profile_contract(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -11416,6 +11818,7 @@ def main() -> int:
         "fanout_benchmark_contract": fanout_benchmark_contract(),
         "cache_invalidation_contract": cache_invalidation_contract(),
         "reuse_level_contract": reuse_level_contract(),
+        "build_profile_contract": build_profile_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,

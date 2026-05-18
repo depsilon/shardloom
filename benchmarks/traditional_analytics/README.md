@@ -534,13 +534,16 @@ and blocker, peak RSS status, correctness/evidence-regression posture,
 `buffer_pool_enabled=false`, and `buffer_reuse_count=0` until safe measurement and reuse exist.
 This is resource-profile visibility only, not a speed or memory-efficiency claim.
 
-`GAR-PERF-2H` tracks optimized build profiles and the PGO benchmark lane. The harness already records
-`shardloom_build_profile`; future rows should also record build-profile kind, rustc/cargo versions,
-target triple, target CPU policy, `target_cpu_native_enabled`, LTO status/mode, codegen units, PGO
-status, PGO artifact/training workload refs, build reproducibility status, portable release artifact
-status, benchmark-only build status, correctness digest, and claim gate. Planned lanes are
-`release-lto`, `release-pgo`, and `release-native-benchmark`. `target-cpu=native` is benchmark-only,
-not a portable release setting, and optimized build rows are not public performance claims.
+`GAR-PERF-2H` adds optimized build profiles and the PGO benchmark lane. The harness records
+`build_profile`, build-profile kind, rustc/cargo versions, target triple, target CPU policy,
+`target_cpu_native_enabled`, LTO status/mode, codegen units, PGO status,
+profile-generate/profile-use status, PGO artifact/training workload refs, build reproducibility
+status, portable release artifact status, benchmark-only build status,
+`build_profile_correctness_digest`, no-fallback fields, and claim gate. Supported lanes are
+`debug`, `release`, `release-lto`, `release-pgo`, and `release-native-benchmark`.
+`target-cpu=native` is applied only by `release-native-benchmark`, is benchmark-only, and is not a
+portable release setting. `release-pgo` is report-only unless `SHARDLOOM_PGO_PROFILE` points to a
+merged profile artifact. Optimized build rows are not public performance claims.
 
 ### Website Evidence Snapshot
 

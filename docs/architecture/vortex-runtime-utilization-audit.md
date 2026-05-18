@@ -167,8 +167,8 @@ reuse blockers, no unsafe lifetime shortcuts, `allocation_fallback_attempted=fal
 it is not a Vortex encoded-native, performance, memory-efficiency, daemon/session,
 object-store/lakehouse, or production claim.
 
-`GAR-PERF-2H` is the planned optimized build-profile and PGO benchmark lane. It should keep
-`release-lto`, `release-pgo`, and `release-native-benchmark` evidence separate from Vortex provider
+`GAR-PERF-2H` is the optimized build-profile and PGO benchmark lane. It keeps `release-lto`,
+`release-pgo`, and `release-native-benchmark` evidence separate from Vortex provider
 evidence, record rustc/cargo versions, target triple, target CPU policy, LTO/PGO/native status,
 correctness digest, no-fallback fields, and claim gate, and keep `target-cpu=native`
 benchmark-only. Build-profile evidence does not prove Vortex-native operator coverage or public

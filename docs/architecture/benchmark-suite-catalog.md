@@ -251,13 +251,15 @@ peak RSS as `not_available`, keeps `buffer_pool_enabled=false`, and keeps reuse 
 safe measurement and reuse are implemented. Buffer evidence must not be rendered as speed or
 memory-efficiency proof.
 
-`GAR-PERF-2H` adds the planned optimized build-profile and PGO benchmark lane. Future benchmark rows
-should expand the existing `shardloom_build_profile` fairness field with `build_profile_kind`,
-rustc/cargo version, target triple, target CPU policy, `target_cpu_native_enabled`, LTO status/mode,
-codegen units, PGO status, profile-generate/profile-use status, PGO artifact/training refs, build
-reproducibility status, portable-release-artifact status, benchmark-only-build status, correctness
-digest, no-fallback fields, and claim gate. `target-cpu=native` is benchmark-only, and optimized
-profile rows must not be rendered as performance claims.
+`GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Benchmark rows expand the
+existing `shardloom_build_profile` fairness field with `build_profile_kind`, rustc/cargo version,
+target triple, target CPU policy, `target_cpu_native_enabled`, LTO status/mode, codegen units, PGO
+status, profile-generate/profile-use status, PGO artifact/training refs, build reproducibility
+status, portable-release-artifact status, benchmark-only-build status, build-profile correctness
+digest, no-fallback fields, and claim gate. `release-lto` is portable ThinLTO,
+`release-pgo` is report-only unless `SHARDLOOM_PGO_PROFILE` points to a merged profile, and
+`release-native-benchmark` is host-native benchmark-only. `target-cpu=native` is not portable
+release evidence, and optimized profile rows must not be rendered as performance claims.
 
 `GAR-PERF-2I` adds first-class native microbenchmark suite rows. Native microbenchmark rows stay
 separate from traditional compatibility-file rows, prepared/native end-to-end rows, and external

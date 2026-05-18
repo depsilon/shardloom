@@ -1027,9 +1027,9 @@ plan before coding.
   allocation/resource posture for result buffers, temporary vectors, hash tables,
   dictionary/string state, and source-state arrays while keeping reuse disabled, correctness/evidence
   posture explicit, and unsafe lifetime shortcuts prohibited.
-- [ ] `GAR-PERF-2H` adds the planned optimized build-profile and PGO benchmark lane. It should define
-  `release-lto`, `release-pgo`, and `release-native-benchmark` posture, keep `target-cpu=native`
-  benchmark-only, record build profile/LTO/PGO/native status in benchmark artifacts, and keep
+- [x] `GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. It defines
+  `release-lto`, `release-pgo`, and `release-native-benchmark` posture, keeps `target-cpu=native`
+  benchmark-only, records build profile/LTO/PGO/native status in benchmark artifacts, and keeps
   performance claims blocked until claim-grade gates pass.
 - [x] `GAR-PERF-2I` adds the native microbenchmark suite expansion for Vortex scan-only,
   filter predicate-only, projection-only, group-by kernel, hash-join kernel, top-k, result-sink
@@ -1055,10 +1055,10 @@ plan before coding.
 - [x] Workspace feature/build matrix and crate-posture public export reports exist.
 - [x] Docs record current executable, report-only, unsupported, planned, and prohibited-fallback export
   posture.
-- [ ] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark posture. Future feature/build
-  matrix evidence should distinguish portable release artifacts from `target-cpu=native`
-  benchmark-only artifacts and should record LTO/PGO/native profile status before any benchmark row
-  is interpreted.
+- [x] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark posture. Feature/build matrix
+  evidence distinguishes portable release artifacts from `target-cpu=native` benchmark-only
+  artifacts and records LTO/PGO/native profile status before optimized benchmark rows are
+  interpreted.
 - [ ] Release claims remain not claimable until required matrix rows have attached passing evidence.
 
 ### RFC 0042 - Vortex Runtime Utilization and Execution Spine
@@ -1104,10 +1104,9 @@ plan before coding.
   local runtime paths. It reports allocation profile status, scoped buffer-pool status,
   buffer-reuse count/blocker, peak RSS `not_available` status, correctness/evidence-regression
   posture, no unsafe lifetime shortcuts, and no-fallback/no-external-engine fields.
-- [ ] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark follow-through. It must keep
-  Cargo custom profiles, rustc PGO flags, host-native codegen, benchmark evidence, and release
-  portability boundaries explicit so optimized builds do not become hidden performance or release
-  claims.
+- [x] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark follow-through. It keeps Cargo
+  custom profiles, rustc PGO flags, host-native codegen, benchmark evidence, and release portability
+  boundaries explicit so optimized builds do not become hidden performance or release claims.
 - [ ] `GAR-IOREUSE-1` adds planned I/O reuse and fanout follow-through across Vortex-adjacent
   source/sink boundaries. It must check Vortex Source/Sink/Split, file I/O, prepared artifact, and
   output concepts before inventing parallel abstractions; any wrapper must preserve Native I/O,
@@ -1279,8 +1278,8 @@ plan before coding.
   resource evidence separate from performance claims, reports allocation profile and disabled buffer
   reuse/blocker fields, preserves correctness/evidence posture, and prohibits hidden global pools or
   unsafe lifetime shortcuts.
-- [ ] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark follow-through. The flow must
-  keep build profile, LTO, PGO, target triple, target CPU posture, benchmark-only native artifacts,
+- [x] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark follow-through. The flow keeps
+  build profile, LTO, PGO, target triple, target CPU posture, benchmark-only native artifacts,
   release portability, correctness digest, no-fallback fields, and claim gate visible.
 - [x] `GAR-PERF-2I` adds native microbenchmark suite follow-through. The flow keeps kernel-level
   native microbenchmark rows distinct from compatibility-import, prepared/native end-to-end, and
