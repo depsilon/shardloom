@@ -34,6 +34,18 @@ Use this for the scoped GAR-GEN-1C path that writes caller-provided rows to a lo
 emits generated-source and output evidence. It is not SQL/VALUES execution, broad DataFrame
 runtime, object-store output, Foundry output, production support, or a performance claim.
 
+## Source-Free Range Local Output Smoke
+
+```powershell
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; r=context(repo_root='.').range(0, 5, column='id').write('target/generated-range.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+```
+
+Use this for the scoped GAR-GEN-1D path that executes one ShardLoom-native range generator, writes
+local JSONL output, and emits generated-source/output/no-fallback evidence. It is not SQL
+`VALUES`/literal execution, broad DataFrame runtime, other generator-node support, object-store
+output, Foundry output, production support, or a performance claim.
+
 ## Foundry Lightweight Transform
 
 ```powershell

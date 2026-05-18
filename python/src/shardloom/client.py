@@ -260,6 +260,30 @@ class GeneratedSourceWriteReport:
 
         return _required_field(self.envelope, "claim_gate_status")
 
+    @property
+    def generated_source_range_start(self) -> int | None:
+        """Return the generated range start when this report is for a range source."""
+
+        return self.envelope.field_int("generated_source_range_start")
+
+    @property
+    def generated_source_range_end(self) -> int | None:
+        """Return the generated range exclusive end when this report is for a range source."""
+
+        return self.envelope.field_int("generated_source_range_end")
+
+    @property
+    def generated_source_range_step(self) -> int | None:
+        """Return the generated range step when this report is for a range source."""
+
+        return self.envelope.field_int("generated_source_range_step")
+
+    @property
+    def generated_source_range_column(self) -> str | None:
+        """Return the generated range column name when present."""
+
+        return self.envelope.field("generated_source_range_column")
+
 
 @dataclass(frozen=True, slots=True)
 class LocalVortexPrimitiveSmokeReport:
@@ -3361,6 +3385,36 @@ class ShardLoomClient:
             str(output_path),
             schema_arg,
             rows_arg,
+            "--output-format",
+            output_format,
+        ]
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        return GeneratedSourceWriteReport(self.run(command, check=check))
+
+    def generated_source_range_smoke(
+        self,
+        output_path: str | os.PathLike[str],
+        start: int,
+        end: int,
+        *,
+        step: int = 1,
+        column: str = "value",
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Run the scoped local engine-native range generated-output smoke command."""
+
+        command: list[CommandPart] = [
+            "generated-source-range-smoke",
+            str(output_path),
+            str(start),
+            str(end),
+            "--step",
+            str(step),
+            "--column",
+            str(column),
             "--output-format",
             output_format,
         ]

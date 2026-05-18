@@ -924,7 +924,11 @@ fn generated_source_capability_contract_separates_no_dataset_smoke() {
         )));
         assert!(output.contains(&string_field_pair(
             "engine_native_generated_source_support_status",
-            "report_only"
+            "fixture_smoke_supported"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "engine_native_generated_source_blocker_id",
+            "none_scoped_local_range_jsonl_smoke_only"
         )));
         assert!(output.contains(&string_field_pair("input_dataset_count", "0")));
         assert!(output.contains(&field_pair("source_io_performed", false)));

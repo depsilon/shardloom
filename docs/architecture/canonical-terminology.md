@@ -351,9 +351,10 @@ candidates.
   Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, or package-readiness claim.
 - **source-free generated output**: an execution flow where ShardLoom writes output without reading
   an input dataset. It is distinct from no-dataset smoke and benchmark fixture generation. Current
-  runtime support is limited to the GAR-GEN-1C local user-row JSONL fixture smoke; broader generator
-  nodes, SQL/DataFrame surfaces, object-store writes, and Foundry paths remain report-only or blocked
-  until they have generated-source, output sink, and no-fallback evidence.
+  runtime support is limited to GAR-GEN-1C local user-row JSONL and GAR-GEN-1D local range JSONL
+  fixture smokes; broader generator nodes, SQL/DataFrame surfaces, object-store writes, and Foundry
+  paths remain report-only or blocked until they have generated-source, output sink, and no-fallback
+  evidence.
 - **GeneratedSourceCertificate**: certificate evidence for user-created rows or ShardLoom-native
   generator nodes. The full contract remains report-only outside scoped admitted slices. It records
   the generated source kind, schema digest, row count, plan digest, optional seed, deterministic

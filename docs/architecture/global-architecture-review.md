@@ -813,10 +813,11 @@ plan before coding.
 - [ ] `GAR-GEN-1` source-free generated-output runtime remains partially planned. `GAR-GEN-1A/1B`
   add the report-only `GeneratedSourceCertificate` contract and capability rows that separate
   `no_dataset_smoke`, `user_generated_source`, and `engine_native_generated_source`; `GAR-GEN-1C`
-  adds one scoped local user-row JSONL smoke path with generated-source and output evidence. The
-  remaining GAR-GEN work is engine-native generator runtime plus SQL/DataFrame/API admission without
-  promoting broad SQL/DataFrame runtime, object-store/Foundry runtime, performance, production, or
-  package claims before evidence exists.
+  adds one scoped local user-row JSONL smoke path with generated-source and output evidence, and
+  `GAR-GEN-1D` adds one scoped local engine-native range JSONL smoke path. Remaining GAR-GEN work is
+  other engine-native generators plus SQL/DataFrame/API admission without promoting broad
+  SQL/DataFrame runtime, object-store/Foundry runtime, performance, production, or package claims
+  before evidence exists.
 - [ ] `GAR-NOVEL-1A` keeps `GeneratedSourceCertificate` aligned with Python/API docs,
   SQL/DataFrame capability rows, Foundry proof docs, and future lineage/telemetry/confidence refs
   without adding generated-output runtime.
@@ -841,10 +842,11 @@ plan before coding.
 - [x] `GAR-0032-B` exposes method-level support status and claim boundaries for Python
   DataFrame/query-builder affordances without reading data, materializing rows, writing outputs,
   invoking external engines, or upgrading support to claim-grade runtime.
-- [ ] Source-free generated-output workflows such as `ctx.range(...).write(...)`,
-  `ctx.from_rows(...).write(...)`, SQL literal `SELECT`, SQL `VALUES`, calendar/date dimension
-  generation, and reference/lookup table generation remain planned under `GAR-GEN-1`. No-input smoke
-  does not count as generated-output execution.
+- [ ] Source-free generated-output workflows such as `ctx.from_rows(...).write(...)` and
+  `ctx.range(...).write(...)` now have scoped local JSONL smoke paths. SQL literal `SELECT`, SQL
+  `VALUES`, calendar/date dimension generation, literal tables, and reference/lookup table
+  generation remain planned under `GAR-GEN-1`. No-input smoke does not count as generated-output
+  execution.
 - [ ] `GAR-COMPAT-1` is the user-workflow compatibility scoreboard for source/sink/adapters. It
   separates plan/report coverage from runtime coverage for local files, Vortex, generated-output
   APIs, external databases, object stores, table formats, REST/Flight/ADBC, and Foundry.
@@ -1313,9 +1315,9 @@ plan before coding.
   stores, table formats, REST/Flight/ADBC, and Foundry.
 - [ ] `GAR-GEN-1` is now the compute-flow follow-up for source-free generated-output execution.
   The flow now has report-only contract rows that distinguish no-dataset smoke from user-generated
-  rows and engine-native generator nodes, plus one scoped user-row local JSONL smoke path. It still
-  requires generated-source plus output-sink evidence before any broader generated-output runtime
-  claim.
+  rows and engine-native generator nodes, plus scoped user-row and range local JSONL smoke paths. It
+  still requires generated-source plus output-sink evidence before any broader generated-output
+  runtime claim.
 - [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
   no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
 

@@ -698,8 +698,10 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "engine_native_generated_source",
         "not_applicable_no_generated_rows",
         "generated-source-user-rows-smoke",
+        "generated-source-range-smoke",
         "ctx.from_rows([",
-        "gar-gen-1.engine_native_generated_source_runtime_not_implemented",
+        "ctx.range(",
+        "none_scoped_local_range_jsonl_smoke_only",
     ] {
         assert!(
             compute_flow.contains(required),
@@ -710,12 +712,14 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     let python_readme = read_repo_file("python/README.md");
     assert!(python_readme.contains("generated_source_contract"));
     assert!(python_readme.contains("ctx.from_rows("));
+    assert!(python_readme.contains("ctx.range("));
     assert!(python_readme.contains("no_dataset_smoke_separate_from_generated_output"));
 
     let python_context = read_repo_file("python/src/shardloom/context.py");
     assert!(python_context.contains("GeneratedSourceCertificateContract"));
     assert!(python_context.contains("GeneratedSourceCaseCapability"));
     assert!(python_context.contains("GeneratedRowsSource"));
+    assert!(python_context.contains("GeneratedRangeSource"));
     assert!(python_context.contains("all_no_fallback_no_external_engine"));
 }
 

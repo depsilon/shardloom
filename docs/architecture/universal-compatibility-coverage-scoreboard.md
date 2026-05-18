@@ -127,13 +127,14 @@ no_dataset_smoke
 user_generated_source
   -> user Python code creates rows
   -> ShardLoom consumes rows as a generated/literal source
-  -> deterministic only when generation evidence exists
+  -> scoped local JSONL fixture smoke is supported for ctx.from_rows(...).write(...)
 
 engine_native_generated_source
   -> ShardLoom plan contains generator nodes such as range, sequence, values, literal_table,
      calendar/date dimension, or deterministic synthetic profile
-  -> ShardLoom executes the generator internally
-  -> local output evidence is still required
+  -> scoped local JSONL fixture smoke is supported for ctx.range(...).write(...)
+  -> sequence, values, literal_table, calendar, synthetic, SQL, and broad DataFrame generation remain report-only
+  -> local output evidence is still required for every supported slice
 ```
 
 No source Native I/O certificate is claimed when no source dataset was read. A local generated

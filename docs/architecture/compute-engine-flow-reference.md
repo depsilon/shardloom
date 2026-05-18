@@ -534,7 +534,8 @@ The governing GAR item is `GAR-GEN-1 source-free generated-output execution and
 GeneratedSourceCertificate`. GAR-GEN-1A/GAR-GEN-1B expose
 `shardloom.generated_source_certificate_contract.v1` through CLI and Python capability views.
 GAR-GEN-1C adds `generated-source-user-rows-smoke` plus Python `ctx.from_rows([...]).write(...)` for
-one local JSONL output smoke path.
+one local user-row JSONL output smoke path. GAR-GEN-1D adds `generated-source-range-smoke` plus
+Python `ctx.range(...).write(...)` for one ShardLoom-native range JSONL output smoke path.
 
 ### Case Split
 
@@ -542,21 +543,21 @@ one local JSONL output smoke path.
 | --- | --- | --- | --- |
 | `no_dataset_smoke` | Status, capability, or proof command runs with no input dataset and no output data execution. | Smoke-only capability/proof behavior; also present as the first generated-source contract row. | `generated_source_created=false`, `output_io_performed=false`, `generated_source_certificate_status=not_applicable_no_generated_rows`; no source Native I/O certificate, no generated rows, no output data claim. |
 | `user_generated_source` | User Python code creates rows, then ShardLoom consumes those rows as a generated/literal source. | Scoped local JSONL fixture smoke through `generated-source-user-rows-smoke` and `ctx.from_rows([...]).write(...)`; the broader contract remains report-only outside that slice. | Deterministic claim only for the scoped local user-row path when row creation, schema digest, row count, plan digest, sink evidence, and no-fallback evidence exist. |
-| `engine_native_generated_source` | ShardLoom plan contains generator nodes such as `range`, `sequence`, `values`, `literal_table`, calendar/date dimension generation, or a deterministic synthetic profile. | Report-only contract row with deterministic blocker `gar-gen-1.engine_native_generated_source_runtime_not_implemented`. | ShardLoom-native generator execution must emit generated-source, output, materialization, and no-fallback evidence. |
+| `engine_native_generated_source` | ShardLoom plan contains generator nodes such as `range`, `sequence`, `values`, `literal_table`, calendar/date dimension generation, or a deterministic synthetic profile. | Scoped local JSONL fixture smoke for the `range` generator through `generated-source-range-smoke` and `ctx.range(...).write(...)`; other generator nodes remain report-only. | Deterministic claim only for the scoped local range path when row count, schema digest, plan digest, sink evidence, materialization boundary, and no-fallback evidence exist. |
 
 ### Planned API Shape
 
 Python and future adapter surfaces converge on one generated-source contract. The currently
-runtime-supported fixture-smoke shape is:
+runtime-supported fixture-smoke shapes are:
 
 ```python
 ctx.from_rows([{"id": 1, "label": "alpha"}]).write("target/generated.jsonl")
+ctx.range(0, 1000).write("target/generated-range.jsonl")
 ```
 
 The following shapes remain future/report-only until their own runtime evidence lands:
 
 ```python
-ctx.range(0, 1000).with_column(...).write(...)
 ctx.literal_table(...).write(...)
 ctx.calendar(...).write(...)
 ```
@@ -573,13 +574,15 @@ output sink have evidence. Until then, SQL literal `SELECT`, SQL `VALUES`, sourc
 and optional `generate_series`/`range` vocabulary stay report-only capability rows.
 
 DataFrame-style builder methods should classify source-free builders and local writes without
-implying broad DataFrame runtime. The only runtime-supported generated-output builder today is the
-scoped local user-row JSONL smoke; all other source-free builders require future admission evidence.
+implying broad DataFrame runtime. The runtime-supported generated-output builders today are scoped
+local user-row JSONL and range JSONL smokes; expression-backed `with_column`, joins, aggregations,
+SQL, non-local output, and other source-free builders require future admission evidence.
 
 ### Required Generated-Source Evidence Fields
 
 The contract defines these as the required fields for generated-output runtime. GAR-GEN-1C emits
-them for the scoped user-row local JSONL smoke:
+them for the scoped user-row local JSONL smoke, and GAR-GEN-1D emits them for the scoped
+engine-native range local JSONL smoke:
 
 ```text
 input_dataset_count=0
@@ -598,6 +601,15 @@ fallback_attempted=false
 external_engine_invoked=false
 claim_gate_status
 ```
+
+The range smoke also emits `generated_source_range_start`, `generated_source_range_end`,
+`generated_source_range_step`, and `generated_source_range_column` so the generated plan is
+inspectable without reading an input source.
+
+The engine-native generated-source capability row now uses
+`none_scoped_local_range_jsonl_smoke_only` to mark the admitted range fixture-smoke scope. That
+blocker/status does not admit `sequence`, `values`, `literal_table`, calendar/date dimensions,
+synthetic generators, SQL literals, DataFrame expressions, object-store writes, or Foundry output.
 
 Current no-dataset smoke capability rows intentionally report:
 

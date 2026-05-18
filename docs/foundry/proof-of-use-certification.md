@@ -72,11 +72,14 @@ Future Foundry generated-output proof must stay separate from no-dataset smoke:
 - `engine_native_generated_source`:
   - ShardLoom executes generator nodes such as `range`, `sequence`, `values`, `literal_table`,
     calendar/date dimension, or deterministic synthetic profile
+  - the scoped local `range` JSONL smoke is supported outside Foundry; other generator nodes remain
+    report-only
   - ShardLoom writes output and emits generated-source and output evidence
 
 Generated-output proof fields should align with the `GAR-GEN-1` contract. The CLI/Python capability
 view exposes that vocabulary as `shardloom.generated_source_certificate_contract.v1`; GAR-GEN-1C
-emits the fields only for a scoped local user-row JSONL smoke, not for Foundry:
+and GAR-GEN-1D emit the fields only for scoped local user-row and range JSONL smokes, not for
+Foundry:
 
 ```text
 input_dataset_count=0
