@@ -1243,12 +1243,12 @@ plan before coding.
         residual-state reuse only; generalized encoded/native operators, performance claims,
         SQL/DataFrame, object-store/lakehouse, Spark-displacement, and production claims remain
         blocked.
-- [ ] `GAR-PERF-1` adds the next end-to-end prepared/native performance architecture queue:
+- [x] `GAR-PERF-1` completes the end-to-end prepared/native performance architecture queue:
   post-source-state-reuse benchmark refresh, complete source-state reuse coverage classification,
-  fused filter/project/limit plus selection-vector follow-through, and report-only Bayesian
-  performance/layout advisor. These items are evidence/architecture/runtime-plumbing follow-ups and
-  do not authorize public performance, superiority, Spark-displacement, production, SQL/DataFrame,
-  object-store/lakehouse, or encoded-native claims.
+  fused filter/project/limit plus selection-vector follow-through, and the report-only Bayesian
+  performance/layout advisor contract. These items are evidence/architecture/runtime-plumbing
+  surfaces and do not authorize public performance, superiority, Spark-displacement, production,
+  SQL/DataFrame, object-store/lakehouse, or encoded-native claims.
 - [x] `GAR-PERF-2A` adds evidence-level runtime tiering across `minimal_runtime`, `certified`, and
   `full_replay` for the scoped prepared/native batch runner. The flow shows evidence level as
   independent from execution mode and engine mode, keeps `fallback_attempted=false` and

@@ -500,11 +500,14 @@ GAR-IOREUSE-1F adds the evidence-safe reuse-level matrix with seven normalized r
 per-level status, hit/allowed/digest/blocker fields, invalidation reason linkage, evidence-level
 visibility, `claim_grade_requirements_met=false`, no-fallback fields, and
 `claim_gate_status=not_claim_grade`.
-Remaining GAR-PERF-1 follow-ups are fused
-filter/project/limit and selection-vector execution plus the report-only Bayesian performance/layout
-advisor. These are evidence and architecture slices: benchmark outputs must remain local
-pre-release evidence, not leaderboards or public performance claims. Compatibility-import rows
-continue to include ingest/stage/certification work and must not be presented as pure query speed.
+GAR-PERF-1D adds the report-only Bayesian performance/layout advisor contract. Benchmark rows now
+carry advisory-only confidence, uncertainty, input evidence refs, and future execution-mode/reuse/
+sizing/layout decision-surface fields. The advisor never applies runtime decisions, never upgrades
+claim gates, and cannot make public performance claims. Remaining GAR-PERF-1 follow-up work is
+fresh evidence generation and any later fitted Bayesian model or claim blocker that is backed by a
+separate evidence-bearing slice. Benchmark outputs must remain local pre-release evidence, not
+leaderboards or public performance claims. Compatibility-import rows continue to include ingest/
+stage/certification work and must not be presented as pure query speed.
 
 GAR-FLOW-2D adds `work_avoidance_evidence_schema` to the JSON artifact and Markdown report. The
 schema uses only `measured`, `not_available`, `unsupported`, and `not_applicable` as status values.

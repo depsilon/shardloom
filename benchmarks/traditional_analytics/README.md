@@ -138,9 +138,12 @@ boundary, decode, materialization, row reads, Arrow conversion, writes, spill,
 auto-derived resource sizing, NativeIoCertificate status, local runtime task
 graph/scheduler refs, bounded queue/backpressure status, memory reservation
 request/grant/release counts, retry/cancellation gate status, operator spill
-blockers, runtime execution certificate status, and report-only Vortex layout/write advisor fields
-for chunking, encoding, statistics, dictionary, clustering, flush, compaction, read/write tradeoff,
-evidence-source status, no-claim status, no-write status, and no-fallback status.
+blockers, runtime execution certificate status, report-only Vortex layout/write advisor fields for
+chunking, encoding, statistics, dictionary, clustering, flush, compaction, read/write tradeoff,
+evidence-source status, no-claim status, no-write status, and no-fallback status, plus the
+report-only Bayesian advisor fields for confidence, uncertainty, input evidence refs, future
+execution-mode/reuse/sizing/layout decision surfaces, no-runtime-decision status, advisory-only
+claim-gate status, and no-fallback/no-external-engine status.
 
 ShardLoom's reported benchmark version appends `-dirty` when the workspace has
 uncommitted tracked changes, so local bring-up reports do not look like clean
@@ -179,6 +182,13 @@ The ShardLoom DecisionTrace/WhyReport evidence table explains why each native
 runtime row is or is not claim-grade. It records decision-trace counts, the
 primary reason, summarized claim blockers, and the next evidence needed before
 runtime measurements can become correctness/benchmark/certification claims.
+
+ShardLoom benchmark artifacts also include a Bayesian performance/layout advisor contract. Current
+advisor rows are report-only schema and uncertainty evidence, not a fitted posterior model. They
+identify the future decision surfaces for execution-mode recommendation, source-state reuse
+thresholds, batch rows, target partition bytes, max parallelism, and layout/write choices while
+keeping `bayesian_advisor_runtime_decision_applied=false` and
+`bayesian_advisor_claim_gate_status=advisory_only`.
 
 The ShardLoom write/commit evidence table runs the local committed-manifest step against a
 synthetic staged workspace and records commit

@@ -177,6 +177,14 @@ Supporting docs:
     target-CPU-native boundaries, and release portability rules are complete and recorded in the
     ledger. Actual PGO profile artifacts, benchmark reruns under optimized profiles, and any
     claim-grade use must remain represented by later evidence-bearing slices.
+- `docs/architecture/bayesian-performance-layout-advisor.md`
+  - Role: GAR-PERF-1D reference for the report-only Bayesian performance and layout advisor
+    contract.
+  - Status rule: benchmark artifacts now emit `bayesian_advisor_*` fields for advisory-only
+    confidence/uncertainty and future mode/reuse/sizing/layout decision surfaces. Runtime
+    decisioning, automatic layout writes, fitted posterior models, and claim-grade confidence use
+    must remain represented by later evidence-bearing slices before they can affect behavior or
+    public claims.
 - `docs/architecture/capability-certification-sequencing.md`
   - Role: CG-20 sequencing ledger and implementation-order reference.
   - Status rule: phase-plan checklist owns planned CG-20 work items. Remaining approximate/sketch
@@ -358,51 +366,6 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `vortex_scan_millis`, `operator_compute_millis`, `result_sink_write_millis`,
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
-
-#### GAR-PERF-1 - End-To-End Prepared/Native Performance Architecture
-
-- [ ] GAR-PERF-1D Bayesian performance and layout advisor report-only contract
-  - Source:
-    - benchmark evidence model.
-    - resource sizing evidence fields.
-    - prepared/native batch runner.
-    - `docs/architecture/performance-attribution-and-execution-structure.md`.
-  - Current state:
-    - Resource sizing is currently rule/policy based.
-    - Benchmark confidence is not Bayesian.
-  - Next slice outcome:
-    - Add a report-only advisor design for execution-mode recommendation, source-state reuse
-      threshold, batch rows, target partition bytes, max parallelism, and layout/write choice.
-  - User-visible surface:
-    - advisor report docs, future CLI capability/report row, benchmark interpretation docs.
-  - Implementation scope:
-    - report schema/design doc, capability row, docs, and tests if a report command is added.
-  - Evidence required:
-    - `confidence`.
-    - `uncertainty_reason`.
-    - input evidence refs.
-    - `advisor_version`.
-    - `claim_gate_status=advisory_only`.
-    - no-fallback evidence.
-  - Acceptance:
-    - Advisor never silently changes mode.
-    - `auto` mode remains transparent and reports selected mode plus reason.
-    - Advisor never upgrades claim status.
-    - Advisory rows identify missing evidence instead of fabricating certainty.
-  - Verification:
-    - report snapshot tests if implemented.
-    - release readiness metadata tests if claim gates are touched.
-    - `git diff --check`
-  - Non-goals:
-    - no runtime decisioning without explicit opt-in.
-    - no performance claims.
-    - no object-store write, layout rewrite, or production layout recommendation.
-  - Claim boundary:
-    - Advisory/report-only; not claim-grade and not an optimizer decision.
-  - Fallback boundary:
-    - Advisor cannot invoke external engines, probes, credentials, or object-store I/O.
-  - Dependencies/blockers:
-    - stable benchmark evidence schema, resource sizing fields, and claim-gate policy.
 
 #### GAR-BENCH-PUB-1 - Complete Competitor Benchmark Publishing And Static Artifact Ingestion
 
@@ -948,8 +911,8 @@ separate evidence-bearing slices admit them.
     `docs/architecture/evidence-native-generated-execution-observability-confidence.md`.
   - Current state:
     - Claim-grade gates are rule/evidence based.
-    - Benchmark confidence is not probabilistic.
-    - GAR-PERF-1D is the adjacent report-only Bayesian performance/layout advisor slice.
+    - GAR-PERF-1D now emits adjacent report-only Bayesian performance/layout advisor fields for
+      confidence and uncertainty, but those fields are not a fitted posterior regression model.
   - Next slice outcome:
     - Add a report-only Bayesian claim-confidence schema with `posterior_runtime_distribution`,
       `credible_interval`, `probability_of_regression`, `minimum_iterations_for_claim_grade`, and

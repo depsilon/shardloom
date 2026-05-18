@@ -118,6 +118,11 @@ Attribute safety rules:
 
 Bayesian claim confidence is advisory. It cannot upgrade a claim from not-claim-grade to
 claim-grade by itself. It may block or hold a release/performance claim when uncertainty is high.
+GAR-PERF-1D now provides the adjacent benchmark-row advisor contract
+`shardloom.traditional_analytics.bayesian_advisor.v1` for report-only confidence and uncertainty
+fields around mode/reuse/sizing/layout decision surfaces. The GAR-NOVEL-1D model below is the later
+claim-confidence and regression layer; it still needs a fitted posterior model and release/claim
+gate integration before it can block claims from statistical uncertainty.
 
 Report-only fields:
 
