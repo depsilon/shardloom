@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-1G source-linked reference and citation blocks
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/field-guide/*.html`
+    - `website/use-cases/*.html`
+    - `docs/use-cases/generated/*.md`
+    - `website/assets/site.css`
+    - `website/validate_static_assets.js`
+    - `scripts/check_use_case_backlinks.py`
+    - `scripts/check_website_readiness.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: turn existing Field Guide and Use Case Atlas reference lists into source-linked citation
+    blocks that explain what each cited repo path proves, without creating new support or runtime
+    claims.
+  - Checklist:
+    - [x] Add a shared `citation_proof` mapping for common source-of-truth paths, RFCs, examples,
+          generated pages, benchmark artifacts, and Field Guide/Use Case Atlas pages.
+    - [x] Render `data-citation-block="reference-files"` / `citation-card` citation blocks on every
+          Field Guide dossier and use-case page.
+    - [x] Add `What this proves` labels to generated website citation cards and generated Markdown
+          use-case reference blocks.
+    - [x] Extend backlink validation to fail missing citation blocks, missing proof labels, missing
+          local references, and vague "see docs" reference wording.
+    - [x] Extend website readiness and static asset validation to protect citation blocks on
+          generated Field Guide and Use Case Atlas pages.
+    - [x] Move GAR-WEB-ATLAS-1G out of the active Planned queue.
+  - Evidence and verification:
+    - `python website/build_static_pages.py`
+    - `python -m pagefind --site website` using Pagefind 1.5.2
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - Citation blocks provide provenance and explanation only. They do not change support status,
+      promote blocked/report-only capabilities, recompute benchmarks, publish packages, or create
+      production, performance, SQL/DataFrame, object-store/lakehouse, Foundry, or
+      Spark-displacement claims.
+  - Fallback boundary:
+    - Citation text preserves external-baseline-only and no-fallback policy language. No source
+      reference introduces a fallback engine or runtime dependency.
+
 - [x] Session label: GAR-WEB-ATLAS-1F Can-I-use-this status matrix
   - Primary files:
     - `website/build_static_pages.py`

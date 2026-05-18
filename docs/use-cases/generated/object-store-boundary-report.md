@@ -51,10 +51,10 @@ A blocked or report-only object-store plan with no provider probe and no externa
 
 ## Reference Files
 
-- `docs/architecture/compute-engine-flow-reference.md`
-- `docs/architecture/universal-input-contract.md`
-- `docs/architecture/object-store-request-planner.md`
-- `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/architecture/universal-input-contract.md` - What this proves: Universal input contract posture and unsupported input-family diagnostics.
+- `docs/architecture/object-store-request-planner.md` - What this proves: Object-store request planning posture and blocked/runtime admission boundaries.
+- `docs/architecture/universal-compatibility-coverage-scoreboard.md` - What this proves: Compatibility scoreboard status and source/sink support boundaries.
 
 ## Related Use Cases
 

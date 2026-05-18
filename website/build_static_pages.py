@@ -89,6 +89,91 @@ def normalize_link(href: str) -> str:
     return f"https://github.com/depsilon/shardloom/{target}/main/{path}"
 
 
+CITATION_PROOF_BY_PATH = {
+    "README.md": "Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.",
+    "AGENTS.md": "Repository execution guardrails for no fallback, external-baseline-only treatment, and claim-safe work.",
+    "python/README.md": "Python wrapper posture, local smoke usage, and Python API claim boundaries.",
+    "SECURITY.md": "Security reporting and pre-release security posture.",
+    "NOTICE": "Third-party notice and generated website asset attribution posture.",
+    "docs/architecture/compute-engine-flow-reference.md": "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
+    "docs/architecture/phased-execution-plan.md": "Active planned work, claim boundaries, non-goals, and ledger move rules.",
+    "docs/architecture/global-architecture-review.md": "Repo-versus-RFC review posture and remaining unsupported or report-only surfaces.",
+    "docs/architecture/benchmark-suite-catalog.md": "Benchmark scenario families and evidence coverage expectations.",
+    "docs/architecture/canonical-terminology.md": "Canonical terminology for support states, execution modes, and claim language.",
+    "docs/architecture/performance-attribution-and-execution-structure.md": "Timing attribution model that separates import, preparation, scan, compute, sink, and evidence costs.",
+    "docs/architecture/in-process-session-runtime.md": "Scoped session-runtime model, state reuse posture, and non-daemon boundaries.",
+    "docs/architecture/io-reuse-and-fanout-architecture.md": "SourceState, VortexPreparedState, OutputPlan, fanout, and reuse evidence contracts.",
+    "docs/architecture/object-store-request-planner.md": "Object-store request planning posture and blocked/runtime admission boundaries.",
+    "docs/architecture/operational-evidence-policy-hardening.md": "Evidence policy rules that keep unsupported paths explicit and claim gates closed.",
+    "docs/architecture/universal-compatibility-coverage-scoreboard.md": "Compatibility scoreboard status and source/sink support boundaries.",
+    "docs/architecture/universal-input-contract.md": "Universal input contract posture and unsupported input-family diagnostics.",
+    "docs/architecture/vortex-scan-pushdown-completion.md": "Vortex scan pushdown evidence fields, blockers, and scoped support boundaries.",
+    "docs/architecture/runtime-evidence-level-tiering.md": "Evidence-level distinctions for minimal runtime, certified, and full replay paths.",
+    "docs/architecture/fused-operator-pipeline.md": "Fused-pipeline plan, supported operator families, and deterministic blocker posture.",
+    "docs/architecture/compressed-encoded-kernel-registry.md": "Encoding-specific kernel registry plan and encoded-native claim gates.",
+    "docs/architecture/live-hybrid-fabric-freshness-gate.md": "Live/hybrid fabric report-only posture, freshness evidence, and non-production boundary.",
+    "docs/architecture/adoption-commercial-readiness-friction-reduction.md": "Commercial-readiness friction plan and package/channel adoption boundaries.",
+    "docs/benchmarks/local-taxonomy-benchmark.md": "Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.",
+    "docs/benchmarks/baseline-comparison-boundary.md": "Benchmark comparison boundaries and external-baseline-only policy.",
+    "docs/benchmarks/static-benchmark-publishing-runbook.md": "Static benchmark artifact publishing workflow and completeness gate posture.",
+    "docs/getting-started/first-10-minutes.md": "Shortest local orientation path for smoke checks and evidence inspection.",
+    "docs/getting-started/examples.md": "Current example catalog and local workflow entrypoints.",
+    "docs/getting-started/certified-local-workload.md": "Scoped certified local workload path and expected evidence fields.",
+    "docs/getting-started/install.md": "Installation posture and package-channel caveats for technical-preview users.",
+    "docs/foundry/proof-of-use-certification.md": "Foundry-style local proof boundary and no-production-Foundry claim posture.",
+    "docs/foundry/integration-pack-readiness.md": "Foundry integration-pack readiness posture and unresolved proof requirements.",
+    "docs/release/public-technical-preview-readiness.md": "Public technical-preview readiness checks and claim-safety posture.",
+    "docs/release/hard-release-readiness-gate.md": "Release gate requirements for package publication and public claims.",
+    "docs/release/known-unsupported-paths.md": "Known unsupported paths and deterministic blocker expectations.",
+    "website/benchmarks.html": "Rendered benchmark evidence interpretation and no-leaderboard public framing.",
+    "website/assets/benchmarks/latest/manifest.json": "Static benchmark manifest with expected lanes, availability, environment, and claim boundary.",
+    "benchmarks/traditional_analytics/README.md": "Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.",
+    "benchmarks/traditional_analytics/benchmark_registry.py": "Benchmark lane/profile registry and external-baseline-only policy metadata.",
+    "docs/skills/vortex/vortex-file-io.md": "Vortex file I/O skill notes used to ground native Vortex artifact handling.",
+    "docs/skills/vortex/vortex-scan-api.md": "Vortex Scan API skill notes used to ground scan and pushdown terminology.",
+    "docs/skills/encoded-execution.md": "Encoded execution skill notes and encoded-native claim boundaries.",
+    "docs/use-cases/README.md": "Use Case Atlas overview, audience posture, and non-expert capability grouping.",
+    "docs/use-cases/use-case-index.yml": "Machine-readable use-case status, evidence, examples, and claim-boundary index.",
+    "docs/use-cases/reference-backlinks.md": "Backlink ledger mapping source-of-truth references to related use cases.",
+    "docs/use-cases/recipes/README.md": "Non-expert recipe library and claim-safe workflow examples.",
+}
+
+
+def citation_proof(reference: str) -> str:
+    path = reference.strip()
+    normalized = path.rstrip("/")
+    if normalized in CITATION_PROOF_BY_PATH:
+        return CITATION_PROOF_BY_PATH[normalized]
+    if normalized.startswith("docs/rfcs/"):
+        return "Governing RFC for the feature contract, evidence requirements, and claim boundary."
+    if normalized.startswith("examples/"):
+        return "Runnable or blocked example posture, expected local command path, and claim boundary."
+    if normalized.startswith("docs/use-cases/generated/"):
+        return "Generated use-case page produced from the machine-readable use-case index."
+    if normalized.startswith("target/"):
+        return "Local generated evidence artifact path used for smoke or benchmark verification."
+    if normalized.startswith("website/field-guide/"):
+        return "Generated Field Guide dossier that explains the linked concept and its current support boundary."
+    if normalized.startswith("website/use-cases/"):
+        return "Generated Use Case Atlas page that states status, evidence, examples, and claim boundary."
+    return "Source-of-truth file for the referenced capability posture, evidence fields, or claim boundary."
+
+
+def render_citation_links(references: list[str]) -> str:
+    if not references:
+        return "<p>No source reference attached yet.</p>"
+    cards = []
+    for reference in references:
+        href = normalize_link(reference)
+        cards.append(
+            '<article class="citation-card">'
+            f'<a href="{esc(href)}"><code>{esc(reference)}</code></a>'
+            f'<p><strong>What this proves:</strong> {esc(citation_proof(reference))}</p>'
+            "</article>"
+        )
+    return '<div class="citation-list" data-citation-block="reference-files">' + "".join(cards) + "</div>"
+
+
 def repo_relative_path(path: Path) -> str:
     resolved = path.resolve()
     try:
@@ -1561,13 +1646,7 @@ FIELD_GUIDE_READING_PATHS = load_field_guide_reading_paths()
 
 
 def source_file_links(paths: list[str]) -> str:
-    if not paths:
-        return "<p>No source reference attached yet.</p>"
-    links = [
-        f'<a href="{esc(normalize_link(path))}"><code>{esc(path)}</code></a>'
-        for path in paths
-    ]
-    return "<ul>" + "".join(f"<li>{link}</li>" for link in links) + "</ul>"
+    return render_citation_links(paths)
 
 
 def related_concept_links(slugs: list[str]) -> str:
@@ -1949,11 +2028,7 @@ def render_use_case_status_table(use_case: dict[str, Any]) -> str:
 
 
 def render_reference_links(references: list[str]) -> str:
-    items = []
-    for reference in references:
-        href = normalize_link(reference)
-        items.append(f'<li><a href="{esc(href)}"><code>{esc(reference)}</code></a></li>')
-    return "<ul>" + "".join(items) + "</ul>"
+    return render_citation_links(references)
 
 
 def use_case_markdown(use_case: dict[str, Any]) -> str:
@@ -2014,7 +2089,10 @@ def use_case_markdown(use_case: dict[str, Any]) -> str:
     )
     lines.extend(f"- `{mistake}`" for mistake in value_list(use_case.get("common_mistakes")))
     lines.extend(["", "## Reference Files", ""])
-    lines.extend(f"- `{reference}`" for reference in references)
+    lines.extend(
+        f"- `{reference}` - What this proves: {citation_proof(reference)}"
+        for reference in references
+    )
     lines.extend(["", "## Related Use Cases", ""])
     lines.extend(f"- `{related}`" for related in value_list(use_case.get("related_use_cases")))
     lines.extend(["", "## Related Field Guide Terms", ""])

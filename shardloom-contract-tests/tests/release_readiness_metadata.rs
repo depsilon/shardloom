@@ -1910,15 +1910,20 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1D"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1E"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1F"));
-    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1G source-linked reference and citation blocks"));
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1G"));
+    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "GAR-WEB-ATLAS-1G source-linked reference and citation blocks",
         "GAR-WEB-ATLAS-1F Can-I-use-this status matrix",
         "GAR-WEB-ATLAS-1E Use Case Atlas integration",
         "GAR-WEB-ATLAS-1D static Field Guide search with Pagefind",
         "GAR-WEB-ATLAS-1C Field Guide reading paths",
         "GAR-WEB-ATLAS-1A/1B Field Guide taxonomy and dossier generator",
+        "What this proves",
+        "data-citation-block=\"reference-files\"",
+        "citation-card",
         "Capability status matrix",
         "docs/use-cases/use-case-index.yml",
         "status, input type, output type, execution mode, evidence level, and",
@@ -1994,6 +1999,10 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "docs/use-cases/use-case-index.yml",
         "PAGEFIND_HEAD",
         "pagefind_filter_spans",
+        "citation_proof",
+        "render_citation_links",
+        "data-citation-block=\"reference-files\"",
+        "What this proves:",
         "REQUIRED_FIELD_GUIDE_CATEGORIES",
         "FIELD_GUIDE_READING_PATHS",
         "field_guide_concepts_for_use_case",
@@ -2097,6 +2106,9 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "/field-guide/prepared-vortex",
         "/field-guide/native-vortex",
         "/field-guide/source-backed-scan",
+        "data-citation-block=\"reference-files\"",
+        "What this proves:",
+        "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
     ] {
         assert!(
             use_case_page.contains(required),
@@ -2107,6 +2119,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let generated_use_case =
         read_repo_file("docs/use-cases/generated/prepared-native-vortex-runtime-direction.md");
     for required in [
+        "What this proves:",
         "## Related Field Guide Terms",
         "`website/field-guide/prepared-vortex.html`",
         "`website/field-guide/native-vortex.html`",
@@ -2120,6 +2133,9 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let backlink_validator = read_repo_file("scripts/check_use_case_backlinks.py");
     for required in [
         "Related Field Guide Terms",
+        "What this proves:",
+        "Field Guide dossier missing citation block",
+        "website use-case page missing citation block",
         "use case has no related Field Guide terms",
         "website page {use_case_id} missing Field Guide term link",
         "website/content/field-guide-index.json",
@@ -2141,6 +2157,9 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Try it / related use cases",
         "Related concepts",
         "Reference files",
+        "data-citation-block=\"reference-files\"",
+        "What this proves:",
+        "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
         "claim-gated",
     ] {
         assert!(
@@ -2187,6 +2206,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Committed Pagefind static bundle",
         "Related Field Guide Terms",
         "must render reverse Field Guide term links",
+        "source-linked citation block",
+        "What this proves:",
         "data-status-matrix-filters",
         "Status page must include",
     ] {
@@ -2203,6 +2224,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "pagefind/pagefind-entry.json",
         "Pagefind index must cover generated website pages",
         "_headers missing Pagefind static-search policy",
+        "data-citation-block=\"reference-files\"",
+        "What this proves:",
         "data-status-matrix-filters",
         "data-status-matrix-grid",
     ] {

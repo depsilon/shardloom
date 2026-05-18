@@ -14,6 +14,12 @@ from pathlib import Path
 from check_use_case_index import INDEX_PATH, REPO_ROOT, load_index, validate_index
 
 
+VAGUE_REFERENCE_PATTERN = re.compile(
+    r"\bsee (?:the )?(?:docs|documentation)\b",
+    re.IGNORECASE,
+)
+
+
 def values(use_case: dict[str, object], field: str) -> list[str]:
     value = use_case.get(field)
     if isinstance(value, list):
@@ -46,6 +52,7 @@ def main() -> int:
         blockers.append("missing docs/use-cases/reference-backlinks.md")
 
     field_guide_terms_by_use_case: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    field_guide_entries: list[dict[str, object]] = []
     if not field_guide_index.exists():
         blockers.append("missing website/content/field-guide-index.json")
     else:
@@ -57,11 +64,36 @@ def main() -> int:
         for entry in field_guide_data.get("entries") or []:
             if not isinstance(entry, dict):
                 continue
+            field_guide_entries.append(entry)
             slug = str(entry.get("slug") or "")
             title = str(entry.get("title") or slug)
             for related_use_case in values(entry, "related_use_cases"):
                 if slug:
                     field_guide_terms_by_use_case[related_use_case].append((slug, title))
+
+    for entry in field_guide_entries:
+        slug = str(entry.get("slug") or "")
+        if not slug:
+            blockers.append("Field Guide entry missing slug")
+            continue
+        references = values(entry, "reference_files")
+        if not references:
+            blockers.append(f"Field Guide entry missing reference files: {slug}")
+        page = repo_root / "website" / "field-guide" / f"{slug}.html"
+        page_text = page.read_text(encoding="utf-8") if page.exists() else ""
+        if not page_text:
+            blockers.append(f"missing generated Field Guide dossier page: {slug}")
+        elif 'data-citation-block="reference-files"' not in page_text:
+            blockers.append(f"Field Guide dossier missing citation block: {slug}")
+        elif "What this proves:" not in page_text:
+            blockers.append(f"Field Guide dossier missing citation proof labels: {slug}")
+        if page_text and VAGUE_REFERENCE_PATTERN.search(page_text):
+            blockers.append(f"Field Guide dossier uses vague reference wording: {slug}")
+        for reference in references:
+            if not (repo_root / reference).exists():
+                blockers.append(f"Field Guide entry {slug} reference does not exist: {reference}")
+            if page_text and f"<code>{reference}</code>" not in page_text:
+                blockers.append(f"Field Guide dossier {slug} missing reference: {reference}")
 
     for use_case in data.get("use_cases", []):
         if not isinstance(use_case, dict):
@@ -79,9 +111,15 @@ def main() -> int:
         text = page.read_text(encoding="utf-8")
         if "## Reference Files" not in text:
             blockers.append(f"generated page missing Reference Files block: {use_case_id}")
+        if VAGUE_REFERENCE_PATTERN.search(text):
+            blockers.append(f"generated page uses vague reference wording: {use_case_id}")
         for reference in values(use_case, "references"):
             if f"`{reference}`" not in text:
                 blockers.append(f"generated page {use_case_id} missing reference: {reference}")
+            if f"`{reference}` - What this proves:" not in text:
+                blockers.append(
+                    f"generated page {use_case_id} missing citation proof for reference: {reference}"
+                )
             if reference not in backlink_text:
                 blockers.append(f"backlink ledger missing reference: {reference}")
         if not re.search(rf"\b{re.escape(use_case_id)}\b", backlink_text):
@@ -97,6 +135,12 @@ def main() -> int:
             blockers.append(f"missing generated website use-case page: {use_case_id}")
         elif "Related Field Guide Terms" not in website_text:
             blockers.append(f"website use-case page missing Related Field Guide Terms block: {use_case_id}")
+        elif 'data-citation-block="reference-files"' not in website_text:
+            blockers.append(f"website use-case page missing citation block: {use_case_id}")
+        elif "What this proves:" not in website_text:
+            blockers.append(f"website use-case page missing citation proof labels: {use_case_id}")
+        if website_text and VAGUE_REFERENCE_PATTERN.search(website_text):
+            blockers.append(f"website use-case page uses vague reference wording: {use_case_id}")
         for slug, title in related_terms:
             markdown_ref = f"`website/field-guide/{slug}.html`"
             if markdown_ref not in text:

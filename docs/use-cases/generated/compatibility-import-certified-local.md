@@ -52,11 +52,11 @@ Benchmark JSON with compatibility import timing separated from Vortex scan/opera
 
 ## Reference Files
 
-- `docs/getting-started/certified-local-workload.md`
-- `docs/architecture/compute-engine-flow-reference.md`
-- `docs/benchmarks/local-taxonomy-benchmark.md`
-- `docs/benchmarks/baseline-comparison-boundary.md`
-- `benchmarks/traditional_analytics/README.md`
+- `docs/getting-started/certified-local-workload.md` - What this proves: Scoped certified local workload path and expected evidence fields.
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
+- `docs/benchmarks/baseline-comparison-boundary.md` - What this proves: Benchmark comparison boundaries and external-baseline-only policy.
+- `benchmarks/traditional_analytics/README.md` - What this proves: Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.
 
 ## Related Use Cases
 

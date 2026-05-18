@@ -48,10 +48,10 @@ A benchmark artifact for one named scenario with no-fallback evidence and correc
 
 ## Reference Files
 
-- `benchmarks/traditional_analytics/README.md`
-- `docs/architecture/benchmark-suite-catalog.md`
-- `docs/benchmarks/local-taxonomy-benchmark.md`
-- `docs/benchmarks/baseline-comparison-boundary.md`
+- `benchmarks/traditional_analytics/README.md` - What this proves: Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.
+- `docs/architecture/benchmark-suite-catalog.md` - What this proves: Benchmark scenario families and evidence coverage expectations.
+- `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
+- `docs/benchmarks/baseline-comparison-boundary.md` - What this proves: Benchmark comparison boundaries and external-baseline-only policy.
 
 ## Related Use Cases
 

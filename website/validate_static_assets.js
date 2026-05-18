@@ -225,6 +225,28 @@ for (const useCasePage of htmlRuntimeFiles.filter((relativePath) =>
     /href="\/field-guide\/[^"]+"/.test(source),
     `${useCasePage} must link back to at least one Field Guide term`,
   );
+  assert(
+    source.includes('data-citation-block="reference-files"'),
+    `${useCasePage} must render a source-linked citation block`,
+  );
+  assert(
+    source.includes("What this proves:"),
+    `${useCasePage} citation block must explain what each source proves`,
+  );
+}
+
+for (const dossierPage of htmlRuntimeFiles.filter((relativePath) =>
+  relativePath.startsWith("field-guide/") && relativePath !== "field-guide/index.html"
+)) {
+  const source = read(dossierPage);
+  assert(
+    source.includes('data-citation-block="reference-files"'),
+    `${dossierPage} must render a source-linked citation block`,
+  );
+  assert(
+    source.includes("What this proves:"),
+    `${dossierPage} citation block must explain what each source proves`,
+  );
 }
 
 const pagefindEntry = JSON.parse(read("pagefind/pagefind-entry.json"));

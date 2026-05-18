@@ -47,10 +47,10 @@ Benchmark rows and fixture metadata for the selected messy-data scenario with no
 
 ## Reference Files
 
-- `benchmarks/traditional_analytics/README.md`
-- `docs/architecture/benchmark-suite-catalog.md`
-- `docs/benchmarks/local-taxonomy-benchmark.md`
-- `docs/getting-started/examples.md`
+- `benchmarks/traditional_analytics/README.md` - What this proves: Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.
+- `docs/architecture/benchmark-suite-catalog.md` - What this proves: Benchmark scenario families and evidence coverage expectations.
+- `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
+- `docs/getting-started/examples.md` - What this proves: Current example catalog and local workflow entrypoints.
 
 ## Related Use Cases
 

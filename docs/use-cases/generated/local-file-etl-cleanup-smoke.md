@@ -45,11 +45,11 @@ A target/shardloom-local-vortex-benchmark-smoke.json artifact with timing, cover
 
 ## Reference Files
 
-- `docs/getting-started/examples.md`
-- `docs/getting-started/certified-local-workload.md`
-- `docs/architecture/compute-engine-flow-reference.md`
-- `docs/benchmarks/local-taxonomy-benchmark.md`
-- `examples/local-vortex-benchmark/README.md`
+- `docs/getting-started/examples.md` - What this proves: Current example catalog and local workflow entrypoints.
+- `docs/getting-started/certified-local-workload.md` - What this proves: Scoped certified local workload path and expected evidence fields.
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
+- `examples/local-vortex-benchmark/README.md` - What this proves: Runnable or blocked example posture, expected local command path, and claim boundary.
 
 ## Related Use Cases
 

@@ -48,10 +48,10 @@ Prepared Vortex rows separate from compatibility import rows, with source-backed
 
 ## Reference Files
 
-- `docs/architecture/compute-engine-flow-reference.md`
-- `docs/benchmarks/local-taxonomy-benchmark.md`
-- `benchmarks/traditional_analytics/README.md`
-- `docs/architecture/benchmark-suite-catalog.md`
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
+- `benchmarks/traditional_analytics/README.md` - What this proves: Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.
+- `docs/architecture/benchmark-suite-catalog.md` - What this proves: Benchmark scenario families and evidence coverage expectations.
 
 ## Related Use Cases
 
