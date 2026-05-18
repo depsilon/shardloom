@@ -14,6 +14,10 @@
 
 Query scenario cookbook smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Cookbook scenarios are scoped local evidence; they do not imply broad SQL, DataFrame, optimizer parity, performance, or production analytics support.
+
 ## How To Try It
 
 ```powershell

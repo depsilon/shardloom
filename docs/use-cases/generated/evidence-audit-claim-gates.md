@@ -14,6 +14,10 @@
 
 Evidence, audit, and claim gates has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Audit fields explain scoped local evidence only; missing evidence blocks claims and never permits hidden fallback.
+
 ## How To Try It
 
 ```powershell

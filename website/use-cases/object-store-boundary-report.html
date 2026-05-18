@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">target\debug\shardloom object-store-request-plan --format json</code></pre>
           <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>Runtime object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed.</span></div>
+          <h2>Claim Boundary</h2>
+          <p>Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>s3_uri, gcs_uri, adls_uri</span></article><article><strong>Execution mode</strong><span>report_only_blocked</span></article><article><strong>Engine mode</strong><span>none</span></article><article><strong>Outputs</strong><span>object_store_plan, deterministic_blocker</span></article><article><strong>Evidence</strong><span>credential_policy_status, network_probe_allowed=false, byte_range_read_allowed, object_store_io=false, write_io=false, native_io_certificate_status=blocked, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.</span></article></div>
           <h2>Expected Evidence Fields</h2>

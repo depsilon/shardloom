@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">target\debug\shardloom table-compat-plan aggregate --format json</code></pre>
           <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>Table-format runtime needs metadata, snapshot, delete/tombstone, write, commit, rollback, object-store, and certificate evidence before support can be claimed.</span></div>
+          <h2>Claim Boundary</h2>
+          <p>No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>iceberg_table, delta_table, hudi_table, catalog_metadata</span></article><article><strong>Execution mode</strong><span>report_only_blocked</span></article><article><strong>Engine mode</strong><span>none</span></article><article><strong>Outputs</strong><span>table_compatibility_matrix, deterministic_blocker</span></article><article><strong>Evidence</strong><span>table_scan_status, metadata_read_status, delete_tombstone_status, commit_protocol_status, rollback_status, fallback_attempted=false, external_engine_invoked=false, claim_gate_status=not_claim_grade</span></article><article><strong>Claim gate</strong><span>No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim.</span></article></div>
           <h2>Expected Evidence Fields</h2>

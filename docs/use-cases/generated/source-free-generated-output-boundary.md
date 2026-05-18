@@ -14,6 +14,10 @@
 
 Source-free generated output boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Scoped local user-row JSONL and range JSONL fixture smokes only; no sequence/values/calendar/literal-table runtime, SQL/DataFrame runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
+
 ## How To Try It
 
 ```powershell

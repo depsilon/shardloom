@@ -14,6 +14,10 @@
 
 Output and fanout boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Result-sink smoke is local and scoped; cross-format fanout, S3/object-store write, table commits, and production sink support remain planned or blocked.
+
 ## How To Try It
 
 ```powershell

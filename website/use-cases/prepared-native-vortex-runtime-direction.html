@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario &quot;filter + projection + limit&quot; --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\shardloom-prepared-vortex-smoke.json --regenerate</code></pre>
           
+          <h2>Claim Boundary</h2>
+          <p>Prepared/native smoke and structural evidence only; no broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>local_prepared_vortex_artifact, benchmark_fixture</span></article><article><strong>Execution mode</strong><span>prepared_vortex/native_vortex</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>prepared_native_timing_rows, source_backed_scan_evidence</span></article><article><strong>Evidence</strong><span>execution_mode, source_backed_scan_used, source_state_reuse_hit, encoded_predicate_provider_status, data_decoded, data_materialized, claim_gate_status, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>Prepared/native smoke and structural evidence only; no broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.</span></article></div>
           <h2>Expected Evidence Fields</h2>

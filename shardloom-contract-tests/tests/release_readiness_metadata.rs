@@ -1913,10 +1913,14 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1G"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1H"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1I"));
-    assert!(plan.contains("- [ ] GAR-WEB-ATLAS-1J Field Guide / Use Case public-readiness gate"));
+    assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1J"));
+    assert!(
+        plan.contains("- [ ] GAR-0010-B DataFrame/notebook and package surface readiness report")
+    );
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "GAR-WEB-ATLAS-1J Field Guide / Use Case public-readiness gate",
         "GAR-WEB-ATLAS-1I visual density and readability refinement",
         "GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate",
         "GAR-WEB-ATLAS-1G source-linked reference and citation blocks",
@@ -1935,6 +1939,13 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "reference-badge",
         "related-concepts-rail",
         "sticky-in-page-toc",
+        "FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS",
+        "USE_CASE_PAGE_REQUIRED_FIELDS",
+        "fieldGuideDossierRequiredFields",
+        "useCasePublicReadinessFields",
+        "website-atlas-public-readiness.md",
+        "runnable example or blocker explanation",
+        "Claim Boundary",
         "75 compact dossier rows",
         "11 concept families",
         "blocked_pending_explicit_approval",
@@ -2074,6 +2085,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Try it / related use cases",
         "Reference files",
         "pagefind-filter-dropdown",
+        "Claim Boundary",
     ] {
         assert!(
             generator.contains(required),
@@ -2173,6 +2185,9 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "/field-guide/source-backed-scan",
         "data-citation-block=\"reference-files\"",
         "What this proves:",
+        "Claim Boundary",
+        "Internal Flow",
+        "Expected Evidence Fields",
         "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
     ] {
         assert!(
@@ -2274,6 +2289,10 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Committed Pagefind static bundle",
         "Related Field Guide Terms",
         "must render reverse Field Guide term links",
+        "fieldGuideDossierRequiredFields",
+        "useCasePublicReadinessFields",
+        "missing public-readiness field",
+        "runnable example or blocker explanation",
         "source-linked citation block",
         "What this proves:",
         "data-status-matrix-filters",
@@ -2303,6 +2322,11 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "category-toc-band",
         "compact-term-row",
         "reference-badge",
+        "FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS",
+        "USE_CASE_PAGE_REQUIRED_FIELDS",
+        "missing public-readiness field",
+        "runnable example or blocker explanation",
+        "Claim Boundary",
     ] {
         assert!(
             readiness.contains(required),
@@ -2328,6 +2352,25 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let notice = read_repo_file("NOTICE");
     assert!(notice.contains("generated Pagefind static-search"));
     assert!(notice.contains("docs/legal/static-website-third-party-assets.md"));
+
+    let atlas_readiness = read_repo_file("docs/release/website-atlas-public-readiness.md");
+    for required in [
+        "GAR-WEB-ATLAS-1J complete",
+        "Field Guide Dossier Gate",
+        "Use Case Atlas Gate",
+        "Quick Example or blocker explanation",
+        "Claim Boundary",
+        "raw.githubusercontent.com",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "python scripts\\check_website_readiness.py",
+        "node.exe website\\validate_static_assets.js",
+    ] {
+        assert!(
+            atlas_readiness.contains(required),
+            "missing atlas public readiness field {required}"
+        );
+    }
 }
 
 #[test]

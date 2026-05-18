@@ -14,6 +14,10 @@
 
 SQL and DataFrame capability posture is inspectable as posture or diagnostics, but it is not broad runtime support.
 
+## Claim Boundary
+
+SQL/DataFrame readiness is inspectable but runtime execution is not broadly supported or production-claimable.
+
 ## How To Try It
 
 ```powershell

@@ -14,6 +14,10 @@
 
 Foundry-style local proof boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.
+
 ## How To Try It
 
 ```powershell

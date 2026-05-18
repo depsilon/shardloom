@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-1J Field Guide / Use Case public-readiness gate
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/use-cases/*.html`
+    - `website/pagefind/`
+    - `website/validate_static_assets.js`
+    - `scripts/check_website_readiness.py`
+    - `docs/release/website-atlas-public-readiness.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: harden the generated Field Guide and Use Case Atlas public-readiness gate without
+    changing runtime behavior, benchmark data, package publication, framework choice, or support
+    claims.
+  - Checklist:
+    - [x] Add a dedicated generated `Claim Boundary` section to every website use-case page and
+          generated use-case Markdown page.
+    - [x] Extend `scripts/check_website_readiness.py` with `FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS`
+          and `USE_CASE_PAGE_REQUIRED_FIELDS` so atlas dossier structural checks fail closed when
+          status, claim boundary, related concepts, citations, evidence, or example/blocker content
+          disappears.
+    - [x] Extend `website/validate_static_assets.js` with `fieldGuideDossierRequiredFields` and
+          `useCasePublicReadinessFields` so static validation also checks public-readiness fields,
+          runnable example or blocker explanation, and no-fallback evidence visibility.
+    - [x] Preserve metadata, extensionless canonical URLs, local committed assets, Pagefind 1.5.2
+          static search assets, and no runtime `raw.githubusercontent.com` dependency.
+    - [x] Add `docs/release/website-atlas-public-readiness.md` as the public-post checklist for
+          Field Guide, Use Cases, Status, Benchmarks, Compute Flow, and rendered README surfaces.
+    - [x] Move GAR-WEB-ATLAS-1J out of the active Planned queue.
+  - Evidence and verification:
+    - `python website/build_static_pages.py`
+    - `target\pagefind-venv\Scripts\python.exe -m pagefind --site website`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --check website\validate_static_assets.js`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a technical-preview website/public-readiness gate only. It does not add runtime
+      behavior, benchmark recomputation, package publication, release readiness, performance or
+      superiority claims, Spark-displacement claims, production SQL/DataFrame support,
+      object-store/lakehouse runtime, or Foundry production support.
+  - Fallback boundary:
+    - Validators require visible no-fallback/no-external-engine evidence language and continue to
+      fail runtime GitHub raw references or wording that blurs external baselines with ShardLoom
+      execution.
+
 - [x] Session label: GAR-WEB-ATLAS-1I visual density and readability refinement
   - Primary files:
     - `website/assets/site.css`

@@ -14,6 +14,10 @@
 
 First 10 minutes local smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Local source-checkout smoke only; no dataset execution, package-publication, production, SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.
+
 ## How To Try It
 
 ```powershell

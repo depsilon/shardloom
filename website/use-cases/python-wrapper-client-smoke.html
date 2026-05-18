@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">$env:PYTHONPATH = &quot;python\src&quot;; python -c &quot;from shardloom import ShardLoomClient; print(ShardLoomClient.from_repo().status().status)&quot;</code></pre>
           
+          <h2>Claim Boundary</h2>
+          <p>Thin Python CLI client only; not a native binding, DataFrame API, SQL runtime, UDF runtime, package-publication proof, or fallback path.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>none</span></article><article><strong>Execution mode</strong><span>no_dataset_smoke</span></article><article><strong>Engine mode</strong><span>batch_status</span></article><article><strong>Outputs</strong><span>python_capability_view, typed_output_envelope</span></article><article><strong>Evidence</strong><span>protocol_version, resolved_cli_path, fallback_attempted=false, external_engine_invoked=false, support_status, claim_gate_status</span></article><article><strong>Claim gate</strong><span>Thin Python CLI client only; not a native binding, DataFrame API, SQL runtime, UDF runtime, package-publication proof, or fallback path.</span></article></div>
           <h2>Expected Evidence Fields</h2>

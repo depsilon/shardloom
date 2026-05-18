@@ -2061,6 +2061,10 @@ def use_case_markdown(use_case: dict[str, Any]) -> str:
         "",
         use_case_plain_summary(use_case),
         "",
+        "## Claim Boundary",
+        "",
+        str(use_case["claim_boundary"]),
+        "",
     ]
     if use_case.get("runnable_example"):
         lines.extend(
@@ -2177,6 +2181,8 @@ def use_case_page(use_case: dict[str, Any], by_id: dict[str, dict[str, Any]]) ->
           {render_use_case_status_table(use_case)}
           {quick_example}
           {blocker}
+          <h2>Claim Boundary</h2>
+          <p>{inline_markdown(str(use_case["claim_boundary"]))}</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow">{flow_html}</div>
           <h2>Expected Evidence Fields</h2>

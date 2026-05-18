@@ -14,6 +14,10 @@
 
 Package, release, and install channel boundary is inspectable as posture or diagnostics, but it is not broad runtime support.
 
+## Claim Boundary
+
+Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim.
+
 ## How To Try It
 
 ```powershell

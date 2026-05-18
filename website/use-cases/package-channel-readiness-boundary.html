@@ -78,6 +78,8 @@
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">python scripts\release_dry_run_proof.py --rows 64 --iterations 1</code></pre>
           <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>Public channels need trusted publishing, provenance, clean install proof, security gates, release approval, and publication-specific evidence.</span></div>
+          <h2>Claim Boundary</h2>
+          <p>Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim.</p>
           <h2>Internal Flow</h2>
           <div class="use-case-flow"><article><strong>Inputs</strong><span>source_checkout</span></article><article><strong>Execution mode</strong><span>local_release_dry_run</span></article><article><strong>Engine mode</strong><span>batch_status</span></article><article><strong>Outputs</strong><span>local_wheel_dry_run_report, install_channel_matrix</span></article><article><strong>Evidence</strong><span>package_install_mode, clean_env_install_status, cli_binary_resolved, smoke_status, sbom_status, provenance_status, fallback_attempted=false, external_engine_invoked=false</span></article><article><strong>Claim gate</strong><span>Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim.</span></article></div>
           <h2>Expected Evidence Fields</h2>

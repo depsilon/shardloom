@@ -13,6 +13,8 @@ from typing import Any
 from urllib.parse import urlparse
 from xml.etree import ElementTree
 
+from check_use_case_index import EXPLANATION_STATUSES, load_index as load_use_case_index
+
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_PAGES = [
@@ -102,6 +104,51 @@ PRIVATE_MEMO_PHRASES = [
 ]
 RAW_GITHUB_HOST = "raw.githubusercontent.com"
 URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+")
+FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS = [
+    "Field Guide dossier",
+    "dossier-status-row",
+    "sticky-in-page-toc",
+    'id="meaning"',
+    'id="why"',
+    'id="how"',
+    'id="support"',
+    'id="evidence"',
+    'id="boundary"',
+    'id="try-it"',
+    'id="related"',
+    'id="sources"',
+    "Plain-English meaning",
+    "Why it matters",
+    "How ShardLoom uses it",
+    "Current support",
+    "Evidence fields",
+    "What it does not claim",
+    "Try it / related use cases",
+    "Related concepts",
+    "Reference files",
+    "related-concepts-rail",
+    "claim-badge",
+    'data-citation-block="reference-files"',
+    "What this proves:",
+]
+USE_CASE_PAGE_REQUIRED_FIELDS = [
+    "Use Case Atlas",
+    "Plain-English Summary",
+    "Status Table",
+    "Claim Boundary",
+    "Internal Flow",
+    "Expected Evidence Fields",
+    "Expected Output Or Evidence",
+    "Common Mistakes",
+    "Reference Files",
+    "Related Field Guide Terms",
+    "Related Use Cases",
+    "Claim gate",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    'data-citation-block="reference-files"',
+    "What this proves:",
+]
 
 
 class HtmlRefs(HTMLParser):
@@ -374,13 +421,10 @@ def main() -> int:
                             blockers.append(f"Field Guide entry missing generated page: {slug_value}")
                         else:
                             dossier_text = dossier_path.read_text(encoding="utf-8")
-                            for required in [
-                                'data-citation-block="reference-files"',
-                                "What this proves:",
-                            ]:
+                            for required in FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS:
                                 if required not in dossier_text:
                                     blockers.append(
-                                        f"Field Guide dossier {slug_value} missing citation field: {required}"
+                                        f"Field Guide dossier {slug_value} missing public-readiness field: {required}"
                                     )
         else:
             blockers.append("missing website/content/field-guide-index.json")
@@ -458,17 +502,48 @@ def main() -> int:
                     blockers.append(f"status page missing buyer-facing scorecard field: {required}")
 
         use_case_pages = sorted((website / "use-cases").glob("*.html"))
+        use_case_index_path = repo_root / "docs" / "use-cases" / "use-case-index.yml"
+        indexed_use_cases: dict[str, dict[str, Any]] = {}
+        if use_case_index_path.exists():
+            try:
+                use_case_data = load_use_case_index(use_case_index_path)
+            except ValueError as exc:
+                blockers.append(f"use-case index cannot be loaded for website readiness: {exc}")
+            else:
+                indexed_use_cases = {
+                    str(use_case.get("id")): use_case
+                    for use_case in use_case_data.get("use_cases", [])
+                    if isinstance(use_case, dict) and use_case.get("id")
+                }
+                for use_case_id, use_case in indexed_use_cases.items():
+                    expected_page = website / "use-cases" / f"{use_case_id}.html"
+                    if not expected_page.exists():
+                        blockers.append(f"use-case index missing generated website page: {use_case_id}")
+                    if not use_case.get("runnable_example") and not use_case.get("blocked_explanation"):
+                        blockers.append(
+                            f"use case {use_case_id} must have a runnable example or blocker explanation"
+                        )
+        else:
+            blockers.append("missing docs/use-cases/use-case-index.yml")
+
         for use_case_page in use_case_pages:
             if use_case_page.name == "index.html":
                 continue
             relative = rel(use_case_page, website)
             use_case_text = use_case_page.read_text(encoding="utf-8")
-            for required in [
-                'data-citation-block="reference-files"',
-                "What this proves:",
-            ]:
+            for required in USE_CASE_PAGE_REQUIRED_FIELDS:
                 if required not in use_case_text:
-                    blockers.append(f"use-case page {relative} missing citation field: {required}")
+                    blockers.append(f"use-case page {relative} missing public-readiness field: {required}")
+            use_case_id = use_case_page.stem
+            indexed_use_case = indexed_use_cases.get(use_case_id)
+            if indexed_use_case:
+                if indexed_use_case.get("runnable_example") and "Quick Example" not in use_case_text:
+                    blockers.append(f"use-case page {relative} missing runnable Quick Example")
+                status = str(indexed_use_case.get("status"))
+                if status in EXPLANATION_STATUSES and "use-case-blocker" not in use_case_text:
+                    blockers.append(
+                        f"use-case page {relative} missing blocker explanation for {status} status"
+                    )
 
         manifest_path = website / "assets" / "benchmarks" / "latest" / "manifest.json"
         if manifest_path.exists():

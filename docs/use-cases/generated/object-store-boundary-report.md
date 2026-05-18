@@ -14,6 +14,10 @@
 
 Object-store and cloud storage boundary is blocked or unsupported until the listed evidence exists.
 
+## Claim Boundary
+
+Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.
+
 ## How To Try It
 
 ```powershell

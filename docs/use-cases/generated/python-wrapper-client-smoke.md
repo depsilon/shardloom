@@ -14,6 +14,10 @@
 
 Python wrapper and client smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
+## Claim Boundary
+
+Thin Python CLI client only; not a native binding, DataFrame API, SQL runtime, UDF runtime, package-publication proof, or fallback path.
+
 ## How To Try It
 
 ```powershell

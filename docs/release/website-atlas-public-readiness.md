@@ -1,0 +1,113 @@
+# ShardLoom Website Atlas Public Readiness
+
+Status: `GAR-WEB-ATLAS-1J complete`
+
+This readiness record defines the public-post gate for the generated Field Guide and Use Case Atlas.
+It is a website quality and claim-safety gate only. It does not change ShardLoom runtime behavior,
+benchmark results, release status, package publication, or support claims.
+
+## Gate Scope
+
+The gate covers the static website surfaces that a public technical-preview reader is most likely
+to use:
+
+- `website/field-guide/index.html`
+- `website/field-guide/*.html`
+- `website/use-cases/index.html`
+- `website/use-cases/*.html`
+- `website/status.html`
+- `website/benchmarks.html`
+- `website/compute-engine-flow.html`
+- `website/readme.html`
+- `website/pagefind/`
+
+## Required Page Metadata
+
+Every generated public page must include:
+
+- page title
+- description
+- canonical URL
+- Open Graph title, description, image, and URL
+- favicon link to the committed ShardLoom icon asset
+- only committed local asset references
+
+Canonical URLs stay extensionless. Static assets are served from `website/`; no page may depend on
+`raw.githubusercontent.com` at render time.
+
+## Field Guide Dossier Gate
+
+Every generated Field Guide dossier must include:
+
+- `Field Guide dossier` posture label
+- status row
+- sticky in-page table of contents
+- Plain-English meaning
+- Why it matters
+- How ShardLoom uses it
+- Current support
+- Evidence fields
+- What it does not claim
+- Try it / related use cases
+- Related concepts
+- Reference files
+- source-linked citation block
+- `What this proves:` citation text
+
+This keeps each concept page understandable without requiring the reader to inspect RFCs, the phase
+plan, or benchmark internals first.
+
+## Use Case Atlas Gate
+
+Every generated use-case page must include:
+
+- Plain-English Summary
+- Status Table
+- Quick Example or blocker explanation
+- Claim Boundary
+- Internal Flow
+- Expected Evidence Fields
+- Expected Output Or Evidence
+- Common Mistakes
+- Reference Files
+- Related Field Guide Terms
+- Related Use Cases
+- source-linked citation block
+- `What this proves:` citation text
+
+Use cases with `ready_local` or `smoke_supported` posture must keep a runnable example. Use cases
+with `report_only`, `planned`, `blocked`, or `unsupported` posture must keep a blocker explanation
+so the page cannot imply runtime support.
+
+## Claim-Safety Gate
+
+The website must continue to say:
+
+- ShardLoom is a pre-release technical preview.
+- Benchmark rows are evidence, not a leaderboard.
+- External engines are baseline context only.
+- No fallback execution is allowed.
+- `fallback_attempted=false` and `external_engine_invoked=false` remain visible where evidence is
+  described.
+- No performance, superiority, Spark-displacement, production SQL/DataFrame, object-store/lakehouse,
+  Foundry, or package-publication claim is made.
+
+## Validation Commands
+
+Run these before publishing a website/atlas PR:
+
+```powershell
+python website\build_static_pages.py
+target\pagefind-venv\Scripts\python.exe -m pagefind --site website
+python scripts\check_use_case_index.py
+python scripts\check_use_case_coverage.py
+python scripts\check_use_case_backlinks.py
+python scripts\check_website_readiness.py
+C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --check website\validate_static_assets.js
+C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js
+python -m compileall -q scripts website
+git diff --check
+```
+
+The readiness gate is intentionally local and static. It does not require a network crawl, external
+SEO service, package publication, live benchmark execution, or framework migration.
