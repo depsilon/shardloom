@@ -3754,6 +3754,7 @@ class ShardLoomClient:
         schema_arg: str,
         rows_arg: str,
         *,
+        source_kind: str = "user_rows",
         output_format: str = "jsonl",
         allow_overwrite: bool = False,
         check: bool = True,
@@ -3765,6 +3766,8 @@ class ShardLoomClient:
             str(output_path),
             schema_arg,
             rows_arg,
+            "--source-kind",
+            source_kind,
             "--output-format",
             output_format,
         ]

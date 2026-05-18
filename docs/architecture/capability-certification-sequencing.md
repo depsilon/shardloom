@@ -67,11 +67,11 @@ workload, materialization, effect-policy, governance, protocol-parity, and no-fa
 exists.
 
 Source-free generated-output workflows are tracked separately by `GAR-GEN-1`. The capability model
-must distinguish `no_dataset_smoke` from future `user_generated_source` and
+must distinguish `no_dataset_smoke` from scoped local `user_generated_source` and
 `engine_native_generated_source` rows so Python, SQL, and DataFrame-style affordances can advertise
-planned `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`, SQL literal `SELECT`, SQL
-`VALUES`, and local write posture without claiming broad SQL/DataFrame runtime or object-store
-write support.
+supported local `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`, and `ctx.range` JSONL smokes
+plus report-only SQL literal `SELECT`, SQL `VALUES`, and broader local write posture without
+claiming broad SQL/DataFrame runtime or object-store write support.
 
 The gate is report-only. It performs no SQL parsing/execution, DataFrame runtime work, UDF/plugin
 execution, OCR/transcription/embedding/LLM calls, adapter runtime work, external API calls, catalog

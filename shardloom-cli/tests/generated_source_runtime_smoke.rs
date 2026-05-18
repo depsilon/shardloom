@@ -107,6 +107,75 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
 }
 
 #[test]
+fn user_rows_smoke_supports_literal_table_and_calendar_source_kinds() {
+    for (name, source_kind, schema, rows, expected_written, expected_boundary, expected_reason) in [
+        (
+            "generated-literal-table",
+            "literal_table",
+            "code:utf8,weight:float64",
+            "code=A,weight=1.5;code=B,weight=2.0",
+            "{\"code\":\"A\",\"weight\":1.5}\n{\"code\":\"B\",\"weight\":2}\n",
+            "python_literal_table_to_local_jsonl_sink",
+            "one_scoped_local_literal_table_generated_output_smoke",
+        ),
+        (
+            "generated-calendar",
+            "calendar",
+            "dt:utf8,year:int64,month:int64,day:int64",
+            "dt=2026-05-18,year=2026,month=5,day=18;dt=2026-05-19,year=2026,month=5,day=19",
+            "{\"dt\":\"2026-05-18\",\"year\":2026,\"month\":5,\"day\":18}\n{\"dt\":\"2026-05-19\",\"year\":2026,\"month\":5,\"day\":19}\n",
+            "python_calendar_generator_to_local_jsonl_sink",
+            "one_scoped_local_calendar_generated_output_smoke",
+        ),
+    ] {
+        let output_path = unique_output_path(name);
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args([
+                "generated-source-user-rows-smoke",
+                output_path.to_str().expect("temp path is utf8"),
+                schema,
+                rows,
+                "--source-kind",
+                source_kind,
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("generated-source-user-rows-smoke command runs");
+
+        assert!(
+            output.status.success(),
+            "stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "stderr={}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+        assert_eq!(written, expected_written);
+
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(stdout.contains(&field("generated_source_kind", source_kind)));
+        assert!(stdout.contains(&field("generated_source_row_count", "2")));
+        assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
+        assert!(stdout.contains(&field(
+            "output_native_io_certificate_status",
+            "certified_local_file_sink"
+        )));
+        assert!(stdout.contains(&field("materialization_boundary", expected_boundary)));
+        assert!(stdout.contains(&field("claim_gate_reason", expected_reason)));
+        assert!(stdout.contains(&field("fallback_attempted", "false")));
+        assert!(stdout.contains(&field("external_engine_invoked", "false")));
+        assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+        fs::remove_file(output_path).expect("remove output jsonl");
+    }
+}
+
+#[test]
 fn user_rows_smoke_blocks_remote_object_store_outputs() {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([

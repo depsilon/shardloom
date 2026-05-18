@@ -2074,12 +2074,13 @@ fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
         )));
         assert!(output.contains(&string_field_pair(
             "python_ctx_literal_table_blocker_id",
-            "gar-gen-1.literal_table_runtime_not_implemented"
+            "none_scoped_local_literal_table_jsonl_smoke_only"
         )));
         assert!(output.contains(&string_field_pair(
             "python_ctx_calendar_support_status",
-            "report_only"
+            "fixture_smoke_supported"
         )));
+        assert!(output.contains(&field_pair("python_ctx_calendar_runtime_execution", true)));
         assert!(output.contains(&string_field_pair(
             "sql_values_blocker_id",
             "gar-gen-1.sql_values_runtime_not_implemented"
@@ -2382,11 +2383,11 @@ fn cross_cg_capability_parity_surfaces_shared_blocker_contracts() {
     )));
     assert!(workflow.contains(&string_field_pair(
         "etl_workflow_row_order",
-        "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"
+        "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,source_free_literal_table_jsonl,source_free_calendar_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"
     )));
     assert!(workflow.contains(&string_field_pair(
         "etl_workflow_supported_local_count",
-        "8"
+        "10"
     )));
     assert!(workflow.contains(&string_field_pair("etl_workflow_report_only_count", "2")));
     assert!(workflow.contains(&string_field_pair("etl_workflow_blocked_count", "3")));

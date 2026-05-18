@@ -37,6 +37,19 @@ Use this for the scoped GAR-GEN-1C path that writes caller-provided rows to a lo
 emits generated-source and output evidence. It is not SQL/VALUES execution, broad DataFrame
 runtime, object-store output, Foundry output, production support, or a performance claim.
 
+## Source-Free Literal Table And Calendar Local Output Smokes
+
+```powershell
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; r=context(repo_root='.').literal_table([{'code':'A','weight':1.5},{'code':'B','weight':2.0}]).write('target/generated-literal.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').calendar('2026-05-18','2026-05-21', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+```
+
+Use these for scoped source-free Python helpers that generate local JSONL output and emit the same
+generated-source/output/no-fallback evidence family as `ctx.from_rows(...).write(...)`. They are not
+SQL `VALUES` execution, broad DataFrame runtime, object-store output, Foundry output, production
+support, or performance claims.
+
 ## Source-Free Range Local Output Smoke
 
 ```powershell

@@ -56,11 +56,11 @@ $env:PYTHONPATH = "python\src"
 python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.generated_source_certificate_status, r.output_native_io_certificate_status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
-This is source-free generated-output execution, not no-dataset smoke. The
-current runtime support is scoped to local JSONL output from Python
-`ctx.from_rows(...).write(...)` and `ctx.range(...).write(...)` smokes. SQL
-`VALUES`, broad DataFrame runtime, object-store/lakehouse output, and Foundry
-generated-output runtime remain unclaimed.
+This is source-free generated-output execution, not no-dataset smoke. The current runtime support
+is scoped to local JSONL output from Python `ctx.from_rows(...).write(...)`,
+`ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and
+`ctx.range(...).write(...)` smokes. SQL `VALUES`, broad DataFrame runtime,
+object-store/lakehouse output, and Foundry generated-output runtime remain unclaimed.
 
 ## 6. Try A Local Compatibility/Prepared-Vortex Benchmark Smoke
 
