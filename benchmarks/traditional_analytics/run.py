@@ -791,6 +791,62 @@ BAYESIAN_ADVISOR_FIELDS = (
     "bayesian_advisor_external_engine_invoked",
     "bayesian_advisor_claim_boundary",
 )
+SCALE_CLAIM_SCHEMA_VERSION = "shardloom.traditional_analytics.scale_claim_gate.v1"
+SCALE_CLASS_VOCABULARY = (
+    "local_smoke",
+    "local_claim_grade",
+    "larger_than_memory_local",
+    "split_parallel_local",
+    "object_store_read_report_only",
+    "object_store_runtime",
+    "table_metadata_report_only",
+    "table_runtime",
+    "distributed_report_only",
+    "distributed_runtime",
+    "foundry_dev_stack_proof",
+    "managed_platform_proof",
+)
+SCALE_CLAIM_STATUS_VOCABULARY = (
+    "local_smoke_not_scale_grade",
+    "local_claim_grade_not_scale_grade",
+    "blocked",
+    "unsupported",
+    "external_baseline_only",
+)
+SCALE_CLAIM_FIELDS = (
+    "scale_contract_schema_version",
+    "scale_supported_classes",
+    "scale_profile",
+    "scale_claim_status",
+    "scale_claim_reason",
+    "data_volume_bytes",
+    "row_count_estimate",
+    "file_count",
+    "partition_count",
+    "split_count",
+    "memory_budget_bytes",
+    "peak_memory_bytes",
+    "spill_allowed",
+    "spill_bytes_written",
+    "spill_bytes_read",
+    "shuffle_required",
+    "shuffle_strategy",
+    "shuffle_bytes_written",
+    "shuffle_bytes_read",
+    "skew_detected",
+    "retry_count",
+    "idempotency_key",
+    "output_commit_status",
+    "object_store_involved",
+    "table_format_involved",
+    "remote_workers_involved",
+    "foundry_runtime_invoked",
+    "foundry_spark_invoked",
+    "scale_fallback_attempted",
+    "scale_external_engine_invoked",
+    "scale_claim_gate_status",
+    "scale_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -6155,6 +6211,7 @@ def bayesian_advisor_contract_metadata(
         "cache_invalidation_contract",
         "reuse_level_contract",
         "build_profile_contract",
+        "scale_claim_contract",
         "runtime_resource_policy_fields",
         "layout_advisor_report",
     ]
@@ -6218,6 +6275,114 @@ def bayesian_advisor_contract_metadata(
             "name candidate mode/resource/layout evidence, but it cannot silently change "
             "execution mode, source-state reuse, batch sizing, target partition bytes, max "
             "parallelism, layout/write choices, claim status, or public performance posture."
+        ),
+    }
+
+
+def scenario_requires_scale_shuffle(scenario: str) -> bool:
+    return scenario in {
+        "group by aggregation",
+        "hash join",
+        "join + aggregate",
+        "multi-key group by",
+        "top-N per group",
+        "row-number window",
+        "CDC overlay",
+    }
+
+
+def scale_claim_status_for_row(engine: str, status: str, metrics: dict[str, Any]) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported"
+    if status != "success":
+        return "blocked"
+    if metrics.get("claim_gate_status") == "claim_grade":
+        return "local_claim_grade_not_scale_grade"
+    return "local_smoke_not_scale_grade"
+
+
+def scale_claim_contract_metadata(
+    engine: str,
+    scenario: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    is_shardloom = is_shardloom_engine(engine)
+    scale_claim_status = scale_claim_status_for_row(engine, status, metrics)
+    scale_profile = "external_baseline_only"
+    if is_shardloom:
+        scale_profile = (
+            "local_claim_grade"
+            if scale_claim_status == "local_claim_grade_not_scale_grade"
+            else "local_smoke"
+        )
+    data_volume_bytes = first_meaningful_field(
+        metrics.get("bytes_read"),
+        metrics.get("byte_size"),
+        0,
+    )
+    row_count_estimate = first_meaningful_field(
+        metrics.get("rows_scanned"),
+        "unknown",
+    )
+    file_count = first_meaningful_field(metrics.get("file_count"), 0)
+    partition_count = 1 if parse_optional_int(file_count) else 0
+    split_count = 1 if parse_optional_int(file_count) else 0
+    shuffle_required = scenario_requires_scale_shuffle(scenario)
+    shuffle_strategy = (
+        "local_in_memory_operator_not_scale_shuffle_proof"
+        if shuffle_required
+        else "not_required_for_current_local_smoke_row"
+    )
+    return {
+        "scale_contract_schema_version": SCALE_CLAIM_SCHEMA_VERSION,
+        "scale_supported_classes": ",".join(SCALE_CLASS_VOCABULARY),
+        "scale_profile": scale_profile,
+        "scale_claim_status": scale_claim_status,
+        "scale_claim_reason": (
+            "current benchmark row is local evidence only; larger-than-memory, split-parallel, "
+            "object-store, table, distributed, Foundry, managed-platform, any-volume, and "
+            "Spark-replacement claims remain blocked"
+            if is_shardloom
+            else "external baseline rows are comparison context only and cannot satisfy ShardLoom scale evidence"
+        ),
+        "data_volume_bytes": data_volume_bytes,
+        "row_count_estimate": row_count_estimate,
+        "file_count": file_count,
+        "partition_count": partition_count,
+        "split_count": split_count,
+        "memory_budget_bytes": None,
+        "peak_memory_bytes": metrics.get("peak_memory_bytes"),
+        "spill_allowed": False,
+        "spill_bytes_written": 0,
+        "spill_bytes_read": 0,
+        "shuffle_required": shuffle_required,
+        "shuffle_strategy": shuffle_strategy,
+        "shuffle_bytes_written": 0,
+        "shuffle_bytes_read": 0,
+        "skew_detected": False,
+        "retry_count": 0,
+        "idempotency_key": "not_emitted_local_smoke",
+        "output_commit_status": "not_claimed_local_result_sink_only",
+        "object_store_involved": False,
+        "table_format_involved": False,
+        "remote_workers_involved": False,
+        "foundry_runtime_invoked": False,
+        "foundry_spark_invoked": False,
+        "scale_fallback_attempted": False,
+        "scale_external_engine_invoked": False,
+        "scale_claim_gate_status": "not_scale_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "scale_claim_boundary": (
+            "Scale evidence is fail-closed. Current rows may establish local smoke or local "
+            "claim evidence only; they do not prove any-volume support, Spark replacement, "
+            "larger-than-memory execution, split-parallel execution, object-store/table runtime, "
+            "distributed runtime, Foundry production support, managed-platform proof, or "
+            "performance superiority."
         ),
     }
 
@@ -6859,6 +7024,49 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         if metrics.get("bayesian_advisor_external_engine_invoked") is not False:
             raise RuntimeError(
                 "Bayesian advisor cannot report external engine execution"
+            )
+        missing_scale_claim_fields = [
+            field for field in SCALE_CLAIM_FIELDS if field not in metrics
+        ]
+        if missing_scale_claim_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted scale claim-gate fields: "
+                + ", ".join(missing_scale_claim_fields)
+            )
+        if metrics.get("scale_contract_schema_version") != SCALE_CLAIM_SCHEMA_VERSION:
+            raise RuntimeError("scale claim rows must preserve schema version")
+        if metrics.get("scale_profile") not in SCALE_CLASS_VOCABULARY:
+            raise RuntimeError("ShardLoom row reported unknown scale_profile")
+        if metrics.get("scale_profile") not in {"local_smoke", "local_claim_grade"}:
+            raise RuntimeError(
+                "current benchmark rows cannot claim non-local scale profiles"
+            )
+        if metrics.get("scale_claim_status") not in SCALE_CLAIM_STATUS_VOCABULARY:
+            raise RuntimeError("ShardLoom row reported unknown scale_claim_status")
+        if metrics.get("scale_claim_gate_status") != "not_scale_grade":
+            raise RuntimeError("scale claim gate cannot promote current local rows")
+        if metrics.get("scale_fallback_attempted") is not False:
+            raise RuntimeError("scale claim evidence cannot report fallback attempts")
+        if metrics.get("scale_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "scale claim evidence cannot report external engine execution"
+            )
+        for unsupported_scale_field in [
+            "object_store_involved",
+            "table_format_involved",
+            "remote_workers_involved",
+            "foundry_runtime_invoked",
+            "foundry_spark_invoked",
+        ]:
+            if metrics.get(unsupported_scale_field) is not False:
+                raise RuntimeError(
+                    f"current local rows cannot report {unsupported_scale_field}=true"
+                )
+        if metrics.get("spill_allowed") is not False:
+            raise RuntimeError("larger-than-memory spill is not admitted by GAR-SCALE-1A")
+        if metrics.get("memory_budget_bytes") is not None:
+            raise RuntimeError(
+                "GAR-SCALE-1A must not declare a scale memory budget without runtime proof"
             )
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
@@ -8538,6 +8746,14 @@ def failed_result(
             execution_mode=execution_mode,
         )
     )
+    metrics.update(
+        scale_claim_contract_metadata(
+            engine,
+            scenario,
+            status=status,
+            metrics=metrics,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -9065,6 +9281,14 @@ def successful_result_from_iterations(
             metrics,
             evidence=evidence,
             execution_mode=execution_mode,
+        )
+    )
+    metrics.update(
+        scale_claim_contract_metadata(
+            runner.name,
+            scenario,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
         )
     )
     if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
@@ -10107,6 +10331,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "optimizer_trace_fields": list(OPTIMIZER_TRACE_FIELDS),
         "build_profile_fields": list(BUILD_PROFILE_FIELDS),
         "bayesian_advisor_fields": list(BAYESIAN_ADVISOR_FIELDS),
+        "scale_claim_fields": list(SCALE_CLAIM_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
             "compatibility_import_certified": (
@@ -10223,6 +10448,50 @@ def persistent_runner_admission_gate() -> dict[str, Any]:
         ],
         "no_fallback_rule": "fallback_attempted=false and external_engine_invoked=false for every ShardLoom row",
         "claim_boundary": "A future persistent runner may reduce measured process overhead only after this gate is implemented; current rows remain not claim-grade.",
+    }
+
+
+def scale_claim_contract() -> dict[str, Any]:
+    return {
+        "contract_id": SCALE_CLAIM_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/scale-readiness-contract.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "scale_classes": list(SCALE_CLASS_VOCABULARY),
+        "status_vocabulary": list(SCALE_CLAIM_STATUS_VOCABULARY),
+        "row_fields": list(SCALE_CLAIM_FIELDS),
+        "current_scope": (
+            "fail-closed scale-class taxonomy and local benchmark row evidence; "
+            "current rows remain local_smoke or local_claim_grade only"
+        ),
+        "required_future_proof": [
+            "declared resource envelope",
+            "split manifest and per-split evidence",
+            "bounded memory, spill, and backpressure evidence",
+            "shuffle/repartition/join scale evidence",
+            "object-store/table ladder evidence",
+            "retry and idempotency evidence",
+            "real input bytes and correctness proof for runtime scale claims",
+        ],
+        "non_goals": [
+            "any-volume claim",
+            "Spark replacement claim",
+            "distributed runtime",
+            "object-store/table runtime",
+            "Foundry production support",
+            "performance or superiority claims",
+            "benchmark volume changes",
+        ],
+        "no_fallback_rule": (
+            "Scale rows must preserve scale_fallback_attempted=false and "
+            "scale_external_engine_invoked=false. External engines are baselines/oracles "
+            "only and cannot satisfy ShardLoom scale evidence."
+        ),
+        "claim_boundary": (
+            "GAR-SCALE-1A permits a scale taxonomy and fail-closed claim gate only. "
+            "Synthetic metadata, report-only protocol rows, and local smoke rows do not "
+            "prove larger-than-memory, split-parallel, object-store, table, distributed, "
+            "Foundry, managed-platform, any-volume, or Spark-replacement support."
+        ),
     }
 
 
@@ -12475,6 +12744,7 @@ def main() -> int:
         "reuse_level_contract": reuse_level_contract(),
         "build_profile_contract": build_profile_contract(),
         "bayesian_advisor_contract": bayesian_advisor_contract(),
+        "scale_claim_contract": scale_claim_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,

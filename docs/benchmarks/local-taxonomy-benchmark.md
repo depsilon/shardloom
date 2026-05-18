@@ -93,6 +93,18 @@ aggregate scenarios. The benchmark remains local pre-release evidence, not a
 leaderboard, performance claim, superiority claim, production claim, or Spark
 replacement claim.
 
+`GAR-SCALE-1A` adds a fail-closed scale claim-gate contract to the benchmark artifact. Rows now
+include `scale_contract_schema_version=shardloom.traditional_analytics.scale_claim_gate.v1`,
+`scale_profile`, `scale_claim_status`, `data_volume_bytes`, `row_count_estimate`, `file_count`,
+`partition_count`, `split_count`, `memory_budget_bytes`, `peak_memory_bytes`, `spill_allowed`,
+`shuffle_required`, `retry_count`, `output_commit_status`, `object_store_involved`,
+`table_format_involved`, `remote_workers_involved`, `foundry_runtime_invoked`,
+`foundry_spark_invoked`, `scale_fallback_attempted=false`,
+`scale_external_engine_invoked=false`, `scale_claim_gate_status=not_scale_grade`, and
+`scale_claim_boundary`. Current ShardLoom rows remain `local_smoke` or `local_claim_grade` only;
+they do not prove larger-than-memory, split-parallel, object-store, table, distributed, Foundry,
+managed-platform, any-volume, Spark-replacement, or performance claims.
+
 `GAR-PERF-1B` adds the source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md` and propagates
 `source_state_coverage_*` fields into prepared/native batch evidence. Those

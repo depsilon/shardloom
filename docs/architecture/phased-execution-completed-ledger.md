@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-SCALE-1A scale-class taxonomy and claim gate
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/scale-readiness-contract.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: close the first scale-readiness slice by adding a fail-closed
+    `shardloom.traditional_analytics.scale_claim_gate.v1` benchmark/report contract and documenting
+    the scale-class taxonomy. Current rows remain local-only evidence; scale fields cannot promote
+    any-volume, Spark-replacement, object-store/table, distributed, Foundry, managed-platform, or
+    performance claims.
+  - Checklist:
+    - [x] Add the scale class vocabulary for local smoke, local claim-grade, larger-than-memory,
+          split-parallel, object-store, table, distributed, Foundry, and managed-platform proof.
+    - [x] Emit `scale_profile`, `scale_claim_status`, volume/row/file/partition/split counts,
+          memory budget/peak memory, spill, shuffle, retry, output commit, object-store/table,
+          remote-worker, Foundry, no-fallback, and claim-boundary fields on benchmark rows.
+    - [x] Keep current ShardLoom rows restricted to `local_smoke` or `local_claim_grade` with
+          `scale_claim_gate_status=not_scale_grade`.
+    - [x] Add validation that rejects non-local scale profiles, hidden spill, object-store/table,
+          remote-worker, Foundry, fallback, or external-engine evidence in current rows.
+    - [x] Update compute-flow, benchmark docs, GAR, traceability, and website compute-flow snapshot.
+    - [x] Remove the active GAR-SCALE-1A item from the Planned queue.
+  - Evidence/verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a scale taxonomy and fail-closed claim-gate contract only. It does not prove
+      larger-than-memory execution, split-parallel execution, object-store/table runtime,
+      distributed runtime, Foundry production support, managed-platform proof, any-volume support,
+      Spark replacement, or performance superiority.
+  - Fallback boundary:
+    - External engines remain baselines/oracles only and cannot satisfy ShardLoom scale evidence.
+      Scale rows preserve `scale_fallback_attempted=false` and
+      `scale_external_engine_invoked=false`.
+
 - [x] Session label: GAR-BENCH-PUB-1D competitor-lane expansion
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

@@ -743,11 +743,14 @@ plan before coding.
   `local_smoke`, `local_claim_grade`, `larger_than_memory_local`, `split_parallel_local`,
   `object_store_read_report_only`, `object_store_runtime`, `table_metadata_report_only`,
   `table_runtime`, `distributed_report_only`, `distributed_runtime`, `foundry_dev_stack_proof`, or
-  `managed_platform_proof`. The follow-through must add split manifest, memory/spill/backpressure,
-  shuffle/repartition, object-store/table ladder, distributed report-only protocol, scale benchmark,
-  and Foundry scale proof boundaries before any scale claim can be promoted beyond local evidence.
-  Synthetic metadata-only evidence, report-only protocol rows, external baselines, and managed
-  platform orchestration cannot satisfy ShardLoom runtime scale claims, Spark replacement claims, or
+  `managed_platform_proof`. `GAR-SCALE-1A` now establishes the report-only
+  `shardloom.traditional_analytics.scale_claim_gate.v1` row contract and keeps current rows limited
+  to local smoke/local claim evidence with `scale_claim_gate_status=not_scale_grade`. The remaining
+  follow-through must add split manifest, memory/spill/backpressure, shuffle/repartition,
+  object-store/table ladder, distributed report-only protocol, scale benchmark, and Foundry scale
+  proof boundaries before any scale claim can be promoted beyond local evidence. Synthetic
+  metadata-only evidence, report-only protocol rows, external baselines, and managed-platform
+  orchestration cannot satisfy ShardLoom runtime scale claims, Spark-replacement claims, or
   no-fallback/no-external-engine proof.
 - [ ] Broad CG-5/CG-6 coverage, production stateful reuse runtime, and performance/superiority
   claims remain incomplete.
