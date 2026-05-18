@@ -1105,12 +1105,17 @@ plan before coding.
 - [x] Typed output v2, renderer, lifecycle taxonomy, command-family routing, and Python typed
   models exist.
 - [x] Tests lock typed envelope compatibility for current command families.
+- [x] GAR-0039-A migrates the API-surface capability family further into typed envelope slots:
+  `capabilities api-surfaces --format json` now emits an inline
+  `api_surface_capability_report` artifact for the wrapper/connector registry, and Python
+  `OutputEnvelope.field_map` prefers typed payload fields before the temporary mirror.
 - [x] `GAR-PERF-2A` adds typed-envelope and benchmark-row fields for
   `evidence_level=minimal_runtime|certified|full_replay` on the scoped prepared/native batch
   runner, so callers can distinguish proof level from execution mode and engine mode without
   inferring claim status from prose.
-- [ ] Legacy flat `fields` mirror, remaining command-family result migration, some golden fixtures,
-  Foundry boundary fixture, and additional physical handler splits remain incomplete.
+- [ ] Legacy flat `fields` mirror, remaining command-family result migration beyond the
+  API-surface capability family, some golden fixtures, Foundry boundary fixture, and additional
+  physical handler splits remain incomplete.
 
 ### RFC 0040 - Benchmark Suite and Platform-Learning Hardening
 

@@ -19,7 +19,9 @@ fields, conservative typed reference attachment for explicit result, artifact, a
 refs/ids/paths/URIs in `shardloom-cli/src/typed_envelope.rs`, command-family lifecycle
 classification in `shardloom-cli/src/command_family.rs`, shared JSON/text rendering and error
 emission in `shardloom-cli/src/cli_output.rs`, the status/capabilities handler-family module in
-`shardloom-cli/src/status_capabilities.rs`, the input planning handler module in
+`shardloom-cli/src/status_capabilities.rs`, the GAR-0039-A API-surface capability typed migration
+for the wrapper/connector registry through an inline `api_surface_capability_report` artifact and
+typed `capability_snapshot` fields, the input planning handler module in
 `shardloom-cli/src/input_planning.rs`, the REST/API planning handler module in
 `shardloom-cli/src/rest_api_planning.rs`, the packaging/deployment handler module in
 `shardloom-cli/src/packaging_deployment.rs`, the benchmark planning handler module in

@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0039-A typed envelope API-surface migration
+  - Primary files:
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `python/src/shardloom/models.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: migrate the API-surface capability family further away from legacy flat-field reliance
+    by carrying the wrapper/connector registry through typed envelope slots and making Python
+    field access prefer typed payload fields before the temporary mirror.
+  - Checklist:
+    - [x] Add an inline `api_surface_capability_report` artifact for
+          `capabilities api-surfaces --format json`.
+    - [x] Add API-surface registry count, claim-boundary, and no-fallback fields to the typed
+          `capability_snapshot` payload.
+    - [x] Preserve the flat `fields` mirror for compatibility while making Python
+          `OutputEnvelope.field_map` prefer typed `result`, `policy`, `lifecycle`, and
+          `capability_snapshot` payload fields.
+    - [x] Add `legacy_field_map` for compatibility tests during mirror retirement.
+    - [x] Update typed-envelope docs, RFC traceability, and the active phase plan pointer.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a protocol/schema migration slice. It does not add runtime behavior, generated
+      clients, API servers, wrapper ecosystem support, package publication, benchmark execution,
+      performance claims, SQL/DataFrame production claims, or Spark-displacement claims.
+  - Fallback boundary:
+    - The migration does not read data, write outputs, start listeners, resolve credentials, probe
+      networks, invoke external engines, or attempt fallback.
+
 - [x] Session label: GAR-0037-A wrapper and connector implementation registry
   - Primary files:
     - `shardloom-core/src/wrapper_architecture.rs`

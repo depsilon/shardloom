@@ -1284,21 +1284,12 @@ GAR-0037-A is complete and recorded in the completed ledger. The completed slice
 generated clients, DB-API, SQLAlchemy, Ibis, orchestration wrappers, MCP, Flight/ADBC, JDBC/ODBC,
 BI/Grafana, Foundry package, REST server, dependency expansion, data-plane bridge, external engine,
 and fallback support blocked unless later scoped evidence admits them.
-- [ ] GAR-0039-A typed envelope migration and legacy field mirror closeout
-  - Source: RFC 0039; typed command result envelope docs; agent contract pack.
-  - Current state: typed output v2 exists; legacy flat `fields` mirror and some command families
-    remain.
-  - Next slice outcome: migrate one command family from legacy mirror reliance to typed refs or add
-    deterministic blockers where migration is not ready.
-  - User-visible surface: CLI JSON output, Python typed models, golden fixtures.
-  - Implementation scope: CLI renderer/typed envelope, one command-family handler, Python model/test.
-  - Evidence required: typed envelope snapshots and no-fallback refs.
-  - Acceptance: migrated family exposes typed payloads without losing backward-compatible fields where
-    still required.
-  - Verification: typed envelope snapshot tests, Python tests, `cargo test --workspace --all-targets`.
-  - Non-goals: no runtime behavior changes.
-  - Fallback/claim boundary: output migration cannot imply new support.
-  - Dependencies/blockers: command-family priority.
+GAR-0039-A is complete and recorded in the completed ledger. The completed slice migrates the
+API-surface capability family further into typed payloads by adding an inline
+`api_surface_capability_report` artifact for the wrapper/connector registry, adding typed
+`capability_snapshot` fields for registry counts and claim boundaries, and making Python
+`OutputEnvelope.field_map` prefer typed payload fields before the temporary legacy mirror. The
+legacy `fields` mirror remains present for compatibility while later command families migrate.
 - [ ] GAR-0039-B golden fixtures, Foundry boundary fixture, and helper centralization
   - Source: RFC 0039; repo cleanup backlog; terminology consolidation backlog; diagnostics backlog.
   - Current state: some golden fixtures, Foundry boundary fixture, command/help registry,

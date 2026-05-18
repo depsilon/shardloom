@@ -118,6 +118,15 @@ The `input-adapters` registry also enriches the typed `capability_snapshot` payl
 counts, adapter family orderings, and adapter statuses so clients no longer need to infer adapter
 capabilities only from the temporary flat `fields` mirror.
 
+GAR-0039-A extends the same migration rule to the API-surface capability family. The
+`capabilities api-surfaces --format json` command now emits an inline
+`api_surface_capability_report` artifact for the wrapper/connector implementation registry and
+mirrors the scope, support counts, claim boundary, and no-fallback/no-external-engine fields into
+the typed `capability_snapshot` payload. Python's `OutputEnvelope.field_map` now prefers typed
+`result`, `policy`, `lifecycle`, and `capability_snapshot` payload fields before falling back to
+the temporary flat `fields` mirror; `legacy_field_map` is available only for compatibility checks
+while the mirror is retired.
+
 These are protocol payloads only. They do not execute benchmarks, evaluate certificates, read data,
 write artifacts, or turn report-only surfaces into runtime support.
 

@@ -176,7 +176,27 @@ class OutputEnvelope:
 
     @property
     def field_map(self) -> dict[str, str]:
-        """Return envelope fields as a convenience mapping."""
+        """Return typed payload fields plus the temporary legacy mirror.
+
+        The typed `result`, `policy`, `lifecycle`, and `capability_snapshot`
+        payloads are the primary machine-readable surface. The flat `fields`
+        mirror remains a compatibility fallback while CLI command families
+        migrate.
+        """
+
+        merged = {entry.key: entry.value for entry in self.fields}
+        for payload in (
+            self.result,
+            self.policy,
+            self.lifecycle,
+            self.capability_snapshot,
+        ):
+            merged.update(_typed_payload_field_map(payload))
+        return merged
+
+    @property
+    def legacy_field_map(self) -> dict[str, str]:
+        """Return only the temporary flat `fields` mirror."""
 
         return {entry.key: entry.value for entry in self.fields}
 
@@ -230,3 +250,11 @@ def _sequence(value: Any) -> tuple[Any, ...]:
 
 def _mapping_sequence(value: Any) -> tuple[Mapping[str, Any], ...]:
     return tuple(item for item in _sequence(value) if isinstance(item, Mapping))
+
+
+def _typed_payload_field_map(payload: Mapping[str, Any]) -> dict[str, str]:
+    return {
+        str(item.get("key", "")): str(item.get("value", ""))
+        for item in _sequence(payload.get("fields"))
+        if isinstance(item, Mapping)
+    }

@@ -552,6 +552,61 @@ const STREAMING_BATCH_PLAN_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "external_engine_invoked",
 ];
 
+const API_SURFACE_CAPABILITY_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "scope",
+    "schema_version",
+    "dimension",
+    "dimension_status",
+    "surface_components",
+    "runtime_execution",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+    "side_effect_free",
+    "filesystem_probe",
+    "network_probe",
+    "catalog_probe",
+    "adapter_probe",
+    "parser_executed",
+    "production_claim_allowed",
+    "best_default_publication_allowed",
+    "wrapper_connector_registry_schema_version",
+    "wrapper_connector_registry_report_id",
+    "wrapper_connector_registry_docs_ref",
+    "wrapper_connector_registry_support_status_vocabulary",
+    "wrapper_connector_registry_row_count",
+    "wrapper_connector_registry_row_order",
+    "wrapper_connector_registry_ready_local_count",
+    "wrapper_connector_registry_report_only_count",
+    "wrapper_connector_registry_blocked_count",
+    "wrapper_connector_registry_dependency_expansion_allowed",
+    "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
+    "wrapper_connector_registry_fallback_attempted",
+    "wrapper_connector_registry_external_engine_invoked",
+    "wrapper_connector_registry_all_rows_no_fallback_no_external_engine",
+    "wrapper_connector_registry_claim_gate_status",
+];
+
+const CAPABILITIES_API_SURFACE_SNAPSHOT_KEYS: &[&str] = &[
+    "scope",
+    "schema_version",
+    "dimension",
+    "dimension_status",
+    "surface_components",
+    "runtime_execution",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+    "side_effect_free",
+    "production_claim_allowed",
+    "best_default_publication_allowed",
+    "wrapper_connector_registry_schema_version",
+    "wrapper_connector_registry_row_count",
+    "wrapper_connector_registry_ready_local_count",
+    "wrapper_connector_registry_report_only_count",
+    "wrapper_connector_registry_blocked_count",
+    "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
+    "wrapper_connector_registry_claim_gate_status",
+];
+
 const LOCAL_COUNT_NATIVE_IO_SOURCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "local_count_native_io_source_kind",
     "local_count_native_io_adapter_id",
@@ -948,11 +1003,21 @@ fn command_capability_snapshot_keys(command: &str) -> Option<&'static [&'static 
     }
 }
 
+fn command_capability_snapshot_scope_keys(
+    command: &str,
+    fields: &[(String, String)],
+) -> Option<&'static [&'static str]> {
+    match (command, field_value(fields, "scope")) {
+        ("capabilities", Some("api_surfaces")) => Some(CAPABILITIES_API_SURFACE_SNAPSHOT_KEYS),
+        _ => command_capability_snapshot_keys(command),
+    }
+}
+
 fn command_capability_snapshot_fields(
     command: &str,
     fields: &[(String, String)],
 ) -> Vec<(String, String)> {
-    let Some(keys) = command_capability_snapshot_keys(command) else {
+    let Some(keys) = command_capability_snapshot_scope_keys(command, fields) else {
         return Vec::new();
     };
     keys.iter()
@@ -960,6 +1025,30 @@ fn command_capability_snapshot_fields(
             field_value(fields, key).map(|value| ((*key).to_string(), value.to_string()))
         })
         .collect()
+}
+
+fn scoped_capability_report_payload(
+    command: &str,
+    fields: &[(String, String)],
+) -> Option<OutputTypedArtifact> {
+    if command != "capabilities" || field_value(fields, "scope") != Some("api_surfaces") {
+        return None;
+    }
+    let mut artifact = OutputTypedArtifact::new(
+        "capabilities.api_surfaces",
+        "api_surface_capability_report",
+        field_value(fields, "dimension_status").unwrap_or("report_only"),
+    );
+    for key in API_SURFACE_CAPABILITY_REPORT_PAYLOAD_KEYS {
+        if let Some(value) = field_value(fields, key) {
+            artifact = artifact.with_field(*key, value);
+        }
+    }
+    if artifact.payload.fields.is_empty() {
+        None
+    } else {
+        Some(artifact)
+    }
 }
 
 fn apply_command_capability_snapshot_fields(
@@ -1146,6 +1235,7 @@ pub(crate) fn apply_typed_envelope_fields(
     let inline_field_subset_payloads = inline_field_subset_payloads(command, &fields);
     let inline_execution_mode_selection = inline_execution_mode_selection_payload(command, &fields);
     let inline_compute_flow_evidence = inline_compute_flow_evidence_payload(command, &fields);
+    let inline_scoped_capability_report = scoped_capability_report_payload(command, &fields);
     let command_capability_snapshot_fields = command_capability_snapshot_fields(command, &fields);
     let mut envelope = envelope;
     for (key, value) in fields {
@@ -1166,6 +1256,9 @@ pub(crate) fn apply_typed_envelope_fields(
         envelope = envelope.with_artifact(artifact);
     }
     if let Some(artifact) = inline_compute_flow_evidence {
+        envelope = envelope.with_artifact(artifact);
+    }
+    if let Some(artifact) = inline_scoped_capability_report {
         envelope = envelope.with_artifact(artifact);
     }
     envelope
