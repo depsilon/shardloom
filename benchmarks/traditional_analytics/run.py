@@ -364,6 +364,41 @@ SOURCE_STATE_CONTRACT_FIELDS = (
     "source_state_claim_gate_status",
     "source_state_claim_boundary",
 )
+PREPARED_STATE_CONTRACT_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.vortex_prepared_state.v1"
+)
+PREPARED_STATE_CONTRACT_STATUS_VOCABULARY = (
+    "prepared_state_reuse_supported",
+    "not_needed",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+PREPARED_STATE_CONTRACT_FIELDS = (
+    "prepared_state_contract_schema_version",
+    "prepared_state_status_vocabulary",
+    "prepared_state_status",
+    "prepared_state_id",
+    "prepared_state_digest",
+    "prepared_state_source_state_id",
+    "vortex_artifact_ref",
+    "vortex_artifact_digest",
+    "layout_summary",
+    "encoding_summary",
+    "statistics_summary",
+    "prepared_state_reuse_allowed",
+    "prepared_state_reuse_hit",
+    "prepared_state_reuse_reason",
+    "preparation_included_in_timing",
+    "vortex_prepare_millis",
+    "prepared_state_materialization_decode_boundary_ref",
+    "prepared_state_native_io_certificate_status",
+    "prepared_state_fallback_attempted",
+    "prepared_state_external_engine_invoked",
+    "prepared_state_claim_gate_status",
+    "prepared_state_claim_boundary",
+)
 SESSION_RUNTIME_FIELDS = (
     "session_schema_version",
     "session_id",
@@ -4582,6 +4617,150 @@ def source_state_contract_metadata(
     }
 
 
+def prepared_state_reuse_reason(
+    engine: str,
+    evidence: dict[str, Any],
+    status: str,
+    selected_mode: str | None,
+    reuse_allowed: bool,
+    reuse_hit: bool,
+) -> str:
+    if not is_shardloom_engine(engine):
+        return "external baseline rows do not create or reuse ShardLoom VortexPreparedState"
+    if status in {"unsupported", "unsupported_format", "execution_error"}:
+        return "row did not execute; prepared-state posture is deterministic but not reusable"
+    if engine == "shardloom-direct-transient":
+        return "direct transient smoke does not create or reuse VortexPreparedState"
+    if selected_mode == "compatibility_import_certified":
+        return "compatibility import prepares Vortex inside the certified row but is not reusable prepared-state support"
+    if reuse_hit:
+        return "caller-supplied prepared Vortex artifacts were reused across prepared/native batch scenarios"
+    if reuse_allowed:
+        return (
+            evidence.get("prepared_artifact_reuse_scope")
+            or "prepared Vortex artifacts are reusable, but this row did not observe a reuse hit"
+        )
+    return "prepared-state reuse is report-only for this row"
+
+
+def prepared_state_contract_metadata(
+    engine: str,
+    scenario: str,
+    data_format: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+    selected_mode: str | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    artifact_ref = first_meaningful_field(
+        metrics.get("prepared_artifact_ref"),
+        evidence.get("prepared_artifact_ref"),
+        "none",
+    )
+    artifact_digest = first_meaningful_field(
+        metrics.get("prepared_artifact_digest"),
+        evidence.get("prepared_artifact_digest"),
+        "none",
+    )
+    source_state_id = str(metrics.get("source_state_id", "none"))
+    selected_mode = selected_mode or str(evidence.get("selected_execution_mode") or "unknown")
+    prepared_mode = selected_mode in {"prepared_vortex", "native_vortex"}
+    executed = status == "success"
+    reuse_count = parse_optional_int(evidence.get("session_prepared_artifact_reuse_count"))
+    reuse_hit = bool(reuse_count and reuse_count > 0)
+    reuse_allowed = (
+        is_shardloom
+        and executed
+        and prepared_mode
+        and artifact_ref != "none"
+        and artifact_digest != "none"
+    )
+    if not is_shardloom:
+        prepared_state_status = "external_baseline_only"
+    elif status in {"unsupported", "unsupported_format"}:
+        prepared_state_status = "unsupported"
+    elif status == "execution_error":
+        prepared_state_status = "blocked"
+    elif engine == "shardloom-direct-transient":
+        prepared_state_status = "not_needed"
+    elif reuse_allowed:
+        prepared_state_status = "prepared_state_reuse_supported"
+    else:
+        prepared_state_status = "report_only"
+    prepared_state_digest = canonical_digest(
+        {
+            "artifact_digest": artifact_digest,
+            "artifact_ref": artifact_ref,
+            "data_format": data_format,
+            "scenario": scenario,
+            "source_state_id": source_state_id,
+            "vortex_prepared_state_schema": PREPARED_STATE_CONTRACT_SCHEMA_VERSION,
+        }
+    )
+    prepared_state_id = (
+        f"vortex-prepared-state:{data_format}:{prepared_state_digest[:12]}"
+        if is_shardloom and artifact_ref != "none"
+        else "none"
+    )
+    return {
+        "prepared_state_contract_schema_version": PREPARED_STATE_CONTRACT_SCHEMA_VERSION,
+        "prepared_state_status_vocabulary": ",".join(
+            PREPARED_STATE_CONTRACT_STATUS_VOCABULARY
+        ),
+        "prepared_state_status": prepared_state_status,
+        "prepared_state_id": prepared_state_id,
+        "prepared_state_digest": prepared_state_digest if prepared_state_id != "none" else "none",
+        "prepared_state_source_state_id": source_state_id,
+        "vortex_artifact_ref": artifact_ref if is_shardloom else "none",
+        "vortex_artifact_digest": artifact_digest if is_shardloom else "none",
+        "layout_summary": (
+            "local_vortex_artifact_layout_not_summarized"
+            if prepared_state_id != "none"
+            else "none"
+        ),
+        "encoding_summary": (
+            evidence.get("compressed_kernel_registry_encoding_ids")
+            or "encoding_summary_not_materialized_in_benchmark_row"
+            if prepared_state_id != "none"
+            else "none"
+        ),
+        "statistics_summary": (
+            evidence.get("source_capability_statistics_availability")
+            or "vortex_metadata_available"
+            if prepared_state_id != "none"
+            else "none"
+        ),
+        "prepared_state_reuse_allowed": reuse_allowed,
+        "prepared_state_reuse_hit": reuse_hit,
+        "prepared_state_reuse_reason": prepared_state_reuse_reason(
+            engine, evidence, status, selected_mode, reuse_allowed, reuse_hit
+        ),
+        "preparation_included_in_timing": metrics.get(
+            "preparation_included_in_timing", False
+        ),
+        "vortex_prepare_millis": metrics.get("preparation_millis"),
+        "prepared_state_materialization_decode_boundary_ref": MATERIALIZATION_POLICY_REF,
+        "prepared_state_native_io_certificate_status": first_meaningful_field(
+            evidence.get("source_native_io_certificate_status"),
+            evidence.get("native_io_certificate_status"),
+            metrics.get("source_native_io_certificate_status"),
+            "not_applicable",
+        ),
+        "prepared_state_fallback_attempted": False,
+        "prepared_state_external_engine_invoked": False,
+        "prepared_state_claim_gate_status": "not_claim_grade",
+        "prepared_state_claim_boundary": (
+            "VortexPreparedState evidence covers scoped local prepared Vortex artifact identity, "
+            "digest, preparation timing separation, and reuse posture only; it is not encoded-native "
+            "operator coverage, output support, performance, production, SQL/DataFrame, object-store/"
+            "lakehouse, Foundry, package, release, or Spark-replacement evidence"
+        ),
+    }
+
+
 def rows_scanned(paths: DatasetPaths, scenario: str) -> int:
     if scenario in {
         "hash join",
@@ -4979,6 +5158,27 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError(
                 "SourceState reuse cannot turn compatibility-import rows into prepared/native rows"
             )
+        missing_prepared_state_fields = [
+            field for field in PREPARED_STATE_CONTRACT_FIELDS if field not in metrics
+        ]
+        if missing_prepared_state_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted VortexPreparedState contract fields: "
+                + ", ".join(missing_prepared_state_fields)
+            )
+        if metrics.get("prepared_state_fallback_attempted") is not False:
+            raise RuntimeError("VortexPreparedState evidence cannot report fallback attempts")
+        if metrics.get("prepared_state_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "VortexPreparedState evidence cannot report external engine execution"
+            )
+        if metrics.get("prepared_state_claim_gate_status") != "not_claim_grade":
+            raise RuntimeError("VortexPreparedState evidence cannot upgrade claim status")
+        if (
+            result.get("selected_execution_mode") == "direct_compatibility_transient"
+            and metrics.get("prepared_state_reuse_allowed") is True
+        ):
+            raise RuntimeError("direct transient rows cannot report prepared-state reuse")
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
         and result.get("status") == "success"
@@ -5479,6 +5679,42 @@ def source_state_contract() -> dict[str, Any]:
     }
 
 
+def prepared_state_contract() -> dict[str, Any]:
+    return {
+        "contract_id": PREPARED_STATE_CONTRACT_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(PREPARED_STATE_CONTRACT_STATUS_VOCABULARY),
+        "row_fields": list(PREPARED_STATE_CONTRACT_FIELDS),
+        "current_scope": (
+            "local prepared Vortex artifact identity, digest, preparation timing "
+            "separation, source-state linkage, and scoped reuse visibility"
+        ),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> "
+            "OutputPlan -> SinkArtifact"
+        ),
+        "non_goals": [
+            "new preparation runtime",
+            "object-store Vortex artifact runtime",
+            "lakehouse/table commit support",
+            "production SQL/DataFrame runtime",
+            "encoded-native operator claim",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Prepared-state rows must preserve prepared_state_fallback_attempted=false "
+            "and prepared_state_external_engine_invoked=false for ShardLoom rows."
+        ),
+        "claim_boundary": (
+            "VortexPreparedState evidence is scoped prepared-artifact reuse evidence only. "
+            "It does not prove encoded-native operator coverage, output support, performance, "
+            "production, SQL/DataFrame, object-store/lakehouse, Foundry, package, release, "
+            "or Spark-replacement readiness."
+        ),
+    }
+
+
 def source_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -5524,6 +5760,62 @@ def source_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "source_state_external_engine_invoked"
                 ),
                 "source_state_claim_boundary": metrics.get("source_state_claim_boundary"),
+            }
+        )
+    return rows
+
+
+def prepared_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "prepared_state_contract_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "prepared_state_status": metrics.get("prepared_state_status"),
+                "prepared_state_id": metrics.get("prepared_state_id"),
+                "prepared_state_digest": metrics.get("prepared_state_digest"),
+                "source_state_id": metrics.get("prepared_state_source_state_id"),
+                "vortex_artifact_ref": metrics.get("vortex_artifact_ref"),
+                "vortex_artifact_digest": metrics.get("vortex_artifact_digest"),
+                "layout_summary": metrics.get("layout_summary"),
+                "encoding_summary": metrics.get("encoding_summary"),
+                "statistics_summary": metrics.get("statistics_summary"),
+                "prepared_state_reuse_allowed": metrics.get(
+                    "prepared_state_reuse_allowed"
+                ),
+                "prepared_state_reuse_hit": metrics.get("prepared_state_reuse_hit"),
+                "prepared_state_reuse_reason": metrics.get(
+                    "prepared_state_reuse_reason"
+                ),
+                "preparation_included_in_timing": metrics.get(
+                    "preparation_included_in_timing"
+                ),
+                "vortex_prepare_millis": metrics.get("vortex_prepare_millis"),
+                "prepared_state_native_io_certificate_status": metrics.get(
+                    "prepared_state_native_io_certificate_status"
+                ),
+                "prepared_state_materialization_decode_boundary_ref": metrics.get(
+                    "prepared_state_materialization_decode_boundary_ref"
+                ),
+                "prepared_state_claim_gate_status": metrics.get(
+                    "prepared_state_claim_gate_status"
+                ),
+                "prepared_state_fallback_attempted": metrics.get(
+                    "prepared_state_fallback_attempted"
+                ),
+                "prepared_state_external_engine_invoked": metrics.get(
+                    "prepared_state_external_engine_invoked"
+                ),
+                "prepared_state_claim_boundary": metrics.get(
+                    "prepared_state_claim_boundary"
+                ),
             }
         )
     return rows
@@ -6033,6 +6325,16 @@ def failed_result(
             status=status,
         )
     )
+    metrics.update(
+        prepared_state_contract_metadata(
+            engine,
+            scenario,
+            data_format,
+            status=status,
+            metrics=metrics,
+            selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -6510,6 +6812,17 @@ def successful_result_from_iterations(
             status="success" if stable else "unstable_output",
             evidence=evidence,
             source_parse_millis=compatibility_parse_millis,
+        )
+    )
+    metrics.update(
+        prepared_state_contract_metadata(
+            runner.name,
+            scenario,
+            data_format,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            evidence=evidence,
+            selected_mode=execution_mode["selected_execution_mode"],
         )
     )
     if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
@@ -7936,6 +8249,27 @@ def render_source_state_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_prepared_state_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["prepared_state_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -7958,6 +8292,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom rows expose cli_process_wall_millis and python_harness_overhead_millis where the Python harness can measure them. Build time is reported separately and excluded from per-scenario timing.",
         "Eligible prepared/native ShardLoom rows may use persistent_runner_status=single_process_batch_runner_supported; per-scenario CLI rows keep persistent_runner_status=process_per_scenario_attributed_not_reduced, and neither status permits a hidden fast mode or performance claim.",
         "ShardLoom rows carry SourceState contract fields for local source discovery, schema identity, parse/decode planning, fingerprinting, and scoped reuse posture; SourceState is input preparation evidence and never upgrades Vortex-native, output, object-store, SQL/DataFrame, production, or performance claims.",
+        "ShardLoom prepared/native rows carry VortexPreparedState contract fields for prepared artifact refs, digests, preparation timing separation, source-state linkage, and scoped reuse posture; prepared-state evidence is not output support, encoded-native operator coverage, object-store/lakehouse support, or a performance claim.",
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -8255,6 +8590,94 @@ def render_source_state_matrix(artifact: dict[str, Any]) -> str:
             "Schema inference",
             "Parse/decode",
             "Parse plan digest",
+            "Materialization policy",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
+def render_prepared_state_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["prepared_state_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["prepared_state_status"]),
+                str(row["prepared_state_id"]),
+                str(row["prepared_state_digest"]),
+                str(row["source_state_id"]),
+                str(row["vortex_artifact_ref"]).replace("|", "\\|"),
+                str(row["vortex_artifact_digest"]).replace("|", "\\|"),
+                str(row["layout_summary"]),
+                str(row["encoding_summary"]).replace("|", "\\|"),
+                str(row["statistics_summary"]),
+                str(row["prepared_state_reuse_allowed"]),
+                str(row["prepared_state_reuse_hit"]),
+                str(row["prepared_state_reuse_reason"]).replace("|", "\\|"),
+                str(row["preparation_included_in_timing"]),
+                format_metric(row["vortex_prepare_millis"], " ms"),
+                str(row["prepared_state_native_io_certificate_status"]),
+                str(row["prepared_state_materialization_decode_boundary_ref"]),
+                str(row["prepared_state_claim_gate_status"]),
+                str(row["prepared_state_fallback_attempted"]),
+                str(row["prepared_state_external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "false",
+                "false",
+                "no VortexPreparedState rows were emitted",
+                "false",
+                "n/a",
+                "none",
+                "none",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "PreparedState status",
+            "PreparedState id",
+            "PreparedState digest",
+            "SourceState id",
+            "Vortex artifact ref",
+            "Vortex artifact digest",
+            "Layout",
+            "Encoding",
+            "Statistics",
+            "Reuse allowed",
+            "Reuse hit",
+            "Reuse reason",
+            "Prep in timing",
+            "Vortex prepare",
+            "Source Native I/O",
             "Materialization policy",
             "Claim gate",
             "Fallback",
@@ -8906,6 +9329,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_source_state_contract(artifact),
         "",
+        "## VortexPreparedState Contract",
+        "",
+        "This contract makes prepared Vortex artifact identity, preparation timing separation, source-state linkage, and scoped reuse posture visible without implying output support or performance claims.",
+        "",
+        render_prepared_state_contract(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -8933,6 +9362,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "SourceState is input preparation evidence. Reuse fields show whether local source preparation state was reusable for this row; they do not upgrade claim_gate_status or create object-store/lakehouse/SQL/DataFrame support.",
         "",
         render_source_state_matrix(artifact),
+        "",
+        "## ShardLoom VortexPreparedState Evidence Matrix",
+        "",
+        "VortexPreparedState is prepared-artifact evidence. Reuse fields show whether prepared Vortex artifacts were eligible for reuse or reused; they do not upgrade claim_gate_status or create output/object-store/lakehouse/SQL/DataFrame support.",
+        "",
+        render_prepared_state_matrix(artifact),
         "",
         "## Resource Metrics",
         "",
@@ -9235,6 +9670,7 @@ def main() -> int:
         "execution_mode_attribution_contract": execution_mode_attribution_contract(),
         "persistent_runner_admission_gate": persistent_runner_admission_gate(),
         "source_state_contract": source_state_contract(),
+        "prepared_state_contract": prepared_state_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
@@ -9245,6 +9681,7 @@ def main() -> int:
         "coverage_table": coverage_table(results),
         "format_preparation_matrix": format_preparation_matrix(results),
         "source_state_matrix": source_state_matrix(results),
+        "prepared_state_matrix": prepared_state_matrix(results),
         "results": results,
         "shardloom_native_microbenchmarks": []
         if args.skip_shardloom_native

@@ -20,10 +20,12 @@ InputAdapter
 -> SinkArtifact
 ```
 
-`GAR-IOREUSE-1A` now implements the first benchmark/report contract for local SourceState evidence.
-The remaining VortexPreparedState, OutputPlan, fanout, invalidation, reuse-level, and Foundry
-generated-output slices are still planned. This document does not implement object-store I/O,
-table/lakehouse commits, Foundry production support, performance claims, or a hidden fast mode.
+`GAR-IOREUSE-1A` implements the first benchmark/report contract for local SourceState evidence.
+`GAR-IOREUSE-1B` adds the companion VortexPreparedState benchmark/report contract for prepared
+artifact identity, digest, preparation timing separation, source-state linkage, and scoped reuse
+posture. OutputPlan, fanout, invalidation, reuse-level, and Foundry generated-output slices are
+still planned. This document does not implement object-store I/O, table/lakehouse commits, Foundry
+production support, performance claims, or a hidden fast mode.
 
 ## Goals
 
@@ -115,26 +117,47 @@ timing, Native I/O certificate refs, materialization/decode boundaries, source-b
 reuse counters. It may be created from compatibility import, native Vortex input, generated source,
 or a future admitted source.
 
-Required future fields:
+Implemented `GAR-IOREUSE-1B` benchmark/report fields:
 
 ```text
+prepared_state_contract_schema_version
+prepared_state_status_vocabulary
+prepared_state_status
 prepared_state_id
 prepared_state_digest
-source_state_id
+prepared_state_source_state_id
 vortex_artifact_ref
 vortex_artifact_digest
 layout_summary
 encoding_summary
 statistics_summary
+prepared_state_reuse_allowed
 prepared_state_reuse_hit
 prepared_state_reuse_reason
 preparation_included_in_timing
+vortex_prepare_millis
+prepared_state_materialization_decode_boundary_ref
+prepared_state_native_io_certificate_status
+prepared_state_fallback_attempted=false
+prepared_state_external_engine_invoked=false
+prepared_state_claim_gate_status=not_claim_grade
+prepared_state_claim_boundary
 ```
 
-Prepared state should be reusable across multiple queries and outputs. Benchmark rows must separate
-`vortex_prepare_millis` from query/runtime timing. Prepared state reuse does not weaken no-fallback
-policy and does not authorize object-store Vortex artifact runtime unless that runtime is separately
-admitted.
+The traditional analytics benchmark artifact and Markdown report now include a
+`shardloom.traditional_analytics.vortex_prepared_state.v1` contract object and a
+VortexPreparedState evidence matrix. Prepared/native rows can report scoped reusable prepared Vortex
+artifact posture while compatibility-import-certified rows remain certification rows and
+direct-transient rows remain `not_needed`. `prepared_state_status` is one of
+`prepared_state_reuse_supported`, `not_needed`, `blocked`, `unsupported`, `report_only`, or
+`external_baseline_only`.
+
+Prepared state should be reusable across multiple queries and future output plans. Current rows
+separate `vortex_prepare_millis` from query/runtime timing and preserve
+`preparation_included_in_timing=false` where preparation is measured outside scenario runtime.
+Prepared state reuse does not weaken no-fallback policy and does not authorize output support,
+object-store Vortex artifact runtime, encoded-native operator coverage, or performance claims unless
+those runtimes are separately admitted.
 
 ### ExecutionPlan
 
@@ -214,17 +237,15 @@ generated source -> CSV + Parquet + Vortex outputs
 prepared Vortex -> multiple output formats
 ```
 
-Current `GAR-IOREUSE-1A` benchmark rows expose the SourceState subset listed above. Future
-fanout/reuse rows should additionally expose:
+Current `GAR-IOREUSE-1A` and `GAR-IOREUSE-1B` benchmark rows expose the SourceState and
+VortexPreparedState subsets listed above. Future fanout/reuse rows should additionally expose:
 
 ```text
-vortex_prepare_millis
 operator_compute_millis
 output_plan_millis
 output_write_millis
 output_replay_millis
 total_runtime_millis
-prepared_state_reuse_hit
 output_plan_reuse_hit
 fanout_output_count
 fallback_attempted=false
@@ -378,8 +399,9 @@ external_engine_invoked=false
 
 ## Acceptance For The Planning Bundle
 
-- The phase plan contains detailed remaining `GAR-IOREUSE-1B` through `GAR-IOREUSE-1G` slices, and
-  this ledger records `GAR-IOREUSE-1A` as completed SourceState benchmark/report evidence.
+- The phase plan contains detailed remaining `GAR-IOREUSE-1C` through `GAR-IOREUSE-1G` slices, and
+  the completed ledger records `GAR-IOREUSE-1A` and `GAR-IOREUSE-1B` as completed SourceState and
+  VortexPreparedState benchmark/report evidence.
 - Benchmark docs list the planned benchmark families and metrics.
 - Compute-flow docs show the decoupled path:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`.

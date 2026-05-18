@@ -116,6 +116,21 @@ identity/fingerprint/parse-plan posture and scoped reuse visibility; it is not o
 Vortex-native execution, object-store/lakehouse support, SQL/DataFrame runtime, or performance
 evidence.
 
+`GAR-IOREUSE-1B` adds a companion VortexPreparedState row contract to the benchmark artifact. Rows
+now carry
+`prepared_state_contract_schema_version=shardloom.traditional_analytics.vortex_prepared_state.v1`,
+`prepared_state_status`, `prepared_state_id`, `prepared_state_digest`,
+`prepared_state_source_state_id`, `vortex_artifact_ref`, `vortex_artifact_digest`,
+`layout_summary`, `encoding_summary`, `statistics_summary`, `prepared_state_reuse_allowed`,
+`prepared_state_reuse_hit`, `prepared_state_reuse_reason`, `preparation_included_in_timing`,
+`vortex_prepare_millis`, `prepared_state_materialization_decode_boundary_ref`,
+`prepared_state_native_io_certificate_status`, `prepared_state_fallback_attempted=false`,
+`prepared_state_external_engine_invoked=false`, `prepared_state_claim_gate_status=not_claim_grade`,
+and `prepared_state_claim_boundary`. This prepared-state contract covers scoped local prepared
+artifact identity, digest, preparation timing separation, source-state linkage, and reuse posture;
+it is not output support, encoded-native operator coverage, object-store/lakehouse support,
+SQL/DataFrame runtime, or performance evidence.
+
 `GAR-PERF-1C` adds scoped fused-pipeline evidence for the current prepared/native
 filter/projection/limit row and selective-filter selection-vector metric aggregation row. The
 benchmark harness now carries `fused_pipeline_*` fields, including `fused_pipeline_used`,
@@ -262,11 +277,10 @@ generated source -> CSV + Parquet + Vortex outputs
 prepared Vortex -> multiple output formats
 ```
 
-The current SourceState slice emits the source discovery/schema/parse subset above. Required future
-timing fields for the remaining fanout bundle:
+The current SourceState and VortexPreparedState slices emit the source discovery/schema/parse and
+prepared artifact subsets above. Required future timing fields for the remaining fanout bundle:
 
 ```text
-vortex_prepare_millis
 operator_compute_millis
 output_plan_millis
 output_write_millis
@@ -278,7 +292,6 @@ Required future reuse fields:
 
 ```text
 source_state_reuse_hit
-prepared_state_reuse_hit
 output_plan_reuse_hit
 fanout_output_count
 fallback_attempted=false
