@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-SCALE-1D shuffle, repartition, and join scale contract
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `docs/architecture/scale-readiness-contract.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: close the shuffle/repartition slice by adding the
+    `shardloom.traditional_analytics.shuffle_repartition.v1` benchmark/report contract. Current rows
+    expose shuffle requirement, strategy, partitioning, local-combine/global-merge, broadcast, skew,
+    spill, retry, correctness-digest, no-fallback, external-engine, claim-gate, and claim-boundary
+    fields as report-only evidence only; no distributed shuffle, Spark-scale join, skew-handling,
+    retryable-shuffle, partitioned-write, or performance claim is promoted.
+  - Checklist:
+    - [x] Add shuffle evidence and shuffle-claim vocabularies.
+    - [x] Emit ShufflePlan ID/digest, shuffle required/strategy, partitioning strategy, shuffle
+          partition count, target shuffle partition bytes, local combine, global merge, broadcast
+          candidate/admission, skew detection/strategy, shuffle spill, retry, correctness digest,
+          no-fallback, external-engine, claim-gate, and claim-boundary fields.
+    - [x] Add benchmark artifact contract and shuffle/repartition evidence matrix.
+    - [x] Validate ShardLoom rows keep `shuffle_claim_gate_status=not_shuffle_scale_grade`,
+          `shuffle_partition_count=0`, `target_shuffle_partition_bytes=null`,
+          `local_combine_used=false`, `global_merge_used=false`, `broadcast_admitted=false`,
+          `skew_detected=false`, `skew_strategy=not_evaluated_report_only`,
+          `shuffle_spill_bytes=0`, `shuffle_retry_count=0`,
+          `shuffle_correctness_digest=not_emitted_no_scale_shuffle`,
+          `shuffle_fallback_attempted=false`, and
+          `shuffle_external_engine_invoked=false`.
+    - [x] Update compute-flow, benchmark docs, scale-readiness docs, GAR, traceability, and website
+          compute-flow snapshot.
+    - [x] Remove the active GAR-SCALE-1D item from the Planned queue.
+  - Evidence/verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex --formats csv --scenario "hash join" --rows 10 --dim-rows 5 --iterations 1 --regenerate --skip-shardloom-native --no-markdown --output target/codex-gar-scale-1d-smoke.json`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q benchmarks/traditional_analytics scripts website`
+    - `git diff --check`
+  - Claim boundary:
+    - Shuffle/repartition evidence is report-only local planning posture. It does not prove
+      distributed execution, Spark-scale joins, scale-safe repartition writes, skew handling,
+      retryable shuffle, production scale safety, Spark-replacement, or performance superiority.
+  - Fallback boundary:
+    - Unsupported shuffle strategies must block or report unsupported. They cannot delegate
+      ShardLoom work to Spark, DataFusion, DuckDB, Polars, Dask, Ray, Foundry Spark, managed SQL
+      systems, or other external fallback engines.
+
 - [x] Session label: GAR-SCALE-1C bounded memory, spill, and backpressure contract
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

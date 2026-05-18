@@ -451,72 +451,9 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-GAR-SCALE-1A through GAR-SCALE-1C are complete and recorded in the completed ledger. The active
-follow-through begins with shuffle, repartition, and join scale contracts; all non-local scale
+GAR-SCALE-1A through GAR-SCALE-1D are complete and recorded in the completed ledger. The active
+follow-through begins with object-store and table-scale execution ladders; all non-local scale
 classes remain blocked or report-only until later slices attach runtime evidence.
-
-- [ ] GAR-SCALE-1D shuffle, repartition, and join scale contract
-  - Source:
-    - RFC 0016 optimizer/adaptive execution/runtime filters/skew.
-    - RFC 0017 fault tolerance and recovery.
-    - Prepared/native batch runner and source-state reuse work.
-    - Benchmark scenario catalog for joins, group-bys, top-N per group, and CDC overlay.
-  - Current state:
-    - Local prepared/native source-state reuse is improving.
-    - Scale-grade shuffle, repartition, and join evidence is not first-class.
-    - Current local join/group-by/top-N/CDC rows are not distributed shuffle evidence.
-  - Next slice outcome:
-    - Define `ShufflePlan` and `ShuffleEvidence` for scale-safe joins, group-bys, windows, top-N per
-      group, repartition writes, and CDC overlays.
-  - User-visible surface:
-    - Benchmark rows, compute-flow docs, optimizer/explain surfaces, and capability/status matrices.
-  - Implementation scope:
-    - Shuffle/repartition evidence schema, deterministic blockers, benchmark row fields, docs, and
-      plan/explain vocabulary. No distributed shuffle implementation in this slice.
-  - Evidence required:
-    - `shuffle_required`
-    - `shuffle_strategy`
-    - `partitioning_strategy`
-    - `shuffle_partition_count`
-    - `target_shuffle_partition_bytes`
-    - `local_combine_used`
-    - `global_merge_used`
-    - `broadcast_candidate`
-    - `broadcast_admitted`
-    - `skew_detected`
-    - `skew_strategy`
-    - `shuffle_spill_bytes`
-    - `shuffle_retry_count`
-    - `shuffle_correctness_digest`
-    - `fallback_attempted=false`
-    - `external_engine_invoked=false`
-    - `claim_gate_status`
-  - Acceptance:
-    - Group-by, join, window, top-N, repartition, and CDC scale paths either emit shuffle evidence
-      or deterministic blockers.
-    - Broadcast, hash shuffle, range shuffle, local combine, global merge, and skew splitting are
-      separate states.
-    - No distributed shuffle claim exists without remote-worker or cluster evidence.
-  - Verification:
-    - Shuffle evidence snapshot/contract tests.
-    - Benchmark harness schema tests.
-    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
-    - `git diff --check`
-  - Non-goals:
-    - No distributed shuffle runtime, broad join optimization claim, performance claim, or Spark
-      replacement claim.
-  - Dependencies/blockers:
-    - Plan/explain ownership, join/group-by/window/top-N/CDC operator evidence, partitioning
-      strategy vocabulary, spill evidence, retry semantics, and correctness digests.
-  - Claim boundary:
-    - Shuffle evidence can describe local/report-only planning. It cannot claim distributed
-      execution, Spark-scale joins, or production scale safety without workload evidence.
-  - Fallback boundary:
-    - Unsupported shuffle strategies must block/report unsupported; they cannot delegate to Spark,
-      DataFusion, DuckDB, Polars, Dask, Ray, or managed platforms.
-  - Ledger rule:
-    - When complete, record the shuffle/repartition contract, tested blockers, and claim boundaries
-      in the completed ledger.
 
 - [ ] GAR-SCALE-1E object-store and table-scale execution ladder
   - Source:

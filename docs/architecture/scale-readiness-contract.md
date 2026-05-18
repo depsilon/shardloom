@@ -1,7 +1,6 @@
 # Scale Readiness Contract
 
-Status: implemented report-only contracts for `GAR-SCALE-1A`, `GAR-SCALE-1B`, and
-`GAR-SCALE-1C`.
+Status: implemented report-only contracts for `GAR-SCALE-1A` through `GAR-SCALE-1D`.
 
 ShardLoom must not claim literal "any volume" support. Scale readiness is a declared resource and
 evidence contract, not a slogan. A row can become scale-grade only when it proves the appropriate
@@ -207,6 +206,70 @@ Any future larger-than-memory claim requires a declared resource envelope, opera
 deterministic block-or-spill admission, spill read/write/cleanup evidence when spill is allowed,
 backpressure evidence when work is throttled or chunked, and correctness evidence over the claimed
 workload bytes.
+
+## Shuffle, Repartition, And Join Scale Contract
+
+`GAR-SCALE-1D` adds
+`shuffle_contract_schema_version=shardloom.traditional_analytics.shuffle_repartition.v1` and a
+report-only `ShufflePlan`/`ShuffleEvidence` contract to benchmark rows.
+
+The contract covers scale-sensitive families such as group-by, join, window, top-N per group,
+repartition write, and CDC overlay. Current rows classify local operator posture and deterministic
+blockers only. They do not prove distributed shuffle, Spark-scale joins, skew handling, retryable
+shuffle, partitioned writes, or performance.
+
+ShardLoom shuffle rows carry:
+
+```text
+shuffle_contract_schema_version
+shuffle_evidence_status_vocabulary
+shuffle_claim_status_vocabulary
+shuffle_evidence_status
+shuffle_plan_id
+shuffle_plan_digest
+shuffle_required
+shuffle_strategy
+partitioning_strategy
+shuffle_partition_count
+target_shuffle_partition_bytes
+local_combine_used
+global_merge_used
+broadcast_candidate
+broadcast_admitted
+skew_detected
+skew_strategy
+shuffle_spill_bytes
+shuffle_retry_count
+shuffle_correctness_digest
+shuffle_claim_status
+shuffle_fallback_attempted=false
+shuffle_external_engine_invoked=false
+shuffle_claim_gate_status
+shuffle_claim_boundary
+```
+
+For `GAR-SCALE-1D`, current rows must keep:
+
+```text
+shuffle_claim_gate_status=not_shuffle_scale_grade
+shuffle_partition_count=0
+target_shuffle_partition_bytes=null
+local_combine_used=false
+global_merge_used=false
+broadcast_admitted=false
+skew_detected=false
+skew_strategy=not_evaluated_report_only
+shuffle_spill_bytes=0
+shuffle_retry_count=0
+shuffle_correctness_digest=not_emitted_no_scale_shuffle
+shuffle_fallback_attempted=false
+shuffle_external_engine_invoked=false
+```
+
+Any future shuffle/repartition claim requires partitioning strategy evidence, target partition
+bytes, local-combine/global-merge evidence when used, broadcast admission proof, skew strategy
+evidence, spill/retry evidence, correctness digests over the claimed workload, and remote-worker
+evidence before any distributed shuffle claim.
 
 ## Claim Gate
 

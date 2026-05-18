@@ -134,6 +134,20 @@ now include
 fail-closed posture only; they do not prove larger-than-memory execution, runtime spill,
 backpressure, hidden materialization safety, Spark-replacement, or performance claims.
 
+`GAR-SCALE-1D` adds a report-only shuffle, repartition, and join scale contract to benchmark rows.
+Rows now include
+`shuffle_contract_schema_version=shardloom.traditional_analytics.shuffle_repartition.v1`,
+`shuffle_evidence_status`, `shuffle_plan_id`, `shuffle_plan_digest`, `shuffle_required`,
+`shuffle_strategy`, `partitioning_strategy`, `shuffle_partition_count`,
+`target_shuffle_partition_bytes`, `local_combine_used`, `global_merge_used`,
+`broadcast_candidate`, `broadcast_admitted`, `skew_detected`, `skew_strategy`,
+`shuffle_spill_bytes`, `shuffle_retry_count`, `shuffle_correctness_digest`,
+`shuffle_fallback_attempted=false`, `shuffle_external_engine_invoked=false`,
+`shuffle_claim_gate_status=not_shuffle_scale_grade`, and `shuffle_claim_boundary`. Current rows
+classify local/report-only join, group-by, window, top-N, repartition, and CDC posture only; they do
+not prove distributed shuffle, Spark-scale joins, retryable shuffle, skew handling, partitioned
+writes, Spark-replacement, or performance claims.
+
 `GAR-PERF-1B` adds the source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md` and propagates
 `source_state_coverage_*` fields into prepared/native batch evidence. Those
