@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0032-A SQL parser/binder report-only readiness
+  - Primary files:
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/tests/workflow_query_builder_plan_snapshots.rs`
+    - `docs/architecture/sql-parser-binder-readiness.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make SQL parse, bind, plan, and execute requests deterministically report-only and
+    machine-readable without adding SQL runtime behavior.
+  - Checklist:
+    - [x] Add `support_status=unsupported` and `claim_gate_status=not_claim_grade` to workflow
+          unsupported reports.
+    - [x] Add explicit `parser_executed=false`, `binder_executed=false`, and
+          `planner_executed=false` report fields.
+    - [x] Document SQL parser/binder readiness and Python/CLI surfaces.
+    - [x] Move GAR-0032-A out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a diagnostic/report-only slice. It does not add a SQL parser dependency, SQL AST
+      contract, binder, logical planner, query runtime, DataFrame runtime, SQL `VALUES`/literal
+      execution, package publication, production SQL/DataFrame support, performance claim, or
+      Spark-displacement claim.
+  - Fallback boundary:
+    - SQL diagnostics preserve `external_engine_invoked=false` and `fallback_attempted=false`.
+      External SQL engines are not fallback execution paths.
+
 - [x] Session label: GAR-0030-A universal harness execution gate
   - Primary files:
     - `shardloom-core/src/universal_harness.rs`

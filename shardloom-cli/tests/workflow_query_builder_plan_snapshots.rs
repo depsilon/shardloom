@@ -321,11 +321,16 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
             "schema_version",
             "shardloom.workflow_unsupported.v1"
         )));
+        assert!(output.contains(&field("support_status", "unsupported")));
         assert!(output.contains(&field("unsupported_status", "unsupported")));
+        assert!(output.contains(&field("claim_gate_status", "not_claim_grade")));
         assert!(output.contains(&field("severity", "error")));
         assert!(output.contains(&field("plan_only", "true")));
         assert!(output.contains(&field("side_effect_free", "true")));
         assert!(output.contains(&field("execution", "not_performed")));
+        assert!(output.contains(&field("parser_executed", "false")));
+        assert!(output.contains(&field("binder_executed", "false")));
+        assert!(output.contains(&field("planner_executed", "false")));
         assert!(output.contains(&field("query_execution", "false")));
         assert!(output.contains(&field("runtime_execution", "false")));
         assert!(output.contains(&field("data_read", "false")));

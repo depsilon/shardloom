@@ -2467,6 +2467,73 @@ fn gar_0030_a_universal_harness_execution_gate_remains_report_only() {
 }
 
 #[test]
+fn gar_0032_a_sql_parser_binder_readiness_remains_diagnostic_only() {
+    let workflow = read_repo_file("shardloom-cli/src/workflow_planning.rs");
+    for required in [
+        "workflow_unsupported_sql_parse",
+        "workflow_unsupported_sql_bind",
+        "workflow_unsupported_sql_plan",
+        "workflow_unsupported_sql_execute",
+        "support_status",
+        "claim_gate_status",
+        "parser_executed",
+        "binder_executed",
+        "planner_executed",
+        "external_engine_invoked",
+        "fallback_attempted",
+    ] {
+        assert!(
+            workflow.contains(required),
+            "missing SQL readiness workflow marker {required}"
+        );
+    }
+
+    let snapshots = read_repo_file("shardloom-cli/tests/workflow_query_builder_plan_snapshots.rs");
+    for required in [
+        "sql-parse",
+        "sql-bind",
+        "sql-plan",
+        "sql-execute",
+        "support_status",
+        "claim_gate_status",
+        "parser_executed",
+        "binder_executed",
+        "planner_executed",
+    ] {
+        assert!(
+            snapshots.contains(required),
+            "missing SQL readiness snapshot marker {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/architecture/sql-parser-binder-readiness.md");
+    assert!(doc.contains("GAR-0032-A"));
+    assert!(doc.contains("support_status=unsupported"));
+    assert!(doc.contains("claim_gate_status=not_claim_grade"));
+    assert!(doc.contains("parser_executed=false"));
+    assert!(doc.contains("no parser dependency"));
+    assert!(doc.contains("fallback_attempted=false"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0032-A"));
+    assert!(plan.contains("GAR-0032-A is complete and recorded in the completed ledger"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0032-A SQL parser/binder report-only readiness"));
+    assert!(completed.contains("support_status=unsupported"));
+    assert!(completed.contains("claim_gate_status=not_claim_grade"));
+    assert!(completed.contains("parser_executed=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0032-A` adds `docs/architecture/sql-parser-binder-readiness.md`"));
+    assert!(gar.contains("Executable SQL parser/binder/runtime"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("CG-20, GAR-0032-A"));
+    assert!(traceability.contains("explicit parser/binder/planner not-executed fields"));
+}
+
+#[test]
 fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
     let typed_doc = read_repo_file("docs/architecture/typed-command-result-envelope.md");
     for required in [

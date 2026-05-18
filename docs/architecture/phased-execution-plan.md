@@ -1181,19 +1181,15 @@ universal-harness execution-admission fields to `UniversalHarnessReport` and
 required/attached/missing evidence refs, and required capability, execution-certificate, Native I/O,
 policy/no-fallback, output, correctness, and benchmark evidence. Harness execution remains blocked
 and environment readiness remains separate from runtime execution.
-- [ ] GAR-0032-A SQL parser/binder report-only readiness
-  - Source: RFC 0032; RFC 0010; rfc-coverage followthrough.
-  - Current state: SQL capability concepts exist; SQL parser/binder/execution is not a broad runtime.
-  - Next slice outcome: SQL text can be classified into parsed/bound/planned/unsupported diagnostics
-    without execution.
-  - User-visible surface: CLI capability output, docs, Python capability view.
-  - Implementation scope: SQL capability report, diagnostic helpers, tests.
-  - Evidence required: diagnostic/no-fallback refs.
-  - Acceptance: SQL requests return deterministic support status and no runtime execution.
-  - Verification: capability snapshot tests, diagnostic stability tests.
-  - Non-goals: no SQL execution.
-  - Fallback/claim boundary: `support_status=report_only|unsupported`.
-  - Dependencies/blockers: parser dependency approval if a real parser is introduced.
+GAR-0032-A SQL parser/binder report-only readiness is complete.
+GAR-0032-A is complete and recorded in the completed ledger. The completed slice documents the
+SQL parser/binder readiness posture in
+`docs/architecture/sql-parser-binder-readiness.md` and strengthens
+`workflow-unsupported-plan sql-parse|sql-bind|sql-plan|sql-execute --format json` with
+`support_status=unsupported`, `claim_gate_status=not_claim_grade`, and explicit
+`parser_executed=false`, `binder_executed=false`, and `planner_executed=false` fields. SQL remains
+diagnostic/report-only with no parser dependency, binder, planner, runtime execution, external
+engine invocation, or fallback.
 - [ ] GAR-0032-C UDF and external-effect blocker matrix
   - Source: RFC 0032; RFC 0011; RFC 0019.
   - Current state: UDF/effectful operations are report-only/unsupported.
