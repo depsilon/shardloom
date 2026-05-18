@@ -633,6 +633,7 @@ def status_page() -> str:
           <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>REST/event surfaces</h3><p>Future API surfaces must preserve typed envelopes, selected mode, diagnostics, evidence, and claim gates before promotion.</p></article>
           <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>Adapters and end-user wrappers</h3><p>CLI, Python, and planned adapter access must improve ergonomics without hiding execution mode or fallback status.</p></article>
           <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>Object-store, lakehouse, and Foundry boundaries</h3><p>These areas remain boundary/status documentation unless runtime proof and release gates promote a narrow slice.</p></article>
+          <article class="status-column"><span class="claim-badge report-only">report-only</span><h3>Foundry scale proof boundary</h3><p>The local proof emits <code>shardloom.foundry_scale_proof_boundary.v1</code> with Foundry runtime, compute, Spark, evidence-dataset, and public-claim gates closed.</p></article>
         </div>
       </div>
     </section>

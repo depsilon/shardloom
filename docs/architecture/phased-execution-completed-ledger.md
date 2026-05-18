@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-SCALE-1H Foundry scale proof boundary
+  - Primary files:
+    - `scripts/foundry_proof_of_use.py`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `docs/architecture/scale-readiness-contract.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/status.html`
+    - `website/build_static_pages.py`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the Foundry scale proof boundary slice by adding
+    `shardloom.foundry_scale_proof_boundary.v1` to the local Foundry proof report. Current proof
+    output now records Foundry runtime, compute, Spark, input/output dataset counts, staged input
+    bytes, ShardLoom execution mode, split count, memory budget, evidence-dataset output,
+    no-fallback, external-engine, public-claim, claim-gate, and blocker fields while remaining
+    report-only for scale.
+  - Checklist:
+    - [x] Add Foundry scale proof schema constant and report object.
+    - [x] Emit `foundry_runtime_invoked=false`, `foundry_compute_invoked=false`,
+          `foundry_spark_invoked=false`, `foundry_input_dataset_count=0`,
+          `foundry_output_dataset_count=0`, `shardloom_execution_mode=local_foundry_style_smoke_only`,
+          `split_count=0`, `output_evidence_dataset_written=false`,
+          `fallback_attempted=false`, `external_engine_invoked=false`,
+          `public_foundry_claim_allowed=false`, and
+          `claim_gate_status=not_foundry_scale_grade`.
+    - [x] Keep Foundry orchestration separate from ShardLoom execution and block Foundry Spark,
+          virtual tables, managed SQL systems, and direct object-store writes as proof substitutes.
+    - [x] Update Foundry proof docs, scale-readiness docs, compute-flow docs/snapshot, status page,
+          GAR, traceability, and release-readiness checks.
+    - [x] Remove the active GAR-SCALE-1H item from the Planned queue.
+  - Evidence/verification:
+    - `python -m py_compile scripts/foundry_proof_of_use.py website/build_static_pages.py`
+    - `python scripts/foundry_proof_of_use.py --rows 4 --iterations 1 --skip-local-execution-smoke --output target/codex-gar-scale-1h-foundry-proof.json`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q benchmarks/traditional_analytics scripts website`
+    - `git diff --check`
+  - Claim boundary:
+    - Foundry scale proof boundary evidence is report-only. It does not prove real Foundry runtime,
+      Foundry compute, Foundry Spark, managed-platform scale, package publication, production
+      Foundry support, Spark-replacement, or performance superiority.
+  - Fallback boundary:
+    - Foundry Spark, virtual tables, Snowflake, Databricks, BigQuery, and other managed compute
+      cannot execute ShardLoom work as fallback or satisfy ShardLoom no-fallback evidence.
+
 - [x] Session label: GAR-SCALE-1G scale benchmark profiles and synthetic scale evidence
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

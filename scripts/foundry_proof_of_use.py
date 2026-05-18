@@ -19,6 +19,9 @@ SCHEMA_VERSION = "shardloom.foundry_proof_of_use_report.v1"
 FOUNDRY_GENERATED_OUTPUT_FANOUT_SCHEMA_VERSION = (
     "shardloom.foundry_generated_output_fanout_posture.v1"
 )
+FOUNDRY_SCALE_PROOF_BOUNDARY_SCHEMA_VERSION = (
+    "shardloom.foundry_scale_proof_boundary.v1"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -115,6 +118,56 @@ def foundry_generated_output_fanout_posture() -> dict[str, Any]:
     }
 
 
+def foundry_scale_proof_boundary(staged_input_bytes: int) -> dict[str, Any]:
+    return {
+        "schema_version": FOUNDRY_SCALE_PROOF_BOUNDARY_SCHEMA_VERSION,
+        "support_status": "report_only",
+        "proof_boundary_status": "blocked_until_real_foundry_runtime_and_evidence_dataset",
+        "foundry_runtime_invoked": False,
+        "foundry_compute_invoked": False,
+        "foundry_spark_invoked": False,
+        "foundry_input_dataset_count": 0,
+        "foundry_output_dataset_count": 0,
+        "staged_input_bytes": staged_input_bytes,
+        "shardloom_execution_mode": "local_foundry_style_smoke_only",
+        "split_count": 0,
+        "memory_budget_bytes": None,
+        "output_evidence_dataset_written": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "public_foundry_claim_allowed": False,
+        "claim_gate_status": "not_foundry_scale_grade",
+        "claim_boundary": (
+            "Report-only Foundry scale proof boundary. Local Foundry-style smoke may "
+            "prove import and local execution wiring, but it is not real Foundry runtime, "
+            "Foundry compute, Foundry Spark, managed-platform scale, package publication, "
+            "or production Foundry support."
+        ),
+        "blockers": [
+            "real_foundry_runtime_not_invoked",
+            "foundry_compute_not_invoked",
+            "foundry_output_evidence_dataset_not_written",
+            "foundry_input_dataset_count_not_proven",
+            "resource_envelope_not_proven_in_foundry",
+            "split_scale_not_proven_in_foundry",
+        ],
+    }
+
+
+def staged_dataset_bytes(repo_root: Path, transform: dict[str, Any]) -> int:
+    staged_path = transform.get("staged_dataset_path")
+    if not isinstance(staged_path, str) or not staged_path:
+        return 0
+    path = Path(staged_path)
+    if not path.is_absolute():
+        path = repo_root / path
+    if path.is_file():
+        return path.stat().st_size
+    if path.is_dir():
+        return sum(child.stat().st_size for child in path.rglob("*") if child.is_file())
+    return 0
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -166,6 +219,9 @@ def main() -> int:
     benchmark = load_json_if_present(benchmark_output) or {}
     passed = all(step["returncode"] == 0 for step in steps)
     generated_output_fanout = foundry_generated_output_fanout_posture()
+    foundry_scale_proof = foundry_scale_proof_boundary(
+        staged_dataset_bytes(repo_root, transform)
+    )
     report = {
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if passed else "blocked",
@@ -189,9 +245,21 @@ def main() -> int:
         "foundry_generated_output_fanout_status": generated_output_fanout["support_status"],
         "foundry_generated_output_fanout_ref": "foundry_generated_output_fanout_posture",
         "foundry_generated_output_fanout_posture": generated_output_fanout,
+        "foundry_scale_proof_boundary_status": foundry_scale_proof["support_status"],
+        "foundry_scale_proof_boundary_ref": "foundry_scale_proof_boundary",
+        "foundry_scale_proof_boundary": foundry_scale_proof,
         "foundry_runtime_invoked": False,
         "foundry_compute_invoked": False,
         "foundry_spark_invoked": False,
+        "foundry_input_dataset_count": foundry_scale_proof["foundry_input_dataset_count"],
+        "foundry_output_dataset_count": foundry_scale_proof["foundry_output_dataset_count"],
+        "staged_input_bytes": foundry_scale_proof["staged_input_bytes"],
+        "shardloom_execution_mode": foundry_scale_proof["shardloom_execution_mode"],
+        "split_count": foundry_scale_proof["split_count"],
+        "memory_budget_bytes": foundry_scale_proof["memory_budget_bytes"],
+        "output_evidence_dataset_written": foundry_scale_proof[
+            "output_evidence_dataset_written"
+        ],
         "direct_s3_write_invoked": False,
         "object_store_write_invoked": False,
         "snowflake_databricks_bigquery_invoked": False,

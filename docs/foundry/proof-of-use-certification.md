@@ -26,11 +26,20 @@ The generated `shardloom.foundry_proof_of_use_report.v1` report includes:
 - `materialization_staging_boundary_report_ref`
 - `foundry_generated_output_fanout_status`
 - `foundry_generated_output_fanout_posture`
+- `foundry_scale_proof_boundary_status`
+- `foundry_scale_proof_boundary`
 - `direct_s3_write_invoked=false`
 - `object_store_write_invoked=false`
 - `foundry_runtime_invoked=false`
 - `foundry_compute_invoked=false`
 - `foundry_spark_invoked=false`
+- `foundry_input_dataset_count=0`
+- `foundry_output_dataset_count=0`
+- `staged_input_bytes`
+- `shardloom_execution_mode=local_foundry_style_smoke_only`
+- `split_count=0`
+- `memory_budget_bytes=null`
+- `output_evidence_dataset_written=false`
 - `snowflake_databricks_bigquery_invoked=false`
 - `virtual_tables_native_execution_claimed=false`
 - `fallback_attempted=false`
@@ -177,3 +186,36 @@ external_engine_invoked=false
 No-input smoke and generated-output execution remain separate. A Foundry-style generated-output
 fanout row is not a Foundry production claim, Foundry package publication claim, direct S3/object
 store write claim, or Spark fallback claim.
+
+## Scale Proof Boundary
+
+`GAR-SCALE-1H` adds a report-only Foundry scale proof boundary:
+
+```text
+schema_version=shardloom.foundry_scale_proof_boundary.v1
+support_status=report_only
+proof_boundary_status=blocked_until_real_foundry_runtime_and_evidence_dataset
+foundry_runtime_invoked=false
+foundry_compute_invoked=false
+foundry_spark_invoked=false
+foundry_input_dataset_count=0
+foundry_output_dataset_count=0
+staged_input_bytes
+shardloom_execution_mode=local_foundry_style_smoke_only
+split_count=0
+memory_budget_bytes=null
+output_evidence_dataset_written=false
+fallback_attempted=false
+external_engine_invoked=false
+public_foundry_claim_allowed=false
+claim_gate_status=not_foundry_scale_grade
+```
+
+A real Foundry scale proof must distinguish Foundry orchestration from ShardLoom execution. Foundry
+may orchestrate a transform, but Foundry Spark, virtual tables, Snowflake, Databricks, BigQuery, or
+other managed compute cannot be silently reported as ShardLoom execution. Evidence dataset output is
+mandatory before any proof claim can be promoted.
+
+The current local proof remains report-only for scale. It does not invoke Foundry runtime, Foundry
+compute, Foundry Spark, managed-platform execution, object-store writes, package publication, or
+production Foundry support.

@@ -1,6 +1,6 @@
 # Scale Readiness Contract
 
-Status: implemented report-only contracts for `GAR-SCALE-1A` through `GAR-SCALE-1G`.
+Status: implemented report-only contracts for `GAR-SCALE-1A` through `GAR-SCALE-1H`.
 
 ShardLoom must not claim literal "any volume" support. Scale readiness is a declared resource and
 evidence contract, not a slogan. A row can become scale-grade only when it proves the appropriate
@@ -62,6 +62,7 @@ object_store_involved
 table_format_involved
 remote_workers_involved
 foundry_runtime_invoked
+foundry_compute_invoked
 foundry_spark_invoked
 scale_fallback_attempted
 scale_external_engine_invoked
@@ -80,6 +81,7 @@ object_store_involved=false
 table_format_involved=false
 remote_workers_involved=false
 foundry_runtime_invoked=false
+foundry_compute_invoked=false
 foundry_spark_invoked=false
 scale_fallback_attempted=false
 scale_external_engine_invoked=false
@@ -459,6 +461,38 @@ output fanout.
 Synthetic metadata-only rows can describe a plan, blocker, or report-only profile, but they cannot
 become runtime scale evidence. Actual large-volume evidence requires real input bytes, correctness
 proof, declared resource envelope, no-fallback evidence, and the relevant runtime gates.
+
+## Foundry Scale Proof Boundary
+
+`GAR-SCALE-1H` adds `schema_version=shardloom.foundry_scale_proof_boundary.v1` to the local
+Foundry proof report. The boundary defines what a real Foundry scale proof must emit while keeping
+the current local/dev-stack proof separate from production Foundry support.
+
+Current proof rows carry:
+
+```text
+support_status=report_only
+proof_boundary_status=blocked_until_real_foundry_runtime_and_evidence_dataset
+foundry_runtime_invoked=false
+foundry_compute_invoked=false
+foundry_spark_invoked=false
+foundry_input_dataset_count=0
+foundry_output_dataset_count=0
+staged_input_bytes
+shardloom_execution_mode=local_foundry_style_smoke_only
+split_count=0
+memory_budget_bytes=null
+output_evidence_dataset_written=false
+fallback_attempted=false
+external_engine_invoked=false
+public_foundry_claim_allowed=false
+claim_gate_status=not_foundry_scale_grade
+```
+
+Foundry may orchestrate a transform only when evidence distinguishes orchestration from ShardLoom
+execution. Foundry Spark, virtual tables, Snowflake, Databricks, BigQuery, and other managed compute
+cannot be silently reported as ShardLoom execution, fallback execution, or no-fallback proof.
+Evidence dataset output is mandatory for any future Foundry proof claim.
 
 ## Claim Gate
 
