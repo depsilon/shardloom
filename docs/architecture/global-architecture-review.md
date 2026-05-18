@@ -1280,7 +1280,7 @@ plan before coding.
   IDs, requested outputs, blocker IDs/reasons, timing/reuse columns, `fanout_output_count=0`,
   no-fallback fields, and claim boundaries in benchmark artifacts. `GAR-IOREUSE-1E` now exposes
   cache invalidation/fingerprint fields, source mtime/size, source/prepared/plan/output digests,
-  object-store ETag posture, cache validity, invalidation reason, secret-redaction status,
+  object-store ETag posture, cache validity, invalidation reason, credential-redaction status,
   no-fallback fields, and claim boundaries in benchmark artifacts. The remaining flow must add
   evidence-safe reuse levels and broader sink evidence while preserving distinct direct-transient,
   compatibility-import-certified, prepared-vortex, and native-vortex lanes without adding

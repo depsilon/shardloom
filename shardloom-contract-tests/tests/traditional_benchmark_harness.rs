@@ -521,7 +521,7 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"plan_digest\"",
         "\"cache_valid\"",
         "\"invalidation_reason\"",
-        "\"cache_invalidation_secret_redaction_status\"",
+        "\"cache_invalidation_redaction_status\"",
         "CACHE_INVALIDATION_CONTRACT_FIELDS",
         "def cache_invalidation_contract_metadata(",
         "def render_cache_invalidation_contract(",

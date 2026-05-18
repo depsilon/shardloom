@@ -406,7 +406,7 @@ invalidation_reason
 cache_invalidation_fallback_attempted=false
 cache_invalidation_external_engine_invoked=false
 cache_invalidation_claim_gate_status=not_claim_grade
-cache_invalidation_secret_redaction_status=no_credentials_or_secrets_in_fingerprint_fields
+cache_invalidation_redaction_status=no_credentials_or_tokens_in_fingerprint_fields
 cache_invalidation_claim_boundary
 ```
 
@@ -420,7 +420,7 @@ evidence.
 Future runtime reuse must be blocked when the source fingerprint, schema digest, plan digest, output
 plan digest, policy, relevant Vortex/API version, or evidence level changes. Object-store
 ETag/version handling is planned but not runtime-claimed. Cache keys and evidence must not contain
-secrets or credentials.
+credentials, tokens, or private values.
 
 ## Cross-Format Fanout Boundary
 

@@ -508,7 +508,7 @@ CACHE_INVALIDATION_CONTRACT_FIELDS = (
     "cache_invalidation_fallback_attempted",
     "cache_invalidation_external_engine_invoked",
     "cache_invalidation_claim_gate_status",
-    "cache_invalidation_secret_redaction_status",
+    "cache_invalidation_redaction_status",
     "cache_invalidation_claim_boundary",
 )
 FANOUT_BENCHMARK_CASES = (
@@ -5156,8 +5156,8 @@ def cache_invalidation_contract_metadata(
         "cache_invalidation_fallback_attempted": False,
         "cache_invalidation_external_engine_invoked": False,
         "cache_invalidation_claim_gate_status": "not_claim_grade",
-        "cache_invalidation_secret_redaction_status": (
-            "no_credentials_or_secrets_in_fingerprint_fields"
+        "cache_invalidation_redaction_status": (
+            "no_credentials_or_tokens_in_fingerprint_fields"
         ),
         "cache_invalidation_claim_boundary": (
             "Cache invalidation evidence covers current-row local fingerprint and reuse "
@@ -5625,10 +5625,12 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             )
         if metrics.get("cache_invalidation_claim_gate_status") != "not_claim_grade":
             raise RuntimeError("cache invalidation evidence cannot upgrade claim status")
-        if metrics.get("cache_invalidation_secret_redaction_status") != (
-            "no_credentials_or_secrets_in_fingerprint_fields"
+        if metrics.get("cache_invalidation_redaction_status") != (
+            "no_credentials_or_tokens_in_fingerprint_fields"
         ):
-            raise RuntimeError("cache invalidation evidence must preserve secret redaction status")
+            raise RuntimeError(
+                "cache invalidation evidence must preserve credential redaction status"
+            )
         if (
             metrics.get("cache_invalidation_status") == "cache_valid"
             and metrics.get("cache_valid") is not True
@@ -6273,9 +6275,9 @@ def cache_invalidation_contract() -> dict[str, Any]:
             "object-store cache",
             "performance or superiority claims",
         ],
-        "secret_boundary": (
+        "redaction_boundary": (
             "Cache keys, fingerprints, digests, explain output, and benchmark evidence "
-            "must not contain credentials or secrets."
+            "must not contain credentials, tokens, or private values."
         ),
         "no_fallback_rule": (
             "Cache invalidation rows must preserve cache_invalidation_fallback_attempted=false "
@@ -6547,8 +6549,8 @@ def cache_invalidation_matrix(results: list[dict[str, Any]]) -> list[dict[str, A
                 "cache_invalidation_claim_gate_status": metrics.get(
                     "cache_invalidation_claim_gate_status"
                 ),
-                "cache_invalidation_secret_redaction_status": metrics.get(
-                    "cache_invalidation_secret_redaction_status"
+                "cache_invalidation_redaction_status": metrics.get(
+                    "cache_invalidation_redaction_status"
                 ),
                 "cache_invalidation_claim_boundary": metrics.get(
                     "cache_invalidation_claim_boundary"
@@ -9099,7 +9101,7 @@ def render_cache_invalidation_contract(artifact: dict[str, Any]) -> str:
         ["Row fields", ", ".join(contract["row_fields"])],
         ["Stable path", str(contract["stable_path"])],
         ["Current scope", str(contract["current_scope"])],
-        ["Secret boundary", str(contract["secret_boundary"])],
+        ["Redaction boundary", str(contract["redaction_boundary"])],
         ["No-fallback rule", str(contract["no_fallback_rule"])],
         ["Claim boundary", str(contract["claim_boundary"])],
     ]
@@ -9726,7 +9728,7 @@ def render_cache_invalidation_matrix(artifact: dict[str, Any]) -> str:
                 str(row["cache_invalidation_fallback_attempted"]),
                 str(row["cache_invalidation_external_engine_invoked"]),
                 str(row["cache_invalidation_claim_gate_status"]),
-                str(row["cache_invalidation_secret_redaction_status"]),
+                str(row["cache_invalidation_redaction_status"]),
             ]
         )
     if not rows:
@@ -9752,7 +9754,7 @@ def render_cache_invalidation_matrix(artifact: dict[str, Any]) -> str:
                 "false",
                 "false",
                 "not_claim_grade",
-                "no_credentials_or_secrets_in_fingerprint_fields",
+                "no_credentials_or_tokens_in_fingerprint_fields",
             ]
         )
     return markdown_table(
@@ -9777,7 +9779,7 @@ def render_cache_invalidation_matrix(artifact: dict[str, Any]) -> str:
             "Fallback",
             "External engine",
             "Claim gate",
-            "Secret redaction",
+            "Credential redaction",
         ],
         rows,
     )

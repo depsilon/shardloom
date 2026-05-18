@@ -37,7 +37,7 @@ phase plan first.
     - [x] Add `shardloom.traditional_analytics.cache_invalidation.v1` with source fingerprint kind,
           source content digest, source mtime/size, object ETag posture, manifest version, schema
           digest, plan digest, output-plan digest, cache validity, invalidation reason,
-          secret-redaction status, no-fallback fields, and claim boundary.
+          credential-redaction status, no-fallback fields, and claim boundary.
     - [x] Add a cache invalidation contract object and Markdown matrix so current-row fingerprint
           posture is visible in JSON and human reports.
     - [x] Validate ShardLoom rows include the contract fields and cannot report fallback,
@@ -57,7 +57,7 @@ phase plan first.
       `cache_invalidation_fallback_attempted=False`,
       `cache_invalidation_external_engine_invoked=False`,
       `cache_invalidation_claim_gate_status=not_claim_grade`, and
-      `cache_invalidation_secret_redaction_status=no_credentials_or_secrets_in_fingerprint_fields`.
+      `cache_invalidation_redaction_status=no_credentials_or_tokens_in_fingerprint_fields`.
     - `python -m compileall -q benchmarks/traditional_analytics website scripts`
     - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
     - `python scripts/check_website_readiness.py`

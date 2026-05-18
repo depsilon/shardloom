@@ -292,7 +292,7 @@ reuse/fanout timing and cannot mark any sink supported without output replay/evi
 Current cache invalidation rows expose `source_fingerprint_kind`, `source_content_digest`,
 `source_mtime`, `source_size`, `object_etag`, `manifest_version`, `schema_digest`, `plan_digest`,
 `output_plan_digest`, `cache_valid`, `invalidation_reason`, no-fallback/no-external-engine fields,
-secret-redaction status, and `claim_gate_status=not_claim_grade`. These rows are local fingerprint
+credential-redaction status, and `claim_gate_status=not_claim_grade`. These rows are local fingerprint
 posture only; they do not add a persistent cache, hidden fast mode, object-store cache, or cache
 performance claim.
 
@@ -485,7 +485,7 @@ outputs, current blocker IDs/reasons, timing/reuse columns, `fanout_output_count
 `claim_gate_status=not_claim_grade`.
 GAR-IOREUSE-1E adds the cache invalidation/fingerprint matrix with current local source/prepared/
 plan/output fingerprint posture, source mtime/size fields, plan/output-plan digests, cache-valid
-status, invalidation reason, object-store ETag posture, secret-redaction status, no-fallback fields,
+status, invalidation reason, object-store ETag posture, credential-redaction status, no-fallback fields,
 and `claim_gate_status=not_claim_grade`.
 Remaining GAR-PERF-1 follow-ups are fused
 filter/project/limit and selection-vector execution plus the report-only Bayesian performance/layout

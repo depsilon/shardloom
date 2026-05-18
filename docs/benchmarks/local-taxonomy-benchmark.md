@@ -167,7 +167,7 @@ rows expose `source_fingerprint_kind`, `source_content_digest`, `source_mtime`, 
 `cache_valid`, `invalidation_reason`, `cache_invalidation_fallback_attempted=false`,
 `cache_invalidation_external_engine_invoked=false`,
 `cache_invalidation_claim_gate_status=not_claim_grade`, and
-`cache_invalidation_secret_redaction_status=no_credentials_or_secrets_in_fingerprint_fields`.
+`cache_invalidation_redaction_status=no_credentials_or_tokens_in_fingerprint_fields`.
 `cache_valid=true` means current-row local fingerprints are internally consistent; it is not a
 persistent cache hit, hidden fast mode, object-store cache, or performance claim.
 

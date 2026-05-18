@@ -297,7 +297,7 @@ artifact with `cache_invalidation_contract_schema_version`, `cache_invalidation_
 `cache_invalidation_fallback_attempted=false`,
 `cache_invalidation_external_engine_invoked=false`,
 `cache_invalidation_claim_gate_status=not_claim_grade`, and
-`cache_invalidation_secret_redaction_status`. `cache_valid=true` means current-row local
+`cache_invalidation_redaction_status`. `cache_valid=true` means current-row local
 fingerprints are internally consistent; it is not a persistent cache hit, hidden fast mode, or
 performance evidence.
 
