@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMMERCIAL-1F workflow recipes library / GAR-DOCS-1E non-expert recipe library
+  - Primary files:
+    - `docs/use-cases/recipes/README.md`
+    - `docs/use-cases/recipes/recipe-index.json`
+    - `scripts/check_workflow_recipes.py`
+    - `website/build_static_pages.py`
+    - `website/status.html`
+    - `README.md`
+    - `docs/architecture/adoption-commercial-readiness-friction-reduction.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: add a validated, claim-safe workflow recipe library for local no-dataset smoke,
+    local CSV/Parquet certification, prepared/native direction, native Vortex posture,
+    source-free generated reference table smokes, dirty CSV cleanup, nested JSON scan, CDC overlay,
+    output fanout posture, blocked object-store diagnostics, Foundry-style local proof, and
+    benchmark interpretation.
+  - Checklist:
+    - [x] Add machine-readable schema `shardloom.workflow_recipe_library.v1`.
+    - [x] Map every recipe to a Use Case Atlas id and exact reference files.
+    - [x] Require command or blocked explanation, expected output, evidence fields, claim boundary,
+          `fallback_attempted=false`, and `external_engine_invoked=false` per recipe.
+    - [x] Keep blocked object-store and report-only native/fanout rows diagnostic-only rather than
+          fake success paths.
+    - [x] Project the recipe library into the public status matrix as report-only documentation.
+  - Evidence and verification:
+    - `python scripts\check_workflow_recipes.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python -m compileall -q scripts`
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - Recipes are adoption documentation and scoped local technical-preview walkthroughs only. They
+      do not add runtime support, production workflow readiness, broad SQL/DataFrame execution,
+      object-store/lakehouse runtime, Foundry production support, package publication, benchmark
+      recomputation, performance/superiority claims, or Spark-displacement claims.
+  - Fallback boundary:
+    - Recipe commands and blocked diagnostics must preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`; external engines, object stores, databases, Foundry runtime,
+      credentials, and network providers cannot execute unsupported ShardLoom work as fallback.
+
 - [x] Session label: GAR-COMMERCIAL-1E Foundry dev-stack starter kit
   - Primary files:
     - `docs/foundry/dev-stack-starter-kit.md`

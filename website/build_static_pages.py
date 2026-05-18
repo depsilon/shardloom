@@ -460,10 +460,10 @@ def render_public_status_scorecard_section() -> str:
             {
                 "label": "Workflow recipe library",
                 "family": "documentation",
-                "status": "planned",
-                "answer": "Recipe coverage is planned for common workflows and blocked diagnostics; it does not add runtime support by itself.",
-                "evidence": "GAR-COMMERCIAL-1F planned",
-                "reference": "docs/architecture/phased-execution-plan.md",
+                "status": "report-only",
+                "answer": "A claim-safe recipe library now covers common local smokes, prepared/native direction, generated-output smokes, messy-data fixtures, result-sink proof, blocked object-store diagnostics, Foundry-style local proof, and benchmark interpretation. It does not add runtime support by itself.",
+                "evidence": "shardloom.workflow_recipe_library.v1; fallback_attempted=false; external_engine_invoked=false",
+                "reference": "docs/use-cases/recipes/recipe-index.json",
             },
             {
                 "label": "Hidden fallback engine execution",

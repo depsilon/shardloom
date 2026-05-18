@@ -293,6 +293,8 @@ def main() -> int:
                 "docs/release/enterprise-evidence-export-pack.json",
                 "Foundry dev-stack starter",
                 "docs/foundry/dev-stack-starter-kit.json",
+                "Workflow recipe library",
+                "docs/use-cases/recipes/recipe-index.json",
                 "docs/architecture/universal-compatibility-coverage-scoreboard.json",
                 "docs/release/package-channel-readiness-matrix.json",
                 "fallback_attempted=false",

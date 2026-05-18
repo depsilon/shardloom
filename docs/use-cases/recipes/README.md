@@ -6,6 +6,32 @@ These recipes are practical entry points for the Use Case Atlas. They are scoped
 preview recipes, not production, performance, SQL/DataFrame, object-store/lakehouse, Foundry
 production, package-publication, or Spark-replacement claims.
 
+The machine-readable index is `docs/use-cases/recipes/recipe-index.json` with schema
+`shardloom.workflow_recipe_library.v1`. Validate it with:
+
+```powershell
+python scripts\check_workflow_recipes.py
+```
+
+Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary, and includes
+`fallback_attempted=false` plus `external_engine_invoked=false` evidence fields.
+
+| Recipe | Status | Use case |
+| --- | --- | --- |
+| No-Dataset Smoke | `ready_local` | `first-10-minutes-local-smoke` |
+| Local CSV Certified Result | `smoke_supported` | `compatibility-import-certified-local` |
+| Local Parquet Certified Result | `smoke_supported` | `compatibility-import-certified-local` |
+| Prepared Vortex Batch Run | `smoke_supported` | `prepared-native-vortex-runtime-direction` |
+| Native Vortex Input | `report_only` | `prepared-native-vortex-runtime-direction` |
+| Source-Free Generated Reference Table | `smoke_supported` | `source-free-generated-output-boundary` |
+| Dirty CSV Cleanup | `smoke_supported` | `messy-data-local-fixtures` |
+| Nested JSON Scan | `smoke_supported` | `messy-data-local-fixtures` |
+| CDC Overlay | `smoke_supported` | `messy-data-local-fixtures` |
+| Output Fanout | `report_only` | `output-result-sink-and-fanout-boundary` |
+| Object-Store Blocked Diagnostic | `blocked` | `object-store-boundary-report` |
+| Foundry Dev-Stack Smoke | `smoke_supported` | `foundry-local-proof-boundary` |
+| Benchmark Evidence Interpretation | `smoke_supported` | `benchmark-interpretation-evidence-not-leaderboard` |
+
 ## No-Dataset Smoke
 
 - **User goal:** confirm the local CLI and Python wrapper can report status without reading data.

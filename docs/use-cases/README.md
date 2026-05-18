@@ -76,6 +76,7 @@ python scripts\check_use_case_index.py
 python scripts\check_use_case_coverage.py
 python scripts\check_use_case_glossary.py
 python scripts\check_use_case_backlinks.py
+python scripts\check_workflow_recipes.py
 ```
 
 The checks ensure every capability family is represented, every use case has references, supported

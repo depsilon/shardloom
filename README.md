@@ -163,6 +163,9 @@ the phase plan and completed ledger for exact implementation status.
 For a non-expert "Can ShardLoom do my thing?" map, start with
 [`docs/use-cases/README.md`](docs/use-cases/README.md) or the website Use Case Atlas at
 [shardloom.io/use-cases](https://shardloom.io/use-cases/).
+Practical copyable recipes live in
+[`docs/use-cases/recipes/README.md`](docs/use-cases/recipes/README.md) and are indexed by
+[`docs/use-cases/recipes/recipe-index.json`](docs/use-cases/recipes/recipe-index.json).
 
 ## Modes At A Glance
 

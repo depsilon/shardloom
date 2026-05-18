@@ -1015,6 +1015,7 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "Public package channels",
         "Enterprise evidence export pack",
         "Foundry dev-stack starter",
+        "Workflow recipe library",
         "Hidden fallback engine execution",
         "Spark-displacement claim",
         "Production SQL/DataFrame, object-store, lakehouse, or Foundry claim",
@@ -1022,6 +1023,7 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "docs/release/package-channel-readiness-matrix.json",
         "docs/release/enterprise-evidence-export-pack.json",
         "docs/foundry/dev-stack-starter-kit.json",
+        "docs/use-cases/recipes/recipe-index.json",
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "public_package_release_claim_allowed=false",
@@ -1038,10 +1040,12 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "Public package channels",
         "Enterprise evidence export pack",
         "Foundry dev-stack starter",
+        "Workflow recipe library",
         "docs/architecture/universal-compatibility-coverage-scoreboard.json",
         "docs/release/package-channel-readiness-matrix.json",
         "docs/release/enterprise-evidence-export-pack.json",
         "docs/foundry/dev-stack-starter-kit.json",
+        "docs/use-cases/recipes/recipe-index.json",
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ] {
@@ -1568,6 +1572,68 @@ fn foundry_dev_stack_starter_remains_local_style_report_only() {
         assert!(
             script.contains(required),
             "missing Foundry dev-stack starter validator field {required}"
+        );
+    }
+}
+
+#[test]
+fn workflow_recipe_library_remains_claim_safe_and_indexed() {
+    let readme = read_repo_file("docs/use-cases/recipes/README.md");
+    for required in [
+        "shardloom.workflow_recipe_library.v1",
+        "python scripts\\check_workflow_recipes.py",
+        "No-Dataset Smoke",
+        "Local CSV Certified Result",
+        "Prepared Vortex Batch Run",
+        "Source-Free Generated Reference Table",
+        "Dirty CSV Cleanup",
+        "Nested JSON Scan",
+        "CDC Overlay",
+        "Object-Store Blocked Diagnostic",
+        "Foundry Dev-Stack Smoke",
+        "Benchmark Evidence Interpretation",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            readme.contains(required),
+            "missing workflow recipe README field {required}"
+        );
+    }
+
+    let index = read_repo_file("docs/use-cases/recipes/recipe-index.json");
+    for required in [
+        "\"schema_version\": \"shardloom.workflow_recipe_library.v1\"",
+        "\"gar_id\": \"GAR-COMMERCIAL-1F\"",
+        "\"status\": \"report_only_documentation_surface\"",
+        "\"claim_gate_status\": \"not_claim_grade\"",
+        "\"fallback_attempted\": false",
+        "\"external_engine_invoked\": false",
+        "\"id\": \"source-free-generated-reference-table\"",
+        "\"id\": \"object-store-blocked-diagnostic\"",
+        "\"use_case_id\": \"object-store-boundary-report\"",
+        "\"use_case_id\": \"benchmark-interpretation-evidence-not-leaderboard\"",
+    ] {
+        assert!(
+            index.contains(required),
+            "missing workflow recipe index field {required}"
+        );
+    }
+
+    let script = read_repo_file("scripts/check_workflow_recipes.py");
+    for required in [
+        "shardloom.workflow_recipe_library.v1",
+        "shardloom.workflow_recipe_library_report.v1",
+        "REQUIRED_RECIPE_IDS",
+        "SUPPORTED_STATUSES",
+        "EXPLANATION_STATUSES",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "Spark replacement",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing workflow recipe validator field {required}"
         );
     }
 }
