@@ -13,6 +13,11 @@ tag_created: false
 secrets_required: false
 external_runtime_dependencies_added: false
 fallback_engine_dependency_added: false
+public_package_release_claim_allowed: false
+generated_output_proof_distinct_from_no_dataset_smoke: true
+generated_source_user_rows_smoke_performed: true
+generated_source_range_smoke_performed: true
+prepared_native_benchmark_smoke_performed: true
 provenance_dry_run_performed: true
 sbom_checksum_manifest_generated: true
 clean_conda_env_install_status: passed | skipped_tool_missing
@@ -32,6 +37,24 @@ steps:
   - cli_capabilities_json -> 0
   - example_local_python_smoke -> 0
       fallback attempted: False
+  - generated_source_user_rows_local_output_smoke -> 0
+      generated_source_kind=user_rows
+      generated_source_row_count=2
+      output_io_performed=true
+      generated_source_certificate_status=present
+      output_native_io_certificate_status=certified_local_file_sink
+      fallback_attempted=False
+      external_engine_invoked=False
+      claim_gate_status=fixture_smoke_only
+  - generated_source_range_local_output_smoke -> 0
+      generated_source_kind=range
+      generated_source_row_count=8
+      output_io_performed=true
+      generated_source_certificate_status=present
+      output_native_io_certificate_status=certified_local_file_sink
+      fallback_attempted=False
+      external_engine_invoked=False
+      claim_gate_status=fixture_smoke_only
   - example_local_vortex_benchmark_smoke -> 0
   - release_provenance_dry_run -> 0
 ```

@@ -21,7 +21,10 @@ python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iteratio
 
 Use this for a small ShardLoom-only local Vortex benchmark smoke with result
 sink evidence. The default example uses CSV only so optional Parquet and
-external baseline dependencies are not required.
+external baseline dependencies are not required. It runs both the
+`shardloom` compatibility-import lane and the `shardloom-prepared-vortex` lane
+so users can inspect certification evidence and the current prepared/native
+runtime-development path separately.
 
 ## Source-Free User Rows Local Output Smoke
 

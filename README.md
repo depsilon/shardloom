@@ -230,7 +230,10 @@ deep contracts and acceptance criteria.
 First-user docs:
 
 - [`docs/getting-started/install.md`](docs/getting-started/install.md)
-- [`docs/getting-started/first-10-minutes.md`](docs/getting-started/first-10-minutes.md)
+- [`docs/getting-started/first-10-minutes.md`](docs/getting-started/first-10-minutes.md) includes
+  the one-command local release dry run: local wheel install in a clean environment, Python/CLI
+  smoke checks, generated-source local output smokes, and a compatibility/prepared-Vortex benchmark
+  smoke without publishing packages.
 - [`docs/getting-started/examples.md`](docs/getting-started/examples.md)
 - [`docs/getting-started/certified-local-workload.md`](docs/getting-started/certified-local-workload.md)
 - [`docs/benchmarks/local-taxonomy-benchmark.md`](docs/benchmarks/local-taxonomy-benchmark.md)

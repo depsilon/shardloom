@@ -552,59 +552,16 @@ Foundry, production, or release claims.
 
 #### GAR-COMMERCIAL-1 - Adoption And Commercial-Readiness Friction Reduction
 
-- [ ] GAR-COMMERCIAL-1A one-command local install and smoke proof
-  - Source: RFC 0024; RFC 0030; RFC 0033; release dry-run proof; package publication plan; website
-    public-preview readiness; `docs/getting-started/first-10-minutes.md`;
-    `docs/architecture/adoption-commercial-readiness-friction-reduction.md`.
-  - Current state:
-    - Source-local dry-run proof exists and builds local artifacts, installs a local wheel in a clean
-      virtual environment, resolves the local CLI, runs smoke checks, and records no-publication
-      safety fields.
-    - Public package publication is not complete.
-    - First-10-minutes docs are source-checkout oriented and still require readers to know which
-      proof path to choose.
-    - Generated/source-free output execution is not first-class yet; no-dataset smoke cannot be used
-      as a generated-output claim.
-  - Next slice outcome:
-    - Make one documented local user path that runs install or local build, smoke, a tiny
-      generated/source-free capability or runtime step, a tiny prepared/native example, and evidence
-      inspection without requiring architecture-doc reading.
-  - User-visible surface:
-    - README, website/get-started, `docs/getting-started/first-10-minutes.md`, release dry-run docs,
-      and example transcripts.
-  - Implementation scope:
-    - Docs, one wrapper command or script if needed, expected transcript shape, website links,
-      release-readiness checks, and examples. Runtime behavior changes are out of scope.
-  - Evidence required:
-    - install refs: local build/wheel path or future package artifact ref.
-    - smoke refs: CLI status, Python smoke, capabilities, no-fallback fields.
-    - generated refs: generated-output runtime evidence when available or deterministic blocked
-      capability diagnostics while GAR-GEN remains incomplete.
-    - prepared/native refs: tiny local Vortex/prepared-native example evidence.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - User can complete a smoke path without reading architecture docs.
-    - Docs clearly distinguish local package proof from public package release.
-    - Generated-output proof is not confused with no-dataset smoke.
-    - Prepared/native example exposes evidence and claim boundary.
-  - Verification:
-    - `python scripts/release_dry_run_proof.py --rows 64 --iterations 1` when the script changes.
-    - `python scripts/check_website_readiness.py`
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `git diff --check`
-  - Non-goals:
-    - No PyPI/TestPyPI/Conda/Homebrew/Scoop/winget/GHCR/crates.io publication unless release gates
-      pass.
-    - No generated-output runtime, broad SQL/DataFrame runtime, performance claim, or production
-      claim in this slice.
-  - Claim boundary:
-    - Local technical-preview proof only; not public package release or production readiness.
-  - Fallback boundary:
-    - No external engine, fallback engine dependency, object-store runtime, Foundry runtime, or
-      network service is required for the local proof.
-  - Dependencies/blockers:
-    - GAR-GEN generated-output posture, prepared/native tiny example stability, release dry-run proof
-      ownership, and website get-started routing.
+GAR-COMMERCIAL-1A is complete and recorded in the completed ledger. The local release dry-run proof
+now builds source artifacts, installs the exact local wheel in a clean virtual environment, runs
+CLI/Python smoke checks, runs scoped `ctx.from_rows(...).write(local_jsonl)` and
+`ctx.range(...).write(local_jsonl)` generated-source output smokes from the clean installed wheel,
+runs a tiny `shardloom` plus `shardloom-prepared-vortex` local benchmark smoke, records transcript
+fields for no-publication/no-release/no-fallback/no-external-engine posture, and updates README,
+getting-started docs, release proof docs, example metadata, and contract tests. The slice remains
+local technical-preview evidence only; it does not publish packages, create release tags, claim
+production readiness, claim performance/Spark replacement, expand SQL/DataFrame/object-store/
+lakehouse/Foundry runtime support, or weaken no-fallback policy.
 - [ ] GAR-COMMERCIAL-1B package channel readiness matrix
   - Source: RFC 0024; RFC 0030; release security/provenance docs; package-name readiness; PyPI
     Trusted Publishing/OIDC docs; TestPyPI, GitHub Releases, Homebrew, Scoop, winget, conda-forge,

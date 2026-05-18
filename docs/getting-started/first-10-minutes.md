@@ -4,7 +4,20 @@
 
 This proof uses a source checkout and local commands only. It does not require
 Spark, DataFusion, DuckDB, Polars, pandas, Foundry, object stores, or network
-services.
+services. The fastest complete path is the local release dry run below: it
+builds source artifacts, installs the exact local wheel in a clean virtual
+environment, runs smoke checks, writes scoped generated-source local outputs,
+runs a tiny compatibility/prepared-Vortex benchmark smoke, and records the
+evidence transcript.
+
+```powershell
+python scripts\release_dry_run_proof.py --rows 64 --iterations 1
+```
+
+The transcript is written to `target/release-dry-run-proof/transcript.json`.
+It is local technical-preview evidence only. It does not publish packages,
+create tags, add secrets, install fallback engines, make a performance claim, or
+turn local package proof into a public package release.
 
 ## 1. Build The CLI
 
@@ -36,14 +49,29 @@ It is a local Vortex analytics workflow, not a broad SQL/DataFrame/live/hybrid
 or Foundry production claim. See
 `docs/getting-started/certified-local-workload.md` for the details.
 
-## 5. Try A Local Benchmark Smoke
+## 5. Try Generated-Source Local Output
 
 ```powershell
-python examples\local-vortex-benchmark\run.py --repo-root .
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.generated_source_certificate_status, r.output_native_io_certificate_status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+```
+
+This is source-free generated-output execution, not no-dataset smoke. The
+current runtime support is scoped to local JSONL output from Python
+`ctx.from_rows(...).write(...)` and `ctx.range(...).write(...)` smokes. SQL
+`VALUES`, broad DataFrame runtime, object-store/lakehouse output, and Foundry
+generated-output runtime remain unclaimed.
+
+## 6. Try A Local Compatibility/Prepared-Vortex Benchmark Smoke
+
+```powershell
+python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1
 ```
 
 This wraps the local taxonomy benchmark harness with a small ShardLoom-only
-smoke configuration.
+smoke configuration. By default it runs both `shardloom` and
+`shardloom-prepared-vortex` so the compatibility-import certification lane and
+current prepared-Vortex runtime-development lane are visible separately.
 
 Additional example metadata, expected outputs, certificate fields, and known
 limitations are listed in `docs/getting-started/examples.md`.
@@ -52,7 +80,8 @@ limitations are listed in `docs/getting-started/examples.md`.
 
 For a single local proof that builds source artifacts, installs the local wheel
 in a clean virtual environment, resolves the built CLI, runs the smoke checks,
-and executes the benchmark smoke, use:
+writes generated-source local JSONL outputs, executes the prepared/native
+benchmark smoke, and runs provenance dry-run evidence, use:
 
 ```powershell
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1

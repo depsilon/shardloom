@@ -20,6 +20,14 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated formats for the smoke. Defaults to csv so no optional Parquet dependency is required.",
     )
     parser.add_argument(
+        "--engines",
+        default="shardloom,shardloom-prepared-vortex",
+        help=(
+            "Comma-separated ShardLoom lanes for the smoke. Defaults to compatibility import plus "
+            "prepared Vortex so users see the current runtime-development lane without external baselines."
+        ),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("target/shardloom-local-vortex-benchmark-smoke.json"),
@@ -35,7 +43,7 @@ def main() -> int:
         sys.executable,
         str(repo_root / "benchmarks" / "traditional_analytics" / "run.py"),
         "--engines",
-        "shardloom",
+        args.engines,
         "--formats",
         args.formats,
         "--scenario",
