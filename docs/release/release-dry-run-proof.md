@@ -34,7 +34,12 @@ The dry run performs these checks in order:
 - runs `shardloom status --format json`
 - runs `shardloom capabilities --format json`
 - runs `examples/local-python-smoke/run.py`
-- runs `examples/local-vortex-benchmark/run.py`
+- runs a scoped `ctx.from_rows([...]).write(local_jsonl)` generated-source output smoke from the
+  clean installed wheel
+- runs a scoped `ctx.range(...).write(local_jsonl)` engine-native generated-source output smoke from
+  the clean installed wheel
+- runs `examples/local-vortex-benchmark/run.py` with the default compatibility-import plus
+  `shardloom-prepared-vortex` lanes
 - runs `scripts/release_provenance_dry_run.py --skip-build`
 
 The transcript records command return codes, bounded stdout/stderr excerpts,
@@ -59,6 +64,10 @@ provenance_dry_run_performed=true
 sbom_checksum_manifest_generated=true
 clean_conda_env_install_status=passed | skipped_tool_missing | skipped_by_request | failed
 clean_conda_env_install_required=true | false
+generated_output_proof_distinct_from_no_dataset_smoke=true
+generated_source_user_rows_smoke_performed=true
+generated_source_range_smoke_performed=true
+prepared_native_benchmark_smoke_performed=true
 ```
 
 `clean_conda_env_install_status=passed` is required by the hard release-readiness gate before public
@@ -81,6 +90,18 @@ The clean venv proof installs only the exact ShardLoom wheel built during the cu
 Benchmark comparison engines remain optional benchmark/dev dependencies and are not installed by
 this proof. The local benchmark smoke is launched through the clean venv interpreter so wrapper
 import behavior is checked from the installed artifact, not the host Python environment.
+
+The generated-source output smokes are deliberately distinct from no-dataset smoke. They write
+local JSONL files under `target/release-dry-run-proof/`, emit
+`generated_source_certificate_status=present`,
+`output_native_io_certificate_status=certified_local_file_sink`,
+`fallback_attempted=False`, `external_engine_invoked=False`, and
+`claim_gate_status=fixture_smoke_only`. They do not claim SQL `VALUES`, broad DataFrame runtime,
+object-store/lakehouse output, Foundry output, production support, or performance.
+
+The benchmark smoke is local pre-release evidence. Its default lanes separate
+`compatibility_import_certified` from `prepared_vortex`; the page and transcript must not read those
+rows as public speed rankings, Spark replacement evidence, or production readiness.
 
 The provenance step writes SBOM, checksum, workflow policy, and local
 `SupplyChainReleaseEvidence` dry-run artifacts under

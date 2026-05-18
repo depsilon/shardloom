@@ -332,6 +332,13 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(dry_run.contains("SHARDLOOM_BIN"));
     assert!(dry_run.contains("ShardLoomClient.from_env()"));
     assert!(dry_run.contains("smoke_check()"));
+    assert!(dry_run.contains("generated_source_user_rows_local_output_smoke"));
+    assert!(dry_run.contains("generated_source_range_local_output_smoke"));
+    assert!(dry_run.contains("ctx.from_rows(["));
+    assert!(dry_run.contains("ctx.range(0, 8"));
+    assert!(dry_run.contains("generated_source_certificate_status"));
+    assert!(dry_run.contains("output_native_io_certificate_status"));
+    assert!(dry_run.contains("external_engine_invoked"));
     assert!(dry_run.contains("clean_conda_env_install_status"));
     assert!(dry_run.contains("--require-clean-conda"));
     assert!(dry_run.contains("mamba"));
@@ -342,6 +349,9 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(dry_run.contains("tag_created"));
     assert!(dry_run.contains("secrets_required"));
     assert!(dry_run.contains("fallback_engine_dependency_added"));
+    assert!(dry_run.contains("public_package_release_claim_allowed"));
+    assert!(dry_run.contains("generated_output_proof_distinct_from_no_dataset_smoke"));
+    assert!(dry_run.contains("prepared_native_benchmark_smoke_performed"));
     assert!(dry_run.contains("scripts/release_provenance_dry_run.py"));
     assert!(dry_run.contains("provenance_dry_run_performed"));
     assert!(dry_run.contains("sbom_checksum_manifest_generated"));
@@ -611,14 +621,30 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(proof.contains("release_provenance_dry_run"));
     assert!(proof.contains("provenance_dry_run_performed"));
     assert!(proof.contains("sbom_checksum_manifest_generated"));
+    assert!(proof.contains("generated_source_user_rows_smoke_performed=true"));
+    assert!(proof.contains("generated_source_range_smoke_performed=true"));
+    assert!(proof.contains("prepared_native_benchmark_smoke_performed=true"));
+    assert!(proof.contains("generated_source_certificate_status=present"));
+    assert!(proof.contains("output_native_io_certificate_status=certified_local_file_sink"));
+    assert!(proof.contains("external_engine_invoked=False"));
     assert!(proof.contains("clean_conda_env_install_status"));
     assert!(proof.contains("--require-clean-conda"));
 
     let snapshot = read_repo_file("docs/release/first-10-minutes-smoke-snapshot.md");
     assert!(snapshot.contains("schema_version: shardloom.release_dry_run_proof.v1"));
     assert!(snapshot.contains("proof_status: passed"));
+    assert!(snapshot.contains("public_package_release_claim_allowed: false"));
+    assert!(snapshot.contains("generated_output_proof_distinct_from_no_dataset_smoke: true"));
+    assert!(snapshot.contains("generated_source_user_rows_smoke_performed: true"));
+    assert!(snapshot.contains("generated_source_range_smoke_performed: true"));
+    assert!(snapshot.contains("prepared_native_benchmark_smoke_performed: true"));
     assert!(snapshot.contains("clean_conda_env_install_status"));
     assert!(snapshot.contains("fallback_attempted=False"));
+    assert!(snapshot.contains("generated_source_user_rows_local_output_smoke -> 0"));
+    assert!(snapshot.contains("generated_source_range_local_output_smoke -> 0"));
+    assert!(snapshot.contains("generated_source_kind=user_rows"));
+    assert!(snapshot.contains("generated_source_kind=range"));
+    assert!(snapshot.contains("output_native_io_certificate_status=certified_local_file_sink"));
     assert!(snapshot.contains("example_local_vortex_benchmark_smoke -> 0"));
     assert!(snapshot.contains("release_provenance_dry_run -> 0"));
     assert!(snapshot.contains("provenance_dry_run_performed: true"));
@@ -627,6 +653,10 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     let first_ten = read_repo_file("docs/getting-started/first-10-minutes.md");
     assert!(first_ten.contains("scripts\\release_dry_run_proof.py"));
     assert!(first_ten.contains("target/release-dry-run-proof/transcript.json"));
+    assert!(first_ten.contains("ctx.from_rows"));
+    assert!(first_ten.contains("ctx.range"));
+    assert!(first_ten.contains("shardloom-prepared-vortex"));
+    assert!(first_ten.contains("public package release"));
 }
 
 #[test]
@@ -1200,6 +1230,15 @@ fn external_examples_include_fixtures_expected_outputs_and_boundaries() {
             .join("examples/foundry-lightweight-transform/fixtures/staged_input.csv")
             .exists()
     );
+
+    let vortex_example = read_repo_file("examples/local-vortex-benchmark/run.py");
+    assert!(vortex_example.contains("shardloom,shardloom-prepared-vortex"));
+    assert!(vortex_example.contains("prepared Vortex"));
+
+    let vortex_expected = read_repo_file("examples/local-vortex-benchmark/expected-output.json");
+    assert!(vortex_expected.contains("\"shardloom-prepared-vortex\""));
+    assert!(vortex_expected.contains("\"fallback_attempted\": false"));
+    assert!(vortex_expected.contains("\"external_engine_invoked\": false"));
 
     let foundry = read_repo_file("examples/foundry-lightweight-transform/run.py");
     assert!(foundry.contains("foundry_runtime_invoked"));

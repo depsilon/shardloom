@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMMERCIAL-1A one-command local install and smoke proof
+  - Primary files:
+    - `scripts/release_dry_run_proof.py`
+    - `examples/local-vortex-benchmark/run.py`
+    - `examples/local-vortex-benchmark/README.md`
+    - `examples/local-vortex-benchmark/expected-output.json`
+    - `docs/getting-started/first-10-minutes.md`
+    - `docs/getting-started/examples.md`
+    - `docs/release/release-dry-run-proof.md`
+    - `docs/release/first-10-minutes-smoke-snapshot.md`
+    - `docs/architecture/adoption-commercial-readiness-friction-reduction.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `README.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the first adoption/commercial-readiness slice by turning the source-local dry run
+    into one documented technical-preview proof path: local CLI build, Python wheel/sdist build,
+    exact wheel install in a clean virtual environment, installed-wheel import/client smoke,
+    optional clean Conda proof, CLI status/capabilities, scoped generated-source local output
+    smokes, local compatibility/prepared-Vortex benchmark smoke, and provenance/SBOM/checksum
+    dry-run evidence.
+  - Checklist:
+    - [x] Add generated-source user-row and range local output smokes to the release dry-run proof,
+          executed through the clean installed wheel and built CLI.
+    - [x] Add transcript fields for generated-source proof separation, generated-source smoke
+          execution, prepared/native benchmark smoke execution, public-package claim denial, and
+          no-publication/no-fallback posture.
+    - [x] Make the local benchmark smoke default to `shardloom,shardloom-prepared-vortex` so the
+          compatibility-import certification lane and current prepared-Vortex runtime-development
+          lane are visible separately without external baselines.
+    - [x] Update README, getting-started docs, release proof docs, example metadata, phase plan,
+          and traceability to identify the one-command proof and its claim boundary.
+    - [x] Add contract-test coverage for the new dry-run script fields, docs, and example posture.
+  - Evidence and verification:
+    - `python scripts/release_dry_run_proof.py --rows 64 --iterations 1`
+    - `python -m compileall -q scripts examples python/src python/tests website`
+    - `python website/build_static_pages.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary:
+    - Local technical-preview proof only. The generated-source smokes are scoped local JSONL
+      fixture-smoke outputs with generated-source and output certificates; the benchmark smoke is
+      local evidence only. This slice does not authorize public package release, production
+      readiness, SQL/DataFrame runtime, object-store/lakehouse/Foundry runtime, performance claims,
+      Spark replacement claims, or broader generated-output support.
+  - Fallback boundary:
+    - The transcript and generated-source outputs preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`. The proof does not install or invoke Spark, DataFusion,
+      DuckDB, Polars, pandas, Foundry, object-store services, network services, or fallback engines.
+
 - [x] Session label: GAR-NOVEL-1D Bayesian claim-confidence and regression model
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

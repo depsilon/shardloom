@@ -168,6 +168,43 @@ def newest_wheel(dist_dir: Path) -> Path:
     return wheels[-1]
 
 
+def generated_user_rows_smoke_script(output_path: Path) -> str:
+    output_arg = json.dumps(str(output_path))
+    return (
+        "from shardloom import context; "
+        "ctx=context(); "
+        "report=ctx.from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).write("
+        f"{output_arg}, allow_overwrite=True); "
+        "print('generated_source_kind=' + report.generated_source_kind); "
+        "print('generated_source_row_count=' + str(report.generated_source_row_count)); "
+        "print('output_io_performed=' + str(report.envelope.field('output_io_performed'))); "
+        "print('generated_source_certificate_status=' + report.generated_source_certificate_status); "
+        "print('output_native_io_certificate_status=' + report.output_native_io_certificate_status); "
+        "print('fallback_attempted=' + str(report.fallback_attempted)); "
+        "print('external_engine_invoked=' + str(report.external_engine_invoked)); "
+        "print('claim_gate_status=' + report.claim_gate_status)"
+    )
+
+
+def generated_range_smoke_script(output_path: Path) -> str:
+    output_arg = json.dumps(str(output_path))
+    return (
+        "from shardloom import context; "
+        "ctx=context(); "
+        f"report=ctx.range(0, 8, column='id').write({output_arg}, allow_overwrite=True); "
+        "print('generated_source_kind=' + report.generated_source_kind); "
+        "print('generated_source_row_count=' + str(report.generated_source_row_count)); "
+        "print('generated_source_range_start=' + str(report.generated_source_range_start)); "
+        "print('generated_source_range_end=' + str(report.generated_source_range_end)); "
+        "print('output_io_performed=' + str(report.envelope.field('output_io_performed'))); "
+        "print('generated_source_certificate_status=' + report.generated_source_certificate_status); "
+        "print('output_native_io_certificate_status=' + report.output_native_io_certificate_status); "
+        "print('fallback_attempted=' + str(report.fallback_attempted)); "
+        "print('external_engine_invoked=' + str(report.external_engine_invoked)); "
+        "print('claim_gate_status=' + report.claim_gate_status)"
+    )
+
+
 def remove_tree_under_repo(repo_root: Path, path: Path) -> None:
     resolved = path.resolve()
     if resolved != repo_root and repo_root not in resolved.parents:
@@ -183,6 +220,9 @@ def main() -> int:
     output = resolve_under_repo(repo_root, args.output)
     dist_dir = repo_root / "python" / "dist"
     binary = shardloom_binary(repo_root)
+    proof_artifact_dir = repo_root / "target" / "release-dry-run-proof"
+    generated_user_rows_output = proof_artifact_dir / "generated-user-rows.jsonl"
+    generated_range_output = proof_artifact_dir / "generated-range.jsonl"
     clean_conda_status = "not_run_prerequisite_failed"
     clean_conda_tool: Path | None = None
 
@@ -357,6 +397,30 @@ def main() -> int:
             cwd=repo_root,
         )
     )
+    steps.append(
+        run_step(
+            name="generated_source_user_rows_local_output_smoke",
+            command=[
+                str(clean_python),
+                "-c",
+                generated_user_rows_smoke_script(generated_user_rows_output),
+            ],
+            cwd=repo_root,
+            env=smoke_env,
+        )
+    )
+    steps.append(
+        run_step(
+            name="generated_source_range_local_output_smoke",
+            command=[
+                str(clean_python),
+                "-c",
+                generated_range_smoke_script(generated_range_output),
+            ],
+            cwd=repo_root,
+            env=smoke_env,
+        )
+    )
     if not args.skip_benchmark_smoke:
         steps.append(
             run_step(
@@ -435,6 +499,17 @@ def write_transcript(
         "secrets_required": False,
         "external_runtime_dependencies_added": False,
         "fallback_engine_dependency_added": False,
+        "public_package_release_claim_allowed": False,
+        "generated_output_proof_distinct_from_no_dataset_smoke": True,
+        "generated_source_user_rows_smoke_performed": any(
+            step["name"] == "generated_source_user_rows_local_output_smoke" for step in steps
+        ),
+        "generated_source_range_smoke_performed": any(
+            step["name"] == "generated_source_range_local_output_smoke" for step in steps
+        ),
+        "prepared_native_benchmark_smoke_performed": any(
+            step["name"] == "example_local_vortex_benchmark_smoke" for step in steps
+        ),
         "provenance_dry_run_performed": any(
             step["name"] == "release_provenance_dry_run" for step in steps
         ),

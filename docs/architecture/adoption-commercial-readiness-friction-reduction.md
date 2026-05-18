@@ -41,8 +41,9 @@ Reference docs:
 Current local proof exists, but public distribution is not complete:
 
 - `scripts/release_dry_run_proof.py` builds local artifacts, installs the local wheel in a clean
-  virtual environment, resolves the local CLI, runs smoke checks, and records no-publication safety
-  fields.
+  virtual environment, resolves the local CLI, runs smoke checks, runs scoped generated-source local
+  output smokes, runs a tiny compatibility/prepared-Vortex benchmark smoke, runs release provenance
+  dry-run evidence, and records no-publication safety fields.
 - `docs/getting-started/first-10-minutes.md` describes a source-checkout path.
 - `docs/release/package-name-readiness.md` tracks PyPI, TestPyPI, Conda, and crates.io readiness
   posture.
@@ -63,13 +64,14 @@ evidence inspection
 claim boundary inspection
 ```
 
-Current generated/source-free runtime is still planned. Until `GAR-GEN-1` runtime evidence exists,
-the one-command path must either:
+Current generated/source-free runtime is intentionally narrow rather than absent:
+`ctx.from_rows(...).write(local_jsonl)` and `ctx.range(...).write(local_jsonl)` can run scoped local
+fixture-smoke output paths with generated-source and output evidence. The one-command proof must run
+those paths from the clean installed wheel and keep them separate from no-dataset smoke.
 
-- run a generated-output capability/report-only preview, or
-- mark the generated-output step as blocked with a deterministic diagnostic.
-
-It must not pretend no-dataset smoke is generated-output execution.
+It must not pretend no-dataset smoke is generated-output execution, and it must not promote the
+scoped local JSONL smokes into SQL `VALUES`, broad DataFrame runtime, object-store/lakehouse output,
+Foundry output, production support, or performance claims.
 
 ## Package Channel Readiness Matrix
 
