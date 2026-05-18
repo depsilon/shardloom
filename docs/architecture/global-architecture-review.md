@@ -730,9 +730,12 @@ plan before coding.
   artifact identity/digest/reuse posture, and scoped local Vortex result-sink output posture.
   `GAR-IOREUSE-1D` now adds a report-only fanout benchmark matrix for the required cross-format
   cases. `GAR-IOREUSE-1E` now adds a cache invalidation/fingerprint benchmark contract for current
-  local source/prepared/plan/output posture. The next work is runtime fanout, evidence-safe reuse
-  levels, benchmark timing fields, and no-fallback/no-external-engine evidence so reuse cannot
-  silently become claim-grade, cache-hit proof, or performance proof.
+  local source/prepared/plan/output posture. `GAR-IOREUSE-1F` now adds evidence-safe reuse-level
+  rows so discovery, schema, parse-plan, prepared-state, operator-source-state, output-plan, and
+  result-replay reuse stay separate from execution mode, evidence level, output format, and claim
+  gate. The next work is runtime fanout, broader sink artifact proof, benchmark timing fields, and
+  no-fallback/no-external-engine evidence so reuse cannot silently become claim-grade, cache-hit
+  proof, or performance proof.
 - [ ] Broad CG-5/CG-6 coverage, production stateful reuse runtime, and performance/superiority
   claims remain incomplete.
 
@@ -777,15 +780,16 @@ plan before coding.
   runtime-supported, smoke-supported, report-only, blocked, or not-planned. It still needs typed
   website/status and Python capability projection before users or agents can consume the matrix as
   a stable machine surface.
-- [ ] `GAR-IOREUSE-1F` adds the remaining Native I/O reuse ladder after
+- [x] `GAR-IOREUSE-1F` adds the remaining Native I/O reuse ladder after
   `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract and
   `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract and
   `GAR-IOREUSE-1C` established the scoped OutputPlan benchmark/report contract:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
   SinkArtifact`. `GAR-IOREUSE-1D` established report-only fanout case visibility, and
-  `GAR-IOREUSE-1E` established current local fingerprint/invalidation posture. The next work is to
-  keep evidence-safe reuse levels and sink artifacts reusable and independently certified without
-  coupling input format to output format.
+  `GAR-IOREUSE-1E` established current local fingerprint/invalidation posture. Evidence-safe reuse
+  levels are now machine-readable, no-fallback, and `not_claim_grade`; the next work is to keep
+  sink artifacts reusable and independently certified without coupling input format to output
+  format.
 - [ ] CG-19 is not universal across object-store/range-read, streaming sinks, table/catalog,
   external adapters, and all production source/sink paths.
 
@@ -1281,10 +1285,13 @@ plan before coding.
   no-fallback fields, and claim boundaries in benchmark artifacts. `GAR-IOREUSE-1E` now exposes
   cache invalidation/fingerprint fields, source mtime/size, source/prepared/plan/output digests,
   object-store ETag posture, cache validity, invalidation reason, credential-redaction status,
+  no-fallback fields, and claim boundaries in benchmark artifacts. `GAR-IOREUSE-1F` now exposes
+  evidence-safe reuse levels, per-level status/hit/digest/blocker fields, evidence-level linkage,
+  output-format separation, invalidation reasons, `claim_grade_requirements_met=false`,
   no-fallback fields, and claim boundaries in benchmark artifacts. The remaining flow must add
-  evidence-safe reuse levels and broader sink evidence while preserving distinct direct-transient,
-  compatibility-import-certified, prepared-vortex, and native-vortex lanes without adding
-  persistent cache, object-store/lakehouse, performance, or fallback claims.
+  broader sink evidence while preserving distinct direct-transient, compatibility-import-certified,
+  prepared-vortex, and native-vortex lanes without adding persistent cache, object-store/lakehouse,
+  performance, or fallback claims.
 - [ ] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and
   confidence follow-up. OpenLineage facets and OpenTelemetry spans remain opt-in/report-only, and
   Bayesian confidence can block claims but cannot upgrade claim status by itself.

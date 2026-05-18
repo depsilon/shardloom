@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1F evidence-safe reuse-level benchmark evidence
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/benchmarks/local-taxonomy-benchmark.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+  - Scope: define and expose evidence-safe reuse levels across discovery, schema, parse planning,
+    prepared Vortex state, operator source-state, output planning, and result replay without
+    adding a runtime cache, hidden fast mode, or claim-grade promotion.
+  - Checklist:
+    - [x] Add `shardloom.traditional_analytics.evidence_safe_reuse_levels.v1` with supported
+          levels `discovery_reuse`, `schema_reuse`, `parse_plan_reuse`,
+          `prepared_vortex_reuse`, `operator_source_state_reuse`, `output_plan_reuse`, and
+          `result_replay_reuse`.
+    - [x] Add a `reuse_level_matrix` with per-level status, hit, allowed, digest, blocker,
+          invalidation reason, execution mode, evidence level, output format, claim gate,
+          claim-grade requirements, no-fallback, and no-external-engine fields.
+    - [x] Add benchmark result summary fields including `reuse_level_summary_digest`,
+          `reuse_level_hit_count`, `reuse_level_allowed_count`,
+          `claim_grade_requirements_met=false`,
+          `reuse_level_fallback_attempted=false`, and
+          `reuse_level_external_engine_invoked=false`.
+    - [x] Validate ShardLoom rows include the contract fields and cannot report fallback,
+          external-engine execution, claim-grade upgrade, or reuse-only claim-grade completion.
+    - [x] Remove the active GAR-IOREUSE-1F item from the Planned queue and update architecture,
+          traceability, benchmark, compute-flow, and website compute-flow docs.
+  - Evidence/verification:
+    - `python -m compileall -q benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks/traditional_analytics/run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --rows 100 --iterations 1 --skip-shardloom-native --shardloom-result-sink --output target/codex-gar-ioreuse-1f-smoke/traditional.json`
+    - smoke artifact inspection for `shardloom.traditional_analytics.evidence_safe_reuse_levels.v1`,
+      seven `reuse_level_matrix` rows, `reuse_level_claim_gate_status=not_claim_grade`,
+      `claim_grade_requirements_met=False`, `reuse_level_fallback_attempted=False`, and
+      `reuse_level_external_engine_invoked=False`.
+    - `python -m compileall -q benchmarks/traditional_analytics website scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - The completed slice may claim only that reuse status and evidence completeness are visible
+      and machine-readable in benchmark artifacts.
+    - It does not authorize correctness, output fidelity, performance, superiority, Spark
+      replacement, production runtime, SQL/DataFrame support, object-store/lakehouse support,
+      Foundry support, package readiness, release readiness, hidden cache use, or claim-grade
+      promotion.
+  - Fallback boundary:
+    - Every ShardLoom reuse-level row must keep `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+    - External engines remain baseline-only and cannot satisfy reuse-level evidence.
+
 - [x] Session label: GAR-IOREUSE-1E cache invalidation and fingerprint benchmark evidence
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

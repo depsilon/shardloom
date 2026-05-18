@@ -511,6 +511,41 @@ CACHE_INVALIDATION_CONTRACT_FIELDS = (
     "cache_invalidation_redaction_status",
     "cache_invalidation_claim_boundary",
 )
+REUSE_LEVEL_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.evidence_safe_reuse_levels.v1"
+)
+REUSE_LEVEL_SUPPORTED_LEVELS = (
+    "discovery_reuse",
+    "schema_reuse",
+    "parse_plan_reuse",
+    "prepared_vortex_reuse",
+    "operator_source_state_reuse",
+    "output_plan_reuse",
+    "result_replay_reuse",
+)
+REUSE_LEVEL_STATUS_VOCABULARY = (
+    "reuse_hit",
+    "reuse_miss",
+    "not_needed",
+    "blocked",
+    "unsupported",
+    "invalidated",
+    "report_only",
+)
+REUSE_LEVEL_CONTRACT_FIELDS = (
+    "reuse_level_contract_schema_version",
+    "reuse_level_status_vocabulary",
+    "reuse_level_supported_levels",
+    "reuse_level_matrix_ref",
+    "reuse_level_summary_digest",
+    "reuse_level_hit_count",
+    "reuse_level_allowed_count",
+    "reuse_level_claim_gate_status",
+    "claim_grade_requirements_met",
+    "reuse_level_fallback_attempted",
+    "reuse_level_external_engine_invoked",
+    "reuse_level_claim_boundary",
+)
 FANOUT_BENCHMARK_CASES = (
     {
         "fanout_case_id": "csv_to_parquet_jsonl_vortex_outputs",
@@ -5168,6 +5203,215 @@ def cache_invalidation_contract_metadata(
     }
 
 
+def reuse_layer_status_from_contract(
+    *,
+    is_shardloom: bool,
+    row_status: str,
+    layer_status: str | None,
+    allowed: bool,
+    hit: bool,
+    not_needed: bool = False,
+    invalidated: bool = False,
+) -> tuple[str, bool, bool]:
+    if not is_shardloom:
+        return "report_only", False, False
+    if invalidated:
+        return "invalidated", False, False
+    if row_status == "execution_error" or layer_status == "blocked":
+        return "blocked", False, False
+    if row_status in {"unsupported", "unsupported_format"} or layer_status == "unsupported":
+        return "unsupported", False, False
+    if not_needed or layer_status == "not_needed":
+        return "not_needed", False, False
+    if hit:
+        return "reuse_hit", True, True
+    if allowed:
+        return "reuse_miss", True, False
+    return "report_only", False, False
+
+
+def reuse_level_rows_from_metrics(
+    *,
+    scenario: str,
+    engine: str,
+    row_status: str,
+    metrics: dict[str, Any],
+) -> list[dict[str, Any]]:
+    is_shardloom = is_shardloom_engine(engine)
+    execution_mode = first_meaningful_field(
+        metrics.get("selected_execution_mode"),
+        metrics.get("execution_mode"),
+        "external_baseline_only" if not is_shardloom else "unknown",
+    )
+    evidence_level = first_meaningful_field(
+        metrics.get("evidence_level"),
+        "not_applicable" if not is_shardloom else "unknown",
+    )
+    output_format = first_meaningful_field(metrics.get("output_format"), "none")
+    cache_invalidated = metrics.get("cache_invalidation_status") == "invalidated"
+    invalidation_reason = str(metrics.get("invalidation_reason", "none"))
+    source_state_allowed = metrics.get("source_state_reuse_allowed") is True
+    source_state_hit = metrics.get("source_state_reuse_hit") is True
+    prepared_state_allowed = metrics.get("prepared_state_reuse_allowed") is True
+    prepared_state_hit = metrics.get("prepared_state_reuse_hit") is True
+    output_plan_allowed = metrics.get("output_plan_reuse_allowed") is True
+    output_plan_hit = metrics.get("output_plan_reuse_hit") is True
+    batch_row = metrics.get("persistent_runner_status") == BATCH_RUNNER_STATUS
+    output_plan_status = str(metrics.get("output_plan_status", "report_only"))
+    output_written = output_format not in {"none", "not_requested"}
+    result_replay_verified = metrics.get("result_replay_verified") is True
+
+    level_specs = (
+        (
+            "discovery_reuse",
+            metrics.get("source_state_status"),
+            source_state_allowed,
+            source_state_hit,
+            metrics.get("source_state_status") == "not_needed",
+            metrics.get("source_state_digest", "none"),
+            metrics.get("source_state_reuse_reason", "none"),
+        ),
+        (
+            "schema_reuse",
+            metrics.get("source_state_status"),
+            source_state_allowed,
+            source_state_hit,
+            metrics.get("source_state_status") == "not_needed",
+            metrics.get("schema_digest", "none"),
+            metrics.get("source_state_reuse_reason", "none"),
+        ),
+        (
+            "parse_plan_reuse",
+            metrics.get("source_state_status"),
+            source_state_allowed,
+            source_state_hit,
+            metrics.get("source_state_status") == "not_needed",
+            metrics.get("parse_decode_plan_digest", "none"),
+            metrics.get("source_state_reuse_reason", "none"),
+        ),
+        (
+            "prepared_vortex_reuse",
+            metrics.get("prepared_state_status"),
+            prepared_state_allowed,
+            prepared_state_hit,
+            metrics.get("prepared_state_status") == "not_needed",
+            metrics.get("prepared_state_digest", "none"),
+            metrics.get("prepared_state_reuse_reason", "none"),
+        ),
+        (
+            "operator_source_state_reuse",
+            metrics.get("source_state_status"),
+            batch_row and row_status == "success",
+            source_state_hit,
+            metrics.get("source_state_status") == "not_needed",
+            metrics.get("source_state_digest", "none"),
+            metrics.get("source_state_reuse_status")
+            or metrics.get("source_state_reuse_reason", "none"),
+        ),
+        (
+            "output_plan_reuse",
+            output_plan_status,
+            output_plan_allowed,
+            output_plan_hit,
+            output_plan_status == "not_needed",
+            metrics.get("output_plan_digest", "none"),
+            metrics.get("output_plan_reuse_reason", "none"),
+        ),
+        (
+            "result_replay_reuse",
+            output_plan_status,
+            False,
+            False,
+            not output_written,
+            metrics.get("sink_artifact_digest", "none"),
+            "result replay was verified but replay reuse is not implemented"
+            if result_replay_verified
+            else "result replay reuse is not implemented for this row",
+        ),
+    )
+    rows: list[dict[str, Any]] = []
+    for reuse_level, layer_status, allowed, hit, not_needed, digest_ref, blocker in level_specs:
+        reuse_status, reuse_allowed, reuse_hit = reuse_layer_status_from_contract(
+            is_shardloom=is_shardloom,
+            row_status=row_status,
+            layer_status=str(layer_status or "report_only"),
+            allowed=bool(allowed),
+            hit=bool(hit),
+            not_needed=bool(not_needed),
+            invalidated=cache_invalidated,
+        )
+        reuse_digest = canonical_digest(
+            {
+                "digest_ref": digest_ref,
+                "evidence_level": evidence_level,
+                "execution_mode": execution_mode,
+                "output_format": output_format,
+                "reuse_level": reuse_level,
+                "reuse_schema": REUSE_LEVEL_SCHEMA_VERSION,
+                "reuse_status": reuse_status,
+                "scenario": scenario,
+            }
+        )
+        rows.append(
+            {
+                "scenario": scenario,
+                "engine": engine,
+                "execution_mode": execution_mode,
+                "evidence_level": evidence_level,
+                "output_format": output_format,
+                "reuse_level": reuse_level,
+                "reuse_status": reuse_status,
+                "reuse_hit": reuse_hit,
+                "reuse_digest": reuse_digest if is_shardloom else "none",
+                "reuse_allowed": reuse_allowed,
+                "reuse_blocker": str(blocker or "none"),
+                "layer_invalidation_reason": invalidation_reason,
+                "claim_gate_status": "not_claim_grade",
+                "claim_grade_requirements_met": False,
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            }
+        )
+    return rows
+
+
+def reuse_level_contract_metadata(
+    *,
+    scenario: str,
+    engine: str,
+    status: str,
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    rows = reuse_level_rows_from_metrics(
+        scenario=scenario,
+        engine=engine,
+        row_status=status,
+        metrics=metrics,
+    )
+    return {
+        "reuse_level_contract_schema_version": REUSE_LEVEL_SCHEMA_VERSION,
+        "reuse_level_status_vocabulary": ",".join(REUSE_LEVEL_STATUS_VOCABULARY),
+        "reuse_level_supported_levels": ",".join(REUSE_LEVEL_SUPPORTED_LEVELS),
+        "reuse_level_matrix_ref": "artifact.reuse_level_matrix",
+        "reuse_level_summary_digest": canonical_digest(rows),
+        "reuse_level_hit_count": sum(1 for row in rows if row["reuse_hit"] is True),
+        "reuse_level_allowed_count": sum(
+            1 for row in rows if row["reuse_allowed"] is True
+        ),
+        "reuse_level_claim_gate_status": "not_claim_grade",
+        "claim_grade_requirements_met": False,
+        "reuse_level_fallback_attempted": False,
+        "reuse_level_external_engine_invoked": False,
+        "reuse_level_claim_boundary": (
+            "Evidence-safe reuse levels expose layer-specific reuse posture only; reuse hits, "
+            "misses, blockers, and invalidation reasons do not prove correctness, output "
+            "fidelity, performance, production readiness, SQL/DataFrame support, object-store/"
+            "lakehouse support, Foundry support, package readiness, release readiness, or "
+            "Spark-replacement status"
+        ),
+    }
+
+
 def rows_scanned(paths: DatasetPaths, scenario: str) -> int:
     if scenario in {
         "hash join",
@@ -5636,6 +5880,26 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             and metrics.get("cache_valid") is not True
         ):
             raise RuntimeError("cache-valid rows must set cache_valid=true")
+        missing_reuse_level_fields = [
+            field for field in REUSE_LEVEL_CONTRACT_FIELDS if field not in metrics
+        ]
+        if missing_reuse_level_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted evidence-safe reuse-level fields: "
+                + ", ".join(missing_reuse_level_fields)
+            )
+        if metrics.get("reuse_level_fallback_attempted") is not False:
+            raise RuntimeError("reuse-level evidence cannot report fallback attempts")
+        if metrics.get("reuse_level_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "reuse-level evidence cannot report external engine execution"
+            )
+        if metrics.get("reuse_level_claim_gate_status") != "not_claim_grade":
+            raise RuntimeError("reuse-level evidence cannot upgrade claim status")
+        if metrics.get("claim_grade_requirements_met") is not False:
+            raise RuntimeError(
+                "reuse-level evidence cannot mark claim-grade requirements met"
+            )
     if (
         is_shardloom_engine(str(result.get("engine") or ""))
         and result.get("status") == "success"
@@ -6292,6 +6556,64 @@ def cache_invalidation_contract() -> dict[str, Any]:
     }
 
 
+def reuse_level_contract() -> dict[str, Any]:
+    return {
+        "contract_id": REUSE_LEVEL_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": "docs/architecture/runtime-evidence-level-tiering.md",
+        "status_vocabulary": list(REUSE_LEVEL_STATUS_VOCABULARY),
+        "supported_levels": list(REUSE_LEVEL_SUPPORTED_LEVELS),
+        "row_fields": list(REUSE_LEVEL_CONTRACT_FIELDS),
+        "matrix_fields": [
+            "scenario",
+            "engine",
+            "execution_mode",
+            "evidence_level",
+            "output_format",
+            "reuse_level",
+            "reuse_status",
+            "reuse_hit",
+            "reuse_digest",
+            "reuse_allowed",
+            "reuse_blocker",
+            "layer_invalidation_reason",
+            "claim_gate_status",
+            "claim_grade_requirements_met",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ],
+        "current_scope": (
+            "report-level reuse status normalization across source discovery, schema, "
+            "parse plan, prepared Vortex state, operator source-state, output plan, "
+            "and result-replay layers without adding runtime cache behavior"
+        ),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> "
+            "OutputPlan -> SinkArtifact"
+        ),
+        "non_goals": [
+            "new runtime speed mode",
+            "hidden global cache",
+            "persistent cache",
+            "claim-grade promotion from reuse evidence",
+            "object-store/lakehouse runtime",
+            "Foundry production runtime",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Reuse-level rows must preserve fallback_attempted=false and "
+            "external_engine_invoked=false for every level and every evidence level."
+        ),
+        "claim_boundary": (
+            "Evidence-safe reuse levels may claim only that reuse status and evidence "
+            "completeness are visible and machine-readable. They do not prove correctness, "
+            "output fidelity, performance, production readiness, SQL/DataFrame runtime, "
+            "object-store/lakehouse support, Foundry support, package readiness, release "
+            "readiness, or Spark-replacement status."
+        ),
+    }
+
+
 def source_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -6556,6 +6878,23 @@ def cache_invalidation_matrix(results: list[dict[str, Any]]) -> list[dict[str, A
                     "cache_invalidation_claim_boundary"
                 ),
             }
+        )
+    return rows
+
+
+def reuse_level_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "reuse_level_contract_schema_version" not in metrics:
+            continue
+        rows.extend(
+            reuse_level_rows_from_metrics(
+                scenario=result["scenario_name"],
+                engine=result["engine"],
+                row_status=result["status"],
+                metrics=metrics,
+            )
         )
     return rows
 
@@ -7093,6 +7432,14 @@ def failed_result(
             metrics=metrics,
         )
     )
+    metrics.update(
+        reuse_level_contract_metadata(
+            scenario=scenario,
+            engine=engine,
+            status=status,
+            metrics=metrics,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -7602,6 +7949,14 @@ def successful_result_from_iterations(
             status="success" if stable else "unstable_output",
             metrics=metrics,
             evidence=evidence,
+        )
+    )
+    metrics.update(
+        reuse_level_contract_metadata(
+            scenario=scenario,
+            engine=runner.name,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
         )
     )
     if evidence.get("persistent_runner_status") == BATCH_RUNNER_STATUS:
@@ -9116,6 +9471,29 @@ def render_cache_invalidation_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_reuse_level_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["reuse_level_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Supported levels", ", ".join(contract["supported_levels"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Matrix fields", ", ".join(contract["matrix_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
@@ -9142,6 +9520,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom rows carry OutputPlan contract fields for local output planning posture; only result-sink rows with explicit local Vortex write/replay evidence can report output_plan_supported, and this is not cross-format fanout, object-store/lakehouse support, or a production sink claim.",
         "ShardLoom artifacts include an io_reuse_and_fanout matrix for required cross-format fanout cases; current rows are report-only blockers until a first-class fanout benchmark runtime writes and replays multiple local outputs.",
         "ShardLoom rows carry cache invalidation contract fields for local source/prepared/plan/output fingerprint posture; cache_valid means current-row fingerprints are internally consistent, not that a persistent cache hit or performance improvement occurred.",
+        "ShardLoom rows carry evidence-safe reuse-level fields and a reuse_level_matrix so discovery, schema, parse-plan, prepared-state, operator-source-state, output-plan, and replay reuse statuses remain visible without upgrading claim gates.",
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
@@ -9780,6 +10159,73 @@ def render_cache_invalidation_matrix(artifact: dict[str, Any]) -> str:
             "External engine",
             "Claim gate",
             "Credential redaction",
+        ],
+        rows,
+    )
+
+
+def render_reuse_level_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["reuse_level_matrix"]:
+        rows.append(
+            [
+                str(row["scenario"]),
+                str(row["engine"]),
+                str(row["execution_mode"]),
+                str(row["evidence_level"]),
+                str(row["output_format"]),
+                str(row["reuse_level"]),
+                str(row["reuse_status"]),
+                str(row["reuse_hit"]),
+                str(row["reuse_digest"]),
+                str(row["reuse_allowed"]),
+                str(row["reuse_blocker"]).replace("|", "\\|"),
+                str(row["layer_invalidation_reason"]).replace("|", "\\|"),
+                str(row["claim_gate_status"]),
+                str(row["claim_grade_requirements_met"]),
+                str(row["fallback_attempted"]),
+                str(row["external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "blocked",
+                "false",
+                "none",
+                "false",
+                "no reuse-level rows were emitted",
+                "none",
+                "not_claim_grade",
+                "false",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Mode",
+            "Evidence level",
+            "Output format",
+            "Reuse level",
+            "Reuse status",
+            "Reuse hit",
+            "Reuse digest",
+            "Reuse allowed",
+            "Reuse blocker",
+            "Invalidation reason",
+            "Claim gate",
+            "Claim-grade requirements",
+            "Fallback",
+            "External engine",
         ],
         rows,
     )
@@ -10451,6 +10897,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_cache_invalidation_contract(artifact),
         "",
+        "## Evidence-Safe Reuse Level Contract",
+        "",
+        "This contract normalizes per-layer reuse status across source discovery, schema, parse planning, prepared Vortex state, operator source-state, output planning, and result replay without adding a hidden cache or claim-grade promotion.",
+        "",
+        render_reuse_level_contract(artifact),
+        "",
         "## Engine Overview",
         "",
         render_engine_overview(artifact),
@@ -10502,6 +10954,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "Cache invalidation rows expose current local fingerprint posture and deterministic reuse eligibility. They are not persistent cache hits, performance claims, or object-store cache support.",
         "",
         render_cache_invalidation_matrix(artifact),
+        "",
+        "## ShardLoom Evidence-Safe Reuse Level Matrix",
+        "",
+        "Reuse-level rows keep execution mode, evidence level, output format, reuse status, and claim gate separate. Reuse hits or misses are visibility evidence only; they do not prove correctness, output fidelity, performance, or production support.",
+        "",
+        render_reuse_level_matrix(artifact),
         "",
         "## Resource Metrics",
         "",
@@ -10808,6 +11266,7 @@ def main() -> int:
         "output_plan_contract": output_plan_contract(),
         "fanout_benchmark_contract": fanout_benchmark_contract(),
         "cache_invalidation_contract": cache_invalidation_contract(),
+        "reuse_level_contract": reuse_level_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
@@ -10822,6 +11281,7 @@ def main() -> int:
         "output_plan_matrix": output_plan_matrix(results),
         "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
         "cache_invalidation_matrix": cache_invalidation_matrix(results),
+        "reuse_level_matrix": reuse_level_matrix(results),
         "results": results,
         "shardloom_native_microbenchmarks": []
         if args.skip_shardloom_native
