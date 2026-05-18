@@ -988,57 +988,16 @@ separate evidence-bearing slices admit them.
     - Connector dependency/license review, credential/effect policy, snapshot semantics, import and
       export certificate model, and Python/CLI capability projection.
 
-- [ ] GAR-GEN-1D engine-native generated source local-output runtime slice
-  - Source: GAR-GEN-1A; RFC 0021; RFC 0026; RFC 0032; RFC 0033.
-  - Current state:
-    - GAR-GEN-1C supports one scoped local user-row JSONL smoke through
-      `generated-source-user-rows-smoke` and Python `ctx.from_rows([...]).write(...)`.
-    - Engine-native generator nodes for `range`, `sequence`, `values`, `literal_table`, calendar/date
-      dimensions, and deterministic synthetic profiles are not runtime-supported.
-  - Next slice outcome:
-    - Implement one narrow ShardLoom-native generator node, such as `range` or `values`, that writes a
-      local output with generated-source and output evidence.
-  - User-visible surface:
-    - Future Python `ctx.range(...)`, `ctx.literal_table(...)`, `ctx.calendar(...)`, SQL literal or
-      `VALUES` posture, DataFrame-style source-free builder, CLI JSON, and output artifact refs.
-  - Implementation scope:
-    - Plan IR generator node, generator execution, deterministic seed/plan digest, local sink,
-      certificate emission, Python/SQL/DataFrame capability rows, tests, and docs.
-  - Evidence required:
-    - correctness refs: generated output digest and schema assertions.
-    - execution certificate refs: ShardLoom-native generator execution.
-    - Native I/O certificate refs: no source certificate; output certificate required.
-    - materialization/decode refs: generator materialization and sink boundary.
-    - policy/no-fallback refs: no external engine and no hidden fixture import.
-  - Acceptance:
-    - Runtime output reports `generated_source_kind=range|values|literal_table|calendar|synthetic`,
-      row count, schema digest, plan digest, optional seed, deterministic status, output sink
-      evidence, and claim gate status.
-    - SQL `SELECT` literals and `VALUES` remain report-only until parser/binder/runtime evidence
-      exists.
-    - DataFrame-style builder remains report-only until Python/API evidence exists.
-  - Verification:
-    - focused generator runtime tests.
-    - typed envelope/certificate snapshot tests.
-    - Python tests if API accessor lands.
-    - `cargo fmt --all -- --check`
-    - `cargo test --workspace --all-targets`
-    - `git diff --check`
-  - Non-goals:
-    - No broad SQL/DataFrame runtime, non-local output, object-store/lakehouse write, Foundry
-      production claim, package publication, or performance claim.
-  - Claim boundary:
-    - May claim only the implemented local generator node and local output sink, not general
-      source-free SQL/DataFrame generation.
-  - Fallback boundary:
-    - `fallback_attempted=false`, `external_engine_invoked=false`, no external runtime delegation.
-  - Dependencies/blockers:
-    - GAR-GEN-1A, output sink evidence, Plan IR generator-node design, semantic tests.
 - [ ] GAR-GEN-1E source-free SQL/DataFrame/API admission matrix
   - Source: GAR-GEN-1A; GAR-0032-A; GAR-0032-B; RFC 0032; RFC 0033; RFC 0037.
   - Current state:
-    - SQL and DataFrame/query-builder capability rows are report-only and do not yet name
-      source-free generated-output methods as first-class rows.
+    - GAR-GEN-1C supports scoped local user-row JSONL output through
+      `generated-source-user-rows-smoke` and Python `ctx.from_rows([...]).write(...)`.
+    - GAR-GEN-1D supports scoped local engine-native range JSONL output through
+      `generated-source-range-smoke` and Python `ctx.range(...).write(...)`.
+    - SQL and broader DataFrame/query-builder capability rows remain report-only for literal
+      `SELECT`, SQL `VALUES`, source-free projection, literal tables, calendar generators, and
+      expression-backed generated columns.
   - Next slice outcome:
     - Extend SQL/DataFrame/Python capability surfaces to classify `ctx.range`, `ctx.from_rows`,
       `ctx.literal_table`, `ctx.calendar`, `ctx.write`, SQL literal `SELECT`, SQL `VALUES`,

@@ -76,7 +76,7 @@ production, package-publication, or Spark-replacement claims.
 ## Source-Free Generated Reference Table
 
 - **User goal:** create a reference table without an input dataset.
-- **Status:** scoped local user-row JSONL smoke supported.
+- **Status:** scoped local user-row JSONL and range JSONL smokes supported.
 - **Command:**
   ```powershell
   $env:PYTHONPATH = "python\src"
@@ -86,13 +86,23 @@ production, package-publication, or Spark-replacement claims.
   ```powershell
   shardloom generated-source-user-rows-smoke target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --allow-overwrite --format json
   ```
+- **Range example:**
+  ```powershell
+  $env:PYTHONPATH = "python\src"
+  python -c "from shardloom import context; r=context(repo_root='.').range(0, 5, column='id').write('target/generated-range.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  ```
+- **Range CLI:**
+  ```powershell
+  shardloom generated-source-range-smoke target\generated-range.jsonl 0 5 --column id --allow-overwrite --format json
+  ```
 - **Expected output:** local JSONL output plus a generated-source/output evidence envelope.
 - **Evidence fields:** `input_dataset_count=0`, `source_io_performed=false`,
   `generated_source_created=true`, `generated_source_certificate_status`,
-  `output_native_io_certificate_status`.
-- **Claim boundary:** one local user-row JSONL fixture smoke only; `ctx.range`,
-  `ctx.literal_table`, `ctx.calendar`, SQL `VALUES`/literals, object-store writes, and Foundry
-  generated-output runtime remain planned/blocked.
+  `output_native_io_certificate_status`, and for range smokes,
+  `generated_source_range_start/end/step/column`.
+- **Claim boundary:** scoped local user-row and range JSONL fixture smokes only; `ctx.literal_table`,
+  `ctx.calendar`, SQL `VALUES`/literals, object-store writes, and Foundry generated-output runtime
+  remain planned/blocked.
 - **References:** `docs/foundry/proof-of-use-certification.md`,
   `docs/architecture/compute-engine-flow-reference.md`.
 

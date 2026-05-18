@@ -176,6 +176,84 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 binary=["definitely-missing-shardloom"],
             )
 
+    def test_range_write_invokes_engine_native_generated_source_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-range-smoke",
+                    "target/range.jsonl",
+                    "2",
+                    "8",
+                    "--step",
+                    "2",
+                    "--column",
+                    "id",
+                    "--output-format",
+                    "jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-range-smoke",
+                    "status": "success",
+                    "summary": "generated range",
+                    "human_text": "generated range",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/range.jsonl"},
+                        {"key": "generated_source_kind", "value": "range"},
+                        {"key": "generated_source_range_start", "value": "2"},
+                        {"key": "generated_source_range_end", "value": "8"},
+                        {"key": "generated_source_range_step", "value": "2"},
+                        {"key": "generated_source_range_column", "value": "id"},
+                        {"key": "generated_source_row_count", "value": "3"},
+                        {"key": "generated_source_created", "value": "true"},
+                        {"key": "source_io_performed", "value": "false"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "sql_dataframe_runtime_claim_allowed", "value": "false"},
+                        {"key": "object_store_lakehouse_claim_allowed", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.range(2, 8, step=2, column="id").write("target/range.jsonl")
+
+        self.assertEqual(report.envelope.command, "generated-source-range-smoke")
+        self.assertEqual(report.output_path, "target/range.jsonl")
+        self.assertEqual(report.generated_source_kind, "range")
+        self.assertEqual(report.generated_source_row_count, 3)
+        self.assertEqual(report.generated_source_range_start, 2)
+        self.assertEqual(report.generated_source_range_end, 8)
+        self.assertEqual(report.generated_source_range_step, 2)
+        self.assertEqual(report.generated_source_range_column, "id")
+        self.assertEqual(report.generated_source_certificate_status, "present")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_range_validates_scoped_generated_source_inputs(self) -> None:
+        with self.assertRaises(TypeError):
+            sl.range(True, 10, binary=["definitely-missing-shardloom"])
+        with self.assertRaises(TypeError):
+            sl.range(0, "10", binary=["definitely-missing-shardloom"])  # type: ignore[arg-type]
+        with self.assertRaises(ValueError):
+            sl.range(0, 10, step=0, binary=["definitely-missing-shardloom"])
+        with self.assertRaises(ValueError):
+            sl.range(0, 10, column="", binary=["definitely-missing-shardloom"])
+
     def test_context_readers_reuse_context_client_for_plan_inspection(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

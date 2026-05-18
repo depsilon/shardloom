@@ -402,8 +402,9 @@ materialization, and notebook display remain deterministic unsupported
 diagnostic surfaces unless later evidence-backed slices promote them.
 
 Source-free generated-output APIs are tracked under `GAR-GEN-1`. The full
-contract is exposed through capability views as `generated_source_contract`, and
-one scoped local user-row JSONL smoke path is runtime-supported:
+contract is exposed through capability views as `generated_source_contract`.
+Two scoped local JSONL smoke paths are runtime-supported: caller-provided rows
+and one ShardLoom-native range generator:
 
 ```python
 caps = ctx.capabilities()
@@ -415,8 +416,8 @@ print(contract.no_dataset_smoke_separate_from_generated_output)
 print(contract.all_no_fallback_no_external_engine)
 ```
 
-The supported local smoke uses Python rows supplied by the caller, writes a
-local JSONL file, and returns generated-source/output evidence:
+The supported user-row local smoke uses Python rows supplied by the caller,
+writes a local JSONL file, and returns generated-source/output evidence:
 
 ```python
 from shardloom import context
@@ -444,6 +445,30 @@ Equivalent CLI command:
 shardloom generated-source-user-rows-smoke target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --format json
 ```
 
+The supported engine-native range smoke is separate. It generates deterministic
+`int64` rows inside ShardLoom, writes local JSONL, and emits the same
+generated-source/output/no-fallback evidence family:
+
+```python
+range_report = ctx.range(0, 5, column="id").write(
+    "target/generated-range.jsonl",
+    allow_overwrite=True,
+)
+
+print(range_report.generated_source_kind)
+print(range_report.generated_source_range_start)
+print(range_report.generated_source_range_end)
+print(range_report.generated_source_range_step)
+print(range_report.generated_source_row_count)
+print(range_report.claim_gate_status)
+```
+
+Equivalent CLI command:
+
+```powershell
+shardloom generated-source-range-smoke target\generated-range.jsonl 0 5 --column id --format json
+```
+
 The contract separates three cases:
 
 - `no_dataset_smoke`: status/capability/proof smoke only; no generated rows, no
@@ -451,21 +476,21 @@ The contract separates three cases:
 - `user_generated_source`: scoped local user rows are supported for JSONL
   fixture-smoke writes through `ctx.from_rows(...).write(...)`; broader
   generated-source APIs remain report-only.
-- `engine_native_generated_source`: future ShardLoom generator nodes such as
-  `range`, `sequence`, `values`, `literal_table`, calendar/date dimensions, or
-  deterministic synthetic profiles.
+- `engine_native_generated_source`: one scoped local `range` JSONL fixture smoke
+  is supported through `ctx.range(...).write(...)`; `sequence`, `values`,
+  `literal_table`, calendar/date dimensions, and deterministic synthetic
+  profiles remain report-only.
 
 The broader intended Python shape is:
 
 ```python
-ctx.range(0, 1000).with_column(...).write(...)
 ctx.literal_table(...).write(...)
 ctx.calendar(...).write(...)
 ```
 
-`ctx.range`, `ctx.literal_table`, `ctx.calendar`, SQL `VALUES`/literal
-execution, and broad DataFrame expression execution are not runtime-supported
-yet. Current no-dataset smoke rows report
+`ctx.literal_table`, `ctx.calendar`, SQL `VALUES`/literal execution, and broad
+DataFrame expression execution are not runtime-supported yet. Current
+no-dataset smoke rows report
 `input_dataset_count=0`, `source_io_performed=false`,
 `generated_source_created=false`, `output_io_performed=false`, and
 `generated_source_certificate_status=not_applicable_no_generated_rows`.
@@ -477,7 +502,7 @@ Generated-output runtime must report
 `generation_deterministic`, `output_io_performed`,
 `output_native_io_certificate_status`, `generated_source_certificate_status`,
 `fallback_attempted=false`, `external_engine_invoked=false`, and
-`claim_gate_status`. The current user-row path reports
+`claim_gate_status`. The current user-row and range paths report
 `claim_gate_status=fixture_smoke_only`. S3/object-store writes remain
 report-only/gated, and Foundry generated-output smoke must go through Foundry
 output APIs rather than direct S3 paths.

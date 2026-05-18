@@ -185,6 +185,38 @@ class GeneratedRowsSource:
 
 
 @dataclass(frozen=True, slots=True)
+class GeneratedRangeSource:
+    """Scoped ShardLoom-native range generator that can write a local JSONL smoke output."""
+
+    start: int
+    end: int
+    step: int
+    column: str
+    client: ShardLoomClient
+
+    def write(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Write the generated range to a scoped local output sink with evidence."""
+
+        return self.client.generated_source_range_smoke(
+            target_uri,
+            self.start,
+            self.end,
+            step=self.step,
+            column=self.column,
+            output_format=output_format,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UnsupportedWorkflowOperationReport:
     """Report-only unsupported diagnostic for a single workflow affordance."""
 
@@ -801,6 +833,32 @@ def from_rows(
     )
 
 
+def range(
+    start: int,
+    end: int,
+    *,
+    step: int = 1,
+    column: str = "value",
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> GeneratedRangeSource:
+    """Create a scoped source-free ShardLoom-native range for local output smoke writes."""
+
+    normalized_start = _require_range_int("start", start)
+    normalized_end = _require_range_int("end", end)
+    normalized_step = _require_range_int("step", step)
+    if normalized_step == 0:
+        raise ValueError("range step must not be zero")
+    normalized_column = _require_non_empty("range column", column)
+    return GeneratedRangeSource(
+        start=normalized_start,
+        end=normalized_end,
+        step=normalized_step,
+        column=normalized_column,
+        client=_client_from_config(client, client_config),
+    )
+
+
 def from_pandas(
     dataframe: object,
     *,
@@ -945,6 +1003,12 @@ def _generated_value(value_type: str, value: object) -> str:
             raise TypeError("generated utf8 columns must contain only str values")
         return value
     raise ValueError(f"unsupported generated value type {value_type!r}")
+
+
+def _require_range_int(name: str, value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"range {name} must be an integer")
+    return value
 
 
 def _generated_token(value: str) -> str:

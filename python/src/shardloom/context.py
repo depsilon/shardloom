@@ -30,14 +30,16 @@ from .client import (
 )
 from .models import Diagnostic, OutputEnvelope
 from .query import (
+    GeneratedRangeSource,
+    GeneratedRowsSource,
     LazyFrame,
     UnsupportedWorkflowOperationReport,
-    GeneratedRowsSource,
     WorkflowSource,
     from_arrow_ipc,
     from_arrow_table,
-    from_rows,
     from_pandas,
+    from_rows,
+    range as generated_range,
     read_csv,
     read_json,
     read_parquet,
@@ -277,9 +279,9 @@ _WRITE_BOUNDARY = (
     "fallback, or production output claim."
 )
 _GENERATED_OUTPUT_BOUNDARY = (
-    "Scoped local user-row generated-output smoke only; writes local JSONL with generated-source "
-    "and output evidence, but no broad DataFrame runtime, SQL runtime, object-store/lakehouse, "
-    "Foundry, performance, or production claim."
+    "Scoped local generated-output smokes only; user rows and engine-native range write local JSONL "
+    "with generated-source and output evidence, but no broad DataFrame runtime, SQL runtime, "
+    "object-store/lakehouse, Foundry, performance, or production claim."
 )
 
 DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
@@ -309,6 +311,19 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "from_rows",
+        "source_free_generation",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
+        required_evidence=(
+            "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
+        ),
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
+    ),
+    _df_method(
+        "range",
         "source_free_generation",
         "fixture_smoke_supported",
         runtime_execution=True,
@@ -1702,6 +1717,24 @@ class ShardLoomContext:
         """Create a scoped source-free generated row set using this context's client."""
 
         return from_rows(rows, client=self.client)
+
+    def range(
+        self,
+        start: int,
+        end: int,
+        *,
+        step: int = 1,
+        column: str = "value",
+    ) -> GeneratedRangeSource:
+        """Create a scoped ShardLoom-native range generator using this context's client."""
+
+        return generated_range(
+            start,
+            end,
+            step=step,
+            column=column,
+            client=self.client,
+        )
 
     def from_pandas(
         self,

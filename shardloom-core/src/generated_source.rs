@@ -133,7 +133,7 @@ impl GeneratedSourceCertificateContractRow {
     pub const fn engine_native_generated_source() -> Self {
         Self {
             case_kind: GeneratedSourceCaseKind::EngineNativeGeneratedSource,
-            support_status: GeneratedSourceSupportStatus::ReportOnly,
+            support_status: GeneratedSourceSupportStatus::FixtureSmokeSupported,
             generated_source_certificate_status:
                 GeneratedSourceCertificateStatus::RequiredForRuntime,
             input_dataset_count: 0,
@@ -142,11 +142,11 @@ impl GeneratedSourceCertificateContractRow {
             output_io_performed: false,
             source_native_io_certificate_status: "not_applicable_no_source_dataset",
             output_native_io_certificate_status: "required_for_runtime_output",
-            required_generator_kinds: "range,sequence,values,literal_table,calendar,synthetic",
+            required_generator_kinds: "range(runtime_local_jsonl_smoke),sequence(report_only),values(report_only),literal_table(report_only),calendar(report_only),synthetic(report_only)",
             required_evidence_fields: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,generated_source_seed,generation_deterministic,output_io_performed,output_native_io_certificate_status",
-            blocker_id: "gar-gen-1.engine_native_generated_source_runtime_not_implemented",
-            claim_gate_status: "not_claim_grade",
-            claim_boundary: "Engine-native generated source support is report-only until a scoped generator node executes and emits generated-source plus output evidence.",
+            blocker_id: "none_scoped_local_range_jsonl_smoke_only",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "Engine-native generated source support is limited to the scoped local range JSONL fixture smoke; sequence, values, literal_table, calendar, synthetic, SQL, DataFrame, object-store, and Foundry runtime remain blocked/report-only.",
             fallback_attempted: false,
             external_engine_invoked: false,
         }
@@ -277,5 +277,20 @@ mod tests {
         );
         assert_eq!(user_rows.support_status.as_str(), "fixture_smoke_supported");
         assert_eq!(user_rows.claim_gate_status, "fixture_smoke_only");
+
+        let engine_range = report
+            .row_for(GeneratedSourceCaseKind::EngineNativeGeneratedSource)
+            .expect("engine-native generated source row");
+        assert_eq!(
+            engine_range.generated_source_certificate_status.as_str(),
+            "required_for_runtime"
+        );
+        assert_eq!(
+            engine_range.support_status.as_str(),
+            "fixture_smoke_supported"
+        );
+        assert_eq!(engine_range.claim_gate_status, "fixture_smoke_only");
+        assert!(engine_range.required_generator_kinds.contains("range("));
+        assert!(engine_range.claim_boundary.contains("range JSONL"));
     }
 }

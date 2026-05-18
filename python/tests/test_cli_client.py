@@ -949,8 +949,8 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "user_generated_source_support_status", "value": "fixture_smoke_supported"},
                             {"key": "user_generated_source_blocker_id", "value": "none_scoped_local_jsonl_smoke_only"},
                             {"key": "user_generated_source_claim_gate_status", "value": "fixture_smoke_only"},
-                            {"key": "engine_native_generated_source_support_status", "value": "report_only"},
-                            {"key": "engine_native_generated_source_blocker_id", "value": "gar-gen-1.engine_native_generated_source_runtime_not_implemented"},
+                            {"key": "engine_native_generated_source_support_status", "value": "fixture_smoke_supported"},
+                            {"key": "engine_native_generated_source_blocker_id", "value": "none_scoped_local_range_jsonl_smoke_only"},
                             {"key": "input_dataset_count", "value": "0"},
                             {"key": "source_io_performed", "value": "false"},
                             {"key": "generated_source_created", "value": "false"},
@@ -1083,7 +1083,11 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             generated_source.engine_native_generated_source.support_status,
-            "report_only",
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            generated_source.engine_native_generated_source.blocker_id,
+            "none_scoped_local_range_jsonl_smoke_only",
         )
         self.assertEqual(
             capabilities.sql_support.generated_source_contract.schema_version,
@@ -1095,7 +1099,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             capabilities.api_surfaces.generated_source_contract.engine_native_generated_source.blocker_id,
-            "gar-gen-1.engine_native_generated_source_runtime_not_implemented",
+            "none_scoped_local_range_jsonl_smoke_only",
         )
         self.assertTrue(capabilities.dataframe.planner_readiness_non_executing)
         dataframe_methods = capabilities.dataframe_method_matrix
@@ -1119,6 +1123,12 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(dataframe_methods.row("from_rows").runtime_execution)
         self.assertTrue(dataframe_methods.row("from_rows").write_io)
+        self.assertEqual(
+            dataframe_methods.row("range").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("range").runtime_execution)
+        self.assertTrue(dataframe_methods.row("range").write_io)
         self.assertEqual(
             dataframe_methods.row("join").blocker_id,
             "cg21.workflow.join.operator_unsupported",

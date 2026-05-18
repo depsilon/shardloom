@@ -16,6 +16,89 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-GEN-1D engine-native range generated source local-output fixture smoke
+  - Primary files:
+    - `shardloom-cli/src/generated_source_runtime.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/generated_source_runtime_smoke.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-core/src/generated_source.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/canonical-terminology.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/recipes/README.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+    - `website/use-cases/index.html`
+  - Scope: add one scoped ShardLoom-native `range` generated-output fixture smoke that writes local
+    JSONL and emits generated-source plus output evidence without reading a source dataset,
+    invoking external engines, touching object stores, executing SQL/DataFrame expressions, invoking
+    Foundry, changing package publication, or making performance/production claims.
+  - Checklist:
+    - [x] Add `generated-source-range-smoke` with local-file-only output admission, exclusive-end
+          integer range semantics, nonzero step validation, deterministic row-count limits, and
+          explicit remote/object-store blockers.
+    - [x] Emit `input_dataset_count=0`, `source_io_performed=false`,
+          `generated_source_created=true`, `generated_source_kind=range`,
+          `generated_source_range_start`, `generated_source_range_end`,
+          `generated_source_range_step`, `generated_source_range_column`,
+          `generated_source_schema_digest`, `generated_source_row_count`,
+          `generated_source_plan_digest`, `generation_deterministic=true`,
+          `output_io_performed=true`, `output_native_io_certificate_status`,
+          `generated_source_certificate_status=present`, `fallback_attempted=false`, and
+          `external_engine_invoked=false`.
+    - [x] Add Python `ctx.range(...).write(...)`, top-level `shardloom.range(...)`, and typed
+          `GeneratedSourceWriteReport` range accessors.
+    - [x] Update generated-source contract and DataFrame method matrix to mark only scoped local
+          range JSONL as fixture-smoke supported while keeping other generator nodes report-only.
+    - [x] Keep no-dataset smoke separate from generated-output runtime.
+    - [x] Keep SQL `VALUES`/literal execution, broad DataFrame runtime, object-store writes, and
+          Foundry generated-output runtime report-only or blocked.
+    - [x] Move GAR-GEN-1D out of the active Planned queue and update compute-flow, Python,
+          compatibility, Foundry, GAR, traceability, terminology, and use-case docs.
+  - Evidence/verification:
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke`
+    - `cargo test -p shardloom-core generated_source --lib`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `fc.exe docs/architecture/compute-engine-flow-reference.md website/assets/data/compute-engine-flow-reference.md`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - The completed slice may claim only one scoped local `range` JSONL generated-output smoke with
+      generated-source, output, materialization/decode, claim-gate, and no-fallback evidence.
+    - It does not authorize sequence/values/literal-table/calendar/synthetic generators,
+      source-free SQL/DataFrame runtime, object-store/lakehouse support, Foundry production support,
+      package publication, Spark replacement, performance/superiority claims, or production
+      readiness.
+  - Fallback boundary:
+    - Runtime evidence requires `fallback_attempted=false`, `fallback_execution_allowed=false`,
+      `external_engine_invoked=false`, `object_store_io=false`, `network_probe=false`,
+      `catalog_probe=false`, `foundry_runtime_invoked=false`, and `foundry_spark_invoked=false`.
+
 - [x] Session label: GAR-GEN-1C user-generated source local-output fixture smoke
   - Primary files:
     - `shardloom-cli/src/generated_source_runtime.rs`
