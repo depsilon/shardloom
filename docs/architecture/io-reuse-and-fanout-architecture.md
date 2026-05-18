@@ -26,9 +26,12 @@ artifact identity, digest, preparation timing separation, source-state linkage, 
 posture. `GAR-IOREUSE-1C` adds the OutputPlan benchmark/report contract for scoped local Vortex
 result-sink planning, metadata preservation posture, write/replay refs, and sink artifact identity.
 `GAR-IOREUSE-1D` adds the first-class fanout benchmark matrix for required cross-format output
-cases as deterministic report-only rows. Fanout runtime, invalidation, reuse-level, and Foundry
+cases as deterministic report-only rows. `GAR-IOREUSE-1E` adds the cache invalidation/fingerprint
+benchmark contract for current-row local SourceState, VortexPreparedState, ExecutionPlan,
+OutputPlan, and SinkArtifact posture. Fanout runtime, persistent caches, reuse-level, and Foundry
 generated-output slices are still planned. This document does not implement object-store I/O,
-table/lakehouse commits, Foundry production support, performance claims, or a hidden fast mode.
+table/lakehouse commits, Foundry production support, performance claims, a persistent cache, or a
+hidden fast mode.
 
 ## Goals
 
@@ -306,8 +309,8 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-Rows may also expose source/prepared/output fingerprints, invalidation reasons, sink artifact refs,
-and per-output metadata preservation reports when implementation reaches those runtime slices.
+Sink artifact refs and per-output metadata preservation reports should expand when implementation
+reaches those runtime slices.
 
 The benchmark must demonstrate when source/prepared state is reused across outputs, separate raw
 one-shot speed from reuse/fanout timing, and avoid marking any output sink as supported without
@@ -382,9 +385,13 @@ visible in both `minimal_runtime` and `certified` modes.
 
 ## Cache Invalidation And Fingerprints
 
-Required future invalidation fields:
+Implemented `GAR-IOREUSE-1E` cache invalidation/fingerprint fields:
 
 ```text
+cache_invalidation_contract_schema_version=shardloom.traditional_analytics.cache_invalidation.v1
+cache_invalidation_status_vocabulary
+cache_invalidation_status
+cache_invalidation_layer_scope
 source_fingerprint_kind
 source_content_digest
 source_mtime
@@ -396,11 +403,24 @@ plan_digest
 output_plan_digest
 cache_valid
 invalidation_reason
+cache_invalidation_fallback_attempted=false
+cache_invalidation_external_engine_invoked=false
+cache_invalidation_claim_gate_status=not_claim_grade
+cache_invalidation_secret_redaction_status=no_credentials_or_secrets_in_fingerprint_fields
+cache_invalidation_claim_boundary
 ```
 
-Reuse is blocked when the source fingerprint, schema digest, plan digest, output plan digest, or
-policy changes. Object-store ETag/version handling is planned but not runtime-claimed. Cache keys
-and evidence must not contain secrets or credentials.
+The traditional analytics benchmark artifact and Markdown report now include a
+`shardloom.traditional_analytics.cache_invalidation.v1` contract object and cache invalidation
+matrix. Current rows report local file size/mtime/schema/plan fingerprint posture and mark object
+ETag handling as `not_applicable_local_filesystem`. `cache_valid=true` means the current row's
+fingerprints are internally consistent; it is not a persistent cache hit and not performance
+evidence.
+
+Future runtime reuse must be blocked when the source fingerprint, schema digest, plan digest, output
+plan digest, policy, relevant Vortex/API version, or evidence level changes. Object-store
+ETag/version handling is planned but not runtime-claimed. Cache keys and evidence must not contain
+secrets or credentials.
 
 ## Cross-Format Fanout Boundary
 
@@ -452,10 +472,10 @@ external_engine_invoked=false
 
 ## Acceptance For The Planning Bundle
 
-- The phase plan contains detailed remaining `GAR-IOREUSE-1E` through `GAR-IOREUSE-1G` slices, and
-  the completed ledger records `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, `GAR-IOREUSE-1C`, and
-  `GAR-IOREUSE-1D` as completed SourceState, VortexPreparedState, OutputPlan, and fanout benchmark
-  matrix evidence.
+- The phase plan contains detailed remaining `GAR-IOREUSE-1F` through `GAR-IOREUSE-1G` slices, and
+  the completed ledger records `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, `GAR-IOREUSE-1C`,
+  `GAR-IOREUSE-1D`, and `GAR-IOREUSE-1E` as completed SourceState, VortexPreparedState, OutputPlan,
+  fanout benchmark matrix, and cache invalidation/fingerprint evidence.
 - Benchmark docs list the tracked benchmark families and metrics.
 - Compute-flow docs show the decoupled path:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`.

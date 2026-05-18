@@ -270,8 +270,8 @@ support status, row counts, decode/materialization status, `fallback_attempted=f
 `external_engine_invoked=false`, `claim_gate_status`, and an unsupported reason where applicable.
 
 `GAR-IOREUSE-1` adds the I/O reuse and cross-format fanout benchmark bundle. Current rows already
-emit SourceState, VortexPreparedState, OutputPlan, and report-only fanout benchmark contracts for
-the stable path
+emit SourceState, VortexPreparedState, OutputPlan, report-only fanout benchmark, and cache
+invalidation/fingerprint contracts for the stable path
 `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
 SinkArtifact`; future runtime fanout rows must continue using that path and must not couple input
 and output formats. Benchmark families are `io_reuse_and_fanout`, `source_state_reuse`,
@@ -288,6 +288,13 @@ Required future fanout metrics are `source_discovery_millis`, `schema_inference_
 `claim_gate_status`. SourceState, VortexPreparedState, OutputPlan, and fanout matrix rows already
 expose their scoped subsets; future runtime fanout rows must separate one-shot speed from
 reuse/fanout timing and cannot mark any sink supported without output replay/evidence proof.
+
+Current cache invalidation rows expose `source_fingerprint_kind`, `source_content_digest`,
+`source_mtime`, `source_size`, `object_etag`, `manifest_version`, `schema_digest`, `plan_digest`,
+`output_plan_digest`, `cache_valid`, `invalidation_reason`, no-fallback/no-external-engine fields,
+secret-redaction status, and `claim_gate_status=not_claim_grade`. These rows are local fingerprint
+posture only; they do not add a persistent cache, hidden fast mode, object-store cache, or cache
+performance claim.
 
 `runtime-report --format json` now mirrors this timing vocabulary as the
 GAR-0018-A report-only runtime-introspection schema. That command is an
@@ -476,6 +483,10 @@ GAR-IOREUSE-1D adds the report-only fanout benchmark matrix with required fanout
 outputs, current blocker IDs/reasons, timing/reuse columns, `fanout_output_count=0`,
 `fallback_attempted=false`, `external_engine_invoked=false`, and
 `claim_gate_status=not_claim_grade`.
+GAR-IOREUSE-1E adds the cache invalidation/fingerprint matrix with current local source/prepared/
+plan/output fingerprint posture, source mtime/size fields, plan/output-plan digests, cache-valid
+status, invalidation reason, object-store ETag posture, secret-redaction status, no-fallback fields,
+and `claim_gate_status=not_claim_grade`.
 Remaining GAR-PERF-1 follow-ups are fused
 filter/project/limit and selection-vector execution plus the report-only Bayesian performance/layout
 advisor. These are evidence and architecture slices: benchmark outputs must remain local

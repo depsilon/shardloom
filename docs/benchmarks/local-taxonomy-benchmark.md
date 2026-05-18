@@ -161,6 +161,16 @@ Current fanout rows are `fanout_status=report_only`, `fanout_output_count=0`,
 `claim_gate_status=not_claim_grade`. They expose the required timing/reuse columns as explicit
 not-measured values until a future runtime slice writes and replays multiple local outputs.
 
+`GAR-IOREUSE-1E` adds a first-class cache invalidation/fingerprint matrix to the artifact. Current
+rows expose `source_fingerprint_kind`, `source_content_digest`, `source_mtime`, `source_size`,
+`object_etag`, `manifest_version`, `schema_digest`, `plan_digest`, `output_plan_digest`,
+`cache_valid`, `invalidation_reason`, `cache_invalidation_fallback_attempted=false`,
+`cache_invalidation_external_engine_invoked=false`,
+`cache_invalidation_claim_gate_status=not_claim_grade`, and
+`cache_invalidation_secret_redaction_status=no_credentials_or_secrets_in_fingerprint_fields`.
+`cache_valid=true` means current-row local fingerprints are internally consistent; it is not a
+persistent cache hit, hidden fast mode, object-store cache, or performance claim.
+
 `GAR-PERF-1C` adds scoped fused-pipeline evidence for the current prepared/native
 filter/projection/limit row and selective-filter selection-vector metric aggregation row. The
 benchmark harness now carries `fused_pipeline_*` fields, including `fused_pipeline_used`,
@@ -307,9 +317,10 @@ generated source -> CSV + Parquet + Vortex outputs
 prepared Vortex -> multiple output formats
 ```
 
-The current SourceState, VortexPreparedState, OutputPlan, and fanout matrix slices emit the source
-discovery/schema/parse, prepared artifact, local output-plan, and report-only fanout subsets above.
-Required future timing fields for runtime fanout rows:
+The current SourceState, VortexPreparedState, OutputPlan, fanout matrix, and cache invalidation
+slices emit the source discovery/schema/parse, prepared artifact, local output-plan, report-only
+fanout, and fingerprint/invalidation subsets above. Required future timing fields for runtime
+fanout rows:
 
 ```text
 operator_compute_millis
