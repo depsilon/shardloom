@@ -1,5 +1,9 @@
 use std::process::Command;
 
+mod support;
+
+use support::{assert_contains, field};
+
 struct EnvelopeCase<'a> {
     name: &'a str,
     args: &'a [&'a str],
@@ -10,17 +14,6 @@ struct EnvelopeCase<'a> {
     allow_stderr: bool,
     fields: &'a [(&'a str, &'a str)],
     fragments: &'a [&'a str],
-}
-
-fn field(key: &str, value: &str) -> String {
-    format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
-}
-
-fn assert_contains(output: &str, fragment: &str, case_name: &str) {
-    assert!(
-        output.contains(fragment),
-        "{case_name}: missing fragment {fragment}\nstdout={output}"
-    );
 }
 
 fn assert_field(output: &str, key: &str, value: &str, case_name: &str) {
@@ -827,8 +820,16 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             family: "evidence_certificates",
             success: true,
             allow_stderr: false,
-            fields: &[("foundry_required", "false")],
-            fragments: &[],
+            fields: &[
+                ("universal_harness_status", "evidence_incomplete"),
+                ("foundry_required", "false"),
+                ("foundry_optional_example", "true"),
+                ("foundry_optional_harness_required", "true"),
+                ("external_baseline_execution", "false"),
+                ("runtime_execution", "false"),
+                ("fallback_attempted", "false"),
+            ],
+            fragments: &["\"artifact_kind\":\"universal_harness_report\""],
         },
     ];
 

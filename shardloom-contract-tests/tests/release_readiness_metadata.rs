@@ -2398,8 +2398,11 @@ fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
     let typed_doc = read_repo_file("docs/architecture/typed-command-result-envelope.md");
     for required in [
         "GAR-0039-A",
+        "GAR-0039-B",
         "capabilities api-surfaces --format json",
         "api_surface_capability_report",
+        "universal_harness_report",
+        "universal-harness-plan --format json",
         "capability_snapshot",
         "OutputEnvelope.field_map",
         "legacy_field_map",
@@ -2417,8 +2420,11 @@ fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
     for required in [
         "API_SURFACE_CAPABILITY_REPORT_PAYLOAD_KEYS",
         "CAPABILITIES_API_SURFACE_SNAPSHOT_KEYS",
+        "UNIVERSAL_HARNESS_REPORT_PAYLOAD_KEYS",
         "api_surface_capability_report",
         "capabilities.api_surfaces",
+        "universal_harness_report",
+        "universal-harness-plan.report",
         "wrapper_connector_registry_schema_version",
         "wrapper_connector_registry_wrapper_ecosystem_claim_allowed",
         "wrapper_connector_registry_fallback_attempted",
@@ -2445,22 +2451,28 @@ fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0039-A"));
+    assert!(!plan.contains("- [ ] GAR-0039-B"));
     assert!(plan.contains("GAR-0039-A is complete and recorded in the completed ledger"));
+    assert!(plan.contains("GAR-0039-B is complete and recorded in the completed ledger"));
     assert!(plan.contains("legacy `fields` mirror remains present for compatibility"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-0039-A typed envelope API-surface migration"));
+    assert!(completed.contains("GAR-0039-B typed-envelope fixtures and helper centralization"));
     assert!(completed.contains("api_surface_capability_report"));
+    assert!(completed.contains("universal_harness_report"));
     assert!(completed.contains("OutputEnvelope.field_map"));
     assert!(completed.contains("external_engine_invoked=false"));
 
     let gar = read_repo_file("docs/architecture/global-architecture-review.md");
     assert!(gar.contains("GAR-0039-A migrates the API-surface capability family"));
+    assert!(gar.contains("GAR-0039-B centralizes typed-envelope integration-test helpers"));
     assert!(gar.contains("remaining command-family result migration beyond the"));
 
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
-    assert!(traceability.contains("Priority 3.9, GAR-0039-A"));
+    assert!(traceability.contains("Priority 3.9, GAR-0039-A, GAR-0039-B"));
     assert!(traceability.contains("inline `api_surface_capability_report` artifact"));
+    assert!(traceability.contains("inline `universal_harness_report` artifact"));
     assert!(traceability.contains("No REST server"));
     assert!(traceability.contains("external engine invocation, or fallback execution"));
 }

@@ -1290,20 +1290,11 @@ API-surface capability family further into typed payloads by adding an inline
 `capability_snapshot` fields for registry counts and claim boundaries, and making Python
 `OutputEnvelope.field_map` prefer typed payload fields before the temporary legacy mirror. The
 legacy `fields` mirror remains present for compatibility while later command families migrate.
-- [ ] GAR-0039-B golden fixtures, Foundry boundary fixture, and helper centralization
-  - Source: RFC 0039; repo cleanup backlog; terminology consolidation backlog; diagnostics backlog.
-  - Current state: some golden fixtures, Foundry boundary fixture, command/help registry,
-    terminology mapping helpers, diagnostic constants, and report field helpers remain pending.
-  - Next slice outcome: add one focused fixture/helper centralization slice with tests and no runtime
-    behavior.
-  - User-visible surface: CLI JSON snapshots, docs, agent contract.
-  - Implementation scope: snapshot fixtures, helper module, tests.
-  - Evidence required: snapshot refs and no-fallback refs.
-  - Acceptance: helpers reduce duplication without changing public semantics.
-  - Verification: focused snapshot tests, default GAR verification.
-  - Non-goals: no command rename, public schema break, or runtime expansion.
-  - Fallback/claim boundary: cleanup does not create support claims.
-  - Dependencies/blockers: compatibility expectations for existing CLI outputs.
+GAR-0039-B is complete and recorded in the completed ledger. The completed slice centralizes shared
+typed-envelope integration-test helpers, strengthens the Foundry optional-harness golden fixture,
+and routes `universal-harness-plan --format json` into an inline `universal_harness_report`
+artifact without changing runtime behavior, command semantics, public schema, external baseline
+policy, or no-fallback boundaries.
 
 #### GAR-P4 - Extension, Governance, And Runtime Policy
 

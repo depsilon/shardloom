@@ -1109,12 +1109,15 @@ plan before coding.
   `capabilities api-surfaces --format json` now emits an inline
   `api_surface_capability_report` artifact for the wrapper/connector registry, and Python
   `OutputEnvelope.field_map` prefers typed payload fields before the temporary mirror.
+- [x] GAR-0039-B centralizes typed-envelope integration-test helpers and adds an inline
+  `universal_harness_report` artifact for the Foundry optional-harness boundary without enabling
+  Foundry runtime, universal harness execution, external baselines as runtime, or fallback.
 - [x] `GAR-PERF-2A` adds typed-envelope and benchmark-row fields for
   `evidence_level=minimal_runtime|certified|full_replay` on the scoped prepared/native batch
   runner, so callers can distinguish proof level from execution mode and engine mode without
   inferring claim status from prose.
 - [ ] Legacy flat `fields` mirror, remaining command-family result migration beyond the
-  API-surface capability family, some golden fixtures, Foundry boundary fixture, and additional
+  API-surface and universal-harness report families, remaining golden fixtures, and additional
   physical handler splits remain incomplete.
 
 ### RFC 0040 - Benchmark Suite and Platform-Learning Hardening
