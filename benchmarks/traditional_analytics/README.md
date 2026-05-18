@@ -344,13 +344,17 @@ safely into the Vortex Scan/source-backed boundary. Current limit/slice pushdown
 order-sensitive or grouped residual limit-like scenarios.
 Those fields remain source/provider evidence only; they do not create an encoded-native operator,
 SQL/DataFrame, object-store/lakehouse, production, or performance claim.
-`GAR-PERF-2B` tracks the evidence-aware logical optimizer follow-up. Future benchmark rows may link
-to optimizer trace IDs and rule statuses for predicate/projection/slice pushdown, common
-subplan/source-state reuse, expression simplification, constant folding, type coercion, join
-ordering, and cardinality estimation. Optimizer traces should report before/after plan digests,
-rewrite safety, `evidence_preserved=true`, no-fallback fields, correctness smoke refs for applied
-rewrites, and claim gates. They are explainability evidence only, not lazy optimizer parity,
-SQL/DataFrame runtime, or performance proof.
+`GAR-PERF-2B` adds report-only evidence-aware optimizer trace fields to ShardLoom benchmark rows.
+Rows can now link to an optimizer trace ID and rule statuses for predicate/projection/slice
+pushdown, common subplan/source-state reuse, expression simplification, constant folding, type
+coercion, join ordering, and cardinality estimation. Current rows report
+`optimizer_rule_applied_count=0`, `optimizer_before_plan_digest_status=not_emitted_report_only`,
+`optimizer_after_plan_digest_status=not_emitted_report_only`, `optimizer_rewrite_safety_status`,
+`optimizer_evidence_preserved=true`, `optimizer_fallback_attempted=false`,
+`optimizer_external_engine_invoked=false`, and `optimizer_claim_gate_status=not_claim_grade`.
+These fields are explainability evidence only; they are not lazy optimizer parity, broad
+SQL/DataFrame runtime, performance proof, object-store/lakehouse runtime, Foundry support, package
+readiness, production readiness, or Spark-replacement evidence.
 `GAR-IOREUSE-1` tracks the I/O reuse and cross-format fanout benchmark follow-up. Rows model the
 workflow as `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
 SinkArtifact`, not as matching input/output formats. `GAR-IOREUSE-1A` adds the first SourceState

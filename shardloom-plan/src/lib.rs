@@ -66,11 +66,13 @@ pub use object_store::{
 pub use optimizer::{
     AdaptiveDecisionKind, AdaptiveExecutionDecision, AdaptiveOptimizerMemoryReport,
     AdaptiveOptimizerMemoryStatus, AdaptiveTrigger, AdaptiveTriggerKind, AggregateStrategy,
-    CostEstimate, CostMetric, CostModelInput, CostValue, DynamicPruningDecision, JoinStrategy,
-    OptimizerPhase, OptimizerPlanSkeleton, OptimizerPlanStatus, OptimizerRuleDecision,
-    OptimizerRuleId, OptimizerRuleKind, OptimizerRuleStatus, RuntimeFilter, RuntimeFilterKind,
-    RuntimeFilterStatus, SkewHandlingStrategy, SkewSeverity, SkewSignal, SkewSignalKind,
-    plan_adaptive_optimizer_memory,
+    CardinalityEstimationStatus, CostEstimate, CostMetric, CostModelInput, CostValue,
+    DynamicPruningDecision, EvidenceAwareOptimizerRuleTrace, EvidenceAwareOptimizerTraceReport,
+    JoinStrategy, OptimizerPhase, OptimizerPlanSkeleton, OptimizerPlanStatus,
+    OptimizerRewriteSafetyStatus, OptimizerRuleDecision, OptimizerRuleId, OptimizerRuleKind,
+    OptimizerRuleStatus, OptimizerTraceRuleFamily, OptimizerTraceRuleStatus, RuntimeFilter,
+    RuntimeFilterKind, RuntimeFilterStatus, SkewHandlingStrategy, SkewSeverity, SkewSignal,
+    SkewSignalKind, plan_adaptive_optimizer_memory, plan_evidence_aware_optimizer_trace,
 };
 
 // Native plan IR and interop metadata; import/export execution remains blocked.

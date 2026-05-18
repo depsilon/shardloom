@@ -16,6 +16,80 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2B evidence-aware logical optimizer trace
+  - Primary files:
+    - `shardloom-plan/src/optimizer.rs`
+    - `shardloom-plan/src/lib.rs`
+    - `shardloom-cli/src/optimizer_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/optimizer_trace_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/evidence-aware-logical-optimizer.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+  - Scope: add a side-effect-free, report-only evidence-aware optimizer registry and trace over the
+    first logical rule families without applying runtime rewrites, parsing SQL, executing DataFrame
+    plans, invoking external optimizer/runtime engines, touching object stores, changing package
+    publication, or making performance/production claims.
+  - Checklist:
+    - [x] Add `shardloom.evidence_aware_optimizer_trace.v1` with registry version
+          `gar-perf-2b.optimizer_registry.v1`, trace ID
+          `optimizer_trace.gar_perf_2b.report_only_registry`, and benchmark ref
+          `optimizer-trace://gar-perf-2b.report-only-registry`.
+    - [x] Emit rule rows for predicate pushdown, projection pushdown, slice/limit pushdown, common
+          subplan/source-state reuse, expression simplification, constant folding, type coercion,
+          join ordering, and cardinality estimation with admitted/applied/blocked/unsupported/
+          not-applicable/report-only vocabulary.
+    - [x] Keep all current rows non-executing: predicate/projection are `report_only`,
+          slice/limit/type-coercion/join-ordering are `blocked`, common subplan/source-state reuse
+          is `admitted`, expression simplification and constant folding are `unsupported`, and
+          cardinality estimation is `not_applicable`.
+    - [x] Expose `optimizer-plan` as a success/status report-only CLI command plus Python
+          `ShardLoomClient.optimizer_plan()` typed accessors.
+    - [x] Propagate optimizer trace contract fields into ShardLoom benchmark rows while keeping
+          external lanes `external_baseline_only`.
+    - [x] Move GAR-PERF-2B out of the active Planned queue and update compute-flow, GAR,
+          traceability, benchmark, and optimizer architecture docs.
+  - Evidence/verification:
+    - `cargo test -p shardloom-plan optimizer --lib`
+    - `cargo test -p shardloom-cli --test optimizer_trace_snapshots`
+    - `cargo test -p shardloom-cli optimizer_plan_returns_report_only_success`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q benchmarks/traditional_analytics python/src python/tests scripts`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `fc.exe docs/architecture/compute-engine-flow-reference.md website/assets/data/compute-engine-flow-reference.md`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This slice may claim only deterministic optimizer rule classification and report-only trace
+      visibility for the scoped registry.
+    - It does not authorize runtime optimizer rewrites, broad SQL/DataFrame runtime, lazy optimizer
+      parity with Polars/DataFusion or any external engine, performance/superiority claims,
+      Spark-displacement claims, object-store/lakehouse or Foundry runtime, package publication, or
+      production readiness.
+  - Fallback boundary:
+    - All rows require `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+      `external_engine_invoked=false`; the trace performs no runtime execution, source I/O, data
+      decode, materialization, write I/O, object-store/network/catalog probes, or external
+      optimizer/runtime calls.
+
 - [x] Session label: GAR-GEN-1E source-free SQL/DataFrame/API admission matrix
   - Primary files:
     - `shardloom-core/src/generated_source.rs`

@@ -353,10 +353,11 @@ plan before coding.
   with stable runtime-filter, dynamic-pruning, skew, adaptive-parallelism, and compaction-write
   blocker fields plus `support_status=report_only`, `claim_gate_status=not_claim_grade`,
   `fallback_attempted=false`, and `external_engine_execution=false`.
-- [ ] `GAR-PERF-2B` adds the planned evidence-aware logical optimizer. The next work is an optimizer
-  rule registry and report-only optimizer trace for predicate/projection/slice pushdown, common
-  subplan/source-state reuse, expression simplification, constant folding, type coercion, join
-  ordering, and cardinality estimation with before/after plan digests and no-fallback fields.
+- [x] `GAR-PERF-2B` adds the report-only evidence-aware logical optimizer rule registry and trace
+  for predicate/projection/slice pushdown, common subplan/source-state reuse, expression
+  simplification, constant folding, type coercion, join ordering, and cardinality estimation.
+  Current rows apply no rewrites, use report-only plan-digest placeholders, preserve no-fallback
+  fields, and keep `claim_gate_status=not_claim_grade`.
 - [ ] Runtime adaptive execution, runtime filters, skew handling, and compaction writes remain
   incomplete.
 
@@ -482,9 +483,10 @@ plan before coding.
   `shardloom-cli/tests/plan_portability_snapshots.rs`
 - [x] Native-first Plan IR, serialization skeletons, and imported-plan capability gates exist.
 - [x] Imported plan surfaces preserve no-fallback and capability diagnostics.
-- [ ] `GAR-PERF-2B` adds optimizer trace follow-through over Plan IR. Future trace rows must keep
-  before/after plan digests, rewrite safety, evidence preservation, materialization boundaries,
-  no-fallback status, and claim gates visible before any rewrite is treated as runtime-supported.
+- [x] `GAR-PERF-2B` adds optimizer trace follow-through over Plan IR. Current trace rows keep
+  report-only before/after plan-digest placeholders, rewrite safety, evidence preservation,
+  materialization boundaries, no-fallback status, and claim gates visible, and no rewrite is treated
+  as runtime-supported.
 - [ ] Real Substrait import/export and imported-plan execution remain incomplete.
 
 ### RFC 0023 - Extension, Plugin ABI, and Sandboxing
@@ -996,10 +998,10 @@ plan before coding.
   `full_replay` in the scoped prepared/native batch runner. This lets benchmark readers compare
   evidence overhead without turning evidence-light runtime rows into public speed rankings or
   claim-grade benchmark proof.
-- [ ] `GAR-PERF-2B` adds the planned evidence-aware logical optimizer. Benchmark and explain rows
-  should report optimizer trace IDs, rule statuses, before/after plan digests, rewrite safety, and
-  evidence-preservation fields without implying broad lazy optimizer, SQL/DataFrame, or performance
-  claims.
+- [x] `GAR-PERF-2B` adds the report-only evidence-aware logical optimizer. Benchmark and explain
+  rows report optimizer trace IDs, rule statuses, report-only before/after plan-digest placeholders,
+  rewrite safety, and evidence-preservation fields without implying broad lazy optimizer,
+  SQL/DataFrame, or performance claims.
 - [x] `GAR-PERF-2C` adds the Vortex Scan API pushdown completion pass. Prepared/native scenario
   families report filter/projection/limit pushdown evidence or a deterministic blocker, including
   filter-only versus output column distinction, without treating pushdown evidence as an
@@ -1253,10 +1255,11 @@ plan before coding.
   independent from execution mode and engine mode, keeps `fallback_attempted=false` and
   `external_engine_invoked=false` visible in every level, and treats `minimal_runtime` as
   `not_claim_grade` unless a later scoped gate approves otherwise.
-- [ ] `GAR-PERF-2B` adds evidence-aware logical optimizer follow-through. The flow must keep
-  optimizer rule registry, admitted/applied/blocked/unsupported status, before/after plan digests,
-  rewrite safety, evidence preservation, no-fallback fields, and claim gates visible without
-  implying Polars/DataFusion parity or broad SQL/DataFrame runtime.
+- [x] `GAR-PERF-2B` adds evidence-aware logical optimizer follow-through. The flow keeps optimizer
+  rule registry, admitted/applied/blocked/unsupported/not-applicable/report-only status,
+  report-only before/after plan-digest placeholders, rewrite safety, evidence preservation,
+  no-fallback fields, and claim gates visible without implying Polars/DataFusion parity or broad
+  SQL/DataFrame runtime.
 - [ ] `GAR-PERF-2C` adds Vortex Scan API pushdown completion. The flow must keep scan filter,
   projection, and limit pushdown evidence independent from encoded-native operator claims, and every
   prepared/native scenario family must report pushed-down fields or deterministic blockers.

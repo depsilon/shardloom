@@ -12,8 +12,9 @@ use shardloom_core::{
     PhysicalOperatorExecutionProfileMatrix, plan_cpu_operator_specialization,
 };
 use shardloom_plan::{
-    AdaptiveOptimizerMemoryReport, OptimizerPhase, OptimizerPlanSkeleton,
-    plan_adaptive_optimizer_memory,
+    AdaptiveOptimizerMemoryReport, EvidenceAwareOptimizerRuleTrace,
+    EvidenceAwareOptimizerTraceReport, plan_adaptive_optimizer_memory,
+    plan_evidence_aware_optimizer_trace,
 };
 
 use crate::cli_output::emit;
@@ -556,32 +557,280 @@ fn append_plan_only_fields(fields: &mut Vec<(String, String)>) {
 }
 
 pub(crate) fn handle_optimizer_plan(format: OutputFormat) -> ExitCode {
-    let report = OptimizerPlanSkeleton::not_implemented(
-        OptimizerPhase::VortexPhysical,
-        "optimizer_execution",
-        "ShardLoom optimizer planning skeleton exists, but real optimizer execution is not implemented yet.",
-    );
+    let report = plan_evidence_aware_optimizer_trace();
     emit(
         "optimizer-plan",
         format,
-        CommandStatus::Unsupported,
-        "optimizer plan skeleton".to_string(),
+        CommandStatus::Success,
+        "evidence-aware optimizer trace".to_string(),
         report.to_human_text(),
-        report.diagnostics.clone(),
-        vec![
-            (
-                "fallback_execution_allowed".to_string(),
-                "false".to_string(),
-            ),
-            ("mode".to_string(), "optimizer_plan".to_string()),
-            ("status".to_string(), "not_implemented".to_string()),
-            ("write_io".to_string(), "false".to_string()),
-            ("execution".to_string(), "not_performed".to_string()),
-            ("plan_only".to_string(), "true".to_string()),
-            ("optimizer_phase".to_string(), "vortex_physical".to_string()),
-        ],
+        Vec::new(),
+        evidence_aware_optimizer_trace_fields(&report),
     );
-    ExitCode::from(1)
+    ExitCode::SUCCESS
+}
+
+fn evidence_aware_optimizer_trace_fields(
+    report: &EvidenceAwareOptimizerTraceReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_optimizer_trace_identity_fields(&mut fields, report);
+    append_optimizer_trace_side_effect_fields(&mut fields, report);
+    append_optimizer_trace_rule_fields(&mut fields, report);
+    fields
+}
+
+fn append_optimizer_trace_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &EvidenceAwareOptimizerTraceReport,
+) {
+    push_field(fields, "mode", "evidence_aware_optimizer_trace");
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "plan_only", "true");
+    push_field(fields, "gar_id", "GAR-PERF-2B");
+    push_field(fields, "support_status", &report.support_status);
+    push_field(fields, "claim_gate_status", &report.claim_gate_status);
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", &report.report_id);
+    push_field(fields, "optimizer_trace_id", &report.optimizer_trace_id);
+    push_field(
+        fields,
+        "optimizer_registry_version",
+        &report.optimizer_registry_version,
+    );
+    push_field(fields, "optimizer_phase", report.optimizer_phase.as_str());
+    push_field(
+        fields,
+        "benchmark_optimizer_trace_ref",
+        &report.benchmark_trace_ref,
+    );
+    push_field(
+        fields,
+        "optimizer_rule_status_vocabulary",
+        &EvidenceAwareOptimizerTraceReport::rule_status_vocabulary().join(","),
+    );
+    push_field(
+        fields,
+        "optimizer_rule_order",
+        &report.rule_row_order().join(","),
+    );
+    push_count_field(fields, "optimizer_rule_count", report.rule_count());
+    push_count_field(
+        fields,
+        "optimizer_rule_admitted_count",
+        report.admitted_rule_count(),
+    );
+    push_count_field(
+        fields,
+        "optimizer_rule_applied_count",
+        report.applied_rule_count(),
+    );
+    push_count_field(
+        fields,
+        "optimizer_rule_blocked_count",
+        report.blocked_rule_count(),
+    );
+    push_count_field(
+        fields,
+        "optimizer_rule_unsupported_count",
+        report.unsupported_rule_count(),
+    );
+    push_count_field(
+        fields,
+        "optimizer_rule_not_applicable_count",
+        report.not_applicable_rule_count(),
+    );
+    push_count_field(
+        fields,
+        "optimizer_rule_report_only_count",
+        report.report_only_rule_count(),
+    );
+}
+
+fn append_optimizer_trace_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &EvidenceAwareOptimizerTraceReport,
+) {
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "optimizer_execution", report.optimizer_execution);
+    push_bool_field(fields, "plan_rewritten", report.plan_rewritten);
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_decoded", report.data_decoded);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "broad_sql_dataframe_claim_allowed",
+        report.broad_sql_dataframe_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "all_no_fallback_no_external_engine",
+        report.all_no_fallback_no_external_engine(),
+    );
+}
+
+fn append_optimizer_trace_rule_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &EvidenceAwareOptimizerTraceReport,
+) {
+    for row in &report.rule_rows {
+        append_optimizer_trace_rule_row_fields(fields, row);
+    }
+}
+
+fn append_optimizer_trace_rule_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &EvidenceAwareOptimizerRuleTrace,
+) {
+    let prefix = format!("optimizer_rule_{}_", row.rule_id);
+    append_optimizer_rule_identity_fields(fields, row, &prefix);
+    append_optimizer_rule_safety_fields(fields, row, &prefix);
+    append_optimizer_rule_cardinality_fields(fields, row, &prefix);
+    append_optimizer_rule_effect_fields(fields, row, &prefix);
+}
+
+fn append_optimizer_rule_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &EvidenceAwareOptimizerRuleTrace,
+    prefix: &str,
+) {
+    push_field(fields, &format!("{prefix}id"), &row.rule_id);
+    push_field(
+        fields,
+        &format!("{prefix}optimizer_phase"),
+        row.optimizer_phase.as_str(),
+    );
+    push_field(fields, &format!("{prefix}family"), row.rule_family.as_str());
+    push_field(fields, &format!("{prefix}status"), row.rule_status.as_str());
+    push_bool_field(
+        fields,
+        &format!("{prefix}admitted"),
+        row.rule_status.admitted(),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}applied"),
+        row.rule_status.applied(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}blocked_reason"),
+        &row.blocked_reason,
+    );
+}
+
+fn append_optimizer_rule_safety_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &EvidenceAwareOptimizerRuleTrace,
+    prefix: &str,
+) {
+    push_field(
+        fields,
+        &format!("{prefix}before_plan_digest"),
+        &row.before_plan_digest,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}after_plan_digest"),
+        &row.after_plan_digest,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}rewrite_safety_status"),
+        row.rewrite_safety_status.as_str(),
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}evidence_preserved"),
+        row.evidence_preserved,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}no_fallback_preserved"),
+        row.no_fallback_preserved,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}claim_boundary_preserved"),
+        row.claim_boundary_preserved,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}materialization_boundary_preserved"),
+        row.materialization_boundary_preserved,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}source_state_reuse_admitted"),
+        row.source_state_reuse_admitted,
+    );
+}
+
+fn append_optimizer_rule_cardinality_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &EvidenceAwareOptimizerRuleTrace,
+    prefix: &str,
+) {
+    push_field(
+        fields,
+        &format!("{prefix}estimated_input_cardinality"),
+        &row.estimated_input_cardinality,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}estimated_output_cardinality"),
+        &row.estimated_output_cardinality,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}cardinality_estimation_status"),
+        row.cardinality_estimation_status.as_str(),
+    );
+    push_field(
+        fields,
+        &format!("{prefix}correctness_smoke_ref"),
+        &row.correctness_smoke_ref,
+    );
+}
+
+fn append_optimizer_rule_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &EvidenceAwareOptimizerRuleTrace,
+    prefix: &str,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}fallback_attempted"),
+        row.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}external_engine_invoked"),
+        row.external_engine_invoked,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}claim_gate_status"),
+        &row.claim_gate_status,
+    );
 }
 
 pub(crate) fn handle_optimizer_adaptive_memory_plan(format: OutputFormat) -> ExitCode {

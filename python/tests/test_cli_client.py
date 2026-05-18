@@ -22,6 +22,7 @@ from shardloom import (
     DataFrameMethodCapabilityMatrix,
     GeneratedSourceApiAdmissionMatrix,
     EngineCapabilityMatrix,
+    EvidenceAwareOptimizerTraceReport,
     ExecutionResultEnvelopeView,
     GeneratedSourceCertificateContract,
     LocalVortexPrimitiveSmokeReport,
@@ -153,6 +154,60 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.policy["fields"][0]["key"], "fallback_execution_allowed")
         self.assertEqual(result.lifecycle["fields"][0]["value"], "report_only")
         self.assertEqual(result.capability_snapshot["fields"][0]["value"], "status")
+
+    def test_optimizer_plan_typed_view_preserves_report_only_boundaries(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["optimizer-plan", "--format", "json"], sys.argv
+                fields = [
+                    {"key": "optimizer_trace_id", "value": "optimizer_trace.gar_perf_2b.report_only_registry"},
+                    {"key": "optimizer_registry_version", "value": "gar-perf-2b.optimizer_registry.v1"},
+                    {"key": "optimizer_phase", "value": "logical"},
+                    {"key": "optimizer_rule_order", "value": "predicate_pushdown,common_subplan_source_state_reuse"},
+                    {"key": "optimizer_rule_status_vocabulary", "value": "admitted,applied,blocked,unsupported,not_applicable,report_only"},
+                    {"key": "benchmark_optimizer_trace_ref", "value": "optimizer-trace://gar-perf-2b.report-only-registry"},
+                    {"key": "claim_gate_status", "value": "not_claim_grade"},
+                    {"key": "runtime_execution", "value": "false"},
+                    {"key": "optimizer_execution", "value": "false"},
+                    {"key": "plan_rewritten", "value": "false"},
+                    {"key": "optimizer_rule_applied_count", "value": "0"},
+                    {"key": "fallback_attempted", "value": "false"},
+                    {"key": "fallback_execution_allowed", "value": "false"},
+                    {"key": "external_engine_invoked", "value": "false"},
+                    {"key": "all_no_fallback_no_external_engine", "value": "true"},
+                    {"key": "optimizer_rule_predicate_pushdown_status", "value": "report_only"},
+                    {"key": "optimizer_rule_predicate_pushdown_applied", "value": "false"},
+                    {"key": "optimizer_rule_common_subplan_source_state_reuse_status", "value": "admitted"},
+                    {"key": "optimizer_rule_common_subplan_source_state_reuse_applied", "value": "false"},
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "optimizer-plan",
+                    "status": "success",
+                    "summary": "optimizer",
+                    "human_text": "optimizer",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+
+        report = ShardLoomClient(binary=binary).optimizer_plan()
+
+        self.assertIsInstance(report, EvidenceAwareOptimizerTraceReport)
+        self.assertEqual(report.optimizer_phase, "logical")
+        self.assertEqual(report.rule_status("predicate-pushdown"), "report_only")
+        self.assertEqual(
+            report.rule_status("common_subplan_source_state_reuse"), "admitted"
+        )
+        self.assertFalse(report.rule_applied("common_subplan_source_state_reuse"))
+        self.assertTrue(report.no_runtime)
+        self.assertTrue(report.no_rewrite_applied)
+        self.assertTrue(report.no_fallback_no_external_engine)
 
     def test_capability_view_no_runtime_and_no_fallback_require_explicit_fields(self) -> None:
         def capability_envelope(fields: list[dict[str, str]]) -> OutputEnvelope:

@@ -770,6 +770,101 @@ class ClaimGateCloseoutReport:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceAwareOptimizerTraceReport:
+    """Typed view over the report-only GAR-PERF-2B optimizer trace."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def optimizer_trace_id(self) -> str:
+        """Return the stable optimizer trace identifier."""
+
+        return _required_field(self.envelope, "optimizer_trace_id")
+
+    @property
+    def optimizer_registry_version(self) -> str:
+        """Return the optimizer registry version."""
+
+        return _required_field(self.envelope, "optimizer_registry_version")
+
+    @property
+    def optimizer_phase(self) -> str:
+        """Return the optimizer phase represented by this report."""
+
+        return _required_field(self.envelope, "optimizer_phase")
+
+    @property
+    def rule_order(self) -> tuple[str, ...]:
+        """Return optimizer rule IDs in stable order."""
+
+        return _csv_values(self.envelope.field("optimizer_rule_order"))
+
+    @property
+    def rule_status_vocabulary(self) -> tuple[str, ...]:
+        """Return the stable rule status vocabulary."""
+
+        return _csv_values(self.envelope.field("optimizer_rule_status_vocabulary"))
+
+    @property
+    def benchmark_trace_ref(self) -> str:
+        """Return the benchmark trace reference for future timing rows."""
+
+        return _required_field(self.envelope, "benchmark_optimizer_trace_ref")
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the optimizer trace claim-gate status."""
+
+        return _required_field(self.envelope, "claim_gate_status")
+
+    @property
+    def no_runtime(self) -> bool:
+        """Whether this report avoided runtime execution."""
+
+        return self.envelope.field_bool("runtime_execution", True) is False
+
+    @property
+    def no_rewrite_applied(self) -> bool:
+        """Whether this report applied no optimizer rewrites."""
+
+        return (
+            self.envelope.field_bool("optimizer_execution", True) is False
+            and self.envelope.field_bool("plan_rewritten", True) is False
+            and self.envelope.field("optimizer_rule_applied_count") == "0"
+        )
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the trace preserves no fallback and no external engine execution."""
+
+        return (
+            self.envelope.field_bool("fallback_attempted", True) is False
+            and self.envelope.field_bool("fallback_execution_allowed", True) is False
+            and self.envelope.field_bool("external_engine_invoked", True) is False
+            and (
+                self.envelope.field_bool("all_no_fallback_no_external_engine", False)
+                is True
+            )
+        )
+
+    def rule_status(self, rule_id: str) -> str:
+        """Return one optimizer rule status by ID."""
+
+        normalized = rule_id.strip().lower().replace("-", "_")
+        if normalized not in self.rule_order:
+            raise KeyError(f"optimizer rule {rule_id!r} is not in the trace")
+        return _required_field(self.envelope, f"optimizer_rule_{normalized}_status")
+
+    def rule_applied(self, rule_id: str) -> bool:
+        """Return whether one optimizer rule was applied."""
+
+        normalized = rule_id.strip().lower().replace("-", "_")
+        if normalized not in self.rule_order:
+            raise KeyError(f"optimizer rule {rule_id!r} is not in the trace")
+        return self.envelope.field_bool(f"optimizer_rule_{normalized}_applied", True) is True
+
+
+@dataclass(frozen=True, slots=True)
 class ComputeCapabilityRow:
     """One row in the report-only compute capability matrix."""
 
@@ -3347,6 +3442,13 @@ class ShardLoomClient:
         """Return the report-only explain envelope for an operation summary."""
 
         return self.run(["explain", operation], check=check)
+
+    def optimizer_plan(self, *, check: bool = True) -> EvidenceAwareOptimizerTraceReport:
+        """Return the report-only evidence-aware optimizer trace."""
+
+        return EvidenceAwareOptimizerTraceReport(
+            self.run(["optimizer-plan"], check=check)
+        )
 
     def estimate(self, operation: str, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only estimate envelope for an operation summary."""

@@ -251,11 +251,11 @@ limit-like scenarios rather than hidden fallbacks.
 
 ## Evidence-Aware Logical Optimizer Queue
 
-`GAR-PERF-2B` tracks the planned optimizer rule registry and report-only optimizer trace. Future
-benchmark rows may link timing/resource rows to optimizer traces, but those traces must not be read
-as lazy optimizer parity or performance proof.
+`GAR-PERF-2B` adds the report-only optimizer rule registry and optimizer trace. ShardLoom benchmark
+rows now link timing/resource rows to optimizer traces, but those traces must not be read as lazy
+optimizer parity or performance proof.
 
-Future benchmark rows or optimizer trace artifacts should expose:
+Benchmark rows and optimizer trace artifacts expose:
 
 ```text
 optimizer_trace_id

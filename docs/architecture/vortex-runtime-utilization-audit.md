@@ -117,12 +117,13 @@ in-process prepared/native session evidence for local artifacts. The current sli
 explicit, preserves no hidden globals, exposes session/cache lifecycle evidence, and avoids
 daemon/service, remote-server, public Python API, production, or performance claims.
 
-`GAR-PERF-2B` is the planned evidence-aware logical optimizer pass. It should place optimizer rule
+`GAR-PERF-2B` is the report-only evidence-aware logical optimizer pass. It places optimizer rule
 registry and trace evidence before Vortex Scan pushdown, encoded-kernel, or fused-pipeline promotion
-so every rewrite records admitted/applied/blocked/unsupported status, before/after plan digests,
-rewrite safety, materialization boundaries, `evidence_preserved=true`, `fallback_attempted=false`,
-and `external_engine_invoked=false`. Optimizer traces do not prove Vortex-native provider coverage or
-public performance.
+so every rewrite family records admitted/applied/blocked/unsupported/not-applicable/report-only
+status, report-only before/after plan-digest placeholders, rewrite safety, materialization
+boundaries, `evidence_preserved=true`, `fallback_attempted=false`, and
+`external_engine_invoked=false`. Current rows apply no rewrites. Optimizer traces do not prove
+Vortex-native provider coverage or public performance.
 
 `GAR-IOREUSE-1` is the planned reusable I/O state and cross-format fanout follow-through. It should
 check Vortex Source/Sink/Split, file I/O, prepared artifact, and output concepts before introducing

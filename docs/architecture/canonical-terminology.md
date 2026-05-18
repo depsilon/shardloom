@@ -388,13 +388,13 @@ candidates.
   scenario families by filter, projection, and limit/slice pushdown support or deterministic
   blockers. It is Scan/source-boundary evidence, not an encoded-native operator, SQL/DataFrame,
   object-store/lakehouse, production, or performance claim.
-- **evidence-aware logical optimizer**: planned ShardLoom optimizer layer that records optimizer
-  rule registry decisions, before/after plan digests, rewrite safety, evidence preservation,
-  no-fallback status, and claim gates before any rewrite is treated as supported.
-- **optimizer rule registry**: planned versioned set of optimizer rule families such as predicate
-  pushdown, projection pushdown, slice/limit pushdown, common subplan/source-state reuse,
-  expression simplification, constant folding, type coercion, join ordering, and cardinality
-  estimation. Registry presence is not runtime support by itself.
+- **evidence-aware logical optimizer**: ShardLoom optimizer trace layer that records optimizer rule
+  registry decisions, report-only before/after plan-digest placeholders, rewrite safety, evidence
+  preservation, no-fallback status, and claim gates before any rewrite is treated as supported.
+- **optimizer rule registry**: versioned set of optimizer rule families such as predicate pushdown,
+  projection pushdown, slice/limit pushdown, common subplan/source-state reuse, expression
+  simplification, constant folding, type coercion, join ordering, and cardinality estimation.
+  Registry presence is not runtime support by itself.
 - **optimizer trace**: explain/benchmark evidence artifact listing optimizer rule status as
   admitted, applied, blocked, unsupported, not applicable, or report-only with before/after plan
   digests and rewrite safety fields.
