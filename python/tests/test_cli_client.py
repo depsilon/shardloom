@@ -20,6 +20,7 @@ from shardloom import (
     ContextCapabilities,
     CapabilityView,
     DataFrameMethodCapabilityMatrix,
+    ETLWorkflowCapabilityMatrix,
     GeneratedSourceApiAdmissionMatrix,
     EngineCapabilityMatrix,
     EvidenceAwareOptimizerTraceReport,
@@ -1249,6 +1250,27 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "fallback_attempted", "value": "false"},
                             {"key": "external_engine_invoked", "value": "false"},
                         ])
+                    if scope == "workflow":
+                        fields.extend([
+                            {"key": "etl_workflow_matrix_schema_version", "value": "shardloom.etl_workflow_capability_matrix.v1"},
+                            {"key": "etl_workflow_matrix_id", "value": "gar-0033-a.etl_workflow_capability_matrix"},
+                            {"key": "etl_workflow_row_order", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"},
+                            {"key": "etl_workflow_row_count", "value": "13"},
+                            {"key": "etl_workflow_supported_local_rows", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture"},
+                            {"key": "etl_workflow_supported_local_count", "value": "8"},
+                            {"key": "etl_workflow_report_only_rows", "value": "sql_dataframe_capability_posture,data_quality_api"},
+                            {"key": "etl_workflow_report_only_count", "value": "2"},
+                            {"key": "etl_workflow_blocked_rows", "value": "object_store_runtime,table_lakehouse_runtime,production_etl_certification"},
+                            {"key": "etl_workflow_blocked_count", "value": "3"},
+                            {"key": "etl_workflow_required_evidence", "value": "correctness_digest,execution_certificate,native_io_certificate,materialization_boundary,result_sink_evidence,source_state_evidence,generated_source_certificate,output_native_io_certificate,claim_gate_status,no_fallback_evidence"},
+                            {"key": "etl_workflow_claim_boundary", "value": "local workflow claims only for already certified or smoke-supported technical-preview paths; production ETL, broad SQL/DataFrame, object-store/lakehouse, Foundry, package, performance, and Spark-displacement claims remain blocked"},
+                            {"key": "etl_workflow_claim_gate_status", "value": "not_claim_grade"},
+                            {"key": "etl_workflow_fallback_attempted", "value": "false"},
+                            {"key": "etl_workflow_external_engine_invoked", "value": "false"},
+                            {"key": "etl_workflow_production_etl_claim_allowed", "value": "false"},
+                            {"key": "etl_workflow_object_store_runtime_supported", "value": "false"},
+                            {"key": "etl_workflow_table_lakehouse_runtime_supported", "value": "false"},
+                        ])
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -1296,6 +1318,38 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.workflow.field("scope"), "workflow")
         self.assertEqual(capabilities.remote_api.field("scope"), "remote-api")
         self.assertEqual(capabilities.cross_cg.field("scope"), "cross-cg")
+        etl_workflows = capabilities.etl_workflow_matrix
+        self.assertIsInstance(etl_workflows, ETLWorkflowCapabilityMatrix)
+        self.assertEqual(
+            etl_workflows.schema_version,
+            "shardloom.etl_workflow_capability_matrix.v1",
+        )
+        self.assertEqual(
+            etl_workflows.matrix_id,
+            "gar-0033-a.etl_workflow_capability_matrix",
+        )
+        self.assertEqual(len(etl_workflows.rows), 13)
+        self.assertIn(
+            "local_csv_parquet_certified_workload",
+            etl_workflows.supported_local_rows,
+        )
+        self.assertIn("source_free_user_rows_jsonl", etl_workflows.supported_local_rows)
+        self.assertIn("dirty_csv_fixture", etl_workflows.supported_local_rows)
+        self.assertEqual(
+            etl_workflows.report_only_rows,
+            ("sql_dataframe_capability_posture", "data_quality_api"),
+        )
+        self.assertIn("object_store_runtime", etl_workflows.blocked_rows)
+        self.assertIn("table_lakehouse_runtime", etl_workflows.blocked_rows)
+        self.assertIn("production_etl_certification", etl_workflows.blocked_rows)
+        self.assertTrue(etl_workflows.row("object-store-runtime").blocked)
+        self.assertEqual(
+            etl_workflows.row("data_quality_api").blocker_id,
+            "cg21.workflow.data_quality.checks_unsupported",
+        )
+        self.assertTrue(etl_workflows.all_no_fallback_no_external_engine)
+        self.assertFalse(etl_workflows.production_etl_claim_allowed)
+        self.assertFalse(etl_workflows.object_store_or_table_runtime_supported)
         self.assertEqual(capabilities.functions.capability_state, "planned")
         self.assertEqual(capabilities.sql_support.scope, "sql")
         self.assertEqual(
@@ -1539,6 +1593,7 @@ class ShardLoomClientTests(unittest.TestCase):
             ctx.dataframe_method_matrix().row("agg").diagnostic_operation,
             "agg",
         )
+        self.assertTrue(ctx.etl_workflow_matrix().row("production_etl_certification").blocked)
         self.assertIn("adapter_certification_required", capabilities.adapters.required_gates)
         self.assertIn(
             "materialization_boundary_reported",

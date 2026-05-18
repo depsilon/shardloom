@@ -956,6 +956,12 @@ plan before coding.
   links, exact references, and website "Can I use this?" status-matrix pages. It documents current
   local/smoke paths and blockers without creating production ETL, SQL/DataFrame,
   object-store/lakehouse, Foundry, performance, or Spark-replacement claims.
+- [x] `GAR-0033-A` adds `shardloom.etl_workflow_capability_matrix.v1` to the CLI workflow
+  capability view and Python `ctx.etl_workflow_matrix()`. The matrix separates local ready/smoke
+  workflow rows, report-only SQL/DataFrame and data-quality API posture, and blocked object-store,
+  table/lakehouse, and production ETL certification rows while preserving
+  `fallback_attempted=false`, `external_engine_invoked=false`, and
+  `claim_gate_status=not_claim_grade`.
 - [ ] Mature DataFrame execution, SQL execution, joins, aggregations, windows, data-quality
   runtime, object-store/table runtime, publication, production ETL certification, and
   comparison-only baseline/oracle views remain incomplete.

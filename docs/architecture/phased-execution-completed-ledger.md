@@ -16,6 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0033-A ETL workflow and data-quality capability matrix
+  - Primary files:
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/README.md`
+    - `docs/architecture/etl-workflow-capability-matrix.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: add a side-effect-free CG-21 ETL workflow capability matrix for current local
+    technical-preview paths, report-only API posture, and blocked production/runtime rows.
+  - Checklist:
+    - [x] Expose `shardloom.etl_workflow_capability_matrix.v1` through
+          `capabilities workflow --format json`.
+    - [x] Add Python typed access through `ctx.etl_workflow_matrix()` and
+          `ctx.capabilities().etl_workflow_matrix`.
+    - [x] Distinguish ready/smoke local workflows from report-only SQL/DataFrame/data-quality API
+          posture and blocked object-store, table/lakehouse, and production ETL certification rows.
+    - [x] Preserve `fallback_attempted=false`, `external_engine_invoked=false`, and
+          `claim_gate_status=not_claim_grade` across the matrix.
+    - [x] Document the matrix and claim boundaries without expanding runtime behavior.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a capability/diagnostic/reporting slice only. It does not add production ETL
+      runtime, broad SQL/DataFrame runtime, object-store or lakehouse runtime, Foundry production
+      support, package publication, performance/superiority claims, or Spark-displacement claims.
+  - Fallback boundary:
+    - The matrix is side-effect-free and cannot read datasets, write outputs, resolve credentials,
+      probe networks, invoke Foundry, import external dataframe engines, execute SQL, invoke
+      external engines, or fallback to another engine.
+
 - [x] Session label: GAR-DOCS-1 non-expert Use Case Atlas closeout
   - Primary files:
     - `docs/use-cases/README.md`
