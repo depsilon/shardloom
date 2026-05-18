@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-NOVEL-1B OpenLineage evidence facets
+  - Primary files:
+    - `shardloom-core/src/observability.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/evidence-native-generated-execution-observability-confidence.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the OpenLineage facet mapping slice by adding
+    `shardloom.openlineage_facet_mapping.v1` as a report-only observability capability. The report
+    maps ShardLoom execution mode, no-fallback, Native I/O certificate, materialization boundary,
+    claim gate, generated-source, and Vortex artifact evidence into ShardLoom-owned future
+    OpenLineage custom facet placeholders.
+  - Checklist:
+    - [x] Add core report/row structs for GAR-NOVEL-1B OpenLineage facet mapping.
+    - [x] Expose mapping fields in CLI capability discovery for the `observability` scope.
+    - [x] Add Python typed accessors and tests for the mapping report.
+    - [x] Document the mapping model in architecture, Python, compute-flow, and global review docs.
+    - [x] Move the active GAR-NOVEL-1B item out of the Planned queue.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-core openlineage --lib`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python website/build_static_pages.py`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - Report-only mapping only. This does not emit OpenLineage events, publish facet schemas, add an
+      OpenLineage client dependency, configure a backend, make network calls, invoke Foundry, add
+      SQL/DataFrame runtime, add object-store/lakehouse output, publish packages, or create
+      production/performance/Spark-replacement/lineage-backend claims.
+  - Fallback boundary:
+    - `fallback_attempted=false` and `external_engine_invoked=false` remain explicit at report and
+      row level. Lineage metadata cannot authorize fallback execution or external engine
+      invocation.
+
 - [x] Session label: GAR-NOVEL-1A GeneratedSourceCertificate and source-free evidence alignment
   - Primary files:
     - `shardloom-core/src/generated_source.rs`

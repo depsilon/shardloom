@@ -1343,6 +1343,312 @@ impl RuntimeObservabilityReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct OpenLineageFacetMappingRow {
+    pub row_id: &'static str,
+    pub facet_name: &'static str,
+    pub facet_key: &'static str,
+    pub openlineage_entity: &'static str,
+    pub shardloom_evidence_fields: &'static str,
+    pub schema_url_placeholder: &'static str,
+    pub schema_version: &'static str,
+    pub producer: &'static str,
+    pub facet_status: &'static str,
+    pub export_enabled: bool,
+    pub event_emitted: bool,
+    pub network_call_performed: bool,
+    pub redaction_required: bool,
+    pub retention_policy_required: bool,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl OpenLineageFacetMappingRow {
+    const PRODUCER: &'static str = "https://github.com/depsilon/shardloom";
+    const STATUS: &'static str = "report_only_schema_placeholder";
+    const SCHEMA_VERSION: &'static str = "v1";
+
+    #[must_use]
+    pub const fn execution_mode() -> Self {
+        Self {
+            row_id: "execution_mode",
+            facet_name: "ExecutionModeFacet",
+            facet_key: "shardloom_execution_mode",
+            openlineage_entity: "run",
+            shardloom_evidence_fields: "execution_mode,engine_mode,provider_kind,selected_mode_reason",
+            schema_url_placeholder: "https://shardloom.io/schemas/openlineage/execution-mode-facet-v1.json",
+            schema_version: Self::SCHEMA_VERSION,
+            producer: Self::PRODUCER,
+            facet_status: Self::STATUS,
+            export_enabled: false,
+            event_emitted: false,
+            network_call_performed: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps execution-mode evidence to a future run facet only; it does not emit lineage events, hide auto-mode decisions, or prove production lineage support.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn no_fallback() -> Self {
+        Self {
+            row_id: "no_fallback",
+            facet_name: "NoFallbackFacet",
+            facet_key: "shardloom_no_fallback",
+            openlineage_entity: "run",
+            shardloom_evidence_fields: "fallback_attempted,fallback_execution_allowed,external_engine_invoked",
+            schema_url_placeholder: "https://shardloom.io/schemas/openlineage/no-fallback-facet-v1.json",
+            schema_version: Self::SCHEMA_VERSION,
+            producer: Self::PRODUCER,
+            facet_status: Self::STATUS,
+            export_enabled: false,
+            event_emitted: false,
+            network_call_performed: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Records no-fallback and no-external-engine posture only; it cannot authorize fallback execution or external engine invocation.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn native_io_certificate() -> Self {
+        Self {
+            row_id: "native_io_certificate",
+            facet_name: "NativeIoCertificateFacet",
+            facet_key: "shardloom_native_io_certificate",
+            openlineage_entity: "input_dataset,output_dataset,run_refs",
+            shardloom_evidence_fields: "native_io_certificate_status,native_io_certificate_ref,source_io_performed,output_io_performed,representation_transition",
+            schema_url_placeholder: "https://shardloom.io/schemas/openlineage/native-io-certificate-facet-v1.json",
+            schema_version: Self::SCHEMA_VERSION,
+            producer: Self::PRODUCER,
+            facet_status: Self::STATUS,
+            export_enabled: false,
+            event_emitted: false,
+            network_call_performed: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps Native I/O certificate refs to future dataset/run facets only; it does not certify new sources, sinks, object stores, or table runtimes.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn materialization_boundary() -> Self {
+        Self {
+            row_id: "materialization_boundary",
+            facet_name: "MaterializationBoundaryFacet",
+            facet_key: "shardloom_materialization_boundary",
+            openlineage_entity: "run,input_dataset,output_dataset",
+            shardloom_evidence_fields: "data_decoded,data_materialized,stayed_encoded,materialization_boundary,representation_state",
+            schema_url_placeholder: "https://shardloom.io/schemas/openlineage/materialization-boundary-facet-v1.json",
+            schema_version: Self::SCHEMA_VERSION,
+            producer: Self::PRODUCER,
+            facet_status: Self::STATUS,
+            export_enabled: false,
+            event_emitted: false,
+            network_call_performed: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps materialization/decode boundaries only; it does not imply zero-decode or encoded-native execution unless separate evidence supports that claim.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn claim_gate() -> Self {
+        Self {
+            row_id: "claim_gate",
+            facet_name: "ClaimGateFacet",
+            facet_key: "shardloom_claim_gate",
+            openlineage_entity: "run",
+            shardloom_evidence_fields: "claim_gate_status,claim_boundary,claim_blockers,workload_constitution_refs",
+            schema_url_placeholder: "https://shardloom.io/schemas/openlineage/claim-gate-facet-v1.json",
+            schema_version: Self::SCHEMA_VERSION,
+            producer: Self::PRODUCER,
+            facet_status: Self::STATUS,
+            export_enabled: false,
+            event_emitted: false,
+            network_call_performed: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps claim gate status only; lineage metadata cannot upgrade runtime, production, performance, Spark-replacement, Foundry, or package claims.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn generated_source() -> Self {
+        Self {
+            row_id: "generated_source",
+            facet_name: "GeneratedSourceFacet",
+            facet_key: "shardloom_generated_source",
+            openlineage_entity: "run,output_dataset",
+            shardloom_evidence_fields: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,generated_source_seed,generation_deterministic,generated_source_certificate_status",
+            schema_url_placeholder: "https://shardloom.io/schemas/openlineage/generated-source-facet-v1.json",
+            schema_version: Self::SCHEMA_VERSION,
+            producer: Self::PRODUCER,
+            facet_status: Self::STATUS,
+            export_enabled: false,
+            event_emitted: false,
+            network_call_performed: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps GeneratedSourceCertificate evidence only; it is not emitted for no-dataset smoke and does not create broad SQL/DataFrame or Foundry generated-output support.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn vortex_artifact() -> Self {
+        Self {
+            row_id: "vortex_artifact",
+            facet_name: "VortexArtifactFacet",
+            facet_key: "shardloom_vortex_artifact",
+            openlineage_entity: "input_dataset,output_dataset",
+            shardloom_evidence_fields: "vortex_artifact_ref,vortex_artifact_digest,layout_summary,encoding_summary,statistics_summary,prepared_state_digest",
+            schema_url_placeholder: "https://shardloom.io/schemas/openlineage/vortex-artifact-facet-v1.json",
+            schema_version: Self::SCHEMA_VERSION,
+            producer: Self::PRODUCER,
+            facet_status: Self::STATUS,
+            export_enabled: false,
+            event_emitted: false,
+            network_call_performed: false,
+            redaction_required: true,
+            retention_policy_required: true,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Maps ShardLoom Vortex artifact evidence only; it does not imply official Vortex endorsement, object-store runtime, or lakehouse/table support.",
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn report_only(&self) -> bool {
+        self.facet_status == Self::STATUS
+            && !self.export_enabled
+            && !self.event_emitted
+            && !self.network_call_performed
+    }
+
+    #[must_use]
+    pub const fn fallback_free(&self) -> bool {
+        !self.fallback_attempted && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct OpenLineageFacetMappingReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub gar_id: &'static str,
+    pub docs_ref: &'static str,
+    pub openlineage_object_model_ref: &'static str,
+    pub openlineage_facets_ref: &'static str,
+    pub openlineage_custom_facets_ref: &'static str,
+    pub producer_placeholder: &'static str,
+    pub schema_url_base_placeholder: &'static str,
+    pub rows: Vec<OpenLineageFacetMappingRow>,
+    pub export_enabled: bool,
+    pub event_emitted: bool,
+    pub network_call_performed: bool,
+    pub backend_configured: bool,
+    pub client_dependency_added: bool,
+    pub schema_published: bool,
+    pub redaction_policy_required: bool,
+    pub retention_policy_required: bool,
+    pub opt_in_required: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+}
+
+impl OpenLineageFacetMappingReport {
+    #[must_use]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.openlineage_facet_mapping.v1",
+            report_id: "gar-novel-1b.openlineage_facet_mapping",
+            gar_id: "GAR-NOVEL-1B",
+            docs_ref: "docs/architecture/evidence-native-generated-execution-observability-confidence.md",
+            openlineage_object_model_ref: "https://openlineage.io/docs/spec/object-model/",
+            openlineage_facets_ref: "https://openlineage.io/docs/spec/facets/",
+            openlineage_custom_facets_ref: "https://openlineage.io/docs/spec/facets/custom-facets/",
+            producer_placeholder: OpenLineageFacetMappingRow::PRODUCER,
+            schema_url_base_placeholder: "https://shardloom.io/schemas/openlineage/",
+            rows: vec![
+                OpenLineageFacetMappingRow::execution_mode(),
+                OpenLineageFacetMappingRow::no_fallback(),
+                OpenLineageFacetMappingRow::native_io_certificate(),
+                OpenLineageFacetMappingRow::materialization_boundary(),
+                OpenLineageFacetMappingRow::claim_gate(),
+                OpenLineageFacetMappingRow::generated_source(),
+                OpenLineageFacetMappingRow::vortex_artifact(),
+            ],
+            export_enabled: false,
+            event_emitted: false,
+            network_call_performed: false,
+            backend_configured: false,
+            client_dependency_added: false,
+            schema_published: false,
+            redaction_policy_required: true,
+            retention_policy_required: true,
+            opt_in_required: true,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn all_rows_report_only(&self) -> bool {
+        self.rows
+            .iter()
+            .all(OpenLineageFacetMappingRow::report_only)
+    }
+
+    #[must_use]
+    pub fn all_rows_fallback_free(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .all(OpenLineageFacetMappingRow::fallback_free)
+    }
+
+    #[must_use]
+    pub fn no_export_side_effects(&self) -> bool {
+        !self.export_enabled
+            && !self.event_emitted
+            && !self.network_call_performed
+            && !self.backend_configured
+            && !self.client_dependency_added
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1539,5 +1845,34 @@ mod tests {
         m.add_field(ObservedField::sensitive("token", "abc").unwrap());
         r.add_metric(m);
         assert!(r.has_unsafe_fields());
+    }
+    #[test]
+    fn openlineage_facet_mapping_is_report_only_no_export() {
+        let report = OpenLineageFacetMappingReport::report_only();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.openlineage_facet_mapping.v1"
+        );
+        assert_eq!(
+            report.row_order(),
+            vec![
+                "execution_mode",
+                "no_fallback",
+                "native_io_certificate",
+                "materialization_boundary",
+                "claim_gate",
+                "generated_source",
+                "vortex_artifact",
+            ]
+        );
+        assert!(report.all_rows_report_only());
+        assert!(report.all_rows_fallback_free());
+        assert!(report.no_export_side_effects());
+        assert!(report.redaction_policy_required);
+        assert!(report.retention_policy_required);
+        assert!(report.opt_in_required);
+        assert!(!report.schema_published);
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
     }
 }

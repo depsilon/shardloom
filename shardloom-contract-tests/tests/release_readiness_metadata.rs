@@ -1018,7 +1018,9 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "none_scoped_local_range_jsonl_smoke_only",
         "shardloom.generated_source_api_admission.v1",
         "shardloom.generated_source_evidence_alignment.v1",
+        "shardloom.openlineage_facet_mapping.v1",
         "GAR-NOVEL-1A",
+        "GAR-NOVEL-1B",
         "python_ctx_from_rows",
         "python_ctx_range",
         "python_generated_source_write",
@@ -1027,6 +1029,8 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "foundry_generated_output",
         "dataframe_generated_with_column",
         "openlineage_export_enabled=false",
+        "openlineage_facet_mapping_event_emitted=false",
+        "openlineage_facet_mapping_network_call_performed=false",
         "opentelemetry_export_enabled=false",
         "opentelemetry_network_exporter_enabled=false",
         "bayesian_confidence_enabled=false",
@@ -1041,6 +1045,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     assert!(python_readme.contains("generated_source_contract"));
     assert!(python_readme.contains("generated_source_api_admission"));
     assert!(python_readme.contains("generated_source_evidence_alignment"));
+    assert!(python_readme.contains("openlineage_facet_mapping"));
     assert!(python_readme.contains("ctx.from_rows("));
     assert!(python_readme.contains("ctx.range("));
     assert!(python_readme.contains("no_dataset_smoke_separate_from_generated_output"));
@@ -1049,6 +1054,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     assert!(python_context.contains("GeneratedSourceCertificateContract"));
     assert!(python_context.contains("GeneratedSourceApiAdmissionMatrix"));
     assert!(python_context.contains("GeneratedSourceEvidenceAlignmentReport"));
+    assert!(python_context.contains("OpenLineageFacetMappingReport"));
     assert!(python_context.contains("GeneratedSourceCaseCapability"));
     assert!(python_context.contains("GeneratedRowsSource"));
     assert!(python_context.contains("GeneratedRangeSource"));
@@ -1060,6 +1066,21 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     for required in [
         "shardloom.generated_source_evidence_alignment.v1",
         "gar-novel-1a.generated_source_cross_surface_alignment",
+        "shardloom.openlineage_facet_mapping.v1",
+        "gar-novel-1b.openlineage_facet_mapping",
+        "ExecutionModeFacet",
+        "NoFallbackFacet",
+        "NativeIoCertificateFacet",
+        "MaterializationBoundaryFacet",
+        "ClaimGateFacet",
+        "GeneratedSourceFacet",
+        "VortexArtifactFacet",
+        "event_emitted=false",
+        "network_call_performed=false",
+        "client_dependency_added=false",
+        "schema_published=false",
+        "redaction_policy_required=true",
+        "retention_policy_required=true",
         "openlineage_export_enabled=false",
         "opentelemetry_network_exporter_enabled=false",
         "bayesian_confidence_enabled=false",

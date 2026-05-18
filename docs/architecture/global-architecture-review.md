@@ -890,6 +890,13 @@ plan before coding.
   `foundry_generated_output`; OpenLineage/OTel exports stay disabled/report-only, Bayesian
   confidence remains disabled/advisory, and no SQL/DataFrame, object-store/lakehouse, Foundry,
   production, performance, or package claim is promoted.
+- [x] `GAR-NOVEL-1B` adds `shardloom.openlineage_facet_mapping.v1` as a report-only
+  observability capability. It maps execution mode, no-fallback, Native I/O certificate,
+  materialization boundary, claim gate, generated-source, and Vortex artifact evidence into
+  ShardLoom-owned future OpenLineage custom facet placeholders while keeping export disabled,
+  event emission disabled, schema publication disabled, backend/client dependency disabled,
+  network calls disabled, `fallback_attempted=false`, `external_engine_invoked=false`, and
+  `claim_gate_status=not_claim_grade`.
 - [ ] `GAR-COMPAT-1` keeps broad adapter and user-surface compatibility separate from runtime
   support. Python rows/DataFrame, SQL VALUES/literals, REST/Flight/ADBC, external databases, and
   generated/source-free output remain report-only or blocked unless a narrower evidence-bearing
@@ -965,9 +972,12 @@ plan before coding.
 - [x] OpenAPI/AsyncAPI docs, REST planning reports, Python wrapper views, and protocol snapshots
   exist.
 - [x] Discovery/server contract paths preserve `server_started=false` where no server starts.
-- [ ] `GAR-NOVEL-1B` and `GAR-NOVEL-1C` add planned report-only OpenLineage facet and
-  OpenTelemetry trace mapping follow-through. No lineage event, telemetry exporter, network call,
-  backend integration, or production API claim is authorized by those rows alone.
+- [x] `GAR-NOVEL-1B` adds planned report-only OpenLineage facet mapping follow-through. No lineage
+  event, schema publication, OpenLineage client dependency, network call, backend integration, or
+  production API/lineage claim is authorized by those rows alone.
+- [ ] `GAR-NOVEL-1C` adds planned report-only OpenTelemetry trace mapping follow-through. No
+  telemetry exporter, network call, backend integration, or production API claim is authorized by
+  those rows alone.
 - [ ] `GAR-COMMERCIAL-1D` adds the planned enterprise evidence export pack: ShardLoom JSON,
   OpenLineage facets, OpenTelemetry spans/metrics, and optional Markdown summary. Export remains
   opt-in, no-network by default, redacted, and not a production observability claim.
@@ -1382,8 +1392,9 @@ plan before coding.
   prepared-vortex, and native-vortex lanes without adding persistent cache, object-store/lakehouse,
   performance, or fallback claims.
 - [ ] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and
-  confidence follow-up. OpenLineage facets and OpenTelemetry spans remain opt-in/report-only, and
-  Bayesian confidence can block claims but cannot upgrade claim status by itself.
+  confidence follow-up. OpenLineage facets are now mapped as opt-in/report-only placeholders;
+  OpenTelemetry spans remain opt-in/report-only, and Bayesian confidence can block claims but
+  cannot upgrade claim status by itself.
 - [ ] `GAR-COMMERCIAL-1` adds the adoption and commercial-readiness friction-reduction follow-up.
   One-command local proof, package-channel readiness, buyer-facing status, enterprise evidence
   export, Foundry dev-stack, and recipes must remain claim-safe and evidence-gated before any public

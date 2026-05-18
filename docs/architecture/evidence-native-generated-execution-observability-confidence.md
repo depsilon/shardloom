@@ -112,6 +112,49 @@ model, invoke Foundry, or write object-store output.
 OpenLineage export is opt-in. No lineage event is emitted by default, no network call is made by
 default, and no lineage backend integration is implied by this report-only design.
 
+`GAR-NOVEL-1B` adds the report-only capability schema:
+
+```text
+schema_version=shardloom.openlineage_facet_mapping.v1
+report_id=gar-novel-1b.openlineage_facet_mapping
+gar_id=GAR-NOVEL-1B
+openlineage_object_model_ref=https://openlineage.io/docs/spec/object-model/
+openlineage_facets_ref=https://openlineage.io/docs/spec/facets/
+openlineage_custom_facets_ref=https://openlineage.io/docs/spec/facets/custom-facets/
+producer_placeholder=https://github.com/depsilon/shardloom
+schema_url_base_placeholder=https://shardloom.io/schemas/openlineage/
+export_enabled=false
+event_emitted=false
+network_call_performed=false
+backend_configured=false
+client_dependency_added=false
+schema_published=false
+redaction_policy_required=true
+retention_policy_required=true
+opt_in_required=true
+claim_gate_status=not_claim_grade
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+The row order is:
+
+```text
+execution_mode
+no_fallback
+native_io_certificate
+materialization_boundary
+claim_gate
+generated_source
+vortex_artifact
+```
+
+The mapping follows OpenLineage's run/job/dataset object model and custom-facet extensibility
+rules: ShardLoom evidence maps to ShardLoom-owned facets with a distinct `shardloom_*` key,
+a ShardLoom producer URI, and a future immutable schema URL. The current slice deliberately leaves
+schemas unpublished and export disabled, so capability discovery can expose the mapping without
+adding an OpenLineage dependency, backend, event emitter, or network effect.
+
 | ShardLoom facet | OpenLineage entity | Source evidence | Notes |
 | --- | --- | --- | --- |
 | `shardloom.ExecutionModeFacet` | Run facet | `execution_mode`, `engine_mode`, selected-mode reason, provider kind | Records explicit execution mode; never hides `auto` selection. |

@@ -416,6 +416,7 @@ caps = ctx.capabilities()
 contract = caps.python.generated_source_contract
 admission = caps.python.generated_source_api_admission
 alignment = caps.python.generated_source_evidence_alignment
+lineage = ctx.observability().openlineage_facet_mapping
 
 print(contract.schema_version)
 print(contract.case_order)
@@ -429,6 +430,10 @@ print(alignment.schema_version)
 print(alignment.openlineage_export_enabled)
 print(alignment.opentelemetry_network_exporter_enabled)
 print(alignment.row("foundry_generated_output").foundry_boundary_ref)
+print(lineage.schema_version)
+print(lineage.row("generated_source").facet_name)
+print(lineage.all_rows_report_only)
+print(lineage.all_no_fallback_no_external_engine)
 ```
 
 The universal compatibility view also projects the same source-free generated-output posture so

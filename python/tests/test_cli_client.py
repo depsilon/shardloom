@@ -27,6 +27,7 @@ from shardloom import (
     GeneratedSourceCertificateContract,
     GeneratedSourceEvidenceAlignmentReport,
     LocalVortexPrimitiveSmokeReport,
+    OpenLineageFacetMappingReport,
     ShardLoomBinaryNotFoundError,
     ShardLoomClient,
     ShardLoomCommandError,
@@ -1112,6 +1113,62 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": f"{prefix}_fallback_attempted", "value": "false"},
                                 {"key": f"{prefix}_external_engine_invoked", "value": "false"},
                             ])
+                    if scope == "observability":
+                        lineage_rows = [
+                            ("execution_mode", "ExecutionModeFacet", "shardloom_execution_mode", "run", "execution_mode,engine_mode,provider_kind,selected_mode_reason"),
+                            ("no_fallback", "NoFallbackFacet", "shardloom_no_fallback", "run", "fallback_attempted,fallback_execution_allowed,external_engine_invoked"),
+                            ("native_io_certificate", "NativeIoCertificateFacet", "shardloom_native_io_certificate", "input_dataset,output_dataset,run_refs", "native_io_certificate_status,native_io_certificate_ref,source_io_performed,output_io_performed,representation_transition"),
+                            ("materialization_boundary", "MaterializationBoundaryFacet", "shardloom_materialization_boundary", "run,input_dataset,output_dataset", "data_decoded,data_materialized,stayed_encoded,materialization_boundary,representation_state"),
+                            ("claim_gate", "ClaimGateFacet", "shardloom_claim_gate", "run", "claim_gate_status,claim_boundary,claim_blockers,workload_constitution_refs"),
+                            ("generated_source", "GeneratedSourceFacet", "shardloom_generated_source", "run,output_dataset", "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,generated_source_seed,generation_deterministic,generated_source_certificate_status"),
+                            ("vortex_artifact", "VortexArtifactFacet", "shardloom_vortex_artifact", "input_dataset,output_dataset", "vortex_artifact_ref,vortex_artifact_digest,layout_summary,encoding_summary,statistics_summary,prepared_state_digest"),
+                        ]
+                        fields.extend([
+                            {"key": "openlineage_facet_mapping_schema_version", "value": "shardloom.openlineage_facet_mapping.v1"},
+                            {"key": "openlineage_facet_mapping_report_id", "value": "gar-novel-1b.openlineage_facet_mapping"},
+                            {"key": "openlineage_facet_mapping_gar_id", "value": "GAR-NOVEL-1B"},
+                            {"key": "openlineage_facet_mapping_docs_ref", "value": "docs/architecture/evidence-native-generated-execution-observability-confidence.md"},
+                            {"key": "openlineage_facet_mapping_object_model_ref", "value": "https://openlineage.io/docs/spec/object-model/"},
+                            {"key": "openlineage_facet_mapping_facets_ref", "value": "https://openlineage.io/docs/spec/facets/"},
+                            {"key": "openlineage_facet_mapping_custom_facets_ref", "value": "https://openlineage.io/docs/spec/facets/custom-facets/"},
+                            {"key": "openlineage_facet_mapping_producer_placeholder", "value": "https://github.com/depsilon/shardloom"},
+                            {"key": "openlineage_facet_mapping_schema_url_base_placeholder", "value": "https://shardloom.io/schemas/openlineage/"},
+                            {"key": "openlineage_facet_mapping_row_count", "value": str(len(lineage_rows))},
+                            {"key": "openlineage_facet_mapping_row_order", "value": ",".join(row[0] for row in lineage_rows)},
+                            {"key": "openlineage_facet_mapping_export_enabled", "value": "false"},
+                            {"key": "openlineage_facet_mapping_event_emitted", "value": "false"},
+                            {"key": "openlineage_facet_mapping_network_call_performed", "value": "false"},
+                            {"key": "openlineage_facet_mapping_backend_configured", "value": "false"},
+                            {"key": "openlineage_facet_mapping_client_dependency_added", "value": "false"},
+                            {"key": "openlineage_facet_mapping_schema_published", "value": "false"},
+                            {"key": "openlineage_facet_mapping_redaction_policy_required", "value": "true"},
+                            {"key": "openlineage_facet_mapping_retention_policy_required", "value": "true"},
+                            {"key": "openlineage_facet_mapping_opt_in_required", "value": "true"},
+                            {"key": "openlineage_facet_mapping_all_rows_report_only", "value": "true"},
+                            {"key": "openlineage_facet_mapping_all_rows_no_fallback_no_external_engine", "value": "true"},
+                            {"key": "openlineage_facet_mapping_claim_gate_status", "value": "not_claim_grade"},
+                        ])
+                        for row_id, facet, key, entity, evidence in lineage_rows:
+                            prefix = f"openlineage_facet_mapping_row_{row_id}"
+                            fields.extend([
+                                {"key": f"{prefix}_facet_name", "value": facet},
+                                {"key": f"{prefix}_facet_key", "value": key},
+                                {"key": f"{prefix}_openlineage_entity", "value": entity},
+                                {"key": f"{prefix}_shardloom_evidence_fields", "value": evidence},
+                                {"key": f"{prefix}_schema_url_placeholder", "value": f"https://shardloom.io/schemas/openlineage/{row_id.replace('_', '-')}-facet-v1.json"},
+                                {"key": f"{prefix}_schema_version", "value": "v1"},
+                                {"key": f"{prefix}_producer", "value": "https://github.com/depsilon/shardloom"},
+                                {"key": f"{prefix}_facet_status", "value": "report_only_schema_placeholder"},
+                                {"key": f"{prefix}_export_enabled", "value": "false"},
+                                {"key": f"{prefix}_event_emitted", "value": "false"},
+                                {"key": f"{prefix}_network_call_performed", "value": "false"},
+                                {"key": f"{prefix}_redaction_required", "value": "true"},
+                                {"key": f"{prefix}_retention_policy_required", "value": "true"},
+                                {"key": f"{prefix}_claim_gate_status", "value": "not_claim_grade"},
+                                {"key": f"{prefix}_claim_boundary", "value": "report-only OpenLineage facet mapping; no export, backend, network call, fallback, or production lineage claim"},
+                                {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                                {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                            ])
                     if scope in {"workflow", "remote-api", "cross-cg"}:
                         fields.extend([
                             {"key": "severity", "value": "error"},
@@ -1443,6 +1500,41 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(ctx.workflow_capabilities().field("scope"), "workflow")
         self.assertEqual(ctx.remote_api_capabilities().field("scope"), "remote-api")
         self.assertEqual(ctx.cross_cg_capability_parity().field("scope"), "cross-cg")
+        observability = ctx.observability()
+        lineage = observability.openlineage_facet_mapping
+        self.assertIsInstance(lineage, OpenLineageFacetMappingReport)
+        self.assertTrue(lineage.present)
+        self.assertEqual(lineage.schema_version, "shardloom.openlineage_facet_mapping.v1")
+        self.assertEqual(lineage.gar_id, "GAR-NOVEL-1B")
+        self.assertEqual(
+            lineage.row_order,
+            (
+                "execution_mode",
+                "no_fallback",
+                "native_io_certificate",
+                "materialization_boundary",
+                "claim_gate",
+                "generated_source",
+                "vortex_artifact",
+            ),
+        )
+        self.assertFalse(lineage.export_enabled)
+        self.assertFalse(lineage.event_emitted)
+        self.assertFalse(lineage.network_call_performed)
+        self.assertFalse(lineage.schema_published)
+        self.assertTrue(lineage.all_rows_report_only)
+        self.assertTrue(lineage.all_no_fallback_no_external_engine)
+        self.assertEqual(lineage.claim_gate_status, "not_claim_grade")
+        self.assertEqual(
+            lineage.row("generated_source").facet_name,
+            "GeneratedSourceFacet",
+        )
+        self.assertIn(
+            "generated_source_certificate_status",
+            lineage.row("generated_source").shardloom_evidence_fields,
+        )
+        self.assertTrue(lineage.row("no_fallback").report_only_no_export)
+        self.assertTrue(lineage.row("vortex_artifact").no_fallback_no_external_engine)
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:
         binary = self.fake_cli(
