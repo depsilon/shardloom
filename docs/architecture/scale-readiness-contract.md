@@ -1,6 +1,7 @@
 # Scale Readiness Contract
 
-Status: implemented report-only contracts for `GAR-SCALE-1A` and `GAR-SCALE-1B`.
+Status: implemented report-only contracts for `GAR-SCALE-1A`, `GAR-SCALE-1B`, and
+`GAR-SCALE-1C`.
 
 ShardLoom must not claim literal "any volume" support. Scale readiness is a declared resource and
 evidence contract, not a slogan. A row can become scale-grade only when it proves the appropriate
@@ -144,6 +145,68 @@ split_external_engine_invoked=false
 Unsupported or unsplittable sources must emit deterministic `unsupported` or `blocked` posture
 instead of delegating to Spark, DataFusion, DuckDB, Polars, Dask, Ray, object stores, table engines,
 or managed platforms.
+
+## Memory, Spill, And Backpressure Contract
+
+`GAR-SCALE-1C` adds
+`memory_spill_contract_schema_version=shardloom.traditional_analytics.memory_spill_backpressure.v1`
+and a fail-closed memory, spill, and backpressure evidence contract to benchmark rows.
+
+Current local rows expose the vocabulary and deterministic blockers required for future
+larger-than-memory execution, but they do not declare a scale memory budget, admit runtime spill,
+prove backpressure, or permit hidden full materialization.
+
+ShardLoom memory/spill rows carry:
+
+```text
+memory_spill_contract_schema_version
+memory_spill_status_vocabulary
+memory_spill_claim_status_vocabulary
+memory_spill_status
+memory_spill_id
+memory_spill_digest
+memory_budget_bytes
+operator_memory_budget_bytes
+peak_memory_bytes
+memory_budget_exceeded
+spill_allowed
+spill_location
+spill_bytes_written
+spill_bytes_read
+spill_file_count
+spill_cleanup_status
+backpressure_status
+oom_prevention_status
+memory_spill_claim_status
+memory_spill_fallback_attempted=false
+memory_spill_external_engine_invoked=false
+memory_spill_claim_gate_status
+memory_spill_claim_boundary
+```
+
+For `GAR-SCALE-1C`, current rows must keep:
+
+```text
+memory_budget_bytes=null
+operator_memory_budget_bytes=null
+memory_budget_exceeded=false
+spill_allowed=false
+spill_location=not_admitted
+spill_bytes_written=0
+spill_bytes_read=0
+spill_file_count=0
+spill_cleanup_status=not_needed_no_spill_runtime
+backpressure_status=not_admitted_report_only
+oom_prevention_status=not_larger_than_memory_proof
+memory_spill_claim_gate_status=not_larger_than_memory_grade
+memory_spill_fallback_attempted=false
+memory_spill_external_engine_invoked=false
+```
+
+Any future larger-than-memory claim requires a declared resource envelope, operator memory budgets,
+deterministic block-or-spill admission, spill read/write/cleanup evidence when spill is allowed,
+backpressure evidence when work is throttled or chunked, and correctness evidence over the claimed
+workload bytes.
 
 ## Claim Gate
 

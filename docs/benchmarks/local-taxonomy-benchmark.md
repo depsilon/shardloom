@@ -118,6 +118,22 @@ Rows now include
 split planning posture only; they do not prove split-parallel runtime, larger-than-memory support,
 distributed execution, object-store/table runtime, Spark-replacement, or performance claims.
 
+`GAR-SCALE-1C` adds a fail-closed memory, spill, and backpressure contract to benchmark rows. Rows
+now include
+`memory_spill_contract_schema_version=shardloom.traditional_analytics.memory_spill_backpressure.v1`,
+`memory_spill_status`, `memory_spill_id`, `memory_spill_digest`, `memory_budget_bytes`,
+`operator_memory_budget_bytes`, `peak_memory_bytes`, `memory_budget_exceeded=false`,
+`spill_allowed=false`, `spill_location=not_admitted`, `spill_bytes_written=0`,
+`spill_bytes_read=0`, `spill_file_count=0`,
+`spill_cleanup_status=not_needed_no_spill_runtime`,
+`backpressure_status=not_admitted_report_only`,
+`oom_prevention_status=not_larger_than_memory_proof`,
+`memory_spill_fallback_attempted=false`, `memory_spill_external_engine_invoked=false`,
+`memory_spill_claim_gate_status=not_larger_than_memory_grade`, and
+`memory_spill_claim_boundary`. Current rows expose memory/spill vocabulary and deterministic
+fail-closed posture only; they do not prove larger-than-memory execution, runtime spill,
+backpressure, hidden materialization safety, Spark-replacement, or performance claims.
+
 `GAR-PERF-1B` adds the source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md` and propagates
 `source_state_coverage_*` fields into prepared/native batch evidence. Those
