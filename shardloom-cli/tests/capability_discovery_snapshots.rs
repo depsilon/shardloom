@@ -837,6 +837,7 @@ fn capability_discovery_json_fields_remain_report_only() {
         "workflow",
         "remote-api",
         "cross-cg",
+        "compatibility",
     ] {
         let output = run_capabilities_scope(scope);
         for key in REPORT_ONLY_BOOL_FIELD_KEYS {
@@ -880,6 +881,7 @@ fn capability_discovery_scope_values_are_stable() {
         ("workflow", "workflow"),
         ("remote-api", "remote_api"),
         ("cross-cg", "cross_cg"),
+        ("compatibility", "compatibility"),
     ] {
         let output = run_capabilities_scope(scope);
         assert!(
@@ -889,6 +891,79 @@ fn capability_discovery_scope_values_are_stable() {
             "scope={scope}"
         );
     }
+}
+
+#[test]
+fn compatibility_capabilities_expose_universal_scoreboard() {
+    let output = run_capabilities_scope("compatibility");
+
+    for key in [
+        "universal_compatibility_scoreboard_schema_version",
+        "universal_compatibility_scoreboard_id",
+        "universal_compatibility_scoreboard_docs_ref",
+        "universal_compatibility_scoreboard_data_ref",
+        "universal_compatibility_support_status_vocabulary",
+        "universal_compatibility_row_count",
+        "universal_compatibility_row_order",
+        "universal_compatibility_claim_boundary",
+    ] {
+        assert!(
+            output.contains(&format!("{{\"key\":\"{key}\",\"value\":")),
+            "missing universal compatibility key {key}"
+        );
+    }
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_scoreboard_schema_version",
+        "shardloom.universal_compatibility_coverage_scoreboard.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_scoreboard_data_ref",
+        "docs/architecture/universal-compatibility-coverage-scoreboard.json"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_support_status_vocabulary",
+        "runtime-supported,smoke-supported,report-only,blocked,not-planned"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_row_order",
+        "csv,jsonl_json,parquet,arrow_ipc,avro,orc,excel,sqlite,postgres_mysql,jdbc_odbc,object_store_s3_gcs_adls,table_lakehouse_iceberg_delta_hudi,vortex,generated_source_free_outputs,python_rows_dataframe,sql_values_literals,rest_flight_adbc,foundry"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_row_object_store_s3_gcs_adls_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_row_object_store_s3_gcs_adls_fallback_attempted",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_row_object_store_s3_gcs_adls_external_engine_invoked",
+        false
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_row_vortex_support_status",
+        "runtime-supported"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_object_store_runtime_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_sql_dataframe_runtime_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_foundry_runtime_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_all_rows_fallback_attempted_false",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_all_rows_external_engine_invoked_false",
+        true
+    )));
 }
 
 #[test]

@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-COMPAT-1A universal compatibility scoreboard projection
+  - Primary files:
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.json`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `website/build_static_pages.py`
+    - `website/status.html`
+    - `website/assets/site.css`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close the first universal compatibility slice by projecting the human scoreboard into
+    stable machine-readable surfaces. The JSON projection and CLI/Python/status-page views classify
+    CSV, JSONL/JSON, Parquet, Arrow IPC, Avro, ORC, Excel, SQLite, Postgres/MySQL, JDBC/ODBC,
+    S3/GCS/ADLS, Iceberg/Delta/Hudi, Vortex, generated/source-free outputs, Python rows/DataFrame,
+    SQL VALUES/literals, REST/Flight/ADBC, and Foundry as `runtime-supported`,
+    `smoke-supported`, `report-only`, `blocked`, or `not-planned`.
+  - Checklist:
+    - [x] Add `shardloom.universal_compatibility_coverage_scoreboard.v1` JSON projection beside
+          the Markdown source.
+    - [x] Add `capabilities compatibility --format json` fields for row order, status counts,
+          per-surface posture, blocker IDs, evidence requirements, claim boundaries,
+          `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - [x] Add Python typed accessors through `ctx.compatibility_scoreboard()` and
+          `ContextCapabilities.universal_compatibility_scoreboard`.
+    - [x] Render the scoreboard on the website status page without scraping Markdown prose.
+    - [x] Add Rust, Python, and release-readiness contract tests for the projection.
+    - [x] Remove the active GAR-COMPAT-1A item from the Planned queue.
+  - Evidence/verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts website benchmarks/traditional_analytics`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - Compatibility coverage is a capability map and evidence inventory only. It does not add
+      database, Excel, JDBC/ODBC, object-store, table/lakehouse, SQL/DataFrame, REST/Flight/ADBC,
+      Foundry, package, production, performance, Spark-replacement, or universal-runtime claims.
+  - Fallback boundary:
+    - Every row preserves `fallback_attempted=false` and `external_engine_invoked=false`. External
+      engines, external databases, object stores, table systems, and managed platforms may be
+      baselines, oracles, migration references, or future endpoints only; they cannot execute
+      unsupported ShardLoom work as fallback.
+
 - [x] Session label: GAR-SCALE-1H Foundry scale proof boundary
   - Primary files:
     - `scripts/foundry_proof_of_use.py`

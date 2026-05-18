@@ -816,13 +816,17 @@ plan before coding.
   compatibility import, object-store/range-read, table/catalog, streaming, unstructured/media, and
   external-adapter source/sink families with support status, certificate refs, deterministic
   unsupported diagnostics, blockers, future evidence, no-fallback fields, and claim boundaries.
-- [ ] `GAR-COMPAT-1` adds the universal compatibility completion follow-through. The initial
-  scoreboard now classifies CSV, JSONL/JSON, Parquet, Arrow IPC, Avro, ORC, Excel, SQLite,
-  Postgres/MySQL, JDBC/ODBC, S3/GCS/ADLS, Iceberg/Delta/Hudi, Vortex, generated/source-free
-  outputs, Python rows/DataFrame, SQL VALUES/literals, REST/Flight/ADBC, and Foundry as
-  runtime-supported, smoke-supported, report-only, blocked, or not-planned. It still needs typed
-  website/status and Python capability projection before users or agents can consume the matrix as
-  a stable machine surface.
+- [ ] `GAR-COMPAT-1` adds the universal compatibility completion follow-through. `GAR-COMPAT-1A`
+  now projects the scoreboard into `shardloom.universal_compatibility_coverage_scoreboard.v1`, CLI
+  `capabilities compatibility --format json`, Python `ctx.compatibility_scoreboard()`, website
+  status rendering, and release-readiness checks. The matrix classifies CSV, JSONL/JSON, Parquet,
+  Arrow IPC, Avro, ORC, Excel, SQLite, Postgres/MySQL, JDBC/ODBC, S3/GCS/ADLS,
+  Iceberg/Delta/Hudi, Vortex, generated/source-free outputs, Python rows/DataFrame, SQL
+  VALUES/literals, REST/Flight/ADBC, and Foundry as runtime-supported, smoke-supported,
+  report-only, blocked, or not-planned while preserving `fallback_attempted=false` and
+  `external_engine_invoked=false`. Remaining GAR-COMPAT children own generated-source contract
+  integration, object-store ladders, table-format boundaries, and database/warehouse import/export
+  boundaries.
 - [x] `GAR-IOREUSE-1F` adds the remaining Native I/O reuse ladder after
   `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract and
   `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract and

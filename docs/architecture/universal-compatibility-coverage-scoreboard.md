@@ -5,6 +5,16 @@
 This document is the report-only compatibility map for ShardLoom source, sink, adapter, and
 user-facing data creation surfaces.
 
+The machine-readable projection lives beside this document:
+
+```text
+docs/architecture/universal-compatibility-coverage-scoreboard.json
+schema_version=shardloom.universal_compatibility_coverage_scoreboard.v1
+```
+
+Website/status, CLI capability JSON, and Python typed capability views must use typed fields from
+the machine-readable projection or capability envelopes rather than scraping the Markdown prose.
+
 It answers one question:
 
 ```text
@@ -57,7 +67,7 @@ fallback execution.
 | Python rows / DataFrame | User API | `smoke-supported` | Python `ctx.from_rows([...]).write(...)` and `ctx.range(...).write(...)` can run scoped local JSONL generated-output smokes; broad DataFrame runtime is not supported. | `shardloom.generated_source_api_admission.v1` classifies `python_ctx_from_rows`, `python_ctx_range`, `python_generated_source_write`, `ctx.literal_table`, `ctx.calendar`, SQL rows, DataFrame source-free projection, blockers, and evidence. | No hidden pandas/Polars/DuckDB/DataFusion execution may occur. | Typed API admission contract, generated-source evidence, local sink evidence, no-fallback tests. | User-layer posture only; no broad DataFrame runtime claim. |
 | SQL `VALUES` / literals | SQL frontend | `report-only` | SQL source-free execution is not supported; SQL literal `SELECT`, SQL `VALUES`, source-free projection, and `generate_series`/`range` vocabulary are admission rows with deterministic blockers. | GAR-GEN-1E owns the report-only SQL admission rows; future slices must classify parse, bind, plan, source-free projection, and unsupported diagnostics before runtime. | No SQL parser, binder, planner, runtime, generated-source certificate, or SQL execution certificate may be claimed. | Parser/binder policy, literal expression semantics, generated-source certificate, output evidence. | No broad SQL runtime claim. |
 | REST / Flight / ADBC | Remote and data-plane APIs | `report-only` | REST/event contracts exist as report-only surfaces; Flight/ADBC runtime bridges are not supported. | Future rows must separate control-plane discovery from data-plane runtime. | No server, remote execution, or data-plane bridge may be claimed. | Transport contract, auth policy, lifecycle, result delivery, and no-fallback parity. | No production API claim. |
-| Foundry | Platform integration | `report-only` | Foundry proof remains local/proof-only; real platform runtime is not certified. | Future rows must separate no-dataset smoke, staged local paths, Foundry output APIs, and platform evidence. | Direct S3/object-store writes do not count as Foundry generated-output proof. | Real Foundry environment proof, output API evidence, governance/lineage policy, no external compute proof. | Future validation target only; no Palantir/Foundry endorsement or production claim. |
+| Foundry | Platform integration | `report-only` | Foundry proof remains local/proof-only; real platform runtime is not certified. | Future rows must separate no-dataset smoke, staged local paths, Foundry output APIs, and platform evidence. | Direct S3/object-store writes do not count as Foundry generated-output proof. | Real Foundry environment proof, output API evidence, governance/lineage policy, no external compute proof. | Future validation target only; no endorsement or production claim. |
 
 ## Required Scoreboard Fields For Future Machine Surfaces
 

@@ -705,6 +705,69 @@ fn open_source_security_posture_config_is_present() {
 }
 
 #[test]
+fn universal_compatibility_scoreboard_projection_is_discoverable() {
+    let scoreboard =
+        read_repo_file("docs/architecture/universal-compatibility-coverage-scoreboard.json");
+    for required in [
+        "shardloom.universal_compatibility_coverage_scoreboard.v1",
+        "gar-compat-1.universal_compatibility_coverage_scoreboard",
+        "\"surface_id\": \"object_store_s3_gcs_adls\"",
+        "\"surface_id\": \"table_lakehouse_iceberg_delta_hudi\"",
+        "\"surface_id\": \"sql_values_literals\"",
+        "\"surface_id\": \"foundry\"",
+        "\"fallback_attempted\": false",
+        "\"external_engine_invoked\": false",
+        "\"support_status\": \"runtime-supported\"",
+        "\"support_status\": \"smoke-supported\"",
+        "\"support_status\": \"report-only\"",
+        "\"support_status\": \"blocked\"",
+        "No object-store runtime",
+        "No production lakehouse",
+        "No SQL parser",
+        "Future validation target only",
+    ] {
+        assert!(
+            scoreboard.contains(required),
+            "missing universal compatibility scoreboard field {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/architecture/universal-compatibility-coverage-scoreboard.md");
+    for required in [
+        "docs/architecture/universal-compatibility-coverage-scoreboard.json",
+        "schema_version=shardloom.universal_compatibility_coverage_scoreboard.v1",
+        "typed capability views",
+        "S3/GCS/ADLS",
+        "S3/GCS/ADLS remain blocked",
+        "Foundry remains a future validation target",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing universal compatibility scoreboard doc field {required}"
+        );
+    }
+
+    let python_readme = read_repo_file("python/README.md");
+    for required in [
+        "ctx.compatibility_scoreboard()",
+        "object_store_s3_gcs_adls",
+        "runtime-supported",
+        "smoke-supported",
+        "report-only",
+        "blocked",
+        "It is a capability map only",
+        "performance, SQL/DataFrame, object-store/lakehouse, Foundry, or package claim",
+    ] {
+        assert!(
+            python_readme.contains(required),
+            "missing Python compatibility scoreboard field {required}"
+        );
+    }
+}
+
+#[test]
 fn release_security_gate_docs_and_known_unsupported_paths_are_present() {
     let doc = read_repo_file("docs/security/release-security-gate.md");
     for required in [

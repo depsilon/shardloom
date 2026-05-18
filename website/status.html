@@ -57,6 +57,7 @@
       <div class="shell">
         <a href="#supported">Supported local smoke</a>
         <a href="#fixture">Fixture-smoke</a>
+        <a href="#compatibility">Compatibility</a>
         <a href="#report-only">Report-only</a>
         <a href="#blocked">Blocked</a>
         <a href="#planned">Planned</a>
@@ -83,6 +84,35 @@
           <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Hybrid overlay</h3><p>Hybrid fixture reports exist for base-plus-delta reasoning; durable hot/cold commit semantics are not public support.</p></article>
           <article class="status-column"><span class="claim-badge fixture">fixture-smoke</span><h3>Table metadata smoke</h3><p>Table metadata evidence is scoped metadata proof, not a lakehouse/catalog runtime claim.</p></article>
         </div>
+      </div>
+    </section>
+
+    <section id="compatibility">
+      <div class="shell">
+        <p class="eyebrow">Compatibility scoreboard</p>
+        <h2>Can I use this surface?</h2>
+        <p class="section-lede">The universal compatibility scoreboard is a typed capability map, not a support expansion. It keeps runtime-supported, smoke-supported, report-only, and blocked rows visible without treating planned adapters, object stores, table formats, SQL/DataFrame, or Foundry as production support.</p>
+        <div class="metric-row">
+          <div class="metric"><strong>1</strong><span>runtime-supported rows</span></div>
+          <div class="metric"><strong>8</strong><span>smoke-supported rows</span></div>
+          <div class="metric"><strong>7</strong><span>report-only rows</span></div>
+          <div class="metric"><strong>2</strong><span>blocked rows</span></div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Surface</th><th>Status</th><th>Direction</th><th>Claim gate</th><th>Boundary</th></tr></thead>
+            <tbody><tr><td><strong>CSV</strong><span>local_compatibility_file</span></td><td><span class="claim-badge fixture">smoke-supported</span></td><td>read_write</td><td>fixture_smoke_only</td><td>Compatibility import evidence only; not pure query speed or universal CSV runtime.</td></tr>
+<tr><td><strong>Parquet</strong><span>local_compatibility_file</span></td><td><span class="claim-badge fixture">smoke-supported</span></td><td>read_write</td><td>fixture_smoke_only</td><td>Parquet preparation evidence only; no lakehouse/table runtime claim.</td></tr>
+<tr><td><strong>S3 / GCS / ADLS</strong><span>object_store</span></td><td><span class="claim-badge blocked">blocked</span></td><td>read_write</td><td>not_claim_grade</td><td>No object-store runtime, credential, network, read, write, or commit claim.</td></tr>
+<tr><td><strong>Iceberg / Delta / Hudi</strong><span>table_lakehouse_format</span></td><td><span class="claim-badge report-only">report-only</span></td><td>read_write</td><td>not_claim_grade</td><td>No production lakehouse, table runtime, or commit claim.</td></tr>
+<tr><td><strong>Vortex</strong><span>native_file_layout</span></td><td><span class="claim-badge supported">runtime-supported</span></td><td>read_write</td><td>fixture_smoke_only</td><td>Scoped local Vortex evidence only; no universal runtime or performance claim.</td></tr>
+<tr><td><strong>Generated / source-free outputs</strong><span>generated_source</span></td><td><span class="claim-badge fixture">smoke-supported</span></td><td>generated</td><td>fixture_smoke_only</td><td>Local user-row and range JSONL fixture-smoke generated-output runtime only.</td></tr>
+<tr><td><strong>Python rows / DataFrame</strong><span>user_api</span></td><td><span class="claim-badge fixture">smoke-supported</span></td><td>api</td><td>fixture_smoke_only</td><td>User-layer posture only; no broad DataFrame runtime claim.</td></tr>
+<tr><td><strong>SQL VALUES / literals</strong><span>sql_frontend</span></td><td><span class="claim-badge report-only">report-only</span></td><td>api</td><td>not_claim_grade</td><td>No SQL parser, binder, planner, runtime, generated-source certificate, or SQL execution claim.</td></tr>
+<tr><td><strong>Foundry</strong><span>platform_integration</span></td><td><span class="claim-badge report-only">report-only</span></td><td>api</td><td>not_claim_grade</td><td>Future validation target only; no endorsement or production claim.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>
     <section id="report-only">

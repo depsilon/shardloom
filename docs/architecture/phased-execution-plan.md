@@ -462,62 +462,13 @@ correctness proof, no-fallback evidence, and the relevant runtime gates.
 
 #### GAR-COMPAT-1 - Universal Compatibility Completion Matrix
 
-- [ ] GAR-COMPAT-1A universal source/sink coverage scoreboard
-  - Source: RFC 0007; RFC 0008; RFC 0020; RFC 0028; RFC 0030; RFC 0031; RFC 0032; RFC 0033;
-    RFC 0035; RFC 0036; RFC 0037; DataFusion and Polars local I/O expectations as comparison
-    pressure only; `docs/architecture/universal-compatibility-coverage-scoreboard.md`;
-    `docs/architecture/compute-engine-flow-reference.md`;
-    `docs/architecture/benchmark-suite-catalog.md`.
-  - Current state:
-    - The report-only scoreboard doc now classifies local files, Vortex, generated/source-free
-      outputs, Python rows/DataFrame, SQL literals/VALUES, databases, object stores, table formats,
-      REST/Flight/ADBC, and Foundry as runtime-supported, smoke-supported, report-only, blocked, or
-      not-planned.
-    - ShardLoom has scoped local compatibility import and scoped local Vortex runtime evidence, but
-      runtime support is not universal for databases, Excel, object stores, table formats,
-      generated-source APIs, SQL/DataFrame execution, REST/Flight/ADBC, or Foundry.
-    - The scoreboard is not yet projected into website/status or Python capability views.
-  - Next slice outcome:
-    - Promote the scoreboard into stable machine-readable capability/status surfaces while keeping
-      the Markdown doc as the human review source.
-  - User-visible surface:
-    - Docs, website/status, Python capability view, CLI capability/status JSON, and release-readiness
-      checks.
-  - Implementation scope:
-    - Add typed compatibility scoreboard rows or generator input, website/status projection, Python
-      typed capability accessors, snapshot tests, and docs links. Do not add runtime connectors.
-  - Evidence required:
-    - correctness refs: snapshot rows proving unsupported surfaces stay blocked/report-only.
-    - benchmark refs: none for the scoreboard; benchmark refs required before any performance claim.
-    - execution certificate refs: present only for runtime-supported scoped rows.
-    - Native I/O certificate refs: required only where actual source/sink runtime exists.
-    - materialization/decode refs: required for local file/Vortex rows that claim scoped runtime.
-    - policy/no-fallback refs: `fallback_attempted=false`, `external_engine_invoked=false`.
-  - Acceptance:
-    - Scoreboard distinguishes plan/report coverage from runtime coverage.
-    - Every listed surface has a status, blocker or next evidence, and claim boundary.
-    - No unsupported source, sink, adapter, database, object-store path, table format, SQL/DataFrame
-      API, REST/Flight/ADBC bridge, or Foundry integration is advertised as supported.
-    - Website/status and Python views use typed fields instead of scraping prose.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - Python typed capability tests if Python accessors change.
-    - `python scripts/check_website_readiness.py`
-    - `git diff --check`
-  - Non-goals:
-    - No database, Excel, JDBC/ODBC, object-store, table-format, SQL/DataFrame, REST/Flight/ADBC,
-      Foundry, or generated-output runtime in this slice.
-    - No new dependencies, package publication, benchmark rerun, or performance claim.
-  - Claim boundary:
-    - Compatibility coverage is a capability map and evidence inventory, not a production,
-      performance, Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, or package
-      readiness claim.
-  - Fallback boundary:
-    - External engines and external databases may be baselines, oracles, migration references, or
-      import/export endpoints only; they cannot execute unsupported ShardLoom work as fallback.
-  - Dependencies/blockers:
-    - Typed capability view ownership, website/status data model, release-readiness claim checker,
-      and per-surface runtime evidence for any status upgrade.
+GAR-COMPAT-1A is complete and recorded in the completed ledger. The universal compatibility
+scoreboard now has a machine-readable JSON projection, CLI capability fields, Python typed
+accessors, website/status rendering, and release-readiness metadata checks. The scoreboard remains a
+capability map only; it does not add database, Excel, JDBC/ODBC, object-store, table-format,
+SQL/DataFrame, REST/Flight/ADBC, Foundry, package, production, performance, or Spark-replacement
+claims.
+
 - [ ] GAR-COMPAT-1B source-free generated output contract
   - Source: GAR-COMPAT-1A; GAR-GEN-1A; RFC 0031; RFC 0032; RFC 0033; RFC 0036; RFC 0037; RFC 0039;
     no-dataset smoke reports; Python/DataFrame capability posture; Foundry proof docs.
