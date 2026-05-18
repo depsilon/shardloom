@@ -930,6 +930,49 @@ MEMORY_SPILL_FIELDS = (
     "memory_spill_claim_gate_status",
     "memory_spill_claim_boundary",
 )
+SHUFFLE_SCALE_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.shuffle_repartition.v1"
+)
+SHUFFLE_EVIDENCE_STATUS_VOCABULARY = (
+    "not_required_for_scenario",
+    "local_operator_report_only",
+    "blocked",
+    "unsupported",
+    "external_baseline_only",
+)
+SHUFFLE_CLAIM_STATUS_VOCABULARY = (
+    "not_shuffle_scale_grade",
+    "blocked",
+    "unsupported",
+    "external_baseline_only",
+)
+SHUFFLE_SCALE_FIELDS = (
+    "shuffle_contract_schema_version",
+    "shuffle_evidence_status_vocabulary",
+    "shuffle_claim_status_vocabulary",
+    "shuffle_evidence_status",
+    "shuffle_plan_id",
+    "shuffle_plan_digest",
+    "shuffle_required",
+    "shuffle_strategy",
+    "partitioning_strategy",
+    "shuffle_partition_count",
+    "target_shuffle_partition_bytes",
+    "local_combine_used",
+    "global_merge_used",
+    "broadcast_candidate",
+    "broadcast_admitted",
+    "skew_detected",
+    "skew_strategy",
+    "shuffle_spill_bytes",
+    "shuffle_retry_count",
+    "shuffle_correctness_digest",
+    "shuffle_claim_status",
+    "shuffle_fallback_attempted",
+    "shuffle_external_engine_invoked",
+    "shuffle_claim_gate_status",
+    "shuffle_claim_boundary",
+)
 WORK_AVOIDANCE_STATUS_VOCABULARY = (
     "measured",
     "not_available",
@@ -6296,6 +6339,7 @@ def bayesian_advisor_contract_metadata(
         "build_profile_contract",
         "split_manifest_contract",
         "memory_spill_contract",
+        "shuffle_scale_contract",
         "scale_claim_contract",
         "runtime_resource_policy_fields",
         "layout_advisor_report",
@@ -6679,6 +6723,114 @@ def memory_spill_contract_metadata(
             "do not declare a scale memory budget, do not admit runtime spill, do not "
             "prove larger-than-memory execution, and cannot resolve memory pressure "
             "through hidden materialization or external engine fallback."
+        ),
+    }
+
+
+def shuffle_evidence_status_for_row(
+    engine: str, scenario: str, status: str
+) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported"
+    if status != "success":
+        return "blocked"
+    if scenario_requires_scale_shuffle(scenario):
+        return "local_operator_report_only"
+    return "not_required_for_scenario"
+
+
+def shuffle_claim_status_for_row(engine: str, status: str) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if status in {"unsupported", "unsupported_format"}:
+        return "unsupported"
+    if status != "success":
+        return "blocked"
+    return "not_shuffle_scale_grade"
+
+
+def local_shuffle_strategy_for_scenario(scenario: str) -> str:
+    if scenario in {"hash join", "join + aggregate"}:
+        return "local_hash_join_not_scale_shuffle_proof"
+    if scenario in {
+        "group by aggregation",
+        "multi-key group by",
+        "null-heavy aggregate",
+    }:
+        return "local_group_by_not_scale_shuffle_proof"
+    if scenario in {"top-N per group", "row-number window"}:
+        return "local_ordered_partition_not_scale_shuffle_proof"
+    if scenario == "CDC overlay":
+        return "local_overlay_not_scale_shuffle_proof"
+    return "not_required_for_current_local_smoke_row"
+
+
+def shuffle_scale_contract_metadata(
+    engine: str,
+    scenario: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    is_shardloom = is_shardloom_engine(engine)
+    shuffle_required = scenario_requires_scale_shuffle(scenario)
+    source_state_digest = str(metrics.get("source_state_digest") or "none")
+    split_manifest_digest = str(metrics.get("split_manifest_digest") or "none")
+    digest = canonical_digest(
+        {
+            "engine": engine,
+            "scenario": scenario,
+            "shuffle_required": shuffle_required,
+            "shuffle_schema": SHUFFLE_SCALE_SCHEMA_VERSION,
+            "source_state_digest": source_state_digest,
+            "split_manifest_digest": split_manifest_digest,
+            "status": status,
+        }
+    )
+    return {
+        "shuffle_contract_schema_version": SHUFFLE_SCALE_SCHEMA_VERSION,
+        "shuffle_evidence_status_vocabulary": ",".join(
+            SHUFFLE_EVIDENCE_STATUS_VOCABULARY
+        ),
+        "shuffle_claim_status_vocabulary": ",".join(
+            SHUFFLE_CLAIM_STATUS_VOCABULARY
+        ),
+        "shuffle_evidence_status": shuffle_evidence_status_for_row(
+            engine, scenario, status
+        ),
+        "shuffle_plan_id": f"shuffle-plan:{digest[:12]}" if is_shardloom else "none",
+        "shuffle_plan_digest": digest if is_shardloom else "none",
+        "shuffle_required": shuffle_required,
+        "shuffle_strategy": local_shuffle_strategy_for_scenario(scenario),
+        "partitioning_strategy": (
+            "not_admitted_local_operator_only"
+            if shuffle_required
+            else "none_not_required"
+        ),
+        "shuffle_partition_count": 0,
+        "target_shuffle_partition_bytes": None,
+        "local_combine_used": False,
+        "global_merge_used": False,
+        "broadcast_candidate": False,
+        "broadcast_admitted": False,
+        "skew_detected": False,
+        "skew_strategy": "not_evaluated_report_only",
+        "shuffle_spill_bytes": 0,
+        "shuffle_retry_count": 0,
+        "shuffle_correctness_digest": "not_emitted_no_scale_shuffle",
+        "shuffle_claim_status": shuffle_claim_status_for_row(engine, status),
+        "shuffle_fallback_attempted": False,
+        "shuffle_external_engine_invoked": False,
+        "shuffle_claim_gate_status": "not_shuffle_scale_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "shuffle_claim_boundary": (
+            "Shuffle/repartition evidence is report-only and fail-closed. Current "
+            "rows may classify local join, group-by, window, top-N, and CDC posture, "
+            "but they do not prove distributed shuffle, Spark-scale joins, partitioned "
+            "writes, skew handling, retryable shuffle, or performance superiority."
         ),
     }
 
@@ -7419,6 +7571,59 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         if metrics.get("memory_spill_external_engine_invoked") is not False:
             raise RuntimeError(
                 "memory/spill evidence cannot report external engine execution"
+            )
+        missing_shuffle_fields = [
+            field for field in SHUFFLE_SCALE_FIELDS if field not in metrics
+        ]
+        if missing_shuffle_fields:
+            raise RuntimeError(
+                "ShardLoom row omitted shuffle/repartition fields: "
+                + ", ".join(missing_shuffle_fields)
+            )
+        if metrics.get("shuffle_contract_schema_version") != (
+            SHUFFLE_SCALE_SCHEMA_VERSION
+        ):
+            raise RuntimeError("shuffle/repartition rows must preserve schema version")
+        if (
+            metrics.get("shuffle_evidence_status")
+            not in SHUFFLE_EVIDENCE_STATUS_VOCABULARY
+        ):
+            raise RuntimeError("ShardLoom row reported unknown shuffle_evidence_status")
+        if metrics.get("shuffle_claim_status") not in SHUFFLE_CLAIM_STATUS_VOCABULARY:
+            raise RuntimeError("ShardLoom row reported unknown shuffle_claim_status")
+        if metrics.get("shuffle_claim_gate_status") != "not_shuffle_scale_grade":
+            raise RuntimeError("shuffle evidence cannot upgrade scale claim status")
+        if metrics.get("shuffle_fallback_attempted") is not False:
+            raise RuntimeError("shuffle evidence cannot report fallback attempts")
+        if metrics.get("shuffle_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "shuffle evidence cannot report external engine execution"
+            )
+        if parse_optional_int(metrics.get("shuffle_partition_count")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1D cannot report shuffle partitions yet")
+        if metrics.get("target_shuffle_partition_bytes") is not None:
+            raise RuntimeError(
+                "GAR-SCALE-1D cannot report target shuffle partition bytes yet"
+            )
+        if metrics.get("local_combine_used") is not False:
+            raise RuntimeError("GAR-SCALE-1D cannot admit local combine yet")
+        if metrics.get("global_merge_used") is not False:
+            raise RuntimeError("GAR-SCALE-1D cannot admit global merge yet")
+        if metrics.get("broadcast_admitted") is not False:
+            raise RuntimeError("GAR-SCALE-1D cannot admit broadcast shuffle yet")
+        if metrics.get("skew_detected") is not False:
+            raise RuntimeError("GAR-SCALE-1D cannot report scale skew detection yet")
+        if metrics.get("skew_strategy") != "not_evaluated_report_only":
+            raise RuntimeError("GAR-SCALE-1D cannot admit skew strategy yet")
+        if parse_optional_int(metrics.get("shuffle_spill_bytes")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1D cannot report shuffle spill bytes yet")
+        if parse_optional_int(metrics.get("shuffle_retry_count")) not in {0, None}:
+            raise RuntimeError("GAR-SCALE-1D cannot report shuffle retries yet")
+        if metrics.get("shuffle_correctness_digest") != (
+            "not_emitted_no_scale_shuffle"
+        ):
+            raise RuntimeError(
+                "GAR-SCALE-1D cannot emit shuffle correctness digest before runtime proof"
             )
         missing_split_manifest_fields = [
             field for field in SPLIT_MANIFEST_FIELDS if field not in metrics
@@ -8465,6 +8670,53 @@ def memory_spill_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def shuffle_scale_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "shuffle_contract_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "shuffle_evidence_status": metrics.get("shuffle_evidence_status"),
+                "shuffle_plan_id": metrics.get("shuffle_plan_id"),
+                "shuffle_plan_digest": metrics.get("shuffle_plan_digest"),
+                "shuffle_required": metrics.get("shuffle_required"),
+                "shuffle_strategy": metrics.get("shuffle_strategy"),
+                "partitioning_strategy": metrics.get("partitioning_strategy"),
+                "shuffle_partition_count": metrics.get("shuffle_partition_count"),
+                "target_shuffle_partition_bytes": metrics.get(
+                    "target_shuffle_partition_bytes"
+                ),
+                "local_combine_used": metrics.get("local_combine_used"),
+                "global_merge_used": metrics.get("global_merge_used"),
+                "broadcast_candidate": metrics.get("broadcast_candidate"),
+                "broadcast_admitted": metrics.get("broadcast_admitted"),
+                "skew_detected": metrics.get("skew_detected"),
+                "skew_strategy": metrics.get("skew_strategy"),
+                "shuffle_spill_bytes": metrics.get("shuffle_spill_bytes"),
+                "shuffle_retry_count": metrics.get("shuffle_retry_count"),
+                "shuffle_correctness_digest": metrics.get(
+                    "shuffle_correctness_digest"
+                ),
+                "shuffle_claim_status": metrics.get("shuffle_claim_status"),
+                "shuffle_claim_gate_status": metrics.get("shuffle_claim_gate_status"),
+                "shuffle_fallback_attempted": metrics.get(
+                    "shuffle_fallback_attempted"
+                ),
+                "shuffle_external_engine_invoked": metrics.get(
+                    "shuffle_external_engine_invoked"
+                ),
+            }
+        )
+    return rows
+
+
 def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -9246,6 +9498,14 @@ def failed_result(
             metrics=metrics,
         )
     )
+    metrics.update(
+        shuffle_scale_contract_metadata(
+            engine,
+            scenario,
+            status=status,
+            metrics=metrics,
+        )
+    )
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -9793,6 +10053,14 @@ def successful_result_from_iterations(
     )
     metrics.update(
         memory_spill_contract_metadata(
+            runner.name,
+            scenario,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+        )
+    )
+    metrics.update(
+        shuffle_scale_contract_metadata(
             runner.name,
             scenario,
             status="success" if stable else "unstable_output",
@@ -10841,6 +11109,7 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "bayesian_advisor_fields": list(BAYESIAN_ADVISOR_FIELDS),
         "split_manifest_fields": list(SPLIT_MANIFEST_FIELDS),
         "memory_spill_fields": list(MEMORY_SPILL_FIELDS),
+        "shuffle_scale_fields": list(SHUFFLE_SCALE_FIELDS),
         "scale_claim_fields": list(SCALE_CLAIM_FIELDS),
         "unknown_stage_value_policy": "field_present_with_null_or_explicit_not_measured",
         "mode_interpretation": {
@@ -11086,6 +11355,59 @@ def memory_spill_contract() -> dict[str, Any]:
             "budget, admit spill, prove backpressure, prove larger-than-memory execution, "
             "or support any-volume, distributed, object-store/table, Foundry, "
             "Spark-replacement, or performance claims."
+        ),
+    }
+
+
+def shuffle_scale_contract() -> dict[str, Any]:
+    return {
+        "contract_id": SHUFFLE_SCALE_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/scale-readiness-contract.md",
+        "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
+        "status_vocabulary": list(SHUFFLE_EVIDENCE_STATUS_VOCABULARY),
+        "claim_status_vocabulary": list(SHUFFLE_CLAIM_STATUS_VOCABULARY),
+        "row_fields": list(SHUFFLE_SCALE_FIELDS),
+        "current_scope": (
+            "report-only ShufflePlan and ShuffleEvidence fields for local join, group-by, "
+            "window, top-N, repartition, and CDC posture; no distributed shuffle or "
+            "scale-safe repartition runtime is admitted"
+        ),
+        "operator_families": [
+            "group-by",
+            "join",
+            "window",
+            "top-N per group",
+            "repartition write",
+            "CDC overlay",
+        ],
+        "required_future_proof": [
+            "partitioning strategy with declared partition count",
+            "target shuffle partition bytes",
+            "local combine and global merge evidence when used",
+            "broadcast candidate and broadcast admission evidence",
+            "skew detection and skew strategy evidence",
+            "shuffle spill and retry evidence",
+            "shuffle correctness digest over the claimed workload",
+            "remote-worker evidence before any distributed shuffle claim",
+        ],
+        "non_goals": [
+            "distributed shuffle runtime",
+            "broad join optimizer claim",
+            "partitioned write runtime",
+            "skew-splitting runtime",
+            "Spark-replacement claim",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Unsupported shuffle strategies must block or report unsupported. They cannot "
+            "delegate ShardLoom work to Spark, DataFusion, DuckDB, Polars, Dask, Ray, "
+            "Foundry Spark, managed SQL systems, or other external fallback engines."
+        ),
+        "claim_boundary": (
+            "GAR-SCALE-1D permits shuffle/repartition vocabulary and deterministic local "
+            "planning posture only. It cannot claim distributed execution, Spark-scale "
+            "joins, scale-safe repartition writes, skew handling, retryable shuffle, "
+            "production scale safety, or performance superiority."
         ),
     }
 
@@ -11440,6 +11762,32 @@ def render_memory_spill_contract(artifact: dict[str, Any]) -> str:
         ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
         ["Claim status vocabulary", ", ".join(contract["claim_status_vocabulary"])],
         ["Row fields", ", ".join(contract["row_fields"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    proof_rows = [
+        ["Required future proof", value]
+        for value in contract["required_future_proof"]
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], proof_rows + non_goal_rows)
+    )
+
+
+def render_shuffle_scale_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["shuffle_scale_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Claim status vocabulary", ", ".join(contract["claim_status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Operator families", ", ".join(contract["operator_families"])],
         ["Current scope", str(contract["current_scope"])],
         ["No-fallback rule", str(contract["no_fallback_rule"])],
         ["Claim boundary", str(contract["claim_boundary"])],
@@ -12197,6 +12545,100 @@ def render_memory_spill_matrix(artifact: dict[str, Any]) -> str:
             "Backpressure",
             "OOM prevention",
             "Memory/spill claim",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
+def render_shuffle_scale_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["shuffle_scale_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["shuffle_evidence_status"]),
+                str(row["shuffle_plan_id"]),
+                str(row["shuffle_plan_digest"]),
+                str(row["shuffle_required"]),
+                str(row["shuffle_strategy"]),
+                str(row["partitioning_strategy"]),
+                str(row["shuffle_partition_count"]),
+                format_bytes(row["target_shuffle_partition_bytes"]),
+                str(row["local_combine_used"]),
+                str(row["global_merge_used"]),
+                str(row["broadcast_candidate"]),
+                str(row["broadcast_admitted"]),
+                str(row["skew_detected"]),
+                str(row["skew_strategy"]),
+                format_bytes(row["shuffle_spill_bytes"]),
+                str(row["shuffle_retry_count"]),
+                str(row["shuffle_correctness_digest"]),
+                str(row["shuffle_claim_status"]),
+                str(row["shuffle_claim_gate_status"]),
+                str(row["shuffle_fallback_attempted"]),
+                str(row["shuffle_external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "none",
+                "none",
+                "false",
+                "not_required_for_current_local_smoke_row",
+                "none_not_required",
+                "0",
+                "n/a",
+                "false",
+                "false",
+                "false",
+                "false",
+                "false",
+                "not_evaluated_report_only",
+                "0 B",
+                "0",
+                "not_emitted_no_scale_shuffle",
+                "not_shuffle_scale_grade",
+                "not_shuffle_scale_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Shuffle status",
+            "Shuffle plan id",
+            "Shuffle plan digest",
+            "Shuffle required",
+            "Shuffle strategy",
+            "Partitioning strategy",
+            "Shuffle partitions",
+            "Target partition bytes",
+            "Local combine",
+            "Global merge",
+            "Broadcast candidate",
+            "Broadcast admitted",
+            "Skew detected",
+            "Skew strategy",
+            "Shuffle spill",
+            "Shuffle retries",
+            "Shuffle correctness digest",
+            "Shuffle claim",
             "Claim gate",
             "Fallback",
             "External engine",
@@ -13175,6 +13617,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_memory_spill_contract(artifact),
         "",
+        "## Shuffle, Repartition, And Join Scale Contract",
+        "",
+        "This contract makes shuffle requirement, partitioning strategy, local combine, global merge, broadcast, skew, spill, retry, and correctness-digest posture visible without admitting distributed shuffle runtime.",
+        "",
+        render_shuffle_scale_contract(artifact),
+        "",
         "## VortexPreparedState Contract",
         "",
         "This contract makes prepared Vortex artifact identity, preparation timing separation, source-state linkage, and scoped reuse posture visible without implying output support or performance claims.",
@@ -13256,6 +13704,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "Memory/spill rows expose a fail-closed larger-than-memory posture. Current rows do not declare scale memory budgets, admit spill files, prove backpressure, or allow memory pressure to be resolved by hidden full materialization or external fallback.",
         "",
         render_memory_spill_matrix(artifact),
+        "",
+        "## ShardLoom Shuffle, Repartition, And Join Scale Evidence Matrix",
+        "",
+        "Shuffle rows classify local join, group-by, window, top-N, repartition, and CDC posture. They do not prove distributed shuffle, Spark-scale joins, skew handling, retryable shuffle, partitioned writes, or performance claims.",
+        "",
+        render_shuffle_scale_matrix(artifact),
         "",
         "## ShardLoom VortexPreparedState Evidence Matrix",
         "",
@@ -13597,6 +14051,7 @@ def main() -> int:
         "bayesian_advisor_contract": bayesian_advisor_contract(),
         "split_manifest_contract": split_manifest_contract(),
         "memory_spill_contract": memory_spill_contract(),
+        "shuffle_scale_contract": shuffle_scale_contract(),
         "scale_claim_contract": scale_claim_contract(),
         "work_avoidance_evidence_schema": work_avoidance_evidence_schema(),
         "engine_order": list(args.engine_list),
@@ -13611,6 +14066,7 @@ def main() -> int:
         "prepared_state_matrix": prepared_state_matrix(results),
         "split_manifest_matrix": split_manifest_matrix(results),
         "memory_spill_matrix": memory_spill_matrix(results),
+        "shuffle_scale_matrix": shuffle_scale_matrix(results),
         "output_plan_matrix": output_plan_matrix(results),
         "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
         "cache_invalidation_matrix": cache_invalidation_matrix(results),
