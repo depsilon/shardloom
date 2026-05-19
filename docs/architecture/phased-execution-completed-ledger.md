@@ -16,6 +16,39 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTF-8 suffix LIKE runtime
+  - Branch/PR: `codex/sql-like-ends-with-runtime` / #784.
+  - Primary files:
+    - `shardloom-core/src/expression.rs`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: extend the existing ShardLoom-native scoped UTF-8 string predicate runtime from
+    prefix/contains `LIKE` forms to suffix `LIKE '%text'` without fallback execution.
+  - Runtime behavior:
+    - Added core expression evaluation for `utf8_ends_with` / `ends_with`.
+    - Added SQL local-source parsing for suffix `LIKE '%suffix'` into the string predicate family.
+    - Preserved deterministic blockers for unsupported `_` wildcards, exact string `LIKE` patterns,
+      and broad SQL string semantics outside this scoped runtime slice.
+  - Evidence:
+    - CLI JSON reports `predicate_operator_family=string_predicate`,
+      `string_predicate_runtime_execution=true`, `string_predicate_operator=ends_with`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Core expression tests assert the function evaluates locally and keeps fallback/external-engine
+      flags false.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core expression_semantics_evaluates_utf8_ends_with_without_fallback`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_string_like_predicates_without_fallback`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: scoped local SQL/CLI suffix string predicate runtime only. This does not claim
+    broad SQL pattern matching, regex, Unicode collation semantics, DataFrame parity, performance,
+    or production SQL support.
+
 - [x] Session label: GAR-VORTEX-071D Dependabot and upstream-release intake workflow hardening
   - Branch/PR: `codex/vortex-071-dependabot-intake` / #782.
   - Primary files:
