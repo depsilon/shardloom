@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F-S3 format-aware local-source evidence labels
+  - Branch/PR: `codex/jsonl-local-source-evidence-labels` / #796.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make `sql-local-source-smoke` evidence labels source-format-aware now that the same
+    runtime admits scoped CSV and flat JSONL/NDJSON rows.
+  - Runtime behavior:
+    - JSONL/NDJSON rows now emit JSONL-specific source certificate refs, execution certificate
+      refs, materialization boundary labels, pushdown status, and claim-gate reasons instead of
+      CSV-named labels.
+    - CSV rows keep their existing CSV labels for compatibility.
+  - Evidence:
+    - JSONL projection/filter/limit rows emit `source_certificate_ref=sql-local-source.jsonl.compatibility-source.v1`,
+      `execution_certificate_ref=sql-local-source.jsonl.projection-filter-limit.execution.v1`,
+      `materialization_boundary=local_jsonl_row_materialization_to_expression_semantics`,
+      `pushdown_status=not_applicable_local_jsonl_transient`, and
+      `claim_gate_reason=one_scoped_local_jsonl_sql_projection_filter_limit_smoke`.
+    - JSONL scalar aggregate rows emit the matching
+      `sql-local-source.jsonl.aggregate-filter-limit.execution.v1` certificate ref while preserving
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo test -p shardloom-cli sql_local_source_smoke_executes_jsonl_projection_filter_limit_with_source_state_evidence`
+    - `cargo test -p shardloom-cli sql_local_source_smoke_jsonl_scalar_aggregate_uses_jsonl_evidence_labels`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary: this is evidence-label correctness for scoped local CSV/JSONL SQL smoke rows
+    only. It does not add new operators, Python bridges, broad SQL/DataFrame runtime, object-store
+    runtime, performance claims, or production support.
+  - Fallback boundary: evidence labels remain attached to ShardLoom-owned local parsing, binding,
+    planning, and row evaluation only; no external engine fallback is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F-S2 Python query-builder JSONL local source bridge
   - Branch/PR: `codex/python-jsonl-query-builder-runtime` / #795.
   - Primary files:
