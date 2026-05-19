@@ -1381,6 +1381,71 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_local_csv_query_builder_with_column_literal_write_csv_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,'north' AS segment FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
+                    "--output-format",
+                    "csv",
+                    "--output",
+                    "target/out.csv",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source literal projection csv output",
+                    "human_text": "sql local source literal projection csv output",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"segment\\":\\"north\\"}\\n"},
+                        {"key": "output_path", "value": "target/out.csv"},
+                        {"key": "output_format", "value": "csv"},
+                        {"key": "literal_projection_runtime_execution", "value": "true"},
+                        {"key": "literal_projection_columns", "value": "segment"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "selected_row_count", "value": "1"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_csv_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("segment", "lit('north')")
+            .filter(sl.col("amount") >= 10)
+            .limit(2)
+            .write_csv("target/out.csv", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.output_path, "target/out.csv")
+        self.assertEqual(report.output_format, "csv")
+        self.assertEqual(report.envelope.field("literal_projection_columns"), "segment")
+        self.assertTrue(report.output_io_performed)
+        self.assertEqual(
+            report.output_native_io_certificate_status,
+            "certified_local_csv_sink",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_literal_table_write_uses_literal_table_source_kind(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

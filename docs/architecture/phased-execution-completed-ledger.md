@@ -16,6 +16,39 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5E literal projection local CSV output writer proof
+  - Branch/PR: `codex/literal-with-column-output-writers` / #805.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/tests/test_query_builder.py`
+  - Scope: align literal-projection output writing with the same output-column contract used by
+    evidence so local CSV sinks preserve explicit literal `with_column(...)` fields.
+  - Runtime behavior:
+    - `sql-local-source-smoke` now plans CSV sink headers from `ParsedSqlLocalSource::output_columns`
+      for projection, aggregate, grouped aggregate, join, and literal-projection rows.
+    - Python `.select(...).with_column(...).filter(...).limit(...).write_csv(...)` lowers into the
+      existing scoped ShardLoom SQL local-source runtime with CSV output evidence.
+  - Evidence:
+    - Rust smoke writes `id,segment` CSV output for a literal projection and verifies
+      `projected_columns=id,segment`, `literal_projection_columns=segment`,
+      `output_native_io_certificate_status=certified_local_csv_sink`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Python test asserts exact CLI lowering for the literal-column `write_csv(...)` path and typed
+      output report fields.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_literal_projection_csv_header -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_literal_write_csv_invokes_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: this is local CSV output proof for the scoped literal-column fixture-smoke path
+    only. It is not output fanout, Parquet/Arrow/Avro/ORC/Vortex sink parity, object-store/table
+    output, external fallback, production support, or a performance claim.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5C scoped input-backed literal `with_column` runtime
   - Branch/PR: `codex/input-with-column-literal` / #804.
   - Primary files:
