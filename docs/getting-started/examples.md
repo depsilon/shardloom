@@ -169,6 +169,27 @@ ShardLoom-owned expression semantics, emits `predicate_operator_family=date_arit
 fallback. It is not timestamp/timezone completeness, interval arithmetic, broad SQL function
 support, object-store/lakehouse support, or a performance claim.
 
+## SQL Local CSV Date Extract Smoke
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+id,event_date
+1,2026-04-18
+2,2026-05-19
+3,2026-05-20
+"@ | Set-Content -Encoding utf8 target\sql-local-source-date.csv
+cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT id,event_date FROM 'target/sql-local-source-date.csv' WHERE DATE_YEAR(CAST(event_date AS date32)) = 2026 AND DATE_MONTH(event_date) = 5 AND DATE_DAY(event_date) >= 19 LIMIT 10" --format json
+```
+
+Use this for the scoped GAR-RUNTIME-IMPL-4D Date32 extract slice. It parses, lowers, and executes
+`DATE_YEAR(column)`, `DATE_MONTH(column)`, and `DATE_DAY(column)` comparisons through
+ShardLoom-owned expression semantics, emits `predicate_operator_family=logical_predicate` when
+combined with logical predicates plus `date_extract_runtime_execution=true`,
+`date_extract_operator`, and `date_extract_source_column`, and blocks unsupported non-Date32 or
+non-integer comparison shapes before fallback. It is not timestamp/timezone completeness,
+generalized date function support, object-store/lakehouse support, or a performance claim.
+
 ## SQL Local CSV Scalar Aggregate Smoke
 
 ```powershell
@@ -378,7 +399,7 @@ convenience wrapper over the same `COUNT(*)` smoke; one-column
 smoke; and explicit-projection literal `with_column(...)` lowers to scoped literal projection.
 `where(...)` is a familiar alias for `filter(...)`. `sl.col(...)` is a Python predicate helper for
 admitted comparison, inclusive `between(...)`, null, string `LIKE`, bounded `IN`, cast/date,
-Date32 day arithmetic, and logical predicates; it lowers into ShardLoom's existing local SQL
+Date32 extract/day arithmetic, and logical predicates; it lowers into ShardLoom's existing local SQL
 runtime rather than a Python engine. It is not a pandas/Polars backend, broad DataFrame runtime,
 non-literal `with_column`, generalized grouped aggregate,
 ordering, or join runtime, object-store/table path, production SQL support, or performance claim.

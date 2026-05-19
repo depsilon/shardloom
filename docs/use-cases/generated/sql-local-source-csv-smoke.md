@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, Date32 day arithmetic, bounded IN, null, string, logical, and balanced parenthesized predicates when filters are present; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; optional local JSONL/CSV output sinks; and one Python query-builder local CSV inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals, including DATE literal lists, and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. Date arithmetic is scoped to DATE_ADD_DAYS/DATE_SUB_DAYS over Date32 day-count predicates. No broad SQL/DataFrame runtime, production SQL support, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, Date32 extract/day arithmetic, bounded IN, null, string, logical, and balanced parenthesized predicates; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV output sinks; and one Python query-builder local CSV inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals, including DATE literal lists, and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. Date extraction is scoped to DATE_YEAR/DATE_MONTH/DATE_DAY; date arithmetic is scoped to DATE_ADD_DAYS/DATE_SUB_DAYS. No broad SQL/DataFrame runtime, production SQL support, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ SQL local CSV projection/optional-filter/IN/limit, aggregate, group-by, top-N, a
 
 ## Claim Boundary
 
-Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, Date32 day arithmetic, bounded IN, null, string, logical, and balanced parenthesized predicates when filters are present; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; optional local JSONL/CSV output sinks; and one Python query-builder local CSV inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals, including DATE literal lists, and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. Date arithmetic is scoped to DATE_ADD_DAYS/DATE_SUB_DAYS over Date32 day-count predicates. No broad SQL/DataFrame runtime, production SQL support, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, Date32 extract/day arithmetic, bounded IN, null, string, logical, and balanced parenthesized predicates; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV output sinks; and one Python query-builder local CSV inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals, including DATE literal lists, and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. Date extraction is scoped to DATE_YEAR/DATE_MONTH/DATE_DAY; date arithmetic is scoped to DATE_ADD_DAYS/DATE_SUB_DAYS. No broad SQL/DataFrame runtime, production SQL support, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -42,6 +42,9 @@ Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV i
 - `source_format=csv`
 - `filter_runtime_execution`
 - `predicate_operator_family`
+- `date_extract_runtime_execution`
+- `date_extract_operator`
+- `date_extract_source_column`
 - `date_arithmetic_runtime_execution`
 - `date_arithmetic_operator`
 - `date_arithmetic_days`
@@ -81,7 +84,7 @@ Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV i
 
 ## Expected Output Or Evidence
 
-A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL or CSV output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, date_arithmetic_runtime_execution/operator/days/source_column when requested, in_predicate_runtime_execution and in_list_value_count when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL or CSV output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, date_extract_runtime_execution/operator/source_column and date_arithmetic_runtime_execution/operator/days/source_column when requested, in_predicate_runtime_execution and in_list_value_count when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

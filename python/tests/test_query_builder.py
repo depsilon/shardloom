@@ -392,6 +392,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(sl.col("event_dt").cast("date32").date_add_days(-2) < date(2026, 5, 20)),
             "DATE_ADD_DAYS(CAST(event_dt AS date32), -2) < DATE '2026-05-20'",
         )
+        self.assertEqual(
+            str(sl.col("event_dt").date_year() == 2026),
+            "DATE_YEAR(event_dt) = 2026",
+        )
+        self.assertEqual(
+            str(sl.col("event_dt").cast("date32").date_month() == 5),
+            "DATE_MONTH(CAST(event_dt AS date32)) = 5",
+        )
+        self.assertEqual(
+            str(sl.col("event_dt").date_day() >= 19),
+            "DATE_DAY(event_dt) >= 19",
+        )
         self.assertEqual(str(sl.col("f.amount") >= 10), "f.amount >= 10")
         self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
@@ -415,6 +427,69 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.col("event_dt").date_add_days("1 day")
         with self.assertRaises(ValueError):
             sl.col("event_dt").date_add_days(366_001)
+
+    def test_column_expression_builder_exposes_date_extract_report_fields(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,event_date FROM 'target/input.csv' WHERE (DATE_YEAR(event_date) = 2026 AND DATE_MONTH(event_date) = 5) LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"event_date\\":\\"2026-05-19\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "logical_predicate"},
+                        {"key": "logical_predicate_runtime_execution", "value": "true"},
+                        {"key": "date_extract_runtime_execution", "value": "true"},
+                        {"key": "date_extract_operator", "value": "date_year,date_month"},
+                        {"key": "date_extract_source_column", "value": "event_date,event_date"},
+                        {"key": "date_arithmetic_runtime_execution", "value": "false"},
+                        {"key": "date_arithmetic_operator", "value": "not_applicable"},
+                        {"key": "date_arithmetic_days", "value": "not_applicable"},
+                        {"key": "date_arithmetic_source_column", "value": "not_applicable"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "event_date")
+            .where(
+                (sl.col("event_date").date_year() == 2026)
+                & (sl.col("event_date").date_month() == 5)
+            )
+            .limit(10)
+            .collect()
+        )
+
+        self.assertTrue(report.date_extract_runtime_execution)
+        self.assertEqual(report.date_extract_operator, ("date_year", "date_month"))
+        self.assertEqual(report.date_extract_source_columns, ("event_date", "event_date"))
+        self.assertFalse(report.date_arithmetic_runtime_execution)
+        self.assertEqual(report.date_arithmetic_operator, ())
+        self.assertEqual(report.date_arithmetic_days, ())
+        self.assertEqual(report.date_arithmetic_source_columns, ())
 
     def test_local_csv_query_builder_where_between_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(

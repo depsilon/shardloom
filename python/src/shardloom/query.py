@@ -194,6 +194,21 @@ class ColumnExpression:
         normalized_days = _normalize_date_arithmetic_days(days)
         return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})")
 
+    def date_year(self) -> "ColumnExpression":
+        """Return a scoped Date32 year-extract expression for date predicates."""
+
+        return ColumnExpression(f"DATE_YEAR({self.sql})")
+
+    def date_month(self) -> "ColumnExpression":
+        """Return a scoped Date32 month-extract expression for date predicates."""
+
+        return ColumnExpression(f"DATE_MONTH({self.sql})")
+
+    def date_day(self) -> "ColumnExpression":
+        """Return a scoped Date32 day-of-month extract expression for date predicates."""
+
+        return ColumnExpression(f"DATE_DAY({self.sql})")
+
 
 @dataclass(frozen=True, slots=True)
 class WorkflowCertificationReport:
