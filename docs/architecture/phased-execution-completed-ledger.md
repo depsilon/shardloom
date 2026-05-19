@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0001B-A engine-replacement claim inventory
+  - Branch/PR: `codex/gar-0001b-engine-replacement-claim-inventory` / #761.
+  - Primary files:
+    - `shardloom-core/src/release.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/packaging_deployment.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/engine-replacement-claim-inventory.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0001B-A by adding a report-only inventory that maps replacement,
+    Spark-displacement, best-default, SQL/DataFrame, object-store/lakehouse, and managed-platform
+    claim families to the runtime, output, correctness, benchmark, certificate, Native I/O, and
+    no-fallback evidence required before any public claim.
+  - Checklist:
+    - [x] Add `shardloom.engine_replacement_claim_inventory.v1`.
+    - [x] Emit release-plan fields showing all replacement claim families remain
+          `claim_gate_status=not_claim_grade`.
+    - [x] Keep the slice report-only with no runtime execution, no benchmark rerun, no external
+          engine invocation, and no fallback.
+    - [x] Move GAR-0001B-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `engine_replacement_claim_inventory_schema_version=shardloom.engine_replacement_claim_inventory.v1`
+    - `engine_replacement_claim_inventory_claim_gate_status=not_claim_grade`
+    - `engine_replacement_claim_inventory_all_claims_blocked=true`
+    - `engine_replacement_claim_inventory_spark_displacement_claim_allowed=false`
+    - `engine_replacement_claim_inventory_public_engine_replacement_claim_allowed=false`
+    - `engine_replacement_claim_inventory_best_default_claim_allowed=false`
+    - `engine_replacement_claim_inventory_performance_superiority_claim_allowed=false`
+    - `engine_replacement_claim_inventory_production_platform_claim_allowed=false`
+    - `engine_replacement_claim_inventory_runtime_execution_performed=false`
+    - `engine_replacement_claim_inventory_benchmark_rerun_performed=false`
+    - `engine_replacement_claim_inventory_fallback_attempted=false`
+    - `engine_replacement_claim_inventory_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core engine_replacement_claim_inventory_blocks_displacement_claims_without_evidence`
+    - `cargo test -p shardloom-cli release_plan_fields_expose_engine_replacement_inventory`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that replacement/displacement language is inventoried
+    and blocked by deterministic release-plan evidence. It may not claim Spark displacement,
+    engine replacement, best-default status, production SQL/DataFrame support, object-store or
+    lakehouse replacement, managed-platform replacement, performance superiority, runtime proof,
+    benchmark rerun proof, external engine execution, or fallback execution.
+
 - [x] Session label: GAR-0023-A plugin ABI loading and UDF sandbox blocker
   - Branch/PR: `codex/gar-0023a-plugin-abi-udf-sandbox-blocker` / #760.
   - Primary files:
