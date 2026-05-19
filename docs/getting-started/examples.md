@@ -95,6 +95,44 @@ claim-gate evidence. It is not broad SQL runtime, a production SQL/DataFrame cla
 SQL source support, joins, aggregates, functions, subqueries, object-store/table support, or a
 performance claim.
 
+## Python Local CSV Query-Builder Smoke
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+id,label,amount
+1,alpha,8
+2,beta,15
+3,gamma,
+"@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
+$env:PYTHONPATH = "python\src"
+@'
+import shardloom as sl
+
+ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
+workflow = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter("amount >= 10")
+    .limit(1)
+)
+
+collected = workflow.collect()
+written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
+
+print(collected.result_jsonl)
+print(written.output_path)
+print(written.output_native_io_certificate_status)
+print(written.fallback_attempted, written.external_engine_invoked)
+'@ | python -
+```
+
+Use this for the scoped GAR-RUNTIME-IMPL-1C path that exposes the same local CSV SQL smoke through a
+Python DataFrame-like query builder. `collect()` returns bounded inline JSONL; `write()` writes a
+local JSONL result and emits output Native I/O certificate fields. It is not a pandas/Polars
+backend, broad DataFrame runtime, object-store/table path, production SQL support, or performance
+claim.
+
 ## Foundry Lightweight Transform
 
 ```powershell

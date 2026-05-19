@@ -247,6 +247,7 @@ def _df_method(
     blocker_id: str | None = None,
     required_evidence: Sequence[str] = (),
     runtime_execution: bool = False,
+    data_read: bool = False,
     materialization_required: bool = False,
     write_io: bool = False,
     claim_boundary: str,
@@ -260,7 +261,7 @@ def _df_method(
         blocker_id=blocker_id,
         required_evidence=tuple(required_evidence),
         runtime_execution=runtime_execution,
-        data_read=False,
+        data_read=data_read,
         write_io=write_io,
         materialization_required=materialization_required,
         fallback_attempted=False,
@@ -606,12 +607,39 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "collect",
         "materialization",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="collect",
-        blocker_id="cg21.workflow.collect.materialization_unsupported",
-        required_evidence=("materialization_boundary", "execution_certificate"),
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "materialization_boundary",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
-        claim_boundary=_MATERIALIZATION_BOUNDARY,
+        claim_boundary=(
+            "Scoped local CSV projection/filter/limit collect smoke only; no broad "
+            "DataFrame runtime, object-store/table source, external engine, fallback, "
+            "or production claim."
+        ),
+    ),
+    _df_method(
+        "write",
+        "write",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "local_jsonl_output",
+            "output_native_io_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Scoped local CSV projection/filter/limit JSONL output smoke only; no "
+            "broad DataFrame runtime, object-store/table sink, external engine, "
+            "fallback, or production claim."
+        ),
     ),
     _df_method(
         "to_pandas",

@@ -29,6 +29,7 @@ const COMMAND: &str = "sql-local-source-smoke";
 const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
 const EXECUTION_CERTIFICATE_ID: &str = "sql-local-source.csv.projection-filter-limit.execution.v1";
 const SOURCE_CERTIFICATE_ID: &str = "sql-local-source.csv.compatibility-source.v1";
+const OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 
@@ -36,6 +37,8 @@ const MAX_LIMIT_ROWS: usize = 10_000;
 struct SqlLocalSourceRequest {
     statement: String,
     output_format: SqlLocalSourceOutputFormat,
+    output_path: Option<PathBuf>,
+    allow_overwrite: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +108,8 @@ struct SqlLocalSourceReport {
     plan_digest: String,
     source_schema_digest: String,
     result_digest: String,
+    output_write_millis: u128,
+    output_bytes: u64,
     operator_compute_millis: u128,
     evidence_render_millis: u128,
     total_runtime_millis: u128,
@@ -116,12 +121,14 @@ pub(crate) fn handle_sql_local_source_smoke(
 ) -> ExitCode {
     let Some(statement_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl] [--format text|json]"
+            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl] [--output local.jsonl] [--allow-overwrite] [--format text|json]"
         );
         return ExitCode::from(2);
     };
 
     let mut output_format = SqlLocalSourceOutputFormat::InlineJsonl;
+    let mut output_path = None;
+    let mut allow_overwrite = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--output-format" => {
@@ -147,6 +154,28 @@ pub(crate) fn handle_sql_local_source_smoke(
                     }
                 };
             }
+            "--output" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        COMMAND,
+                        format,
+                        "SQL local-source smoke failed",
+                        &ShardLoomError::InvalidOperation("--output requires a value".to_string()),
+                    );
+                };
+                output_path = match normalize_local_output_path(&value) {
+                    Ok(parsed) => Some(parsed),
+                    Err(error) => {
+                        return emit_error(
+                            COMMAND,
+                            format,
+                            "SQL local-source smoke failed",
+                            &error,
+                        );
+                    }
+                };
+            }
+            "--allow-overwrite" => allow_overwrite = true,
             extra => {
                 return emit_error(
                     COMMAND,
@@ -161,6 +190,8 @@ pub(crate) fn handle_sql_local_source_smoke(
     let request = SqlLocalSourceRequest {
         statement: statement_raw,
         output_format,
+        output_path,
+        allow_overwrite,
     };
     let report = match run_sql_local_source_smoke(&request) {
         Ok(report) => report,
@@ -255,6 +286,8 @@ fn run_sql_local_source_smoke(
         request.output_format.as_str()
     ));
     let evidence_render_millis = evidence_start.elapsed().as_millis();
+    let output_bytes = u64::try_from(result_jsonl.len()).unwrap_or(u64::MAX);
+    let output_write_millis = write_optional_sql_output(request, &result_jsonl)?;
 
     Ok(SqlLocalSourceReport {
         request: request.clone(),
@@ -266,10 +299,45 @@ fn run_sql_local_source_smoke(
         plan_digest,
         source_schema_digest,
         result_digest,
+        output_write_millis,
+        output_bytes,
         operator_compute_millis,
         evidence_render_millis,
         total_runtime_millis: total_start.elapsed().as_millis(),
     })
+}
+
+fn write_optional_sql_output(
+    request: &SqlLocalSourceRequest,
+    result_jsonl: &str,
+) -> Result<u128, ShardLoomError> {
+    let Some(output_path) = request.output_path.as_ref() else {
+        return Ok(0);
+    };
+    if output_path.exists() && !request.allow_overwrite {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "SQL local-source output path already exists: {}; pass --allow-overwrite to replace it",
+            output_path.display()
+        )));
+    }
+    if let Some(parent) = output_path.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent).map_err(|error| {
+                ShardLoomError::Message(format!(
+                    "failed to create local SQL output directory {}: {error}",
+                    parent.display()
+                ))
+            })?;
+        }
+    }
+    let write_start = Instant::now();
+    fs::write(output_path, result_jsonl.as_bytes()).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to write local SQL output {}: {error}",
+            output_path.display()
+        ))
+    })?;
+    Ok(write_start.elapsed().as_millis())
 }
 
 fn bind_sql_local_source(
@@ -444,6 +512,16 @@ impl SqlLocalSourceReport {
             ),
             ("result_jsonl".to_string(), self.result_jsonl.clone()),
             (
+                "output_path".to_string(),
+                self.request
+                    .output_path
+                    .as_ref()
+                    .map_or_else(String::new, |path| path.display().to_string()),
+            ),
+            ("output_format".to_string(), "jsonl".to_string()),
+            ("output_bytes".to_string(), self.output_bytes.to_string()),
+            ("output_digest".to_string(), self.result_digest.clone()),
+            (
                 "source_read_millis".to_string(),
                 self.source.read_millis.to_string(),
             ),
@@ -455,7 +533,14 @@ impl SqlLocalSourceReport {
                 "operator_compute_millis".to_string(),
                 self.operator_compute_millis.to_string(),
             ),
-            ("result_sink_write_millis".to_string(), "0".to_string()),
+            (
+                "result_sink_write_millis".to_string(),
+                self.output_write_millis.to_string(),
+            ),
+            (
+                "output_write_millis".to_string(),
+                self.output_write_millis.to_string(),
+            ),
             (
                 "evidence_render_millis".to_string(),
                 self.evidence_render_millis.to_string(),
@@ -490,8 +575,32 @@ impl SqlLocalSourceReport {
             ),
             ("data_decoded".to_string(), "true".to_string()),
             ("data_materialized".to_string(), "true".to_string()),
-            ("output_io_performed".to_string(), "false".to_string()),
-            ("write_io".to_string(), "false".to_string()),
+            (
+                "output_io_performed".to_string(),
+                self.request.output_path.is_some().to_string(),
+            ),
+            (
+                "write_io".to_string(),
+                self.request.output_path.is_some().to_string(),
+            ),
+            (
+                "output_native_io_certificate_status".to_string(),
+                if self.request.output_path.is_some() {
+                    "certified_local_jsonl_sink"
+                } else {
+                    "not_requested"
+                }
+                .to_string(),
+            ),
+            (
+                "output_certificate_ref".to_string(),
+                if self.request.output_path.is_some() {
+                    OUTPUT_CERTIFICATE_ID
+                } else {
+                    ""
+                }
+                .to_string(),
+            ),
             ("object_store_io".to_string(), "false".to_string()),
             ("network_probe".to_string(), "false".to_string()),
             ("catalog_probe".to_string(), "false".to_string()),
@@ -529,8 +638,12 @@ impl SqlLocalSourceReport {
     }
 
     fn to_text(&self) -> String {
+        let output = self.request.output_path.as_ref().map_or_else(
+            || "not requested".to_string(),
+            |path| path.display().to_string(),
+        );
         format!(
-            "SQL local-source smoke\nschema_version: {SCHEMA_VERSION}\nsource: {}\nrows read: {}\nrows selected: {}\nrows output: {}\nresult:\n{}fallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "SQL local-source smoke\nschema_version: {SCHEMA_VERSION}\nsource: {}\nrows read: {}\nrows selected: {}\nrows output: {}\noutput: {output}\nresult:\n{}fallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
             self.parsed.source_path.display(),
             self.source.rows.len(),
             self.selected_row_count,
@@ -565,7 +678,8 @@ fn read_local_csv_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
             "CSV source must include a header row",
         ));
     }
-    let header = records.remove(0);
+    let mut header = records.remove(0);
+    strip_utf8_bom_from_first_header_cell(&mut header);
     if header.is_empty() {
         return Err(unsupported_sql_error("CSV source header must not be empty"));
     }
@@ -598,6 +712,72 @@ fn read_local_csv_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
         read_millis,
         parse_millis: parse_start.elapsed().as_millis(),
     })
+}
+
+fn normalize_local_output_path(value: &str) -> Result<PathBuf, ShardLoomError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "SQL local-source output path must not be empty".to_string(),
+        ));
+    }
+    if trimmed.contains("://") && !trimmed.starts_with("file://") {
+        return Err(ShardLoomError::InvalidOperation(
+            "scoped SQL local-source smokes support local file output only; object-store and remote URI writes remain blocked".to_string(),
+        ));
+    }
+    let local = if let Some(rest) = trimmed.strip_prefix("file://") {
+        local_path_from_file_uri(rest)?
+    } else {
+        trimmed.to_string()
+    };
+    if local.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "file:// SQL local-source output path must include a local path".to_string(),
+        ));
+    }
+    Ok(Path::new(&local).to_path_buf())
+}
+
+fn strip_utf8_bom_from_first_header_cell(header: &mut [String]) {
+    if let Some(first) = header.first_mut() {
+        if let Some(stripped) = first.strip_prefix('\u{feff}') {
+            *first = stripped.to_string();
+        }
+    }
+}
+
+fn local_path_from_file_uri(rest: &str) -> Result<String, ShardLoomError> {
+    if rest.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "file:// SQL local-source output path must include a local path".to_string(),
+        ));
+    }
+    let local = if rest.starts_with('/') {
+        rest.to_string()
+    } else {
+        let Some((authority, path)) = rest.split_once('/') else {
+            return Err(ShardLoomError::InvalidOperation(
+                "file:// SQL local-source output path must include a local path".to_string(),
+            ));
+        };
+        if !authority.is_empty() && !authority.eq_ignore_ascii_case("localhost") {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "file:// SQL local-source output URI authority {authority:?} is not local; only empty authority or localhost is allowed"
+            )));
+        }
+        format!("/{path}")
+    };
+    if cfg!(windows)
+        && local.len() >= 3
+        && local.as_bytes()[0] == b'/'
+        && local.as_bytes()[2] == b':'
+        && local.as_bytes()[1].is_ascii_alphabetic()
+    {
+        Ok(local[1..].to_string())
+    } else {
+        Ok(local)
+    }
 }
 
 fn reject_remote_source_path(path: &Path) -> Result<(), ShardLoomError> {

@@ -162,6 +162,121 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_collect_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter("amount >= 10")
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.result_jsonl, '{"id":2,"label":"beta"}\n')
+        self.assertEqual(report.output_row_count, 1)
+        self.assertEqual(report.selected_row_count, 2)
+        self.assertFalse(report.output_io_performed)
+        self.assertEqual(report.output_native_io_certificate_status, "not_requested")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--output",
+                    "target/out.jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_path", "value": "target/out.jsonl"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .filter("amount >= 10")
+            .limit(2)
+            .write("target/out.jsonl", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.output_path, "target/out.jsonl")
+        self.assertTrue(report.output_io_performed)
+        self.assertEqual(
+            report.output_native_io_certificate_status,
+            "certified_local_jsonl_sink",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_literal_table_write_uses_literal_table_source_kind(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

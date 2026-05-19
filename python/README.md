@@ -6,10 +6,10 @@ no-fallback, evidence-certified local compute engine. It invokes the workspace
 preserves typed result/artifact/certificate payloads, diagnostics, fallback
 status, and the temporary legacy field mirror.
 
-It is intentionally not a native binding, DataFrame API, SQL runtime, UDF
-runtime, or fallback execution path. Importing the package has no ShardLoom
-side effects. Work happens only when a caller explicitly invokes a CLI command
-through `ShardLoomClient`.
+It is intentionally not a native binding, broad DataFrame API, broad SQL runtime, UDF runtime, or
+fallback execution path. Importing the package has no ShardLoom side effects. Work happens only when
+a caller explicitly invokes a CLI command through `ShardLoomClient` or one of the scoped Python
+helpers that wraps an evidence-backed CLI smoke.
 
 ## Local Use
 
@@ -320,11 +320,53 @@ print(unsupported.fallback_attempted)
 ```
 
 The same top-level helpers are exported as `sl.read_vortex`, `sl.read_csv`,
-`sl.read_json`, and `sl.read_parquet`. They only declare sources and
-transformations. `plan()`, `explain()`, `estimate()`, `certify()`, and
+`sl.read_json`, and `sl.read_parquet`. Most helper chains still declare sources
+and transformations only. `plan()`, `explain()`, `estimate()`, `certify()`, and
 `unsupported_report()` are explicit report calls over CLI JSON surfaces; they do
 not read input files, infer schemas, materialize rows, probe object stores,
 write output, or invoke fallback engines.
+
+One scoped local CSV query-builder workflow is executable through the same
+typed CLI bridge. A workflow shaped as `read_csv(...).select(...).filter(...)
+.limit(...)` lowers to ShardLoom's `sql-local-source-smoke` path, runs
+ShardLoom-owned projection/filter/limit semantics, and returns a typed evidence
+report. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL
+file and emits output Native I/O certificate fields:
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+id,label,amount
+1,alpha,8
+2,beta,15
+3,gamma,
+"@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
+$env:PYTHONPATH = "python\src"
+@'
+import shardloom as sl
+
+ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
+workflow = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter("amount >= 10")
+    .limit(1)
+)
+
+collected = workflow.collect()
+written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
+
+print(collected.result_jsonl)
+print(written.output_path)
+print(written.output_native_io_certificate_status)
+print(written.fallback_attempted, written.external_engine_invoked)
+'@ | python -
+```
+
+This is a fixture-smoke local CSV path only. It does not make the Python client
+a pandas/Polars-like execution engine, does not add broad SQL/DataFrame
+runtime, does not support object stores or table/lakehouse inputs, and does not
+create a performance or production claim.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A
 future Python `explain()` trace should expose optimizer rule status, before/after plan digests,
@@ -411,13 +453,16 @@ print(join.required_evidence)
 print(join.claim_boundary)
 ```
 
-This matrix is report-only. It does not execute a plan, inspect datasets, import
-DataFrame libraries, materialize rows, write output, invoke external engines, or
-upgrade DataFrame/notebook support to claim-grade status. Current lazy source,
-`filter`, `select`, `limit`, and `group_by` helpers are side-effect-free
-declarations; joins, aggregations, windows, writes, schema/data-quality helpers,
-materialization, and notebook display remain deterministic unsupported
-diagnostic surfaces unless later evidence-backed slices promote them.
+This matrix is mostly report-only, with the scoped local CSV `collect` and
+`write` rows marked as fixture-smoke-supported only for the admitted
+projection/filter/limit shape described above. It does not import DataFrame
+libraries, invoke external engines, or upgrade DataFrame/notebook support to
+claim-grade status. Other lazy source, `filter`, `select`, `limit`, and
+`group_by` helpers remain side-effect-free declarations unless an admitted
+terminal method is called. Joins, aggregations beyond admitted slices, windows,
+schema/data-quality helpers, materialization to Python objects, and notebook
+display remain deterministic unsupported diagnostic surfaces unless later
+evidence-backed slices promote them.
 
 The CG-21 ETL workflow surface also has a compact typed matrix for current local
 workflow posture. Use it when a wrapper, notebook, or agent needs one place to

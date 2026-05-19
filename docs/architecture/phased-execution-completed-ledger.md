@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-1C Python query-builder first complete local workflow
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/python-local-csv-query-builder-smoke.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/use-cases/python-local-csv-query-builder-smoke.html`
+    - `website/assets/data/compute-engine-flow-reference.md`
+  - Scope: promote the first Python DataFrame-like local workflow into a scoped runtime smoke by
+    wrapping the admitted SQL local CSV projection/filter/limit path through Python
+    `read_csv().select().filter().limit().collect()/write(...)`.
+  - Checklist:
+    - [x] Add optional local JSONL output support to `sql-local-source-smoke` with output path,
+          digest, bytes, write timing, output Native I/O certificate status, and no-fallback fields.
+    - [x] Preserve bounded inline JSONL collection for the same SQL local-source command.
+    - [x] Add Python `SqlLocalSourceSmokeReport` typed accessors for result JSONL, output path,
+          selected/output row counts, output I/O, output certificate status, fallback status, and
+          claim gate.
+    - [x] Lower `ctx.read_csv(...).select(...).filter(...).limit().collect()` to the admitted SQL
+          local-source smoke without importing pandas, Polars, DuckDB, DataFusion, Spark, or Dask.
+    - [x] Add `write()` / `write_jsonl()` terminal methods for the same admitted local CSV shape,
+          with local JSONL output and certificate fields.
+    - [x] Update DataFrame method capability rows so `collect` and `write` are
+          fixture-smoke-supported only for the scoped local CSV shape.
+    - [x] Add docs, Use Case Atlas, generated website pages, Field Guide backlinks, rendered README,
+          and compute-flow snapshot updates for the Python workflow.
+    - [x] Move GAR-RUNTIME-IMPL-1C out of the active Planned queue while leaving broader Python
+          completion represented by GAR-RUNTIME-IMPL-2D and GAR-RUNTIME-IMPL-3E.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `python website/build_static_pages.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - This admits only one scoped local CSV Python query-builder smoke for
+      `read_csv().select().filter().limit().collect()/write()` over the same SQL local-source
+      subset. It does not add pandas/Polars execution, broad DataFrame parity, broad SQL support,
+      joins, aggregates, windows, Parquet/Vortex SQL sources, object-store/table/lakehouse support,
+      Foundry support, package publication, performance claims, production claims, or
+      Spark-replacement claims.
+  - Fallback boundary:
+    - Python orchestrates the ShardLoom CLI only. SQL parsing, binding, planning, local CSV row
+      evaluation, inline result rendering, and local JSONL output are ShardLoom-owned for the
+      admitted subset. Unsupported Python methods return deterministic diagnostics and do not
+      invoke pandas, Polars, DuckDB, DataFusion, Spark, Dask, SQLite, Vortex query-engine
+      integrations, object-store providers, or any external fallback engine.
+
 - [x] Session label: GAR-RUNTIME-IMPL-1B SQL local-source projection/filter/limit runtime
   - Primary files:
     - `shardloom-cli/src/sql_local_source_runtime.rs`
