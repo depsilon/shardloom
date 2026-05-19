@@ -112,6 +112,7 @@ Reference index:
   `docs/architecture/workspace-feature-build-matrix.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
+  `docs/architecture/credential-policy-enforcement-gate.md`,
   `docs/architecture/substrait-report-only-contract.md`,
   `docs/architecture/rfc-coverage-followthrough.md`,
   `docs/architecture/typed-command-result-envelope.md`,
@@ -154,6 +155,21 @@ Autonomous ordering rule:
    that protects user-visible behavior, or a validator that gates runtime claims. Docs-only or
    report-only work cannot complete a runtime item unless the item is explicitly a runtime-safety
    blocker.
+
+Live plan hygiene:
+
+- Planned must contain only unchecked actionable work. Completed checklist items, completed
+  sections, and completed session details belong only in
+  `docs/architecture/phased-execution-completed-ledger.md`.
+- If a completed item is found in Planned, remove it from this file after confirming the matching
+  ledger entry exists or adding that ledger entry.
+- Do not leave a completed parent section in Planned just to preserve history. Keep only active
+  child work or a short pointer to the ledger when history is needed.
+- Do not start a runtime implementation item while unchecked non-runtime closeout items remain
+  above it unless the user explicitly reprioritizes and the reprioritization is recorded here.
+- A runtime item is valid only when it has a `Runtime enablement:` field that names the runnable
+  path, admission/blocker, or validator it enables. If that field cannot be made concrete, the item
+  belongs in non-runtime planning or the completed ledger, not the runtime queue.
 
 ### Global Architecture Review Carry-Forward
 
@@ -201,22 +217,15 @@ runtime behavior or support claims. The GAR-P0/P4/P5 groups in this section are 
 non-runtime queue; do not start the runtime implementation queue below until these are closed or
 explicitly reprioritized.
 
+Current non-runtime sequence:
+
+1. Close the remaining P4 governance/extension blockers.
+2. Close the P5 correctness, benchmark, claim, and release gates.
+3. Move each completed session to the ledger immediately after the PR/session closes.
+4. Only then enter the runtime implementation queue below.
+
 ##### Non-Runtime GAR-P4 - Extension, Governance, And Runtime Policy
 
-- [ ] GAR-0019-A credential lifecycle and policy enforcement gate
-  - Source: RFC 0019; operational evidence policy hardening; security docs.
-  - Current state: security/policy reports exist; production credential lifecycle and runtime policy
-    enforcement are not complete.
-  - Next slice outcome: gate for credential resolution, secret loading, redaction, workspace policy,
-    runtime permission checks, and unsupported diagnostics.
-  - User-visible surface: CLI security/governance plan, release security gate.
-  - Implementation scope: security report fields, CLI output, tests.
-  - Evidence required: security policy refs, redaction/path-safety refs, no-fallback refs.
-  - Acceptance: credential use defaults to denied unless a slice explicitly admits it with evidence.
-  - Verification: security/path-safety tests, release security gate tests.
-  - Non-goals: no secret loading, network credential use, or production policy runtime.
-  - Fallback/claim boundary: no governed production runtime claim.
-  - Dependencies/blockers: security release gate.
 - [ ] GAR-0019-B sandbox and governance runtime readiness
   - Source: RFC 0019; RFC 0023; effect budget plan.
   - Current state: sandbox/governance concepts exist; sandbox execution is not a production runtime.
@@ -388,7 +397,7 @@ explicitly reprioritized.
   - Fallback/claim boundary: rehearsal does not authorize release claims.
   - Dependencies/blockers: GAR-0043-A validators and GAR-0024 publication gate.
 
-#### Runtime Implementation Queue
+#### Runtime Implementation Queue - Runtime-Enabling Work Only
 
 The earlier broad runtime rollup queues have been consolidated into the implementation-ready
 `GAR-RUNTIME-IMPL-4*` and `GAR-RUNTIME-IMPL-5*` queues below. Work these only after the
@@ -827,11 +836,12 @@ or documentation updates alone are insufficient.
 #### GAR-RUNTIME-IMPL-5 - Runtime Coverage Assurance Implementation Slices
 
 This final queue exists to make the "fully functional / usable compute engine" goal explicit at the
-end of Planned. These are coverage-assurance slices for runtime surfaces that are easy to overclaim.
-If a 4-series item enables the first runtime path, the matching 5-series item must either prove the
-surface is broadly usable or split the remaining runtime gaps into smaller implementation slices.
-Completing a 5-series item requires evidence, validators, docs/website parity, and a completed-ledger
-entry.
+end of Planned. These are coverage-assurance backstops, not a second parallel runtime queue. Work a
+5-series item only after the matching 4-series runtime item has landed or when the 4-series item
+explicitly splits residual runtime gaps into this queue. Each 5-series item must either prove the
+surface is broadly usable through real runtime evidence or split the remaining runtime gaps into
+smaller implementation slices. Completing a 5-series item requires evidence, validators,
+docs/website parity, and a completed-ledger entry.
 
 - [ ] GAR-RUNTIME-IMPL-5A generated-source end-user runtime builders
   - Source: `GAR-RUNTIME-IMPL-4E`, `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source

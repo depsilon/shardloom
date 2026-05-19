@@ -3410,6 +3410,91 @@ fn gar_0011_a_extension_manifest_effect_matrix_remains_report_only() {
 }
 
 #[test]
+fn gar_0019_a_credential_policy_enforcement_gate_remains_report_only() {
+    let security = read_repo_file("shardloom-core/src/security.rs");
+    for required in [
+        "CredentialPolicyEnforcementGateReport",
+        "shardloom.credential_policy_enforcement_gate.v1",
+        "gar-0019-a.credential_lifecycle_policy_enforcement_gate",
+        "credential_references_only: true",
+        "credential_resolution_performed: false",
+        "secret_loading_performed: false",
+        "secret_value_materialized: false",
+        "production_policy_runtime_supported: false",
+        "network_probe_performed: false",
+        "external_effect_executed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "credential_reference_inventory",
+        "secret_loading",
+        "environment_secret_provider",
+        "file_secret_provider",
+        "external_secret_manager_provider",
+        "cloud_iam_provider",
+        "runtime_permission_check",
+    ] {
+        assert!(
+            security.contains(required),
+            "missing credential policy gate marker {required}"
+        );
+    }
+
+    let operational = read_repo_file("shardloom-cli/src/operational_hardening.rs");
+    for required in [
+        "append_credential_policy_enforcement_gate_fields",
+        "credential_policy_gate_schema_version",
+        "credential_policy_gate_all_credential_runtime_blocked",
+        "credential_policy_gate_secret_loading_performed",
+        "credential_policy_gate_external_engine_invoked",
+    ] {
+        assert!(
+            operational.contains(required),
+            "missing credential policy CLI field marker {required}"
+        );
+    }
+
+    let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    assert!(capabilities.contains("append_credential_policy_enforcement_gate_fields"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::SecurityGovernance"));
+
+    let doc = read_repo_file("docs/architecture/credential-policy-enforcement-gate.md");
+    for required in [
+        "GAR-0019-A",
+        "credential_policy_gate_schema_version=shardloom.credential_policy_enforcement_gate.v1",
+        "credential_policy_gate_claim_gate_status=not_claim_grade",
+        "credential_policy_gate_all_credential_runtime_blocked=true",
+        "credential_policy_gate_credential_resolution_performed=false",
+        "credential_policy_gate_secret_loading_performed=false",
+        "credential_policy_gate_secret_value_materialized=false",
+        "credential_policy_gate_external_engine_invoked=false",
+        "no credential resolution claim",
+        "no governed production runtime claim",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing credential policy doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0019-A credential lifecycle"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0019-A credential lifecycle and policy enforcement gate"));
+    assert!(completed.contains("shardloom.credential_policy_enforcement_gate.v1"));
+    assert!(completed.contains("credential_policy_gate_secret_loading_performed=false"));
+    assert!(completed.contains("credential_policy_gate_external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0019-A` adds `shardloom.credential_policy_enforcement_gate.v1`"));
+    assert!(gar.contains("Credential resolution, secret loading"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("11B, 13A, GAR-0019-A"));
+    assert!(traceability.contains("shardloom.credential_policy_enforcement_gate.v1"));
+}
+
+#[test]
 fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
     let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
     for required in [

@@ -7,9 +7,11 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    AgentSafetyMode, CommandStatus, EffectBudgetReport, ExternalEffectBlockerMatrix,
+    AgentSafetyMode, CommandStatus, CredentialPolicyEnforcementGateReport,
+    CredentialPolicyEnforcementGateRow, EffectBudgetReport, ExternalEffectBlockerMatrix,
     ExternalEffectBlockerRow, OutputFormat, RedactionPolicy, SecurityGovernanceEvidenceGateReport,
-    SecurityPlan, ShardLoomError, plan_security_governance_evidence_gate,
+    SecurityPlan, ShardLoomError, plan_credential_policy_enforcement_gate,
+    plan_security_governance_evidence_gate,
 };
 use shardloom_exec::{
     AttemptId, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
@@ -2639,7 +2641,162 @@ pub(crate) fn security_governance_evidence_gate_fields(
     let mut fields = Vec::new();
     append_security_governance_evidence_gate_summary_fields(&mut fields, report);
     append_security_governance_evidence_gate_entry_fields(&mut fields, report);
+    append_credential_policy_enforcement_gate_fields(&mut fields);
     fields
+}
+
+pub(crate) fn append_credential_policy_enforcement_gate_fields(fields: &mut Vec<(String, String)>) {
+    let report = plan_credential_policy_enforcement_gate();
+    append_credential_policy_enforcement_gate_summary_fields(fields, &report);
+    for row in &report.rows {
+        append_credential_policy_enforcement_gate_row_fields(fields, row);
+    }
+}
+
+fn append_credential_policy_enforcement_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CredentialPolicyEnforcementGateReport,
+) {
+    let row_order = report.row_order().join(",");
+    let blocker_ids = report.blocker_ids().join(",");
+    let required_evidence = report.required_evidence().join("|");
+    for (key, value) in [
+        (
+            "credential_policy_gate_schema_version",
+            report.schema_version,
+        ),
+        ("credential_policy_gate_id", report.gate_id),
+        ("credential_policy_gate_docs_ref", report.docs_ref),
+        (
+            "credential_policy_gate_support_status",
+            report.support_status,
+        ),
+        (
+            "credential_policy_gate_claim_gate_status",
+            report.claim_gate_status,
+        ),
+    ] {
+        push_field(fields, key, value);
+    }
+    push_count_field(
+        fields,
+        "credential_policy_gate_row_count",
+        report.rows.len(),
+    );
+    for (key, value) in [
+        ("credential_policy_gate_row_order", row_order.as_str()),
+        ("credential_policy_gate_blocker_ids", blocker_ids.as_str()),
+        (
+            "credential_policy_gate_required_evidence",
+            required_evidence.as_str(),
+        ),
+    ] {
+        push_field(fields, key, value);
+    }
+    for (key, value) in [
+        (
+            "credential_policy_gate_all_credential_runtime_blocked",
+            report.all_credential_runtime_blocked(),
+        ),
+        (
+            "credential_policy_gate_credential_references_only",
+            report.credential_references_only,
+        ),
+        (
+            "credential_policy_gate_credential_resolution_performed",
+            report.credential_resolution_performed,
+        ),
+        (
+            "credential_policy_gate_secret_loading_performed",
+            report.secret_loading_performed,
+        ),
+        (
+            "credential_policy_gate_secret_value_materialized",
+            report.secret_value_materialized,
+        ),
+        (
+            "credential_policy_gate_runtime_permission_checks_enforced",
+            report.runtime_permission_checks_enforced,
+        ),
+        (
+            "credential_policy_gate_workspace_policy_enforced",
+            report.workspace_policy_enforced,
+        ),
+        (
+            "credential_policy_gate_production_policy_runtime_supported",
+            report.production_policy_runtime_supported,
+        ),
+        (
+            "credential_policy_gate_redaction_required",
+            report.redaction_required,
+        ),
+        (
+            "credential_policy_gate_audit_required",
+            report.audit_required,
+        ),
+        (
+            "credential_policy_gate_network_probe_performed",
+            report.network_probe_performed,
+        ),
+        (
+            "credential_policy_gate_external_effect_executed",
+            report.external_effect_executed,
+        ),
+        (
+            "credential_policy_gate_fallback_attempted",
+            report.fallback_attempted,
+        ),
+        (
+            "credential_policy_gate_external_engine_invoked",
+            report.external_engine_invoked,
+        ),
+    ] {
+        push_bool_field(fields, key, value);
+    }
+}
+
+fn append_credential_policy_enforcement_gate_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &CredentialPolicyEnforcementGateRow,
+) {
+    let prefix = format!("credential_policy_gate_row_{}", row.row_id);
+    for (suffix, value) in [
+        ("lifecycle_surface", row.lifecycle_surface),
+        ("support_status", row.support_status),
+        ("default_policy", row.default_policy),
+        ("blocker_id", row.blocker_id),
+        ("diagnostic_code", row.diagnostic_code),
+        ("required_evidence", row.required_evidence),
+        ("user_visible_surface", row.user_visible_surface),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    for (suffix, value) in [
+        (
+            "credential_resolution_performed",
+            row.credential_resolution_performed,
+        ),
+        ("secret_loading_performed", row.secret_loading_performed),
+        ("secret_value_materialized", row.secret_value_materialized),
+        (
+            "runtime_permission_check_enforced",
+            row.runtime_permission_check_enforced,
+        ),
+        ("workspace_policy_enforced", row.workspace_policy_enforced),
+        ("redaction_required", row.redaction_required),
+        ("audit_required", row.audit_required),
+        ("network_probe_performed", row.network_probe_performed),
+        ("external_effect_executed", row.external_effect_executed),
+        ("fallback_attempted", row.fallback_attempted),
+        ("external_engine_invoked", row.external_engine_invoked),
+    ] {
+        push_bool_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
 }
 
 fn append_security_governance_evidence_gate_summary_fields(

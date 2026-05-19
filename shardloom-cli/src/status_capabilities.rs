@@ -34,7 +34,10 @@ use crate::{
     engine_runtime_planning::append_streaming_capability_matrix_summary_fields,
     evidence_certificates::append_best_default_certification_gate_fields,
     extension_planning::append_extension_manifest_effect_capability_matrix_fields,
-    operational_hardening::append_external_effect_blocker_matrix_fields,
+    operational_hardening::{
+        append_credential_policy_enforcement_gate_fields,
+        append_external_effect_blocker_matrix_fields,
+    },
 };
 
 const WORKFLOW_OPERATION_NAMES: &str = concat!(
@@ -9040,6 +9043,9 @@ fn world_class_surface_fields(
             | CapabilityDiscoveryScope::SecurityGovernance
     ) {
         append_extension_manifest_effect_capability_matrix_fields(&mut fields);
+    }
+    if scope == CapabilityDiscoveryScope::SecurityGovernance {
+        append_credential_policy_enforcement_gate_fields(&mut fields);
     }
     if matches!(
         scope,
