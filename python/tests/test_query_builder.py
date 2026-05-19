@@ -748,6 +748,126 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_join_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source join",
+                    "human_text": "sql local source join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":2,\\"d.segment\\":\\"enterprise\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_equi_join_filter_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "inner_equi"},
+                        {"key": "join_left_key", "value": "f.customer_id"},
+                        {"key": "join_right_key", "value": "d.customer_id"},
+                        {"key": "join_matched_row_count", "value": "3"},
+                        {"key": "join_rows_output", "value": "1"},
+                        {"key": "join_memory_estimate_bytes", "value": "2240"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), on="customer_id")
+            .select("f.id", "d.segment")
+            .filter("f.amount >= 10")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_type, "inner_equi")
+        self.assertEqual(report.join_left_key, "f.customer_id")
+        self.assertEqual(report.join_right_key, "d.customer_id")
+        self.assertEqual(report.join_matched_row_count, 3)
+        self.assertEqual(report.join_rows_output, 1)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_join_write_invokes_sql_smoke_output(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--output",
+                    "target/joined.jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source join",
+                    "human_text": "sql local source join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":2,\\"d.segment\\":\\"enterprise\\"}\\n"},
+                        {"key": "output_path", "value": "target/joined.jsonl"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "inner_equi"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join("target/dim.csv", on="customer_id")
+            .select("f.id", "d.segment")
+            .filter("f.amount >= 10")
+            .limit(10)
+            .write("target/joined.jsonl", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.output_path, "target/joined.jsonl")
+        self.assertTrue(report.output_io_performed)
+        self.assertEqual(report.output_native_io_certificate_status, "certified_local_jsonl_sink")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -1726,7 +1846,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.sql_bind("select * from events"),
             ctx.sql_plan("select * from events"),
             ctx.sql_execute("select * from events"),
-            workflow.join("dim.csv", on="id"),
+            workflow.join("dim.csv", on=("id", "other_id")),
             workflow.aggregate("sum(amount)"),
             workflow.window("row_number() over (partition by id)"),
             workflow.schema_contract({"id": "int64"}),

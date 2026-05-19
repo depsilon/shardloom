@@ -1289,9 +1289,10 @@ runnable, documented, tested, and claim-safe.
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
     capability matrix, `docs/getting-started/examples.md`.
   - Current state: Python `read_csv(...).select(...).filter(...).limit(...).collect()/write(...)`,
-    scalar aggregate, one-column grouped aggregate, single-key top-N, and generated-output helpers
-    exist for scoped local workflows. Python DataFrame joins, `with_column`, broader expression
-    projection, richer outputs, and parity-like method coverage remain unsupported/report-only.
+    scalar aggregate, one-column grouped aggregate, single-key top-N, scoped local CSV inner
+    equi-join, and generated-output helpers exist for scoped local workflows. Broad Python
+    DataFrame joins, `with_column`, broader expression projection, richer outputs, and parity-like
+    method coverage remain unsupported/report-only.
   - Next slice outcome: promote DataFrame-style methods in user-value order with either runnable
     runtime or deterministic blockers: joins, `with_column`, expression projection, schema helpers,
     output writers, and collect/write ergonomics.
