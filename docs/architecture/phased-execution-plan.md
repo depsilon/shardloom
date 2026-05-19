@@ -272,14 +272,18 @@ or documentation updates alone are insufficient.
     UTF-8/Date32 casts, and
     local SQL `DATE 'YYYY-MM-DD'` predicates are runtime-admitted for the local CSV smoke path,
     scoped local SQL `CAST(column AS dtype)` predicates for `int64`, `float64`, `utf8`, `boolean`,
-    and `date32` are runtime-admitted for local row smoke paths, and scoped local SQL logical
-    `AND`/`OR`/`NOT` predicates plus balanced grouping parentheses are runtime-admitted over
-    already admitted leaf predicates, but user workflows still lack broad typed coercions,
-    timestamp/timezone helpers, date arithmetic, arbitrary predicate-tree completeness beyond the
-    scoped admitted leaves, and broader expression-family coverage.
+    and `date32` are runtime-admitted for local row smoke paths, scoped bounded
+    `column IN (<literal>,...)` predicates are runtime-admitted with `in_predicate_*` evidence and
+    blockers for empty, NULL, mixed DATE/non-DATE, oversized, and subquery-backed lists, and scoped
+    local SQL logical `AND`/`OR`/`NOT` predicates plus balanced grouping parentheses are
+    runtime-admitted over already admitted leaf predicates, but user workflows still lack broad
+    typed coercions, timestamp/timezone helpers, date arithmetic, NULL/subquery-backed IN semantics,
+    arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader
+    expression-family coverage.
   - Next slice outcome: add one implementation PR per expression family: null/is-not-null hardening
-    where gaps remain, remaining admitted string predicates, timestamp/timezone helpers, date
-    arithmetic where admitted, and broader typed coercions/functions.
+    where gaps remain, remaining admitted string predicates, richer IN semantics only where
+    evidence-backed, timestamp/timezone helpers, date arithmetic where admitted, and broader typed
+    coercions/functions.
   - Runtime enablement: executable ShardLoom-native expression families or deterministic runtime
     blockers for unsupported operators.
   - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.

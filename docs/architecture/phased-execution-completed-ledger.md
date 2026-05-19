@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python IN predicate runtime
+  - Branch/PR: `codex/expression-family-next-slice` / #800.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - generated website/use-case pages.
+  - Scope: add bounded local SQL/Python `column IN (<literal>,...)` predicate runtime as the next
+    expression-family slice for admitted local-source smokes.
+  - Runtime behavior:
+    - `sql-local-source-smoke` admits bounded `IN` predicates over local CSV and flat JSONL/NDJSON
+      row smokes by lowering the literal list to ShardLoom-owned equality/OR expression semantics.
+    - `DATE 'YYYY-MM-DD'` IN lists are admitted as date-literal predicates with the existing
+      Date32 coercion path.
+    - Empty lists, `NULL` list values, mixed DATE/non-DATE lists, oversized lists above 32 values,
+      and malformed/trailing-empty lists block deterministically before any fallback can occur.
+    - Python `ctx.read_csv(...).filter("label IN (...)")` and `ctx.sql("... WHERE label IN (...)")`
+      receive typed `SqlLocalSourceSmokeReport` evidence accessors.
+  - Evidence:
+    - IN rows emit `predicate_operator_family=in_predicate`,
+      `in_predicate_runtime_execution=true`, `in_list_value_count=<n>`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`; DATE IN rows also emit
+      `date_literal_runtime_execution=true`.
+  - Verification:
+    - `cargo test -p shardloom-cli in_predicate -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_in_filter_invokes_sql_smoke`
+  - Claim boundary: this is a scoped local-source fixture-smoke predicate family only. It does not
+    add broad SQL/DataFrame runtime, subquery-backed IN, NULL list semantics, arbitrary predicate
+    tree completeness, prepared/native operator promotion, production support, object-store/table
+    support, or performance claims.
+  - Fallback boundary: parsing, lowering, and evaluation are ShardLoom-owned; no pandas, Polars,
+    Spark, DataFusion, DuckDB, or external fallback engine is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5E scoped local SQL CSV output writer
   - Branch/PR: `codex/local-csv-output-writer` / #799.
   - Primary files:

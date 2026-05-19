@@ -36,6 +36,7 @@ const CSV_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-csv-output.n
 const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
+const MAX_IN_LIST_VALUES: usize = 32;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SqlLocalSourceRequest {
@@ -237,6 +238,10 @@ enum ParsedPredicate {
     },
     IsNotNull {
         column: String,
+    },
+    InList {
+        column: String,
+        values: Vec<ScalarValue>,
     },
     StringMatch {
         column: String,
@@ -875,6 +880,13 @@ fn apply_date_literal_predicate_coercions(
             value: ScalarValue::Date32(_),
             ..
         } => coerce_date_literal_column(column, parsed, source, right_source),
+        ParsedPredicate::InList { column, values }
+            if values
+                .iter()
+                .any(|value| matches!(value, ScalarValue::Date32(_))) =>
+        {
+            coerce_date_literal_column(column, parsed, source, right_source)
+        }
         ParsedPredicate::Logical { left, right, .. } => {
             apply_date_literal_predicate_coercions(
                 left,
@@ -892,6 +904,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
+        | ParsedPredicate::InList { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
 }
@@ -1682,6 +1695,7 @@ impl ParsedPredicate {
             | Self::CastCompare { column, .. }
             | Self::IsNull { column }
             | Self::IsNotNull { column }
+            | Self::InList { column, .. }
             | Self::StringMatch { column, .. } => columns.push(column),
             Self::Logical { left, right, .. } => {
                 left.push_columns(columns);
@@ -1754,6 +1768,7 @@ impl ParsedPredicate {
                     )),
                 },
             )),
+            Self::InList { column, values } => in_list_expression(column, values),
             Self::StringMatch { column, op, value } => Ok(Expression::new(
                 ExprId::new(format!("where.string.{}", op.as_str()))?,
                 ExpressionKind::FunctionCall {
@@ -1794,6 +1809,7 @@ impl ParsedPredicate {
             Self::Compare { .. } => "comparison",
             Self::CastCompare { .. } => "cast",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
+            Self::InList { .. } => "in_predicate",
             Self::StringMatch { .. } => "string_predicate",
             Self::Logical { .. } | Self::Not { .. } => "logical_predicate",
         }
@@ -1810,7 +1826,8 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
-            | Self::IsNotNull { .. } => false,
+            | Self::IsNotNull { .. }
+            | Self::InList { .. } => false,
         }
     }
 
@@ -1836,7 +1853,8 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
-            | Self::IsNotNull { .. } => {}
+            | Self::IsNotNull { .. }
+            | Self::InList { .. } => {}
         }
     }
 
@@ -1850,6 +1868,9 @@ impl ParsedPredicate {
                 value: ScalarValue::Date32(_),
                 ..
             } => true,
+            Self::InList { values, .. } => values
+                .iter()
+                .any(|value| matches!(value, ScalarValue::Date32(_))),
             Self::Logical { left, right, .. } => {
                 left.uses_date_literal() || right.uses_date_literal()
             }
@@ -1872,6 +1893,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
+            | Self::InList { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -1894,6 +1916,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
+            | Self::InList { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -1922,6 +1945,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
+            | Self::InList { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -1939,6 +1963,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
+            | Self::InList { .. }
             | Self::StringMatch { .. } => "not_applicable",
         }
     }
@@ -1954,9 +1979,82 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
+            | Self::InList { .. }
             | Self::StringMatch { .. } => 1,
         }
     }
+
+    fn uses_in_list(&self) -> bool {
+        match self {
+            Self::InList { .. } => true,
+            Self::Logical { left, right, .. } => left.uses_in_list() || right.uses_in_list(),
+            Self::Not { inner } => inner.uses_in_list(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn in_list_value_count(&self) -> usize {
+        match self {
+            Self::InList { values, .. } => values.len(),
+            Self::Logical { left, right, .. } => {
+                left.in_list_value_count() + right.in_list_value_count()
+            }
+            Self::Not { inner } => inner.in_list_value_count(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+}
+
+fn in_list_expression(column: &str, values: &[ScalarValue]) -> Result<Expression, ShardLoomError> {
+    let mut values = values.iter().enumerate();
+    let Some((first_index, first_value)) = values.next() else {
+        return Err(unsupported_sql_error(
+            "IN predicates require at least one non-null literal value",
+        ));
+    };
+    let mut expression = in_list_equality_expression(column, first_value, first_index)?;
+    for (index, value) in values {
+        expression = Expression::new(
+            ExprId::new(format!("where.in.or.{index}"))?,
+            ExpressionKind::Binary {
+                left: Box::new(expression),
+                op: BinaryOp::Or,
+                right: Box::new(in_list_equality_expression(column, value, index)?),
+            },
+        );
+    }
+    Ok(expression)
+}
+
+fn in_list_equality_expression(
+    column: &str,
+    value: &ScalarValue,
+    index: usize,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new(format!("where.in.compare.{index}"))?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::column(
+                ExprId::new(format!("where.in.{column}.{index}"))?,
+                ColumnRef::new(column.to_string())?,
+            )),
+            op: ComparisonOp::Eq,
+            right: Box::new(Expression::literal(
+                ExprId::new(format!("where.in.literal.{index}"))?,
+                value.clone(),
+            )),
+        },
+    ))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2275,6 +2373,14 @@ impl SqlLocalSourceReport {
             (
                 "logical_predicate_leaf_count".to_string(),
                 self.parsed.predicate.logical_leaf_count().to_string(),
+            ),
+            (
+                "in_predicate_runtime_execution".to_string(),
+                self.parsed.predicate.uses_in_list().to_string(),
+            ),
+            (
+                "in_list_value_count".to_string(),
+                self.parsed.predicate.in_list_value_count().to_string(),
             ),
             (
                 "date_literal_runtime_execution".to_string(),
@@ -3253,6 +3359,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_cast_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_in_list_predicate(raw)? {
+        return Ok(predicate);
+    }
     let tokens = split_whitespace_outside_quotes(raw)?;
     match tokens.as_slice() {
         [column, is_keyword, null_keyword]
@@ -3307,7 +3416,7 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -3453,6 +3562,81 @@ fn parse_sql_date_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
     parse_iso_date32(&value)
         .map(ScalarValue::Date32)
         .map_err(|_| unsupported_sql_error("DATE literals must use DATE 'YYYY-MM-DD'"))
+}
+
+fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let Some(in_index) = find_keyword_outside_quotes(raw, "in") else {
+        return Ok(None);
+    };
+    let column = raw[..in_index].trim();
+    let tail = raw[in_index + "in".len()..].trim();
+    validate_sql_column_ref(column)?;
+    if !tail.starts_with('(') || !tail.ends_with(')') {
+        return Err(unsupported_sql_error(
+            "IN predicates must use <column> IN (<literal>,...) syntax",
+        ));
+    }
+    let values_raw = tail[1..tail.len() - 1].trim();
+    if values_raw.is_empty() {
+        return Err(unsupported_sql_error(
+            "IN predicates require at least one non-null literal value",
+        ));
+    }
+    if values_raw.ends_with(',') {
+        return Err(unsupported_sql_error(
+            "IN predicates require non-empty literal values",
+        ));
+    }
+    let entries = split_sql_csv(values_raw)?;
+    if entries.len() > MAX_IN_LIST_VALUES {
+        return Err(unsupported_sql_error(&format!(
+            "IN predicates admit at most {MAX_IN_LIST_VALUES} literal values in this scoped runtime slice"
+        )));
+    }
+    let values = entries
+        .iter()
+        .map(|entry| parse_in_list_literal(entry))
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    if values
+        .iter()
+        .any(|value| matches!(value, ScalarValue::Null))
+    {
+        return Err(unsupported_sql_error(
+            "IN predicates do not admit NULL list values in this scoped runtime slice",
+        ));
+    }
+    let has_date = values
+        .iter()
+        .any(|value| matches!(value, ScalarValue::Date32(_)));
+    let has_non_date = values
+        .iter()
+        .any(|value| !matches!(value, ScalarValue::Date32(_)));
+    if has_date && has_non_date {
+        return Err(unsupported_sql_error(
+            "IN predicates do not admit mixed DATE and non-DATE literal lists in this scoped runtime slice",
+        ));
+    }
+    Ok(Some(ParsedPredicate::InList {
+        column: column.to_string(),
+        values,
+    }))
+}
+
+fn parse_in_list_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(unsupported_sql_error(
+            "IN predicates require non-empty literal values",
+        ));
+    }
+    if trimmed
+        .get(..4)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("date"))
+        && keyword_boundary(trimmed, 0, 4)
+    {
+        return parse_sql_date_literal(trimmed[4..].trim());
+    }
+    parse_sql_literal(trimmed)
 }
 
 fn parse_like_string_predicate(
@@ -4136,6 +4320,117 @@ mod tests {
         assert!(parsed.predicate.uses_date_literal());
         assert_eq!(parsed.predicate.family(), "cast");
         assert_eq!(parsed.predicate.cast_target_dtypes(), "date32");
+    }
+
+    #[test]
+    fn parses_scoped_in_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE label IN ('alpha','gamma') LIMIT 5",
+        )
+        .expect("IN predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "label"]);
+        assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::InList {
+                ref column,
+                ref values,
+            } if column == "label"
+                && values == &vec![
+                    ScalarValue::Utf8("alpha".to_string()),
+                    ScalarValue::Utf8("gamma".to_string()),
+                ]
+        ));
+        assert_eq!(parsed.predicate.family(), "in_predicate");
+        assert!(parsed.predicate.uses_in_list());
+        assert_eq!(parsed.predicate.in_list_value_count(), 2);
+        assert_eq!(parsed.predicate.columns(), vec!["label"]);
+    }
+
+    #[test]
+    fn parses_scoped_date_in_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,event_date FROM 'target/input.csv' WHERE event_date IN (DATE '2026-05-18', DATE '2026-05-20') LIMIT 5",
+        )
+        .expect("DATE IN predicate statement parses");
+
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::InList {
+                ref column,
+                ref values,
+            } if column == "event_date"
+                && values.len() == 2
+                && values.iter().all(|value| matches!(value, ScalarValue::Date32(_)))
+        ));
+        assert_eq!(parsed.predicate.family(), "in_predicate");
+        assert!(parsed.predicate.uses_in_list());
+        assert!(parsed.predicate.uses_date_literal());
+        assert_eq!(parsed.predicate.in_list_value_count(), 2);
+    }
+
+    #[test]
+    fn in_predicate_blocks_unadmitted_literal_lists_without_fallback() {
+        let empty_error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE label IN () LIMIT 5",
+        )
+        .expect_err("empty IN list remains blocked");
+        assert!(
+            empty_error
+                .to_string()
+                .contains("IN predicates require at least one non-null literal value")
+        );
+        assert!(
+            empty_error
+                .to_string()
+                .contains("external_engine_invoked=false")
+        );
+
+        let null_error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE label IN ('alpha', NULL) LIMIT 5",
+        )
+        .expect_err("NULL IN list values remain blocked");
+        assert!(
+            null_error
+                .to_string()
+                .contains("IN predicates do not admit NULL list values")
+        );
+        assert!(
+            null_error
+                .to_string()
+                .contains("external_engine_invoked=false")
+        );
+
+        let mixed_date_error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE label IN (DATE '2026-05-19', 'alpha') LIMIT 5",
+        )
+        .expect_err("mixed DATE/non-DATE IN lists remain blocked");
+        assert!(
+            mixed_date_error
+                .to_string()
+                .contains("IN predicates do not admit mixed DATE and non-DATE literal lists")
+        );
+        assert!(
+            mixed_date_error
+                .to_string()
+                .contains("external_engine_invoked=false")
+        );
+
+        let trailing_error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE label IN ('alpha',) LIMIT 5",
+        )
+        .expect_err("trailing empty IN list values remain blocked");
+        assert!(
+            trailing_error
+                .to_string()
+                .contains("IN predicates require non-empty literal values")
+        );
+        assert!(
+            trailing_error
+                .to_string()
+                .contains("external_engine_invoked=false")
+        );
     }
 
     #[test]
