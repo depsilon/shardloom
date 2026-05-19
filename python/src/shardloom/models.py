@@ -92,6 +92,76 @@ class FieldEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceSummary:
+    """Compact user-facing summary of what a ShardLoom command proved."""
+
+    command: str
+    status: str
+    execution_mode: str | None
+    engine_mode: str | None
+    source_format: str | None
+    output_path: str | None
+    output_row_count: int | None
+    source_io_performed: bool | None
+    output_io_performed: bool | None
+    generated_source_kind: str | None
+    generated_source_row_count: int | None
+    output_native_io_certificate_status: str | None
+    materialization_boundary: str | None
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    claim_gate_status: str | None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return this summary as a plain mapping for simple printing/JSON encoding."""
+
+        return {
+            "command": self.command,
+            "status": self.status,
+            "execution_mode": self.execution_mode,
+            "engine_mode": self.engine_mode,
+            "source_format": self.source_format,
+            "output_path": self.output_path,
+            "output_row_count": self.output_row_count,
+            "source_io_performed": self.source_io_performed,
+            "output_io_performed": self.output_io_performed,
+            "generated_source_kind": self.generated_source_kind,
+            "generated_source_row_count": self.generated_source_row_count,
+            "output_native_io_certificate_status": self.output_native_io_certificate_status,
+            "materialization_boundary": self.materialization_boundary,
+            "fallback_attempted": self.fallback_attempted,
+            "external_engine_invoked": self.external_engine_invoked,
+            "claim_gate_status": self.claim_gate_status,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ClaimSummary:
+    """Compact user-facing summary of what may and may not be claimed."""
+
+    status: str
+    claim_gate_status: str | None
+    support_status: str | None
+    blocker_id: str | None
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    public_performance_claim_allowed: bool
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return this summary as a plain mapping for simple printing/JSON encoding."""
+
+        return {
+            "status": self.status,
+            "claim_gate_status": self.claim_gate_status,
+            "support_status": self.support_status,
+            "blocker_id": self.blocker_id,
+            "fallback_attempted": self.fallback_attempted,
+            "external_engine_invoked": self.external_engine_invoked,
+            "public_performance_claim_allowed": self.public_performance_claim_allowed,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class OutputEnvelope:
     """Parsed ShardLoom `OutputEnvelope` JSON payload."""
 
@@ -229,11 +299,62 @@ class OutputEnvelope:
         except ValueError as exc:
             raise ValueError(f"field {key!r} is not an integer value: {value!r}") from exc
 
+    @property
+    def evidence_summary(self) -> EvidenceSummary:
+        """Return a compact summary of runtime, I/O, certificate, and claim fields."""
+
+        return EvidenceSummary(
+            command=self.command,
+            status=self.status,
+            execution_mode=self.field("execution_mode"),
+            engine_mode=self.field("engine_mode"),
+            source_format=self.field("source_format"),
+            output_path=self.field("output_path"),
+            output_row_count=self.field_int("output_row_count"),
+            source_io_performed=_field_bool_or_none(self, "source_io_performed"),
+            output_io_performed=_field_bool_or_none(self, "output_io_performed"),
+            generated_source_kind=self.field("generated_source_kind"),
+            generated_source_row_count=self.field_int("generated_source_row_count"),
+            output_native_io_certificate_status=self.field(
+                "output_native_io_certificate_status"
+            ),
+            materialization_boundary=self.field("materialization_boundary"),
+            fallback_attempted=self.fallback.attempted
+            or self.field_bool("fallback_attempted", False) is True,
+            external_engine_invoked=self.field_bool("external_engine_invoked", False)
+            is True,
+            claim_gate_status=self.field("claim_gate_status"),
+        )
+
+    @property
+    def claim_summary(self) -> ClaimSummary:
+        """Return a compact claim-boundary summary."""
+
+        claim_gate_status = self.field("claim_gate_status")
+        return ClaimSummary(
+            status=self.status,
+            claim_gate_status=claim_gate_status,
+            support_status=self.field("support_status"),
+            blocker_id=self.field("blocker_id"),
+            fallback_attempted=self.fallback.attempted
+            or self.field_bool("fallback_attempted", False) is True,
+            external_engine_invoked=self.field_bool("external_engine_invoked", False)
+            is True,
+            public_performance_claim_allowed=claim_gate_status == "claim_grade",
+        )
+
 
 def _optional_str(value: Any) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _field_bool_or_none(envelope: OutputEnvelope, key: str) -> bool | None:
+    value = envelope.field(key)
+    if value is None:
+        return None
+    return envelope.field_bool(key)
 
 
 def _mapping_or_none(value: Any) -> Mapping[str, Any] | None:

@@ -17,7 +17,7 @@ from .client import (
     ShardLoomClient,
     SqlLocalSourceSmokeReport,
 )
-from .models import Diagnostic, OutputEnvelope
+from .models import ClaimSummary, Diagnostic, EvidenceSummary, OutputEnvelope
 
 SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet")
 
@@ -396,6 +396,18 @@ class UnsupportedWorkflowOperationReport:
         """Whether write I/O occurred while building this report."""
 
         return self.envelope.field_bool("write_io", False) is True
+
+    @property
+    def evidence_summary(self) -> EvidenceSummary:
+        """Return the compact evidence summary for this unsupported diagnostic."""
+
+        return self.envelope.evidence_summary
+
+    @property
+    def claim_summary(self) -> ClaimSummary:
+        """Return the compact claim summary for this unsupported diagnostic."""
+
+        return self.envelope.claim_summary
 
 
 @dataclass(frozen=True, slots=True)

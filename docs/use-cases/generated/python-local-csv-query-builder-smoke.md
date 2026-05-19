@@ -30,7 +30,7 @@ The Python query-builder runtime admits only local CSV select/filter/limit with 
 
 ## Internal Flow
 
-`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, local_jsonl_output, scalar_aggregate_result, grouped_aggregate_result, topn_result, typed_python_report, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, local_jsonl_output, scalar_aggregate_result, grouped_aggregate_result, topn_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -52,13 +52,15 @@ The Python query-builder runtime admits only local CSV select/filter/limit with 
 - `top_n_limit`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`
+- `evidence_summary`
+- `claim_summary`
 - `fallback_attempted=false`
 - `external_engine_invoked=false`
 - `claim_gate_status=fixture_smoke_only`
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with local CSV source evidence, local JSONL output evidence when written, scalar/grouped/top-N fields when requested, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, output Native I/O certificate status, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with local CSV source evidence, local JSONL output evidence when written, scalar/grouped/top-N fields when requested, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

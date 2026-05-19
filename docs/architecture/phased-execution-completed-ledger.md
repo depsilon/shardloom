@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-USER-SURFACE-1E-S1 Python evidence and claim summary ergonomics
+  - Branch/PR: `codex/python-evidence-summary-ergonomics` / #792.
+  - Primary files:
+    - `python/src/shardloom/models.py`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/python-local-csv-query-builder-smoke.md`
+    - `docs/use-cases/generated/sql-local-source-csv-smoke.md`
+    - `website/status.html`
+    - `website/use-cases/index.html`
+    - `website/use-cases/python-local-csv-query-builder-smoke.html`
+    - `website/use-cases/sql-local-source-csv-smoke.html`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add compact Python `evidence_summary` and `claim_summary` helpers so scoped runtime
+    users can inspect what ran, what I/O/certificates were emitted, whether fallback/external engines
+    were involved, and what claim gate applies without scraping raw envelope fields.
+  - Runtime behavior:
+    - Added `EvidenceSummary` and `ClaimSummary` dataclasses at the `OutputEnvelope` layer.
+    - Added `evidence_summary` and `claim_summary` properties to generated-source writes,
+      scoped SQL local-source reports, and deterministic unsupported workflow diagnostics.
+    - The helpers are read-only interpretations of existing evidence fields; they do not upgrade
+      support status, claim status, execution mode, or performance posture.
+  - Evidence:
+    - Summaries expose command/status, execution/engine/source fields where emitted, output path and
+      output row count, source/output I/O flags, generated-source kind/count, output Native I/O
+      certificate status, materialization boundary, `fallback_attempted`, `external_engine_invoked`,
+      `claim_gate_status`, `support_status`, and `blocker_id` where present.
+    - `public_performance_claim_allowed` is false unless the evidence already says
+      `claim_gate_status=claim_grade`.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary: evidence and claim summaries are ergonomic views only. They do not create broad
+    SQL/DataFrame runtime support, production support, performance claims, Spark replacement claims,
+    package readiness, object-store/lakehouse/Foundry support, or fallback execution.
+
 - [x] Session label: GAR-USER-SURFACE-1C-S1 scoped Python query-builder local CSV join bridge
   - Branch/PR: `codex/python-query-builder-join-runtime` / #791.
   - Primary files:

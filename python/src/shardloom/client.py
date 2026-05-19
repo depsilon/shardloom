@@ -17,7 +17,7 @@ from .errors import (
     ShardLoomCommandError,
     ShardLoomProtocolError,
 )
-from .models import OutputEnvelope
+from .models import ClaimSummary, EvidenceSummary, OutputEnvelope
 
 CommandPart = str | os.PathLike[str]
 Binary = CommandPart | Sequence[CommandPart]
@@ -259,6 +259,18 @@ class GeneratedSourceWriteReport:
         """Return the generated-output claim gate status."""
 
         return _required_field(self.envelope, "claim_gate_status")
+
+    @property
+    def evidence_summary(self) -> EvidenceSummary:
+        """Return the compact evidence summary for this generated-source write."""
+
+        return self.envelope.evidence_summary
+
+    @property
+    def claim_summary(self) -> ClaimSummary:
+        """Return the compact claim summary for this generated-source write."""
+
+        return self.envelope.claim_summary
 
     @property
     def generated_source_range_start(self) -> int | None:
@@ -510,6 +522,18 @@ class SqlLocalSourceSmokeReport:
         """Return the scoped SQL smoke claim gate status."""
 
         return _required_field(self.envelope, "claim_gate_status")
+
+    @property
+    def evidence_summary(self) -> EvidenceSummary:
+        """Return the compact evidence summary for this scoped SQL smoke."""
+
+        return self.envelope.evidence_summary
+
+    @property
+    def claim_summary(self) -> ClaimSummary:
+        """Return the compact claim summary for this scoped SQL smoke."""
+
+        return self.envelope.claim_summary
 
 
 @dataclass(frozen=True, slots=True)

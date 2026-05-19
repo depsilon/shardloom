@@ -1349,9 +1349,9 @@ runnable, documented, tested, and claim-safe.
 - [ ] GAR-USER-SURFACE-1E evidence-first result ergonomics for non-expert users
   - Source: ShardLoom evidence envelope, Python typed reports, Use Case Atlas, website Field Guide,
     benchmark claim-boundary docs.
-  - Current state: runtime reports expose rich evidence fields, but non-expert users still need a
-    clearer path from result rows to "what ran, what materialized, what stayed native, and what can
-    be claimed."
+  - Current state: runtime reports expose rich evidence fields, and Python typed reports now expose
+    compact `evidence_summary`/`claim_summary` helpers for scoped SQL/generated-source surfaces.
+    Remaining result families still need the same ergonomic coverage and examples.
   - Next slice outcome: make every Python runtime result expose simple row/output access plus a
     compact evidence summary and stable full evidence object.
   - Runtime enablement: user-facing evidence ergonomics for every admitted runtime workflow.

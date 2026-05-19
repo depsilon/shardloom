@@ -161,6 +161,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+        self.assertIsInstance(report.evidence_summary, sl.EvidenceSummary)
+        self.assertEqual(report.evidence_summary.generated_source_kind, "user_rows")
+        self.assertEqual(report.evidence_summary.generated_source_row_count, 2)
+        self.assertEqual(report.evidence_summary.output_path, "target/generated.jsonl")
+        self.assertEqual(
+            report.evidence_summary.output_native_io_certificate_status,
+            "certified_local_file_sink",
+        )
+        self.assertFalse(report.claim_summary.fallback_attempted)
+        self.assertFalse(report.claim_summary.external_engine_invoked)
+        self.assertEqual(report.claim_summary.claim_gate_status, "fixture_smoke_only")
+        self.assertFalse(report.claim_summary.public_performance_claim_allowed)
 
     def test_local_csv_query_builder_collect_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
@@ -217,6 +229,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+        self.assertIsInstance(report.claim_summary, sl.ClaimSummary)
+        self.assertEqual(report.evidence_summary.command, "sql-local-source-smoke")
+        self.assertEqual(report.evidence_summary.output_row_count, 1)
+        self.assertFalse(report.claim_summary.fallback_attempted)
+        self.assertFalse(report.claim_summary.external_engine_invoked)
+        self.assertFalse(report.claim_summary.public_performance_claim_allowed)
 
     def test_local_csv_query_builder_logical_and_filter_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
@@ -1453,6 +1471,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.blocker_id)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.runtime_execution)
+        self.assertEqual(report.evidence_summary.status, "unsupported")
+        self.assertEqual(report.claim_summary.blocker_id, report.blocker_id)
+        self.assertFalse(report.claim_summary.fallback_attempted)
 
     def test_context_sql_broad_table_query_remains_deterministic_unsupported(self) -> None:
         statement = "SELECT * FROM events"
