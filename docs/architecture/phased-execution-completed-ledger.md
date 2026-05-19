@@ -17,7 +17,7 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-USER-SURFACE-1C no-filter local query-builder smokes
-  - Branch/PR: `codex/query-builder-no-filter-smokes` / #TBD.
+  - Branch/PR: `codex/query-builder-no-filter-smokes` / #798.
   - Primary files:
     - `shardloom-cli/src/sql_local_source_runtime.rs`
     - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
