@@ -287,7 +287,7 @@ class GeneratedSourceWriteReport:
 
 @dataclass(frozen=True, slots=True)
 class SqlLocalSourceSmokeReport:
-    """Typed view over the scoped local CSV SQL projection/filter/limit smoke."""
+    """Typed view over scoped local CSV SQL smoke reports."""
 
     envelope: OutputEnvelope
 
@@ -327,6 +327,27 @@ class SqlLocalSourceSmokeReport:
         """Return the output Native I/O certificate status, when present."""
 
         return self.envelope.field("output_native_io_certificate_status")
+
+    @property
+    def aggregate_runtime_execution(self) -> bool:
+        """Whether this smoke executed the admitted scalar aggregate path."""
+
+        return self.envelope.field_bool("aggregate_runtime_execution", False) is True
+
+    @property
+    def aggregate_operator_family(self) -> str | None:
+        """Return the aggregate operator family label when present."""
+
+        return self.envelope.field("aggregate_operator_family")
+
+    @property
+    def aggregate_functions(self) -> tuple[str, ...]:
+        """Return aggregate function labels emitted by the smoke."""
+
+        value = self.envelope.field("aggregate_functions", "")
+        if not value:
+            return ()
+        return tuple(part for part in value.split(",") if part)
 
     @property
     def fallback_attempted(self) -> bool:

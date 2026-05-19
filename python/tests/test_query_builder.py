@@ -218,6 +218,73 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_scalar_aggregate_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT count(*),sum(amount),avg(amount),min(amount),max(amount) FROM 'target/input.csv' WHERE amount >= 10 LIMIT 1",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"count_all\\":2,\\"sum_amount\\":36,\\"avg_amount\\":18.0,\\"min_amount\\":15,\\"max_amount\\":21}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_aggregate_filter_limit"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "scalar_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*),sum(amount),avg(amount),min(amount),max(amount)"},
+                        {"key": "projected_columns", "value": "count_all,sum_amount,avg_amount,min_amount,max_amount"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.aggregate-filter-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        aggregate_workflow = (
+            ctx.read_csv("target/input.csv")
+            .filter("amount >= 10")
+            .aggregate("count(*)", "sum(amount)", "avg(amount)", "min(amount)", "max(amount)")
+        )
+        self.assertIsInstance(aggregate_workflow, sl.LazyFrame)
+        report = aggregate_workflow.limit(1).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"count_all":2,"sum_amount":36,"avg_amount":18.0,"min_amount":15,"max_amount":21}\n',
+        )
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "scalar_aggregate")
+        self.assertEqual(
+            report.aggregate_functions,
+            ("count(*)", "sum(amount)", "avg(amount)", "min(amount)", "max(amount)"),
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

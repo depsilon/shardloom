@@ -326,12 +326,15 @@ and transformations only. `plan()`, `explain()`, `estimate()`, `certify()`, and
 not read input files, infer schemas, materialize rows, probe object stores,
 write output, or invoke fallback engines.
 
-One scoped local CSV query-builder workflow is executable through the same
-typed CLI bridge. A workflow shaped as `read_csv(...).select(...).filter(...)
-.limit(...)` lowers to ShardLoom's `sql-local-source-smoke` path, runs
-ShardLoom-owned projection/filter/limit semantics, and returns a typed evidence
-report. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL
-file and emits output Native I/O certificate fields:
+One scoped local CSV query-builder workflow family is executable through the
+same typed CLI bridge. A workflow shaped as
+`read_csv(...).select(...).filter(...).limit(...)` lowers to ShardLoom's
+`sql-local-source-smoke` path, runs ShardLoom-owned projection/filter/limit
+semantics, and returns a typed evidence report. The same bridge admits scoped
+scalar aggregates shaped as
+`read_csv(...).filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`,
+`MIN`, and `MAX`. `collect()` returns bounded inline JSONL; `write()` writes a
+local JSONL file and emits output Native I/O certificate fields:
 
 ```powershell
 New-Item -ItemType Directory -Force target | Out-Null
@@ -355,18 +358,28 @@ workflow = (
 
 collected = workflow.collect()
 written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
+aggregate = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .filter("amount >= 10")
+    .aggregate("count(*)", "sum(amount)", "avg(amount)", "min(amount)", "max(amount)")
+    .limit(1)
+    .collect()
+)
 
 print(collected.result_jsonl)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
+print(aggregate.result_jsonl)
+print(aggregate.aggregate_operator_family)
+print(aggregate.aggregate_functions)
 '@ | python -
 ```
 
 This is a fixture-smoke local CSV path only. It does not make the Python client
 a pandas/Polars-like execution engine, does not add broad SQL/DataFrame
-runtime, does not support object stores or table/lakehouse inputs, and does not
-create a performance or production claim.
+runtime, grouped aggregation, object stores, or table/lakehouse inputs, and does
+not create a performance or production claim.
 
 The lower-level `client.sql_local_source_smoke(...)` helper can also call the
 scoped local CSV scalar aggregate smoke directly:

@@ -1315,9 +1315,10 @@ them in dependency order unless a later unblocker or review finding changes the 
 - [ ] GAR-RUNTIME-IMPL-1E aggregate, group-by, join, top-N, and window operator expansion
   - Source: `GAR-RUNTIME-COMPLETE-1D`, benchmark scenario catalog, correctness fixture manifest.
   - Current state: local CSV scalar aggregate runtime covers `COUNT`, `SUM`, `AVG`, `MIN`, and
-    `MAX` through `sql-local-source-smoke` with fixture-smoke evidence. Grouped aggregates, joins,
-    top-N, windows, broader SQL/DataFrame surfaces, and prepared/native operator promotion remain
-    incomplete across user surfaces.
+    `MAX` through `sql-local-source-smoke` and the Python query-builder
+    `read_csv(...).filter(...).aggregate(...).limit(1).collect()/write(...)` path with
+    fixture-smoke evidence. Grouped aggregates, joins, top-N, windows, broader SQL/DataFrame
+    surfaces, and prepared/native operator promotion remain incomplete across user surfaces.
   - Next slice outcome: promote one focused family at a time with correctness fixtures, runtime
     evidence, unsupported diagnostics, and benchmark rows.
   - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability view.
@@ -1733,8 +1734,9 @@ runtime/evidence proof.
   - Source: `GAR-RUNTIME-COMPLETE-1B`, `GAR-RUNTIME-IMPL-1B`, `GAR-RUNTIME-IMPL-1E`,
     SQL/DataFrame capability matrix.
   - Current state: source-free SQL is scoped, local-source projection/filter/limit is supported, and
-    local-source scalar aggregate smoke covers `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`. Group-by,
-    joins, order/top-N, casts, functions, and multi-source SQL are not broadly supported.
+    local-source scalar aggregate smoke covers `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX` through CLI
+    and Python query-builder wrappers. Group-by, joins, order/top-N, casts, functions, and
+    multi-source SQL are not broadly supported.
   - Next slice outcome: expand SQL lowering in staged groups: aggregate/group-by, order/top-N,
     simple equi-join, casts/null predicates, and deterministic unsupported diagnostics for
     functions, subqueries, windows, catalogs, UDFs, and effectful operations not yet admitted.
@@ -1757,10 +1759,10 @@ runtime/evidence proof.
 
 - [ ] GAR-RUNTIME-IMPL-2D Python first-class end-user workflow completion
   - Source: `GAR-RUNTIME-COMPLETE-1C`, Use Case Atlas, `python/README.md`, first-10-minutes docs.
-  - Current state: Python wrappers, scoped generated-source helpers, and a scoped local CSV
-    query-builder `collect`/`write` smoke exist with typed evidence. A non-expert still cannot rely
-    on one ergonomic Python path that also covers prepared Vortex, basic aggregate promotion,
-    broader local adapters, fanout, and package-install proof.
+  - Current state: Python wrappers, scoped generated-source helpers, and scoped local CSV
+    query-builder `collect`/`write` smokes exist for projection/filter/limit and scalar aggregate
+    workflows with typed evidence. A non-expert still cannot rely on one ergonomic Python path that
+    also covers prepared Vortex, broader local adapters, fanout, and package-install proof.
   - Next slice outcome: extend the documented Python API path across generated source, admitted
     local reads, prepared Vortex, projection/filter/limit/basic aggregate, local write/fanout, and
     evidence inspection, with blocked diagnostics for unsupported methods.
@@ -2068,8 +2070,8 @@ superseded by stronger runtime evidence.
 
 - [ ] GAR-RUNTIME-IMPL-3D SQL planner and expression runtime expansion by admitted syntax family
   - Source: `GAR-RUNTIME-IMPL-2C`, RFC 0032, operator semantics, SQL/DataFrame capability matrix.
-  - Current state: scoped source-free and local-source SQL smokes exist or are in progress; broad
-    SQL execution remains incomplete.
+  - Current state: scoped source-free SQL, local-source projection/filter/limit, and local-source
+    scalar aggregate SQL smokes exist; broad SQL execution remains incomplete.
   - Next slice outcome: implement syntax families in order: projection/filter/limit, aggregate,
     group-by, order/top-N, casts/null predicates, simple equi-join, then deterministic blockers for
     subqueries, windows, UDFs, catalogs, and unsupported functions.
@@ -2091,9 +2093,9 @@ superseded by stronger runtime evidence.
 - [ ] GAR-RUNTIME-IMPL-3E Python end-user workflow parity across generated, local, and Vortex inputs
   - Source: `GAR-RUNTIME-IMPL-2D`, Python README, Use Case Atlas, first-10-minutes docs.
   - Current state: Python wrappers, scoped generated-source helpers, and local CSV query-builder
-    `collect`/`write` smokes exist, but the full end-user workflow must still cover prepared/native
-    Vortex, broader local adapters, basic aggregate promotion, fanout, package install, and
-    unsupported diagnostics from one import path.
+    projection/filter/limit plus scalar aggregate `collect`/`write` smokes exist, but the full
+    end-user workflow must still cover prepared/native Vortex, broader local adapters, fanout,
+    package install, and unsupported diagnostics from one import path.
   - Next slice outcome: provide one ergonomic Python workflow for generated-source output, local
     file transform/write, prepared Vortex transform/write, evidence inspection, and fail-closed
     unsupported methods.
