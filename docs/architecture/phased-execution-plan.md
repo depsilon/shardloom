@@ -236,6 +236,9 @@ product claims.
     flow without changing mental models or reading the phase plan.
   - Verification: website build/readiness, static asset validation, link check/readiness report,
     desktop/mobile visual QA, `git diff --check`.
+  - Dependencies/blockers: completed Field Guide atlas shell, stable generated page metadata,
+    use-case/status content indexes, compute-flow rendered snapshot, and static website validator
+    coverage.
   - Non-goals: no framework migration, no runtime behavior, no benchmark data change.
   - Claim boundary: learning/interpretation UX only.
   - Fallback boundary: no runtime fallback changes.
@@ -257,6 +260,8 @@ product claims.
   - Acceptance: content consistency failures block website readiness before deployment.
   - Verification: `python scripts/check_website_readiness.py`, `python scripts/check_use_case_index.py`,
     `python scripts/check_use_case_coverage.py`, `git diff --check`.
+  - Dependencies/blockers: stable Field Guide/use-case index schema, current website readiness
+    checker structure, source-reference citation blocks, and agreed claim-safety phrase list.
   - Non-goals: no semantic rewriting by validator, no external lint SaaS.
   - Claim boundary: content QA only.
   - Fallback boundary: no runtime fallback changes.

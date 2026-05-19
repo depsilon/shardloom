@@ -37,6 +37,8 @@ phase plan first.
     - `/field-guide/<slug>` dossier pages now share the same atlas rail, concise article hero,
       status/evidence/reference metadata, section jump links, source citation cards, related
       concepts/use cases, and previous/next navigation.
+    - The atlas shell keeps the website's preferred light-mode posture: pale panels, navy text,
+      cyan/teal accents, and the transparent ShardLoom logo as the page anchor.
     - Mobile keeps the atlas rail compact so search and content appear without long card sprawl.
   - Evidence:
     - Visual reference and QA screenshots are under

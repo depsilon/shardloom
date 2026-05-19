@@ -1,7 +1,9 @@
 # ShardLoom
 
 Website: [shardloom.io](https://shardloom.io) (pre-release, claim-safe static site deployed from
-`website/`).
+`website/`). The primary learning surface is the
+[ShardLoom Field Guide](https://shardloom.io/field-guide/), a light-mode technical atlas for
+execution routes, evidence fields, benchmarks, use cases, and current support boundaries.
 
 Public technical-preview posture: ShardLoom is a pre-release, Vortex-first, no-fallback local
 compute engine foundation with evidence-certified local execution slices. It is an independent
@@ -10,10 +12,10 @@ Vortex-endorsed. It does not claim production platform readiness, public perform
 Apache Spark substitution, production SQL/DataFrame support, production object-store/lakehouse
 support, production Foundry support, package publication readiness, or Foundry vendor endorsement.
 
-The website includes rendered snapshots of this README, the compute-engine flow reference, the Use
-Case Atlas, and the current prepared/native benchmark evidence. Those pages are documentation and
-evidence surfaces, not performance, Apache Spark substitute, production SQL/DataFrame, object-store,
-lakehouse, or Foundry claims.
+The website includes the Field Guide, rendered snapshots of this README and the compute-engine flow
+reference, the Use Case Atlas, status matrix, and the current prepared/native benchmark evidence.
+Those pages are documentation and evidence surfaces, not performance, Apache Spark substitute,
+production SQL/DataFrame, object-store, lakehouse, or Foundry claims.
 
 ShardLoom is a standalone encoded-columnar execution engine for computing directly over
 Vortex-native layouts, preserving encoded representation where possible, and producing Vortex-native
@@ -207,8 +209,9 @@ Currently wired surfaces include:
   checkpoint writes, retry attempts, cleanup execution, and commit-record writes
 - a local benchmark harness with taxonomy metadata, separate timing and coverage tables,
   reproducibility checks, local optional baselines, and explicit unsupported/blocked rows
-- a static website under `website/` that renders the root README, the compute-engine flow reference,
-  and a claim-safe prepared/native benchmark evidence snapshot for Cloudflare Workers Static Assets
+- a static website under `website/` that renders the Field Guide, Use Case Atlas, status matrix,
+  root README, compute-engine flow reference, and a claim-safe prepared/native benchmark evidence
+  snapshot for Cloudflare Workers Static Assets
 - Vortex-first architecture docs and guardrails for treating upstream Vortex APIs as native providers
   only when they are policy-admitted and certificate-backed
 
@@ -216,7 +219,8 @@ Some broad surfaces are intentionally report-only or unsupported in this pre-rel
 the phase plan and completed ledger for exact implementation status.
 
 For a non-expert "Can ShardLoom do my thing?" map, start with
-[`docs/use-cases/README.md`](docs/use-cases/README.md) or the website Use Case Atlas at
+the [Field Guide](https://shardloom.io/field-guide/),
+[`docs/use-cases/README.md`](docs/use-cases/README.md), or the website Use Case Atlas at
 [shardloom.io/use-cases](https://shardloom.io/use-cases/).
 Practical copyable recipes live in
 [`docs/use-cases/recipes/README.md`](docs/use-cases/recipes/README.md) and are indexed by
