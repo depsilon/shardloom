@@ -75,9 +75,9 @@ use_cases:
     execution_mode: compatibility_import_certified
     engine_mode: batch
     inputs: [local_csv, local_parquet, local_jsonl_when_scenario_admits_it]
-    outputs: [prepared_vortex_artifact, result_sink_artifact, execution_certificate, native_io_certificate]
-    evidence_fields: [source_read_millis, compatibility_parse_millis, compatibility_to_vortex_import_millis, vortex_write_millis, vortex_reopen_millis, vortex_scan_millis, operator_compute_millis, result_sink_write_millis, evidence_render_millis, total_runtime_millis, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
-    claim_boundary: "Certification lane evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim."
+    outputs: [vortex_prepared_state, result_sink_artifact, execution_certificate, native_io_certificate]
+    evidence_fields: [source_adapter_status, ingress_route, vortex_ingest_status, source_read_millis, compatibility_parse_millis, compatibility_to_vortex_import_millis, vortex_write_millis, vortex_reopen_millis, vortex_scan_millis, operator_compute_millis, result_sink_write_millis, evidence_render_millis, total_runtime_millis, timing_scope=cold_certified_end_to_end, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Certified cold-route evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim."
     runnable_example: "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv,parquet --scenario \"selective filter\" --dataset-profile tiny_smoke --rows 256 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\\shardloom-local-taxonomy-smoke.json --regenerate"
     expected_output_evidence: "Benchmark JSON with compatibility import timing separated from Vortex scan/operator/result-sink evidence."
     common_mistakes: [comparing_import_certification_to_external_engine_query_time, hiding_import_costs, omitting_result_sink_evidence]
@@ -90,10 +90,10 @@ use_cases:
     status: smoke_supported
     execution_mode: prepared_vortex/native_vortex
     engine_mode: batch
-    inputs: [local_prepared_vortex_artifact, benchmark_fixture]
+    inputs: [vortex_prepared_state, local_prepared_vortex_artifact, benchmark_fixture]
     outputs: [prepared_native_timing_rows, source_backed_scan_evidence]
-    evidence_fields: [execution_mode, source_backed_scan_used, source_state_reuse_hit, encoded_predicate_provider_status, data_decoded, data_materialized, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
-    claim_boundary: "Prepared/native smoke and structural evidence only; no broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim."
+    evidence_fields: [execution_mode, prepared_state_id, prepared_state_digest, timing_scope=warm_prepared_query, source_backed_scan_used, source_state_reuse_hit, encoded_predicate_provider_status, data_decoded, data_materialized, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState and does not directly read non-Vortex sources. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim."
     runnable_example: "python benchmarks\\traditional_analytics\\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario \"filter + projection + limit\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-prepared-vortex-smoke.json --regenerate"
     expected_output_evidence: "Prepared Vortex rows separate from compatibility import rows, with source-backed scan and no-fallback fields where available."
     common_mistakes: [calling_prepared_vortex_production_ready, treating_encoded_predicate_fields_as_encoded_native_claims, expecting_sql_runtime]

@@ -86,11 +86,12 @@ pre-optimization evidence. It must not read like a speed leaderboard.
 
 Required interpretation:
 
-- `compatibility_import_certified` is the certification lane and includes extra workflow/evidence
-  costs such as parse/import, Vortex write/reopen, scan, sink proof, materialization/decode
+- `compatibility_import_certified` is the certified cold route and includes UniversalIngress/source
+  adapter, `vortex_ingest`, Vortex write/reopen, scan, sink proof, materialization/decode
   boundaries, no-fallback fields, and claim gates.
-- `prepared_vortex` and `native_vortex` are the runtime-development lanes and the main optimization
-  direction.
+- `prepared_vortex` is the prepared warm route from `VortexPreparedState`; non-Vortex inputs reach
+  it only through `vortex_ingest`. `native_vortex` is the already-Vortex route. These are the
+  runtime-development lanes and the main optimization direction.
 - Lightweight engines are excellent on direct local execution paths; ShardLoom is targeting a
   broader user workflow and evidence layer.
 - External engines are baseline context only.

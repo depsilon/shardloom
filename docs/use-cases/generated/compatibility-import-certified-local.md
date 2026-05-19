@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `compatibility_import_certified`
 - **Engine mode:** `batch`
-- **Claim boundary:** Certification lane evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.
+- **Claim boundary:** Certified cold-route evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Compatibility import certified local workload has a scoped local path. Treat it 
 
 ## Claim Boundary
 
-Certification lane evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.
+Certified cold-route evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.
 
 ## How To Try It
 
@@ -26,10 +26,13 @@ python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv
 
 ## Internal Flow
 
-`local_csv, local_parquet, local_jsonl_when_scenario_admits_it -> compatibility_import_certified -> batch -> prepared_vortex_artifact, result_sink_artifact, execution_certificate, native_io_certificate -> evidence -> claim gate`
+`local_csv, local_parquet, local_jsonl_when_scenario_admits_it -> compatibility_import_certified -> batch -> vortex_prepared_state, result_sink_artifact, execution_certificate, native_io_certificate -> evidence -> claim gate`
 
 ## Evidence You Should See
 
+- `source_adapter_status`
+- `ingress_route`
+- `vortex_ingest_status`
 - `source_read_millis`
 - `compatibility_parse_millis`
 - `compatibility_to_vortex_import_millis`
@@ -40,6 +43,7 @@ python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv
 - `result_sink_write_millis`
 - `evidence_render_millis`
 - `total_runtime_millis`
+- `timing_scope=cold_certified_end_to_end`
 - `claim_gate_status`
 - `fallback_attempted=false`
 - `external_engine_invoked=false`

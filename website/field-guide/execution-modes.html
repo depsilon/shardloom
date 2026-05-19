@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Execution Modes - ShardLoom Field Guide</title>
-  <meta name="description" content="Execution modes identify the source and preparation lane that a run used.">
+  <meta name="description" content="Execution modes identify the route selected for execution, while ingress fields explain source admission and preparation.">
   <link rel="canonical" href="https://shardloom.io/field-guide/execution-modes">
   <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
 
   <meta property="og:title" content="Execution Modes - ShardLoom Field Guide">
-  <meta property="og:description" content="Execution modes identify the source and preparation lane that a run used.">
+  <meta property="og:description" content="Execution modes identify the route selected for execution, while ingress fields explain source admission and preparation.">
   <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://shardloom.io/field-guide/execution-modes">
@@ -54,7 +54,7 @@
         <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
         <p class="eyebrow">Field Guide dossier</p>
         <h1>Execution Modes</h1>
-        <p class="lede">Execution modes identify the source and preparation lane that a run used.</p>
+        <p class="lede">Execution modes identify the route selected for execution, while ingress fields explain source admission and preparation.</p>
         <div class="dossier-status-row">
           <span class="claim-badge report-only" data-status="current-vocabulary">current vocabulary</span>
           <span>Execution Modes</span>
@@ -78,7 +78,7 @@
         <article class="dossier-body">
           <section id="meaning">
             <p class="eyebrow">Plain-English meaning</p>
-            <p>Execution modes identify the source and preparation lane that a run used.</p>
+            <p>Execution modes identify the route selected for execution, while ingress fields explain source admission and preparation.</p>
           </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
@@ -86,7 +86,7 @@
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as selected_execution_mode, requested_execution_mode, execution_mode, claim_gate_status.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as selected_execution_mode, requested_execution_mode, ingress_route, timing_scope.</p>
           </section>
           <section id="support">
             <p class="eyebrow">Current support</p>
@@ -95,7 +95,7 @@
           <section id="evidence">
             <p class="eyebrow">Evidence fields</p>
             <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
-            <ul><li><code>selected_execution_mode</code></li><li><code>requested_execution_mode</code></li><li><code>execution_mode</code></li><li><code>claim_gate_status</code></li></ul>
+            <ul><li><code>selected_execution_mode</code></li><li><code>requested_execution_mode</code></li><li><code>ingress_route</code></li><li><code>timing_scope</code></li><li><code>claim_gate_status</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
@@ -114,7 +114,7 @@
           </section>
           <section id="sources">
             <p class="eyebrow">Reference files</p>
-            <div class="citation-list" data-citation-block="reference-files"><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a><p><strong>What this proves:</strong> Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md"><code>docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md</code></a><p><strong>What this proves:</strong> Governing RFC for the feature contract, evidence requirements, and claim boundary.</p></article></div>
+            <div class="citation-list" data-citation-block="reference-files"><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a><p><strong>What this proves:</strong> Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-ingress-route-taxonomy.md"><code>docs/architecture/universal-ingress-route-taxonomy.md</code></a><p><strong>What this proves:</strong> UniversalIngress, vortex_ingest, VortexPreparedState, and route-timing contract boundaries.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md"><code>docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md</code></a><p><strong>What this proves:</strong> Governing RFC for the feature contract, evidence requirements, and claim boundary.</p></article></div>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>

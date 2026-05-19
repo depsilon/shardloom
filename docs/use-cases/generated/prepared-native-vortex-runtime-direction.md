@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `prepared_vortex/native_vortex`
 - **Engine mode:** `batch`
-- **Claim boundary:** Prepared/native smoke and structural evidence only; no broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
+- **Claim boundary:** Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState and does not directly read non-Vortex sources. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Prepared/native Vortex runtime direction has a scoped local path. Treat it as te
 
 ## Claim Boundary
 
-Prepared/native smoke and structural evidence only; no broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
+Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState and does not directly read non-Vortex sources. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
 
 ## How To Try It
 
@@ -26,11 +26,14 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 
 ## Internal Flow
 
-`local_prepared_vortex_artifact, benchmark_fixture -> prepared_vortex/native_vortex -> batch -> prepared_native_timing_rows, source_backed_scan_evidence -> evidence -> claim gate`
+`vortex_prepared_state, local_prepared_vortex_artifact, benchmark_fixture -> prepared_vortex/native_vortex -> batch -> prepared_native_timing_rows, source_backed_scan_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
 - `execution_mode`
+- `prepared_state_id`
+- `prepared_state_digest`
+- `timing_scope=warm_prepared_query`
 - `source_backed_scan_used`
 - `source_state_reuse_hit`
 - `encoded_predicate_provider_status`
@@ -72,7 +75,7 @@ Prepared Vortex rows separate from compatibility import rows, with source-backed
 - `website/field-guide/engine-modes.html` - Engine Modes (`Engine Modes` / `current-vocabulary`)
 - `website/field-guide/batch-engine.html` - Batch Engine (`Engine Modes` / `scoped-local`)
 - `website/field-guide/vortex-native.html` - Vortex-Native (`Vortex Runtime` / `core-contract`)
-- `website/field-guide/prepared-vortex-artifact.html` - Prepared Vortex Artifact (`Vortex Runtime` / `runtime-development-artifact`)
+- `website/field-guide/prepared-vortex-artifact.html` - VortexPreparedState (`Vortex Runtime` / `runtime-development-artifact`)
 - `website/field-guide/source-backed-scan.html` - Source-Backed Scan (`Vortex Runtime` / `scoped-evidence`)
 - `website/field-guide/vortex-scan-api.html` - Vortex Scan API (`Vortex Runtime` / `report-only-to-scoped`)
 - `website/field-guide/encoded-predicate-provider.html` - Encoded Predicate Provider (`Vortex Runtime` / `scoped-evidence`)

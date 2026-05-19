@@ -349,9 +349,47 @@ or documentation updates alone are insufficient.
     expression semantics, and Python/SQL surface admission.
   - Ledger rule: ledger entry must list generator kind, output format, and unsupported generators.
 
-- [ ] GAR-RUNTIME-IMPL-4F local input adapter runtime coverage by format
+- [ ] GAR-RUNTIME-IMPL-4F0 UniversalIngress and vortex_ingest route taxonomy
+  - Source: compute-flow reference, universal compatibility scoreboard, benchmark route evidence,
+    `docs/architecture/universal-ingress-route-taxonomy.md`.
+  - Current state: source/preparation vocabulary can still be read as though `prepared_vortex`
+    accepts non-Vortex files directly. The intended path is
+    `UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState ->
+    prepared_vortex`.
+  - Next slice outcome: make the route taxonomy canonical in docs, website/status, benchmark row
+    fields, and validators.
+  - Runtime enablement: runtime-claim validator that blocks `prepared_vortex` rows without a
+    `VortexPreparedState`, blocks warm prepared rows that include ingest timing, and requires every
+    recognized non-Vortex source to project both `vortex_ingest_status` and
+    `compatibility_import_certified_status`.
+  - User-visible surface: compute-flow docs, README, website status/benchmarks, benchmark artifact
+    route fields, compatibility/status matrix.
+  - Implementation scope: route taxonomy JSON/docs, benchmark execution-mode contract fields,
+    website/benchmark wording, capability/status matrix route projections, readiness validators.
+  - Evidence required: source adapter status/blocker, ingress route/status, vortex_ingest status/
+    blocker, prepared-state refs, timing scope, certification status/blocker, no-fallback fields.
+  - Acceptance: `prepared_vortex` is documented and validated as execution from
+    `VortexPreparedState`; non-Vortex input reaches it only through `vortex_ingest`;
+    `compatibility_import_certified` is the certified cold route over the same source universe;
+    unsupported sources remain deterministic blockers rather than disappearing from matrices.
+  - Verification: `python scripts/check_universal_ingress_routes.py`, traditional benchmark harness
+    contract tests, website readiness, generated static asset validation, release readiness
+    metadata.
+  - Non-goals: no new source adapter runtime, object-store runtime, table/lakehouse runtime,
+    Foundry production support, package publication, or performance claim.
+  - Claim boundary: route taxonomy and validators only; recognized source does not mean supported
+    runtime.
+  - Fallback boundary: no route may delegate to external engines; all rows keep
+    `fallback_attempted=false` and `external_engine_invoked=false`.
+  - Dependencies/blockers: canonical field naming, compatibility scoreboard projection, benchmark
+    envelope migration, and website renderer alignment.
+  - Ledger rule: ledger entry must list route fields added, validators added, and public wording
+    changed.
+
+- [ ] GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format
   - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs,
-    `docs/architecture/vortex-public-api-inventory.md`.
+    `docs/architecture/vortex-public-api-inventory.md`,
+    `docs/architecture/universal-ingress-route-taxonomy.md`.
   - Current state: CSV is the strongest local smoke path; scoped flat JSONL/NDJSON local input is
     now runtime-admitted through `sql-local-source-smoke` with SourceState-style evidence, content
     fingerprints, schema digests, and deterministic blockers for nested JSON values. The Python
@@ -363,10 +401,12 @@ or documentation updates alone are insufficient.
     pushdown status, and claim reasons are source-format-aware. General JSON, Parquet, Arrow IPC,
     Avro, and ORC do not all have ordinary
     user-facing SourceState runtime parity.
-  - Next slice outcome: promote one remaining local input format at a time into the adapter registry
-    with SourceState evidence and deterministic blockers for unsupported formats/features.
+  - Next slice outcome: promote one remaining local input format at a time into UniversalIngress/
+    InputAdapter registry coverage with SourceState evidence, `vortex_ingest_status`, certified
+    route status, and deterministic blockers for unsupported formats/features.
   - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
-    actual user reads.
+    actual user reads and can feed `vortex_ingest` into `VortexPreparedState` when preparation is
+    admitted.
   - User-visible surface: CLI/Python read helpers, use cases, capability/status matrix, benchmark
     source-format rows.
   - Implementation scope: format detection, local reader, schema/dtype inference, fingerprinting,
@@ -378,10 +418,12 @@ or documentation updates alone are insufficient.
       diagnostics and SourceState schema reporting before any runtime admission.
     - Arrow-to-Vortex C FFI conversion remains blocked for current Rust local runtime and belongs
       to future ABI/interoperability review only.
-  - Evidence required: source format/location/fingerprint, schema digest, SourceState id/digest,
+  - Evidence required: source format/location/fingerprint, source adapter status/blocker, schema
+    digest, SourceState id/digest, `vortex_ingest_status`, `compatibility_import_certified_status`,
     row count/file count/bytes, decode/materialization status, no-fallback fields.
   - Acceptance: each listed format is either runnable with evidence or blocked with actionable
-    diagnostics; adapter support never implies Vortex-native execution.
+    diagnostics; adapter support never implies Vortex-native execution and `prepared_vortex` never
+    accepts the non-Vortex source directly.
   - Verification: per-format smoke tests, schema snapshot tests, unsupported diagnostics,
     benchmark harness contract tests.
   - Non-goals: no object-store, database, table/lakehouse, or universal adapter claim.
@@ -425,16 +467,16 @@ or documentation updates alone are insufficient.
     generated/local/Vortex source evidence, and fanout benchmark fields.
   - Ledger rule: ledger entry must list format combinations and replay proof refs.
 
-- [ ] GAR-RUNTIME-IMPL-4H Vortex prepare/read/write/reopen lifecycle promotion
+- [ ] GAR-RUNTIME-IMPL-4H vortex_ingest / Vortex prepare-read-write-reopen lifecycle promotion
   - Source: Vortex provider docs, compute-flow reference, prepared/native benchmark evidence,
     `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: prepared/native evidence exists in scoped benchmark paths; a simple user
-    lifecycle from local source to Vortex artifact, query, write, reopen, and verify remains
-    incomplete.
-  - Next slice outcome: implement a documented local Vortex lifecycle command and Python helper
-    for one admitted operator family.
-  - Runtime enablement: user-facing local Vortex prepare/write/reopen/scan lifecycle for admitted
-    operators.
+  - Current state: prepared/native evidence exists in scoped benchmark paths; `prepared_vortex`
+    route clarity now requires a first-class `vortex_ingest` lifecycle from admitted SourceState to
+    VortexPreparedState before warm prepared execution.
+  - Next slice outcome: implement a documented local `vortex_ingest` / Vortex lifecycle command and
+    Python helper for one admitted operator family.
+  - Runtime enablement: user-facing local `vortex_ingest`, Vortex prepare/write/reopen/scan
+    lifecycle, and VortexPreparedState creation for admitted operators.
   - User-visible surface: CLI, Python helper, benchmark rows, compute-flow, Field Guide/status.
   - Implementation scope: VortexPreparedState, local Vortex writer, reopen verifier,
     source-backed scan bridge, digest/certificate reporting.
@@ -444,10 +486,12 @@ or documentation updates alone are insufficient.
     - `Executor::spawn_io` and local async write behavior are candidate lifecycle hooks only when
       explicit side-effect policy, output certificates, and no-fallback evidence are present.
     - No lifecycle support may use Vortex query-engine integrations or default to Arrow conversion.
-  - Evidence required: prepared state/artifact refs, layout/encoding/stats summary, write/reopen
-    digest, scan fields, decode/materialization status, no-fallback fields.
+  - Evidence required: source adapter refs, SourceState refs, `vortex_ingest_status`, prepared
+    state/artifact refs, layout/encoding/stats summary, write/reopen digest, scan fields,
+    decode/materialization status, timing scope, no-fallback fields.
   - Acceptance: workflow runs without compatibility re-import during query timing; unsupported
-    Vortex layouts/features block.
+    Vortex layouts/features block; generated benchmark/website rows show prepare-once timing
+    separately from warm prepared query timing.
   - Verification: lifecycle smoke, writer/reopen tests, source-backed scan tests, benchmark
     harness contract tests.
   - Non-goals: no object-store Vortex artifact, blanket encoded-native claim, or performance claim.
@@ -536,15 +580,18 @@ or documentation updates alone are insufficient.
   - Implementation scope: shared schema, adapters, aliases/migrations, readiness checks, website
     renderer updates.
   - Evidence required: execution/engine/evidence mode, source/generated/output refs,
-    materialization/decode refs, certificate refs, no-fallback fields, claim gate.
-  - Acceptance: missing fallback/certificate/claim fields fail validation; report-only rows cannot
-    masquerade as runtime support.
+    route fields, SourceState/VortexPreparedState/OutputPlan refs, materialization/decode refs,
+    certificate refs, no-fallback fields, claim gate.
+  - Acceptance: missing fallback/certificate/claim fields fail validation; `prepared_vortex` rows
+    without `VortexPreparedState` fail validation; compatibility certified rows without
+    `cold_certified_end_to_end` timing fail validation; report-only rows cannot masquerade as
+    runtime support.
   - Verification: schema contract tests, release readiness metadata, benchmark completeness,
     website readiness, Python typed-report tests.
   - Non-goals: no runtime capability or claim upgrade from schema work alone.
   - Claim boundary: evidence standardization only.
   - Fallback boundary: every envelope must expose `fallback_attempted` and
-    `external_engine_invoked`.
+    `external_engine_invoked`; route fields must not hide an external engine or fallback boundary.
   - Dependencies/blockers: stable field naming, compatibility aliases, Python report migration, and
     benchmark/website validators.
   - Ledger rule: ledger entry must record schema version and migrated surfaces.
@@ -590,7 +637,9 @@ or documentation updates alone are insufficient.
   - Acceptance: no promoted path is presented publicly without current evidence; stale or incomplete
     artifacts block claim-grade status; website comparative tables derive from the promoted artifact
     manifest rather than an external dashboard scrape; full-local profiles split `polars-eager` and
-    `polars-lazy` and expose missing DuckDB/DataFusion/Dask/Spark lanes with reasons.
+    `polars-lazy` and expose missing DuckDB/DataFusion/Dask/Spark lanes with reasons; compatibility
+    rows are labeled as certified cold route; prepared rows are labeled as prepared warm route from
+    `VortexPreparedState`; prepare-once timing and warm-query timing stay separate.
   - Verification: benchmark artifact completeness checker, website readiness, release readiness,
     traditional benchmark harness tests.
   - Non-goals: no performance/superiority/Spark-replacement claim.

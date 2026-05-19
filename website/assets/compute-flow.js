@@ -19,12 +19,13 @@
     runtime: [
       { title: "Policy", detail: "Governance, credentials, and no fallback" },
       { title: "Capability matrix", detail: "Source, operator, sink, and feature gates" },
+      { title: "UniversalIngress", detail: "InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState" },
       { title: "Explicit route", detail: "Requested mode, selected mode, and reason" },
       { title: "Claim gate", detail: "claim_grade, fixture_smoke_only, or not_claim_grade" }
     ],
     lanes: [
-      { title: "Certified import/stage", detail: "compatibility_import_certified" },
-      { title: "Prepared steady-state", detail: "prepared_vortex" },
+      { title: "Certified cold route", detail: "compatibility_import_certified" },
+      { title: "Prepared warm route", detail: "prepared_vortex from VortexPreparedState" },
       { title: "Already-Vortex", detail: "native_vortex" },
       { title: "Direct one-shot", detail: "direct_compatibility_transient plus unsupported diagnostics" },
       { title: "auto", detail: "Transparent selector, not a hidden engine" }
@@ -42,8 +43,8 @@
       { title: "Adapter consumers", detail: "Downstream readers do not imply hidden execution modes" }
     ],
     modes: [
-      ["compatibility_import_certified", "Certified import/stage route", "Read compatibility input, import to Vortex, write/reopen/scan, compute, certify", "Not pure query-speed timing"],
-      ["prepared_vortex", "Prepared Vortex steady-state route", "Prepare Vortex once, then run many queries/scenarios from prepared artifacts", "Current runtime-development path"],
+      ["compatibility_import_certified", "Certified cold route", "UniversalIngress plus certified vortex_ingest, write/reopen/scan, compute, certify", "Not pure query-speed timing"],
+      ["prepared_vortex", "Prepared warm route", "Execute from VortexPreparedState; non-Vortex input enters only through vortex_ingest first", "Current runtime-development path"],
       ["native_vortex", "Already-Vortex route", "Existing .vortex input, Vortex-native scan/operator path", "Cleanest native-engine lane"],
       ["direct_compatibility_transient", "Direct one-shot route", "Read compatibility input and compute directly without persistent Vortex write/reopen", "Not Vortex-native"],
       ["auto", "Transparent mode choice based on input/request/policy", "User convenience", "Must report selected mode and reason"]

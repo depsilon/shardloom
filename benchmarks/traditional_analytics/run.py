@@ -192,11 +192,36 @@ EXECUTION_MODE_CONTRACT_FIELDS = (
     "selected_execution_mode",
     "mode_selection_reason",
     "execution_mode_family",
+    "source_kind",
+    "source_format",
+    "source_adapter_id",
+    "source_adapter_status",
+    "source_adapter_blocker_id",
+    "ingress_route",
+    "ingress_route_label",
+    "ingress_status",
+    "ingress_certification_level",
+    "vortex_ingest_performed",
+    "vortex_ingest_status",
+    "vortex_ingest_blocker_id",
+    "prepared_state_created",
+    "prepared_state_reused",
+    "prepared_state_reuse_hit",
+    "execution_route_label",
+    "timing_scope",
+    "certification_policy",
+    "certification_status",
+    "certification_blocker_id",
+    "output_route",
+    "output_format",
+    "output_plan_id",
+    "output_plan_status",
     "vortex_native_claim_allowed",
     "compatibility_import_included",
     "vortex_prepare_included",
     "vortex_write_reopen_included",
     "direct_transient_execution",
+    "external_engine_invoked",
     "claim_gate_status",
 )
 STAGE_TIMING_CONTRACT_FIELDS = (
@@ -7709,6 +7734,44 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError("auto execution mode must report selected mode and reason")
 
     if (
+        is_shardloom_engine(str(result.get("engine")))
+        and result.get("source_adapter_status") in (None, "")
+    ):
+        raise RuntimeError("ShardLoom rows must report source_adapter_status")
+    if (
+        is_shardloom_engine(str(result.get("engine")))
+        and result.get("source_adapter_blocker_id") in (None, "")
+    ):
+        raise RuntimeError("ShardLoom rows must report source_adapter_blocker_id")
+    if (
+        is_shardloom_engine(str(result.get("engine")))
+        and result.get("external_engine_invoked") is not False
+    ):
+        raise RuntimeError("ShardLoom rows must report external_engine_invoked=false")
+    if selected_mode == "prepared_vortex":
+        if result.get("timing_scope") != "warm_prepared_query":
+            raise RuntimeError("prepared_vortex rows must report warm_prepared_query timing")
+        if result.get("vortex_ingest_performed") is True:
+            raise RuntimeError(
+                "prepared_vortex rows cannot perform vortex_ingest inside warm query timing"
+            )
+        if result.get("status") == "success" and metrics.get("prepared_state_id") in (
+            None,
+            "",
+            "none",
+        ):
+            raise RuntimeError("prepared_vortex rows must reference VortexPreparedState")
+    if selected_mode == "compatibility_import_certified":
+        if result.get("timing_scope") != "cold_certified_end_to_end":
+            raise RuntimeError(
+                "compatibility_import_certified rows must report cold certified timing"
+            )
+        if result.get("vortex_ingest_performed") is not True:
+            raise RuntimeError(
+                "compatibility_import_certified rows must report certified vortex_ingest"
+            )
+
+    if (
         result.get("engine") == "shardloom"
         and result.get("status") == "success"
         and selected_mode == "compatibility_import_certified"
@@ -9939,11 +10002,35 @@ def execution_mode_metadata(
         selected = "compatibility_import_certified"
         reason = "certified compatibility import/stage workflow"
         family = "compatibility"
+        source_kind = "non_vortex_source"
+        source_adapter_id = f"{data_format}_input_adapter"
+        source_adapter_status = "smoke_supported"
+        source_adapter_blocker_id = "none_scoped_smoke_only"
+        ingress_route = "certified_vortex_ingest"
+        ingress_route_label = "Certified cold route"
+        ingress_status = "smoke_supported"
+        ingress_certification_level = "certified_ingest_stage"
+        vortex_ingest_performed = True
+        vortex_ingest_status = "smoke_supported"
+        vortex_ingest_blocker_id = "none_scoped_smoke_only"
+        prepared_state_created = True
+        prepared_state_reused = False
+        prepared_state_reuse_hit = False
+        execution_route_label = "Certified cold route"
+        timing_scope = "cold_certified_end_to_end"
+        certification_policy = "certified_import_stage"
+        certification_status = "scoped_certification_path"
+        certification_blocker_id = "none_scoped_smoke_only"
+        output_route = "local_result_sink_or_report"
+        output_format = "vortex_result_sink_or_none"
+        output_plan_id = "see_output_plan_contract"
+        output_plan_status = "see_output_plan_contract"
         vortex_native_claim_allowed = False
         compatibility_import_included = True
         vortex_prepare_included = True
         vortex_write_reopen_included = True
         direct_transient_execution = False
+        external_engine_invoked = False
     elif engine == "shardloom-direct-transient":
         selected = str(
             evidence.get("selected_execution_mode") or "direct_compatibility_transient"
@@ -9953,41 +10040,168 @@ def execution_mode_metadata(
             or "direct transient local CSV smoke without Vortex persistence"
         )
         family = "compatibility"
+        source_kind = "non_vortex_source"
+        source_adapter_id = f"{data_format}_input_adapter"
+        source_adapter_status = "smoke_supported"
+        source_adapter_blocker_id = "none_scoped_smoke_only"
+        ingress_route = "direct_transient"
+        ingress_route_label = "Direct one-shot route"
+        ingress_status = "smoke_supported"
+        ingress_certification_level = "minimal_runtime"
+        vortex_ingest_performed = False
+        vortex_ingest_status = "not_performed_direct_transient"
+        vortex_ingest_blocker_id = "not_applicable_direct_transient"
+        prepared_state_created = False
+        prepared_state_reused = False
+        prepared_state_reuse_hit = False
+        execution_route_label = "Direct one-shot route"
+        timing_scope = "direct_one_shot"
+        certification_policy = "direct_transient_smoke"
+        certification_status = "not_certified_import"
+        certification_blocker_id = "not_applicable_direct_transient"
+        output_route = "local_output_or_inline_result"
+        output_format = "jsonl_csv_or_inline"
+        output_plan_id = "see_output_plan_contract"
+        output_plan_status = "see_output_plan_contract"
         vortex_native_claim_allowed = False
         compatibility_import_included = False
         vortex_prepare_included = False
         vortex_write_reopen_included = False
         direct_transient_execution = True
+        external_engine_invoked = False
     elif engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
-        selected = str(evidence.get("selected_execution_mode") or "prepared_vortex")
+        default_selected = "native_vortex" if engine == "shardloom-vortex" else "prepared_vortex"
+        selected = str(evidence.get("selected_execution_mode") or default_selected)
         reason = str(
             evidence.get("mode_selection_reason")
             or "prepared Vortex artifacts were created before scenario timing"
         )
         family = "native_vortex"
+        source_kind = (
+            "existing_vortex_artifact"
+            if selected == "native_vortex"
+            else "vortex_prepared_state"
+        )
+        source_adapter_id = (
+            "native_vortex_file_adapter"
+            if selected == "native_vortex"
+            else "vortex_prepared_state_ref"
+        )
+        source_adapter_status = "smoke_supported"
+        source_adapter_blocker_id = "none_scoped_smoke_only"
+        ingress_route = (
+            "native_vortex_existing"
+            if selected == "native_vortex"
+            else "vortex_ingest_precompleted"
+        )
+        ingress_route_label = (
+            "Already-Vortex route"
+            if selected == "native_vortex"
+            else "Prepared warm route"
+        )
+        ingress_status = "smoke_supported"
+        ingress_certification_level = "prepared_state_evidence"
+        vortex_ingest_performed = False
+        vortex_ingest_status = (
+            "not_applicable_existing_vortex"
+            if selected == "native_vortex"
+            else "precompleted_before_scenario_timing"
+        )
+        vortex_ingest_blocker_id = (
+            "not_applicable_existing_vortex_input"
+            if selected == "native_vortex"
+            else "not_in_timed_prepared_row"
+        )
+        prepared_state_created = selected == "prepared_vortex"
+        prepared_state_reused = selected == "prepared_vortex"
+        prepared_state_reuse_hit = parse_optional_bool(
+            evidence.get("prepared_state_reuse_hit")
+        ) is True or selected == "prepared_vortex"
+        execution_route_label = (
+            "Already-Vortex route"
+            if selected == "native_vortex"
+            else "Prepared warm route"
+        )
+        timing_scope = "native_query" if selected == "native_vortex" else "warm_prepared_query"
+        certification_policy = "prepared_native_smoke"
+        certification_status = "not_certified_import"
+        certification_blocker_id = "not_applicable_prepared_native"
+        output_route = "local_result_sink_or_report"
+        output_format = "vortex_result_sink_or_none"
+        output_plan_id = "see_output_plan_contract"
+        output_plan_status = "see_output_plan_contract"
         vortex_native_claim_allowed = True
         compatibility_import_included = False
         vortex_prepare_included = False
         vortex_write_reopen_included = False
         direct_transient_execution = False
+        external_engine_invoked = False
     elif data_format == SHARDLOOM_VORTEX_FORMAT:
         selected = "native_vortex"
         reason = "native Vortex format selected"
         family = "native_vortex"
+        source_kind = "existing_vortex_artifact"
+        source_adapter_id = "native_vortex_file_adapter"
+        source_adapter_status = "smoke_supported"
+        source_adapter_blocker_id = "none_scoped_smoke_only"
+        ingress_route = "native_vortex_existing"
+        ingress_route_label = "Already-Vortex route"
+        ingress_status = "smoke_supported"
+        ingress_certification_level = "native_vortex_source_evidence"
+        vortex_ingest_performed = False
+        vortex_ingest_status = "not_applicable_existing_vortex"
+        vortex_ingest_blocker_id = "not_applicable_existing_vortex_input"
+        prepared_state_created = False
+        prepared_state_reused = False
+        prepared_state_reuse_hit = False
+        execution_route_label = "Already-Vortex route"
+        timing_scope = "native_query"
+        certification_policy = "native_vortex_smoke"
+        certification_status = "not_certified_import"
+        certification_blocker_id = "not_applicable_native_vortex"
+        output_route = "local_result_sink_or_report"
+        output_format = "vortex_result_sink_or_none"
+        output_plan_id = "see_output_plan_contract"
+        output_plan_status = "see_output_plan_contract"
         vortex_native_claim_allowed = True
         compatibility_import_included = False
         vortex_prepare_included = False
         vortex_write_reopen_included = False
         direct_transient_execution = False
+        external_engine_invoked = False
     else:
         selected = "external_baseline_only"
         reason = "local comparison baseline; never ShardLoom runtime fallback"
         family = "external_baseline"
+        source_kind = "external_baseline_source"
+        source_adapter_id = "external_baseline_adapter"
+        source_adapter_status = "external_baseline_only"
+        source_adapter_blocker_id = "external_baseline_only"
+        ingress_route = "external_baseline_only"
+        ingress_route_label = "External baseline only"
+        ingress_status = "external_baseline_only"
+        ingress_certification_level = "not_shardloom_execution"
+        vortex_ingest_performed = False
+        vortex_ingest_status = "external_baseline_only"
+        vortex_ingest_blocker_id = "external_baseline_only"
+        prepared_state_created = False
+        prepared_state_reused = False
+        prepared_state_reuse_hit = False
+        execution_route_label = "External baseline only"
+        timing_scope = "external_baseline_only"
+        certification_policy = "external_baseline_only"
+        certification_status = "external_baseline_only"
+        certification_blocker_id = "external_baseline_only"
+        output_route = "external_baseline_only"
+        output_format = data_format
+        output_plan_id = "external_baseline_only"
+        output_plan_status = "external_baseline_only"
         vortex_native_claim_allowed = False
         compatibility_import_included = False
         vortex_prepare_included = False
         vortex_write_reopen_included = False
         direct_transient_execution = False
+        external_engine_invoked = False
 
     requested = str(evidence.get("requested_execution_mode") or selected)
     return {
@@ -9996,11 +10210,36 @@ def execution_mode_metadata(
         "execution_mode": selected,
         "mode_selection_reason": reason,
         "execution_mode_family": family,
+        "source_kind": source_kind,
+        "source_format": data_format,
+        "source_adapter_id": source_adapter_id,
+        "source_adapter_status": source_adapter_status,
+        "source_adapter_blocker_id": source_adapter_blocker_id,
+        "ingress_route": ingress_route,
+        "ingress_route_label": ingress_route_label,
+        "ingress_status": ingress_status,
+        "ingress_certification_level": ingress_certification_level,
+        "vortex_ingest_performed": vortex_ingest_performed,
+        "vortex_ingest_status": vortex_ingest_status,
+        "vortex_ingest_blocker_id": vortex_ingest_blocker_id,
+        "prepared_state_created": prepared_state_created,
+        "prepared_state_reused": prepared_state_reused,
+        "prepared_state_reuse_hit": prepared_state_reuse_hit,
+        "execution_route_label": execution_route_label,
+        "timing_scope": timing_scope,
+        "certification_policy": certification_policy,
+        "certification_status": certification_status,
+        "certification_blocker_id": certification_blocker_id,
+        "output_route": output_route,
+        "output_format": output_format,
+        "output_plan_id": output_plan_id,
+        "output_plan_status": output_plan_status,
         "vortex_native_claim_allowed": vortex_native_claim_allowed,
         "compatibility_import_included": compatibility_import_included,
         "vortex_prepare_included": vortex_prepare_included,
         "vortex_write_reopen_included": vortex_write_reopen_included,
         "direct_transient_execution": direct_transient_execution,
+        "external_engine_invoked": external_engine_invoked,
         "claim_gate_status": str(evidence.get("claim_gate_status") or ""),
     }
 

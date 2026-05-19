@@ -33,7 +33,8 @@ Concept groups:
 - **I/O, representation, and translation**: `native_vortex_input`, `native_vortex_output`,
   `compatibility_output`, `foreign_encoded`, `universal native I/O envelope`, `native work
   envelope`, `native I/O certificate`, `universal compatibility coverage scoreboard`,
-  `source-free generated output`, `GeneratedSourceCertificate`.
+  `UniversalIngress`, `vortex_ingest`, `VortexPreparedState`, `source-free generated output`,
+  `GeneratedSourceCertificate`.
 - **Materialization and fidelity**: `MaterializationPolicy`, `MaterializationRequirement`,
   `MaterializationBoundary`, `FidelityLevel`, `VortexOutputFidelity`, `metadata_loss`,
   `fidelity_loss`.
@@ -530,6 +531,25 @@ candidates.
 - **stateful certificate history**: reusable record of prior execution/capability certificates,
   invalidation causes, and plan decisions that can be consumed by future sessions without relying on
   lossy summaries.
+
+## UniversalIngress route terms
+
+- **UniversalIngress**: source-admission layer that recognizes every potential source family and
+  either creates a `SourceState` or emits a deterministic blocker. Recognized source rows are a
+  capability/status map, not runtime support by themselves.
+- **vortex_ingest**: preparation route that converts an admitted non-Vortex `SourceState` into a
+  reusable `VortexPreparedState`. It is the prepare-once route and must keep source/read/parse,
+  Vortex preparation, write/reopen, certificate, no-fallback, and timing fields explicit.
+- **VortexPreparedState**: reusable prepared Vortex artifact/state consumed by `prepared_vortex`.
+  It is not a source adapter and does not imply output support, encoded-native support, object-store
+  support, or claim-grade performance.
+- **prepared_vortex**: execution mode that starts from `VortexPreparedState`. It must not be used to
+  mean direct reads of CSV, Parquet, JSONL, database rows, object-store objects, or generated rows.
+- **certified cold route**: user-facing label for `compatibility_import_certified`, where
+  UniversalIngress, certified `vortex_ingest`, Vortex write/reopen/scan, operator work, output,
+  replay/certificates, and evidence are included in timing.
+- **prepared warm route**: user-facing label for `prepared_vortex`, where query/runtime timing starts
+  after `VortexPreparedState` exists.
 
 ## CG-21 user workflow terms
 - **user data workflow surface**: the end-to-end user journey from install/import through capability

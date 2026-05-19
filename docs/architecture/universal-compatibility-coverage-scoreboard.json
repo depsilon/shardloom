@@ -33,7 +33,27 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1a.csv.broader_runtime_evidence_missing",
       "required_future_evidence": "broader_schema_malformed_input_writer_operator_coverage",
-      "claim_boundary": "Compatibility import evidence only; not pure query speed or universal CSV runtime."
+      "claim_boundary": "Compatibility import evidence only; not pure query speed or universal CSV runtime.",
+      "source_aliases": [
+        "local_csv"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "csv_input_adapter",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "gar-compat-1a.csv.broader_runtime_evidence_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "smoke_supported",
+      "vortex_ingest_status": "smoke_supported",
+      "vortex_ingest_blocker_id": "none_scoped_smoke_only",
+      "compatibility_import_certified_status": "smoke_supported",
+      "compatibility_import_certified_blocker_id": "none_scoped_smoke_only",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "jsonl_json",
@@ -55,7 +75,29 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1a.json.general_runtime_evidence_missing",
       "required_future_evidence": "nested_json_schema_drift_writer_diagnostics",
-      "claim_boundary": "Scoped local JSONL compatibility evidence only; no general JSON document/database claim."
+      "claim_boundary": "Scoped local JSONL compatibility evidence only; no general JSON document/database claim.",
+      "source_aliases": [
+        "local_jsonl",
+        "local_ndjson",
+        "local_json"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "jsonl_json_input_adapter",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "gar-compat-1a.json.general_runtime_evidence_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "smoke_supported",
+      "vortex_ingest_status": "smoke_supported",
+      "vortex_ingest_blocker_id": "none_scoped_smoke_only",
+      "compatibility_import_certified_status": "smoke_supported",
+      "compatibility_import_certified_blocker_id": "none_scoped_smoke_only",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "parquet",
@@ -77,7 +119,27 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1a.parquet.broader_runtime_evidence_missing",
       "required_future_evidence": "pushdown_writer_metadata_table_boundary_evidence",
-      "claim_boundary": "Parquet preparation evidence only; no lakehouse/table runtime claim."
+      "claim_boundary": "Parquet preparation evidence only; no lakehouse/table runtime claim.",
+      "source_aliases": [
+        "local_parquet"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "parquet_input_adapter",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "gar-compat-1a.parquet.broader_runtime_evidence_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "smoke_supported",
+      "vortex_ingest_status": "smoke_supported",
+      "vortex_ingest_blocker_id": "none_scoped_smoke_only",
+      "compatibility_import_certified_status": "smoke_supported",
+      "compatibility_import_certified_blocker_id": "none_scoped_smoke_only",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "arrow_ipc",
@@ -99,7 +161,27 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1a.arrow_ipc.zero_copy_evidence_missing",
       "required_future_evidence": "zero_copy_streaming_output_fidelity_evidence",
-      "claim_boundary": "Interop boundary only; no blanket Arrow-native runtime claim."
+      "claim_boundary": "Interop boundary only; no blanket Arrow-native runtime claim.",
+      "source_aliases": [
+        "local_arrow_ipc"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "arrow_ipc_input_adapter",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "gar-compat-1a.arrow_ipc.zero_copy_evidence_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "smoke_supported",
+      "vortex_ingest_status": "smoke_supported",
+      "vortex_ingest_blocker_id": "none_scoped_smoke_only",
+      "compatibility_import_certified_status": "smoke_supported",
+      "compatibility_import_certified_blocker_id": "none_scoped_smoke_only",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "avro",
@@ -121,7 +203,27 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1a.avro.logical_type_evidence_missing",
       "required_future_evidence": "schema_evolution_logical_type_writer_evidence",
-      "claim_boundary": "Scoped compatibility import evidence only; no native Avro execution claim."
+      "claim_boundary": "Scoped compatibility import evidence only; no native Avro execution claim.",
+      "source_aliases": [
+        "local_avro"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "avro_input_adapter",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "gar-compat-1a.avro.logical_type_evidence_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "smoke_supported",
+      "vortex_ingest_status": "smoke_supported",
+      "vortex_ingest_blocker_id": "none_scoped_smoke_only",
+      "compatibility_import_certified_status": "smoke_supported",
+      "compatibility_import_certified_blocker_id": "none_scoped_smoke_only",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "orc",
@@ -143,7 +245,27 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1a.orc.statistics_writer_evidence_missing",
       "required_future_evidence": "predicate_stripe_statistics_writer_evidence",
-      "claim_boundary": "Scoped compatibility import evidence only; no native ORC execution claim."
+      "claim_boundary": "Scoped compatibility import evidence only; no native ORC execution claim.",
+      "source_aliases": [
+        "local_orc"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "orc_input_adapter",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "gar-compat-1a.orc.statistics_writer_evidence_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "smoke_supported",
+      "vortex_ingest_status": "smoke_supported",
+      "vortex_ingest_blocker_id": "none_scoped_smoke_only",
+      "compatibility_import_certified_status": "smoke_supported",
+      "compatibility_import_certified_blocker_id": "none_scoped_smoke_only",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "excel",
@@ -165,7 +287,27 @@
       "claim_gate_status": "not_claim_grade",
       "blocker_id": "gar-compat-1a.excel.parser_policy_missing",
       "required_future_evidence": "parser_dependency_license_formula_effect_policy",
-      "claim_boundary": "Excel source/sink support is not claimed."
+      "claim_boundary": "Excel source/sink support is not claimed.",
+      "source_aliases": [
+        "local_excel"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "excel_input_adapter",
+      "source_adapter_status": "blocked",
+      "source_adapter_blocker_id": "gar-compat-1a.excel.parser_policy_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "blocked",
+      "vortex_ingest_status": "blocked",
+      "vortex_ingest_blocker_id": "gar-compat-1a.excel.parser_policy_missing",
+      "compatibility_import_certified_status": "blocked",
+      "compatibility_import_certified_blocker_id": "gar-compat-1a.excel.parser_policy_missing",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "sqlite",
@@ -187,7 +329,28 @@
       "claim_gate_status": "not_claim_grade",
       "blocker_id": "gar-compat-1a.sqlite.connector_evidence_missing",
       "required_future_evidence": "connector_policy_transaction_snapshot_no_fallback_diagnostics",
-      "claim_boundary": "SQLite import/export support is not claimed."
+      "claim_boundary": "SQLite import/export support is not claimed.",
+      "source_aliases": [
+        "sqlite",
+        "local_database_file"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "sqlite_input_adapter",
+      "source_adapter_status": "report_only",
+      "source_adapter_blocker_id": "gar-compat-1a.sqlite.connector_evidence_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "report_only",
+      "vortex_ingest_status": "report_only",
+      "vortex_ingest_blocker_id": "gar-compat-1a.sqlite.connector_evidence_missing",
+      "compatibility_import_certified_status": "report_only",
+      "compatibility_import_certified_blocker_id": "gar-compat-1a.sqlite.connector_evidence_missing",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "postgres_mysql",
@@ -209,7 +372,28 @@
       "claim_gate_status": "not_claim_grade",
       "blocker_id": "gar-compat-1a.database_service.connector_evidence_missing",
       "required_future_evidence": "credential_policy_network_policy_snapshot_import_export_evidence",
-      "claim_boundary": "External databases are not fallback engines or supported runtime connectors."
+      "claim_boundary": "External databases are not fallback engines or supported runtime connectors.",
+      "source_aliases": [
+        "postgres",
+        "mysql"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "postgres_mysql_input_adapter",
+      "source_adapter_status": "report_only",
+      "source_adapter_blocker_id": "gar-compat-1a.database_service.connector_evidence_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "report_only",
+      "vortex_ingest_status": "report_only",
+      "vortex_ingest_blocker_id": "gar-compat-1a.database_service.connector_evidence_missing",
+      "compatibility_import_certified_status": "report_only",
+      "compatibility_import_certified_blocker_id": "gar-compat-1a.database_service.connector_evidence_missing",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "jdbc_odbc",
@@ -231,7 +415,31 @@
       "claim_gate_status": "not_claim_grade",
       "blocker_id": "gar-compat-1a.jdbc_odbc.driver_policy_missing",
       "required_future_evidence": "dependency_license_driver_loading_credentials_imported_schema_evidence",
-      "claim_boundary": "JDBC/ODBC bridge availability is not claimed."
+      "claim_boundary": "JDBC/ODBC bridge availability is not claimed.",
+      "source_aliases": [
+        "jdbc",
+        "odbc",
+        "snowflake",
+        "bigquery",
+        "databricks_sql"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "jdbc_odbc_input_adapter",
+      "source_adapter_status": "report_only",
+      "source_adapter_blocker_id": "gar-compat-1a.jdbc_odbc.driver_policy_missing",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "report_only",
+      "vortex_ingest_status": "report_only",
+      "vortex_ingest_blocker_id": "gar-compat-1a.jdbc_odbc.driver_policy_missing",
+      "compatibility_import_certified_status": "report_only",
+      "compatibility_import_certified_blocker_id": "gar-compat-1a.jdbc_odbc.driver_policy_missing",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "object_store_s3_gcs_adls",
@@ -253,7 +461,29 @@
       "claim_gate_status": "not_claim_grade",
       "blocker_id": "gar-compat-1c.object_store_runtime_blocked",
       "required_future_evidence": "uri_parse_credential_policy_public_read_byte_range_read_write_staging_commit_protocol",
-      "claim_boundary": "No object-store runtime, credential, network, read, write, or commit claim."
+      "claim_boundary": "No object-store runtime, credential, network, read, write, or commit claim.",
+      "source_aliases": [
+        "s3",
+        "gcs",
+        "adls"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "object_store_s3_gcs_adls_input_adapter",
+      "source_adapter_status": "blocked",
+      "source_adapter_blocker_id": "gar-compat-1c.object_store_runtime_blocked",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "blocked",
+      "vortex_ingest_status": "blocked",
+      "vortex_ingest_blocker_id": "gar-compat-1c.object_store_runtime_blocked",
+      "compatibility_import_certified_status": "blocked",
+      "compatibility_import_certified_blocker_id": "gar-compat-1c.object_store_runtime_blocked",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "table_lakehouse_iceberg_delta_hudi",
@@ -275,7 +505,29 @@
       "claim_gate_status": "not_claim_grade",
       "blocker_id": "gar-compat-1d.table_runtime_commit_blocked",
       "required_future_evidence": "metadata_scan_snapshot_delete_append_merge_commit_rollback_evidence",
-      "claim_boundary": "No production lakehouse, table runtime, or commit claim."
+      "claim_boundary": "No production lakehouse, table runtime, or commit claim.",
+      "source_aliases": [
+        "iceberg",
+        "delta",
+        "hudi"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "table_lakehouse_iceberg_delta_hudi_input_adapter",
+      "source_adapter_status": "report_only",
+      "source_adapter_blocker_id": "gar-compat-1d.table_runtime_commit_blocked",
+      "ingress_route": "vortex_ingest",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "report_only",
+      "vortex_ingest_status": "report_only",
+      "vortex_ingest_blocker_id": "gar-compat-1d.table_runtime_commit_blocked",
+      "compatibility_import_certified_status": "report_only",
+      "compatibility_import_certified_blocker_id": "gar-compat-1d.table_runtime_commit_blocked",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "vortex",
@@ -297,7 +549,28 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1a.vortex_universal_runtime_evidence_missing",
       "required_future_evidence": "broader_source_split_sink_encoded_operator_object_store_evidence",
-      "claim_boundary": "Scoped local Vortex evidence only; no universal runtime or performance claim."
+      "claim_boundary": "Scoped local Vortex evidence only; no universal runtime or performance claim.",
+      "source_aliases": [
+        "existing_vortex",
+        "local_vortex"
+      ],
+      "source_kind": "existing_vortex_artifact",
+      "source_adapter_id": "native_vortex_file_adapter",
+      "source_adapter_status": "runtime_supported",
+      "source_adapter_blocker_id": "gar-compat-1a.vortex_universal_runtime_evidence_missing",
+      "ingress_route": "native_vortex_existing",
+      "ingress_route_label": "Already-Vortex route",
+      "ingress_certification_level": "native_vortex_source_evidence",
+      "universal_ingress_status": "runtime_supported",
+      "vortex_ingest_status": "not_applicable_existing_vortex",
+      "vortex_ingest_blocker_id": "not_applicable_existing_vortex_input",
+      "compatibility_import_certified_status": "not_applicable_existing_vortex",
+      "compatibility_import_certified_blocker_id": "not_applicable_existing_vortex_input",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "prepared_vortex accepts VortexPreparedState, not source rows or files",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "not_applicable_existing_vortex_input"
     },
     {
       "surface_id": "generated_source_free_outputs",
@@ -319,7 +592,32 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1b.generated_output_broader_api_evidence_missing",
       "required_future_evidence": "synthetic_sql_dataframe_object_store_foundry_output_evidence",
-      "claim_boundary": "Local user-row, literal-table, calendar, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture-smoke generated-output runtime only."
+      "claim_boundary": "Local user-row, literal-table, calendar, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture-smoke generated-output runtime only.",
+      "source_aliases": [
+        "generated_source",
+        "user_rows",
+        "range",
+        "sequence",
+        "literal_table",
+        "calendar"
+      ],
+      "source_kind": "generated_or_user_declared_source",
+      "source_adapter_id": "generated_source_free_outputs_generated_source_adapter",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "gar-compat-1b.generated_output_broader_api_evidence_missing",
+      "ingress_route": "generated_source",
+      "ingress_route_label": "Source-free generated route",
+      "ingress_certification_level": "generated_source_certificate_required",
+      "universal_ingress_status": "smoke_supported",
+      "vortex_ingest_status": "report_only_optional_generated_vortex_ingest",
+      "vortex_ingest_blocker_id": "gar-runtime-impl-4f0.generated_vortex_ingest_not_runtime_admitted",
+      "compatibility_import_certified_status": "not_applicable_generated_source",
+      "compatibility_import_certified_blocker_id": "not_applicable_no_input_source_read",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "generated sources may later choose vortex_ingest, but prepared_vortex still executes only from VortexPreparedState",
+      "prepared_vortex_timing_scope": "warm_prepared_query_after_optional_generated_ingest",
+      "compatibility_import_certified_timing_scope": "not_applicable_generated_source"
     },
     {
       "surface_id": "python_rows_dataframe",
@@ -341,7 +639,28 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1b.python_dataframe_broad_runtime_blocked",
       "required_future_evidence": "typed_api_admission_generated_source_local_sink_no_fallback_tests",
-      "claim_boundary": "User-layer posture only; no broad DataFrame runtime claim."
+      "claim_boundary": "User-layer posture only; no broad DataFrame runtime claim.",
+      "source_aliases": [
+        "python_user_rows",
+        "dataframe_api_request"
+      ],
+      "source_kind": "generated_or_user_declared_source",
+      "source_adapter_id": "python_rows_dataframe_generated_source_adapter",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "gar-compat-1b.python_dataframe_broad_runtime_blocked",
+      "ingress_route": "generated_source",
+      "ingress_route_label": "Source-free generated route",
+      "ingress_certification_level": "generated_source_certificate_required",
+      "universal_ingress_status": "smoke_supported",
+      "vortex_ingest_status": "report_only_optional_generated_vortex_ingest",
+      "vortex_ingest_blocker_id": "gar-runtime-impl-4f0.generated_vortex_ingest_not_runtime_admitted",
+      "compatibility_import_certified_status": "not_applicable_generated_source",
+      "compatibility_import_certified_blocker_id": "not_applicable_no_input_source_read",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "generated sources may later choose vortex_ingest, but prepared_vortex still executes only from VortexPreparedState",
+      "prepared_vortex_timing_scope": "warm_prepared_query_after_optional_generated_ingest",
+      "compatibility_import_certified_timing_scope": "not_applicable_generated_source"
     },
     {
       "surface_id": "sql_values_literals",
@@ -363,7 +682,29 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "none_scoped_local_sql_values_literals_jsonl_csv_smoke_only",
       "required_future_evidence": "broader_sql_parser_binder_planner_local_source_operator_evidence",
-      "claim_boundary": "Only source-free SQL VALUES/literal/range-generator local JSONL/CSV fixture smokes are admitted; no broad SQL runtime claim."
+      "claim_boundary": "Only source-free SQL VALUES/literal/range-generator local JSONL/CSV fixture smokes are admitted; no broad SQL runtime claim.",
+      "source_aliases": [
+        "sql_values",
+        "sql_literal_select",
+        "sql_generate_series"
+      ],
+      "source_kind": "generated_or_user_declared_source",
+      "source_adapter_id": "sql_values_literals_generated_source_adapter",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "none_scoped_local_sql_values_literals_jsonl_csv_smoke_only",
+      "ingress_route": "generated_source",
+      "ingress_route_label": "Source-free generated route",
+      "ingress_certification_level": "generated_source_certificate_required",
+      "universal_ingress_status": "smoke_supported",
+      "vortex_ingest_status": "report_only_optional_generated_vortex_ingest",
+      "vortex_ingest_blocker_id": "gar-runtime-impl-4f0.generated_vortex_ingest_not_runtime_admitted",
+      "compatibility_import_certified_status": "not_applicable_generated_source",
+      "compatibility_import_certified_blocker_id": "not_applicable_no_input_source_read",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "generated sources may later choose vortex_ingest, but prepared_vortex still executes only from VortexPreparedState",
+      "prepared_vortex_timing_scope": "warm_prepared_query_after_optional_generated_ingest",
+      "compatibility_import_certified_timing_scope": "not_applicable_generated_source"
     },
     {
       "surface_id": "rest_flight_adbc",
@@ -385,7 +726,31 @@
       "claim_gate_status": "not_claim_grade",
       "blocker_id": "gar-compat-1a.rest_flight_adbc_runtime_blocked",
       "required_future_evidence": "transport_contract_auth_lifecycle_result_delivery_no_fallback_parity",
-      "claim_boundary": "No production API, server, remote execution, or data-plane bridge claim."
+      "claim_boundary": "No production API, server, remote execution, or data-plane bridge claim.",
+      "source_aliases": [
+        "rest",
+        "flight",
+        "adbc",
+        "api_event_saas_adapter",
+        "unstructured_media_reference"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "rest_flight_adbc_input_adapter",
+      "source_adapter_status": "report_only",
+      "source_adapter_blocker_id": "gar-compat-1a.rest_flight_adbc_runtime_blocked",
+      "ingress_route": "future_api_event_adapter",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "report_only",
+      "vortex_ingest_status": "report_only",
+      "vortex_ingest_blocker_id": "gar-compat-1a.rest_flight_adbc_runtime_blocked",
+      "compatibility_import_certified_status": "report_only",
+      "compatibility_import_certified_blocker_id": "gar-compat-1a.rest_flight_adbc_runtime_blocked",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     },
     {
       "surface_id": "foundry",
@@ -407,7 +772,27 @@
       "claim_gate_status": "not_claim_grade",
       "blocker_id": "gar-compat-1a.foundry_platform_proof_missing",
       "required_future_evidence": "real_foundry_environment_output_api_governance_lineage_no_external_compute_proof",
-      "claim_boundary": "Future validation target only; no endorsement or production claim."
+      "claim_boundary": "Future validation target only; no endorsement or production claim.",
+      "source_aliases": [
+        "foundry_dataset"
+      ],
+      "source_kind": "non_vortex_source",
+      "source_adapter_id": "foundry_input_adapter",
+      "source_adapter_status": "report_only",
+      "source_adapter_blocker_id": "gar-compat-1a.foundry_platform_proof_missing",
+      "ingress_route": "future_platform_dataset_adapter",
+      "ingress_route_label": "Vortex ingest / prepare once route",
+      "ingress_certification_level": "source_state_required",
+      "universal_ingress_status": "report_only",
+      "vortex_ingest_status": "report_only",
+      "vortex_ingest_blocker_id": "gar-compat-1a.foundry_platform_proof_missing",
+      "compatibility_import_certified_status": "report_only",
+      "compatibility_import_certified_blocker_id": "gar-compat-1a.foundry_platform_proof_missing",
+      "prepared_vortex_direct_source_input_allowed": false,
+      "prepared_vortex_requires_prepared_state": true,
+      "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+      "prepared_vortex_timing_scope": "warm_prepared_query",
+      "compatibility_import_certified_timing_scope": "cold_certified_end_to_end"
     }
   ],
   "source_free_generated_output_contract": {
@@ -1526,5 +1911,16 @@
         "claim_boundary": "Databricks SQL remains a future import/export endpoint or external baseline only; no warehouse runtime or Spark fallback claim."
       }
     ]
-  }
+  },
+  "route_taxonomy_ref": "docs/architecture/universal-ingress-route-taxonomy.json",
+  "route_taxonomy_schema_version": "shardloom.universal_ingress_route_taxonomy.v1",
+  "prepared_vortex_input_contract": "prepared_vortex executes from VortexPreparedState; non-Vortex sources must first pass UniversalIngress/InputAdapter -> SourceState -> vortex_ingest.",
+  "route_status_fields": [
+    "universal_ingress_status",
+    "source_adapter_status",
+    "vortex_ingest_status",
+    "compatibility_import_certified_status",
+    "prepared_vortex_requires_prepared_state",
+    "prepared_vortex_direct_source_input_allowed"
+  ]
 }

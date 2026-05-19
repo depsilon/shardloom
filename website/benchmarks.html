@@ -160,7 +160,7 @@
           <article class="signal-card telemetry-card">
             <span class="claim-badge supported">local smoke evidence</span>
             <h3>Local workflow coverage</h3>
-            <p>Rows cover compatibility import, prepared Vortex, source-backed scan, materialization, result-sink, and batch smoke evidence.</p>
+            <p>Rows cover certified cold-route, VortexPreparedState warm-route, source-backed scan, materialization, result-sink, and batch smoke evidence.</p>
           </article>
           <article class="signal-card telemetry-card">
             <span class="claim-badge blocked">performance claim not allowed</span>
@@ -230,7 +230,7 @@
         <div>
           <p class="eyebrow">Maturity posture</p>
           <h2>Optimization Maturity</h2>
-          <p class="section-lede">Current state is beta/pre-optimization. Compatibility import is still expensive, prepared/native is improving, and the scoped in-process session-backed batch runner is a structural unlock for the next runtime work.</p>
+          <p class="section-lede">Current state is beta/pre-optimization. Certified cold-route ingest/stage work is still expensive, prepared/native warm execution is improving, and the scoped in-process session-backed batch runner is a structural unlock for the next runtime work.</p>
           <ul class="check-list">
             <li>encoded/native/fused operator work remains future optimization.</li>
             <li>prepared/native Vortex is the main optimization direction.</li>
@@ -266,8 +266,8 @@
         <h2>How To Read The Evidence</h2>
         <p class="section-lede">ShardLoom evidence is grouped by lane and claim posture. The goal is attribution: what ran, what was prepared, what materialized, and which claims remain blocked.</p>
         <div class="benchmark-map">
-          <article><h3>Compatibility import</h3><p>Certification lane. Includes parse/import/write/reopen/scan and therefore should not be read as pure query speed.</p></article>
-          <article><h3>Prepared Vortex</h3><p>Prepared-artifact lane. Current runtime-development focus with fixture-smoke evidence and no public performance claim.</p></article>
+          <article><h3>Certified cold route</h3><p>Certification lane. Includes UniversalIngress/source-adapter work, certified vortex_ingest, write/reopen/scan, and therefore should not be read as pure query speed.</p></article>
+          <article><h3>Prepared warm route</h3><p>VortexPreparedState lane. Current runtime-development focus with fixture-smoke evidence and no public performance claim; non-Vortex input reaches it only through vortex_ingest first.</p></article>
           <article><h3>Native Vortex</h3><p>Existing Vortex input lane. Scoped local rows must carry source-backed scan and Native I/O evidence.</p></article>
           <article><h3>External baselines</h3><p>Comparison rows only. They never satisfy ShardLoom-native, Vortex-native, no-fallback, or claim-grade gates.</p></article>
         </div>
@@ -298,8 +298,8 @@
           <article>
             <h3>What to compare</h3>
             <ul>
-              <li>certified import/stage route vs prepared steady-state route</li>
-              <li>warm prepared route vs already-Vortex batch smoke</li>
+              <li>certified cold route vs prepared warm route</li>
+              <li>Prepared Vortex route from VortexPreparedState vs already-Vortex batch smoke</li>
               <li>source-backed scan fields vs materialized compatibility path fields</li>
             </ul>
           </article>
@@ -317,10 +317,10 @@
     <section id="local-timing-context">
       <div class="shell">
         <h2>Local Timing Context</h2>
-        <p class="section-lede">The mode view keeps certified import/stage, prepared steady-state, already-Vortex, and batch smoke routes separated. These numbers are local context for attribution before optimization, not a leaderboard.</p>
-        <div class="mode-comparison-grid"><article class="mode-comparison-card"><span>certified import/stage route geomean</span><strong>441.84 ms</strong><p>certification lane with import, write/reopen, scan, sink, and evidence work</p></article><article class="mode-comparison-card"><span>Vortex-oriented route geomean</span><strong>1.48 ms</strong><p>Vortex-oriented local lane from the promoted benchmark artifact</p></article><article class="mode-comparison-card"><span>prepared steady-state route geomean</span><strong>1.40 ms</strong><p>prepared-artifact lane and current runtime-development direction</p></article><article class="mode-comparison-card"><span>prepared_vortex batch smoke total/compute</span><strong>6.618 ms</strong><p>scoped session-backed batch runner structural smoke evidence</p></article><article class="mode-comparison-card"><span>native_vortex batch smoke total/compute</span><strong>5.914 ms</strong><p>native Vortex batch runner structural smoke evidence</p></article></div>
+        <p class="section-lede">The mode view keeps certified cold, prepared warm, already-Vortex, and batch smoke routes separated. Prepared rows start from VortexPreparedState; they do not mean non-Vortex input was read directly by prepared_vortex. These numbers are local context for attribution before optimization, not a leaderboard.</p>
+        <div class="mode-comparison-grid"><article class="mode-comparison-card"><span>Certified cold route geomean</span><strong>441.84 ms</strong><p>certification lane with import, write/reopen, scan, sink, and evidence work</p></article><article class="mode-comparison-card"><span>Already-Vortex route geomean</span><strong>1.48 ms</strong><p>Vortex-oriented local lane from the promoted benchmark artifact</p></article><article class="mode-comparison-card"><span>Prepared warm route geomean</span><strong>1.40 ms</strong><p>query/runtime lane after VortexPreparedState already exists</p></article><article class="mode-comparison-card"><span>prepared_vortex VortexPreparedState batch smoke</span><strong>6.618 ms</strong><p>scoped session-backed batch runner structural smoke evidence</p></article><article class="mode-comparison-card"><span>native_vortex batch smoke total/compute</span><strong>5.914 ms</strong><p>native Vortex batch runner structural smoke evidence</p></article></div>
         <h3>Representative timing decomposition</h3>
-        <p class="section-lede">The decomposition highlights why compatibility import totals should not be read as pure query speed: parse/import, Vortex write, scan, operator, sink, and evidence work are separate fields.</p>
+        <p class="section-lede">The decomposition highlights why compatibility import totals should not be read as pure query speed: UniversalIngress, parse/import, Vortex ingest/write, scan, operator, sink, and evidence work are separate fields.</p>
         <div class="table-scroll"><table>
 <thead><tr><th>Representative row</th><th>Mode</th><th>Compat parse ms</th><th>Vortex import ms</th><th>Vortex write ms</th><th>Vortex scan ms</th><th>Operator ms</th><th>Result sink ms</th><th>Evidence/render ms</th><th>Total ms</th></tr></thead><tbody>
 <tr><td>csv: selective filter</td><td>compatibility_import_certified</td><td>29.651</td><td>115.745</td><td>73.624</td><td>7.36</td><td>7.36</td><td>9.434</td><td>n/a</td><td>158.6181</td></tr>
@@ -343,7 +343,7 @@
     <section>
       <div class="shell">
         <h2>Vortex-Oriented Lanes By Source Format</h2>
-        <p class="section-lede">This view makes the prepared and Vortex-oriented lanes easier to compare across source formats while keeping the compatibility/import boundary separate.</p>
+        <p class="section-lede">This view makes prepared warm and Vortex-oriented lanes easier to compare across source formats while keeping UniversalIngress/vortex_ingest and certified cold-route boundaries separate.</p>
         <details class="raw-data-drawer"><summary>Raw Vortex-oriented lanes table</summary><div class="table-scroll"><table>
 <thead><tr><th>Engine</th><th>Source format</th><th>Scenario</th><th>Execution mode</th><th>Claim gate</th><th>Local row time</th><th>Vortex scan ms</th><th>Operator ms</th><th>Fallback</th><th>External engine</th></tr></thead><tbody>
 <tr><td>shardloom</td><td>csv</td><td>csv: csv/file ingest</td><td>compatibility_import_certified</td><td>claim_grade</td><td>508.97 ms</td><td>8.9903</td><td>8.9903</td><td>False</td><td>False</td></tr>
@@ -414,7 +414,7 @@
     <section id="timing">
       <div class="shell">
         <h2>Execution Mode Timing</h2>
-        <p class="section-lede">Compatibility import rows, prepared Vortex rows, and native Vortex batch rows are separated. Compatibility rows include ingest/stage/certification work; prepared/native rows start from prepared Vortex artifacts.</p>
+        <p class="section-lede">Certified cold rows, prepared warm rows, and already-Vortex batch rows are separated. Certified cold rows include ingress/stage/certification work; prepared warm rows start from VortexPreparedState.</p>
         <details class="raw-data-drawer"><summary>Raw execution mode timing table</summary><div class="table-scroll"><table>
 <thead><tr><th>Scenario</th><th>Engine</th><th>Mode</th><th>Claim gate</th><th>Query runtime ms</th><th>Source read ms</th><th>Compat parse ms</th><th>Import ms</th><th>Vortex write ms</th><th>Vortex reopen ms</th><th>Vortex scan ms</th><th>Operator ms</th><th>Sink ms</th><th>Evidence ms</th><th>Total ms</th><th>Operator class</th><th>Source metadata</th><th>Source-state reuse</th><th>Source-state families</th><th>Fallback</th><th>External engine</th></tr></thead><tbody>
 <tr><td>csv: selective filter</td><td>shardloom</td><td>compatibility_import_certified</td><td>not_claim_grade</td><td>158.6181</td><td>29.651</td><td>29.651</td><td>115.745</td><td>73.624</td><td>7.36</td><td>7.36</td><td>7.36</td><td>9.434</td><td>n/a</td><td>158.6181</td><td>materialized_temporary</td><td>n/a</td><td>n/a</td><td>n/a</td><td>False</td><td>False</td></tr>

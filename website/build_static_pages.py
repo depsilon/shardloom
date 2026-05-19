@@ -33,6 +33,9 @@ PAGEFIND_HEAD = (
 COMPATIBILITY_SCOREBOARD_DATA = (
     ROOT / "docs" / "architecture" / "universal-compatibility-coverage-scoreboard.json"
 )
+UNIVERSAL_INGRESS_ROUTE_TAXONOMY_DATA = (
+    ROOT / "docs" / "architecture" / "universal-ingress-route-taxonomy.json"
+)
 PACKAGE_CHANNEL_MATRIX_DATA = ROOT / "docs" / "release" / "package-channel-readiness-matrix.json"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -106,6 +109,7 @@ CITATION_PROOF_BY_PATH = {
     "docs/architecture/object-store-request-planner.md": "Object-store request planning posture and blocked/runtime admission boundaries.",
     "docs/architecture/operational-evidence-policy-hardening.md": "Evidence policy rules that keep unsupported paths explicit and claim gates closed.",
     "docs/architecture/universal-compatibility-coverage-scoreboard.md": "Compatibility scoreboard status and source/sink support boundaries.",
+    "docs/architecture/universal-ingress-route-taxonomy.md": "UniversalIngress, vortex_ingest, VortexPreparedState, and route-timing contract boundaries.",
     "docs/architecture/universal-input-contract.md": "Universal input contract posture and unsupported input-family diagnostics.",
     "docs/architecture/vortex-scan-pushdown-completion.md": "Vortex scan pushdown evidence fields, blockers, and scoped support boundaries.",
     "docs/architecture/runtime-evidence-level-tiering.md": "Evidence-level distinctions for minimal runtime, certified, and full replay paths.",
@@ -494,6 +498,12 @@ def load_compatibility_scoreboard() -> dict[str, Any]:
     return json.loads(COMPATIBILITY_SCOREBOARD_DATA.read_text(encoding="utf-8"))
 
 
+def load_universal_ingress_route_taxonomy() -> dict[str, Any]:
+    if not UNIVERSAL_INGRESS_ROUTE_TAXONOMY_DATA.exists():
+        return {"rows": []}
+    return json.loads(UNIVERSAL_INGRESS_ROUTE_TAXONOMY_DATA.read_text(encoding="utf-8"))
+
+
 def load_package_channel_matrix() -> dict[str, Any]:
     if not PACKAGE_CHANNEL_MATRIX_DATA.exists():
         return {"channels": []}
@@ -741,6 +751,7 @@ def render_public_status_scorecard_section(use_cases: list[dict[str, Any]]) -> s
 
 def render_compatibility_scoreboard_section() -> str:
     scoreboard = load_compatibility_scoreboard()
+    route_taxonomy = load_universal_ingress_route_taxonomy()
     rows = scoreboard.get("rows", [])
     if not isinstance(rows, list) or not rows:
         return ""
@@ -770,6 +781,39 @@ def render_compatibility_scoreboard_section() -> str:
         "</tr>"
         for row in display_rows
     )
+    route_rows = route_taxonomy.get("rows", [])
+    route_display_rows = [
+        row
+        for row in route_rows
+        if isinstance(row, dict) and row.get("source_surface_id") in featured_ids
+    ]
+    route_table_rows = "\n".join(
+        "<tr>"
+        f"<td><strong>{esc(row.get('source_surface'))}</strong><span>{esc(row.get('ingress_route_label'))}</span></td>"
+        f"<td><span class=\"claim-badge {status_class(str(row.get('universal_ingress_status', 'report_only')).replace('-', '_'))}\">{esc(row.get('universal_ingress_status'))}</span></td>"
+        f"<td><span class=\"claim-badge {status_class(str(row.get('vortex_ingest_status', 'report_only')).replace('-', '_'))}\">{esc(row.get('vortex_ingest_status'))}</span></td>"
+        f"<td><span class=\"claim-badge {status_class(str(row.get('compatibility_import_certified_status', 'report_only')).replace('-', '_'))}\">{esc(row.get('compatibility_import_certified_status'))}</span></td>"
+        f"<td>{esc(row.get('prepared_vortex_input_contract'))}</td>"
+        "</tr>"
+        for row in route_display_rows
+    )
+    route_taxonomy_html = ""
+    if route_table_rows:
+        route_taxonomy_html = f"""
+        <div class="section-spacer"></div>
+        <h3>UniversalIngress route projection</h3>
+        <p class="section-lede">This projection keeps source recognition, <code>vortex_ingest</code>, certified cold-route status, and prepared-route input contracts separate. <code>prepared_vortex</code> executes from <code>VortexPreparedState</code>; non-Vortex sources reach it only after UniversalIngress creates <code>SourceState</code> and <code>vortex_ingest</code> creates the prepared state.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Source surface</th><th>UniversalIngress</th><th>vortex_ingest</th><th>certified route</th><th>prepared_vortex contract</th></tr></thead>
+            <tbody>{route_table_rows}</tbody>
+          </table>
+        </div>
+        <p class="section-note">Source: <code>docs/architecture/universal-ingress-route-taxonomy.json</code>. Recognized does not mean runtime-supported; blocked/report-only sources remain explicit and keep <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
+        """
+        route_taxonomy_html = "\n".join(
+            line.rstrip() for line in route_taxonomy_html.splitlines()
+        ).strip()
     generated_contract = scoreboard.get("source_free_generated_output_contract", {})
     generated_rows = generated_contract.get("rows", [])
     generated_featured_ids = {
@@ -940,11 +984,12 @@ def render_compatibility_scoreboard_section() -> str:
             <tbody>{table_rows}</tbody>
           </table>
         </div>
+        {route_taxonomy_html}
         {generated_contract_html}
         {object_store_ladder_html}
         {table_format_matrix_html}
         {database_warehouse_matrix_html}
-        <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
+        <p class="section-note">Source: <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code>, <code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code>, and <code>docs/architecture/universal-ingress-route-taxonomy.json</code>. All rows preserve <code>fallback_attempted=false</code> and <code>external_engine_invoked=false</code>.</p>
       </div>
     </section>"""
 
@@ -1077,6 +1122,7 @@ def compute_flow_page(source: Path) -> str:
         <div class="mission-chain" aria-label="ShardLoom execution mission map">
           <article><strong>Access</strong><span>CLI, Python, benchmarks, adapters, and planned REST/event surfaces enter through one typed request envelope.</span></article>
           <article><strong>Admission</strong><span>Policy, capability, semantic profile, requested mode, and output intent are checked before execution.</span></article>
+          <article><strong>Ingress route</strong><span>UniversalIngress/InputAdapter admits or blocks a source, then vortex_ingest creates VortexPreparedState when preparation is allowed.</span></article>
           <article><strong>Execution mode</strong><span>compatibility_import_certified, prepared_vortex, native_vortex, direct_compatibility_transient, or auto with selected reason.</span></article>
           <article><strong>Engine mode</strong><span>batch, live fixture, hybrid fixture, or report-only streaming semantics remain separate from source/preparation lanes.</span></article>
           <article><strong>Provider path</strong><span>Vortex provider, ShardLoom-native kernel, residual-native fixture path, source-backed scan, or deterministic diagnostic.</span></article>
@@ -1116,7 +1162,7 @@ def compute_flow_page(source: Path) -> str:
       <div class="shell">
         <p class="eyebrow">Workflow vs route</p>
         <h2>SQL and Python express the work. Routes explain how it ran.</h2>
-        <p class="section-lede">A normal user story is <code>read/generate -> transform/query -> write</code>. ShardLoom reports the internal path as <code>InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact</code> when those stages apply.</p>
+        <p class="section-lede">A normal user story is <code>read/generate -> transform/query -> write</code>. ShardLoom reports the internal path as <code>UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact</code> when those stages apply.</p>
         <div class="comparison-guidance">
           <article>
             <h3>Common user workflow</h3>
@@ -1131,7 +1177,8 @@ def compute_flow_page(source: Path) -> str:
             <h3>Engine route evidence</h3>
             <ul>
               <li>Source route: no input, generated rows, local file, existing Vortex, or future platform source.</li>
-              <li>Preparation route: direct transient, certified import/stage, prepared Vortex, or native Vortex.</li>
+              <li>Ingress/preparation route: UniversalIngress/InputAdapter, none, direct transient, vortex_ingest / prepare once, certified vortex_ingest, or existing native Vortex.</li>
+              <li>Execution route: prepared_vortex from VortexPreparedState, native_vortex from existing Vortex, direct transient, or deterministic blocker.</li>
               <li>Output route: scalar/report, local sink, Vortex result, fanout, or deterministic blocker.</li>
               <li>Evidence route: minimal runtime, certified, full replay, and claim gate.</li>
             </ul>
@@ -1143,10 +1190,10 @@ def compute_flow_page(source: Path) -> str:
       <div class="shell">
         <p class="eyebrow">Execution mode lanes</p>
         <h2>Source and preparation choices stay explicit.</h2>
-        <p class="section-lede">These lanes are not interchangeable timing rows. Compatibility import carries ingest/stage/certification work. Prepared and native Vortex lanes are the current runtime-development direction. Direct transient and auto stay constrained by diagnostics and selected-mode reporting.</p>
+        <p class="section-lede">These lanes are not interchangeable timing rows. Compatibility import is the certified cold route. Prepared Vortex is a warm route from VortexPreparedState, not a direct reader for normal files. Direct transient and auto stay constrained by diagnostics and selected-mode reporting.</p>
         <div class="mode-lanes mission-mode-lanes">
-          <article class="mode-lane"><span class="lane-tag">Certified import/stage route</span><h3>compatibility_import_certified</h3><p>Reads compatibility input, imports to Vortex, writes/reopens/scans, computes, and certifies the full ingest/stage workflow.</p></article>
-          <article class="mode-lane"><span class="lane-tag">Prepared steady-state route</span><h3>prepared_vortex</h3><p>Prepares Vortex once, then runs scoped queries from prepared artifacts with source-backed scan and no-fallback evidence.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Certified cold route</span><h3>compatibility_import_certified</h3><p>Uses UniversalIngress plus certified vortex_ingest, then writes/reopens/scans, computes, and certifies the full ingest/stage workflow.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Prepared warm route</span><h3>prepared_vortex</h3><p>Executes from VortexPreparedState. Non-Vortex inputs reach this mode only after UniversalIngress creates SourceState and vortex_ingest prepares Vortex.</p></article>
           <article class="mode-lane"><span class="lane-tag">Already-Vortex route</span><h3>native_vortex</h3><p>Runs from existing Vortex input where the local row carries Native I/O, provider admission, and claim-boundary fields.</p></article>
           <article class="mode-lane"><span class="lane-tag">Direct one-shot route</span><h3>direct_compatibility_transient / auto</h3><p>Direct transient remains narrow and not Vortex-native; auto is only a transparent selector with a selected mode and reason.</p></article>
         </div>
@@ -1329,11 +1376,11 @@ FALLBACK_FIELD_GUIDE_CONCEPTS: list[dict[str, Any]] = [
         "slug": "execution-modes",
         "title": "Execution Modes",
         "answer": "Execution modes identify the source and preparation lane that a run used.",
-        "why": "Mode attribution separates compatibility certification costs from prepared/native Vortex runtime paths.",
+        "why": "Mode attribution separates certified cold-route costs from vortex_ingest preparation, prepared warm query timing, and native Vortex runtime paths.",
         "how": "Benchmark and CLI rows report modes such as `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto`.",
         "proves": "A row can identify which lane was selected and which timing fields belong to that lane.",
         "not_proves": "`auto` is not a hidden fast mode, and mode vocabulary is not the same as broad runtime support.",
-        "evidence": ["selected_execution_mode", "requested_execution_mode", "mode timing fields", "claim_gate_status"],
+        "evidence": ["selected_execution_mode", "requested_execution_mode", "ingress_route", "timing_scope", "claim_gate_status"],
         "related": ["prepared-vortex", "native-vortex", "compatibility-import-certified"],
         "sources": ["docs/architecture/compute-engine-flow-reference.md", "docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md"],
         "boundary": "Execution mode labels are explanatory and must not be read as performance claims.",
@@ -1341,9 +1388,9 @@ FALLBACK_FIELD_GUIDE_CONCEPTS: list[dict[str, Any]] = [
     {
         "slug": "compatibility-import-certified",
         "title": "Compatibility Import Certified",
-        "answer": "The compatibility lane imports local compatibility data into Vortex evidence paths and records certification costs.",
-        "why": "It helps prove workflow coverage, but it carries parse, import, write/reopen, scan, sink, and evidence overhead.",
-        "how": "The benchmark page decomposes compatibility parse, Vortex import, Vortex write, Vortex scan, operator, sink, and evidence fields.",
+        "answer": "The compatibility lane is the certified cold route over UniversalIngress and certified vortex_ingest.",
+        "why": "It helps prove workflow coverage, but it carries source admission, parse, ingest, write/reopen, scan, sink, and evidence overhead.",
+        "how": "The benchmark page decomposes UniversalIngress/source adapter, compatibility parse, Vortex ingest, Vortex write, Vortex scan, operator, sink, and evidence fields.",
         "proves": "It can show that a compatibility input moved through a Vortex-backed evidence workflow without fallback.",
         "not_proves": "It is not pure query speed and should not be ranked against direct-file engine baselines.",
         "evidence": ["compatibility_parse_millis", "compatibility_to_vortex_import_millis", "vortex_write_millis", "vortex_scan_millis"],
@@ -1354,15 +1401,15 @@ FALLBACK_FIELD_GUIDE_CONCEPTS: list[dict[str, Any]] = [
     {
         "slug": "prepared-vortex",
         "title": "Prepared Vortex",
-        "answer": "Prepared Vortex is the current runtime-development lane for already prepared Vortex artifacts.",
-        "why": "It removes compatibility import from the timed path and makes prepared/native optimization work easier to interpret.",
-        "how": "Prepared rows expose source-backed scan, Native I/O, materialization/decode, no-fallback, and claim-gate fields.",
+        "answer": "Prepared Vortex is the prepared warm route that executes from VortexPreparedState.",
+        "why": "It keeps non-Vortex source admission and vortex_ingest preparation separate from warm query/runtime timing.",
+        "how": "Prepared rows expose VortexPreparedState refs, source-backed scan, Native I/O, materialization/decode, no-fallback, and claim-gate fields.",
         "proves": "A prepared row can show scoped local execution over prepared Vortex artifacts with explicit evidence fields.",
-        "not_proves": "It does not prove generalized encoded aggregation, production SQL/DataFrame runtime, or superiority over other engines.",
-        "evidence": ["prepared_vortex", "source_backed_scan_*", "native_io_certificate_status", "materialization_boundary_report_emitted"],
+        "not_proves": "It does not prove direct non-Vortex source reads, generalized encoded aggregation, production SQL/DataFrame runtime, or superiority over other engines.",
+        "evidence": ["prepared_vortex", "prepared_state_id", "source_backed_scan_*", "native_io_certificate_status", "materialization_boundary_report_emitted"],
         "related": ["native-vortex", "materialization-boundary", "benchmark-telemetry"],
         "sources": ["README.md", "docs/architecture/compute-engine-flow-reference.md"],
-        "boundary": "Prepared Vortex is the main optimization direction, but current rows remain claim-gated.",
+        "boundary": "Prepared Vortex starts from VortexPreparedState; it is the main optimization direction, but current rows remain claim-gated.",
     },
     {
         "slug": "native-vortex",
@@ -3347,22 +3394,22 @@ def mode_comparison_visual(
     timing_table = (comparative or {}).get("engine_timing_overview", {})
     cards = [
         (
-            "certified import/stage route geomean",
+            "Certified cold route geomean",
             dashboard_table_value(timing_table, "shardloom", "Geomean"),
             "certification lane with import, write/reopen, scan, sink, and evidence work",
         ),
         (
-            "Vortex-oriented route geomean",
+            "Already-Vortex route geomean",
             dashboard_table_value(timing_table, "shardloom-vortex", "Geomean"),
             "Vortex-oriented local lane from the promoted benchmark artifact",
         ),
         (
-            "prepared steady-state route geomean",
+            "Prepared warm route geomean",
             dashboard_table_value(timing_table, "shardloom-prepared-vortex", "Geomean"),
-            "prepared-artifact lane and current runtime-development direction",
+            "query/runtime lane after VortexPreparedState already exists",
         ),
         (
-            "prepared_vortex batch smoke total/compute",
+            "prepared_vortex VortexPreparedState batch smoke",
             f"{batch_row_value(batch_rows, 'prepared_vortex', 'total_scenario_compute_millis')} ms",
             "scoped session-backed batch runner structural smoke evidence",
         ),
@@ -3867,8 +3914,8 @@ def benchmark_page(summary: dict[str, Any]) -> str:
           <article>
             <h3>What to compare</h3>
             <ul>
-              <li>certified import/stage route vs prepared steady-state route</li>
-              <li>warm prepared route vs already-Vortex batch smoke</li>
+              <li>certified cold route vs prepared warm route</li>
+              <li>Prepared Vortex route from VortexPreparedState vs already-Vortex batch smoke</li>
               <li>source-backed scan fields vs materialized compatibility path fields</li>
             </ul>
           </article>
@@ -3886,10 +3933,10 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     <section id="local-timing-context">
       <div class="shell">
         <h2>Local Timing Context</h2>
-        <p class="section-lede">The mode view keeps certified import/stage, prepared steady-state, already-Vortex, and batch smoke routes separated. These numbers are local context for attribution before optimization, not a leaderboard.</p>
+        <p class="section-lede">The mode view keeps certified cold, prepared warm, already-Vortex, and batch smoke routes separated. Prepared rows start from VortexPreparedState; they do not mean non-Vortex input was read directly by prepared_vortex. These numbers are local context for attribution before optimization, not a leaderboard.</p>
         {mode_visual}
         <h3>Representative timing decomposition</h3>
-        <p class="section-lede">The decomposition highlights why compatibility import totals should not be read as pure query speed: parse/import, Vortex write, scan, operator, sink, and evidence work are separate fields.</p>
+        <p class="section-lede">The decomposition highlights why compatibility import totals should not be read as pure query speed: UniversalIngress, parse/import, Vortex ingest/write, scan, operator, sink, and evidence work are separate fields.</p>
         {timing_decomposition}
         {details_block('Raw local timing context table', table_from_dashboard(comparative.get('engine_timing_overview', {})))}
       </div>
@@ -3897,7 +3944,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     <section>
       <div class="shell">
         <h2>Vortex-Oriented Lanes By Source Format</h2>
-        <p class="section-lede">This view makes the prepared and Vortex-oriented lanes easier to compare across source formats while keeping the compatibility/import boundary separate.</p>
+        <p class="section-lede">This view makes prepared warm and Vortex-oriented lanes easier to compare across source formats while keeping UniversalIngress/vortex_ingest and certified cold-route boundaries separate.</p>
         {details_block('Raw Vortex-oriented lanes table', table_from_dashboard(comparative.get('vortex_oriented_lanes', {})))}
       </div>
     </section>
@@ -4021,7 +4068,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
           <article class="signal-card telemetry-card">
             <span class="claim-badge supported">local smoke evidence</span>
             <h3>Local workflow coverage</h3>
-            <p>Rows cover compatibility import, prepared Vortex, source-backed scan, materialization, result-sink, and batch smoke evidence.</p>
+            <p>Rows cover certified cold-route, VortexPreparedState warm-route, source-backed scan, materialization, result-sink, and batch smoke evidence.</p>
           </article>
           <article class="signal-card telemetry-card">
             <span class="claim-badge blocked">performance claim not allowed</span>
@@ -4081,7 +4128,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         <div>
           <p class="eyebrow">Maturity posture</p>
           <h2>Optimization Maturity</h2>
-          <p class="section-lede">Current state is beta/pre-optimization. Compatibility import is still expensive, prepared/native is improving, and the scoped in-process session-backed batch runner is a structural unlock for the next runtime work.</p>
+          <p class="section-lede">Current state is beta/pre-optimization. Certified cold-route ingest/stage work is still expensive, prepared/native warm execution is improving, and the scoped in-process session-backed batch runner is a structural unlock for the next runtime work.</p>
           <ul class="check-list">
             <li>encoded/native/fused operator work remains future optimization.</li>
             <li>prepared/native Vortex is the main optimization direction.</li>
@@ -4109,8 +4156,8 @@ def benchmark_page(summary: dict[str, Any]) -> str:
         <h2>How To Read The Evidence</h2>
         <p class="section-lede">ShardLoom evidence is grouped by lane and claim posture. The goal is attribution: what ran, what was prepared, what materialized, and which claims remain blocked.</p>
         <div class="benchmark-map">
-          <article><h3>Compatibility import</h3><p>Certification lane. Includes parse/import/write/reopen/scan and therefore should not be read as pure query speed.</p></article>
-          <article><h3>Prepared Vortex</h3><p>Prepared-artifact lane. Current runtime-development focus with fixture-smoke evidence and no public performance claim.</p></article>
+          <article><h3>Certified cold route</h3><p>Certification lane. Includes UniversalIngress/source-adapter work, certified vortex_ingest, write/reopen/scan, and therefore should not be read as pure query speed.</p></article>
+          <article><h3>Prepared warm route</h3><p>VortexPreparedState lane. Current runtime-development focus with fixture-smoke evidence and no public performance claim; non-Vortex input reaches it only through vortex_ingest first.</p></article>
           <article><h3>Native Vortex</h3><p>Existing Vortex input lane. Scoped local rows must carry source-backed scan and Native I/O evidence.</p></article>
           <article><h3>External baselines</h3><p>Comparison rows only. They never satisfy ShardLoom-native, Vortex-native, no-fallback, or claim-grade gates.</p></article>
         </div>
@@ -4120,7 +4167,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     <section id="timing">
       <div class="shell">
         <h2>Execution Mode Timing</h2>
-        <p class="section-lede">Compatibility import rows, prepared Vortex rows, and native Vortex batch rows are separated. Compatibility rows include ingest/stage/certification work; prepared/native rows start from prepared Vortex artifacts.</p>
+        <p class="section-lede">Certified cold rows, prepared warm rows, and already-Vortex batch rows are separated. Certified cold rows include ingress/stage/certification work; prepared warm rows start from VortexPreparedState.</p>
         {details_block('Raw execution mode timing table', mode_table)}
       </div>
     </section>

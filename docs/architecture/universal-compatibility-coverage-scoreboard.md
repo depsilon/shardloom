@@ -12,6 +12,13 @@ docs/architecture/universal-compatibility-coverage-scoreboard.json
 schema_version=shardloom.universal_compatibility_coverage_scoreboard.v1
 ```
 
+The route-status projection lives beside it:
+
+```text
+docs/architecture/universal-ingress-route-taxonomy.json
+schema_version=shardloom.universal_ingress_route_taxonomy.v1
+```
+
 Website/status, CLI capability JSON, and Python typed capability views must use typed fields from
 the machine-readable projection or capability envelopes rather than scraping the Markdown prose.
 
@@ -24,6 +31,12 @@ which are blocked, and what evidence would be required before any support claim 
 
 This scoreboard is not a production support claim, a performance claim, a Spark replacement claim,
 or an object-store/lakehouse/Foundry runtime claim.
+
+This scoreboard also does not make `prepared_vortex` a reader for non-Vortex sources.
+`prepared_vortex` executes from `VortexPreparedState`. Non-Vortex sources reach it through
+`UniversalIngress / InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState`.
+`compatibility_import_certified` uses the same source universe and preparation machinery, but with
+certified cold-route evidence requirements.
 
 ## Status Vocabulary
 
@@ -95,6 +108,34 @@ blocker_id
 required_future_evidence
 claim_boundary
 ```
+
+Route projections must also preserve these fields:
+
+```text
+source_kind
+source_format
+source_adapter_id
+source_adapter_status
+source_adapter_blocker_id
+ingress_route
+ingress_route_label
+ingress_status
+ingress_certification_level
+vortex_ingest_status
+vortex_ingest_blocker_id
+compatibility_import_certified_status
+compatibility_import_certified_blocker_id
+prepared_vortex_requires_prepared_state=true
+prepared_vortex_direct_source_input_allowed=false
+prepared_vortex_input_contract
+prepared_vortex_timing_scope
+compatibility_import_certified_timing_scope
+```
+
+For every non-Vortex source family, `vortex_ingest_status` and
+`compatibility_import_certified_status` must be present. They usually share the same
+`UniversalIngress` adapter status; the certified route may still carry stricter evidence blockers
+when source/output/replay/certificate proof is incomplete.
 
 ## Object-Store And Lakehouse Boundary
 

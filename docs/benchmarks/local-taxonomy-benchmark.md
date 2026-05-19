@@ -79,9 +79,11 @@ provided, and rejects fewer than three iterations.
 `GAR-PERF-1A` refreshed the committed website benchmark snapshot after the
 prepared/native batch runner and source-state reuse work. The snapshot keeps
 `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, and
-batch-runner rows separated. Compatibility-import rows include import, write,
-reopen, scan, and evidence costs; they must not be presented as pure query
-speed.
+batch-runner rows separated. `compatibility_import_certified` rows are the certified cold route and
+include UniversalIngress/source-adapter, `vortex_ingest`, write/reopen, scan, sink, and evidence
+costs; they must not be presented as pure query speed. `prepared_vortex` rows are the prepared warm
+route and start from `VortexPreparedState`; they must not be read as direct CSV/Parquet/JSONL input
+timing.
 
 The current website artifact preserves `source_metadata_snapshot_*`,
 `source_state_*`, `session_*`, `execution_mode`, `claim_gate_status`,
