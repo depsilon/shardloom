@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-1D expression and operator semantics baseline
+  - Primary files:
+    - `shardloom-core/src/expression.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-contract-tests/tests/expression_operator_semantics.rs`
+    - `README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+  - Scope: establish a shared ShardLoom-native semantics baseline that future SQL, Python
+    query-builder, DataFrame-style, and prepared/native operator slices can reuse instead of
+    inventing surface-specific expression behavior.
+  - Checklist:
+    - [x] Add `ExpressionKind::Cast` and public evaluation reports for
+          `shardloom.expression_semantics.v1`, `shardloom.projection_semantics.v1`,
+          `shardloom.filter_semantics.v1`, and `shardloom.limit_semantics.v1`.
+    - [x] Admit literals, column references, aliases, strict casts, boolean `AND`/`OR`/`NOT`,
+          `IS NULL`, `IS NOT NULL`, comparisons, projection, filter selection, and limit row-count
+          semantics over ShardLoom-owned in-memory rows.
+    - [x] Cover null semantics for comparisons and boolean logic, including SQL-like unknown/null
+          filter behavior without turning it into broad SQL support.
+    - [x] Emit deterministic unsupported diagnostics for function calls, unsupported casts,
+          invalid predicate result types, non-finite float comparison/arithmetic, and missing
+          columns.
+    - [x] Keep every report at `claim_gate_status=not_claim_grade` with
+          `fallback_attempted=false`, `external_engine_invoked=false`, and no external oracle or
+          fallback execution.
+    - [x] Expose `data_decoded=false` and `data_materialized` evidence in expression, projection,
+          filter, and limit reports so later runtime slices can preserve materialization boundaries.
+    - [x] Move GAR-RUNTIME-IMPL-1D out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core expression_semantics --lib`
+    - `cargo test -p shardloom-contract-tests --test expression_operator_semantics`
+    - `cargo test -p shardloom-contract-tests --test physical_operator_kernel_contracts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a scoped semantics baseline over in-memory rows. It does not add SQL over input
+      datasets, broad DataFrame runtime, encoded-native operator coverage, object-store/lakehouse
+      support, Foundry runtime, package publication, performance claims, production claims, or
+      Spark-replacement claims.
+  - Fallback boundary:
+    - Expression evaluation is ShardLoom-owned and deterministic for the admitted subset. Unsupported
+      semantics fail with diagnostics and do not invoke DataFusion, DuckDB, SQLite, Spark, Polars,
+      pandas, Vortex query-engine integrations, object-store providers, or any external fallback
+      engine.
+
 - [x] Session label: GAR-RUNTIME-IMPL-1A SQL source-free literals and `VALUES` local-output runtime
   - Primary files:
     - `shardloom-cli/src/generated_source_runtime.rs`

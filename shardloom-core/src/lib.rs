@@ -175,10 +175,13 @@ pub use hybrid_engine::{
 };
 
 pub use expression::{
-    BinaryOp, Determinism, EffectLevel, ExprId, Expression, ExpressionKind, FunctionCategory,
-    FunctionSignature, KernelCapability, KernelDescriptor, KernelEvalMode, KernelId, KernelKind,
-    KernelRegistrySnapshot, KernelSelectionRequest, KernelSelectionResult, KernelSelectionStatus,
-    NullBehavior, ScalarValue, UnaryOp,
+    BinaryOp, Determinism, EffectLevel, ExprId, Expression, ExpressionEvaluationReport,
+    ExpressionEvaluationStatus, ExpressionInputRow, ExpressionKind, FilterEvaluationReport,
+    FunctionCategory, FunctionSignature, KernelCapability, KernelDescriptor, KernelEvalMode,
+    KernelId, KernelKind, KernelRegistrySnapshot, KernelSelectionRequest, KernelSelectionResult,
+    KernelSelectionStatus, LimitEvaluationReport, NullBehavior, ProjectedExpressionValue,
+    ProjectionEvaluationReport, ScalarValue, UnaryOp, evaluate_expression, evaluate_filter,
+    evaluate_limit, evaluate_projection,
 };
 
 pub use input::{

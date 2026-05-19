@@ -1,8 +1,10 @@
 //! Expression and kernel registry domain skeleton.
 //!
 //! This module defines native `ShardLoom` domain types for expression modeling,
-//! kernel capability metadata, and deterministic no-fallback selection results.
-//! It intentionally does not perform expression evaluation or kernel execution.
+//! kernel capability metadata, deterministic no-fallback selection results, and
+//! a small shared semantics baseline for local fixture/runtime promotion work.
+
+use std::collections::BTreeMap;
 
 use crate::{
     ColumnRef, ComparisonOp, Diagnostic, DiagnosticCode, DiagnosticSeverity, EncodingKind,
@@ -128,6 +130,10 @@ pub enum ExpressionKind {
         expr: Box<Expression>,
         alias: String,
     },
+    Cast {
+        expr: Box<Expression>,
+        target_dtype: LogicalDType,
+    },
     Unary {
         op: UnaryOp,
         expr: Box<Expression>,
@@ -183,6 +189,18 @@ impl Expression {
         Self::new(id, ExpressionKind::Column(column))
     }
     #[must_use]
+    pub fn cast(id: ExprId, expr: Expression, target_dtype: LogicalDType) -> Self {
+        Self {
+            id,
+            dtype: Some(target_dtype.clone()),
+            kind: ExpressionKind::Cast {
+                expr: Box::new(expr),
+                target_dtype,
+            },
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
     pub fn unsupported(id: ExprId, feature: impl Into<String>, reason: impl Into<String>) -> Self {
         let feature = feature.into();
         let reason = reason.into();
@@ -227,6 +245,9 @@ impl Expression {
                 ExpressionKind::Literal(v) => format!("literal({})", v.summary()),
                 ExpressionKind::Column(c) => format!("column({})", c.as_str()),
                 ExpressionKind::Alias { alias, .. } => format!("alias({alias})"),
+                ExpressionKind::Cast { target_dtype, .. } => {
+                    format!("cast({})", target_dtype.as_str())
+                }
                 ExpressionKind::Unary { op, .. } => format!("unary({})", op.as_str()),
                 ExpressionKind::Binary { op, .. } => format!("binary({})", op.as_str()),
                 ExpressionKind::Compare { op, .. } => format!("compare({})", op.as_str()),
@@ -234,6 +255,883 @@ impl Expression {
                 ExpressionKind::Unsupported { feature, .. } => format!("unsupported({feature})"),
             }
         )
+    }
+}
+
+/// Materialized scalar row used by the scoped native semantics baseline.
+///
+/// This is intentionally an in-memory row contract for local fixture and first
+/// runtime promotion work. It does not read datasets, invoke external engines,
+/// or imply that broad SQL/DataFrame execution is supported.
+pub type ExpressionInputRow = BTreeMap<String, ScalarValue>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExpressionEvaluationStatus {
+    Evaluated,
+    InvalidInput,
+    Unsupported,
+}
+
+impl ExpressionEvaluationStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Evaluated => "evaluated",
+            Self::InvalidInput => "invalid_input",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_success(&self) -> bool {
+        matches!(self, Self::Evaluated)
+    }
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExpressionEvaluationReport {
+    pub schema_version: &'static str,
+    pub expression_id: String,
+    pub operator_family: String,
+    pub status: ExpressionEvaluationStatus,
+    pub value: Option<ScalarValue>,
+    pub output_dtype: Option<LogicalDType>,
+    pub null_behavior: NullBehavior,
+    pub materialization_requirement: MaterializationRequirement,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl ExpressionEvaluationReport {
+    fn evaluated(expression: &Expression, value: EvalValue) -> Self {
+        Self {
+            schema_version: "shardloom.expression_semantics.v1",
+            expression_id: expression.id.as_str().to_string(),
+            operator_family: expression_operator_family(expression).to_string(),
+            status: ExpressionEvaluationStatus::Evaluated,
+            value: Some(value.value),
+            output_dtype: Some(value.dtype),
+            null_behavior: value.null_behavior,
+            materialization_requirement: value.materialization_requirement,
+            data_decoded: false,
+            data_materialized: value.data_materialized,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn blocked(expression: &Expression, failure: EvalFailure) -> Self {
+        Self {
+            schema_version: "shardloom.expression_semantics.v1",
+            expression_id: expression.id.as_str().to_string(),
+            operator_family: expression_operator_family(expression).to_string(),
+            status: failure.status,
+            value: None,
+            output_dtype: expression.dtype.clone(),
+            null_behavior: NullBehavior::Unsupported,
+            materialization_requirement: MaterializationRequirement::Unknown {
+                reason: "expression semantics blocked".to_string(),
+            },
+            data_decoded: false,
+            data_materialized: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_gate_status: "not_claim_grade",
+            diagnostics: vec![failure.diagnostic],
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.status.is_success()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectedExpressionValue {
+    pub name: String,
+    pub value: ScalarValue,
+    pub dtype: LogicalDType,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectionEvaluationReport {
+    pub schema_version: &'static str,
+    pub status: ExpressionEvaluationStatus,
+    pub projected_columns: Vec<ProjectedExpressionValue>,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl ProjectionEvaluationReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.status.is_success()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FilterEvaluationReport {
+    pub schema_version: &'static str,
+    pub status: ExpressionEvaluationStatus,
+    pub input_row_count: usize,
+    pub selected_row_indexes: Vec<usize>,
+    pub null_predicate_row_count: usize,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl FilterEvaluationReport {
+    #[must_use]
+    pub fn selected_row_count(&self) -> usize {
+        self.selected_row_indexes.len()
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.status.is_success()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LimitEvaluationReport {
+    pub schema_version: &'static str,
+    pub status: ExpressionEvaluationStatus,
+    pub input_row_count: usize,
+    pub limit: usize,
+    pub output_row_count: usize,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl LimitEvaluationReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.status.is_success()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct EvalValue {
+    value: ScalarValue,
+    dtype: LogicalDType,
+    null_behavior: NullBehavior,
+    materialization_requirement: MaterializationRequirement,
+    data_materialized: bool,
+}
+
+impl EvalValue {
+    fn new(value: ScalarValue, dtype: LogicalDType, null_behavior: NullBehavior) -> Self {
+        let dtype = if matches!(value, ScalarValue::Null) {
+            dtype
+        } else {
+            value.dtype()
+        };
+        Self {
+            value,
+            dtype,
+            null_behavior,
+            materialization_requirement: MaterializationRequirement::None,
+            data_materialized: false,
+        }
+    }
+
+    fn materialized(mut self) -> Self {
+        self.materialization_requirement = MaterializationRequirement::Full {
+            reason: "in-memory expression row semantics baseline".to_string(),
+        };
+        self.data_materialized = true;
+        self
+    }
+
+    fn carry_materialization(mut self, data_materialized: bool) -> Self {
+        if data_materialized && !self.data_materialized {
+            self = self.materialized();
+        }
+        self
+    }
+
+    fn null(dtype: LogicalDType, null_behavior: NullBehavior) -> Self {
+        Self::new(ScalarValue::Null, dtype, null_behavior)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EvalFailure {
+    status: ExpressionEvaluationStatus,
+    diagnostic: Diagnostic,
+}
+
+impl EvalFailure {
+    fn invalid(feature: impl Into<String>, reason: impl Into<String>) -> Box<Self> {
+        Box::new(Self {
+            status: ExpressionEvaluationStatus::InvalidInput,
+            diagnostic: Diagnostic::invalid_input(
+                feature,
+                reason,
+                "Use admitted expression semantics for the current runtime slice.",
+            ),
+        })
+    }
+
+    fn unsupported(feature: impl Into<String>, reason: impl Into<String>) -> Box<Self> {
+        Box::new(Self {
+            status: ExpressionEvaluationStatus::Unsupported,
+            diagnostic: Diagnostic::not_implemented(
+                feature,
+                reason,
+                "Use a supported expression or wait for a later native semantics slice.",
+            ),
+        })
+    }
+}
+
+type EvalResult<T> = std::result::Result<T, Box<EvalFailure>>;
+
+#[must_use]
+pub fn evaluate_expression(
+    expression: &Expression,
+    row: &ExpressionInputRow,
+) -> ExpressionEvaluationReport {
+    match eval_expression(expression, row) {
+        Ok(value) => ExpressionEvaluationReport::evaluated(expression, value),
+        Err(failure) => ExpressionEvaluationReport::blocked(expression, *failure),
+    }
+}
+
+#[must_use]
+pub fn evaluate_projection(
+    expressions: &[Expression],
+    row: &ExpressionInputRow,
+) -> ProjectionEvaluationReport {
+    let mut projected_columns = Vec::with_capacity(expressions.len());
+    let mut diagnostics = Vec::new();
+    let mut data_materialized = false;
+    for expression in expressions {
+        match eval_expression(expression, row) {
+            Ok(value) => {
+                data_materialized |= value.data_materialized;
+                projected_columns.push(ProjectedExpressionValue {
+                    name: projection_name(expression),
+                    value: value.value,
+                    dtype: value.dtype,
+                });
+            }
+            Err(failure) => diagnostics.push(failure.diagnostic),
+        }
+    }
+    let status = if diagnostics.is_empty() {
+        ExpressionEvaluationStatus::Evaluated
+    } else {
+        ExpressionEvaluationStatus::Unsupported
+    };
+    ProjectionEvaluationReport {
+        schema_version: "shardloom.projection_semantics.v1",
+        status,
+        projected_columns,
+        data_decoded: false,
+        data_materialized,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+        claim_gate_status: "not_claim_grade",
+        diagnostics,
+    }
+}
+
+#[must_use]
+pub fn evaluate_filter(
+    predicate: &Expression,
+    rows: &[ExpressionInputRow],
+) -> FilterEvaluationReport {
+    let mut selected_row_indexes = Vec::new();
+    let mut null_predicate_row_count = 0;
+    let mut diagnostics = Vec::new();
+    let mut data_materialized = false;
+
+    for (row_index, row) in rows.iter().enumerate() {
+        match eval_expression(predicate, row) {
+            Ok(value) => {
+                data_materialized |= value.data_materialized;
+                match value.value {
+                    ScalarValue::Boolean(true) => selected_row_indexes.push(row_index),
+                    ScalarValue::Boolean(false) => {}
+                    ScalarValue::Null => null_predicate_row_count += 1,
+                    other => diagnostics.push(
+                        EvalFailure::invalid(
+                            "filter_predicate",
+                            format!(
+                                "filter predicate must evaluate to boolean or null, got {}",
+                                other.dtype().as_str()
+                            ),
+                        )
+                        .diagnostic,
+                    ),
+                }
+            }
+            Err(failure) => diagnostics.push(failure.diagnostic),
+        }
+    }
+
+    let status = if diagnostics.is_empty() {
+        ExpressionEvaluationStatus::Evaluated
+    } else {
+        ExpressionEvaluationStatus::Unsupported
+    };
+    FilterEvaluationReport {
+        schema_version: "shardloom.filter_semantics.v1",
+        status,
+        input_row_count: rows.len(),
+        selected_row_indexes,
+        null_predicate_row_count,
+        data_decoded: false,
+        data_materialized,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+        claim_gate_status: "not_claim_grade",
+        diagnostics,
+    }
+}
+
+#[must_use]
+pub fn evaluate_limit(input_row_count: usize, limit: usize) -> LimitEvaluationReport {
+    LimitEvaluationReport {
+        schema_version: "shardloom.limit_semantics.v1",
+        status: ExpressionEvaluationStatus::Evaluated,
+        input_row_count,
+        limit,
+        output_row_count: input_row_count.min(limit),
+        data_decoded: false,
+        data_materialized: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+        claim_gate_status: "not_claim_grade",
+        diagnostics: Vec::new(),
+    }
+}
+
+fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalResult<EvalValue> {
+    match &expression.kind {
+        ExpressionKind::Literal(value) => Ok(EvalValue::new(
+            value.clone(),
+            value.dtype(),
+            if value.is_null() {
+                NullBehavior::NullAware
+            } else {
+                NullBehavior::NullPropagating
+            },
+        )),
+        ExpressionKind::Column(column) => row
+            .get(column.as_str())
+            .cloned()
+            .map(|value| EvalValue::new(value.clone(), value.dtype(), NullBehavior::NullAware))
+            .map(EvalValue::materialized)
+            .ok_or_else(|| {
+                EvalFailure::invalid(
+                    "column_reference",
+                    format!(
+                        "column {:?} is not present in the expression input row",
+                        column.as_str()
+                    ),
+                )
+            }),
+        ExpressionKind::Alias { expr, .. } => eval_expression(expr, row),
+        ExpressionKind::Cast { expr, target_dtype } => {
+            let value = eval_expression(expr, row)?;
+            cast_eval_value(&value, target_dtype)
+        }
+        ExpressionKind::Unary { op, expr } => {
+            let value = eval_expression(expr, row)?;
+            eval_unary(*op, value)
+        }
+        ExpressionKind::Binary { left, op, right } => {
+            let left = eval_expression(left, row)?;
+            let right = eval_expression(right, row)?;
+            eval_binary(left, *op, right)
+        }
+        ExpressionKind::Compare { left, op, right } => {
+            let left = eval_expression(left, row)?;
+            let right = eval_expression(right, row)?;
+            eval_compare(&left, *op, &right)
+        }
+        ExpressionKind::FunctionCall { name, .. } => Err(EvalFailure::unsupported(
+            "function_call",
+            format!("function {name:?} is not admitted by the current native semantics baseline"),
+        )),
+        ExpressionKind::Unsupported { feature, reason } => {
+            Err(EvalFailure::unsupported(feature.clone(), reason.clone()))
+        }
+    }
+}
+
+fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
+    let data_materialized = value.data_materialized;
+    let result = match op {
+        UnaryOp::IsNull => Ok(EvalValue::new(
+            ScalarValue::Boolean(value.value.is_null()),
+            LogicalDType::Boolean,
+            NullBehavior::NullAware,
+        )),
+        UnaryOp::IsNotNull => Ok(EvalValue::new(
+            ScalarValue::Boolean(!value.value.is_null()),
+            LogicalDType::Boolean,
+            NullBehavior::NullAware,
+        )),
+        UnaryOp::Not => match value.value {
+            ScalarValue::Null => Ok(EvalValue::null(
+                LogicalDType::Boolean,
+                NullBehavior::NullPropagating,
+            )),
+            ScalarValue::Boolean(v) => Ok(EvalValue::new(
+                ScalarValue::Boolean(!v),
+                LogicalDType::Boolean,
+                NullBehavior::NullAware,
+            )),
+            other => Err(EvalFailure::unsupported(
+                "unary_not",
+                format!(
+                    "NOT supports boolean or null, got {}",
+                    other.dtype().as_str()
+                ),
+            )),
+        },
+        UnaryOp::Negate => match value.value {
+            ScalarValue::Null => Ok(EvalValue::null(value.dtype, NullBehavior::NullPropagating)),
+            ScalarValue::Int64(v) => v
+                .checked_neg()
+                .map(|out| {
+                    EvalValue::new(
+                        ScalarValue::Int64(out),
+                        LogicalDType::Int64,
+                        NullBehavior::NullPropagating,
+                    )
+                })
+                .ok_or_else(|| EvalFailure::invalid("negate", "int64 negation overflow")),
+            ScalarValue::Float64(v) if v.is_finite() => Ok(EvalValue::new(
+                ScalarValue::Float64(-v),
+                LogicalDType::Float64,
+                NullBehavior::NullPropagating,
+            )),
+            other => Err(EvalFailure::unsupported(
+                "negate",
+                format!(
+                    "negate supports finite int64/float64 values, got {}",
+                    other.dtype().as_str()
+                ),
+            )),
+        },
+    }?;
+    Ok(result.carry_materialization(data_materialized))
+}
+
+fn eval_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalResult<EvalValue> {
+    let data_materialized = left.data_materialized || right.data_materialized;
+    match op {
+        BinaryOp::And => eval_boolean_and(left.value, right.value),
+        BinaryOp::Or => eval_boolean_or(left.value, right.value),
+        BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
+            eval_numeric_binary(left.value, op, right.value)
+        }
+    }
+    .map(|value| value.carry_materialization(data_materialized))
+}
+
+fn eval_boolean_and(left: ScalarValue, right: ScalarValue) -> EvalResult<EvalValue> {
+    let value = match (left, right) {
+        (ScalarValue::Boolean(false), _) | (_, ScalarValue::Boolean(false)) => {
+            ScalarValue::Boolean(false)
+        }
+        (ScalarValue::Boolean(true), ScalarValue::Boolean(true)) => ScalarValue::Boolean(true),
+        (ScalarValue::Boolean(true) | ScalarValue::Null, ScalarValue::Null)
+        | (ScalarValue::Null, ScalarValue::Boolean(true)) => ScalarValue::Null,
+        (left, right) => {
+            return Err(EvalFailure::unsupported(
+                "boolean_and",
+                format!(
+                    "AND supports boolean/null operands, got {} and {}",
+                    left.dtype().as_str(),
+                    right.dtype().as_str()
+                ),
+            ));
+        }
+    };
+    Ok(EvalValue::new(
+        value,
+        LogicalDType::Boolean,
+        NullBehavior::NullAware,
+    ))
+}
+
+fn eval_boolean_or(left: ScalarValue, right: ScalarValue) -> EvalResult<EvalValue> {
+    let value = match (left, right) {
+        (ScalarValue::Boolean(true), _) | (_, ScalarValue::Boolean(true)) => {
+            ScalarValue::Boolean(true)
+        }
+        (ScalarValue::Boolean(false), ScalarValue::Boolean(false)) => ScalarValue::Boolean(false),
+        (ScalarValue::Boolean(false) | ScalarValue::Null, ScalarValue::Null)
+        | (ScalarValue::Null, ScalarValue::Boolean(false)) => ScalarValue::Null,
+        (left, right) => {
+            return Err(EvalFailure::unsupported(
+                "boolean_or",
+                format!(
+                    "OR supports boolean/null operands, got {} and {}",
+                    left.dtype().as_str(),
+                    right.dtype().as_str()
+                ),
+            ));
+        }
+    };
+    Ok(EvalValue::new(
+        value,
+        LogicalDType::Boolean,
+        NullBehavior::NullAware,
+    ))
+}
+
+fn eval_numeric_binary(
+    left: ScalarValue,
+    op: BinaryOp,
+    right: ScalarValue,
+) -> EvalResult<EvalValue> {
+    if left.is_null() || right.is_null() {
+        return Ok(EvalValue::null(
+            numeric_output_dtype(&left, &right)?,
+            NullBehavior::NullPropagating,
+        ));
+    }
+    match (left, right) {
+        (ScalarValue::Int64(left), ScalarValue::Int64(right)) => eval_i64_binary(left, op, right),
+        (ScalarValue::Float64(left), ScalarValue::Float64(right)) => {
+            eval_f64_binary(left, op, right)
+        }
+        (left, right) => Err(EvalFailure::unsupported(
+            "numeric_binary",
+            format!(
+                "{} supports same-family int64 or float64 operands for this slice, got {} and {}",
+                op.as_str(),
+                left.dtype().as_str(),
+                right.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_i64_binary(left: i64, op: BinaryOp, right: i64) -> EvalResult<EvalValue> {
+    let output = match op {
+        BinaryOp::Add => left.checked_add(right),
+        BinaryOp::Subtract => left.checked_sub(right),
+        BinaryOp::Multiply => left.checked_mul(right),
+        BinaryOp::Divide if right == 0 => {
+            return Err(EvalFailure::invalid("divide", "division by zero"));
+        }
+        BinaryOp::Divide => left.checked_div(right),
+        BinaryOp::And | BinaryOp::Or => None,
+    }
+    .ok_or_else(|| EvalFailure::invalid("numeric_binary", "int64 arithmetic overflow"))?;
+    Ok(EvalValue::new(
+        ScalarValue::Int64(output),
+        LogicalDType::Int64,
+        NullBehavior::NullPropagating,
+    ))
+}
+
+fn eval_f64_binary(left: f64, op: BinaryOp, right: f64) -> EvalResult<EvalValue> {
+    if !left.is_finite() || !right.is_finite() {
+        return Err(EvalFailure::unsupported(
+            "numeric_binary",
+            "non-finite float semantics are not admitted by this slice",
+        ));
+    }
+    if matches!(op, BinaryOp::Divide) && right == 0.0 {
+        return Err(EvalFailure::invalid("divide", "division by zero"));
+    }
+    let output = match op {
+        BinaryOp::Add => left + right,
+        BinaryOp::Subtract => left - right,
+        BinaryOp::Multiply => left * right,
+        BinaryOp::Divide => left / right,
+        BinaryOp::And | BinaryOp::Or => unreachable!("boolean ops handled before numeric binary"),
+    };
+    if !output.is_finite() {
+        return Err(EvalFailure::invalid(
+            "numeric_binary",
+            "float arithmetic produced a non-finite value",
+        ));
+    }
+    Ok(EvalValue::new(
+        ScalarValue::Float64(output),
+        LogicalDType::Float64,
+        NullBehavior::NullPropagating,
+    ))
+}
+
+fn numeric_output_dtype(left: &ScalarValue, right: &ScalarValue) -> EvalResult<LogicalDType> {
+    match (left, right) {
+        (ScalarValue::Float64(_), _) | (_, ScalarValue::Float64(_)) => Ok(LogicalDType::Float64),
+        (ScalarValue::Int64(_), _)
+        | (_, ScalarValue::Int64(_))
+        | (ScalarValue::Null, ScalarValue::Null) => Ok(LogicalDType::Int64),
+        (left, right) => Err(EvalFailure::unsupported(
+            "numeric_binary",
+            format!(
+                "null numeric operations require admitted numeric peers, got {} and {}",
+                left.dtype().as_str(),
+                right.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+#[allow(clippy::match_same_arms)]
+fn eval_compare(left: &EvalValue, op: ComparisonOp, right: &EvalValue) -> EvalResult<EvalValue> {
+    let data_materialized = left.data_materialized || right.data_materialized;
+    if left.value.is_null() || right.value.is_null() {
+        return Ok(
+            EvalValue::null(LogicalDType::Boolean, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    let result = match (&left.value, &right.value) {
+        (ScalarValue::Boolean(left), ScalarValue::Boolean(right)) => compare_ordering(
+            bool_ordering(*left, *right),
+            op,
+            "boolean comparison admits equality and inequality only",
+        )?,
+        (ScalarValue::Int64(left), ScalarValue::Int64(right)) => {
+            compare_ordering(left.cmp(right), op, "")?
+        }
+        (ScalarValue::UInt64(left), ScalarValue::UInt64(right)) => {
+            compare_ordering(left.cmp(right), op, "")?
+        }
+        (ScalarValue::Float64(left), ScalarValue::Float64(right)) => {
+            compare_f64(*left, *right, op)?
+        }
+        (ScalarValue::Utf8(left), ScalarValue::Utf8(right)) => {
+            compare_ordering(left.cmp(right), op, "")?
+        }
+        (ScalarValue::Date32(left), ScalarValue::Date32(right)) => {
+            compare_ordering(left.cmp(right), op, "")?
+        }
+        (ScalarValue::TimestampMicros(left), ScalarValue::TimestampMicros(right)) => {
+            compare_ordering(left.cmp(right), op, "")?
+        }
+        (left, right) => Err(EvalFailure::unsupported(
+            "comparison",
+            format!(
+                "comparison operands are not admitted together: {} and {}",
+                left.dtype().as_str(),
+                right.dtype().as_str()
+            ),
+        ))?,
+    };
+    Ok(EvalValue::new(
+        ScalarValue::Boolean(result),
+        LogicalDType::Boolean,
+        NullBehavior::NullPropagating,
+    )
+    .carry_materialization(data_materialized))
+}
+
+fn compare_f64(left: f64, right: f64, op: ComparisonOp) -> EvalResult<bool> {
+    if !left.is_finite() || !right.is_finite() {
+        return Err(EvalFailure::unsupported(
+            "float_comparison",
+            "non-finite float comparison semantics are not admitted by this slice",
+        ));
+    }
+    let Some(ordering) = left.partial_cmp(&right) else {
+        return Err(EvalFailure::unsupported(
+            "float_comparison",
+            "unordered float comparison is not admitted by this slice",
+        ));
+    };
+    compare_ordering(ordering, op, "")
+}
+
+fn compare_ordering(
+    ordering: std::cmp::Ordering,
+    op: ComparisonOp,
+    unsupported_order_reason: &str,
+) -> EvalResult<bool> {
+    use std::cmp::Ordering::{Equal, Greater, Less};
+    match op {
+        ComparisonOp::Eq => Ok(ordering == Equal),
+        ComparisonOp::NotEq => Ok(ordering != Equal),
+        ComparisonOp::Lt | ComparisonOp::LtEq | ComparisonOp::Gt | ComparisonOp::GtEq
+            if !unsupported_order_reason.is_empty() =>
+        {
+            Err(EvalFailure::unsupported(
+                "comparison",
+                unsupported_order_reason,
+            ))
+        }
+        ComparisonOp::Lt => Ok(ordering == Less),
+        ComparisonOp::LtEq => Ok(matches!(ordering, Less | Equal)),
+        ComparisonOp::Gt => Ok(ordering == Greater),
+        ComparisonOp::GtEq => Ok(matches!(ordering, Greater | Equal)),
+    }
+}
+
+fn bool_ordering(left: bool, right: bool) -> std::cmp::Ordering {
+    left.cmp(&right)
+}
+
+#[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult<EvalValue> {
+    let data_materialized = value.data_materialized;
+    if value.value.is_null() {
+        return Ok(
+            EvalValue::null(target_dtype.clone(), NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    let casted = match (&value.value, target_dtype) {
+        (value, dtype) if value.dtype() == *dtype => value.clone(),
+        (ScalarValue::Int64(value), LogicalDType::Float64) => ScalarValue::Float64(*value as f64),
+        (ScalarValue::Float64(value), LogicalDType::Int64)
+            if value.is_finite()
+                && value.fract() == 0.0
+                && *value >= i64::MIN as f64
+                && *value <= i64::MAX as f64 =>
+        {
+            ScalarValue::Int64(*value as i64)
+        }
+        (ScalarValue::Int64(value), LogicalDType::Utf8) => ScalarValue::Utf8(value.to_string()),
+        (ScalarValue::Float64(value), LogicalDType::Utf8) if value.is_finite() => {
+            ScalarValue::Utf8(value.to_string())
+        }
+        (ScalarValue::Boolean(value), LogicalDType::Utf8) => ScalarValue::Utf8(value.to_string()),
+        (ScalarValue::Utf8(value), LogicalDType::Int64) => {
+            ScalarValue::Int64(value.parse::<i64>().map_err(|_| {
+                EvalFailure::invalid("cast", "utf8 value cannot be parsed as int64")
+            })?)
+        }
+        (ScalarValue::Utf8(value), LogicalDType::Float64) => {
+            let parsed = value.parse::<f64>().map_err(|_| {
+                EvalFailure::invalid("cast", "utf8 value cannot be parsed as float64")
+            })?;
+            if !parsed.is_finite() {
+                return Err(EvalFailure::invalid(
+                    "cast",
+                    "utf8 value parsed as non-finite float64",
+                ));
+            }
+            ScalarValue::Float64(parsed)
+        }
+        (ScalarValue::Utf8(value), LogicalDType::Boolean) if value == "true" => {
+            ScalarValue::Boolean(true)
+        }
+        (ScalarValue::Utf8(value), LogicalDType::Boolean) if value == "false" => {
+            ScalarValue::Boolean(false)
+        }
+        (source, target) => {
+            return Err(EvalFailure::unsupported(
+                "cast",
+                format!(
+                    "cast from {} to {} is not admitted by this slice",
+                    source.dtype().as_str(),
+                    target.as_str()
+                ),
+            ));
+        }
+    };
+    Ok(
+        EvalValue::new(casted, target_dtype.clone(), NullBehavior::NullPropagating)
+            .carry_materialization(data_materialized),
+    )
+}
+
+fn projection_name(expression: &Expression) -> String {
+    match &expression.kind {
+        ExpressionKind::Alias { alias, .. } => alias.clone(),
+        ExpressionKind::Column(column) => column.as_str().to_string(),
+        _ => expression.id.as_str().to_string(),
+    }
+}
+
+fn expression_operator_family(expression: &Expression) -> &'static str {
+    match &expression.kind {
+        ExpressionKind::Literal(_) => "literal",
+        ExpressionKind::Column(_) => "column",
+        ExpressionKind::Alias { .. } => "alias",
+        ExpressionKind::Cast { .. } => "cast",
+        ExpressionKind::Unary { op, .. } => match op {
+            UnaryOp::Not => "boolean",
+            UnaryOp::IsNull | UnaryOp::IsNotNull => "null_predicate",
+            UnaryOp::Negate => "numeric",
+        },
+        ExpressionKind::Binary { op, .. } => match op {
+            BinaryOp::And | BinaryOp::Or => "boolean",
+            BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => "numeric",
+        },
+        ExpressionKind::Compare { .. } => "comparison",
+        ExpressionKind::FunctionCall { .. } => "function",
+        ExpressionKind::Unsupported { .. } => "unsupported",
     }
 }
 
@@ -851,6 +1749,22 @@ impl KernelSelectionResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn expr_id(value: &str) -> ExprId {
+        ExprId::new(value).expect("expression id")
+    }
+
+    fn col(value: &str) -> ColumnRef {
+        ColumnRef::new(value).expect("column")
+    }
+
+    fn row(values: &[(&str, ScalarValue)]) -> ExpressionInputRow {
+        values
+            .iter()
+            .map(|(name, value)| ((*name).to_string(), value.clone()))
+            .collect()
+    }
+
     #[test]
     fn expr_id_rejects_empty_ids() {
         assert!(ExprId::new(" ").is_err());
@@ -881,6 +1795,13 @@ mod tests {
     fn expression_literal_sets_dtype() {
         let e = Expression::literal(ExprId::new("e1").expect("ok"), ScalarValue::Int64(1));
         assert_eq!(e.dtype, Some(LogicalDType::Int64));
+    }
+    #[test]
+    fn expression_cast_sets_dtype() {
+        let input = Expression::literal(expr_id("e1"), ScalarValue::Int64(1));
+        let e = Expression::cast(expr_id("cast"), input, LogicalDType::Float64);
+        assert_eq!(e.dtype, Some(LogicalDType::Float64));
+        assert!(e.summary().contains("cast(float64)"));
     }
     #[test]
     fn expression_unsupported_has_errors() {
@@ -999,5 +1920,180 @@ mod tests {
         let result = KernelSelectionResult::no_matching_kernel("x", "y");
         assert!(result.has_errors());
         assert!(!result.diagnostics[0].fallback.attempted);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_comparison_without_fallback() {
+        let expression = Expression::new(
+            expr_id("pred"),
+            ExpressionKind::Compare {
+                left: Box::new(Expression::column(expr_id("value"), col("value"))),
+                op: ComparisonOp::GtEq,
+                right: Box::new(Expression::literal(expr_id("lit"), ScalarValue::Int64(3))),
+            },
+        );
+        let report = evaluate_expression(&expression, &row(&[("value", ScalarValue::Int64(5))]));
+
+        assert_eq!(report.schema_version, "shardloom.expression_semantics.v1");
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "comparison");
+        assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(report.data_materialized);
+        assert!(!report.data_decoded);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(!report.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn expression_semantics_uses_three_valued_boolean_logic() {
+        let expression = Expression::new(
+            expr_id("and"),
+            ExpressionKind::Binary {
+                left: Box::new(Expression::literal(expr_id("null"), ScalarValue::Null)),
+                op: BinaryOp::And,
+                right: Box::new(Expression::literal(
+                    expr_id("false"),
+                    ScalarValue::Boolean(false),
+                )),
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.value, Some(ScalarValue::Boolean(false)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn expression_semantics_null_comparison_returns_boolean_null() {
+        let expression = Expression::new(
+            expr_id("cmp-null"),
+            ExpressionKind::Compare {
+                left: Box::new(Expression::literal(expr_id("null"), ScalarValue::Null)),
+                op: ComparisonOp::Eq,
+                right: Box::new(Expression::literal(expr_id("one"), ScalarValue::Int64(1))),
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.value, Some(ScalarValue::Null));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+    }
+
+    #[test]
+    fn expression_semantics_casts_utf8_to_int64() {
+        let expression = Expression::cast(
+            expr_id("cast"),
+            Expression::literal(expr_id("text"), ScalarValue::Utf8("42".to_string())),
+            LogicalDType::Int64,
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.value, Some(ScalarValue::Int64(42)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+    }
+
+    #[test]
+    fn expression_semantics_blocks_unsupported_function_without_fallback() {
+        let expression = Expression::new(
+            expr_id("fn"),
+            ExpressionKind::FunctionCall {
+                name: "regexp_extract".to_string(),
+                args: Vec::new(),
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn projection_semantics_preserves_aliases_and_values() {
+        let projection = vec![
+            Expression::new(
+                expr_id("alias"),
+                ExpressionKind::Alias {
+                    expr: Box::new(Expression::column(expr_id("value"), col("value"))),
+                    alias: "amount".to_string(),
+                },
+            ),
+            Expression::literal(expr_id("flag"), ScalarValue::Boolean(true)),
+        ];
+        let report = evaluate_projection(&projection, &row(&[("value", ScalarValue::Int64(7))]));
+
+        assert_eq!(report.schema_version, "shardloom.projection_semantics.v1");
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.projected_columns.len(), 2);
+        assert_eq!(report.projected_columns[0].name, "amount");
+        assert_eq!(report.projected_columns[0].value, ScalarValue::Int64(7));
+        assert_eq!(report.projected_columns[1].name, "flag");
+        assert!(!report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn filter_semantics_selects_true_rows_and_drops_null_predicates() {
+        let predicate = Expression::new(
+            expr_id("pred"),
+            ExpressionKind::Compare {
+                left: Box::new(Expression::column(expr_id("value"), col("value"))),
+                op: ComparisonOp::Gt,
+                right: Box::new(Expression::literal(expr_id("two"), ScalarValue::Int64(2))),
+            },
+        );
+        let rows = vec![
+            row(&[("value", ScalarValue::Int64(1))]),
+            row(&[("value", ScalarValue::Int64(3))]),
+            row(&[("value", ScalarValue::Null)]),
+        ];
+        let report = evaluate_filter(&predicate, &rows);
+
+        assert_eq!(report.schema_version, "shardloom.filter_semantics.v1");
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.input_row_count, 3);
+        assert_eq!(report.selected_row_indexes, vec![1]);
+        assert_eq!(report.selected_row_count(), 1);
+        assert_eq!(report.null_predicate_row_count, 1);
+        assert!(!report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn filter_semantics_blocks_non_boolean_predicates() {
+        let predicate = Expression::column(expr_id("value"), col("value"));
+        let report = evaluate_filter(&predicate, &[row(&[("value", ScalarValue::Int64(1))])]);
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn limit_semantics_caps_output_count_without_fallback() {
+        let report = evaluate_limit(10, 3);
+
+        assert_eq!(report.schema_version, "shardloom.limit_semantics.v1");
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.output_row_count, 3);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.fallback_execution_allowed());
     }
 }
