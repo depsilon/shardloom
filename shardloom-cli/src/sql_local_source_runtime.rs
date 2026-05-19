@@ -514,22 +514,7 @@ fn validate_sql_local_source_output_request(
 }
 
 fn output_column_names(parsed: &ParsedSqlLocalSource, source: &CsvSourceData) -> Vec<String> {
-    if parsed.is_grouped_aggregate() {
-        let mut columns = parsed.group_by.clone();
-        columns.extend(parsed.aggregates.iter().map(ParsedAggregate::output_name));
-        return columns;
-    }
-    if parsed.is_aggregate() {
-        return parsed
-            .aggregates
-            .iter()
-            .map(ParsedAggregate::output_name)
-            .collect();
-    }
-    if parsed.join.is_some() {
-        return parsed.projections.clone();
-    }
-    parsed.projection_columns(&source.header)
+    parsed.output_columns(&source.header)
 }
 
 fn run_sql_local_source_smoke(

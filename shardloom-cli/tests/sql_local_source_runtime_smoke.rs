@@ -337,6 +337,59 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
 }
 
 #[test]
+fn sql_local_source_smoke_writes_literal_projection_csv_header() {
+    let source_path = unique_path("sql-local-source-literal-csv-output", "csv");
+    let output_path = unique_path("sql-local-source-literal-csv-output", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,'north' AS segment FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output",
+            output_path.to_str().expect("utf8 output path"),
+            "--output-format",
+            "csv",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let written = fs::read_to_string(&output_path).expect("read output csv");
+    assert_eq!(written, "id,segment\n2,north\n3,north\n");
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("output_format", "csv")));
+    assert!(stdout.contains(&field("projected_columns", "id,segment")));
+    assert!(stdout.contains(&field("literal_projection_columns", "segment")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_csv_sink"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(output_path).expect("remove output csv");
+}
+
+#[test]
 fn sql_local_source_smoke_writes_csv_header_for_empty_output() {
     let source_path = unique_path("sql-local-source-empty-csv-output", "csv");
     let output_path = unique_path("sql-local-source-empty-csv-output", "csv");
