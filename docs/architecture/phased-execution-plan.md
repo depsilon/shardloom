@@ -319,8 +319,10 @@ or documentation updates alone are insufficient.
   - Current state: scoped local JSONL/CSV generated-output smokes now exist for `from_rows`,
     `literal_table`, `calendar`, `range`, `sequence`, SQL `VALUES`, SQL literal `SELECT`, scoped
     SQL `SELECT * FROM generate_series/range(...)`, and Python generated-row projection/literal
-    `with_column` before local writes with generated-source/output/no-fallback evidence. Remaining
-    gaps are broader SQL source-free projection, arbitrary SQL table functions, broad DataFrame
+    `with_column` before local writes with generated-source/output/no-fallback evidence. Python
+    range/sequence builders also support `limit(...)`, `head(...)`, and `take(...)` by adjusting
+    generator bounds before invoking the same engine-native range/sequence smoke. Remaining gaps are
+    broader SQL source-free projection, arbitrary SQL table functions, broad DataFrame
     expression-backed projection/`with_column`, broader sink formats, object-store/Foundry
     generated-output paths, and claim-grade output coverage.
   - Next slice outcome: implement generated-source builders across CLI/Python/SQL with local
@@ -1320,10 +1322,12 @@ runnable, documented, tested, and claim-safe.
     `take(...)`, `count()`, scalar aggregate/optional-filter/limit, one-column grouped
     aggregate/optional-filter/limit, and single-key top-N collect/write workflows. Scoped local CSV
     inner equi-join, local `write_jsonl(...)`/`write_csv(...)` sink aliases, and generated-output
-    helpers also exist for scoped local workflows, with DataFrame capability rows separating generic
-    `write`, JSONL, and CSV evidence requirements. Broad Python DataFrame joins, non-literal
-    `with_column` over input-backed rows, broader expression projection, richer outputs, and
-    parity-like method coverage remain unsupported/report-only.
+    helpers also exist for scoped local workflows. Engine-native range/sequence generated sources
+    now support `limit(...)`, `head(...)`, and `take(...)` bound adjustment before local writes, with
+    DataFrame capability rows separating generic `write`, JSONL, and CSV evidence requirements.
+    Broad Python DataFrame joins, non-literal `with_column` over input-backed rows, broader
+    expression projection, richer outputs, and parity-like method coverage remain
+    unsupported/report-only.
   - Next slice outcome: promote DataFrame-style methods in user-value order with either runnable
     runtime or deterministic blockers: joins, `with_column`, expression projection, schema helpers,
     output writers, and collect/write ergonomics.

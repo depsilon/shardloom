@@ -66,7 +66,7 @@ DataFrame runtime, object-store output, Foundry output, production support, or p
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').range(0, 5, column='id').write('target/generated-range.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').range(0, 50, column='id').limit(5).write('target/generated-range.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
 ```
 
 Use this for the scoped GAR-GEN-1D path that executes one ShardLoom-native range generator, writes
@@ -75,7 +75,7 @@ the same scoped integer-generator contract while reporting `generated_source_kin
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').sequence(0, 5, column='id').write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').sequence(0, 50, column='id').take(5).write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
 ```
 
 Equivalent CLI command:
@@ -84,9 +84,11 @@ Equivalent CLI command:
 shardloom generated-source-sequence-smoke target\generated-sequence.jsonl 0 5 --column id --allow-overwrite --format json
 ```
 
-Range and sequence smokes are not SQL `VALUES`/literal execution, SQL `generate_series`/`range`,
-broad DataFrame runtime, other generator-node support, object-store output, Foundry output,
-production support, or a performance claim.
+`limit(...)`, `head(...)`, and `take(...)` adjust the engine-native range/sequence bounds before
+the same ShardLoom generator smoke runs; they do not materialize rows in Python. Range and sequence
+smokes are not SQL `VALUES`/literal execution, SQL `generate_series`/`range`, broad DataFrame
+runtime, other generator-node support, object-store output, Foundry output, production support, or
+a performance claim.
 
 ## Source-Free SQL Literal/VALUES Local Output Smoke
 

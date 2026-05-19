@@ -407,6 +407,35 @@ class GeneratedRangeSource:
     client: ShardLoomClient
     source_kind: str = "range"
 
+    def limit(self, count: int) -> "GeneratedRangeSource":
+        """Limit an engine-native range/sequence before writing local output."""
+
+        normalized_count = _normalize_non_negative_int("generated range limit", count)
+        limited_end = _limited_range_end(
+            self.start,
+            self.end,
+            self.step,
+            normalized_count,
+        )
+        return GeneratedRangeSource(
+            start=self.start,
+            end=limited_end,
+            step=self.step,
+            column=self.column,
+            client=self.client,
+            source_kind=self.source_kind,
+        )
+
+    def head(self, limit: int = 5) -> "GeneratedRangeSource":
+        """Alias for `limit(...)` using familiar DataFrame preview naming."""
+
+        return self.limit(limit)
+
+    def take(self, count: int) -> "GeneratedRangeSource":
+        """Alias for `limit(...)` using familiar DataFrame preview naming."""
+
+        return self.limit(count)
+
     def write(
         self,
         target_uri: str | os.PathLike[str],
@@ -1994,6 +2023,32 @@ def _require_range_int(name: str, value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"range {name} must be an integer")
     return value
+
+
+def _normalize_non_negative_int(name: str, value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative")
+    return value
+
+
+def _range_row_count(start: int, end: int, step: int) -> int:
+    if step == 0:
+        raise ValueError("range step must not be zero")
+    if (step > 0 and start >= end) or (step < 0 and start <= end):
+        return 0
+    distance = end - start if step > 0 else start - end
+    stride = step if step > 0 else -step
+    return (distance + stride - 1) // stride
+
+
+def _limited_range_end(start: int, end: int, step: int, count: int) -> int:
+    if count == 0:
+        return start
+    if _range_row_count(start, end, step) <= count:
+        return end
+    return start + (step * count)
 
 
 def _validate_positive_row_count(name: str, value: object) -> None:

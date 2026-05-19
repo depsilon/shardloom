@@ -1782,6 +1782,83 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_range_limit_preserves_engine_native_generated_source_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-range-smoke",
+                    "target/range-limited.jsonl",
+                    "2",
+                    "6",
+                    "--step",
+                    "2",
+                    "--column",
+                    "id",
+                    "--output-format",
+                    "jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-range-smoke",
+                    "status": "success",
+                    "summary": "generated range",
+                    "human_text": "generated range",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/range-limited.jsonl"},
+                        {"key": "generated_source_kind", "value": "range"},
+                        {"key": "generated_source_range_start", "value": "2"},
+                        {"key": "generated_source_range_end", "value": "6"},
+                        {"key": "generated_source_range_step", "value": "2"},
+                        {"key": "generated_source_range_column", "value": "id"},
+                        {"key": "generated_source_row_count", "value": "2"},
+                        {"key": "generated_source_created", "value": "true"},
+                        {"key": "source_io_performed", "value": "false"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.range(2, 8, step=2, column="id").limit(2).write(
+            "target/range-limited.jsonl",
+            allow_overwrite=True,
+        )
+
+        self.assertEqual(report.envelope.command, "generated-source-range-smoke")
+        self.assertEqual(report.output_path, "target/range-limited.jsonl")
+        self.assertEqual(report.generated_source_kind, "range")
+        self.assertEqual(report.generated_source_row_count, 2)
+        self.assertEqual(report.generated_source_range_start, 2)
+        self.assertEqual(report.generated_source_range_end, 6)
+        self.assertEqual(report.generated_source_range_step, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_range_limit_aliases_and_validation(self) -> None:
+        source = sl.range(10, 0, step=-2, binary=["definitely-missing-shardloom"])
+
+        self.assertEqual(source.limit(2).end, 6)
+        self.assertEqual(source.head(1).end, 8)
+        self.assertEqual(source.take(0).end, 10)
+        self.assertEqual(source.take(100).end, 0)
+        with self.assertRaises(TypeError):
+            source.limit(True)  # type: ignore[arg-type]
+        with self.assertRaises(ValueError):
+            source.limit(-1)
+
     def test_range_validates_scoped_generated_source_inputs(self) -> None:
         with self.assertRaises(TypeError):
             sl.range(True, 10, binary=["definitely-missing-shardloom"])
