@@ -9,9 +9,10 @@ use std::process::ExitCode;
 use shardloom_core::{
     AgentSafetyMode, CommandStatus, CredentialPolicyEnforcementGateReport,
     CredentialPolicyEnforcementGateRow, EffectBudgetReport, ExternalEffectBlockerMatrix,
-    ExternalEffectBlockerRow, OutputFormat, RedactionPolicy, SecurityGovernanceEvidenceGateReport,
-    SecurityPlan, ShardLoomError, plan_credential_policy_enforcement_gate,
-    plan_security_governance_evidence_gate,
+    ExternalEffectBlockerRow, OutputFormat, RedactionPolicy, SandboxGovernanceReadinessReport,
+    SandboxGovernanceReadinessRow, SecurityGovernanceEvidenceGateReport, SecurityPlan,
+    ShardLoomError, plan_credential_policy_enforcement_gate,
+    plan_sandbox_governance_readiness_gate, plan_security_governance_evidence_gate,
 };
 use shardloom_exec::{
     AttemptId, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
@@ -2642,7 +2643,182 @@ pub(crate) fn security_governance_evidence_gate_fields(
     append_security_governance_evidence_gate_summary_fields(&mut fields, report);
     append_security_governance_evidence_gate_entry_fields(&mut fields, report);
     append_credential_policy_enforcement_gate_fields(&mut fields);
+    append_sandbox_governance_readiness_gate_fields(&mut fields);
     fields
+}
+
+pub(crate) fn append_sandbox_governance_readiness_gate_fields(fields: &mut Vec<(String, String)>) {
+    let report = plan_sandbox_governance_readiness_gate();
+    append_sandbox_governance_readiness_gate_summary_fields(fields, &report);
+    for row in &report.rows {
+        append_sandbox_governance_readiness_gate_row_fields(fields, row);
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_sandbox_governance_readiness_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &SandboxGovernanceReadinessReport,
+) {
+    let row_order = report.row_order().join(",");
+    let blocker_ids = report.blocker_ids().join(",");
+    let required_evidence = report.required_evidence().join("|");
+    for (key, value) in [
+        (
+            "sandbox_governance_gate_schema_version",
+            report.schema_version,
+        ),
+        ("sandbox_governance_gate_id", report.gate_id),
+        ("sandbox_governance_gate_docs_ref", report.docs_ref),
+        (
+            "sandbox_governance_gate_support_status",
+            report.support_status,
+        ),
+        (
+            "sandbox_governance_gate_claim_gate_status",
+            report.claim_gate_status,
+        ),
+    ] {
+        push_field(fields, key, value);
+    }
+    push_count_field(
+        fields,
+        "sandbox_governance_gate_row_count",
+        report.rows.len(),
+    );
+    for (key, value) in [
+        ("sandbox_governance_gate_row_order", row_order.as_str()),
+        ("sandbox_governance_gate_blocker_ids", blocker_ids.as_str()),
+        (
+            "sandbox_governance_gate_required_evidence",
+            required_evidence.as_str(),
+        ),
+    ] {
+        push_field(fields, key, value);
+    }
+    for (key, value) in [
+        (
+            "sandbox_governance_gate_all_sandbox_runtime_blocked",
+            report.all_sandbox_runtime_blocked(),
+        ),
+        (
+            "sandbox_governance_gate_deny_by_default",
+            report.deny_by_default,
+        ),
+        (
+            "sandbox_governance_gate_sandbox_runtime_supported",
+            report.sandbox_runtime_supported,
+        ),
+        (
+            "sandbox_governance_gate_sandbox_process_spawned",
+            report.sandbox_process_spawned,
+        ),
+        (
+            "sandbox_governance_gate_extension_code_executed",
+            report.extension_code_executed,
+        ),
+        (
+            "sandbox_governance_gate_udf_code_executed",
+            report.udf_code_executed,
+        ),
+        (
+            "sandbox_governance_gate_filesystem_access_allowed",
+            report.filesystem_access_allowed,
+        ),
+        (
+            "sandbox_governance_gate_network_access_allowed",
+            report.network_access_allowed,
+        ),
+        (
+            "sandbox_governance_gate_environment_access_allowed",
+            report.environment_access_allowed,
+        ),
+        (
+            "sandbox_governance_gate_secret_access_allowed",
+            report.secret_access_allowed,
+        ),
+        (
+            "sandbox_governance_gate_process_execution_allowed",
+            report.process_execution_allowed,
+        ),
+        (
+            "sandbox_governance_gate_resource_limits_enforced",
+            report.resource_limits_enforced,
+        ),
+        (
+            "sandbox_governance_gate_timeout_enforced",
+            report.timeout_enforced,
+        ),
+        (
+            "sandbox_governance_gate_audit_required",
+            report.audit_required,
+        ),
+        (
+            "sandbox_governance_gate_audit_log_runtime_supported",
+            report.audit_log_runtime_supported,
+        ),
+        (
+            "sandbox_governance_gate_deterministic_unsupported_diagnostics",
+            report.deterministic_unsupported_diagnostics,
+        ),
+        (
+            "sandbox_governance_gate_production_governance_runtime_supported",
+            report.production_governance_runtime_supported,
+        ),
+        (
+            "sandbox_governance_gate_external_effect_executed",
+            report.external_effect_executed,
+        ),
+        (
+            "sandbox_governance_gate_fallback_attempted",
+            report.fallback_attempted,
+        ),
+        (
+            "sandbox_governance_gate_external_engine_invoked",
+            report.external_engine_invoked,
+        ),
+    ] {
+        push_bool_field(fields, key, value);
+    }
+}
+
+fn append_sandbox_governance_readiness_gate_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &SandboxGovernanceReadinessRow,
+) {
+    let prefix = format!("sandbox_governance_gate_row_{}", row.row_id);
+    for (suffix, value) in [
+        ("readiness_surface", row.readiness_surface),
+        ("support_status", row.support_status),
+        ("default_policy", row.default_policy),
+        ("blocker_id", row.blocker_id),
+        ("diagnostic_code", row.diagnostic_code),
+        ("required_evidence", row.required_evidence),
+        ("user_visible_surface", row.user_visible_surface),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    for (suffix, value) in [
+        ("sandbox_enforced", row.sandbox_enforced),
+        ("filesystem_access_allowed", row.filesystem_access_allowed),
+        ("network_access_allowed", row.network_access_allowed),
+        ("environment_access_allowed", row.environment_access_allowed),
+        ("secret_access_allowed", row.secret_access_allowed),
+        ("process_execution_allowed", row.process_execution_allowed),
+        ("resource_limits_enforced", row.resource_limits_enforced),
+        ("timeout_enforced", row.timeout_enforced),
+        ("audit_log_emitted", row.audit_log_emitted),
+        ("external_effect_executed", row.external_effect_executed),
+        ("fallback_attempted", row.fallback_attempted),
+        ("external_engine_invoked", row.external_engine_invoked),
+    ] {
+        push_bool_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
 }
 
 pub(crate) fn append_credential_policy_enforcement_gate_fields(fields: &mut Vec<(String, String)>) {

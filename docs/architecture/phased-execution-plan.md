@@ -113,6 +113,7 @@ Reference index:
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
   `docs/architecture/credential-policy-enforcement-gate.md`,
+  `docs/architecture/sandbox-governance-runtime-readiness.md`,
   `docs/architecture/substrait-report-only-contract.md`,
   `docs/architecture/rfc-coverage-followthrough.md`,
   `docs/architecture/typed-command-result-envelope.md`,
@@ -226,19 +227,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P4 - Extension, Governance, And Runtime Policy
 
-- [ ] GAR-0019-B sandbox and governance runtime readiness
-  - Source: RFC 0019; RFC 0023; effect budget plan.
-  - Current state: sandbox/governance concepts exist; sandbox execution is not a production runtime.
-  - Next slice outcome: readiness report for sandbox isolation, filesystem/network permissions,
-    audit logs, and deny-by-default behavior.
-  - User-visible surface: CLI governance plan, docs, release gate.
-  - Implementation scope: governance report, diagnostics, tests.
-  - Evidence required: security/no-fallback refs and audit artifact refs.
-  - Acceptance: sandbox-dependent work remains blocked until isolation evidence exists.
-  - Verification: security contract tests and default GAR verification.
-  - Non-goals: no sandbox process runtime.
-  - Fallback/claim boundary: no sandbox execution claim.
-  - Dependencies/blockers: plugin ABI and credential gates.
 - [ ] GAR-0023-A plugin ABI loading and UDF sandbox blocker
   - Source: RFC 0023; RFC 0011; RFC 0019.
   - Current state: plugin ABI/sandbox/UDF execution are represented as planned/report-only surfaces.
@@ -251,7 +239,7 @@ Current non-runtime sequence:
   - Verification: plugin/extension planning tests, security tests.
   - Non-goals: no dynamic loading or UDF execution.
   - Fallback/claim boundary: plugin support remains report-only.
-  - Dependencies/blockers: GAR-0019 sandbox and credential gates.
+  - Dependencies/blockers: completed GAR-0019-A credential and GAR-0019-B sandbox/governance gates.
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 

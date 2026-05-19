@@ -37,6 +37,7 @@ use crate::{
     operational_hardening::{
         append_credential_policy_enforcement_gate_fields,
         append_external_effect_blocker_matrix_fields,
+        append_sandbox_governance_readiness_gate_fields,
     },
 };
 
@@ -9046,6 +9047,7 @@ fn world_class_surface_fields(
     }
     if scope == CapabilityDiscoveryScope::SecurityGovernance {
         append_credential_policy_enforcement_gate_fields(&mut fields);
+        append_sandbox_governance_readiness_gate_fields(&mut fields);
     }
     if matches!(
         scope,

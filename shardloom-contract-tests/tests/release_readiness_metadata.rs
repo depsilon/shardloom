@@ -3495,6 +3495,98 @@ fn gar_0019_a_credential_policy_enforcement_gate_remains_report_only() {
 }
 
 #[test]
+fn gar_0019_b_sandbox_governance_readiness_gate_remains_report_only() {
+    let security = read_repo_file("shardloom-core/src/security.rs");
+    for required in [
+        "SandboxGovernanceReadinessReport",
+        "shardloom.sandbox_governance_readiness_gate.v1",
+        "gar-0019-b.sandbox_governance_runtime_readiness",
+        "deny_by_default: true",
+        "sandbox_runtime_supported: false",
+        "sandbox_process_spawned: false",
+        "extension_code_executed: false",
+        "udf_code_executed: false",
+        "filesystem_access_allowed: false",
+        "network_access_allowed: false",
+        "environment_access_allowed: false",
+        "secret_access_allowed: false",
+        "process_execution_allowed: false",
+        "resource_limits_enforced: false",
+        "timeout_enforced: false",
+        "audit_log_runtime_supported: false",
+        "production_governance_runtime_supported: false",
+        "external_effect_executed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "sandbox_profile_inventory",
+        "filesystem_permission",
+        "network_permission",
+        "environment_access",
+        "process_execution",
+        "dependency_isolation",
+    ] {
+        assert!(
+            security.contains(required),
+            "missing sandbox governance gate marker {required}"
+        );
+    }
+
+    let operational = read_repo_file("shardloom-cli/src/operational_hardening.rs");
+    for required in [
+        "append_sandbox_governance_readiness_gate_fields",
+        "sandbox_governance_gate_schema_version",
+        "sandbox_governance_gate_all_sandbox_runtime_blocked",
+        "sandbox_governance_gate_sandbox_runtime_supported",
+        "sandbox_governance_gate_external_engine_invoked",
+    ] {
+        assert!(
+            operational.contains(required),
+            "missing sandbox governance CLI field marker {required}"
+        );
+    }
+
+    let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    assert!(capabilities.contains("append_sandbox_governance_readiness_gate_fields"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::SecurityGovernance"));
+
+    let doc = read_repo_file("docs/architecture/sandbox-governance-runtime-readiness.md");
+    for required in [
+        "GAR-0019-B",
+        "sandbox_governance_gate_schema_version=shardloom.sandbox_governance_readiness_gate.v1",
+        "sandbox_governance_gate_claim_gate_status=not_claim_grade",
+        "sandbox_governance_gate_all_sandbox_runtime_blocked=true",
+        "sandbox_governance_gate_sandbox_runtime_supported=false",
+        "sandbox_governance_gate_extension_code_executed=false",
+        "sandbox_governance_gate_udf_code_executed=false",
+        "sandbox_governance_gate_external_engine_invoked=false",
+        "sandbox runtime support",
+        "governed production runtime",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing sandbox governance doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0019-B sandbox and governance"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0019-B sandbox and governance runtime readiness"));
+    assert!(completed.contains("shardloom.sandbox_governance_readiness_gate.v1"));
+    assert!(completed.contains("sandbox_governance_gate_sandbox_runtime_supported=false"));
+    assert!(completed.contains("sandbox_governance_gate_external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0019-B` adds `shardloom.sandbox_governance_readiness_gate.v1`"));
+    assert!(gar.contains("sandbox profile"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("11B, 13A, GAR-0019-A, GAR-0019-B"));
+    assert!(traceability.contains("shardloom.sandbox_governance_readiness_gate.v1"));
+}
+
+#[test]
 fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
     let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
     for required in [
