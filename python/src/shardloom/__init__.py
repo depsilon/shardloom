@@ -108,8 +108,10 @@ from .query import (
     read_vortex,
     from_rows,
     sequence,
+    sql,
     sql_literal_select,
     sql_values,
+    SqlWorkflow,
 )
 
 __all__ = [
@@ -192,6 +194,7 @@ __all__ = [
     "GeneratedRowsSource",
     "GeneratedSqlSource",
     "LazyFrame",
+    "SqlWorkflow",
     "UnsupportedWorkflowOperationReport",
     "UnsupportedWorkflowReport",
     "WorkflowCertificationReport",
@@ -202,6 +205,7 @@ __all__ = [
     "literal_table",
     "range",
     "sequence",
+    "sql",
     "sql_literal_select",
     "sql_values",
     "from_pandas",

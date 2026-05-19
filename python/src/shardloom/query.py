@@ -259,6 +259,91 @@ class GeneratedSqlSource:
 
 
 @dataclass(frozen=True, slots=True)
+class SqlWorkflow:
+    """A scoped SQL workflow entry point over currently admitted ShardLoom SQL paths."""
+
+    statement: str
+    client: ShardLoomClient
+
+    @property
+    def operation_summary(self) -> str:
+        """Return a deterministic SQL workflow summary."""
+
+        return "sql(statement)"
+
+    def collect(
+        self,
+        *,
+        check: bool = False,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Collect rows when the statement is admitted by the local-source SQL smoke."""
+
+        if _is_source_free_sql_statement(self.statement):
+            return self._unsupported_operation(
+                "sql-source-free-projection",
+                "source_free_sql_collect_requires_write_output",
+                check=check,
+            )
+        if _is_local_source_sql_statement(self.statement):
+            return self.client.sql_local_source_smoke(self.statement, check=check)
+        return self._unsupported_operation("sql", self.statement, check=check)
+
+    def write(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Write an admitted SQL result to a scoped local JSONL output."""
+
+        if output_format.strip().lower() not in {"jsonl", "json-lines", "ndjson"}:
+            raise ValueError("scoped SqlWorkflow.write currently supports local JSONL only")
+        if _is_source_free_sql_statement(self.statement):
+            return self.client.generated_source_sql_smoke(
+                target_uri,
+                self.statement,
+                output_format="jsonl",
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
+        if _is_local_source_sql_statement(self.statement):
+            return self.client.sql_local_source_smoke(
+                self.statement,
+                output_path=target_uri,
+                output_format="inline-jsonl",
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
+        return self._unsupported_operation("sql", self.statement, check=check)
+
+    def _unsupported_operation(
+        self,
+        operation: str,
+        target_ref: str | None = None,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        workflow = LazyFrame(
+            source=WorkflowSource("sql", "statement"),
+            client=self.client,
+            operations=(WorkflowOperation("sql", (self.statement,)),),
+        )
+        envelope = self.client.workflow_unsupported_plan(
+            operation,
+            self.operation_summary,
+            target_ref,
+            check=check,
+        )
+        return UnsupportedWorkflowOperationReport(
+            workflow=workflow,
+            operation=operation,
+            envelope=envelope,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UnsupportedWorkflowOperationReport:
     """Report-only unsupported diagnostic for a single workflow affordance."""
 
@@ -1127,6 +1212,20 @@ def sql_literal_select(
     )
 
 
+def sql(
+    statement: object,
+    *,
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> SqlWorkflow:
+    """Create a scoped SQL workflow over currently admitted ShardLoom SQL paths."""
+
+    return SqlWorkflow(
+        statement=_require_non_empty("SQL statement", statement),
+        client=_client_from_config(client, client_config),
+    )
+
+
 def calendar(
     start: str | date,
     end: str | date,
@@ -1466,6 +1565,97 @@ def _require_non_empty(name: str, value: object) -> str:
     if not text:
         raise ValueError(f"{name} must not be empty")
     return text
+
+
+def _is_source_free_sql_statement(statement: str) -> bool:
+    normalized = statement.strip()
+    if _starts_with_sql_keyword(normalized, "values"):
+        return True
+    return _starts_with_sql_keyword(normalized, "select") and not _contains_sql_keyword_outside_quotes(
+        normalized,
+        "from",
+    )
+
+
+def _is_local_source_sql_statement(statement: str) -> bool:
+    normalized = statement.strip()
+    return (
+        _starts_with_sql_keyword(normalized, "select")
+        and _contains_sql_keyword_outside_quotes(normalized, "from")
+        and any(_is_local_source_sql_ref(value) for value in _single_quoted_sql_strings(normalized))
+    )
+
+
+def _is_local_source_sql_ref(value: str) -> bool:
+    lower = value.strip().lower()
+    if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
+        return False
+    return lower.endswith((".csv", ".jsonl", ".ndjson"))
+
+
+def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:
+    values: list[str] = []
+    in_quote = False
+    current: list[str] = []
+    index = 0
+    while index < len(statement):
+        char = statement[index]
+        if char != "'":
+            if in_quote:
+                current.append(char)
+            index += 1
+            continue
+        if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+            current.append("'")
+            index += 2
+            continue
+        if in_quote:
+            values.append("".join(current))
+            current = []
+            in_quote = False
+        else:
+            current = []
+            in_quote = True
+        index += 1
+    return tuple(values)
+
+
+def _starts_with_sql_keyword(statement: str, keyword: str) -> bool:
+    lower = statement.lower()
+    needle = keyword.lower()
+    if not lower.startswith(needle):
+        return False
+    if len(statement) == len(needle):
+        return True
+    return not _is_identifier_char(statement[len(needle)])
+
+
+def _contains_sql_keyword_outside_quotes(statement: str, keyword: str) -> bool:
+    lower = statement.lower()
+    needle = keyword.lower()
+    in_quote = False
+    index = 0
+    while index <= len(statement) - len(needle):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote and lower.startswith(needle, index):
+            before = statement[index - 1] if index > 0 else ""
+            after_index = index + len(needle)
+            after = statement[after_index] if after_index < len(statement) else ""
+            if not _is_identifier_char(before) and not _is_identifier_char(after):
+                return True
+        index += 1
+    return False
+
+
+def _is_identifier_char(char: str) -> bool:
+    return char.isalnum() or char == "_"
 
 
 def _quote_sql_local_source_path(value: str) -> str:

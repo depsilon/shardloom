@@ -1237,6 +1237,174 @@ docs/website parity, and a completed-ledger entry.
   - Ledger rule: ledger entry must include the exact usability matrix, website readiness evidence,
     release-gate evidence, and remaining unsupported paths.
 
+#### GAR-USER-SURFACE-1 PySpark-like Python And SQL User Surface Completion Backstop
+
+This bundle is the explicit completion backstop for the desired end-user shape: ShardLoom should be
+as simple to enter from Python as PySpark is to Spark, while remaining honest that ShardLoom is not a
+Spark API clone, Spark replacement, distributed runtime claim, production SQL/DataFrame claim, or
+external-engine fallback. Existing runtime items (`GAR-RUNTIME-IMPL-5B`, `GAR-RUNTIME-IMPL-5C`,
+`GAR-RUNTIME-IMPL-5I`, and `GAR-RUNTIME-IMPL-5Q`) own much of the implementation; this section keeps
+the user-surface parity target visible until the full import/context/session/SQL/DataFrame path is
+runnable, documented, tested, and claim-safe.
+
+- [ ] GAR-USER-SURFACE-1A import, context, and session entrypoint completion
+  - Source: PySpark `SparkSession` user model as a usability reference, `python/README.md`,
+    `python/src/shardloom/context.py`, `python/src/shardloom/query.py`, `GAR-RUNTIME-IMPL-4L`,
+    `GAR-RUNTIME-IMPL-5I`.
+  - Current state: users can `import shardloom as sl`, create `ctx = sl.context()`, run smoke/
+    capability commands, and execute scoped CLI-backed workflows. `ShardLoomSession` is still
+    planned, and the Python layer is not yet a long-lived in-process session with reusable
+    SourceState/PreparedState/OutputPlan caches.
+  - Next slice outcome: implement a user-owned `ShardLoomSession`/context lifecycle that feels as
+    simple as `SparkSession.builder...getOrCreate()` without creating a daemon, global hidden cache,
+    or remote service.
+  - Runtime enablement: explicit local session lifecycle for admitted runtime workflows, including
+    session id, close/cleanup, cache hit/miss, invalidation, and no-fallback evidence.
+  - User-visible surface: `import shardloom as sl`, `sl.context(...)`, future `sl.session(...)` or
+    `ctx.session()`, Python README, getting-started docs, use-case pages.
+  - Implementation scope: Python context/session classes, Rust/CLI session command or local batch
+    surface, session evidence fields, cleanup semantics, examples.
+  - Evidence required: `session_id`, `session_state_scope`, `cache_hit`, `cache_miss`,
+    `source_state_reuse_count`, `prepared_artifact_reuse_count`, `output_plan_reuse_count`,
+    `session_closed`, `fallback_attempted=false`, `external_engine_invoked=false`,
+    `claim_gate_status`.
+  - Acceptance: a Python user can start a local ShardLoom context/session, run multiple admitted
+    workflows, inspect session reuse evidence, and explicitly close the session; missing binaries or
+    unsupported runtime features produce deterministic diagnostics.
+  - Verification: Python session smoke tests, session invalidation tests, `cargo test -p
+    shardloom-contract-tests --test release_readiness_metadata`, Python compileall, README/use-case
+    examples.
+  - Dependencies/blockers: `GAR-RUNTIME-IMPL-4L`, `GAR-RUNTIME-IMPL-5I`, SourceState/
+    VortexPreparedState/OutputPlan reuse, and session cache invalidation evidence.
+  - Non-goals: no daemon/service, remote cluster, distributed scheduler, hidden global session,
+    Spark-compatible API promise, or performance claim.
+  - Claim boundary: PySpark-like simplicity of entry only; not PySpark API parity, Spark
+    replacement, or distributed runtime support.
+  - Fallback boundary: session reuse must never switch execution to Spark/DataFusion/DuckDB/Polars
+    or another engine.
+  - Ledger rule: ledger entry must include session API examples, lifecycle evidence, cleanup
+    behavior, and unsupported session boundaries.
+
+- [ ] GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows
+  - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
+    capability matrix, `docs/getting-started/examples.md`.
+  - Current state: Python `read_csv(...).select(...).filter(...).limit(...).collect()/write(...)`,
+    scalar aggregate, one-column grouped aggregate, single-key top-N, and generated-output helpers
+    exist for scoped local workflows. Python DataFrame joins, `with_column`, broader expression
+    projection, richer outputs, and parity-like method coverage remain unsupported/report-only.
+  - Next slice outcome: promote DataFrame-style methods in user-value order with either runnable
+    runtime or deterministic blockers: joins, `with_column`, expression projection, schema helpers,
+    output writers, and collect/write ergonomics.
+  - Runtime enablement: familiar DataFrame/query-builder workflows that execute through ShardLoom
+    native runtime paths for admitted local inputs and outputs.
+  - User-visible surface: `ctx.read_csv`, `ctx.read_json`, `ctx.read_parquet`, `ctx.read_vortex`,
+    `.select`, `.filter`, `.with_column`, `.group_by`, `.agg`, `.join`, `.sort`, `.limit`,
+    `.collect`, `.write`, `.explain`, method capability matrix.
+  - Implementation scope: Python query builder, SQL/local runtime lowering, expression IR, local
+    input adapters, output writers, typed unsupported reports, examples.
+  - Evidence required: method family, source format, execution mode, operator family,
+    materialization/decode boundary, output evidence, `fallback_attempted=false`,
+    `external_engine_invoked=false`, method-level `claim_gate_status`.
+  - Acceptance: each public method is either genuinely runnable for a documented subset or returns
+    a deterministic unsupported report with blocker id, required evidence, and next action; no
+    method silently routes to pandas/Polars/Spark/DataFusion.
+  - Verification: Python query-builder tests per method, CLI/runtime smoke tests, capability matrix
+    snapshots, use-case coverage, release readiness metadata.
+  - Dependencies/blockers: method-level runtime lowerings, expression IR completion, output writer
+    support, local join/runtime expansion, and broad SQL/DataFrame claim gates.
+  - Non-goals: no pandas/Polars backend, Spark-compatible DataFrame API promise, notebook
+    production claim, full SQL optimizer parity, or performance claim.
+  - Claim boundary: method-by-method local technical-preview support only.
+  - Fallback boundary: DataFrame methods must lower to ShardLoom runtime or deterministic blockers.
+  - Ledger rule: ledger entry must include method support table, runnable examples, and blockers.
+
+- [ ] GAR-USER-SURFACE-1D one-command local install, import, and first workflow proof
+  - Source: `GAR-COMMERCIAL-1A`, package channel matrix, `README.md`, `docs/getting-started/*`,
+    `GAR-RUNTIME-IMPL-5Q`.
+  - Current state: local source-tree and editable Python usage are documented, but public package
+    publication is not complete and a non-expert install/import/run path still needs final proof.
+  - Next slice outcome: provide a clean local technical-preview path from install to import to first
+    SQL/DataFrame/generated-source workflow without reading architecture docs.
+  - Runtime enablement: local install/import proof that reaches admitted runtime workflows and
+    returns evidence.
+  - User-visible surface: README first screen, `docs/getting-started/first-10-minutes.md`,
+    Python README, website get-started/status/use-cases.
+  - Implementation scope: install script/runbook, editable/local wheel proof, binary resolution,
+    quickstart command, example data creation, evidence printout.
+  - Evidence required: install command, uninstall/cleanup command, import success, resolved binary,
+    smoke workflow output, evidence fields, unsupported-path example, `fallback_attempted=false`,
+    `external_engine_invoked=false`.
+  - Acceptance: a new user can complete one local runtime workflow and one unsupported diagnostic
+    path in under ten minutes with exact commands.
+  - Verification: clean venv smoke, Python quickstart test, README command smoke where feasible,
+    package metadata checks, website readiness.
+  - Dependencies/blockers: local wheel/source checkout proof, binary resolution stability, package
+    channel readiness matrix, and release security gates for any public package publication.
+  - Non-goals: no PyPI/TestPyPI/conda/Homebrew publication unless release gates separately pass.
+  - Claim boundary: local technical-preview install/import proof only.
+  - Fallback boundary: install helpers must not install or invoke fallback engines.
+  - Ledger rule: ledger entry must include clean-environment commands and outputs.
+
+- [ ] GAR-USER-SURFACE-1E evidence-first result ergonomics for non-expert users
+  - Source: ShardLoom evidence envelope, Python typed reports, Use Case Atlas, website Field Guide,
+    benchmark claim-boundary docs.
+  - Current state: runtime reports expose rich evidence fields, but non-expert users still need a
+    clearer path from result rows to "what ran, what materialized, what stayed native, and what can
+    be claimed."
+  - Next slice outcome: make every Python runtime result expose simple row/output access plus a
+    compact evidence summary and stable full evidence object.
+  - Runtime enablement: user-facing evidence ergonomics for every admitted runtime workflow.
+  - User-visible surface: Python result objects, CLI JSON fields, docs examples, website use-case
+    recipes.
+  - Implementation scope: typed report helpers, `evidence_summary`/`claim_summary` accessors,
+    row/result accessors, docs snippets, use-case output examples.
+  - Evidence required: output row count/path, execution mode, engine mode, source/output
+    certificates, materialization/decode boundary, no-fallback fields, claim gate, unsupported
+    blockers where applicable.
+  - Acceptance: users can inspect rows/output and evidence without scraping JSON field maps; every
+    example prints at least one result field and one evidence/claim field.
+  - Verification: Python typed-report tests, generated docs/use-case checks, website readiness,
+    release readiness metadata.
+  - Dependencies/blockers: typed report field normalization, compact evidence summary helpers,
+    generated docs examples, and stable claim-gate terminology.
+  - Non-goals: no claim upgrade, performance dashboard claim, or broad SQL/DataFrame support from
+    ergonomic wrappers alone.
+  - Claim boundary: clearer evidence presentation only; support status still comes from runtime
+    evidence gates.
+  - Fallback boundary: evidence summaries must preserve `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+  - Ledger rule: ledger entry must show before/after user examples and evidence accessors.
+
+- [ ] GAR-USER-SURFACE-1F PySpark-like surface completion validator
+  - Source: this `GAR-USER-SURFACE-1` bundle, `GAR-RUNTIME-IMPL-5Q`, Use Case Atlas, public
+    technical-preview readiness, Python capability matrix.
+  - Current state: individual runtime slices can land without a single final validator answering
+    whether the Python/SQL surface is simple and complete enough for technical-preview users.
+  - Next slice outcome: add a completion gate that checks the import/context/session/SQL/DataFrame/
+    generated-output path against the public usability target.
+  - Runtime enablement: release/usability validator that blocks a PySpark-like simplicity claim
+    unless every admitted path has runnable proof and every unsupported path has deterministic
+    diagnostics.
+  - User-visible surface: release readiness report, README/status matrix, website "Can I use this?"
+    pages, Python capability matrix.
+  - Implementation scope: validation script or contract test, capability/use-case cross-checks,
+    example smoke matrix, website/readme claim checks.
+  - Evidence required: matrix of Python entrypoints, runnable examples, blocked examples, evidence
+    fields per result, claim boundaries, no-fallback/no-external-engine fields.
+  - Acceptance: the validator fails if `ctx.sql`, DataFrame/query-builder, generated-output,
+    session, install/import, docs, or website surfaces overclaim or lack runnable/blocked proof.
+  - Verification: `python scripts/check_use_case_coverage.py`, `python scripts/check_website_readiness.py`,
+    Python unit/smoke tests, release readiness metadata, `git diff --check`.
+  - Dependencies/blockers: completion of the preceding `GAR-USER-SURFACE-1A` through
+    `GAR-USER-SURFACE-1E` slices, use-case coverage, website readiness, and release readiness
+    metadata checks.
+  - Non-goals: no compatibility with Spark internals, no distributed Spark-scale claim, no package
+    publication, no object-store/lakehouse/Foundry production claim.
+  - Claim boundary: only after this validator passes may docs say ShardLoom has a PySpark-like
+    simple Python front door for its admitted runtime scope.
+  - Fallback boundary: any fallback attempt or external-engine invocation fails the completion gate.
+  - Ledger rule: ledger entry must include the completion matrix and remaining non-parity gaps.
+
 ## Completed
 
 Detailed completed session and historical phase ledgers live in

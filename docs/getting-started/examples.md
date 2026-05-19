@@ -82,12 +82,16 @@ production support, or a performance claim.
 $env:PYTHONPATH = "python\src"
 python -c "from shardloom import context; r=context(repo_root='.').sql_values(\"VALUES (1, 'alpha'), (2, 'beta')\").write('target/generated-sql-values.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
 python -c "from shardloom import context; r=context(repo_root='.').sql_literal_select(\"SELECT 1 AS id, 'alpha' AS label, true AS active\").write('target/generated-sql-select.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT 2 AS id, 'beta' AS label\").write('target/generated-sql-from-context.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
 ```
 
 Use this for the scoped GAR-RUNTIME-IMPL-1A path that parses ShardLoom's tiny source-free SQL smoke
-subset, writes local JSONL output, and emits generated-source/output/no-fallback evidence. It is not
-broad SQL runtime, SQL over input datasets, functions, joins, SQL/DataFrame production support,
-object-store output, Foundry output, or a performance claim.
+subset, writes local JSONL output through either the explicit source-free helpers or scoped
+`ctx.sql(...).write(...)`, and emits generated-source/output/no-fallback evidence. It is not broad
+SQL runtime, SQL over input datasets, functions, joins, SQL/DataFrame production support,
+object-store output, Foundry output, or a performance claim. Source-free `ctx.sql(...).collect()`
+remains a deterministic unsupported diagnostic because this evidence contract requires an explicit
+output sink.
 
 ## SQL Local CSV Projection/Filter/Limit Smoke
 
@@ -100,6 +104,8 @@ id,label,amount
 3,gamma,
 "@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
 cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT id,label FROM 'target/sql-local-source-smoke.csv' WHERE amount >= 10 LIMIT 1" --format json
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT id,label FROM 'target/sql-local-source-smoke.csv' WHERE amount >= 10 LIMIT 1\").collect(); print(r.result_jsonl, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 Use this for the scoped GAR-RUNTIME-IMPL-1B path that parses, binds, plans, and executes one local

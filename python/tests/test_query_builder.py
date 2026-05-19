@@ -1133,6 +1133,257 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_context_sql_source_free_write_invokes_generated_source_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sql-smoke",
+                    "target/sql-select.jsonl",
+                    "SELECT 1 AS id, 'alpha' AS label",
+                    "--output-format",
+                    "jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sql-smoke",
+                    "status": "success",
+                    "summary": "generated sql",
+                    "human_text": "generated sql",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/sql-select.jsonl"},
+                        {"key": "generated_source_kind", "value": "sql_literal_select"},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "generated_source_created", "value": "true"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.sql("SELECT 1 AS id, 'alpha' AS label", check=False)
+        report = workflow.write("target/sql-select.jsonl", allow_overwrite=True)
+
+        self.assertIsInstance(workflow, sl.SqlWorkflow)
+        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.generated_source_kind, "sql_literal_select")
+        self.assertEqual(report.output_path, "target/sql-select.jsonl")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_context_sql_local_source_collect_invokes_sql_smoke(self) -> None:
+        statement = "SELECT id FROM 'target/input.csv' WHERE id >= 1 LIMIT 2"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "SQL local-source smoke returned 2 bounded row(s)",
+                    "human_text": "SQL local-source smoke",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"id\\":1}}\\n{{\\"id\\":2}}\\n"}},
+                        {{"key": "output_row_count", "value": "2"}},
+                        {{"key": "selected_row_count", "value": "2"}},
+                        {{"key": "predicate_operator_family", "value": "comparison"}},
+                        {{"key": "output_io_performed", "value": "false"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql(statement).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.output_row_count, 2)
+        self.assertEqual(report.selected_row_count, 2)
+        self.assertEqual(report.predicate_operator_family, "comparison")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_context_sql_local_source_write_invokes_sql_smoke(self) -> None:
+        statement = "SELECT id FROM 'target/input.csv' WHERE id >= 1 LIMIT 2"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--output",
+                    "target/sql-local.jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "SQL local-source smoke returned 2 bounded row(s)",
+                    "human_text": "SQL local-source smoke",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"id\\":1}}\\n{{\\"id\\":2}}\\n"}},
+                        {{"key": "output_path", "value": "target/sql-local.jsonl"}},
+                        {{"key": "output_row_count", "value": "2"}},
+                        {{"key": "selected_row_count", "value": "2"}},
+                        {{"key": "output_io_performed", "value": "true"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql(statement).write("target/sql-local.jsonl", allow_overwrite=True)
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.output_path, "target/sql-local.jsonl")
+        self.assertTrue(report.output_io_performed)
+        self.assertEqual(report.output_native_io_certificate_status, "certified_local_file_sink")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_context_sql_source_free_collect_remains_deterministic_unsupported(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "workflow-unsupported-plan",
+                    "sql-source-free-projection",
+                    "sql(statement)",
+                    "source_free_sql_collect_requires_write_output",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "workflow operation unsupported",
+                    "human_text": "workflow unsupported operation",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "operation", "value": "sql-source-free-projection"},
+                        {"key": "workflow_summary", "value": "sql(statement)"},
+                        {"key": "target_ref", "value": "source_free_sql_collect_requires_write_output"},
+                        {"key": "blocker_id", "value": "gar-gen-1.sql_source_free_projection.runtime_not_admitted"},
+                        {"key": "required_evidence", "value": "execution_certificate,native_io_certificate"},
+                        {"key": "suggested_next_action", "value": "inspect capability and evidence reports"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"}
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql("VALUES (1, 'alpha')").collect()
+
+        self.assertEqual(report.operation, "sql-source-free-projection")
+        self.assertTrue(report.blocker_id)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.runtime_execution)
+
+    def test_context_sql_broad_table_query_remains_deterministic_unsupported(self) -> None:
+        statement = "SELECT * FROM events"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "workflow-unsupported-plan",
+                    "sql",
+                    "sql(statement)",
+                    {statement!r},
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "workflow operation unsupported",
+                    "human_text": "workflow unsupported operation",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "operation", "value": "sql"}},
+                        {{"key": "workflow_summary", "value": "sql(statement)"}},
+                        {{"key": "target_ref", "value": {statement!r}}},
+                        {{"key": "blocker_id", "value": "cg21.workflow.sql.runtime_not_admitted"}},
+                        {{"key": "required_evidence", "value": "execution_certificate,native_io_certificate"}},
+                        {{"key": "suggested_next_action", "value": "inspect capability and evidence reports"}},
+                        {{"key": "runtime_execution", "value": "false"}},
+                        {{"key": "data_read", "value": "false"}},
+                        {{"key": "write_io", "value": "false"}},
+                        {{"key": "fallback_attempted", "value": "false"}}
+                    ],
+                }}))
+                sys.exit(1)
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql(statement).collect()
+
+        self.assertEqual(report.operation, "sql")
+        self.assertEqual(report.envelope.field("target_ref"), statement)
+        self.assertTrue(report.blocker_id)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.runtime_execution)
+
     def test_context_readers_reuse_context_client_for_plan_inspection(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -1471,7 +1722,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.sort("amount", "id", descending=True),
             workflow.write_vortex("out.vortex"),
             workflow.write_parquet("out.parquet"),
-            workflow.sql("select * from events"),
             ctx.sql_parse("select * from events"),
             ctx.sql_bind("select * from events"),
             ctx.sql_plan("select * from events"),
@@ -1494,7 +1744,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 38)
+        self.assertEqual(len(reports), 37)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -1553,10 +1803,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "out.vortex",
         )
         self.assertTrue(by_operation["write-vortex"].envelope.field_bool("write_required"))
-        self.assertEqual(
-            by_operation["sql"].envelope.field("target_ref"),
-            "select * from events",
-        )
         self.assertFalse(by_operation["sql-parse"].envelope.field_bool("runtime_required"))
         self.assertFalse(by_operation["sql-bind"].envelope.field_bool("runtime_required"))
         self.assertFalse(by_operation["sql-plan"].envelope.field_bool("runtime_required"))
