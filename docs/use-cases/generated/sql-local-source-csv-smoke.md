@@ -4,7 +4,7 @@
 
 ## Quick Answer
 
-- **Audience:** user who wants to try one tiny SQL query over a local CSV without fallback
+- **Audience:** user who wants to try one tiny SQL query over a local CSV from CLI or ctx.sql without fallback
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
@@ -21,7 +21,7 @@ Scoped local CSV SELECT projection/filter/limit with comparison, cast, date-lite
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,amount`n1,10,8`n2,20,15`n3,30,21`n4,99,13`n" | Set-Content -Encoding utf8 target\sql-local-source-join-fact.csv; "customer_id,segment`n10,seed`n20,enterprise`n30,startup`n" | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10" --format json
+New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,amount`n1,10,8`n2,20,15`n3,30,21`n4,99,13`n" | Set-Content -Encoding utf8 target\sql-local-source-join-fact.csv; "customer_id,segment`n10,seed`n20,enterprise`n30,startup`n" | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10" --format json; $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; r=context(repo_root='.', profile_order=('debug','release')).sql(\"SELECT id,amount FROM 'target/sql-local-source-join-fact.csv' WHERE amount >= 10 LIMIT 2\").collect(); print(r.output_row_count, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 ## Blocker

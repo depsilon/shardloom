@@ -60,8 +60,8 @@ This is source-free generated-output execution, not no-dataset smoke. The curren
 is scoped to local JSONL output from Python `ctx.from_rows(...).write(...)`,
 `ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and
 `ctx.range(...).write(...)`/`ctx.sequence(...).write(...)` smokes plus source-free SQL `VALUES` and
-literal `SELECT` local JSONL smokes through `ctx.sql_values(...).write(...)` and
-`ctx.sql_literal_select(...).write(...)`. Broad
+literal `SELECT` local JSONL smokes through `ctx.sql_values(...).write(...)`,
+`ctx.sql_literal_select(...).write(...)`, and the scoped `ctx.sql(...).write(...)` bridge. Broad
 SQL/DataFrame runtime, object-store/lakehouse output, and Foundry generated-output runtime remain
 unclaimed.
 

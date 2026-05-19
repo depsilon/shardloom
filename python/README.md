@@ -404,6 +404,27 @@ print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
 '@ | python -
 ```
 
+The same admitted local-source SQL can also be entered through `ctx.sql(...)`
+when a user wants the PySpark-like "one SQL string" shape. The broad SQL engine
+remains gated, but admitted statements dispatch to ShardLoom's scoped SQL smoke
+instead of returning report-only by default:
+
+```python
+sql_rows = ctx.sql(
+    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%') LIMIT 2"
+).collect()
+
+sql_written = ctx.sql(
+    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE amount >= 10 LIMIT 2"
+).write("target/sql-local-source-from-sql.jsonl", allow_overwrite=True)
+
+print(sql_rows.result_jsonl)
+print(sql_written.output_path)
+print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
+```
+
 This is a fixture-smoke local CSV path only. It does not make the Python client
 a pandas/Polars-like execution engine, does not add broad SQL/DataFrame
 runtime, generalized grouped aggregation, ordering/collation parity, object
@@ -830,11 +851,16 @@ values_report = ctx.sql_values("VALUES (1, 'alpha'), (2, 'beta')").write(
 select_report = ctx.sql_literal_select(
     "SELECT 1 AS id, 'alpha' AS label, true AS active"
 ).write("target/generated-sql-select.jsonl", allow_overwrite=True)
+ctx_sql_report = ctx.sql("SELECT 2 AS id, 'beta' AS label").write(
+    "target/generated-sql-from-context.jsonl",
+    allow_overwrite=True,
+)
 
 print(values_report.generated_source_kind)
 print(values_report.generated_source_row_count)
 print(select_report.generated_source_kind)
 print(select_report.claim_gate_status)
+print(ctx_sql_report.generated_source_kind)
 ```
 
 Equivalent CLI command:
@@ -844,9 +870,11 @@ shardloom generated-source-sql-smoke target\generated-sql-values.jsonl "VALUES (
 ```
 
 This SQL smoke accepts only source-free literal `SELECT` expressions and `VALUES` tuples over int64,
-finite float64, bool, and single-quoted UTF-8 string literals. It rejects `FROM`, functions, joins,
-subqueries, UDFs, object-store paths, table writes, and broad SQL with deterministic no-fallback
-errors.
+finite float64, bool, and single-quoted UTF-8 string literals. `ctx.sql(...).write(...)` dispatches
+those source-free forms to the same generated-source SQL smoke. Source-free `ctx.sql(...).collect()`
+remains a deterministic unsupported diagnostic because the generated-source evidence contract
+requires an explicit output sink. The source-free path rejects `FROM`, functions, joins, subqueries,
+UDFs, object-store paths, table writes, and broad SQL with deterministic no-fallback errors.
 
 The contract separates three cases:
 

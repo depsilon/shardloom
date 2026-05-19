@@ -35,6 +35,7 @@ from .query import (
     GeneratedRowsSource,
     GeneratedSqlSource,
     LazyFrame,
+    SqlWorkflow,
     UnsupportedWorkflowOperationReport,
     WorkflowSource,
     calendar as generated_calendar,
@@ -51,6 +52,7 @@ from .query import (
     read_parquet,
     read_vortex,
     sequence as generated_sequence,
+    sql as sql_workflow,
 )
 
 DEFAULT_CAPABILITY_SCOPES = (
@@ -4667,11 +4669,12 @@ class ShardLoomContext:
         self,
         statement: str,
         *,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for SQL workflow execution."""
+        check: bool | None = None,
+    ) -> SqlWorkflow:
+        """Create a scoped SQL workflow using this context's client."""
 
-        return self._sql_unsupported("sql", statement, check=check)
+        _ = check
+        return sql_workflow(statement, client=self.client)
 
     def sequence(
         self,

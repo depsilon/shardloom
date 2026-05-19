@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-USER-SURFACE-1B scoped `ctx.sql(...)` runtime bridge
+  - Branch/PR: `codex/sql-context-runtime-surface` / #790.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/getting-started/first-10-minutes.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/source-free-generated-output-boundary.md`
+    - `docs/use-cases/generated/sql-local-source-csv-smoke.md`
+    - `website/status.html`
+    - `website/use-cases/index.html`
+    - `website/use-cases/source-free-generated-output-boundary.html`
+    - `website/use-cases/sql-local-source-csv-smoke.html`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make `ctx.sql(statement)` the primary Python SQL entry point for already admitted
+    source-free SQL writes and local-source SQL collect/write smokes while preserving deterministic
+    unsupported diagnostics for broad SQL, source-free collect, object-store/table SQL, and
+    production SQL/DataFrame claims.
+  - Runtime behavior:
+    - `ctx.sql("SELECT literal...").write(...)` and `ctx.sql("VALUES ...").write(...)` dispatch to
+      the existing `generated-source-sql-smoke` runtime and require an explicit local JSONL sink.
+    - `ctx.sql("SELECT ... FROM 'local.csv|local.jsonl|local.ndjson' ...").collect()` dispatches to
+      the scoped `sql-local-source-smoke` runtime and returns typed local-source SQL evidence.
+    - `ctx.sql("SELECT ... FROM 'local.csv|local.jsonl|local.ndjson' ...").write(...)` dispatches to
+      the same scoped local-source runtime with an explicit local JSONL output sink.
+    - Source-free `.collect()` remains a deterministic unsupported diagnostic because generated
+      output evidence requires an explicit sink.
+    - Broad SQL such as catalog/table references remains a deterministic unsupported diagnostic
+      with no fallback or external engine invocation.
+  - Evidence:
+    - Source-free writes preserve GeneratedSourceCertificate and output Native I/O certificate
+      evidence, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Local-source SQL collect/write reports preserve selected/output row counts, predicate/runtime
+      evidence, local output evidence where requested, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+    - Unsupported SQL/source-free collect reports preserve `runtime_execution=false`,
+      `data_read=false`, `write_io=false`, blocker ids, required evidence, and no-fallback fields.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: scoped `ctx.sql(...)` bridge only for source-free SQL writes and local-source
+    SQL smokes. This does not claim broad SQL parser/binder/planner support, catalogs, subqueries,
+    UDFs, SQL over object stores/tables/lakehouse/Foundry, PySpark API parity, Spark replacement,
+    performance, superiority, package readiness, or production support.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D-S6 scoped SQL predicate grouping parentheses runtime
   - Branch/PR: `codex/sql-predicate-parentheses-runtime` / #789.
   - Primary files:
