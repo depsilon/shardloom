@@ -479,12 +479,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
         report = ctx.read_csv("target/input.csv").preview(limit=2)
+        head_report = ctx.read_csv("target/input.csv").head(limit=2)
+        take_report = ctx.read_csv("target/input.csv").take(2)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
-        self.assertEqual(report.envelope.field("sql_statement_kind"), "local_source_projection_limit")
-        self.assertEqual(report.output_row_count, 2)
-        self.assertFalse(report.fallback_attempted)
-        self.assertFalse(report.external_engine_invoked)
+        for preview_report in (report, head_report, take_report):
+            self.assertEqual(preview_report.envelope.command, "sql-local-source-smoke")
+            self.assertEqual(
+                preview_report.envelope.field("sql_statement_kind"),
+                "local_source_projection_limit",
+            )
+            self.assertEqual(preview_report.output_row_count, 2)
+            self.assertFalse(preview_report.fallback_attempted)
+            self.assertFalse(preview_report.external_engine_invoked)
 
     def test_local_csv_query_builder_logical_and_filter_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
@@ -2839,7 +2845,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "collect", "from-pandas", "from-arrow-table", "from-arrow-ipc",
                     "to-pandas", "to-arrow", "to-arrow-table", "to-arrow-ipc",
                     "to-numpy", "to-python-objects", "write-vortex", "write-parquet",
-                    "quarantine", "preview", "display",
+                    "quarantine", "preview", "head", "take", "display",
                 }
                 runtime_required = operation not in {
                     "from-pandas", "from-arrow-table", "from-arrow-ipc",
@@ -2941,6 +2947,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.data_quality_summary(),
             workflow.quarantine("bad.vortex"),
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).preview(limit=5),
+            sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).head(limit=5),
+            sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).take(5),
             workflow.display(),
             ctx.dataframe_source_free_projection("lit(1).alias('value')"),
             ctx.dataframe_generated_with_column("value", "lit(1)"),
@@ -2948,7 +2956,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 37)
+        self.assertEqual(len(reports), 39)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -2971,6 +2979,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     report.envelope.field("workflow_summary", "").startswith("source_free(")
                 )
             elif report.operation == "preview":
+                self.assertEqual(report.envelope.field("workflow_summary"), "read_csv(events.data)")
+            elif report.operation in {"head", "take"}:
                 self.assertEqual(report.envelope.field("workflow_summary"), "read_csv(events.data)")
             else:
                 summary = report.envelope.field("workflow_summary")
@@ -3022,6 +3032,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(by_operation["quarantine"].envelope.field("target_ref"), "bad.vortex")
         self.assertTrue(by_operation["quarantine"].envelope.field_bool("write_required"))
         self.assertTrue(by_operation["preview"].envelope.field_bool("materialization_required"))
+        self.assertTrue(by_operation["head"].envelope.field_bool("materialization_required"))
+        self.assertEqual(by_operation["head"].envelope.field("target_ref"), "5")
+        self.assertTrue(by_operation["take"].envelope.field_bool("materialization_required"))
+        self.assertEqual(by_operation["take"].envelope.field("target_ref"), "5")
         self.assertEqual(by_operation["display"].envelope.field("workflow_operation"), "display")
         self.assertEqual(
             by_operation["dataframe-source-free-projection"].envelope.field("workflow_operation"),

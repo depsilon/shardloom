@@ -1166,13 +1166,36 @@ class LazyFrame:
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Return a bounded local preview when admitted, otherwise report unsupported."""
 
-        if isinstance(limit, bool) or not isinstance(limit, int):
-            raise TypeError("preview limit must be an integer")
-        if limit <= 0:
-            raise ValueError("preview limit must be positive")
+        _validate_positive_row_count("preview limit", limit)
         if _is_query_builder_local_source(self.source):
             return self.limit(limit).collect(check=check)
         return self._unsupported_operation("preview", str(limit), check=check)
+
+    def head(
+        self,
+        limit: int = 20,
+        *,
+        check: bool = False,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded preview report using familiar DataFrame naming."""
+
+        _validate_positive_row_count("head limit", limit)
+        if _is_query_builder_local_source(self.source):
+            return self.limit(limit).collect(check=check)
+        return self._unsupported_operation("head", str(limit), check=check)
+
+    def take(
+        self,
+        count: int,
+        *,
+        check: bool = False,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded preview report for the requested row count."""
+
+        _validate_positive_row_count("take count", count)
+        if _is_query_builder_local_source(self.source):
+            return self.limit(count).collect(check=check)
+        return self._unsupported_operation("take", str(count), check=check)
 
     def display(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
         """Return the unsupported report for rich notebook display."""
@@ -1955,6 +1978,13 @@ def _require_range_int(name: str, value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"range {name} must be an integer")
     return value
+
+
+def _validate_positive_row_count(name: str, value: object) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
+    if value <= 0:
+        raise ValueError(f"{name} must be positive")
 
 
 def _generated_token(value: str) -> str:

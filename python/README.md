@@ -331,8 +331,8 @@ executable through the same typed CLI bridge. A workflow shaped as
 `read_csv(...).select(...).limit(...)`, with an optional `filter(...)`, lowers
 to ShardLoom's `sql-local-source-smoke` path, runs ShardLoom-owned
 projection/optional-filter/limit semantics, and returns a typed evidence
-report. `preview(limit=n)` is the same bounded local path with `SELECT *`. The
-same projection/optional-filter/limit
+report. `preview(limit=n)`, `head(limit=n)`, and `take(n)` use the same bounded
+local path with `SELECT *`. The same projection/optional-filter/limit
 shape is admitted for `read_json(...)` only when the source path is local
 `.jsonl` or `.ndjson`; plain `.json`, nested JSON expansion, and JSONPath
 remain deterministic unsupported surfaces. Filters admit scoped comparison,
@@ -386,6 +386,8 @@ workflow = (
     .limit(1)
 )
 preview = ctx.read_csv("target/sql-local-source-smoke.csv").preview(limit=2)
+head = ctx.read_csv("target/sql-local-source-smoke.csv").head(limit=2)
+take = ctx.read_csv("target/sql-local-source-smoke.csv").take(2)
 filtered = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
@@ -469,6 +471,8 @@ print(written.fallback_attempted, written.external_engine_invoked)
 print(written.evidence_summary.output_native_io_certificate_status)
 print(written.claim_summary.claim_gate_status)
 print(preview.result_jsonl)
+print(head.result_jsonl)
+print(take.result_jsonl)
 print(filtered.logical_predicate_operator, filtered.logical_predicate_leaf_count)
 print(in_filtered.in_predicate_runtime_execution, in_filtered.in_list_value_count)
 print(json_rows.output_path, json_rows.envelope.field("source_format"))
@@ -518,7 +522,7 @@ print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 
 This is a fixture-smoke local CSV plus flat JSONL/NDJSON bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
-preview/select-star, input-backed literal `with_column`, and single-key numeric top-N shapes.
+preview/head/take select-star, input-backed literal `with_column`, and single-key numeric top-N shapes.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 non-literal `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON, object

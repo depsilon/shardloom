@@ -275,6 +275,8 @@ literal_column = (
     .collect()
 )
 
+head = ctx.read_csv("target/sql-local-source-smoke.csv").head(limit=2)
+take = ctx.read_csv("target/sql-local-source-smoke.csv").take(2)
 collected = workflow.collect()
 written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
 aggregate = (
@@ -317,6 +319,8 @@ joined = (
 print(collected.result_jsonl)
 print(predicate_builder.result_jsonl)
 print(literal_column.result_jsonl)
+print(head.result_jsonl)
+print(take.result_jsonl)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
@@ -341,7 +345,8 @@ print(joined.claim_summary.public_performance_claim_allowed)
 
 Use this for the scoped GAR-RUNTIME-IMPL-1C path that exposes the same local CSV SQL smoke through a
 Python DataFrame-like query builder. `collect()` returns bounded inline JSONL; `write()` writes a
-local JSONL result and emits output Native I/O certificate fields. Scalar `aggregate(...)` lowers to
+local JSONL result and emits output Native I/O certificate fields. `head(...)` and `take(...)`
+are familiar aliases over the same bounded `preview(...)` select-star path. Scalar `aggregate(...)` lowers to
 the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; `count()` is a
 convenience wrapper over the same `COUNT(*)` smoke; one-column
 `group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke; single-key numeric

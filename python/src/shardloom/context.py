@@ -725,6 +725,42 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
     ),
     _df_method(
+        "head",
+        "materialization",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "materialization_boundary",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Alias over the scoped local CSV and flat JSONL/NDJSON preview/select-star "
+            "limit smoke; no decoded row-object materialization, broad DataFrame runtime, "
+            "object-store/table source, external engine, fallback, or production claim."
+        ),
+    ),
+    _df_method(
+        "take",
+        "materialization",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "materialization_boundary",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Alias over the scoped local CSV and flat JSONL/NDJSON preview/select-star "
+            "limit smoke; no decoded row-object materialization, broad DataFrame runtime, "
+            "object-store/table source, external engine, fallback, or production claim."
+        ),
+    ),
+    _df_method(
         "display",
         "materialization",
         "unsupported_materialization_diagnostic",
