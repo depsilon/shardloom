@@ -38,6 +38,9 @@ The generated `shardloom.foundry_proof_of_use_report.v1` report includes:
 - `foundry_generated_output_boundary`
 - `foundry_scale_proof_boundary_status`
 - `foundry_scale_proof_boundary`
+- `foundry_package_proof_boundary_matrix_status`
+- `foundry_package_proof_boundary_matrix_ref`
+- `foundry_package_proof_boundary_matrix`
 - `direct_s3_write_invoked=false`
 - `direct_s3_read_invoked=false`
 - `object_store_read_invoked=false`
@@ -71,6 +74,54 @@ local_foundry_style_transform_and_local_vortex_execution_smoke_only
 
 It is not a Foundry production claim, Foundry package publication claim, Foundry virtual-table native
 execution claim, or external compute pushdown claim.
+
+## Package And Proof Boundary Matrix
+
+`GAR-0036-A` adds the report-only package/proof boundary matrix:
+
+```text
+schema_version=shardloom.foundry_package_proof_boundary_matrix.v1
+gar_id=GAR-0036-A
+support_status=report_only
+claim_gate_status=not_claim_grade
+row_count=9
+local_style_claim_allowed_count=2
+blocked_count=7
+foundry_runtime_invoked=false
+foundry_compute_invoked=false
+foundry_spark_invoked=false
+fallback_attempted=false
+external_engine_invoked=false
+public_foundry_claim_allowed=false
+```
+
+Rows with local smoke posture:
+
+```text
+local_style_transform_fixture
+local_certificate_metrics_output
+```
+
+Blocked rows:
+
+```text
+shardloom_foundry_package
+artifact_repository_publication
+foundry_service_invocation
+compute_module_surface
+virtual_table_native_execution
+dataset_transaction_runtime
+f10_workload_certified_deployment
+```
+
+The matrix is canonicalized in
+[`docs/foundry/package-proof-boundary-matrix.json`](package-proof-boundary-matrix.json) and explained
+in [`docs/foundry/package-proof-boundary-matrix.md`](package-proof-boundary-matrix.md). It keeps the
+current proof limited to local Foundry-style smoke and local certificate JSON output. It does not
+authorize a `shardloom-foundry` package claim, Artifact Repository publication claim, Foundry service
+invocation claim, Compute Module claim, virtual-table native execution claim, dataset transaction
+runtime claim, F10 deployment claim, Spark fallback claim, external compute pushdown claim, or
+production Foundry support claim.
 
 ## Generated-Output Boundary
 

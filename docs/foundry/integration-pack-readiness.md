@@ -94,6 +94,25 @@ For the user-facing starter path, see
 [`docs/foundry/dev-stack-starter-kit.md`](dev-stack-starter-kit.md) and
 `shardloom.foundry_dev_stack_starter_kit.v1`.
 
+For the Foundry package/proof boundary, see
+[`docs/foundry/package-proof-boundary-matrix.md`](package-proof-boundary-matrix.md) and
+`shardloom.foundry_package_proof_boundary_matrix.v1`. That report-only matrix separates the current
+local Foundry-style proof rows from blocked `shardloom-foundry` package publication, Artifact
+Repository publication, Foundry service invocation, Compute Module invocation, virtual-table native
+execution, dataset transaction runtime, and F10 workload-certified deployment. It preserves:
+
+```text
+foundry_package_proof_boundary_matrix_status=report_only
+foundry_package_proof_boundary_matrix_ref=foundry_package_proof_boundary_matrix
+foundry_runtime_invoked=false
+foundry_compute_invoked=false
+foundry_spark_invoked=false
+fallback_attempted=false
+external_engine_invoked=false
+public_foundry_claim_allowed=false
+claim_gate_status=not_claim_grade
+```
+
 Use:
 
 ```powershell
