@@ -771,6 +771,10 @@ remain blocked unless workload-scoped claim-grade evidence is attached.
 
 ## Current Interpretation
 
+Read timing rows as route evidence, not as a contest between access surfaces. SQL, Python, CLI, and
+future DataFrame methods are front doors; the route is selected from the source type, preparation
+policy, execution mode, output sink, and evidence level.
+
 Current ShardLoom compatibility rows answer:
 
 ```text
@@ -786,6 +790,17 @@ How fast is pure ShardLoom operator compute over already-prepared Vortex data?
 
 Prepared/native Vortex rows should answer the second question, with preparation timing and
 artifact evidence recorded separately.
+
+The route labels used in public docs are:
+
+| Canonical route | User-facing label | Best timing to read |
+| --- | --- | --- |
+| `compatibility_import_certified` | Certified import/stage route | End-to-end certified import, Vortex stage, query, output, and evidence total. |
+| `prepared_vortex` | Prepared Vortex steady-state route | `prepare_once_millis` plus warm query, output, and evidence timing. |
+| `native_vortex` | Already-Vortex route | Native query, output, and evidence timing over existing Vortex artifacts. |
+| `direct_compatibility_transient` | Direct one-shot route | Source read/parse plus ShardLoom compute and optional output, with no Vortex-native claim. |
+| Generated-source reports | Source-free generated-output route | Generation plus output and evidence timing; source-read timing is zero. |
+| Fanout reports | Multi-output fanout route | Query/reuse timing plus per-output write/replay/evidence timing. |
 
 ## Vortex Alignment Notes
 

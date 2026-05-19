@@ -99,7 +99,54 @@ For a non-expert reader, the whole flow should reduce to one question:
 Can ShardLoom admit this request, run it through a visible mode, and prove what happened?
 ```
 
-The answer is carried through the same route whether the user entered through CLI, Python,
+Users normally think in workflow terms:
+
+```text
+Python / SQL / CLI
+-> read or generate data
+-> transform or query
+-> write one or more outputs
+```
+
+ShardLoom records the engine route separately:
+
+```text
+front door
+-> source route
+-> preparation route
+-> execution route
+-> output route
+-> evidence route
+```
+
+The front door is how the user expresses work. Python, SQL, CLI, adapters, and future
+DataFrame/API surfaces are front doors; they are not execution routes. The route is selected from
+the source type, preparation policy, execution mode, output sink, and evidence level, then reported
+back in the typed output envelope.
+
+For the common non-Vortex local-file workflow, the intended steady-state route is:
+
+```text
+local non-Vortex input
+-> InputAdapter
+-> SourceState
+-> VortexPreparedState
+-> ExecutionPlan
+-> OutputPlan
+-> SinkArtifact + evidence
+```
+
+For source-free workflows, the route is:
+
+```text
+generated source
+-> GeneratedSourceCertificate
+-> optional Vortex/prepared execution
+-> OutputPlan
+-> SinkArtifact + evidence
+```
+
+The answer is carried through the same route model whether the user entered through CLI, Python,
 benchmarks, an adapter, or a future API surface.
 
 ```mermaid
@@ -123,6 +170,17 @@ Keep these labels separate:
 | Engine mode | What workload semantics were admitted? | `batch`, `live`, `hybrid`, `auto` | Hidden fallback, broker-backed live runtime, or production hybrid support. |
 | Evidence level | How much proof was emitted? | `minimal_runtime`, `certified`, `full_replay` | A faster mode or a claim-grade result by itself. |
 | Scale class | What resource envelope was proven? | `local_smoke`, `local_claim_grade`, planned split/object-store/distributed classes | Literal any-volume support or Spark-displacement support. |
+
+Use friendlier route labels in user-facing prose while keeping the canonical fields in evidence:
+
+| Canonical field/value | User-facing label | Use when | Timing means | Must not imply |
+| --- | --- | --- | --- | --- |
+| `compatibility_import_certified` | Certified import/stage route | The user wants proof of local ingest, Vortex staging, sink, replay, and evidence. | End-to-end source read, parse, Vortex import/write/reopen/scan, operator work, sink, and evidence. | Pure query-speed timing or performance superiority. |
+| `prepared_vortex` | Prepared Vortex steady-state route | Normal workflows over local CSV/Parquet/JSONL/etc. after preparation. | Prepare-once cost is separate from warm query, output, and evidence timing. | Broad SQL/DataFrame support or object-store/table runtime. |
+| `native_vortex` | Already-Vortex route | Input already exists as a Vortex artifact. | Native/prepared scan plus admitted operator, output, and evidence timing. | Universal encoded-native operator coverage. |
+| `direct_compatibility_transient` | Direct one-shot route | Quick local work without persistent Vortex staging. | Source read/parse plus ShardLoom-native compute and optional output. | Vortex-native execution or hidden fallback. |
+| Generated-source reports | Source-free generated-output route | No input dataset exists and ShardLoom generates rows. | Generation plus output write and evidence; source-read timing is zero. | No-dataset smoke, SQL/DataFrame breadth, or object-store/Foundry output support. |
+| Output/fanout reports | Multi-output fanout route | One admitted source/result needs multiple local outputs. | Query/reuse timing plus per-output planning, write, replay, and evidence. | Object-store/table commit or production sink support. |
 
 ## Current Runtime Snapshot
 
@@ -898,13 +956,13 @@ transparent selector and must report what it selected.
 
 ## The Five Execution Modes
 
-| Mode | What it means | Primary use | Vortex-native claim? | Claim posture |
-| --- | --- | --- | --- | --- |
-| `compatibility_import_certified` | Read compatibility input, import to Vortex, write/reopen/scan, compute, certify | Certified ingest/stage workflow | Partial/scoped | Can be claim-grade for ingest/stage workload |
-| `prepared_vortex` | Prepare Vortex once, then run many queries/scenarios from prepared artifacts | Main performance comparison path | Yes, if evidence supports it | Preferred benchmark path |
-| `native_vortex` | Existing `.vortex` input, Vortex-native scan/operator path | Cleanest native query path | Yes | Cleanest native-engine lane |
-| `direct_compatibility_transient` | Read compatibility input and compute directly without persistent Vortex write/reopen | Small one-shot jobs, quick ETL | No | Not Vortex-native |
-| `auto` | Transparent mode choice based on input/request/policy | User convenience | Depends on selected mode | Must report selected mode and reason |
+| Mode | User-facing label | What it means | Primary use | Vortex-native claim? | Claim posture |
+| --- | --- | --- | --- | --- | --- |
+| `compatibility_import_certified` | Certified import/stage route | Read compatibility input, import to Vortex, write/reopen/scan, compute, certify. | Certified ingest/stage workflow. | Partial/scoped. | Can be claim-grade for ingest/stage workload. |
+| `prepared_vortex` | Prepared Vortex steady-state route | Prepare Vortex once, then run many queries/scenarios from prepared artifacts. | Main prepared-runtime path for normal local-file workflows. | Yes, if evidence supports it. | Preferred benchmark/runtime-development path. |
+| `native_vortex` | Already-Vortex route | Existing `.vortex` input, Vortex-native scan/operator path. | Cleanest native query path when the input is already Vortex. | Yes. | Cleanest native-engine lane. |
+| `direct_compatibility_transient` | Direct one-shot route | Read compatibility input and compute directly without persistent Vortex write/reopen. | Small one-shot jobs, quick ETL, and deterministic diagnostics. | No. | Not Vortex-native. |
+| `auto` | Transparent route selector | Select a concrete execution mode based on input/request/policy. | User convenience. | Depends on selected mode. | Must report selected mode and reason. |
 
 ## Mode 1 - `compatibility_import_certified`
 
@@ -1303,17 +1361,38 @@ total_runtime_millis
   evidence_render_millis
 ```
 
-Interpretation:
+Route interpretation:
 
 ```text
-compatibility_import_certified = staging + query + evidence
-prepared_vortex = preparation once + query many times
-native_vortex = query over existing Vortex
-direct_compatibility_transient = one-shot direct ShardLoom compute, not Vortex-native
+certified import/stage route =
+  compatibility_import_certified end-to-end total
+
+cold prepared route =
+  prepare Vortex once + first query + output + evidence
+
+warm prepared route =
+  prepared_vortex query + output + evidence only
+
+already-Vortex route =
+  native_vortex query + output + evidence only
+
+direct one-shot route =
+  direct parse + ShardLoom compute + output; not Vortex-native
+
+source-free generated-output route =
+  generated rows + output + evidence; source-read timing is zero
+
+multi-output fanout route =
+  query once + per-output planning/write/replay/evidence
+
 batch = bounded/snapshot workload semantics
 live = continuous/change-stream workload semantics
 hybrid = base snapshot plus hot delta workload semantics
 ```
+
+Compare routes, not front doors. `ctx.sql(...)`, Python query-builder calls, CLI commands, and
+future DataFrame methods can enter the same route model. The benchmark question is where time and
+evidence were spent, not whether the user typed SQL or Python.
 
 The benchmark artifact must also carry
 `execution_mode_attribution_contract`, including the canonical mode vocabulary,

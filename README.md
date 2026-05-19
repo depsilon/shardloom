@@ -68,6 +68,19 @@ ShardLoom tracks two different mode families. Execution modes describe the sourc
 engine modes describe workload semantics such as bounded batch, live change streams, or
 base-plus-delta hybrid overlays.
 
+User-facing APIs are front doors, not execution routes. A user may enter through Python, SQL, CLI,
+or a future DataFrame-style surface, but ShardLoom still records the same route model:
+
+```text
+front door -> source route -> preparation route -> execution route -> output route -> evidence route
+```
+
+That is why public docs use friendly labels beside the canonical fields: certified import/stage
+route (`compatibility_import_certified`), prepared Vortex steady-state route (`prepared_vortex`),
+already-Vortex route (`native_vortex`), direct one-shot route
+(`direct_compatibility_transient`), source-free generated-output route, and multi-output fanout
+route.
+
 | Area | Current repo state | Planned or gated updates |
 | --- | --- | --- |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are represented in benchmark/report fields. | More prepared/native Vortex paths; `auto` must keep reporting the selected concrete mode. |

@@ -70,6 +70,7 @@
     <nav class="page-subnav" aria-label="Compute flow sections">
       <div class="shell">
         <a href="#flow-overview">Overview</a>
+        <a href="#route-model">Route model</a>
         <a href="#flow-modes">Mode lanes</a>
         <a href="#engine-fabric">Engine fabric</a>
         <a href="#provider-admission">Provider admission</a>
@@ -82,14 +83,41 @@
         <div>
           <p class="eyebrow">Plain-English route</p>
           <h2>One request, one visible route.</h2>
-          <p class="section-lede">ShardLoom should never make users infer what happened. The public flow separates the user access surface from the runtime contract, the source/preparation lane, the workload engine semantics, the provider path, and the evidence envelope.</p>
+          <p class="section-lede">ShardLoom should never make users infer what happened. Python, SQL, CLI, and future DataFrame surfaces are front doors; the execution route is determined separately from the source, preparation policy, output sink, and evidence level.</p>
         </div>
         <aside class="terminal-panel flow-command-panel">
-          <div class="console-row"><code>policy</code><span>no fallback, credentials, governance, capability admission</span></div>
-          <div class="console-row"><code>mode</code><span>requested, selected, reason, unsupported diagnostic if needed</span></div>
-          <div class="console-row"><code>provider</code><span>Vortex source, prepared artifact, native kernel, or blocked path</span></div>
-          <div class="console-row"><code>output</code><span>result ref, evidence refs, timing, claim_gate_status</span></div>
+          <div class="console-row"><code>front door</code><span>Python, SQL, CLI, adapter, benchmark, or future API</span></div>
+          <div class="console-row"><code>route</code><span>source -> preparation -> execution -> output -> evidence</span></div>
+          <div class="console-row"><code>provider</code><span>Vortex source, prepared artifact, ShardLoom kernel, or blocked path</span></div>
+          <div class="console-row"><code>claim</code><span>typed evidence refs, timing, no-fallback fields, claim_gate_status</span></div>
         </aside>
+      </div>
+    </section>
+    <section id="route-model">
+      <div class="shell">
+        <p class="eyebrow">Workflow vs route</p>
+        <h2>SQL and Python express the work. Routes explain how it ran.</h2>
+        <p class="section-lede">A normal user story is <code>read/generate -> transform/query -> write</code>. ShardLoom reports the internal path as <code>InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact</code> when those stages apply.</p>
+        <div class="comparison-guidance">
+          <article>
+            <h3>Common user workflow</h3>
+            <ul>
+              <li>Enter through Python, SQL, CLI, or a future DataFrame front door.</li>
+              <li>Read local data or generate rows without an input dataset.</li>
+              <li>Run admitted ShardLoom/Vortex work without external fallback.</li>
+              <li>Write local output and inspect evidence.</li>
+            </ul>
+          </article>
+          <article>
+            <h3>Engine route evidence</h3>
+            <ul>
+              <li>Source route: no input, generated rows, local file, existing Vortex, or future platform source.</li>
+              <li>Preparation route: direct transient, certified import/stage, prepared Vortex, or native Vortex.</li>
+              <li>Output route: scalar/report, local sink, Vortex result, fanout, or deterministic blocker.</li>
+              <li>Evidence route: minimal runtime, certified, full replay, and claim gate.</li>
+            </ul>
+          </article>
+        </div>
       </div>
     </section>
     <section id="flow-modes">
@@ -98,10 +126,10 @@
         <h2>Source and preparation choices stay explicit.</h2>
         <p class="section-lede">These lanes are not interchangeable timing rows. Compatibility import carries ingest/stage/certification work. Prepared and native Vortex lanes are the current runtime-development direction. Direct transient and auto stay constrained by diagnostics and selected-mode reporting.</p>
         <div class="mode-lanes mission-mode-lanes">
-          <article class="mode-lane"><span class="lane-tag">Certification</span><h3>compatibility_import_certified</h3><p>Reads compatibility input, imports to Vortex, writes/reopens/scans, computes, and certifies the workflow.</p></article>
-          <article class="mode-lane"><span class="lane-tag">Runtime direction</span><h3>prepared_vortex</h3><p>Runs scoped scenarios from prepared Vortex artifacts with source-backed scan and no-fallback evidence.</p></article>
-          <article class="mode-lane"><span class="lane-tag">Native artifact</span><h3>native_vortex</h3><p>Runs from existing Vortex input where the local row carries Native I/O and claim-boundary fields.</p></article>
-          <article class="mode-lane"><span class="lane-tag">Diagnostic</span><h3>direct_compatibility_transient / auto</h3><p>Direct transient remains narrow and not Vortex-native; auto must report selected mode and reason.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Certified import/stage route</span><h3>compatibility_import_certified</h3><p>Reads compatibility input, imports to Vortex, writes/reopens/scans, computes, and certifies the full ingest/stage workflow.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Prepared steady-state route</span><h3>prepared_vortex</h3><p>Prepares Vortex once, then runs scoped queries from prepared artifacts with source-backed scan and no-fallback evidence.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Already-Vortex route</span><h3>native_vortex</h3><p>Runs from existing Vortex input where the local row carries Native I/O, provider admission, and claim-boundary fields.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Direct one-shot route</span><h3>direct_compatibility_transient / auto</h3><p>Direct transient remains narrow and not Vortex-native; auto is only a transparent selector with a selected mode and reason.</p></article>
         </div>
       </div>
     </section>
@@ -205,7 +233,34 @@ claim-gated benchmark/reporting</code></pre>
 <h3 id="human-readable-mental-model">Human-Readable Mental Model</h3>
 <p>For a non-expert reader, the whole flow should reduce to one question:</p>
 <pre><code data-language="text">Can ShardLoom admit this request, run it through a visible mode, and prove what happened?</code></pre>
-<p>The answer is carried through the same route whether the user entered through CLI, Python, benchmarks, an adapter, or a future API surface.</p>
+<p>Users normally think in workflow terms:</p>
+<pre><code data-language="text">Python / SQL / CLI
+-&gt; read or generate data
+-&gt; transform or query
+-&gt; write one or more outputs</code></pre>
+<p>ShardLoom records the engine route separately:</p>
+<pre><code data-language="text">front door
+-&gt; source route
+-&gt; preparation route
+-&gt; execution route
+-&gt; output route
+-&gt; evidence route</code></pre>
+<p>The front door is how the user expresses work. Python, SQL, CLI, adapters, and future DataFrame/API surfaces are front doors; they are not execution routes. The route is selected from the source type, preparation policy, execution mode, output sink, and evidence level, then reported back in the typed output envelope.</p>
+<p>For the common non-Vortex local-file workflow, the intended steady-state route is:</p>
+<pre><code data-language="text">local non-Vortex input
+-&gt; InputAdapter
+-&gt; SourceState
+-&gt; VortexPreparedState
+-&gt; ExecutionPlan
+-&gt; OutputPlan
+-&gt; SinkArtifact + evidence</code></pre>
+<p>For source-free workflows, the route is:</p>
+<pre><code data-language="text">generated source
+-&gt; GeneratedSourceCertificate
+-&gt; optional Vortex/prepared execution
+-&gt; OutputPlan
+-&gt; SinkArtifact + evidence</code></pre>
+<p>The answer is carried through the same route model whether the user entered through CLI, Python, benchmarks, an adapter, or a future API surface.</p>
 <figure class="mermaid-rendered">
 <figcaption><strong>Rendered flowchart</strong><span>Static rendering from the Mermaid source in this repository.</span></figcaption>
 <div class="diagram-groups">
@@ -244,6 +299,17 @@ claim-gated benchmark/reporting</code></pre>
 <tr><td>Engine mode</td><td>What workload semantics were admitted?</td><td><code>batch</code>, <code>live</code>, <code>hybrid</code>, <code>auto</code></td><td>Hidden fallback, broker-backed live runtime, or production hybrid support.</td></tr>
 <tr><td>Evidence level</td><td>How much proof was emitted?</td><td><code>minimal_runtime</code>, <code>certified</code>, <code>full_replay</code></td><td>A faster mode or a claim-grade result by itself.</td></tr>
 <tr><td>Scale class</td><td>What resource envelope was proven?</td><td><code>local_smoke</code>, <code>local_claim_grade</code>, planned split/object-store/distributed classes</td><td>Literal any-volume support or Spark-displacement support.</td></tr>
+</tbody></table></div>
+<p>Use friendlier route labels in user-facing prose while keeping the canonical fields in evidence:</p>
+<div class="table-scroll"><table>
+<thead><tr><th>Canonical field/value</th><th>User-facing label</th><th>Use when</th><th>Timing means</th><th>Must not imply</th></tr></thead>
+<tbody>
+<tr><td><code>compatibility_import_certified</code></td><td>Certified import/stage route</td><td>The user wants proof of local ingest, Vortex staging, sink, replay, and evidence.</td><td>End-to-end source read, parse, Vortex import/write/reopen/scan, operator work, sink, and evidence.</td><td>Pure query-speed timing or performance superiority.</td></tr>
+<tr><td><code>prepared_vortex</code></td><td>Prepared Vortex steady-state route</td><td>Normal workflows over local CSV/Parquet/JSONL/etc. after preparation.</td><td>Prepare-once cost is separate from warm query, output, and evidence timing.</td><td>Broad SQL/DataFrame support or object-store/table runtime.</td></tr>
+<tr><td><code>native_vortex</code></td><td>Already-Vortex route</td><td>Input already exists as a Vortex artifact.</td><td>Native/prepared scan plus admitted operator, output, and evidence timing.</td><td>Universal encoded-native operator coverage.</td></tr>
+<tr><td><code>direct_compatibility_transient</code></td><td>Direct one-shot route</td><td>Quick local work without persistent Vortex staging.</td><td>Source read/parse plus ShardLoom-native compute and optional output.</td><td>Vortex-native execution or hidden fallback.</td></tr>
+<tr><td>Generated-source reports</td><td>Source-free generated-output route</td><td>No input dataset exists and ShardLoom generates rows.</td><td>Generation plus output write and evidence; source-read timing is zero.</td><td>No-dataset smoke, SQL/DataFrame breadth, or object-store/Foundry output support.</td></tr>
+<tr><td>Output/fanout reports</td><td>Multi-output fanout route</td><td>One admitted source/result needs multiple local outputs.</td><td>Query/reuse timing plus per-output planning, write, replay, and evidence.</td><td>Object-store/table commit or production sink support.</td></tr>
 </tbody></table></div>
 <h3 id="current-runtime-snapshot">Current Runtime Snapshot</h3>
 <p>This table is the detailed current-state ledger behind the diagrams. Skim the <code>Layer</code> column first; read a row only when you need its exact support boundary. It separates source/preparation execution lanes from batch/live/hybrid workload semantics so readers do not infer a hidden runtime or claim.</p>
@@ -1010,13 +1076,13 @@ execution_mode_fields=not_applicable_to_engine_fabric_fixture</code></pre>
 <p>The fields must not be collapsed. <code>auto</code> exists in both vocabularies, but in both cases it is only a transparent selector and must report what it selected.</p>
 <h3 id="the-five-execution-modes">The Five Execution Modes</h3>
 <div class="table-scroll"><table>
-<thead><tr><th>Mode</th><th>What it means</th><th>Primary use</th><th>Vortex-native claim?</th><th>Claim posture</th></tr></thead>
+<thead><tr><th>Mode</th><th>User-facing label</th><th>What it means</th><th>Primary use</th><th>Vortex-native claim?</th><th>Claim posture</th></tr></thead>
 <tbody>
-<tr><td><code>compatibility_import_certified</code></td><td>Read compatibility input, import to Vortex, write/reopen/scan, compute, certify</td><td>Certified ingest/stage workflow</td><td>Partial/scoped</td><td>Can be claim-grade for ingest/stage workload</td></tr>
-<tr><td><code>prepared_vortex</code></td><td>Prepare Vortex once, then run many queries/scenarios from prepared artifacts</td><td>Main performance comparison path</td><td>Yes, if evidence supports it</td><td>Preferred benchmark path</td></tr>
-<tr><td><code>native_vortex</code></td><td>Existing <code>.vortex</code> input, Vortex-native scan/operator path</td><td>Cleanest native query path</td><td>Yes</td><td>Cleanest native-engine lane</td></tr>
-<tr><td><code>direct_compatibility_transient</code></td><td>Read compatibility input and compute directly without persistent Vortex write/reopen</td><td>Small one-shot jobs, quick ETL</td><td>No</td><td>Not Vortex-native</td></tr>
-<tr><td><code>auto</code></td><td>Transparent mode choice based on input/request/policy</td><td>User convenience</td><td>Depends on selected mode</td><td>Must report selected mode and reason</td></tr>
+<tr><td><code>compatibility_import_certified</code></td><td>Certified import/stage route</td><td>Read compatibility input, import to Vortex, write/reopen/scan, compute, certify.</td><td>Certified ingest/stage workflow.</td><td>Partial/scoped.</td><td>Can be claim-grade for ingest/stage workload.</td></tr>
+<tr><td><code>prepared_vortex</code></td><td>Prepared Vortex steady-state route</td><td>Prepare Vortex once, then run many queries/scenarios from prepared artifacts.</td><td>Main prepared-runtime path for normal local-file workflows.</td><td>Yes, if evidence supports it.</td><td>Preferred benchmark/runtime-development path.</td></tr>
+<tr><td><code>native_vortex</code></td><td>Already-Vortex route</td><td>Existing <code>.vortex</code> input, Vortex-native scan/operator path.</td><td>Cleanest native query path when the input is already Vortex.</td><td>Yes.</td><td>Cleanest native-engine lane.</td></tr>
+<tr><td><code>direct_compatibility_transient</code></td><td>Direct one-shot route</td><td>Read compatibility input and compute directly without persistent Vortex write/reopen.</td><td>Small one-shot jobs, quick ETL, and deterministic diagnostics.</td><td>No.</td><td>Not Vortex-native.</td></tr>
+<tr><td><code>auto</code></td><td>Transparent route selector</td><td>Select a concrete execution mode based on input/request/policy.</td><td>User convenience.</td><td>Depends on selected mode.</td><td>Must report selected mode and reason.</td></tr>
 </tbody></table></div>
 <h3 id="mode-1-compatibility-import-certified">Mode 1 - <code>compatibility_import_certified</code></h3>
 <p>This is the current ShardLoom certified ingest/stage shape.</p>
@@ -1266,14 +1332,32 @@ unsupported_until_vortex_or_shardloom_evidence</code></pre>
   operator_compute_millis
   result_sink_write_millis
   evidence_render_millis</code></pre>
-<p>Interpretation:</p>
-<pre><code data-language="text">compatibility_import_certified = staging + query + evidence
-prepared_vortex = preparation once + query many times
-native_vortex = query over existing Vortex
-direct_compatibility_transient = one-shot direct ShardLoom compute, not Vortex-native
+<p>Route interpretation:</p>
+<pre><code data-language="text">certified import/stage route =
+  compatibility_import_certified end-to-end total
+
+cold prepared route =
+  prepare Vortex once + first query + output + evidence
+
+warm prepared route =
+  prepared_vortex query + output + evidence only
+
+already-Vortex route =
+  native_vortex query + output + evidence only
+
+direct one-shot route =
+  direct parse + ShardLoom compute + output; not Vortex-native
+
+source-free generated-output route =
+  generated rows + output + evidence; source-read timing is zero
+
+multi-output fanout route =
+  query once + per-output planning/write/replay/evidence
+
 batch = bounded/snapshot workload semantics
 live = continuous/change-stream workload semantics
 hybrid = base snapshot plus hot delta workload semantics</code></pre>
+<p>Compare routes, not front doors. <code>ctx.sql(...)</code>, Python query-builder calls, CLI commands, and future DataFrame methods can enter the same route model. The benchmark question is where time and evidence were spent, not whether the user typed SQL or Python.</p>
 <p>The benchmark artifact must also carry <code>execution_mode_attribution_contract</code>, including the canonical mode vocabulary, the required execution-mode fields, and the required stage timing fields. The harness rejects rows that omit the contract fields. Unknown stage values stay explicit as <code>null</code>, <code>n/a</code>, or <code>not_measured</code>; missing fields are not allowed. Prepared/native rows must also carry an operator blocker matrix with <code>operator_execution_class</code>, <code>operator_admission_status</code>, <code>operator_blocker_id</code>, <code>operator_blocker_reason</code>, and <code>operator_encoded_native_claim_allowed</code> so temporary or residual-native operators are never read as encoded-native operator execution. Native Vortex benchmark rows must additionally carry <code>native_vortex_admission_*</code> fields that identify the exact admitted lane, provider kind/API surface, certificate refs, materialization/decode refs, fallback status, and claim boundary. Today that admits only <code>local_vortex_count_scalar</code>; downstream readers must not infer universal native Vortex support from that row.</p>
 <p>The artifact must also carry <code>persistent_runner_admission_gate</code>. Eligible comparative prepared/native rows now consume the explicit <code>traditional-analytics-vortex-batch-run</code> command and report <code>persistent_runner_status=single_process_batch_runner_supported</code> while preserving per-scenario typed evidence and no-fallback fields. Those rows also carry <code>batch_runner_kind</code>, <code>batch_scenario_count</code>, <code>batch_cli_process_wall_millis</code>, <code>batch_process_wall_shared=true</code>, and <code>batch_process_startup_attribution</code> so shared process wall time is not mistaken for per-scenario operator work. Eligible batch rows may also carry <code>source_state_dimension_label_*</code>, <code>source_state_category_metric_*</code>, <code>source_state_group_category_metric_*</code>, <code>source_state_ranked_metric_*</code>, <code>source_state_selective_filter_*</code>, <code>source_state_dirty_input_*</code>, and <code>source_state_date_null_metric_*</code> fields to show which scoped source-state family was reused. Rows that still use explicit single-scenario CLI execution keep <code>persistent_runner_status=process_per_scenario_attributed_not_reduced</code> and the existing persistent-runner admission fields (<code>process_startup_attribution</code>, <code>python_harness_overhead_status</code>, <code>cli_process_wall_millis</code>, <code>python_harness_overhead_millis</code>, <code>startup_warmup_millis</code>, <code>build_time_millis</code>, <code>build_time_excluded</code>, <code>preparation_millis</code>, <code>preparation_cli_process_wall_millis</code>, and <code>preparation_included_in_timing</code>). The batch status does not admit a persistent daemon, service runtime, hidden fast mode, or performance claim. Any broader persistent runner must preserve typed envelopes, execution-mode evidence, Native I/O refs, operator blocker fields, materialization/decode boundaries, result-sink replay evidence, deterministic unsupported diagnostics, and no-fallback fields per run.</p>
 <p><code>GAR-PERF-1</code> is the planned prepared/native performance architecture layer. It separates four follow-ups:</p>

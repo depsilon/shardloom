@@ -87,6 +87,9 @@
 <p>The intended public shape includes Python, SQL/DataFrame-style workflows, ETL, adapters, batch engine execution, live/hybrid engine-mode contracts, remote proof/control APIs, and optional platform integrations. Those surfaces are evidence-gated; unsupported work must remain explicit and non-delegating.</p>
 <h3 id="runtime-snapshot">Runtime Snapshot</h3>
 <p>ShardLoom tracks two different mode families. Execution modes describe the source/preparation lane; engine modes describe workload semantics such as bounded batch, live change streams, or base-plus-delta hybrid overlays.</p>
+<p>User-facing APIs are front doors, not execution routes. A user may enter through Python, SQL, CLI, or a future DataFrame-style surface, but ShardLoom still records the same route model:</p>
+<pre><code data-language="text">front door -&gt; source route -&gt; preparation route -&gt; execution route -&gt; output route -&gt; evidence route</code></pre>
+<p>That is why public docs use friendly labels beside the canonical fields: certified import/stage route (<code>compatibility_import_certified</code>), prepared Vortex steady-state route (<code>prepared_vortex</code>), already-Vortex route (<code>native_vortex</code>), direct one-shot route (<code>direct_compatibility_transient</code>), source-free generated-output route, and multi-output fanout route.</p>
 <div class="table-scroll"><table>
 <thead><tr><th>Area</th><th>Current repo state</th><th>Planned or gated updates</th></tr></thead>
 <tbody>
