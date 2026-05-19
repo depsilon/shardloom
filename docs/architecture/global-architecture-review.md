@@ -536,6 +536,10 @@ plan before coding.
   admitted predicate leaves, preserves SQL `AND` precedence inside `OR` branches, emits the same
   logical predicate evidence fields, and keeps unsupported compound predicate forms outside this
   slice without fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D-S5 adds scoped local SQL logical `NOT` predicate runtime over already
+  admitted predicate leaves, preserves SQL `NOT`/`AND`/`OR` precedence for unparenthesized scoped
+  predicates, emits logical predicate evidence fields, and keeps parentheses/arbitrary predicate
+  completeness outside this slice without fallback/external engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 

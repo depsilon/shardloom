@@ -1063,8 +1063,8 @@ fn sql_local_source_smoke_blocks_unsupported_like_shapes_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_logical_not_without_fallback() {
-    let source_path = unique_path("sql-local-source-logical-not-blocked", "csv");
+fn sql_local_source_smoke_executes_logical_not_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-logical-not", "csv");
     fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n").expect("write source csv");
 
     let statement = format!(
@@ -1076,15 +1076,22 @@ fn sql_local_source_smoke_blocks_logical_not_without_fallback() {
         .output()
         .expect("sql-local-source-smoke command runs");
     assert!(
-        !output.status.success(),
+        output.status.success(),
         "stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("NOT predicates are not admitted"));
-    assert!(stdout.contains("no fallback execution was attempted"));
-    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("logical_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("logical_predicate_operator", "not")));
+    assert!(stdout.contains(&field("logical_predicate_leaf_count", "1")));
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(stdout.contains("\"result_jsonl\",\"value\":\"{\\\"id\\\":1}\\n\""));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
 
     fs::remove_file(source_path).expect("remove source csv");
 }
