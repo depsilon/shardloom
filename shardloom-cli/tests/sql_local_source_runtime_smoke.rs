@@ -1,4 +1,5 @@
 use std::{
+    fmt::Write as _,
     fs,
     path::PathBuf,
     process::Command,
@@ -462,6 +463,134 @@ fn sql_local_source_smoke_executes_date_literal_filters_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_preserves_iso_csv_strings_for_quoted_equality() {
+    let source_path = unique_path("sql-local-source-iso-string-equality", "csv");
+    fs::write(
+        &source_path,
+        "id,event_date,label\n1,2026-05-18,alpha\n2,2026-05-19,beta\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,event_date FROM '{}' WHERE event_date = '2026-05-19' LIMIT 5",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"event_date\\\":\\\"2026-05-19\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("date_literal_runtime_execution", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_jsonl_projection_filter_limit_with_source_state_evidence() {
+    let source_path = unique_path("sql-local-source-jsonl", "jsonl");
+    fs::write(
+        &source_path,
+        "{\"id\":1,\"label\":\"alpha\",\"amount\":8,\"event_date\":\"2026-05-18\"}\n\
+         {\"id\":2,\"label\":\"beta\",\"amount\":15,\"event_date\":\"2026-05-19\"}\n\
+         {\"id\":3,\"label\":\"gamma\",\"amount\":21,\"event_date\":\"2026-05-20\"}\n",
+    )
+    .expect("write source jsonl");
+
+    let statement = format!(
+        "SELECT id,label,event_date FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "jsonl")));
+    assert!(stdout.contains(&field(
+        "source_fingerprint_kind",
+        "local_file_content_digest"
+    )));
+    assert!(stdout.contains("\"source_state_id\",\"value\":\"local-jsonl-fnv64-"));
+    assert!(stdout.contains("\"source_state_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("source_state_reuse_allowed", "false")));
+    assert!(stdout.contains(&field("source_state_reuse_hit", "false")));
+    assert!(stdout.contains(&field(
+        "source_state_reuse_reason",
+        "not_cached_sql_local_source_smoke"
+    )));
+    assert!(stdout.contains(&field("source_columns", "id,label,amount,event_date")));
+    assert!(stdout.contains(&field("input_row_count", "3")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\",\\\"event_date\\\":\\\"2026-05-19\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\",\\\"event_date\\\":\\\"2026-05-20\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source jsonl");
+}
+
+#[test]
+fn sql_local_source_smoke_preserves_iso_jsonl_strings_for_quoted_equality() {
+    let source_path = unique_path("sql-local-source-jsonl-iso-string-equality", "jsonl");
+    fs::write(
+        &source_path,
+        "{\"id\":1,\"event_date\":\"2026-05-18\"}\n\
+         {\"id\":2,\"event_date\":\"2026-05-19\"}\n",
+    )
+    .expect("write source jsonl");
+
+    let statement = format!(
+        "SELECT id,event_date FROM '{}' WHERE event_date = '2026-05-19' LIMIT 5",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("source_format", "jsonl")));
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"event_date\\\":\\\"2026-05-19\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("date_literal_runtime_execution", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source jsonl");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_inner_equi_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-dim", "csv");
@@ -530,6 +659,44 @@ fn sql_local_source_smoke_executes_inner_equi_join_without_fallback() {
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_duplicate_key_join_explosion_without_materializing() {
+    let fact_path = unique_path("sql-local-source-join-explosion-fact", "csv");
+    let dim_path = unique_path("sql-local-source-join-explosion-dim", "csv");
+    let mut fact = String::from("id,customer_id,amount\n");
+    let mut dim = String::from("customer_id,segment\n");
+    for index in 0..225 {
+        writeln!(fact, "{index},42,10").expect("write fact row");
+        writeln!(dim, "42,segment_{index}").expect("write dim row");
+    }
+    fs::write(&fact_path, fact).expect("write fact csv");
+    fs::write(&dim_path, dim).expect("write dim csv");
+
+    let statement = format!(
+        "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 1 LIMIT 1",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("JOIN candidate row count exceeds scoped smoke cap"));
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(stdout.contains("external_engine_invoked=false"));
 
     fs::remove_file(fact_path).expect("remove fact csv");
     fs::remove_file(dim_path).expect("remove dim csv");
@@ -763,6 +930,34 @@ fn sql_local_source_smoke_blocks_invalid_date_literals_without_fallback() {
     assert!(stdout.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_nested_jsonl_values_without_fallback() {
+    let source_path = unique_path("sql-local-source-jsonl-nested-blocked", "jsonl");
+    fs::write(&source_path, "{\"id\":1,\"payload\":{\"x\":1}}\n").expect("write source jsonl");
+
+    let statement = format!(
+        "SELECT id FROM '{}' WHERE id >= 1 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("JSONL source runtime admits scalar values only"));
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source jsonl");
 }
 
 #[test]

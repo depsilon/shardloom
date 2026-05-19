@@ -975,6 +975,11 @@ plan before coding.
   levels are now machine-readable, no-fallback, and `not_claim_grade`; the next work is to keep
   sink artifacts reusable and independently certified without coupling input format to output
   format.
+- [x] `GAR-RUNTIME-IMPL-4F-S1` adds scoped flat JSONL/NDJSON local input runtime to
+  `sql-local-source-smoke`. Rows now emit `source_format=jsonl`, content-digest fingerprinting,
+  SourceState-style id/digest/reuse posture, schema digest, local read/parse timing, deterministic
+  blockers for nested JSON values and unsupported extensions, `fallback_attempted=false`, and
+  `external_engine_invoked=false`.
 - [ ] CG-19 is not universal across object-store/range-read, streaming sinks, table/catalog,
   external adapters, and all production source/sink paths.
 

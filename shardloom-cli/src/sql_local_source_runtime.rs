@@ -1,8 +1,8 @@
 //! Scoped local-source SQL runtime smoke.
 //!
-//! This module intentionally admits one small SQL shape over local CSV:
-//! `SELECT <columns> FROM <local.csv> WHERE <simple predicate> [ORDER BY <column> ASC|DESC] LIMIT <n>`
-//! plus one explicit local CSV inner equi-join shape.
+//! This module intentionally admits one small SQL shape over local CSV/JSONL:
+//! `SELECT <columns> FROM <local.csv|local.jsonl> WHERE <simple predicate> [ORDER BY <column> ASC|DESC] LIMIT <n>`
+//! plus one explicit local inner equi-join shape.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
 //! `Polars`, `pandas`, object stores, catalogs, or Vortex query-engine
@@ -44,6 +44,7 @@ const SOURCE_CERTIFICATE_ID: &str = "sql-local-source.csv.compatibility-source.v
 const OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
+const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SqlLocalSourceRequest {
@@ -237,8 +238,46 @@ impl StringPredicateOp {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LocalSourceFormat {
+    Csv,
+    JsonLines,
+}
+
+impl LocalSourceFormat {
+    fn from_path(path: &Path) -> Result<Self, ShardLoomError> {
+        let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
+            return Err(unsupported_sql_error(
+                "GAR-RUNTIME-IMPL-4F admits local CSV and JSONL/NDJSON sources only in this slice",
+            ));
+        };
+        match extension.to_ascii_lowercase().as_str() {
+            "csv" => Ok(Self::Csv),
+            "jsonl" | "ndjson" => Ok(Self::JsonLines),
+            _ => Err(unsupported_sql_error(
+                "GAR-RUNTIME-IMPL-4F admits local CSV and JSONL/NDJSON sources only in this slice",
+            )),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Csv => "csv",
+            Self::JsonLines => "jsonl",
+        }
+    }
+
+    const fn row_label(self) -> &'static str {
+        match self {
+            Self::Csv => "CSV",
+            Self::JsonLines => "JSONL",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct CsvSourceData {
+    source_format: LocalSourceFormat,
     header: Vec<String>,
     rows: Vec<ExpressionInputRow>,
     source_bytes: u64,
@@ -385,17 +424,18 @@ fn run_sql_local_source_smoke(
 ) -> Result<SqlLocalSourceReport, ShardLoomError> {
     let total_start = Instant::now();
     let parsed = parse_sql_local_source_statement(&request.statement)?;
-    let source = read_local_csv_source(&parsed.source_path)?;
-    let right_source = parsed
+    let mut source = read_local_source(&parsed.source_path)?;
+    let mut right_source = parsed
         .join
         .as_ref()
-        .map(|join| read_local_csv_source(&join.right_source_path))
+        .map(|join| read_local_source(&join.right_source_path))
         .transpose()?;
     bind_sql_local_source(
         &parsed,
         &source.header,
         right_source.as_ref().map(|source| source.header.as_slice()),
     )?;
+    apply_date_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
 
     let compute_start = Instant::now();
     let (selected_row_count, joined_row_count, output_rows) =
@@ -561,6 +601,72 @@ fn evaluate_join_output(
         ShardLoomError::InvalidOperation("join evaluation requires a left alias".to_string())
     })?;
 
+    let right_rows_by_key = build_join_right_rows_by_key(join, right_source)?;
+
+    let predicate_expression = parsed.predicate.to_expression()?;
+    let projection_expressions = parsed
+        .projections
+        .iter()
+        .map(|column| {
+            Ok(Expression::column(
+                ExprId::new(format!("join.project.{column}"))?,
+                ColumnRef::new(column.clone())?,
+            ))
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let mut joined_row_count = 0usize;
+    let mut selected_row_count = 0usize;
+    let mut output_rows = Vec::new();
+    for left_row in &left_source.rows {
+        let Some(key_value) = left_row.get(&join.left_key.column) else {
+            return Err(unsupported_sql_error(&format!(
+                "JOIN left key column {:?} is not present in the left CSV row",
+                join.left_key.column
+            )));
+        };
+        if matches!(key_value, ScalarValue::Null) {
+            continue;
+        }
+        if let Some(right_matches) = right_rows_by_key.get(&key_value.summary()) {
+            for right_row in right_matches {
+                if joined_row_count >= MAX_JOIN_CANDIDATE_ROWS {
+                    return Err(unsupported_sql_error(&format!(
+                        "JOIN candidate row count exceeds scoped smoke cap of {MAX_JOIN_CANDIDATE_ROWS}; duplicate-key joins need a later streaming/hash-join runtime slice"
+                    )));
+                }
+                joined_row_count += 1;
+                let joined_row = qualified_join_row(
+                    left_alias,
+                    &left_source.header,
+                    left_row,
+                    &join.right_alias,
+                    &right_source.header,
+                    right_row,
+                );
+                if evaluate_join_candidate(
+                    &predicate_expression,
+                    &projection_expressions,
+                    &joined_row,
+                    parsed.limit,
+                    &mut output_rows,
+                )? {
+                    selected_row_count += 1;
+                }
+            }
+        }
+    }
+
+    Ok(JoinEvaluationOutput {
+        joined_row_count,
+        selected_row_count,
+        output_rows,
+    })
+}
+
+fn build_join_right_rows_by_key<'a>(
+    join: &ParsedJoin,
+    right_source: &'a CsvSourceData,
+) -> Result<BTreeMap<String, Vec<&'a ExpressionInputRow>>, ShardLoomError> {
     let mut right_rows_by_key: BTreeMap<String, Vec<&ExpressionInputRow>> = BTreeMap::new();
     for right_row in &right_source.rows {
         let Some(key_value) = right_row.get(&join.right_key.column) else {
@@ -577,35 +683,17 @@ fn evaluate_join_output(
             .or_default()
             .push(right_row);
     }
+    Ok(right_rows_by_key)
+}
 
-    let mut joined_rows = Vec::new();
-    for left_row in &left_source.rows {
-        let Some(key_value) = left_row.get(&join.left_key.column) else {
-            return Err(unsupported_sql_error(&format!(
-                "JOIN left key column {:?} is not present in the left CSV row",
-                join.left_key.column
-            )));
-        };
-        if matches!(key_value, ScalarValue::Null) {
-            continue;
-        }
-        if let Some(right_matches) = right_rows_by_key.get(&key_value.summary()) {
-            for right_row in right_matches {
-                joined_rows.push(qualified_join_row(
-                    left_alias,
-                    &left_source.header,
-                    left_row,
-                    &join.right_alias,
-                    &right_source.header,
-                    right_row,
-                ));
-            }
-        }
-    }
-    let joined_row_count = joined_rows.len();
-
-    let predicate_expression = parsed.predicate.to_expression()?;
-    let filter = evaluate_filter(&predicate_expression, &joined_rows);
+fn evaluate_join_candidate(
+    predicate_expression: &Expression,
+    projection_expressions: &[Expression],
+    joined_row: &ExpressionInputRow,
+    output_limit: usize,
+    output_rows: &mut Vec<Vec<(String, ScalarValue)>>,
+) -> Result<bool, ShardLoomError> {
+    let filter = evaluate_filter(predicate_expression, std::slice::from_ref(joined_row));
     if filter.has_errors() {
         return Err(ShardLoomError::InvalidOperation(format!(
             "SQL local-source join predicate evaluation failed: {}",
@@ -617,22 +705,11 @@ fn evaluate_join_output(
                     .as_str())
         )));
     }
-    let projection_expressions = parsed
-        .projections
-        .iter()
-        .map(|column| {
-            Ok(Expression::column(
-                ExprId::new(format!("join.project.{column}"))?,
-                ColumnRef::new(column.clone())?,
-            ))
-        })
-        .collect::<Result<Vec<_>, ShardLoomError>>()?;
-    let mut output_rows = Vec::new();
-    for row_index in filter.selected_row_indexes.iter().take(parsed.limit) {
-        let row = joined_rows.get(*row_index).ok_or_else(|| {
-            ShardLoomError::InvalidOperation("selected join row index is out of bounds".to_string())
-        })?;
-        let projection = evaluate_projection(&projection_expressions, row);
+    if filter.selected_row_count() == 0 {
+        return Ok(false);
+    }
+    if output_rows.len() < output_limit {
+        let projection = evaluate_projection(projection_expressions, joined_row);
         if projection.has_errors() {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "SQL local-source join projection evaluation failed: {}",
@@ -652,12 +729,78 @@ fn evaluate_join_output(
                 .collect(),
         );
     }
+    Ok(true)
+}
 
-    Ok(JoinEvaluationOutput {
-        joined_row_count,
-        selected_row_count: filter.selected_row_count(),
-        output_rows,
-    })
+fn apply_date_literal_column_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    let ParsedPredicate::Compare {
+        column,
+        value: ScalarValue::Date32(_),
+        ..
+    } = &parsed.predicate
+    else {
+        return Ok(());
+    };
+    if let Some(join) = parsed.join.as_ref() {
+        let left_alias = parsed.source_alias.as_ref().ok_or_else(|| {
+            ShardLoomError::InvalidOperation("join date coercion requires a left alias".to_string())
+        })?;
+        let qualified = parse_qualified_column_ref(column)?;
+        if qualified.alias == *left_alias {
+            coerce_source_column_to_date32(source, &qualified.column)
+        } else if qualified.alias == join.right_alias {
+            let Some(right_source) = right_source else {
+                return Err(ShardLoomError::InvalidOperation(
+                    "join date coercion requires a right source".to_string(),
+                ));
+            };
+            coerce_source_column_to_date32(right_source, &qualified.column)
+        } else {
+            Err(unsupported_sql_error(
+                "DATE literal predicates on JOIN sources require an admitted source alias",
+            ))
+        }
+    } else {
+        coerce_source_column_to_date32(source, column)
+    }
+}
+
+fn coerce_source_column_to_date32(
+    source: &mut CsvSourceData,
+    column: &str,
+) -> Result<(), ShardLoomError> {
+    if !source.header.iter().any(|candidate| candidate == column) {
+        return Err(unsupported_sql_error(&format!(
+            "DATE literal predicate column {column:?} is not present in the local source"
+        )));
+    }
+    for row in &mut source.rows {
+        let Some(value) = row.get_mut(column) else {
+            continue;
+        };
+        match value {
+            ScalarValue::Null | ScalarValue::Date32(_) => {}
+            ScalarValue::Utf8(raw) => {
+                let parsed = parse_iso_date32(raw).map_err(|_| {
+                    unsupported_sql_error(&format!(
+                        "DATE literal predicate column {column:?} requires ISO YYYY-MM-DD strings or nulls"
+                    ))
+                })?;
+                *value = ScalarValue::Date32(parsed);
+            }
+            other => {
+                return Err(unsupported_sql_error(&format!(
+                    "DATE literal predicate column {column:?} requires ISO date strings or nulls, got {}",
+                    other.dtype().as_str()
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn qualified_join_row(
@@ -1448,7 +1591,10 @@ impl SqlLocalSourceReport {
             ("sql_planner_executed".to_string(), "true".to_string()),
             ("sql_runtime_execution".to_string(), "true".to_string()),
             ("source_io_performed".to_string(), "true".to_string()),
-            ("source_format".to_string(), "csv".to_string()),
+            (
+                "source_format".to_string(),
+                self.source.source_format.as_str().to_string(),
+            ),
             (
                 "source_path".to_string(),
                 self.parsed.source_path.display().to_string(),
@@ -1464,6 +1610,27 @@ impl SqlLocalSourceReport {
             (
                 "source_digest".to_string(),
                 self.source.source_digest.clone(),
+            ),
+            (
+                "source_fingerprint_kind".to_string(),
+                "local_file_content_digest".to_string(),
+            ),
+            (
+                "source_state_id".to_string(),
+                Self::source_state_id(&self.source),
+            ),
+            (
+                "source_state_digest".to_string(),
+                self.source_state_digest(&self.source),
+            ),
+            (
+                "source_state_reuse_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("source_state_reuse_hit".to_string(), "false".to_string()),
+            (
+                "source_state_reuse_reason".to_string(),
+                "not_cached_sql_local_source_smoke".to_string(),
             ),
             (
                 "source_schema_digest".to_string(),
@@ -1494,6 +1661,14 @@ impl SqlLocalSourceReport {
                     .join
                     .as_ref()
                     .map_or_else(String::new, |join| join.right_alias.clone()),
+            ),
+            (
+                "right_source_format".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or_else(String::new, |source| {
+                        source.source_format.as_str().to_string()
+                    }),
             ),
             (
                 "right_input_row_count".to_string(),
@@ -1851,23 +2026,65 @@ impl SqlLocalSourceReport {
             self.result_jsonl,
         )
     }
+
+    fn source_state_id(source: &CsvSourceData) -> String {
+        format!(
+            "local-{}-{}",
+            source.source_format.as_str(),
+            source.source_digest.replace(':', "-")
+        )
+    }
+
+    fn source_state_digest(&self, source: &CsvSourceData) -> String {
+        fnv64_digest(&format!(
+            "{}|{}|{}|{}|{}",
+            source.source_format.as_str(),
+            source.source_digest,
+            self.source_schema_digest,
+            source.rows.len(),
+            source.source_bytes
+        ))
+    }
 }
 
-fn read_local_csv_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
+fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
     reject_remote_source_path(path)?;
+    let source_format = LocalSourceFormat::from_path(path)?;
     let read_start = Instant::now();
     let content = fs::read_to_string(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
-            "failed to read local CSV source {}: {error}",
-            path.display()
+            "failed to read local {} source {}: {error}",
+            source_format.row_label(),
+            path.display(),
         ))
     })?;
     let read_millis = read_start.elapsed().as_millis();
     let source_bytes = u64::try_from(content.len()).map_err(|_| {
-        ShardLoomError::InvalidOperation("CSV source length does not fit in u64".to_string())
+        ShardLoomError::InvalidOperation(format!(
+            "{} source length does not fit in u64",
+            source_format.row_label()
+        ))
     })?;
     let source_digest = fnv64_digest(&content);
     let parse_start = Instant::now();
+    let (header, rows) = match source_format {
+        LocalSourceFormat::Csv => parse_csv_source_content(&content)?,
+        LocalSourceFormat::JsonLines => parse_jsonl_source_content(&content)?,
+    };
+    Ok(CsvSourceData {
+        source_format,
+        header,
+        rows,
+        source_bytes,
+        source_digest,
+        read_millis,
+        parse_millis: parse_start.elapsed().as_millis(),
+    })
+}
+
+fn parse_csv_source_content(
+    content: &str,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
     let mut records = content
         .lines()
         .filter(|line| !line.trim().is_empty())
@@ -1904,14 +2121,222 @@ fn read_local_csv_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
         }
         rows.push(row);
     }
-    Ok(CsvSourceData {
-        header,
-        rows,
-        source_bytes,
-        source_digest,
-        read_millis,
-        parse_millis: parse_start.elapsed().as_millis(),
-    })
+    Ok((header, rows))
+}
+
+fn parse_jsonl_source_content(
+    content: &str,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let mut header = Vec::new();
+    let mut raw_rows = Vec::new();
+    for (line_index, line) in content
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .enumerate()
+    {
+        let fields = parse_flat_json_object(line).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "JSONL row {} is not admitted by this scoped source runtime: {error}",
+                line_index + 1
+            ))
+        })?;
+        for (name, _value) in &fields {
+            if !header.contains(name) {
+                validate_sql_identifier(name)?;
+                header.push(name.clone());
+            }
+        }
+        raw_rows.push(fields);
+    }
+    if raw_rows.is_empty() {
+        return Err(unsupported_sql_error(
+            "JSONL source must include at least one object row",
+        ));
+    }
+    if raw_rows.len() > MAX_INPUT_ROWS {
+        return Err(unsupported_sql_error(&format!(
+            "scoped SQL local-source smoke supports at most {MAX_INPUT_ROWS} JSONL data rows"
+        )));
+    }
+    let mut rows = Vec::with_capacity(raw_rows.len());
+    for fields in raw_rows {
+        let mut row = ExpressionInputRow::new();
+        for column in &header {
+            row.insert(column.clone(), ScalarValue::Null);
+        }
+        for (column, value) in fields {
+            row.insert(column, value);
+        }
+        rows.push(row);
+    }
+    Ok((header, rows))
+}
+
+fn parse_flat_json_object(raw: &str) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
+    let chars = raw.trim().chars().collect::<Vec<_>>();
+    let mut index = skip_json_ws(&chars, 0);
+    if chars.get(index) != Some(&'{') {
+        return Err(unsupported_sql_error(
+            "JSONL rows must be flat JSON objects",
+        ));
+    }
+    index += 1;
+    let mut fields = Vec::new();
+    loop {
+        index = skip_json_ws(&chars, index);
+        if chars.get(index) == Some(&'}') {
+            index += 1;
+            break;
+        }
+        let (key, next_index) = parse_json_string(&chars, index)?;
+        validate_sql_identifier(&key)?;
+        index = skip_json_ws(&chars, next_index);
+        if chars.get(index) != Some(&':') {
+            return Err(unsupported_sql_error(
+                "JSONL object fields must use ':' between key and value",
+            ));
+        }
+        index += 1;
+        let (value, next_index) = parse_json_value(&chars, index)?;
+        fields.push((key, value));
+        index = skip_json_ws(&chars, next_index);
+        match chars.get(index) {
+            Some(',') => index += 1,
+            Some('}') => {
+                index += 1;
+                break;
+            }
+            _ => {
+                return Err(unsupported_sql_error(
+                    "JSONL object fields must be separated by ','",
+                ));
+            }
+        }
+    }
+    if fields.is_empty() {
+        return Err(unsupported_sql_error(
+            "JSONL object rows must include at least one field",
+        ));
+    }
+    if skip_json_ws(&chars, index) != chars.len() {
+        return Err(unsupported_sql_error(
+            "JSONL rows must contain exactly one JSON object per line",
+        ));
+    }
+    Ok(fields)
+}
+
+fn parse_json_value(
+    chars: &[char],
+    mut index: usize,
+) -> Result<(ScalarValue, usize), ShardLoomError> {
+    index = skip_json_ws(chars, index);
+    match chars.get(index) {
+        Some('"') => {
+            let (value, next_index) = parse_json_string(chars, index)?;
+            Ok((ScalarValue::Utf8(value), next_index))
+        }
+        Some('{' | '[') => Err(unsupported_sql_error(
+            "JSONL source runtime admits scalar values only; nested objects and arrays remain blocked",
+        )),
+        Some(_) => {
+            let start = index;
+            while let Some(ch) = chars.get(index) {
+                if *ch == ',' || *ch == '}' {
+                    break;
+                }
+                index += 1;
+            }
+            let token = chars[start..index]
+                .iter()
+                .collect::<String>()
+                .trim()
+                .to_string();
+            if token.is_empty() {
+                return Err(unsupported_sql_error(
+                    "JSONL scalar values must not be empty",
+                ));
+            }
+            let value = parse_json_bare_scalar(&token)?;
+            Ok((value, index))
+        }
+        None => Err(unsupported_sql_error("JSONL object value is missing")),
+    }
+}
+
+fn parse_json_bare_scalar(token: &str) -> Result<ScalarValue, ShardLoomError> {
+    if token == "null" {
+        Ok(ScalarValue::Null)
+    } else if token == "true" {
+        Ok(ScalarValue::Boolean(true))
+    } else if token == "false" {
+        Ok(ScalarValue::Boolean(false))
+    } else if let Ok(parsed) = token.parse::<i64>() {
+        Ok(ScalarValue::Int64(parsed))
+    } else if let Ok(parsed) = token.parse::<f64>() {
+        if parsed.is_finite() {
+            Ok(ScalarValue::Float64(parsed))
+        } else {
+            Err(unsupported_sql_error(
+                "JSONL numeric values must be finite int64 or float64 scalars",
+            ))
+        }
+    } else {
+        Err(unsupported_sql_error(
+            "JSONL bare values are limited to null, booleans, finite numbers, and quoted strings",
+        ))
+    }
+}
+
+fn parse_json_string(chars: &[char], mut index: usize) -> Result<(String, usize), ShardLoomError> {
+    if chars.get(index) != Some(&'"') {
+        return Err(unsupported_sql_error(
+            "JSONL object keys and string values must be quoted strings",
+        ));
+    }
+    index += 1;
+    let mut value = String::new();
+    while let Some(ch) = chars.get(index).copied() {
+        index += 1;
+        match ch {
+            '"' => return Ok((value, index)),
+            '\\' => {
+                let Some(escaped) = chars.get(index).copied() else {
+                    return Err(unsupported_sql_error("JSONL string escape is incomplete"));
+                };
+                index += 1;
+                match escaped {
+                    '"' => value.push('"'),
+                    '\\' => value.push('\\'),
+                    '/' => value.push('/'),
+                    'b' => value.push('\u{0008}'),
+                    'f' => value.push('\u{000c}'),
+                    'n' => value.push('\n'),
+                    'r' => value.push('\r'),
+                    't' => value.push('\t'),
+                    'u' => {
+                        return Err(unsupported_sql_error(
+                            "JSONL unicode escape decoding is not admitted in this scoped runtime slice",
+                        ));
+                    }
+                    _ => {
+                        return Err(unsupported_sql_error(
+                            "JSONL string contains an unsupported escape sequence",
+                        ));
+                    }
+                }
+            }
+            value_char => value.push(value_char),
+        }
+    }
+    Err(unsupported_sql_error("JSONL string is not closed"))
+}
+
+fn skip_json_ws(chars: &[char], mut index: usize) -> usize {
+    while chars.get(index).is_some_and(|ch| ch.is_whitespace()) {
+        index += 1;
+    }
+    index
 }
 
 fn normalize_local_output_path(value: &str) -> Result<PathBuf, ShardLoomError> {
@@ -2290,7 +2715,7 @@ fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), Shar
     let tokens = split_whitespace_outside_quotes(raw)?;
     let [path_raw, as_keyword, alias] = tokens.as_slice() else {
         return Err(unsupported_sql_error(&format!(
-            "JOIN smoke requires {side} source syntax <local.csv> AS <alias>"
+            "JOIN smoke requires {side} source syntax <local.csv|local.jsonl|local.ndjson> AS <alias>"
         )));
     };
     if !as_keyword.eq_ignore_ascii_case("as") {
@@ -2324,17 +2749,14 @@ fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
     } else {
         if raw.split_whitespace().count() != 1 {
             return Err(unsupported_sql_error(
-                "FROM source must be a single local CSV path or single-quoted path",
+                "FROM source must be a single local CSV/JSONL path or single-quoted path",
             ));
         }
         raw.to_string()
     };
-    if !path.to_ascii_lowercase().ends_with(".csv") {
-        return Err(unsupported_sql_error(
-            "GAR-RUNTIME-IMPL-1B admits local CSV sources only in this slice",
-        ));
-    }
-    Ok(PathBuf::from(path))
+    let path = PathBuf::from(path);
+    let _format = LocalSourceFormat::from_path(&path)?;
+    Ok(path)
 }
 
 fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
@@ -2511,8 +2933,6 @@ fn parse_csv_scalar(raw: &str) -> ScalarValue {
         } else {
             ScalarValue::Utf8(raw.to_string())
         }
-    } else if let Ok(parsed) = parse_iso_date32(value) {
-        ScalarValue::Date32(parsed)
     } else {
         ScalarValue::Utf8(raw.to_string())
     }
@@ -2929,5 +3349,36 @@ mod tests {
         assert_eq!(row, vec!["id", "label"]);
         let row = split_csv_record("1,\"hello, world\"").expect("record parses");
         assert_eq!(row, vec!["1", "hello, world"]);
+    }
+
+    #[test]
+    fn jsonl_parser_handles_flat_scalar_rows() {
+        let (header, rows) = parse_jsonl_source_content(
+            "{\"id\":1,\"label\":\"alpha\",\"active\":true,\"event_date\":\"2026-05-19\"}\n\
+             {\"id\":2,\"label\":\"beta\",\"active\":false,\"score\":2.5}\n",
+        )
+        .expect("jsonl parses");
+
+        assert_eq!(header, vec!["id", "label", "active", "event_date", "score"]);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].get("id"), Some(&ScalarValue::Int64(1)));
+        assert_eq!(
+            rows[0].get("label"),
+            Some(&ScalarValue::Utf8("alpha".into()))
+        );
+        assert_eq!(rows[0].get("active"), Some(&ScalarValue::Boolean(true)));
+        assert_eq!(
+            rows[0].get("event_date"),
+            Some(&ScalarValue::Utf8("2026-05-19".into()))
+        );
+        assert_eq!(rows[0].get("score"), Some(&ScalarValue::Null));
+        assert_eq!(rows[1].get("score"), Some(&ScalarValue::Float64(2.5)));
+    }
+
+    #[test]
+    fn jsonl_parser_blocks_nested_values() {
+        let error = parse_jsonl_source_content("{\"id\":1,\"payload\":{\"x\":1}}\n")
+            .expect_err("nested object is blocked");
+        assert!(error.to_string().contains("scalar values only"));
     }
 }
