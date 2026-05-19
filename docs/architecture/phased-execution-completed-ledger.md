@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0032-E best-default certification gate
+  - Branch/PR: `codex/gar-0032e-best-default-gate` / #755.
+  - Primary files:
+    - `shardloom-core/src/certification.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/evidence_certificates.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/world_class_sufficiency_plan_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/best-default-certification-gate.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0032-E by making the best-default language blocker an explicit report-only
+    certification gate attached to the world-class sufficiency and certification capability
+    surfaces.
+  - Checklist:
+    - [x] Add `BestDefaultCertificationGateReport` with schema
+          `shardloom.best_default_certification_gate.v1`.
+    - [x] Emit gate fields from `world-class-sufficiency-plan --format json`.
+    - [x] Emit gate fields from `capabilities certification --format json`.
+    - [x] Add Python capability-view coverage for the gate fields.
+    - [x] Move GAR-0032-E out of the active non-runtime closeout queue.
+  - Evidence:
+    - `best_default_certification_gate_claim_gate_status=not_claim_grade`
+    - `best_default_certification_gate_support_status=blocked`
+    - `best_default_language_allowed=false`
+    - `best_default_certification_gate_best_default_claim_allowed=false`
+    - `best_default_certification_gate_performance_claim_allowed=false`
+    - `best_default_certification_gate_spark_replacement_claim_allowed=false`
+    - `best_default_certification_gate_runtime_execution=false`
+    - `best_default_certification_gate_fallback_attempted=false`
+    - `best_default_certification_gate_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-cli --test world_class_sufficiency_plan_snapshots`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that it has a deterministic best-default
+    certification gate. It may not claim best-default status, performance or superiority,
+    Spark replacement, production SQL/DataFrame, production object-store/lakehouse/Foundry,
+    package publication, external-engine fallback, or claim-grade certification.
+
 - [x] Session label: GAR-0022-A Substrait import/export report-only contract
   - Branch/PR: `codex/gar-0022a-substrait-report-contract` / #754.
   - Primary files:

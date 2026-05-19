@@ -52,6 +52,22 @@ fn world_class_sufficiency_json_exposes_cg20_contract() {
         "dimension_kind_order",
         "workload_constitution,sql_surface,operator_surface,function_surface,adapter_surface,semantic_profiles,migration_surface,data_etl_surface,python_surface,dataframe_query_builder,notebook_experience,udf_plugin,unstructured_media,universal_adapter_catalog,event_api_saas_adapters,api_surface,observability_surface,deployment_surface,extension_surface,security_governance,native_io_certificate_coverage,execution_certificate_coverage,correctness_evidence,semantic_conformance,benchmark_evidence,memory_spill,capability_snapshots,best_choice_scorecard,best_default_dossier,no_fallback_integrity"
     )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_schema_version",
+        "shardloom.best_default_certification_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_report_id",
+        "gar-0032-e.best_default_certification_gate"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_required_evidence",
+        "workload_constitution,correctness_evidence,benchmark_evidence,execution_certificate,native_io_certificate,materialization_decode,no_fallback_policy,release_security,ux_install_docs,capability_snapshot,best_choice_scorecard,best_default_dossier"
+    )));
 }
 
 #[test]
@@ -120,4 +136,41 @@ fn world_class_sufficiency_json_preserves_no_execution_or_claim_effects() {
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("production_claim_allowed", "false")));
     assert!(output.contains(&field("side_effect_free", "true")));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_status",
+        "blocked_missing_evidence"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_attached_evidence_refs",
+        "none"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_all_required_evidence_attached",
+        "false"
+    )));
+    assert!(output.contains(&field("best_default_language_allowed", "false")));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_best_default_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_performance_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_spark_replacement_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_fallback_attempted",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "best_default_certification_gate_external_engine_invoked",
+        "false"
+    )));
 }

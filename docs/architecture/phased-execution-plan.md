@@ -105,6 +105,7 @@ Reference index:
   `docs/architecture/effect-budget-plan.md`.
 - Claim, release, and adoption references:
   `docs/architecture/bayesian-performance-layout-advisor.md`,
+  `docs/architecture/best-default-certification-gate.md`,
   `docs/architecture/operational-evidence-policy-hardening.md`,
   `docs/architecture/evidence-native-generated-execution-observability-confidence.md`,
   `docs/architecture/adoption-commercial-readiness-friction-reduction.md`,
@@ -199,20 +200,6 @@ runtime behavior or support claims. The GAR-P0/P4/P5 groups in this section are 
 non-runtime queue; do not start the runtime implementation queue below until these are closed or
 explicitly reprioritized.
 
-- [ ] GAR-0032-E best-default certification gate
-  - Source: RFC 0032; operational evidence policy hardening; benchmark-suite catalog.
-  - Current state: user capability and sufficiency reports exist; best-default claims are not
-    claim-grade.
-  - Next slice outcome: gate defining required correctness, benchmark, certificate, Native I/O,
-    policy, release, and UX evidence before best-default language is allowed.
-  - User-visible surface: CLI capability view, docs, release gate.
-  - Implementation scope: certification gate report, tests, docs.
-  - Evidence required: all claim evidence categories named in the gate.
-  - Acceptance: missing evidence yields `claim_gate_status=not_claim_grade`.
-  - Verification: certification gate tests, release readiness metadata tests.
-  - Non-goals: no best-default claim.
-  - Fallback/claim boundary: no best-default, performance, or replacement claim.
-  - Dependencies/blockers: benchmark/correctness/release GAR-P5 slices.
 - [ ] GAR-0036-A Foundry package and proof boundary matrix
   - Source: RFC 0036; Foundry integration pack docs; release docs.
   - Current state: local Foundry proof docs exist; production `shardloom-foundry`, package

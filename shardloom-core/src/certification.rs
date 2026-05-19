@@ -2100,6 +2100,85 @@ pub fn plan_world_class_sufficiency() -> WorldClassSufficiencyReport {
     WorldClassSufficiencyReport::contract_only()
 }
 
+/// Report-only GAR-0032-E gate for best-default language and publication.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct BestDefaultCertificationGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub docs_ref: &'static str,
+    pub source_refs: &'static str,
+    pub support_status: &'static str,
+    pub gate_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub required_evidence: &'static str,
+    pub missing_evidence: &'static str,
+    pub attached_evidence_refs: &'static str,
+    pub blocker_ids: &'static str,
+    pub correctness_evidence_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub materialization_decode_required: bool,
+    pub no_fallback_policy_required: bool,
+    pub release_security_required: bool,
+    pub ux_install_docs_required: bool,
+    pub all_required_evidence_attached: bool,
+    pub best_default_language_allowed: bool,
+    pub best_default_claim_allowed: bool,
+    pub performance_claim_allowed: bool,
+    pub superiority_claim_allowed: bool,
+    pub spark_replacement_claim_allowed: bool,
+    pub production_claim_allowed: bool,
+    pub runtime_execution: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+impl BestDefaultCertificationGateReport {
+    #[must_use]
+    pub const fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.best_default_certification_gate.v1",
+            report_id: "gar-0032-e.best_default_certification_gate",
+            docs_ref: "docs/architecture/best-default-certification-gate.md",
+            source_refs: "docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md,docs/architecture/operational-evidence-policy-hardening.md,docs/architecture/benchmark-suite-catalog.md",
+            support_status: "blocked",
+            gate_status: "blocked_missing_evidence",
+            claim_gate_status: "not_claim_grade",
+            required_evidence: "workload_constitution,correctness_evidence,benchmark_evidence,execution_certificate,native_io_certificate,materialization_decode,no_fallback_policy,release_security,ux_install_docs,capability_snapshot,best_choice_scorecard,best_default_dossier",
+            missing_evidence: "workload_constitution,correctness_evidence,benchmark_evidence,execution_certificate,native_io_certificate,materialization_decode,no_fallback_policy,release_security,ux_install_docs,capability_snapshot,best_choice_scorecard,best_default_dossier",
+            attached_evidence_refs: "none",
+            blocker_ids: "gar-0032-e.missing_workload_constitution,gar-0032-e.missing_correctness_evidence,gar-0032-e.missing_benchmark_evidence,gar-0032-e.missing_certificates,gar-0032-e.missing_native_io,gar-0032-e.missing_materialization_decode,gar-0032-e.missing_release_security,gar-0032-e.missing_ux_install_docs",
+            correctness_evidence_required: true,
+            benchmark_evidence_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            materialization_decode_required: true,
+            no_fallback_policy_required: true,
+            release_security_required: true,
+            ux_install_docs_required: true,
+            all_required_evidence_attached: false,
+            best_default_language_allowed: false,
+            best_default_claim_allowed: false,
+            performance_claim_allowed: false,
+            superiority_claim_allowed: false,
+            spark_replacement_claim_allowed: false,
+            production_claim_allowed: false,
+            runtime_execution: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary: "report_only_gate_no_best_default_performance_superiority_replacement_or_production_claim",
+        }
+    }
+}
+
+#[must_use]
+pub const fn plan_best_default_certification_gate() -> BestDefaultCertificationGateReport {
+    BestDefaultCertificationGateReport::report_only()
+}
+
 /// Broad CG-20 user-facing surfaces that must not be promoted by implication.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserCapabilityPromotionSurface {
