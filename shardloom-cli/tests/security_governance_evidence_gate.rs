@@ -136,3 +136,51 @@ fn security_governance_evidence_gate_json_exposes_credential_policy_gate() {
         "blocked"
     )));
 }
+
+#[test]
+fn security_governance_evidence_gate_json_exposes_sandbox_governance_gate() {
+    let output = run_security_governance_evidence_gate_json();
+
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_schema_version",
+        "shardloom.sandbox_governance_readiness_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_id",
+        "gar-0019-b.sandbox_governance_runtime_readiness"
+    )));
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_all_sandbox_runtime_blocked",
+        "true"
+    )));
+    assert!(output.contains(&field("sandbox_governance_gate_deny_by_default", "true")));
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_sandbox_runtime_supported",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_extension_code_executed",
+        "false"
+    )));
+    assert!(output.contains(&field("sandbox_governance_gate_udf_code_executed", "false")));
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_external_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_row_network_permission_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_row_network_permission_network_access_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "sandbox_governance_gate_row_process_execution_process_execution_allowed",
+        "false"
+    )));
+}

@@ -574,6 +574,75 @@ const CREDENTIAL_POLICY_GATE_ROW_SUFFIXES: [&str; 19] = [
     "claim_boundary",
 ];
 
+const SANDBOX_GOVERNANCE_GATE_FIELD_KEYS: [&str; 29] = [
+    "sandbox_governance_gate_schema_version",
+    "sandbox_governance_gate_id",
+    "sandbox_governance_gate_docs_ref",
+    "sandbox_governance_gate_support_status",
+    "sandbox_governance_gate_claim_gate_status",
+    "sandbox_governance_gate_row_count",
+    "sandbox_governance_gate_row_order",
+    "sandbox_governance_gate_blocker_ids",
+    "sandbox_governance_gate_required_evidence",
+    "sandbox_governance_gate_all_sandbox_runtime_blocked",
+    "sandbox_governance_gate_deny_by_default",
+    "sandbox_governance_gate_sandbox_runtime_supported",
+    "sandbox_governance_gate_sandbox_process_spawned",
+    "sandbox_governance_gate_extension_code_executed",
+    "sandbox_governance_gate_udf_code_executed",
+    "sandbox_governance_gate_filesystem_access_allowed",
+    "sandbox_governance_gate_network_access_allowed",
+    "sandbox_governance_gate_environment_access_allowed",
+    "sandbox_governance_gate_secret_access_allowed",
+    "sandbox_governance_gate_process_execution_allowed",
+    "sandbox_governance_gate_resource_limits_enforced",
+    "sandbox_governance_gate_timeout_enforced",
+    "sandbox_governance_gate_audit_required",
+    "sandbox_governance_gate_audit_log_runtime_supported",
+    "sandbox_governance_gate_deterministic_unsupported_diagnostics",
+    "sandbox_governance_gate_production_governance_runtime_supported",
+    "sandbox_governance_gate_external_effect_executed",
+    "sandbox_governance_gate_fallback_attempted",
+    "sandbox_governance_gate_external_engine_invoked",
+];
+
+const SANDBOX_GOVERNANCE_GATE_ROW_IDS: [&str; 11] = [
+    "sandbox_profile_inventory",
+    "filesystem_permission",
+    "network_permission",
+    "environment_access",
+    "secret_access",
+    "process_execution",
+    "resource_limits",
+    "execution_timeout",
+    "audit_log",
+    "dependency_isolation",
+    "unsupported_diagnostics",
+];
+
+const SANDBOX_GOVERNANCE_GATE_ROW_SUFFIXES: [&str; 20] = [
+    "readiness_surface",
+    "support_status",
+    "default_policy",
+    "blocker_id",
+    "diagnostic_code",
+    "required_evidence",
+    "user_visible_surface",
+    "sandbox_enforced",
+    "filesystem_access_allowed",
+    "network_access_allowed",
+    "environment_access_allowed",
+    "secret_access_allowed",
+    "process_execution_allowed",
+    "resource_limits_enforced",
+    "timeout_enforced",
+    "audit_log_emitted",
+    "external_effect_executed",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_boundary",
+];
+
 const UNSTRUCTURED_ADAPTER_CAPABILITY_FIELD_KEYS: [&str; 14] = [
     "unstructured_adapter_capability_schema_version",
     "unstructured_adapter_capability_matrix_id",
@@ -864,9 +933,25 @@ fn append_credential_policy_gate_keys(keys: &mut Vec<String>) {
     }
 }
 
+fn append_sandbox_governance_gate_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        SANDBOX_GOVERNANCE_GATE_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in SANDBOX_GOVERNANCE_GATE_ROW_IDS {
+        keys.extend(
+            SANDBOX_GOVERNANCE_GATE_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("sandbox_governance_gate_row_{row_id}_{suffix}")),
+        );
+    }
+}
+
 fn with_security_governance_policy_fields(base_keys: &[&'static str]) -> Vec<String> {
     let mut keys = with_extension_manifest_effect_fields(base_keys);
     append_credential_policy_gate_keys(&mut keys);
+    append_sandbox_governance_gate_keys(&mut keys);
     keys
 }
 
@@ -1985,6 +2070,68 @@ fn security_governance_capabilities_expose_credential_policy_gate() {
         )));
         assert!(output.contains(&field_pair(
             &format!("credential_policy_gate_row_{row}_fallback_attempted"),
+            false
+        )));
+    }
+}
+
+#[test]
+fn security_governance_capabilities_expose_sandbox_governance_gate() {
+    let output = run_capabilities_scope("security-governance");
+    assert!(output.contains(&string_field_pair(
+        "sandbox_governance_gate_schema_version",
+        "shardloom.sandbox_governance_readiness_gate.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "sandbox_governance_gate_id",
+        "gar-0019-b.sandbox_governance_runtime_readiness"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "sandbox_governance_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field_pair(
+        "sandbox_governance_gate_all_sandbox_runtime_blocked",
+        true
+    )));
+    assert!(output.contains(&field_pair("sandbox_governance_gate_deny_by_default", true)));
+    assert!(output.contains(&field_pair(
+        "sandbox_governance_gate_sandbox_runtime_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "sandbox_governance_gate_extension_code_executed",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "sandbox_governance_gate_udf_code_executed",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "sandbox_governance_gate_fallback_attempted",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "sandbox_governance_gate_external_engine_invoked",
+        false
+    )));
+    for row in [
+        "filesystem_permission",
+        "network_permission",
+        "environment_access",
+        "process_execution",
+        "resource_limits",
+    ] {
+        assert!(output.contains(&field_pair(
+            &format!("sandbox_governance_gate_row_{row}_sandbox_enforced"),
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            &format!("sandbox_governance_gate_row_{row}_external_effect_executed"),
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            &format!("sandbox_governance_gate_row_{row}_fallback_attempted"),
             false
         )));
     }

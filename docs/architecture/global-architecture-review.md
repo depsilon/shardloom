@@ -416,10 +416,11 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0019-security-secrets-governance-agent-safety.md`](../rfcs/0019-security-secrets-governance-agent-safety.md)
-- Current read: Report-level security posture and credential-policy blockers exist; production
-  enforcement remains incomplete.
+- Current read: Report-level security posture, credential-policy blockers, and sandbox/governance
+  readiness blockers exist; production enforcement remains incomplete.
 - Evidence: `shardloom-core/src/security.rs`, `docs/security/threat-model.md`,
   `docs/architecture/credential-policy-enforcement-gate.md`,
+  `docs/architecture/sandbox-governance-runtime-readiness.md`,
   `docs/security/runtime-exploit-regression-suite.md`,
   `shardloom-contract-tests/tests/release_readiness_metadata.rs`
 - [x] Security/governance reports, secrets-unloaded defaults, and side-effect-free agent/dry-run
@@ -431,8 +432,15 @@ plan before coding.
   `claim_gate_status=not_claim_grade`, `credential_resolution_performed=false`,
   `secret_loading_performed=false`, `fallback_attempted=false`, and
   `external_engine_invoked=false` are visible through security/governance surfaces.
-- [ ] Credential resolution, secret loading, production runtime policy enforcement, sandbox
-  execution, and production governance remain incomplete.
+- [x] `GAR-0019-B` adds `shardloom.sandbox_governance_readiness_gate.v1` so sandbox profile
+  inventory, filesystem/network/environment/secret/process permissions, resource limits,
+  execution timeout, audit log, dependency isolation, deterministic unsupported diagnostics,
+  `claim_gate_status=not_claim_grade`, `sandbox_runtime_supported=false`,
+  `extension_code_executed=false`, `udf_code_executed=false`, `fallback_attempted=false`, and
+  `external_engine_invoked=false` are visible through security/governance surfaces.
+- [x] Credential resolution, secret loading, sandbox execution, plugin/UDF execution, production
+  runtime policy enforcement, and production governance runtime remain blocked until later
+  runtime-enabling slices attach evidence.
 
 ### RFC 0020 - Schema Evolution, Catalog Integration, and Table Compatibility
 

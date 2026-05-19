@@ -311,10 +311,11 @@ pub use security::{
     CredentialScopeKind, DataSensitivity, DryRunSafety, EvidenceArtifactSafetyReport,
     ExternalEffectKind, ExternalEffectPolicy, PermissionKind, PermissionRequirement,
     PermissionStatus, RedactionPolicy, RedactionPolicyKind, RuntimeInputSafetyReport,
-    SecretProviderKind, SecretRef, SecretRefId, SecurityGovernanceEvidenceArea,
-    SecurityGovernanceEvidenceEntry, SecurityGovernanceEvidenceGateReport,
-    SecurityGovernanceEvidenceStatus, SecurityPlan, SecurityPolicyStatus, SecurityReport,
-    SensitiveField, WorkspacePathSafetyReport, plan_credential_policy_enforcement_gate,
+    SandboxGovernanceReadinessReport, SandboxGovernanceReadinessRow, SecretProviderKind, SecretRef,
+    SecretRefId, SecurityGovernanceEvidenceArea, SecurityGovernanceEvidenceEntry,
+    SecurityGovernanceEvidenceGateReport, SecurityGovernanceEvidenceStatus, SecurityPlan,
+    SecurityPolicyStatus, SecurityReport, SensitiveField, WorkspacePathSafetyReport,
+    plan_credential_policy_enforcement_gate, plan_sandbox_governance_readiness_gate,
     plan_security_governance_evidence_gate, redact_credential_like_values,
 };
 

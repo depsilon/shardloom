@@ -1907,6 +1907,312 @@ pub fn plan_credential_policy_enforcement_gate() -> CredentialPolicyEnforcementG
     CredentialPolicyEnforcementGateReport::report_only()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SandboxGovernanceReadinessRow {
+    pub row_id: &'static str,
+    pub readiness_surface: &'static str,
+    pub support_status: &'static str,
+    pub default_policy: &'static str,
+    pub blocker_id: &'static str,
+    pub diagnostic_code: &'static str,
+    pub required_evidence: &'static str,
+    pub user_visible_surface: &'static str,
+    pub sandbox_enforced: bool,
+    pub filesystem_access_allowed: bool,
+    pub network_access_allowed: bool,
+    pub environment_access_allowed: bool,
+    pub secret_access_allowed: bool,
+    pub process_execution_allowed: bool,
+    pub resource_limits_enforced: bool,
+    pub timeout_enforced: bool,
+    pub audit_log_emitted: bool,
+    pub external_effect_executed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+impl SandboxGovernanceReadinessRow {
+    #[allow(clippy::too_many_arguments)]
+    const fn new(
+        row_id: &'static str,
+        readiness_surface: &'static str,
+        support_status: &'static str,
+        default_policy: &'static str,
+        blocker_id: &'static str,
+        diagnostic_code: &'static str,
+        required_evidence: &'static str,
+        user_visible_surface: &'static str,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            row_id,
+            readiness_surface,
+            support_status,
+            default_policy,
+            blocker_id,
+            diagnostic_code,
+            required_evidence,
+            user_visible_surface,
+            sandbox_enforced: false,
+            filesystem_access_allowed: false,
+            network_access_allowed: false,
+            environment_access_allowed: false,
+            secret_access_allowed: false,
+            process_execution_allowed: false,
+            resource_limits_enforced: false,
+            timeout_enforced: false,
+            audit_log_emitted: false,
+            external_effect_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SandboxGovernanceReadinessReport {
+    pub schema_version: &'static str,
+    pub gate_id: &'static str,
+    pub docs_ref: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<SandboxGovernanceReadinessRow>,
+    pub deny_by_default: bool,
+    pub sandbox_runtime_supported: bool,
+    pub sandbox_process_spawned: bool,
+    pub extension_code_executed: bool,
+    pub udf_code_executed: bool,
+    pub filesystem_access_allowed: bool,
+    pub network_access_allowed: bool,
+    pub environment_access_allowed: bool,
+    pub secret_access_allowed: bool,
+    pub process_execution_allowed: bool,
+    pub resource_limits_enforced: bool,
+    pub timeout_enforced: bool,
+    pub audit_required: bool,
+    pub audit_log_runtime_supported: bool,
+    pub deterministic_unsupported_diagnostics: bool,
+    pub production_governance_runtime_supported: bool,
+    pub external_effect_executed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl SandboxGovernanceReadinessReport {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.sandbox_governance_readiness_gate.v1",
+            gate_id: "gar-0019-b.sandbox_governance_runtime_readiness",
+            docs_ref: "docs/architecture/sandbox-governance-runtime-readiness.md",
+            support_status: "report_only",
+            claim_gate_status: "not_claim_grade",
+            rows: vec![
+                SandboxGovernanceReadinessRow::new(
+                    "sandbox_profile_inventory",
+                    "sandbox_profile",
+                    "report_only",
+                    "profile_metadata_only",
+                    "none_profile_inventory",
+                    "SL_SANDBOX_PROFILE_REPORT_ONLY",
+                    "sandbox_profile,permission_manifest,effect_budget,credential_policy,no_fallback_evidence",
+                    "security-governance-evidence-gate,capabilities security-governance",
+                    "Sandbox profiles may be inventoried as metadata only; no sandbox runtime or plugin/UDF execution is claimed.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "filesystem_permission",
+                    "filesystem_access",
+                    "blocked",
+                    "deny_host_filesystem_access",
+                    "gar-0019-b.filesystem_permission_blocked",
+                    "SL_SANDBOX_POLICY_BLOCKED",
+                    "filesystem_allowlist,workspace_policy,path_safety,write_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    "Filesystem access for sandboxed code remains blocked until isolation and audit evidence exist.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "network_permission",
+                    "network_access",
+                    "blocked",
+                    "deny_network_access",
+                    "gar-0019-b.network_permission_blocked",
+                    "SL_SANDBOX_POLICY_BLOCKED",
+                    "network_policy,egress_allowlist,credential_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    "Network access remains blocked; no network probe, egress, or external service call is performed.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "environment_access",
+                    "environment_access",
+                    "blocked",
+                    "deny_environment_access",
+                    "gar-0019-b.environment_access_blocked",
+                    "SL_SANDBOX_POLICY_BLOCKED",
+                    "environment_allowlist,secret_redaction_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    "Environment access remains blocked; sandboxed code cannot read environment variables or secret-bearing process state.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "secret_access",
+                    "secret_access",
+                    "blocked",
+                    "deny_secret_access",
+                    "gar-0019-b.secret_access_blocked",
+                    "SL_SANDBOX_POLICY_BLOCKED",
+                    "credential_policy,secret_provider_policy,redaction_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    "Secret access remains blocked and inherits the GAR-0019-A credential policy gate.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "process_execution",
+                    "process_execution",
+                    "blocked",
+                    "deny_child_process_execution",
+                    "gar-0019-b.process_execution_blocked",
+                    "SL_SANDBOX_POLICY_BLOCKED",
+                    "process_policy,plugin_provenance,license_review,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    "Process execution remains blocked; no child process, plugin binary, or external engine is invoked.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "resource_limits",
+                    "resource_limits",
+                    "blocked",
+                    "deny_until_resource_enforcement",
+                    "gar-0019-b.resource_limits_blocked",
+                    "SL_SANDBOX_POLICY_BLOCKED",
+                    "memory_budget,cpu_budget,spill_policy,timeout_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    "Resource-limit claims remain blocked until memory, CPU, and spill enforcement evidence exists.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "execution_timeout",
+                    "execution_timeout",
+                    "blocked",
+                    "deny_until_timeout_enforcement",
+                    "gar-0019-b.timeout_enforcement_blocked",
+                    "SL_SANDBOX_POLICY_BLOCKED",
+                    "timeout_policy,cancellation_policy,retry_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    "Timeout enforcement remains blocked until cancellation and cleanup evidence exists.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "audit_log",
+                    "audit_log",
+                    "report_only",
+                    "audit_required_before_execution",
+                    "gar-0019-b.audit_log_runtime_missing",
+                    "SL_SANDBOX_AUDIT_REPORT_ONLY",
+                    "audit_schema,principal,capability,target,outcome,redaction_policy,no_fallback_evidence",
+                    "security-governance-evidence-gate,release security gate",
+                    "Audit schema posture is report-only; runtime audit emission for sandboxed effects is not claimed.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "dependency_isolation",
+                    "dependency_isolation",
+                    "blocked",
+                    "deny_until_dependency_isolation",
+                    "gar-0019-b.dependency_isolation_blocked",
+                    "SL_SANDBOX_POLICY_BLOCKED",
+                    "dependency_manifest,license_provenance,supply_chain_attestation,isolation_policy,no_fallback_evidence",
+                    "security-governance-evidence-gate,release security gate",
+                    "Dependency isolation remains blocked until provenance, license, and runtime isolation evidence exists.",
+                ),
+                SandboxGovernanceReadinessRow::new(
+                    "unsupported_diagnostics",
+                    "diagnostics",
+                    "report_only",
+                    "deterministic_unsupported_without_execution",
+                    "none_diagnostic_only",
+                    "SL_SANDBOX_POLICY_UNSUPPORTED",
+                    "diagnostic_code,blocker_id,claim_boundary,no_fallback_evidence",
+                    "security-governance-evidence-gate,capabilities security-governance",
+                    "Unsupported sandbox/governance paths must emit deterministic diagnostics without executing code, effects, or fallback engines.",
+                ),
+            ],
+            deny_by_default: true,
+            sandbox_runtime_supported: false,
+            sandbox_process_spawned: false,
+            extension_code_executed: false,
+            udf_code_executed: false,
+            filesystem_access_allowed: false,
+            network_access_allowed: false,
+            environment_access_allowed: false,
+            secret_access_allowed: false,
+            process_execution_allowed: false,
+            resource_limits_enforced: false,
+            timeout_enforced: false,
+            audit_required: true,
+            audit_log_runtime_supported: false,
+            deterministic_unsupported_diagnostics: true,
+            production_governance_runtime_supported: false,
+            external_effect_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.blocker_id).collect()
+    }
+
+    #[must_use]
+    pub fn required_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.required_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn all_sandbox_runtime_blocked(&self) -> bool {
+        self.deny_by_default
+            && !self.sandbox_runtime_supported
+            && !self.sandbox_process_spawned
+            && !self.extension_code_executed
+            && !self.udf_code_executed
+            && !self.filesystem_access_allowed
+            && !self.network_access_allowed
+            && !self.environment_access_allowed
+            && !self.secret_access_allowed
+            && !self.process_execution_allowed
+            && !self.resource_limits_enforced
+            && !self.timeout_enforced
+            && self.audit_required
+            && !self.audit_log_runtime_supported
+            && self.deterministic_unsupported_diagnostics
+            && !self.production_governance_runtime_supported
+            && !self.external_effect_executed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.rows.iter().all(|row| {
+                !row.sandbox_enforced
+                    && !row.filesystem_access_allowed
+                    && !row.network_access_allowed
+                    && !row.environment_access_allowed
+                    && !row.secret_access_allowed
+                    && !row.process_execution_allowed
+                    && !row.resource_limits_enforced
+                    && !row.timeout_enforced
+                    && !row.audit_log_emitted
+                    && !row.external_effect_executed
+                    && !row.fallback_attempted
+                    && !row.external_engine_invoked
+            })
+    }
+}
+
+#[must_use]
+pub fn plan_sandbox_governance_readiness_gate() -> SandboxGovernanceReadinessReport {
+    SandboxGovernanceReadinessReport::report_only()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2258,5 +2564,41 @@ mod tests {
                 .iter()
                 .all(|row| !row.credential_resolution_performed)
         );
+    }
+
+    #[test]
+    fn sandbox_governance_readiness_gate_blocks_runtime_by_default() {
+        let report = plan_sandbox_governance_readiness_gate();
+        assert_eq!(
+            report.schema_version,
+            "shardloom.sandbox_governance_readiness_gate.v1"
+        );
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(report.all_sandbox_runtime_blocked());
+        assert!(report.row_order().contains(&"sandbox_profile_inventory"));
+        assert!(report.row_order().contains(&"filesystem_permission"));
+        assert!(report.row_order().contains(&"network_permission"));
+        assert!(report.row_order().contains(&"process_execution"));
+        assert!(report.deny_by_default);
+        assert!(!report.sandbox_runtime_supported);
+        assert!(!report.sandbox_process_spawned);
+        assert!(!report.extension_code_executed);
+        assert!(!report.udf_code_executed);
+        assert!(!report.filesystem_access_allowed);
+        assert!(!report.network_access_allowed);
+        assert!(!report.environment_access_allowed);
+        assert!(!report.secret_access_allowed);
+        assert!(!report.process_execution_allowed);
+        assert!(!report.resource_limits_enforced);
+        assert!(!report.timeout_enforced);
+        assert!(report.audit_required);
+        assert!(!report.audit_log_runtime_supported);
+        assert!(report.deterministic_unsupported_diagnostics);
+        assert!(!report.production_governance_runtime_supported);
+        assert!(!report.external_effect_executed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.rows.iter().all(|row| !row.sandbox_enforced));
+        assert!(report.rows.iter().all(|row| !row.external_effect_executed));
     }
 }

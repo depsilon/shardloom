@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0019-B sandbox and governance runtime readiness
+  - Branch/PR: `codex/gar-0019b-sandbox-governance-readiness` / #759.
+  - Primary files:
+    - `shardloom-core/src/security.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/security_governance_evidence_gate.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `docs/architecture/sandbox-governance-runtime-readiness.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0019-B by making sandbox isolation and governance runtime blockers explicit
+    through a deterministic report-only gate.
+  - Checklist:
+    - [x] Add `shardloom.sandbox_governance_readiness_gate.v1`.
+    - [x] Classify sandbox profile inventory, filesystem/network/environment/secret/process
+          permissions, resource limits, execution timeout, audit log, dependency isolation, and
+          unsupported diagnostics.
+    - [x] Emit gate fields through `security-governance-evidence-gate` and
+          `capabilities security-governance`.
+    - [x] Move GAR-0019-B out of the active non-runtime closeout queue.
+  - Evidence:
+    - `sandbox_governance_gate_schema_version=shardloom.sandbox_governance_readiness_gate.v1`
+    - `sandbox_governance_gate_id=gar-0019-b.sandbox_governance_runtime_readiness`
+    - `sandbox_governance_gate_claim_gate_status=not_claim_grade`
+    - `sandbox_governance_gate_all_sandbox_runtime_blocked=true`
+    - `sandbox_governance_gate_deny_by_default=true`
+    - `sandbox_governance_gate_sandbox_runtime_supported=false`
+    - `sandbox_governance_gate_sandbox_process_spawned=false`
+    - `sandbox_governance_gate_extension_code_executed=false`
+    - `sandbox_governance_gate_udf_code_executed=false`
+    - `sandbox_governance_gate_filesystem_access_allowed=false`
+    - `sandbox_governance_gate_network_access_allowed=false`
+    - `sandbox_governance_gate_environment_access_allowed=false`
+    - `sandbox_governance_gate_secret_access_allowed=false`
+    - `sandbox_governance_gate_process_execution_allowed=false`
+    - `sandbox_governance_gate_resource_limits_enforced=false`
+    - `sandbox_governance_gate_timeout_enforced=false`
+    - `sandbox_governance_gate_audit_log_runtime_supported=false`
+    - `sandbox_governance_gate_external_effect_executed=false`
+    - `sandbox_governance_gate_fallback_attempted=false`
+    - `sandbox_governance_gate_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core sandbox_governance_readiness_gate_blocks_runtime_by_default`
+    - `cargo test -p shardloom-cli --test security_governance_evidence_gate`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that it exposes a deterministic report-only
+    sandbox/governance runtime readiness gate. It may not claim sandbox runtime support, sandbox
+    process spawning, extension/plugin/UDF execution, filesystem/network/environment/secret/process
+    permission enforcement, production resource limits, timeout enforcement, runtime sandbox audit
+    emission, dependency isolation runtime, governed production runtime, external effects, external
+    engine invocation, or fallback execution.
+
 - [x] Session label: GAR-0019-A credential lifecycle and policy enforcement gate
   - Branch/PR: `codex/gar-0019a-credential-policy-gate` / #758.
   - Primary files:
