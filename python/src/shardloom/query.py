@@ -182,6 +182,18 @@ class ColumnExpression:
         normalized_dtype = _normalize_cast_dtype(dtype)
         return ColumnExpression(f"CAST({self.sql} AS {normalized_dtype})")
 
+    def date_add_days(self, days: object) -> "ColumnExpression":
+        """Return a scoped Date32 day-add expression for date predicates."""
+
+        normalized_days = _normalize_date_arithmetic_days(days)
+        return ColumnExpression(f"DATE_ADD_DAYS({self.sql}, {normalized_days})")
+
+    def date_sub_days(self, days: object) -> "ColumnExpression":
+        """Return a scoped Date32 day-subtract expression for date predicates."""
+
+        normalized_days = _normalize_date_arithmetic_days(days)
+        return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})")
+
 
 @dataclass(frozen=True, slots=True)
 class WorkflowCertificationReport:
@@ -2201,6 +2213,24 @@ def _normalize_cast_dtype(value: object) -> str:
             "cast dtype must be one of ('int64', 'float64', 'utf8', 'boolean', 'date32')"
         )
     return dtype
+
+
+def _normalize_date_arithmetic_days(value: object) -> int:
+    if isinstance(value, bool):
+        raise ValueError("date arithmetic days must be a signed integer literal")
+    if isinstance(value, int):
+        days = value
+    else:
+        text = _require_non_empty("date arithmetic days", value)
+        if text in {"+", "-"} or not all(
+            ch.isdigit() or (index == 0 and ch in {"+", "-"})
+            for index, ch in enumerate(text)
+        ):
+            raise ValueError("date arithmetic days must be a signed integer literal")
+        days = int(text)
+    if abs(days) > 366_000:
+        raise ValueError("date arithmetic days admits absolute values <= 366000")
+    return days
 
 
 def _sql_string_literal(value: object) -> str:

@@ -276,17 +276,20 @@ or documentation updates alone are insufficient.
     `column IN (<literal>,...)` predicates are runtime-admitted with `in_predicate_*` evidence and
     blockers for empty, NULL, mixed DATE/non-DATE, oversized, and subquery-backed lists, and scoped
     local SQL logical `AND`/`OR`/`NOT` predicates plus balanced grouping parentheses are
-    runtime-admitted over already admitted leaf predicates. Python now exposes `sl.col(...)`
+    runtime-admitted over already admitted leaf predicates. Scoped Date32 day arithmetic through
+    `DATE_ADD_DAYS(column, days)` / `DATE_SUB_DAYS(column, days)` predicates is runtime-admitted
+    with `date_arithmetic_*` evidence and deterministic blockers for invalid day counts or
+    unsupported non-Date32 shapes. Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`,
-    bounded `IN`, cast/date, and logical predicates into the same local SQL smoke path, plus
-    `where(...)` as a familiar filter alias. User workflows still lack broad typed
-    coercions, timestamp/timezone helpers, date arithmetic, NULL/subquery-backed IN semantics,
+    bounded `IN`, cast/date, Date32 day arithmetic, and logical predicates into the same local SQL
+    smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
+    coercions, timestamp/timezone helpers, interval/date-time completeness, NULL/subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
     family coverage.
   - Next slice outcome: add one implementation PR per expression family: null/is-not-null hardening
     where gaps remain, remaining admitted string predicates, richer IN semantics only where
-    evidence-backed, timestamp/timezone helpers, date arithmetic where admitted, and broader typed
-    coercions/functions.
+    evidence-backed, timestamp/timezone helpers, interval/date-time completeness where admitted,
+    and broader typed coercions/functions.
   - Runtime enablement: executable ShardLoom-native expression families or deterministic runtime
     blockers for unsupported operators.
   - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.

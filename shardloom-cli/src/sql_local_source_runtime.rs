@@ -37,6 +37,7 @@ const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
 const MAX_IN_LIST_VALUES: usize = 32;
+const MAX_DATE_ARITHMETIC_DAYS: i32 = 366_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SqlLocalSourceRequest {
@@ -241,6 +242,13 @@ enum ParsedPredicate {
         op: ComparisonOp,
         value: ScalarValue,
     },
+    DateArithmeticCompare {
+        column: String,
+        op: DateArithmeticOp,
+        day_count: i32,
+        comparison: ComparisonOp,
+        value: ScalarValue,
+    },
     IsNull {
         column: String,
     },
@@ -293,6 +301,28 @@ enum StringPredicateOp {
     StartsWith,
     Contains,
     EndsWith,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DateArithmeticOp {
+    AddDays,
+    SubDays,
+}
+
+impl DateArithmeticOp {
+    const fn function_name(self) -> &'static str {
+        match self {
+            Self::AddDays => "date_add_days",
+            Self::SubDays => "date_sub_days",
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::AddDays => "date_add_days",
+            Self::SubDays => "date_sub_days",
+        }
+    }
 }
 
 impl StringPredicateOp {
@@ -898,6 +928,11 @@ fn apply_date_literal_predicate_coercions(
             column,
             value: ScalarValue::Date32(_),
             ..
+        }
+        | ParsedPredicate::DateArithmeticCompare {
+            column,
+            value: ScalarValue::Date32(_),
+            ..
         } => coerce_date_literal_column(column, parsed, source, right_source),
         ParsedPredicate::InList { column, values }
             if values
@@ -921,6 +956,7 @@ fn apply_date_literal_predicate_coercions(
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
         | ParsedPredicate::CastCompare { .. }
+        | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
@@ -1777,6 +1813,7 @@ impl ParsedPredicate {
             Self::All => {}
             Self::Compare { column, .. }
             | Self::CastCompare { column, .. }
+            | Self::DateArithmeticCompare { column, .. }
             | Self::IsNull { column }
             | Self::IsNotNull { column }
             | Self::InList { column, .. }
@@ -1832,6 +1869,13 @@ impl ParsedPredicate {
                     )),
                 },
             )),
+            Self::DateArithmeticCompare {
+                column,
+                op,
+                day_count,
+                comparison,
+                value,
+            } => date_arithmetic_compare_expression(column, *op, *day_count, *comparison, value),
             Self::IsNull { column } => Ok(Expression::new(
                 ExprId::new("where.is_null")?,
                 ExpressionKind::Unary {
@@ -1853,22 +1897,7 @@ impl ParsedPredicate {
                 },
             )),
             Self::InList { column, values } => in_list_expression(column, values),
-            Self::StringMatch { column, op, value } => Ok(Expression::new(
-                ExprId::new(format!("where.string.{}", op.as_str()))?,
-                ExpressionKind::FunctionCall {
-                    name: op.function_name().to_string(),
-                    args: vec![
-                        Expression::column(
-                            ExprId::new(format!("where.{column}"))?,
-                            ColumnRef::new(column.clone())?,
-                        ),
-                        Expression::literal(
-                            ExprId::new("where.string.literal")?,
-                            ScalarValue::Utf8(value.clone()),
-                        ),
-                    ],
-                },
-            )),
+            Self::StringMatch { column, op, value } => string_match_expression(column, *op, value),
             Self::Logical { op, left, right } => Ok(Expression::new(
                 ExprId::new(format!("where.logical.{}", op.as_str()))?,
                 ExpressionKind::Binary {
@@ -1892,6 +1921,7 @@ impl ParsedPredicate {
             Self::All => "none",
             Self::Compare { .. } => "comparison",
             Self::CastCompare { .. } => "cast",
+            Self::DateArithmeticCompare { .. } => "date_arithmetic",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::InList { .. } => "in_predicate",
             Self::StringMatch { .. } => "string_predicate",
@@ -1909,6 +1939,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. } => false,
@@ -1936,6 +1967,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. } => {}
@@ -1951,6 +1983,10 @@ impl ParsedPredicate {
             | Self::CastCompare {
                 value: ScalarValue::Date32(_),
                 ..
+            }
+            | Self::DateArithmeticCompare {
+                value: ScalarValue::Date32(_),
+                ..
             } => true,
             Self::InList { values, .. } => values
                 .iter()
@@ -1962,6 +1998,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => false,
@@ -1975,6 +2012,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_cast(),
             Self::All
             | Self::Compare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -1998,6 +2036,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_cast_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2027,6 +2066,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_cast_target_dtypes(dtypes),
             Self::All
             | Self::Compare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2045,6 +2085,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2061,6 +2102,7 @@ impl ParsedPredicate {
             Self::All => 0,
             Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2076,6 +2118,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => false,
@@ -2092,11 +2135,171 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
+
+    fn uses_date_arithmetic(&self) -> bool {
+        match self {
+            Self::DateArithmeticCompare { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_date_arithmetic() || right.uses_date_arithmetic()
+            }
+            Self::Not { inner } => inner.uses_date_arithmetic(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn date_arithmetic_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_date_arithmetic_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_date_arithmetic_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::DateArithmeticCompare { op, .. } => operators.push(op.as_str()),
+            Self::Logical { left, right, .. } => {
+                left.push_date_arithmetic_operators(operators);
+                right.push_date_arithmetic_operators(operators);
+            }
+            Self::Not { inner } => inner.push_date_arithmetic_operators(operators),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn date_arithmetic_days(&self) -> String {
+        let mut values = Vec::new();
+        self.push_date_arithmetic_days(&mut values);
+        if values.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            values.join(",")
+        }
+    }
+
+    fn push_date_arithmetic_days(&self, values: &mut Vec<String>) {
+        match self {
+            Self::DateArithmeticCompare { day_count, .. } => values.push(day_count.to_string()),
+            Self::Logical { left, right, .. } => {
+                left.push_date_arithmetic_days(values);
+                right.push_date_arithmetic_days(values);
+            }
+            Self::Not { inner } => inner.push_date_arithmetic_days(values),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn date_arithmetic_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_date_arithmetic_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_date_arithmetic_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::DateArithmeticCompare { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_date_arithmetic_source_columns(columns);
+                right.push_date_arithmetic_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_date_arithmetic_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+}
+
+fn string_match_expression(
+    column: &str,
+    op: StringPredicateOp,
+    value: &str,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new(format!("where.string.{}", op.as_str()))?,
+        ExpressionKind::FunctionCall {
+            name: op.function_name().to_string(),
+            args: vec![
+                Expression::column(
+                    ExprId::new(format!("where.{column}"))?,
+                    ColumnRef::new(column.to_string())?,
+                ),
+                Expression::literal(
+                    ExprId::new("where.string.literal")?,
+                    ScalarValue::Utf8(value.to_string()),
+                ),
+            ],
+        },
+    ))
+}
+
+fn date_arithmetic_compare_expression(
+    column: &str,
+    op: DateArithmeticOp,
+    day_count: i32,
+    comparison: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.date_arithmetic_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::new(
+                ExprId::new(format!("where.date_arithmetic.{column}"))?,
+                ExpressionKind::FunctionCall {
+                    name: op.function_name().to_string(),
+                    args: vec![
+                        Expression::column(
+                            ExprId::new(format!("where.{column}"))?,
+                            ColumnRef::new(column.to_string())?,
+                        ),
+                        Expression::literal(
+                            ExprId::new("where.date_arithmetic.days")?,
+                            ScalarValue::Int64(i64::from(day_count)),
+                        ),
+                    ],
+                },
+            )),
+            op: comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.date_arithmetic.literal")?,
+                value.clone(),
+            )),
+        },
+    ))
 }
 
 fn in_list_expression(column: &str, values: &[ScalarValue]) -> Result<Expression, ShardLoomError> {
@@ -2469,6 +2672,22 @@ impl SqlLocalSourceReport {
             (
                 "date_literal_runtime_execution".to_string(),
                 self.parsed.predicate.uses_date_literal().to_string(),
+            ),
+            (
+                "date_arithmetic_runtime_execution".to_string(),
+                self.parsed.predicate.uses_date_arithmetic().to_string(),
+            ),
+            (
+                "date_arithmetic_operator".to_string(),
+                self.parsed.predicate.date_arithmetic_operator(),
+            ),
+            (
+                "date_arithmetic_days".to_string(),
+                self.parsed.predicate.date_arithmetic_days(),
+            ),
+            (
+                "date_arithmetic_source_column".to_string(),
+                self.parsed.predicate.date_arithmetic_source_columns(),
             ),
             (
                 "cast_runtime_execution".to_string(),
@@ -3486,6 +3705,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_logical_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_date_arithmetic_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_cast_predicate(raw)? {
         return Ok(predicate);
     }
@@ -3546,7 +3768,7 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -3672,6 +3894,119 @@ fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomE
         op,
         value,
     }))
+}
+
+fn parse_date_arithmetic_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let Some((function_name, op)) = [
+        ("date_add_days", DateArithmeticOp::AddDays),
+        ("date_sub_days", DateArithmeticOp::SubDays),
+    ]
+    .into_iter()
+    .find(|(name, _)| {
+        trimmed
+            .get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && trimmed.as_bytes().get(name.len()) == Some(&b'(')
+    }) else {
+        return Ok(None);
+    };
+
+    let open_index = function_name.len();
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "date arithmetic predicates must use DATE_ADD_DAYS(<column>, <days>) or DATE_SUB_DAYS(<column>, <days>)",
+        )
+    })?;
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let tail = trimmed[close_index + 1..].trim();
+    if inner.is_empty() || tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "date arithmetic predicates require a source column, day count, comparison operator, and DATE literal",
+        ));
+    }
+    let args = split_sql_csv(inner)?;
+    let [column_raw, day_count_raw] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "date arithmetic predicates require exactly two arguments: <column>, <days>",
+        ));
+    };
+    let column = parse_date_arithmetic_column_arg(column_raw)?;
+    let day_count = parse_date_arithmetic_days(day_count_raw)?;
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let [op_raw, date_keyword, literal_raw] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(
+            "date arithmetic predicates admit DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal> or DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>",
+        ));
+    };
+    if !date_keyword.eq_ignore_ascii_case("date") {
+        return Err(unsupported_sql_error(
+            "date arithmetic predicates compare against DATE 'YYYY-MM-DD' literals only",
+        ));
+    }
+    Ok(Some(ParsedPredicate::DateArithmeticCompare {
+        column,
+        op,
+        day_count,
+        comparison: parse_comparison_op(op_raw)?,
+        value: parse_sql_date_literal(literal_raw)?,
+    }))
+}
+
+fn parse_date_arithmetic_column_arg(raw: &str) -> Result<String, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
+    {
+        validate_sql_column_ref(trimmed)?;
+        return Ok(trimmed.to_string());
+    }
+    let close_index = matching_closing_parenthesis(trimmed, 4)?.ok_or_else(|| {
+        unsupported_sql_error("date arithmetic CAST arguments must use CAST(<column> AS date32)")
+    })?;
+    if !trimmed[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "date arithmetic CAST arguments must be a single CAST(<column> AS date32) expression",
+        ));
+    }
+    let inner = trimmed[5..close_index].trim();
+    let as_index = find_keyword_outside_quotes(inner, "as").ok_or_else(|| {
+        unsupported_sql_error("date arithmetic CAST arguments must use CAST(<column> AS date32)")
+    })?;
+    let column = inner[..as_index].trim();
+    let target_raw = inner[as_index + 2..].trim();
+    validate_sql_column_ref(column)?;
+    if !matches!(parse_cast_target_dtype(target_raw)?, LogicalDType::Date32) {
+        return Err(unsupported_sql_error(
+            "date arithmetic CAST arguments support date32 target dtype only",
+        ));
+    }
+    Ok(column.to_string())
+}
+
+fn parse_date_arithmetic_days(raw: &str) -> Result<i32, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty()
+        || !trimmed
+            .chars()
+            .enumerate()
+            .all(|(index, ch)| ch.is_ascii_digit() || (index == 0 && matches!(ch, '+' | '-')))
+        || matches!(trimmed, "+" | "-")
+    {
+        return Err(unsupported_sql_error(
+            "date arithmetic day count must be a signed integer literal",
+        ));
+    }
+    let value = trimmed.parse::<i32>().map_err(|_| {
+        unsupported_sql_error("date arithmetic day count must fit in signed 32-bit days")
+    })?;
+    if i64::from(value).abs() > i64::from(MAX_DATE_ARITHMETIC_DAYS) {
+        return Err(unsupported_sql_error(&format!(
+            "date arithmetic day count admits absolute values <= {MAX_DATE_ARITHMETIC_DAYS}"
+        )));
+    }
+    Ok(value)
 }
 
 fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
