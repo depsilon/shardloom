@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D-S1 UTF-8 string predicate runtime
+  - Branch/PR: `codex/gar-runtime-4d-null-expression-runtime` / #771.
+  - Primary files:
+    - `shardloom-core/src/expression.rs`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-contract-tests/tests/expression_operator_semantics.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: promote one GAR-RUNTIME-IMPL-4D expression-family slice by adding ShardLoom-native
+    UTF-8 prefix/contains predicate execution in the core expression evaluator and lowering scoped
+    local SQL `LIKE 'prefix%'` / `LIKE '%contains%'` predicates into that runtime path.
+  - Runtime enablement:
+    - `utf8_starts_with(value, prefix)` over UTF-8/null operands.
+    - `utf8_contains(value, needle)` over UTF-8/null operands.
+    - `WHERE <column> LIKE 'prefix%'` in `sql-local-source-smoke`.
+    - `WHERE <column> LIKE '%contains%'` in `sql-local-source-smoke`.
+  - Evidence:
+    - `expression_family=string_predicate`
+    - `input_dtype=utf8|null`
+    - `output_dtype=boolean`
+    - `null_policy=null_propagating`
+    - `predicate_operator_family=string_predicate`
+    - `string_predicate_runtime_execution=true`
+    - `string_predicate_operator=starts_with|contains`
+    - `data_decoded=false` for core expression semantics
+    - `data_materialized=true` for scoped local CSV row materialization
+    - `claim_gate_status=not_claim_grade` for core semantics
+    - `claim_gate_status=fixture_smoke_only` for local SQL smoke
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+  - Blockers preserved:
+    - `LIKE '_'` wildcards are unsupported.
+    - Suffix-only `LIKE '%text'` is unsupported.
+    - Exact `LIKE 'text'` is unsupported; users should use `=`.
+    - Non-UTF-8 operands emit deterministic unsupported diagnostics.
+  - Verification:
+    - `cargo test -p shardloom-contract-tests --test expression_operator_semantics`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only scoped native UTF-8 prefix/contains predicate
+    execution for admitted local expression/SQL smoke paths. It may not claim regex, suffix LIKE,
+    arbitrary SQL string functions, broad DataFrame expression parity, encoded-native string
+    kernels, production SQL, external engine execution, or fallback execution.
+
 - [x] Session label: GAR-0043-B publication attestation and final release rehearsal
   - Branch/PR: `codex/gar-0043b-final-release-rehearsal` / #770.
   - Primary files:

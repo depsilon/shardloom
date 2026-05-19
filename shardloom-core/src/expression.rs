@@ -719,10 +719,7 @@ fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalRes
             let right = eval_expression(right, row)?;
             eval_compare(&left, *op, &right)
         }
-        ExpressionKind::FunctionCall { name, .. } => Err(EvalFailure::unsupported(
-            "function_call",
-            format!("function {name:?} is not admitted by the current native semantics baseline"),
-        )),
+        ExpressionKind::FunctionCall { name, args } => eval_function_call(name, args, row),
         ExpressionKind::Unsupported { feature, reason } => {
             Err(EvalFailure::unsupported(feature.clone(), reason.clone()))
         }
@@ -799,6 +796,65 @@ fn eval_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalResult<Ev
         }
     }
     .map(|value| value.carry_materialization(data_materialized))
+}
+
+fn eval_function_call(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    let normalized = name.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "utf8_starts_with" | "starts_with" => {
+            eval_string_predicate(name, args, row, |value, needle| value.starts_with(needle))
+        }
+        "utf8_contains" | "contains" => {
+            eval_string_predicate(name, args, row, |value, needle| value.contains(needle))
+        }
+        _ => Err(EvalFailure::unsupported(
+            "function_call",
+            format!("function {name:?} is not admitted by the current native semantics baseline"),
+        )),
+    }
+}
+
+fn eval_string_predicate(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    predicate: impl FnOnce(&str, &str) -> bool,
+) -> EvalResult<EvalValue> {
+    if args.len() != 2 {
+        return Err(EvalFailure::invalid(
+            "string_predicate",
+            format!("function {name:?} requires exactly two UTF-8 arguments"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let needle = eval_expression(&args[1], row)?;
+    let data_materialized = value.data_materialized || needle.data_materialized;
+    if value.value.is_null() || needle.value.is_null() {
+        return Ok(
+            EvalValue::null(LogicalDType::Boolean, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    match (value.value, needle.value) {
+        (ScalarValue::Utf8(value), ScalarValue::Utf8(needle)) => Ok(EvalValue::new(
+            ScalarValue::Boolean(predicate(&value, &needle)),
+            LogicalDType::Boolean,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        (value, needle) => Err(EvalFailure::unsupported(
+            "string_predicate",
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {} and {}",
+                value.dtype().as_str(),
+                needle.dtype().as_str()
+            ),
+        )),
+    }
 }
 
 fn eval_boolean_and(left: ScalarValue, right: ScalarValue) -> EvalResult<EvalValue> {
@@ -1130,8 +1186,15 @@ fn expression_operator_family(expression: &Expression) -> &'static str {
             BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => "numeric",
         },
         ExpressionKind::Compare { .. } => "comparison",
-        ExpressionKind::FunctionCall { .. } => "function",
+        ExpressionKind::FunctionCall { name, .. } => function_operator_family(name),
         ExpressionKind::Unsupported { .. } => "unsupported",
+    }
+}
+
+fn function_operator_family(name: &str) -> &'static str {
+    match name.trim().to_ascii_lowercase().as_str() {
+        "utf8_starts_with" | "starts_with" | "utf8_contains" | "contains" => "string_predicate",
+        _ => "function",
     }
 }
 
