@@ -268,12 +268,14 @@ or documentation updates alone are insufficient.
   - Current state: expression support exists in scoped smoke paths; scoped UTF-8 prefix/contains
     string predicates are runtime-admitted through core expression semantics and local SQL `LIKE`
     smoke paths; scoped ISO Date32 parsing/formatting, extraction helpers, UTF-8/Date32 casts, and
-    local SQL `DATE 'YYYY-MM-DD'` predicates are runtime-admitted for the local CSV smoke path, but
-    user workflows still lack broad typed casts, timestamp/timezone helpers, date arithmetic, and
-    broader expression-family coverage.
-  - Next slice outcome: add one implementation PR per expression family: numeric casts,
-    null/is-not-null hardening where gaps remain, remaining admitted string predicates, timestamp/
-    timezone helpers, date arithmetic where admitted, and broader typed coercions.
+    local SQL `DATE 'YYYY-MM-DD'` predicates are runtime-admitted for the local CSV smoke path, and
+    scoped local SQL `CAST(column AS dtype)` predicates for `int64`, `float64`, `utf8`, `boolean`,
+    and `date32` are runtime-admitted for local row smoke paths, but user workflows still lack broad
+    typed coercions,
+    timestamp/timezone helpers, date arithmetic, and broader expression-family coverage.
+  - Next slice outcome: add one implementation PR per expression family: null/is-not-null hardening
+    where gaps remain, remaining admitted string predicates, timestamp/timezone helpers, date
+    arithmetic where admitted, and broader typed coercions/functions.
   - Runtime enablement: executable ShardLoom-native expression families or deterministic runtime
     blockers for unsupported operators.
   - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.

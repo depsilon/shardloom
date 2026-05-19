@@ -95,6 +95,25 @@ claim-gate evidence. It is not broad SQL runtime, a production SQL/DataFrame cla
 SQL source support, joins, grouped aggregates, functions, subqueries, object-store/table support, or a
 performance claim.
 
+## SQL Local JSONL Cast Predicate Smoke
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+{"id":1,"amount":"8","label":"low"}
+{"id":2,"amount":"15","label":"mid"}
+{"id":3,"amount":"21","label":"high"}
+"@ | Set-Content -Encoding utf8 target\sql-local-source-cast.jsonl
+cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT id,amount,label FROM 'target/sql-local-source-cast.jsonl' WHERE CAST(amount AS int64) >= 10 LIMIT 10" --format json
+```
+
+Use this for the scoped GAR-RUNTIME-IMPL-4D cast-family path that parses, lowers, and executes a
+local SQL `CAST(column AS dtype)` predicate for `int64`, `float64`, `utf8`, `boolean`, or `date32`
+through ShardLoom-owned expression semantics. It emits `predicate_operator_family=cast`,
+`cast_runtime_execution=true`, `cast_source_column`, `cast_target_dtype`, materialization/decode,
+no-fallback, and claim-gate evidence. It is not broad SQL/DataFrame runtime, function support,
+object-store/lakehouse support, or a performance claim.
+
 ## SQL Local CSV Scalar Aggregate Smoke
 
 ```powershell

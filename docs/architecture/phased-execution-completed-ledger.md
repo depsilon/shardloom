@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D-S3 scoped SQL cast predicate runtime
+  - Branch/PR: `codex/sql-local-cast-predicate-runtime` / #776.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+    - `website/readme.html`
+  - Scope: promote a scoped GAR-RUNTIME-IMPL-4D cast-family runtime slice by admitting local SQL
+    `CAST(column AS dtype)` predicates for `int64`, `float64`, `utf8`, `boolean`, and `date32`
+    over local CSV/JSONL row smoke paths.
+  - Runtime enablement:
+    - `WHERE CAST(<column> AS <dtype>) <op> <literal>` lowers into ShardLoom-owned expression
+      semantics for the admitted local SQL smoke grammar.
+    - Date literal comparisons such as `CAST(event_date AS date32) >= DATE 'YYYY-MM-DD'` remain
+      visible through date-literal evidence.
+    - Unsupported cast target dtypes emit deterministic unsupported diagnostics with no fallback
+      or external-engine execution.
+  - Evidence:
+    - `predicate_operator_family=cast`
+    - `cast_runtime_execution=true`
+    - `cast_source_column`
+    - `cast_target_dtype`
+    - `date_literal_runtime_execution=true` when the cast predicate uses a `DATE` literal
+    - `source_format=csv|jsonl`
+    - `data_materialized=true` for scoped local row smoke execution
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `claim_gate_status=fixture_smoke_only`
+  - Blockers preserved:
+    - Decimal, timestamp, interval, nested expression, function, and broad ANSI type coercions remain
+      unsupported.
+    - SQL/DataFrame production runtime, Parquet/Vortex SQL sources, object-store/lakehouse sources,
+      generalized function support, external engine execution, and fallback execution remain
+      blocked.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests`
+    - `cargo test -p shardloom-contract-tests --test expression_operator_semantics`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js` with the bundled Node runtime
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only scoped local SQL cast predicate execution for admitted
+    CSV/JSONL local-source smoke paths. It may not claim broad type-coercion parity, production
+    SQL/DataFrame support, Parquet/Vortex SQL source support, object-store/lakehouse/Foundry support,
+    external engine execution, fallback execution, or performance evidence.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F-S1 local JSONL/NDJSON source adapter runtime
   - Branch/PR: `codex/gar-runtime-4f-jsonl-source-runtime` / #773.
   - Primary files:
