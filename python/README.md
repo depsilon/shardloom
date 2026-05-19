@@ -671,6 +671,27 @@ Generated-output runtime must report
 report-only/gated, and Foundry generated-output smoke must go through Foundry
 output APIs rather than direct S3 paths.
 
+The Python context also exposes deterministic unsupported report helpers for the
+remaining source-free forms. These helpers do not parse SQL, execute a DataFrame
+plan, generate rows, write outputs, probe object stores, invoke Foundry, or call
+an external engine; they return the same `workflow-unsupported-plan` envelope
+with source-free blocker IDs and required evidence:
+
+```python
+ctx.sequence(0, 10)
+ctx.sql_values("VALUES (1, 'alpha')")
+ctx.sql_literal_select("SELECT 1 AS value")
+ctx.dataframe_source_free_projection("lit(1).alias('value')")
+ctx.dataframe_generated_with_column("value", "lit(1)")
+ctx.generated_output_to_object_store("s3://bucket/out.jsonl")
+ctx.foundry_generated_output("foundry://dataset/output")
+```
+
+Use these helpers when code wants a typed, no-effect diagnostic instead of a
+missing-method failure. They preserve `fallback_attempted=false`,
+`external_engine_invoked=false`, `runtime_execution=false`, and
+`claim_gate_status=not_claim_grade`.
+
 The client also exposes the P7 claim gate closeout report:
 
 ```python

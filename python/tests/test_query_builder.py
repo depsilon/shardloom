@@ -603,13 +603,24 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "sql-bind": "sql_bind",
                     "sql-plan": "sql_plan",
                     "sql-execute": "sql_execute",
+                    "source-free-sequence": "source_free_sequence",
+                    "sql-values": "sql_values",
+                    "sql-literal-select": "sql_literal_select",
+                    "dataframe-source-free-projection": "dataframe_source_free_projection",
+                    "dataframe-generated-with-column": "dataframe_generated_with_column",
+                    "object-store-generated-output": "object_store_generated_output",
+                    "foundry-generated-output": "foundry_generated_output",
                     "schema-contract": "schema_contract",
                     "describe-schema": "describe_schema",
                     "validate-schema": "validate_schema",
                     "data-quality": "data_quality",
                     "data-quality-summary": "data_quality_summary",
                 }.get(operation, operation)
-                write_required = operation.startswith("write-") or operation == "quarantine"
+                write_required = (
+                    operation.startswith("write-")
+                    or operation == "quarantine"
+                    or operation in {"object-store-generated-output", "foundry-generated-output"}
+                )
                 materialization_required = operation in {
                     "collect", "from-pandas", "from-arrow-table", "from-arrow-ipc",
                     "to-pandas", "to-arrow", "to-arrow-table", "to-arrow-ipc",
@@ -625,9 +636,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "SL_UNSUPPORTED_SQL"
                     if operation in {
                         "sql", "sql-parse", "sql-bind", "sql-plan", "sql-execute",
+                        "sql-values", "sql-literal-select",
                         "with-column", "group-by", "agg", "sort", "join",
                         "aggregate", "window",
                     }
+                    else "SL_OBJECT_STORE_UNSUPPORTED"
+                    if operation == "object-store-generated-output"
                     else "SL_UNSUPPORTED_EFFECT"
                     if operation == "quarantine"
                     else "SL_MATERIALIZATION_REQUIRED"
@@ -715,17 +729,40 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.quarantine("bad.vortex"),
             workflow.preview(limit=5),
             workflow.display(),
+            ctx.sequence(0, 10),
+            ctx.sql_values("VALUES (1)"),
+            ctx.sql_literal_select("SELECT 1 AS value"),
+            ctx.dataframe_source_free_projection("lit(1).alias('value')"),
+            ctx.dataframe_generated_with_column("value", "lit(1)"),
+            ctx.generated_output_to_object_store("s3://bucket/out.jsonl"),
+            ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 34)
+        self.assertEqual(len(reports), 41)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
-            self.assertTrue(report.blocker_id and report.blocker_id.startswith("cg21.workflow."))
+            self.assertTrue(report.blocker_id)
+            self.assertTrue(
+                report.blocker_id.startswith("cg21.workflow.")
+                or report.blocker_id.startswith("gar-gen-1.")
+            )
             if report.operation in {"from-pandas", "from-arrow-table", "from-arrow-ipc"}:
                 self.assertTrue(report.envelope.field("workflow_summary", "").startswith("read_"))
-            elif report.operation.startswith("sql-"):
+            elif report.operation in {"sql-parse", "sql-bind", "sql-plan", "sql-execute"}:
                 self.assertEqual(report.envelope.field("workflow_summary"), "sql(statement)")
+            elif report.operation in {
+                "source-free-sequence",
+                "sql-values",
+                "sql-literal-select",
+                "dataframe-source-free-projection",
+                "dataframe-generated-with-column",
+                "object-store-generated-output",
+                "foundry-generated-output",
+            }:
+                self.assertTrue(
+                    report.envelope.field("workflow_summary", "").startswith("source_free(")
+                )
             else:
                 summary = report.envelope.field("workflow_summary")
                 self.assertTrue(summary and summary.startswith("read_csv(events.csv)"))
@@ -781,6 +818,36 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(by_operation["quarantine"].envelope.field_bool("write_required"))
         self.assertTrue(by_operation["preview"].envelope.field_bool("materialization_required"))
         self.assertEqual(by_operation["display"].envelope.field("workflow_operation"), "display")
+        self.assertEqual(
+            by_operation["source-free-sequence"].envelope.field("workflow_operation"),
+            "source_free_sequence",
+        )
+        self.assertEqual(
+            by_operation["source-free-sequence"].envelope.field("target_ref"),
+            "start=0;end=10;step=1;column=value",
+        )
+        self.assertEqual(
+            by_operation["sql-values"].envelope.field("workflow_operation"),
+            "sql_values",
+        )
+        self.assertEqual(
+            by_operation["sql-literal-select"].envelope.field("workflow_operation"),
+            "sql_literal_select",
+        )
+        self.assertEqual(
+            by_operation["dataframe-source-free-projection"].envelope.field("workflow_operation"),
+            "dataframe_source_free_projection",
+        )
+        self.assertEqual(
+            by_operation["dataframe-generated-with-column"].envelope.field("target_ref"),
+            "value=lit(1)",
+        )
+        self.assertTrue(
+            by_operation["object-store-generated-output"].envelope.field_bool("write_required")
+        )
+        self.assertTrue(
+            by_operation["foundry-generated-output"].envelope.field_bool("write_required")
+        )
 
     def test_engine_capability_matrix_view_exposes_blocked_live_hybrid_claims(self) -> None:
         binary = self.fake_cli(

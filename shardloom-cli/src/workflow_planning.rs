@@ -838,6 +838,38 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
         "sql-bind" | "sql_bind" => Some(workflow_unsupported_sql_bind()),
         "sql-plan" | "sql_plan" => Some(workflow_unsupported_sql_plan()),
         "sql-execute" | "sql_execute" => Some(workflow_unsupported_sql_execute()),
+        "source-free-sequence"
+        | "source_free_sequence"
+        | "sequence"
+        | "generate-series"
+        | "generate_series" => Some(workflow_unsupported_source_free_sequence()),
+        "sql-values" | "sql_values" | "values" => Some(workflow_unsupported_sql_values()),
+        "sql-literal-select"
+        | "sql_literal_select"
+        | "literal-select"
+        | "literal_select"
+        | "sql-source-free-projection"
+        | "sql_source_free_projection" => Some(workflow_unsupported_sql_literal_select()),
+        "dataframe-source-free-projection"
+        | "dataframe_source_free_projection"
+        | "df-source-free-projection"
+        | "df_source_free_projection" => {
+            Some(workflow_unsupported_dataframe_source_free_projection())
+        }
+        "dataframe-generated-with-column"
+        | "dataframe_generated_with_column"
+        | "generated-with-column"
+        | "generated_with_column" => Some(workflow_unsupported_dataframe_generated_with_column()),
+        "object-store-generated-output"
+        | "object_store_generated_output"
+        | "generated-output-object-store"
+        | "generated_output_object_store" => {
+            Some(workflow_unsupported_object_store_generated_output())
+        }
+        "foundry-generated-output"
+        | "foundry_generated_output"
+        | "generated-output-foundry"
+        | "generated_output_foundry" => Some(workflow_unsupported_foundry_generated_output()),
         "join" => Some(workflow_unsupported_join()),
         "aggregate" | "aggregation" => Some(workflow_unsupported_aggregate()),
         "window" | "windows" => Some(workflow_unsupported_window()),
@@ -1280,6 +1312,118 @@ fn workflow_unsupported_sql_execute() -> WorkflowUnsupportedOperation {
         diagnostic_code: DiagnosticCode::UnsupportedSql,
         materialization_required: false,
         write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_source_free_sequence() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "source_free_sequence",
+        label: "source-free sequence generator",
+        surface: "source_free_generated_output",
+        feature: "gar_gen_1.source_free_sequence",
+        blocker_id: "gar-gen-1.sequence_runtime_not_implemented",
+        required_evidence: "generator_node_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use ctx.range(...).write(...) for the scoped local range smoke; sequence/generate_series remains unsupported until a certified generator node contract exists.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_sql_values() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sql_values",
+        label: "SQL VALUES generated source",
+        surface: "sql_generated_source",
+        feature: "gar_gen_1.sql_values",
+        blocker_id: "gar-gen-1.sql_values_runtime_not_implemented",
+        required_evidence: "sql_parser,binder,planner,values_generator_contract,generated_source_certificate,output_native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use ctx.literal_table(...).write(...) for the scoped local smoke; SQL VALUES execution remains blocked until ShardLoom-native SQL parsing, binding, planning, and generated-source evidence are certified.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_sql_literal_select() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sql_literal_select",
+        label: "SQL source-free literal projection",
+        surface: "sql_generated_source",
+        feature: "gar_gen_1.sql_source_free_projection",
+        blocker_id: "gar-gen-1.sql_source_free_projection_runtime_not_implemented",
+        required_evidence: "sql_parser,binder,planner,source_free_projection_contract,generated_source_certificate,output_native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use generated-source Python smokes for local output; SQL source-free SELECT execution remains blocked until SQL frontend evidence is certified.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_dataframe_source_free_projection() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "dataframe_source_free_projection",
+        label: "DataFrame source-free projection",
+        surface: "dataframe_generated_source",
+        feature: "gar_gen_1.dataframe_source_free_projection",
+        blocker_id: "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented",
+        required_evidence: "dataframe_plan_contract,expression_registry,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use ctx.from_rows(...).write(...), ctx.literal_table(...).write(...), ctx.range(...).write(...), or ctx.calendar(...).write(...) for scoped local generated-output smokes.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_dataframe_generated_with_column() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "dataframe_generated_with_column",
+        label: "DataFrame generated with_column expression",
+        surface: "dataframe_generated_source",
+        feature: "gar_gen_1.dataframe_generated_with_column",
+        blocker_id: "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented",
+        required_evidence: "dataframe_plan_contract,expression_registry,type_coercion_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use literal/user rows that already contain the desired values; generated expression columns remain blocked until expression lowering and evidence are certified.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_object_store_generated_output() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "object_store_generated_output",
+        label: "object-store generated-output write",
+        surface: "object_store_generated_output_sink",
+        feature: "gar_gen_1.object_store_generated_output",
+        blocker_id: "gar-gen-1.object_store_generated_output_blocked",
+        required_evidence: "credential_policy,object_store_write_policy,output_commit_protocol,output_native_io_certificate,generated_source_certificate,no_fallback_evidence",
+        suggested_next_action: "Write generated output to a local sink first; object-store generated-output writes require a separately admitted object-store runtime and commit protocol.",
+        diagnostic_code: DiagnosticCode::ObjectStoreUnsupported,
+        materialization_required: false,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_foundry_generated_output() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "foundry_generated_output",
+        label: "Foundry generated-output transform",
+        surface: "foundry_generated_output_sink",
+        feature: "gar_gen_1.foundry_generated_output",
+        blocker_id: "gar-gen-1.foundry_generated_output_runtime_not_implemented",
+        required_evidence: "foundry_transform_wrapper,foundry_output_dataset_evidence,generated_source_certificate,output_native_io_certificate,foundry_spark_invoked_false,no_fallback_evidence",
+        suggested_next_action: "Keep Foundry generated-output work in local proof/report-only docs until a real Foundry transform writes output and evidence datasets without Spark fallback.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: true,
         runtime_required: true,
     }
 }

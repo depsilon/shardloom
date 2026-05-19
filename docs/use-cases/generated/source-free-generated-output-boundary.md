@@ -26,7 +26,7 @@ $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=co
 
 ## Blocker
 
-The source-free API admission matrix keeps SQL literal SELECT, SQL VALUES, SQL source-free projection, SQL generate_series/range vocabulary, DataFrame source-free projection, generated with_column, engine-native sequence/values/synthetic profiles, object-store writes, and Foundry generated-output runtime blocked/report-only until separate evidence lands.
+The source-free API admission matrix and Python context unsupported helpers keep SQL literal SELECT, SQL VALUES, SQL source-free projection, SQL generate_series/range vocabulary, DataFrame source-free projection, generated with_column, engine-native sequence/values/synthetic profiles, object-store writes, and Foundry generated-output runtime blocked/report-only until separate evidence lands.
 
 ## Internal Flow
 

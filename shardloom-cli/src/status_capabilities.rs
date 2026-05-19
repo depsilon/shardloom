@@ -39,7 +39,10 @@ const WORKFLOW_OPERATION_NAMES: &str = concat!(
     "profile,collect,from_pandas,from_arrow_table,from_arrow_ipc,",
     "to_pandas,to_arrow,to_arrow_table,to_arrow_ipc,to_numpy,to_python_objects,",
     "with_column,group_by,agg,sort,limit,write_vortex,write_parquet,sql,",
-    "sql_parse,sql_bind,sql_plan,sql_execute,join,aggregate,window,",
+    "sql_parse,sql_bind,sql_plan,sql_execute,",
+    "source_free_sequence,sql_values,sql_literal_select,",
+    "dataframe_source_free_projection,dataframe_generated_with_column,",
+    "object_store_generated_output,foundry_generated_output,join,aggregate,window,",
     "schema_contract,schema,describe_schema,validate_schema,data_quality,",
     "data_quality_summary,quarantine,preview,display,object_store_read,",
     "fallback_engine"
@@ -68,6 +71,13 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.sql.bind_unsupported,",
     "cg21.workflow.sql.plan_unsupported,",
     "cg21.workflow.sql.execute_unsupported,",
+    "gar-gen-1.sequence_runtime_not_implemented,",
+    "gar-gen-1.sql_values_runtime_not_implemented,",
+    "gar-gen-1.sql_source_free_projection_runtime_not_implemented,",
+    "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented,",
+    "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented,",
+    "gar-gen-1.object_store_generated_output_blocked,",
+    "gar-gen-1.foundry_generated_output_runtime_not_implemented,",
     "cg21.workflow.join.operator_unsupported,",
     "cg21.workflow.aggregate.operator_unsupported,",
     "cg21.workflow.window.operator_unsupported,",
@@ -2777,7 +2787,7 @@ fn emit_workflow_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         "/v1/capabilities/workflow",
     );
     push_field(&mut fields, "workflow_state", "unsupported_report_only");
-    push_count_field(&mut fields, "workflow_operation_count", 37);
+    push_count_field(&mut fields, "workflow_operation_count", 44);
     push_field(
         &mut fields,
         "workflow_operation_names",
