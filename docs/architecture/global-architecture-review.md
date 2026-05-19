@@ -534,12 +534,26 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0023-extension-plugin-abi-sandboxing.md`](../rfcs/0023-extension-plugin-abi-sandboxing.md)
-- Current read: Manifest-first ABI reports exist; runtime plugin loading is not implemented.
-- Evidence: `shardloom-core/src/extension.rs`, `shardloom-cli/tests/plan_only_invariants.rs`,
+- Current read: Manifest-first ABI reports and plugin/UDF sandbox blockers exist; runtime plugin
+  loading is not implemented.
+- Evidence: `shardloom-core/src/extension.rs`,
+  `docs/architecture/plugin-abi-udf-sandbox-blocker.md`,
+  `shardloom-cli/tests/extension_manifest_effect_matrix_snapshots.rs`,
+  `shardloom-cli/tests/capability_discovery_snapshots.rs`,
+  `shardloom-cli/tests/plan_only_invariants.rs`,
   `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
 - [x] Extension metadata, permissions, effect declarations, sandbox posture, and provenance are
   represented.
 - [x] Tests lock the current non-executing inspection posture.
+- [x] `GAR-0023-A` adds `shardloom.plugin_abi_udf_sandbox_blocker.v1`; Plugin/UDF runtime
+  admission exposes deterministic blockers for ABI inventory, dynamic library loading, Rust/WASM/
+  Python/SQL/external/table-function UDFs, plugin lifecycle transitions, sandbox evidence binding,
+  license/provenance attestation, and unsupported diagnostics with
+  `claim_gate_status=not_claim_grade`, `abi_loading_supported=false`,
+  `dynamic_loading_performed=false`, `extension_code_executed=false`,
+  `udf_execution_performed=false`, `fallback_attempted=false`, and
+  `external_engine_invoked=false`.
+- [x] Plugin/UDF runtime admission remains a blocker contract, not runtime support.
 - [ ] Real plugin ABI loading, sandbox runtime, and UDF execution remain incomplete.
 
 ### RFC 0024 - Release Engineering, API Compatibility, and Packaging

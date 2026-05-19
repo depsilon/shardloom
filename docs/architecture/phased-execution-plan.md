@@ -114,6 +114,7 @@ Reference index:
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
   `docs/architecture/credential-policy-enforcement-gate.md`,
   `docs/architecture/sandbox-governance-runtime-readiness.md`,
+  `docs/architecture/plugin-abi-udf-sandbox-blocker.md`,
   `docs/architecture/substrait-report-only-contract.md`,
   `docs/architecture/rfc-coverage-followthrough.md`,
   `docs/architecture/typed-command-result-envelope.md`,
@@ -220,26 +221,9 @@ explicitly reprioritized.
 
 Current non-runtime sequence:
 
-1. Close the remaining P4 governance/extension blockers.
-2. Close the P5 correctness, benchmark, claim, and release gates.
-3. Move each completed session to the ledger immediately after the PR/session closes.
-4. Only then enter the runtime implementation queue below.
-
-##### Non-Runtime GAR-P4 - Extension, Governance, And Runtime Policy
-
-- [ ] GAR-0023-A plugin ABI loading and UDF sandbox blocker
-  - Source: RFC 0023; RFC 0011; RFC 0019.
-  - Current state: plugin ABI/sandbox/UDF execution are represented as planned/report-only surfaces.
-  - Next slice outcome: ABI loading contract, sandbox evidence requirements, and UDF execution
-    blockers.
-  - User-visible surface: CLI plugin/extension plan, capability view.
-  - Implementation scope: plugin report fields, diagnostics, tests.
-  - Evidence required: sandbox refs, policy/no-fallback refs.
-  - Acceptance: plugins cannot load or execute without explicit policy and sandbox evidence.
-  - Verification: plugin/extension planning tests, security tests.
-  - Non-goals: no dynamic loading or UDF execution.
-  - Fallback/claim boundary: plugin support remains report-only.
-  - Dependencies/blockers: completed GAR-0019-A credential and GAR-0019-B sandbox/governance gates.
+1. Close the P5 correctness, benchmark, claim, and release gates.
+2. Move each completed session to the ledger immediately after the PR/session closes.
+3. Only then enter the runtime implementation queue below.
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 

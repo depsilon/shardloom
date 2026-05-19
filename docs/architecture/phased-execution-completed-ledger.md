@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0023-A plugin ABI loading and UDF sandbox blocker
+  - Branch/PR: `codex/gar-0023a-plugin-abi-udf-sandbox-blocker` / #760.
+  - Primary files:
+    - `shardloom-core/src/extension.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/extension_planning.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/extension_manifest_effect_matrix_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `docs/architecture/plugin-abi-udf-sandbox-blocker.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0023-A by making plugin ABI loading, dynamic extension loading, and UDF
+    sandbox admission blockers explicit through deterministic report-only fields.
+  - Checklist:
+    - [x] Add `shardloom.plugin_abi_udf_sandbox_blocker.v1`.
+    - [x] Classify ABI inventory, dynamic loading, Rust/WASM/Python/SQL/external/table-function
+          UDFs, plugin lifecycle transitions, sandbox evidence binding, license/provenance
+          attestation, and unsupported diagnostics.
+    - [x] Emit blocker fields through extension/UDF commands and `capabilities udfs`,
+          `capabilities extensions`, and `capabilities security-governance`.
+    - [x] Move GAR-0023-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `plugin_abi_udf_sandbox_blocker_schema_version=shardloom.plugin_abi_udf_sandbox_blocker.v1`
+    - `plugin_abi_udf_sandbox_blocker_id=gar-0023-a.plugin_abi_udf_sandbox_blocker`
+    - `plugin_abi_udf_sandbox_blocker_support_status=report_only`
+    - `plugin_abi_udf_sandbox_blocker_claim_gate_status=not_claim_grade`
+    - `plugin_abi_udf_sandbox_blocker_all_plugin_runtime_blocked=true`
+    - `plugin_abi_udf_sandbox_blocker_abi_loading_supported=false`
+    - `plugin_abi_udf_sandbox_blocker_dynamic_loading_performed=false`
+    - `plugin_abi_udf_sandbox_blocker_extension_code_executed=false`
+    - `plugin_abi_udf_sandbox_blocker_udf_execution_performed=false`
+    - `plugin_abi_udf_sandbox_blocker_sandbox_evidence_required=true`
+    - `plugin_abi_udf_sandbox_blocker_sandbox_enforced=false`
+    - `plugin_abi_udf_sandbox_blocker_permission_policy_enforced=false`
+    - `plugin_abi_udf_sandbox_blocker_runtime_execution=false`
+    - `plugin_abi_udf_sandbox_blocker_external_effect_executed=false`
+    - `plugin_abi_udf_sandbox_blocker_credential_resolution_performed=false`
+    - `plugin_abi_udf_sandbox_blocker_network_probe_performed=false`
+    - `plugin_abi_udf_sandbox_blocker_dependency_expansion_allowed=false`
+    - `plugin_abi_udf_sandbox_blocker_fallback_attempted=false`
+    - `plugin_abi_udf_sandbox_blocker_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core plugin_abi_udf_sandbox_blocker_blocks_loading_and_udfs`
+    - `cargo test -p shardloom-cli --test extension_manifest_effect_matrix_snapshots`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that it exposes deterministic report-only/blocker
+    diagnostics for plugin ABI loading, dynamic loading, and UDF sandbox admission. It may not claim
+    plugin ABI runtime support, dynamic extension loading, UDF execution, sandbox runtime
+    enforcement, credential resolution, network/external-service UDF effects, dependency expansion,
+    external engine invocation, or fallback execution.
+
 - [x] Session label: GAR-0019-B sandbox and governance runtime readiness
   - Branch/PR: `codex/gar-0019b-sandbox-governance-readiness` / #759.
   - Primary files:

@@ -1273,6 +1273,323 @@ impl ExtensionManifestEffectCapabilityMatrix {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginAbiUdfSandboxBlockerRow {
+    pub row_id: &'static str,
+    pub plugin_surface: &'static str,
+    pub support_status: &'static str,
+    pub abi_status: &'static str,
+    pub sandbox_requirement: &'static str,
+    pub blocker_id: &'static str,
+    pub diagnostic_code: &'static str,
+    pub required_evidence: &'static str,
+    pub user_visible_surface: &'static str,
+    pub dynamic_loading_performed: bool,
+    pub extension_code_executed: bool,
+    pub udf_execution_performed: bool,
+    pub sandbox_enforced: bool,
+    pub permission_policy_enforced: bool,
+    pub runtime_execution: bool,
+    pub external_effect_executed: bool,
+    pub credential_resolution_performed: bool,
+    pub network_probe_performed: bool,
+    pub dependency_expansion_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+impl PluginAbiUdfSandboxBlockerRow {
+    #[allow(clippy::too_many_arguments)]
+    const fn new(
+        row_id: &'static str,
+        plugin_surface: &'static str,
+        support_status: &'static str,
+        abi_status: &'static str,
+        sandbox_requirement: &'static str,
+        blocker_id: &'static str,
+        diagnostic_code: &'static str,
+        required_evidence: &'static str,
+        user_visible_surface: &'static str,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            row_id,
+            plugin_surface,
+            support_status,
+            abi_status,
+            sandbox_requirement,
+            blocker_id,
+            diagnostic_code,
+            required_evidence,
+            user_visible_surface,
+            dynamic_loading_performed: false,
+            extension_code_executed: false,
+            udf_execution_performed: false,
+            sandbox_enforced: false,
+            permission_policy_enforced: false,
+            runtime_execution: false,
+            external_effect_executed: false,
+            credential_resolution_performed: false,
+            network_probe_performed: false,
+            dependency_expansion_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginAbiUdfSandboxBlockerReport {
+    pub schema_version: &'static str,
+    pub blocker_id: &'static str,
+    pub docs_ref: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<PluginAbiUdfSandboxBlockerRow>,
+    pub abi_loading_supported: bool,
+    pub dynamic_loading_performed: bool,
+    pub extension_code_executed: bool,
+    pub udf_execution_performed: bool,
+    pub sandbox_evidence_required: bool,
+    pub sandbox_enforced: bool,
+    pub permission_policy_enforced: bool,
+    pub runtime_execution: bool,
+    pub external_effect_executed: bool,
+    pub credential_resolution_performed: bool,
+    pub network_probe_performed: bool,
+    pub dependency_expansion_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl PluginAbiUdfSandboxBlockerReport {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.plugin_abi_udf_sandbox_blocker.v1",
+            blocker_id: "gar-0023-a.plugin_abi_udf_sandbox_blocker",
+            docs_ref: "docs/architecture/plugin-abi-udf-sandbox-blocker.md",
+            support_status: "report_only",
+            claim_gate_status: "not_claim_grade",
+            rows: vec![
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "abi_contract_inventory",
+                    "plugin_abi_contract",
+                    "report_only",
+                    "metadata_only_not_stable",
+                    "sandbox_evidence_required",
+                    "none_abi_inventory",
+                    "SL_PLUGIN_ABI_REPORT_ONLY",
+                    "abi_schema,version_policy,manifest_schema,sandbox_policy,no_fallback_evidence",
+                    "extension-registry,extension-inspect,capabilities extensions",
+                    "Plugin ABI metadata can be inventoried, but ShardLoom does not stabilize or load plugin ABI runtime code.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "dynamic_library_loading",
+                    "dynamic_loading",
+                    "blocked",
+                    "unsupported",
+                    "full_sandbox_required",
+                    "gar-0023-a.dynamic_loading_blocked",
+                    "SL_PLUGIN_ABI_BLOCKED",
+                    "abi_compatibility,signature_verification,dependency_isolation,sandbox_policy,provenance,no_fallback_evidence",
+                    "extension-inspect,capabilities extensions",
+                    "Dynamic library loading remains blocked; extension inspection cannot execute code or load native libraries.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "rust_native_udf",
+                    "rust_udf",
+                    "blocked",
+                    "unsupported",
+                    "full_sandbox_required",
+                    "gar-0023-a.rust_udf_blocked",
+                    "SL_UDF_SANDBOX_BLOCKED",
+                    "function_registry,abi_contract,type_contract,determinism_policy,sandbox_policy,execution_certificate,no_fallback_evidence",
+                    "udf-runtime-plan,capabilities udfs",
+                    "Rust-native UDF execution remains blocked until ABI, function registry, sandbox, and certificate evidence exist.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "wasm_udf",
+                    "wasm_udf",
+                    "blocked",
+                    "unsupported",
+                    "fuel_memory_timeout_sandbox_required",
+                    "gar-0023-a.wasm_udf_blocked",
+                    "SL_UDF_SANDBOX_BLOCKED",
+                    "wasm_runtime_policy,fuel_budget,memory_budget,timeout_policy,sandbox_policy,execution_certificate,no_fallback_evidence",
+                    "udf-runtime-plan,capabilities udfs",
+                    "WASM UDF execution remains blocked; no WASM runtime, fuel budget, memory enforcement, or timeout enforcement is claimed.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "python_udf",
+                    "python_udf",
+                    "blocked",
+                    "unsupported",
+                    "python_boundary_and_sandbox_required",
+                    "gar-0023-a.python_udf_blocked",
+                    "SL_UDF_SANDBOX_BLOCKED",
+                    "python_boundary,materialization_policy,redaction_policy,sandbox_policy,execution_certificate,no_fallback_evidence",
+                    "udf-runtime-plan,capabilities udfs",
+                    "Python UDF execution remains blocked; no Python callable, interpreter bridge, row materialization, or fallback execution is enabled.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "sql_defined_udf",
+                    "sql_defined_udf",
+                    "blocked",
+                    "unsupported",
+                    "planner_and_function_registry_required",
+                    "gar-0023-a.sql_defined_udf_blocked",
+                    "SL_UDF_SANDBOX_BLOCKED",
+                    "sql_parser,binder,planner,function_registry,semantic_tests,execution_certificate,no_fallback_evidence",
+                    "udf-runtime-plan,capabilities udfs",
+                    "SQL-defined UDF execution remains blocked until SQL frontend and function registry evidence exists.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "external_service_udf",
+                    "external_service_udf",
+                    "blocked",
+                    "unsupported",
+                    "network_credentials_and_effect_policy_required",
+                    "gar-0023-a.external_service_udf_blocked",
+                    "SL_UDF_SANDBOX_BLOCKED",
+                    "network_policy,credential_policy,effect_budget,redaction_policy,audit_trail,execution_certificate,no_fallback_evidence",
+                    "udf-runtime-plan,capabilities udfs,capabilities security-governance",
+                    "External-service UDF execution remains blocked; no network, credential resolution, API call, or external effect is performed.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "table_function_udf",
+                    "table_function_udf",
+                    "blocked",
+                    "unsupported",
+                    "source_sink_materialization_policy_required",
+                    "gar-0023-a.table_function_udf_blocked",
+                    "SL_UDF_SANDBOX_BLOCKED",
+                    "table_function_contract,source_sink_policy,materialization_boundary,execution_certificate,no_fallback_evidence",
+                    "udf-runtime-plan,capabilities udfs",
+                    "Table-function UDF execution remains blocked until source/sink and materialization boundaries are certified.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "plugin_lifecycle_transition",
+                    "plugin_lifecycle",
+                    "blocked",
+                    "unsupported",
+                    "manifest_validation_and_policy_required",
+                    "gar-0023-a.plugin_lifecycle_transition_blocked",
+                    "SL_PLUGIN_ABI_BLOCKED",
+                    "manifest_validation,abi_status,provenance,signature,sandbox_policy,audit_trail,no_fallback_evidence",
+                    "extension-registry,extension-inspect",
+                    "Plugin lifecycle transitions beyond metadata inspection remain blocked; discovered metadata is not loaded, enabled, or executed.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "sandbox_evidence_binding",
+                    "sandbox_evidence",
+                    "blocked",
+                    "unsupported",
+                    "gar-0019-a_and_gar-0019-b_required",
+                    "gar-0023-a.sandbox_evidence_binding_blocked",
+                    "SL_PLUGIN_ABI_BLOCKED",
+                    "credential_policy_gate,sandbox_governance_gate,effect_budget,execution_certificate,no_fallback_evidence",
+                    "capabilities security-governance,capabilities extensions,capabilities udfs",
+                    "Plugin/UDF runtime admission remains blocked until credential and sandbox governance gates are evidence-backed runtime gates.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "license_provenance_attestation",
+                    "license_provenance",
+                    "report_only",
+                    "metadata_only",
+                    "review_required_before_enablement",
+                    "gar-0023-a.license_provenance_runtime_blocked",
+                    "SL_PLUGIN_ABI_REPORT_ONLY",
+                    "license_kind,source_ref,dependency_manifest,notice_policy,supply_chain_attestation,no_fallback_evidence",
+                    "extension-inspect,release security gate",
+                    "License and provenance metadata may be inspected; it does not authorize dependency expansion, plugin loading, or runtime support.",
+                ),
+                PluginAbiUdfSandboxBlockerRow::new(
+                    "unsupported_diagnostics",
+                    "diagnostics",
+                    "report_only",
+                    "metadata_only",
+                    "deterministic_unsupported_without_execution",
+                    "none_diagnostic_only",
+                    "SL_PLUGIN_ABI_UNSUPPORTED",
+                    "diagnostic_code,blocker_id,claim_boundary,no_fallback_evidence",
+                    "extension-registry,extension-inspect,udf-runtime-plan,capabilities extensions,capabilities udfs",
+                    "Unsupported plugin ABI and UDF sandbox requests must emit deterministic diagnostics without loading code, executing UDFs, or invoking fallback engines.",
+                ),
+            ],
+            abi_loading_supported: false,
+            dynamic_loading_performed: false,
+            extension_code_executed: false,
+            udf_execution_performed: false,
+            sandbox_evidence_required: true,
+            sandbox_enforced: false,
+            permission_policy_enforced: false,
+            runtime_execution: false,
+            external_effect_executed: false,
+            credential_resolution_performed: false,
+            network_probe_performed: false,
+            dependency_expansion_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.blocker_id).collect()
+    }
+
+    #[must_use]
+    pub fn required_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.required_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn all_plugin_runtime_blocked(&self) -> bool {
+        !self.abi_loading_supported
+            && !self.dynamic_loading_performed
+            && !self.extension_code_executed
+            && !self.udf_execution_performed
+            && self.sandbox_evidence_required
+            && !self.sandbox_enforced
+            && !self.permission_policy_enforced
+            && !self.runtime_execution
+            && !self.external_effect_executed
+            && !self.credential_resolution_performed
+            && !self.network_probe_performed
+            && !self.dependency_expansion_allowed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.rows.iter().all(|row| {
+                !row.dynamic_loading_performed
+                    && !row.extension_code_executed
+                    && !row.udf_execution_performed
+                    && !row.sandbox_enforced
+                    && !row.permission_policy_enforced
+                    && !row.runtime_execution
+                    && !row.external_effect_executed
+                    && !row.credential_resolution_performed
+                    && !row.network_probe_performed
+                    && !row.dependency_expansion_allowed
+                    && !row.fallback_attempted
+                    && !row.external_engine_invoked
+            })
+    }
+}
+
+#[must_use]
+pub fn plan_plugin_abi_udf_sandbox_blocker() -> PluginAbiUdfSandboxBlockerReport {
+    PluginAbiUdfSandboxBlockerReport::report_only()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1542,5 +1859,52 @@ mod tests {
                 .all(|row| row.claim_boundary.contains("no")
                     || row.claim_boundary.contains("remain"))
         );
+    }
+
+    #[test]
+    fn plugin_abi_udf_sandbox_blocker_blocks_loading_and_udfs() {
+        let report = plan_plugin_abi_udf_sandbox_blocker();
+        assert_eq!(
+            report.schema_version,
+            "shardloom.plugin_abi_udf_sandbox_blocker.v1"
+        );
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.support_status, "report_only");
+        assert!(report.sandbox_evidence_required);
+        assert!(report.all_plugin_runtime_blocked());
+        for row_id in [
+            "abi_contract_inventory",
+            "dynamic_library_loading",
+            "rust_native_udf",
+            "wasm_udf",
+            "python_udf",
+            "sandbox_evidence_binding",
+            "unsupported_diagnostics",
+        ] {
+            assert!(report.row_order().contains(&row_id), "missing {row_id}");
+        }
+        assert!(report.required_evidence().iter().any(|evidence| {
+            evidence.contains("sandbox_policy") || evidence.contains("sandbox_governance_gate")
+        }));
+        assert!(
+            report
+                .blocker_ids()
+                .contains(&"gar-0023-a.dynamic_loading_blocked")
+        );
+        for row in &report.rows {
+            assert!(!row.dynamic_loading_performed);
+            assert!(!row.extension_code_executed);
+            assert!(!row.udf_execution_performed);
+            assert!(!row.sandbox_enforced);
+            assert!(!row.permission_policy_enforced);
+            assert!(!row.runtime_execution);
+            assert!(!row.external_effect_executed);
+            assert!(!row.credential_resolution_performed);
+            assert!(!row.network_probe_performed);
+            assert!(!row.dependency_expansion_allowed);
+            assert!(!row.fallback_attempted);
+            assert!(!row.external_engine_invoked);
+            assert!(row.claim_boundary.contains("no") || row.claim_boundary.contains("remain"));
+        }
     }
 }

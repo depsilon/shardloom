@@ -9,8 +9,9 @@ use std::process::ExitCode;
 use shardloom_core::{
     CommandStatus, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
     ExtensionManifestEffectCapabilityMatrix, ExtensionManifestEffectCapabilityRow,
-    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, OutputFormat, ShardLoomError,
-    UdfRuntimeKind,
+    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, OutputFormat,
+    PluginAbiUdfSandboxBlockerReport, PluginAbiUdfSandboxBlockerRow, ShardLoomError,
+    UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -120,6 +121,7 @@ fn extension_report_only_fields(mode: &str) -> Vec<(String, String)> {
         ("dynamic_loading".to_string(), "false".to_string()),
     ];
     append_extension_manifest_effect_capability_matrix_fields(&mut fields);
+    append_plugin_abi_udf_sandbox_blocker_fields(&mut fields);
     fields
 }
 
@@ -275,6 +277,180 @@ fn append_extension_manifest_effect_row_bool_fields(
         ("extension_code_executed", row.extension_code_executed),
         ("dynamic_loading", row.dynamic_loading),
         ("udf_execution", row.udf_execution),
+        ("external_effect_executed", row.external_effect_executed),
+        (
+            "credential_resolution_performed",
+            row.credential_resolution_performed,
+        ),
+        ("network_probe_performed", row.network_probe_performed),
+        (
+            "dependency_expansion_allowed",
+            row.dependency_expansion_allowed,
+        ),
+        ("fallback_attempted", row.fallback_attempted),
+        ("external_engine_invoked", row.external_engine_invoked),
+    ] {
+        push_bool_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+}
+
+pub(crate) fn append_plugin_abi_udf_sandbox_blocker_fields(fields: &mut Vec<(String, String)>) {
+    let report = plan_plugin_abi_udf_sandbox_blocker();
+    let row_order = report.row_order().join(",");
+    let blocker_ids = report.blocker_ids().join(",");
+    let required_evidence = report.required_evidence().join("|");
+    for (key, value) in [
+        (
+            "plugin_abi_udf_sandbox_blocker_schema_version",
+            report.schema_version,
+        ),
+        ("plugin_abi_udf_sandbox_blocker_id", report.blocker_id),
+        ("plugin_abi_udf_sandbox_blocker_docs_ref", report.docs_ref),
+        (
+            "plugin_abi_udf_sandbox_blocker_support_status",
+            report.support_status,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_claim_gate_status",
+            report.claim_gate_status,
+        ),
+    ] {
+        push_field(fields, key, value);
+    }
+    push_count_field(
+        fields,
+        "plugin_abi_udf_sandbox_blocker_row_count",
+        report.rows.len(),
+    );
+    for (key, value) in [
+        (
+            "plugin_abi_udf_sandbox_blocker_row_order",
+            row_order.as_str(),
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_blocker_ids",
+            blocker_ids.as_str(),
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_required_evidence",
+            required_evidence.as_str(),
+        ),
+    ] {
+        push_field(fields, key, value);
+    }
+    append_plugin_abi_udf_sandbox_blocker_bool_fields(fields, &report);
+    for row in &report.rows {
+        append_plugin_abi_udf_sandbox_blocker_row_fields(fields, row);
+    }
+}
+
+fn append_plugin_abi_udf_sandbox_blocker_bool_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &PluginAbiUdfSandboxBlockerReport,
+) {
+    for (key, value) in [
+        (
+            "plugin_abi_udf_sandbox_blocker_all_plugin_runtime_blocked",
+            report.all_plugin_runtime_blocked(),
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_abi_loading_supported",
+            report.abi_loading_supported,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_dynamic_loading_performed",
+            report.dynamic_loading_performed,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_extension_code_executed",
+            report.extension_code_executed,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_udf_execution_performed",
+            report.udf_execution_performed,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_sandbox_evidence_required",
+            report.sandbox_evidence_required,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_sandbox_enforced",
+            report.sandbox_enforced,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_permission_policy_enforced",
+            report.permission_policy_enforced,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_runtime_execution",
+            report.runtime_execution,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_external_effect_executed",
+            report.external_effect_executed,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_credential_resolution_performed",
+            report.credential_resolution_performed,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_network_probe_performed",
+            report.network_probe_performed,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_dependency_expansion_allowed",
+            report.dependency_expansion_allowed,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_fallback_attempted",
+            report.fallback_attempted,
+        ),
+        (
+            "plugin_abi_udf_sandbox_blocker_external_engine_invoked",
+            report.external_engine_invoked,
+        ),
+    ] {
+        push_bool_field(fields, key, value);
+    }
+}
+
+fn append_plugin_abi_udf_sandbox_blocker_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &PluginAbiUdfSandboxBlockerRow,
+) {
+    let prefix = format!("plugin_abi_udf_sandbox_blocker_row_{}", row.row_id);
+    for (suffix, value) in [
+        ("plugin_surface", row.plugin_surface),
+        ("support_status", row.support_status),
+        ("abi_status", row.abi_status),
+        ("sandbox_requirement", row.sandbox_requirement),
+        ("blocker_id", row.blocker_id),
+        ("diagnostic_code", row.diagnostic_code),
+        ("required_evidence", row.required_evidence),
+        ("user_visible_surface", row.user_visible_surface),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    append_plugin_abi_udf_sandbox_blocker_row_bool_fields(fields, row, &prefix);
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
+}
+
+fn append_plugin_abi_udf_sandbox_blocker_row_bool_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &PluginAbiUdfSandboxBlockerRow,
+    prefix: &str,
+) {
+    for (suffix, value) in [
+        ("dynamic_loading_performed", row.dynamic_loading_performed),
+        ("extension_code_executed", row.extension_code_executed),
+        ("udf_execution_performed", row.udf_execution_performed),
+        ("sandbox_enforced", row.sandbox_enforced),
+        ("permission_policy_enforced", row.permission_policy_enforced),
+        ("runtime_execution", row.runtime_execution),
         ("external_effect_executed", row.external_effect_executed),
         (
             "credential_resolution_performed",
