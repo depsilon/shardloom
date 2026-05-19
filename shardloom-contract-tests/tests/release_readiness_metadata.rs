@@ -518,6 +518,7 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
         "shardloom.foundry_generated_output_fanout_posture.v1",
         "shardloom.foundry_generated_output_boundary.v1",
         "shardloom.foundry_scale_proof_boundary.v1",
+        "shardloom.foundry_package_proof_boundary_matrix.v1",
         "shardloom.foundry_dev_stack_starter_kit.v1",
         "foundry_dev_stack_starter_kit_status",
         "foundry_dev_stack_starter_kit_ref",
@@ -532,6 +533,16 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
         "foundry_evidence_dataset_written",
         "foundry_scale_proof_boundary",
         "foundry_scale_proof_boundary_status",
+        "foundry_package_proof_boundary_matrix",
+        "foundry_package_proof_boundary_matrix_status",
+        "foundry_package_proof_boundary_matrix_ref",
+        "shardloom_foundry_package",
+        "artifact_repository_publication",
+        "foundry_service_invocation",
+        "compute_module_surface",
+        "virtual_table_native_execution",
+        "dataset_transaction_runtime",
+        "f10_workload_certified_deployment",
         "generated_output_execution_performed",
         "generated_source_certificate_status",
         "output_native_io_certificate_status",
@@ -752,6 +763,8 @@ fn release_package_docs_workflow_and_examples_are_present() {
         "docs/security/open-source-security-posture.md",
         "docs/foundry/integration-pack-readiness.md",
         "docs/foundry/proof-of-use-certification.md",
+        "docs/foundry/package-proof-boundary-matrix.md",
+        "docs/foundry/package-proof-boundary-matrix.json",
         "examples/local-python-smoke/README.md",
         "examples/local-python-smoke/run.py",
         "examples/local-vortex-benchmark/README.md",
@@ -1309,6 +1322,10 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "FoundryMarketplaceStarterProduct",
         "shardloom.foundry_dev_stack_starter_kit.v1",
         "docs/foundry/dev-stack-starter-kit.md",
+        "docs/foundry/package-proof-boundary-matrix.md",
+        "shardloom.foundry_package_proof_boundary_matrix.v1",
+        "foundry_package_proof_boundary_matrix_status=report_only",
+        "foundry_package_proof_boundary_matrix_ref=foundry_package_proof_boundary_matrix",
         "python scripts\\foundry_proof_of_use.py",
         "shardloom.foundry_generated_output_boundary.v1",
         "foundry_output_api_required=true",
@@ -1330,6 +1347,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "shardloom.foundry_generated_output_fanout_posture.v1",
         "shardloom.foundry_generated_output_boundary.v1",
         "shardloom.foundry_scale_proof_boundary.v1",
+        "shardloom.foundry_package_proof_boundary_matrix.v1",
         "shardloom.foundry_dev_stack_starter_kit.v1",
         "shardloom.generated_source_certificate_contract.v1",
         "package_install_mode",
@@ -1344,6 +1362,9 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "foundry_generated_output_fanout_status",
         "foundry_generated_output_boundary_status",
         "foundry_scale_proof_boundary_status",
+        "foundry_package_proof_boundary_matrix_status",
+        "foundry_package_proof_boundary_matrix_ref",
+        "foundry_package_proof_boundary_matrix",
         "generated_output_execution_performed=false",
         "generated_source_certificate_status=not_applicable_no_generated_rows",
         "generated_source_certificate_status=not_emitted_report_only",
@@ -1367,6 +1388,13 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "external_engine_invoked=false",
         "public_foundry_generated_output_claim_allowed=false",
         "public_foundry_claim_allowed=false",
+        "shardloom_foundry_package",
+        "artifact_repository_publication",
+        "foundry_service_invocation",
+        "compute_module_surface",
+        "virtual_table_native_execution",
+        "dataset_transaction_runtime",
+        "f10_workload_certified_deployment",
         "local_foundry_style_proof_claim_allowed",
     ] {
         assert!(
@@ -1511,6 +1539,119 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
             "missing GAR-NOVEL-1A architecture field {required}"
         );
     }
+}
+
+#[test]
+fn foundry_package_proof_boundary_matrix_remains_report_only() {
+    let doc = read_repo_file("docs/foundry/package-proof-boundary-matrix.md");
+    for required in [
+        "shardloom.foundry_package_proof_boundary_matrix.v1",
+        "GAR-0036-A",
+        "support_status=report_only",
+        "claim_gate_status=not_claim_grade",
+        "foundry_runtime_invoked=false",
+        "foundry_compute_invoked=false",
+        "foundry_spark_invoked=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "public_foundry_claim_allowed=false",
+        "local_style_transform_fixture",
+        "local_certificate_metrics_output",
+        "shardloom_foundry_package",
+        "artifact_repository_publication",
+        "foundry_service_invocation",
+        "compute_module_surface",
+        "virtual_table_native_execution",
+        "dataset_transaction_runtime",
+        "f10_workload_certified_deployment",
+        "no `shardloom-foundry` package claim",
+        "no dataset transaction runtime claim",
+        "python scripts\\check_foundry_package_proof_boundary.py",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing Foundry package proof boundary doc field {required}"
+        );
+    }
+
+    let matrix = read_repo_file("docs/foundry/package-proof-boundary-matrix.json");
+    for required in [
+        "\"schema_version\": \"shardloom.foundry_package_proof_boundary_matrix.v1\"",
+        "\"gar_id\": \"GAR-0036-A\"",
+        "\"support_status\": \"report_only\"",
+        "\"claim_gate_status\": \"not_claim_grade\"",
+        "\"row_count\": 9",
+        "\"local_style_claim_allowed_count\": 2",
+        "\"blocked_count\": 7",
+        "\"public_foundry_claim_allowed\": false",
+        "\"foundry_package_publication_allowed\": false",
+        "\"artifact_repository_publication_allowed\": false",
+        "\"foundry_service_invocation_allowed\": false",
+        "\"compute_module_invoked\": false",
+        "\"virtual_table_native_execution_claimed\": false",
+        "\"dataset_transaction_runtime_allowed\": false",
+        "\"f10_deployment_certified\": false",
+        "\"foundry_runtime_invoked\": false",
+        "\"foundry_compute_invoked\": false",
+        "\"foundry_spark_invoked\": false",
+        "\"foundry_output_api_invoked\": false",
+        "\"fallback_attempted\": false",
+        "\"external_engine_invoked\": false",
+    ] {
+        assert!(
+            matrix.contains(required),
+            "missing Foundry package proof boundary matrix field {required}"
+        );
+    }
+
+    let script = read_repo_file("scripts/check_foundry_package_proof_boundary.py");
+    for required in [
+        "shardloom.foundry_package_proof_boundary_matrix.v1",
+        "shardloom.foundry_package_proof_boundary_matrix_report.v1",
+        "REQUIRED_ROWS",
+        "REQUIRED_FALSE_FIELDS",
+        "public_foundry_claim_allowed",
+        "local_style_claim_allowed",
+        "fixture_smoke_only",
+        "not_claim_grade",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing Foundry package proof boundary validator field {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0036-A Foundry package and proof boundary matrix"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "GAR-0036-A Foundry package and proof boundary matrix",
+        "shardloom.foundry_package_proof_boundary_matrix.v1",
+        "foundry_package_proof_boundary_matrix_status=report_only",
+        "foundry_package_proof_boundary_matrix_ref=foundry_package_proof_boundary_matrix",
+        "support_status=report_only",
+        "claim_gate_status=not_claim_grade",
+        "foundry_runtime_invoked=false",
+        "foundry_compute_invoked=false",
+        "foundry_spark_invoked=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "public_foundry_claim_allowed=false",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing GAR-0036-A completed ledger field {required}"
+        );
+    }
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("- [x] `GAR-0036-A`"));
+    assert!(gar.contains("shardloom.foundry_package_proof_boundary_matrix.v1"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0036-A"));
+    assert!(traceability.contains("docs/foundry/package-proof-boundary-matrix.md"));
 }
 
 #[test]

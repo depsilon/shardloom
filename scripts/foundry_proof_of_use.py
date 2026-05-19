@@ -25,6 +25,9 @@ FOUNDRY_GENERATED_OUTPUT_BOUNDARY_SCHEMA_VERSION = (
 FOUNDRY_SCALE_PROOF_BOUNDARY_SCHEMA_VERSION = (
     "shardloom.foundry_scale_proof_boundary.v1"
 )
+FOUNDRY_PACKAGE_PROOF_BOUNDARY_MATRIX_SCHEMA_VERSION = (
+    "shardloom.foundry_package_proof_boundary_matrix.v1"
+)
 FOUNDRY_DEV_STACK_STARTER_SCHEMA_VERSION = (
     "shardloom.foundry_dev_stack_starter_kit.v1"
 )
@@ -208,6 +211,179 @@ def foundry_scale_proof_boundary(staged_input_bytes: int) -> dict[str, Any]:
     }
 
 
+def _foundry_boundary_row(
+    row_id: str,
+    *,
+    support_status: str,
+    local_style_claim_allowed: bool,
+    required_evidence: list[str],
+    blocker_id: str,
+) -> dict[str, Any]:
+    return {
+        "row_id": row_id,
+        "support_status": support_status,
+        "proof_status": "local_style_only" if local_style_claim_allowed else "blocked",
+        "required_evidence": required_evidence,
+        "blocker_id": blocker_id,
+        "local_style_claim_allowed": local_style_claim_allowed,
+        "public_foundry_claim_allowed": False,
+        "foundry_package_publication_allowed": False,
+        "artifact_repository_publication_allowed": False,
+        "foundry_service_invocation_allowed": False,
+        "compute_module_invoked": False,
+        "virtual_table_native_execution_claimed": False,
+        "dataset_transaction_runtime_allowed": False,
+        "f10_deployment_certified": False,
+        "foundry_runtime_invoked": False,
+        "foundry_compute_invoked": False,
+        "foundry_spark_invoked": False,
+        "foundry_output_api_invoked": False,
+        "external_engine_invoked": False,
+        "fallback_attempted": False,
+        "claim_gate_status": "fixture_smoke_only"
+        if local_style_claim_allowed
+        else "not_claim_grade",
+    }
+
+
+def foundry_package_proof_boundary_matrix() -> dict[str, Any]:
+    rows = [
+        _foundry_boundary_row(
+            "local_style_transform_fixture",
+            support_status="smoke_supported",
+            local_style_claim_allowed=True,
+            required_evidence=[
+                "source_checkout",
+                "local_cli_build",
+                "local_transform_script",
+                "no_foundry_runtime_invocation",
+            ],
+            blocker_id="none_local_style_fixture_only",
+        ),
+        _foundry_boundary_row(
+            "local_certificate_metrics_output",
+            support_status="smoke_supported",
+            local_style_claim_allowed=True,
+            required_evidence=[
+                "local_certificate_json",
+                "local_benchmark_metrics_json",
+                "no_foundry_dataset_write",
+            ],
+            blocker_id="none_local_certificate_json_only",
+        ),
+        _foundry_boundary_row(
+            "shardloom_foundry_package",
+            support_status="blocked",
+            local_style_claim_allowed=False,
+            required_evidence=[
+                "package_build",
+                "clean_foundry_repo_install",
+                "import_smoke_inside_foundry",
+                "release_provenance",
+            ],
+            blocker_id="gar-0036-a.shardloom_foundry_package_not_published",
+        ),
+        _foundry_boundary_row(
+            "artifact_repository_publication",
+            support_status="blocked",
+            local_style_claim_allowed=False,
+            required_evidence=[
+                "artifact_repository_upload",
+                "version_pin",
+                "install_from_artifact_repository",
+                "rollback_policy",
+            ],
+            blocker_id="gar-0036-a.artifact_repository_publication_missing",
+        ),
+        _foundry_boundary_row(
+            "foundry_service_invocation",
+            support_status="blocked",
+            local_style_claim_allowed=False,
+            required_evidence=[
+                "real_foundry_runtime_context",
+                "service_invocation_trace",
+                "foundry_compute_false_or_external_boundary",
+                "evidence_dataset_output",
+            ],
+            blocker_id="gar-0036-a.foundry_service_invocation_missing",
+        ),
+        _foundry_boundary_row(
+            "compute_module_surface",
+            support_status="blocked",
+            local_style_claim_allowed=False,
+            required_evidence=[
+                "compute_module_packaging",
+                "compute_module_invocation_trace",
+                "no_spark_fallback_proof",
+            ],
+            blocker_id="gar-0036-a.compute_module_not_proven",
+        ),
+        _foundry_boundary_row(
+            "virtual_table_native_execution",
+            support_status="blocked",
+            local_style_claim_allowed=False,
+            required_evidence=[
+                "virtual_table_ref",
+                "staged_native_data",
+                "execution_certificate",
+                "native_io_certificate",
+            ],
+            blocker_id="gar-0036-a.virtual_table_native_execution_not_proven",
+        ),
+        _foundry_boundary_row(
+            "dataset_transaction_runtime",
+            support_status="blocked",
+            local_style_claim_allowed=False,
+            required_evidence=[
+                "foundry_dataset_transaction_context",
+                "result_dataset_write",
+                "evidence_dataset_write",
+                "idempotency_key",
+            ],
+            blocker_id="gar-0036-a.dataset_transaction_runtime_not_proven",
+        ),
+        _foundry_boundary_row(
+            "f10_workload_certified_deployment",
+            support_status="blocked",
+            local_style_claim_allowed=False,
+            required_evidence=[
+                "workload_constitution",
+                "foundry_runtime_proof",
+                "correctness_evidence",
+                "benchmark_evidence",
+                "release_gate",
+            ],
+            blocker_id="gar-0036-a.f10_deployment_not_certified",
+        ),
+    ]
+    return {
+        "schema_version": FOUNDRY_PACKAGE_PROOF_BOUNDARY_MATRIX_SCHEMA_VERSION,
+        "gar_id": "GAR-0036-A",
+        "support_status": "report_only",
+        "claim_gate_status": "not_claim_grade",
+        "row_count": len(rows),
+        "row_order": [row["row_id"] for row in rows],
+        "local_style_claim_allowed_count": sum(
+            1 for row in rows if row["local_style_claim_allowed"]
+        ),
+        "blocked_count": sum(1 for row in rows if row["support_status"] == "blocked"),
+        "foundry_runtime_invoked": False,
+        "foundry_compute_invoked": False,
+        "foundry_spark_invoked": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "public_foundry_claim_allowed": False,
+        "claim_boundary": (
+            "Local Foundry-style smoke and local certificate JSON proof only. "
+            "No shardloom-foundry package, Artifact Repository publication, service "
+            "invocation, Compute Module, virtual-table native execution, dataset "
+            "transaction runtime, F10 deployment, Spark fallback, or production "
+            "Foundry claim is supported."
+        ),
+        "rows": rows,
+    }
+
+
 def staged_dataset_bytes(repo_root: Path, transform: dict[str, Any]) -> int:
     staged_path = transform.get("staged_dataset_path")
     if not isinstance(staged_path, str) or not staged_path:
@@ -277,6 +453,7 @@ def main() -> int:
     foundry_scale_proof = foundry_scale_proof_boundary(
         staged_dataset_bytes(repo_root, transform)
     )
+    package_boundary_matrix = foundry_package_proof_boundary_matrix()
     report = {
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if passed else "blocked",
@@ -311,6 +488,11 @@ def main() -> int:
         "foundry_scale_proof_boundary_status": foundry_scale_proof["support_status"],
         "foundry_scale_proof_boundary_ref": "foundry_scale_proof_boundary",
         "foundry_scale_proof_boundary": foundry_scale_proof,
+        "foundry_package_proof_boundary_matrix_status": package_boundary_matrix[
+            "support_status"
+        ],
+        "foundry_package_proof_boundary_matrix_ref": "foundry_package_proof_boundary_matrix",
+        "foundry_package_proof_boundary_matrix": package_boundary_matrix,
         "foundry_runtime_invoked": False,
         "foundry_compute_invoked": False,
         "foundry_spark_invoked": False,

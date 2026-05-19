@@ -200,22 +200,6 @@ runtime behavior or support claims. The GAR-P0/P4/P5 groups in this section are 
 non-runtime queue; do not start the runtime implementation queue below until these are closed or
 explicitly reprioritized.
 
-- [ ] GAR-0036-A Foundry package and proof boundary matrix
-  - Source: RFC 0036; Foundry integration pack docs; release docs.
-  - Current state: local Foundry proof docs exist; production `shardloom-foundry`, package
-    publication, service invocation, Artifact Repository publication, Compute Module, virtual-table
-    native execution, dataset transaction runtime, and F10 deployment are not certified.
-  - Next slice outcome: matrix separating local proof, package readiness, service invocation,
-    virtual tables, dataset transaction, and deployment evidence.
-  - User-visible surface: Foundry docs, release gate, example outputs.
-  - Implementation scope: docs/report fields, proof script metadata, tests.
-  - Evidence required: release/package refs, Native I/O refs for any native lane, policy/no-fallback
-    refs.
-  - Acceptance: Foundry external compute is never reported as ShardLoom execution.
-  - Verification: Foundry proof script tests if touched, release readiness metadata tests.
-  - Non-goals: no Foundry invocation, publication, or platform credential.
-  - Fallback/claim boundary: Foundry remains optional integration, not a fallback engine.
-  - Dependencies/blockers: package publication and credentials gates.
 ##### Non-Runtime GAR-P4 - Extension, Governance, And Runtime Policy
 
 - [ ] GAR-0011-A extension manifest and external-effect capability matrix

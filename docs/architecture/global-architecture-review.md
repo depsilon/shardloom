@@ -1097,9 +1097,17 @@ plan before coding.
   `direct_s3_write_invoked=false`, `object_store_read_invoked=false`,
   `object_store_commit_invoked=false`, `fallback_attempted=false`, and
   `external_engine_invoked=false`.
+- [x] `GAR-0036-A` adds `shardloom.foundry_package_proof_boundary_matrix.v1` and
+  `docs/foundry/package-proof-boundary-matrix.md` so local Foundry-style proof rows are separated
+  from blocked `shardloom-foundry` package publication, Artifact Repository publication, Foundry
+  service invocation, Compute Module invocation, virtual-table native execution, dataset transaction
+  runtime, and F10 workload-certified deployment. The matrix keeps `support_status=report_only`,
+  `claim_gate_status=not_claim_grade`, `foundry_runtime_invoked=false`,
+  `foundry_compute_invoked=false`, `foundry_spark_invoked=false`, `fallback_attempted=false`,
+  `external_engine_invoked=false`, and `public_foundry_claim_allowed=false`.
 - [ ] Production `shardloom-foundry`, package publication, Foundry service invocation, Artifact
   Repository publication, Compute Module, virtual-table native execution, Foundry dataset
-  transaction runtime, and F10 workload-certified deployment remain incomplete.
+  transaction runtime, and F10 workload-certified deployment remain runtime-incomplete.
 
 ### RFC 0037 - Client, Wrapper, SDK, and Ecosystem Integration Surface
 

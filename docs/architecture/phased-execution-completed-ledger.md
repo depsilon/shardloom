@@ -16,6 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0036-A Foundry package and proof boundary matrix
+  - Branch/PR: `codex/gar-0036a-foundry-boundary-matrix` / #756.
+  - Primary files:
+    - `scripts/foundry_proof_of_use.py`
+    - `scripts/check_foundry_package_proof_boundary.py`
+    - `docs/foundry/package-proof-boundary-matrix.json`
+    - `docs/foundry/package-proof-boundary-matrix.md`
+    - `docs/foundry/integration-pack-readiness.md`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0036-A by making the Foundry package/proof boundary a machine-readable
+    report-only matrix attached to the local proof-of-use report and Foundry docs.
+  - Checklist:
+    - [x] Add `shardloom.foundry_package_proof_boundary_matrix.v1`.
+    - [x] Separate current local Foundry-style smoke rows from blocked package/platform rows.
+    - [x] Add a validator for the matrix and documentation.
+    - [x] Move GAR-0036-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `foundry_package_proof_boundary_matrix_status=report_only`
+    - `foundry_package_proof_boundary_matrix_ref=foundry_package_proof_boundary_matrix`
+    - `support_status=report_only`
+    - `claim_gate_status=not_claim_grade`
+    - `foundry_runtime_invoked=false`
+    - `foundry_compute_invoked=false`
+    - `foundry_spark_invoked=false`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `public_foundry_claim_allowed=false`
+  - Verification:
+    - `python scripts/check_foundry_package_proof_boundary.py`
+    - `python -m compileall -q scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that it has a deterministic Foundry package/proof
+    boundary matrix and local Foundry-style proof posture. It may not claim a `shardloom-foundry`
+    package, Artifact Repository publication, Foundry service invocation, Compute Module support,
+    virtual-table native execution, dataset transaction runtime, F10 workload-certified deployment,
+    Spark fallback, external compute pushdown, production Foundry support, or package publication.
+
 - [x] Session label: GAR-0032-E best-default certification gate
   - Branch/PR: `codex/gar-0032e-best-default-gate` / #755.
   - Primary files:
