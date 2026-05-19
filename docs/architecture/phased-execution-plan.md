@@ -276,13 +276,16 @@ or documentation updates alone are insufficient.
     `column IN (<literal>,...)` predicates are runtime-admitted with `in_predicate_*` evidence and
     blockers for empty, NULL, mixed DATE/non-DATE, oversized, and subquery-backed lists, and scoped
     local SQL logical `AND`/`OR`/`NOT` predicates plus balanced grouping parentheses are
-    runtime-admitted over already admitted leaf predicates. Scoped Date32 day arithmetic through
-    `DATE_ADD_DAYS(column, days)` / `DATE_SUB_DAYS(column, days)` predicates is runtime-admitted
-    with `date_arithmetic_*` evidence and deterministic blockers for invalid day counts or
-    unsupported non-Date32 shapes. Python now exposes `sl.col(...)`
+    runtime-admitted over already admitted leaf predicates. Scoped Date32 extracts through
+    `DATE_YEAR(column)` / `DATE_MONTH(column)` / `DATE_DAY(column)` predicates are runtime-admitted
+    with `date_extract_*` evidence and deterministic blockers for unsupported non-Date32 or
+    non-integer comparison shapes. Scoped Date32 day arithmetic through `DATE_ADD_DAYS(column, days)`
+    / `DATE_SUB_DAYS(column, days)` predicates is runtime-admitted with `date_arithmetic_*`
+    evidence and deterministic blockers for invalid day counts or unsupported non-Date32 shapes.
+    Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`,
-    bounded `IN`, cast/date, Date32 day arithmetic, and logical predicates into the same local SQL
-    smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
+    bounded `IN`, cast/date, Date32 extracts, Date32 day arithmetic, and logical predicates into the
+    same local SQL smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
     coercions, timestamp/timezone helpers, interval/date-time completeness, NULL/subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
     family coverage.

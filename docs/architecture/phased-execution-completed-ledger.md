@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D Date32 extract predicate runtime slice
+  - Branch/PR: `codex/runtime-date-extract-predicates` / #817.
+  - Primary files:
+    - `shardloom-core/src/expression.rs`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add scoped ShardLoom-native Date32 extract predicates for local SQL/Python source smokes
+    without introducing external execution fallback.
+  - Runtime behavior:
+    - Core expression semantics now evaluates `date_year(Date32)`, `date_month(Date32)`, and
+      `date_day(Date32)` through the native expression evaluator with null propagation and
+      `operator_family=date_extract`.
+    - SQL local-source smoke now admits
+      `DATE_YEAR(<column-or-CAST-date32>) <op> <int-literal>`,
+      `DATE_MONTH(<column-or-CAST-date32>) <op> <int-literal>`, and
+      `DATE_DAY(<column-or-CAST-date32>) <op> <int-literal>`, including deterministic blockers for
+      non-integer comparison values and unsupported non-Date32 source shapes.
+    - Python `sl.col(...)` now exposes `date_year()`, `date_month()`, and `date_day()` helpers that
+      lower to the same admitted SQL smoke path.
+  - Evidence:
+    - SQL local-source reports emit `date_extract_runtime_execution`, `date_extract_operator`, and
+      `date_extract_source_column`.
+    - Existing `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only` fields remain visible.
+  - Verification:
+    - `cargo test -p shardloom-core expression_semantics_evaluates_date --lib`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_date_extract_predicates_without_fallback`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families`
+  - Claim boundary: scoped local Date32 year/month/day predicate runtime only. This does not add
+    timestamp/timezone completeness, generalized SQL date functions, broad SQL/DataFrame runtime,
+    object-store/lakehouse support, Foundry support, package publication, performance/superiority
+    claims, or Spark-displacement claims.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D Date32 day arithmetic predicate runtime slice
   - Branch/PR: `codex/runtime-expression-date-arithmetic` / #816.
   - Primary files:

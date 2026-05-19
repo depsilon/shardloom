@@ -2347,6 +2347,30 @@ mod tests {
     }
 
     #[test]
+    fn expression_semantics_evaluates_date_extract_without_fallback() {
+        let expression = Expression::new(
+            expr_id("date-month"),
+            ExpressionKind::FunctionCall {
+                name: "date_month".to_string(),
+                args: vec![Expression::column(expr_id("event_date"), col("event_date"))],
+            },
+        );
+        let base_date = parse_iso_date32("2026-05-19").expect("date parses");
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("event_date", ScalarValue::Date32(base_date))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "date_extract");
+        assert_eq!(report.value, Some(ScalarValue::Int64(5)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
     fn expression_semantics_evaluates_date_sub_days_and_nulls_without_fallback() {
         let expression = Expression::new(
             expr_id("date-sub"),

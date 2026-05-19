@@ -336,8 +336,9 @@ local path with `SELECT *`. The same projection/optional-filter/limit
 shape is admitted for `read_json(...)` only when the source path is local
 `.jsonl` or `.ndjson`; plain `.json`, nested JSON expansion, and JSONPath
 remain deterministic unsupported surfaces. Filters admit scoped comparison,
-cast, date-literal, Date32 day arithmetic with `DATE_ADD_DAYS(...)` /
-`DATE_SUB_DAYS(...)`, bounded `IN (...)`, inclusive `between(...)` range predicates, string
+cast, date-literal, Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
+`DATE_DAY(...)`, Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
+bounded `IN (...)`, inclusive `between(...)` range predicates, string
 `LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
 leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up to 32 non-null
 literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists, and expose
@@ -345,7 +346,8 @@ literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists, and 
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
 `startswith()`, `endswith()`, `like(...)`, `between(...)`, bounded `isin(...)`, `cast(dtype)`,
-`date_add_days(days)`, and `date_sub_days(days)` comparisons into the same ShardLoom SQL smoke
+`date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
+`date_sub_days(days)` comparisons into the same ShardLoom SQL smoke
 path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed literal `with_column(...)` is also admitted after an explicit `select(...)` for local
 CSV and flat JSONL/NDJSON projection/filter/limit workflows. The first slice accepts only

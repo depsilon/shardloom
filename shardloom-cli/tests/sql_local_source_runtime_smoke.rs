@@ -1007,6 +1007,54 @@ fn sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback()
 }
 
 #[test]
+fn sql_local_source_smoke_executes_date_extract_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-date-extract", "csv");
+    fs::write(
+        &source_path,
+        "id,event_date,label\n1,2026-04-18,old\n2,2026-05-19,today\n3,2026-05-20,next\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,event_date FROM '{}' WHERE DATE_YEAR(CAST(event_date AS date32)) = 2026 AND DATE_MONTH(event_date) = 5 AND DATE_DAY(event_date) >= 19 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("date_extract_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "date_extract_operator",
+        "date_year,date_month,date_day"
+    )));
+    assert!(stdout.contains(&field(
+        "date_extract_source_column",
+        "event_date,event_date,event_date"
+    )));
+    assert!(stdout.contains(&field("logical_predicate_leaf_count", "3")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"event_date\\\":\\\"2026-05-19\\\"}\\n{\\\"id\\\":3,\\\"event_date\\\":\\\"2026-05-20\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_date_in_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-date-in-predicate", "csv");
     fs::write(

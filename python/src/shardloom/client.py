@@ -409,6 +409,63 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("in_list_value_count", 0) or 0
 
     @property
+    def date_extract_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted Date32 extract predicate path."""
+
+        return self.envelope.field_bool("date_extract_runtime_execution", False) is True
+
+    @property
+    def date_extract_operator(self) -> tuple[str, ...]:
+        """Return Date32 extract operators emitted by the smoke."""
+
+        value = self.envelope.field("date_extract_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def date_extract_source_columns(self) -> tuple[str, ...]:
+        """Return Date32 extract source columns emitted by the smoke."""
+
+        value = self.envelope.field("date_extract_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def date_arithmetic_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted Date32 day-arithmetic predicate path."""
+
+        return self.envelope.field_bool("date_arithmetic_runtime_execution", False) is True
+
+    @property
+    def date_arithmetic_operator(self) -> tuple[str, ...]:
+        """Return Date32 day-arithmetic operators emitted by the smoke."""
+
+        value = self.envelope.field("date_arithmetic_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def date_arithmetic_days(self) -> tuple[str, ...]:
+        """Return Date32 day-arithmetic offsets emitted by the smoke."""
+
+        value = self.envelope.field("date_arithmetic_days", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def date_arithmetic_source_columns(self) -> tuple[str, ...]:
+        """Return Date32 day-arithmetic source columns emitted by the smoke."""
+
+        value = self.envelope.field("date_arithmetic_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def string_predicate_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted string predicate leaf."""
 
