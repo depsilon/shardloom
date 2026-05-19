@@ -109,12 +109,14 @@ pub use certification::{
     plan_user_capability_promotion_gate, plan_world_class_sufficiency,
 };
 pub use correctness::{
-    CorrectnessDifferentialHarnessReport, CorrectnessDifferentialHarnessStatus, CorrectnessFixture,
-    CorrectnessPlanStatus, CorrectnessValidationPlan, CorrectnessValidationReport,
-    DiagnosticExpectation, DifferentialBaseline, EdgeCase, ExpectedOutcome,
-    ExternalOracleArtifactStatus, ExternalOracleResultArtifact, FixtureFormat, FixtureId, FuzzSeed,
-    ReferenceArtifact, ReferenceRole, SemanticArea, ValidationResultStatus,
-    plan_correctness_differential_harness,
+    CorrectnessBenchmarkReuseEvidenceExpansionReport,
+    CorrectnessBenchmarkReuseEvidenceExpansionRow, CorrectnessDifferentialHarnessReport,
+    CorrectnessDifferentialHarnessStatus, CorrectnessFixture, CorrectnessPlanStatus,
+    CorrectnessValidationPlan, CorrectnessValidationReport, DiagnosticExpectation,
+    DifferentialBaseline, EdgeCase, ExpectedOutcome, ExternalOracleArtifactStatus,
+    ExternalOracleResultArtifact, FixtureFormat, FixtureId, FuzzSeed, ReferenceArtifact,
+    ReferenceRole, SemanticArea, ValidationResultStatus,
+    plan_correctness_benchmark_reuse_evidence_expansion, plan_correctness_differential_harness,
 };
 pub use cpu_specialization::{
     CpuHostFeatureProbeReport, CpuInstructionClass, CpuOperatorSpecializationEntry,

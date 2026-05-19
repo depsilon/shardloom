@@ -16,6 +16,86 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0029-A CG-5/CG-6 and stateful reuse evidence expansion
+  - Branch/PR: `codex/gar-0029a-evidence-expansion` / #766.
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/gar_0029_evidence.rs`
+    - `shardloom-cli/src/evidence_certificates.rs`
+    - `shardloom-cli/src/benchmark_planning.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
+    - `shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs`
+    - `shardloom-cli/tests/stateful_reuse_plan_snapshots.rs`
+    - `docs/architecture/cg5-cg6-stateful-reuse-evidence-expansion.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0029-A by adding a shared fail-closed evidence-expansion contract across
+    CG-5 correctness, CG-6 benchmark evidence, CG-16 execution-certificate linkage, CG-19 Native
+    I/O linkage, and CG-17 stateful reuse/reuse-benchmark promotion blockers.
+  - Checklist:
+    - [x] Add `shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1`.
+    - [x] Surface the same blocker report through `correctness-harness-plan`.
+    - [x] Surface the same blocker report through `benchmark-claim-evidence-plan`.
+    - [x] Surface the same blocker report through `stateful-reuse-plan`.
+    - [x] Keep cache read/write/replay, incremental execution, benchmark reruns, runtime execution,
+          performance claims, superiority claims, external engines, and fallback blocked.
+    - [x] Move GAR-0029-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `gar_0029_evidence_expansion_schema_version=shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1`
+    - `gar_0029_evidence_expansion_support_status=blocked`
+    - `gar_0029_evidence_expansion_claim_gate_status=not_claim_grade`
+    - `gar_0029_evidence_expansion_blocking_row_count=8`
+    - `cg5_correctness_closeout`
+    - `cg6_benchmark_closeout`
+    - `cg16_execution_certificate_linkage`
+    - `cg19_native_io_linkage`
+    - `cg17_stateful_reuse_boundary_evidence`
+    - `cg17_stable_reuse_key_invalidation`
+    - `cg17_reuse_benchmark_constitution`
+    - `public_claim_attachment`
+    - `gar_0029_evidence_expansion_deterministic_blocker_report=true`
+    - `gar_0029_evidence_expansion_stateful_reuse_runtime_supported=false`
+    - `gar_0029_evidence_expansion_correctness_evidence_attached=false`
+    - `gar_0029_evidence_expansion_benchmark_evidence_attached=false`
+    - `gar_0029_evidence_expansion_execution_certificate_evidence_attached=false`
+    - `gar_0029_evidence_expansion_native_io_evidence_attached=false`
+    - `gar_0029_evidence_expansion_stateful_reuse_evidence_attached=false`
+    - `gar_0029_evidence_expansion_reuse_benchmark_evidence_attached=false`
+    - `gar_0029_evidence_expansion_selected_workload_evidence_attached=false`
+    - `gar_0029_evidence_expansion_cache_read_allowed=false`
+    - `gar_0029_evidence_expansion_cache_write_allowed=false`
+    - `gar_0029_evidence_expansion_cache_replay_allowed=false`
+    - `gar_0029_evidence_expansion_incremental_execution_allowed=false`
+    - `gar_0029_evidence_expansion_benchmark_rerun_performed=false`
+    - `gar_0029_evidence_expansion_runtime_execution_performed=false`
+    - `gar_0029_evidence_expansion_performance_claim_allowed=false`
+    - `gar_0029_evidence_expansion_superiority_claim_allowed=false`
+    - `gar_0029_evidence_expansion_production_reuse_claim_allowed=false`
+    - `gar_0029_evidence_expansion_claim_grade_closeout_allowed=false`
+    - `gar_0029_evidence_expansion_fallback_attempted=false`
+    - `gar_0029_evidence_expansion_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core cg5_cg6_stateful_reuse_evidence_expansion_fails_closed --lib`
+    - `cargo test -p shardloom-cli --test correctness_harness_plan_snapshots`
+    - `cargo test -p shardloom-cli --test benchmark_claim_evidence_plan_snapshots`
+    - `cargo test -p shardloom-cli --test stateful_reuse_plan_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that CG-5/CG-6/CG-16/CG-17 evidence expansion
+    prerequisites are represented and fail closed. It may not claim stateful reuse runtime,
+    cache read/write/replay, incremental recompute, performance, superiority, production reuse,
+    benchmark rerun evidence, external engine execution, or fallback execution.
+
 - [x] Session label: GAR-0025-A competitive replacement sufficiency gate
   - Branch/PR: `codex/gar-0025a-competitive-replacement-sufficiency-gate` / #765.
   - Primary files:

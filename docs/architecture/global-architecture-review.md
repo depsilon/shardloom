@@ -872,6 +872,23 @@ plan before coding.
   metadata-only evidence, report-only protocol rows, external baselines, and managed-platform
   orchestration cannot satisfy ShardLoom runtime scale claims, Spark-replacement claims, or
   no-fallback/no-external-engine proof.
+- [x] `GAR-0029-A` adds
+  `shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1` across `correctness-harness-plan`,
+  `benchmark-claim-evidence-plan`, and `stateful-reuse-plan`; the shared report exposes blocked
+  rows for `cg5_correctness_closeout`, `cg6_benchmark_closeout`,
+  `cg16_execution_certificate_linkage`, `cg19_native_io_linkage`,
+  `cg17_stateful_reuse_boundary_evidence`, `cg17_stable_reuse_key_invalidation`,
+  `cg17_reuse_benchmark_constitution`, and `public_claim_attachment` with
+  `gar_0029_evidence_expansion_claim_gate_status=not_claim_grade`,
+  `gar_0029_evidence_expansion_cache_read_allowed=false`,
+  `gar_0029_evidence_expansion_cache_write_allowed=false`,
+  `gar_0029_evidence_expansion_cache_replay_allowed=false`,
+  `gar_0029_evidence_expansion_incremental_execution_allowed=false`,
+  `gar_0029_evidence_expansion_stateful_reuse_runtime_supported=false`,
+  `gar_0029_evidence_expansion_performance_claim_allowed=false`,
+  `gar_0029_evidence_expansion_superiority_claim_allowed=false`,
+  `gar_0029_evidence_expansion_fallback_attempted=false`, and
+  `gar_0029_evidence_expansion_external_engine_invoked=false`.
 - [ ] Broad CG-5/CG-6 coverage, production stateful reuse runtime, and performance/superiority
   claims remain incomplete.
 

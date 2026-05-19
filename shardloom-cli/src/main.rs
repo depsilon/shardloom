@@ -20,6 +20,7 @@ mod engine_fabric_planning;
 mod engine_runtime_planning;
 mod evidence_certificates;
 mod extension_planning;
+mod gar_0029_evidence;
 mod generated_source_runtime;
 mod input_planning;
 mod object_store_planning;

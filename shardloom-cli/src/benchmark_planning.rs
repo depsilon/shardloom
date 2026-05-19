@@ -386,6 +386,7 @@ pub(crate) fn benchmark_claim_evidence_fields(
     append_vortex_boundary_claim_fields(&mut fields);
     push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields.extend(crate::gar_0029_evidence::gar_0029_evidence_expansion_fields());
     fields
 }
 

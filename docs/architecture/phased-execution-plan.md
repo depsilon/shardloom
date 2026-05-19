@@ -112,6 +112,7 @@ Reference index:
   `docs/architecture/workspace-feature-build-matrix.md`,
   `docs/architecture/engine-replacement-claim-inventory.md`,
   `docs/architecture/competitive-replacement-sufficiency-gate.md`,
+  `docs/architecture/cg5-cg6-stateful-reuse-evidence-expansion.md`,
   `docs/architecture/spark-displacement-benchmark-evidence-matrix.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
@@ -230,21 +231,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0029-A CG-5/CG-6 and stateful reuse evidence expansion
-  - Source: RFC 0029; correctness differential harness; benchmark-suite catalog.
-  - Current state: current CG-5/CG-6 evidence is scoped; production stateful reuse runtime and
-    performance/superiority claims are not broad.
-  - Next slice outcome: one evidence expansion for correctness/benchmark/stateful reuse, or a
-    deterministic blocker report.
-  - User-visible surface: correctness harness, benchmark report, stateful reuse plan.
-  - Implementation scope: harness/benchmark metadata, CLI plan, tests.
-  - Evidence required: correctness refs, benchmark refs, execution certificates, Native I/O refs,
-    no-fallback refs.
-  - Acceptance: selected workload has attached evidence or an explicit claim blocker.
-  - Verification: correctness and benchmark contract tests, focused stateful reuse tests.
-  - Non-goals: no production cache/reuse runtime unless a separate implementation slice admits it.
-  - Fallback/claim boundary: no superiority claim.
-  - Dependencies/blockers: workload fixtures and Native I/O coverage.
 - [ ] GAR-0040-A comparative rerun and managed-platform posture gate
   - Source: RFC 0040; benchmark-suite catalog; benchmark competitive claim evidence.
   - Current state: full comparative reruns, source-backed claim-grade promotion, managed-platform

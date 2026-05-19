@@ -707,6 +707,7 @@ pub(crate) fn correctness_harness_fields(
     push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
     push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields.extend(crate::gar_0029_evidence::gar_0029_evidence_expansion_fields());
     fields
 }
 
