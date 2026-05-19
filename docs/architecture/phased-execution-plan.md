@@ -229,74 +229,14 @@ explicitly reprioritized.
 
 Current non-runtime sequence:
 
-1. Non-runtime closeout is complete through GAR-0043-B.
-2. New upstream Vortex 0.71 intake work must close before more runtime promotion that depends on
-   upstream Vortex provider behavior.
-3. After GAR-VORTEX-071 is closed, autonomous work returns to the runtime implementation queue
-   below.
-4. Continue moving completed runtime sessions to the ledger immediately after PR/session close.
+1. Non-runtime closeout is complete through GAR-0043-B and GAR-VORTEX-071D.
+2. Autonomous work proceeds to the runtime implementation queue below.
+3. Continue moving completed runtime sessions to the ledger immediately after PR/session close.
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
 All currently defined non-runtime GAR-P5 closeout slices are complete. Continue with the runtime
 implementation queue below unless a new non-runtime blocker is explicitly added here first.
-
-##### GAR-VORTEX-071 - Upstream Vortex 0.71 Intake And Dependency Gate
-
-Source:
-- Upstream Vortex `0.71.0` release notes: <https://github.com/vortex-data/vortex/releases/tag/0.71.0>.
-- `docs/dependencies/vortex-0.71-upstream-intake.md`.
-- `shardloom-vortex/Cargo.toml`.
-- `docs/architecture/vortex-public-api-inventory.md`.
-- `docs/dependencies/vortex-upstream-review.md`.
-- `docs/dependencies/vortex-dependency-footprint.md`.
-
-Goal:
-Ingest Vortex `0.71.0` without silently changing ShardLoom runtime support, dependency footprint,
-feature-gate posture, no-fallback policy, or public claims.
-
-Runtime rule:
-This bundle is an upstream-intake and dependency-gate bundle. It may update dependency metadata,
-API inventories, and planned runtime opportunities. It must not mark new runtime support complete
-unless a later runtime slice adds executable behavior, tests, and evidence.
-
-- [ ] GAR-VORTEX-071D Dependabot and upstream-release intake workflow hardening
-  - Source: `.github/dependabot.yml`, `GAR-VORTEX-071A`, `GAR-VORTEX-071B`.
-  - Current state:
-    - Dependabot already runs weekly Cargo updates for `/`.
-    - Dependabot can propose manifest/lockfile version updates, but it cannot interpret release
-      notes, update architecture docs, or prove ShardLoom-specific no-fallback evidence.
-    - The current open PR limit can delay dependency PRs when other dependency PRs are open.
-  - Next slice outcome:
-    - Decide whether to keep the current Dependabot config, add Vortex-specific grouping/labels, or
-      add a separate release-intake check/runbook.
-  - User-visible surface:
-    - Repository maintenance workflow.
-  - Implementation scope:
-    - `.github/dependabot.yml` if needed.
-    - Optional docs/runbook for upstream Vortex release intake.
-    - No runtime code.
-  - Evidence required:
-    - Explanation of what Dependabot can and cannot automate.
-    - Required human/agent review checklist for pre-1.0 Vortex minor releases.
-  - Acceptance:
-    - Future Vortex dependency bumps have labels/runbook/checklist sufficient to trigger
-      `GAR-VORTEX-*` intake.
-    - The workflow does not auto-merge pre-1.0 minor Vortex bumps.
-  - Verification:
-    - `git diff --check`
-  - Non-goals:
-    - No auto-merge.
-    - No runtime behavior.
-    - No package publication.
-  - Claim boundary:
-    - Maintenance automation only.
-  - Fallback boundary:
-    - Dependency automation must not enable fallback engines.
-  - Dependencies/blockers: current `.github/dependabot.yml`, pre-1.0 Vortex minor-version policy,
-    release-intake checklist ownership, and CI limits for dependency PR validation.
-  - Ledger rule:
-    - Ledger entry must state whether Dependabot config changed and why.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 

@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-VORTEX-071D Dependabot and upstream-release intake workflow hardening
+  - Branch/PR: `codex/vortex-071-dependabot-intake` / #782.
+  - Primary files:
+    - `.github/dependabot.yml`
+    - `docs/dependencies/vortex-upstream-release-intake-runbook.md`
+    - `docs/dependencies/vortex-upstream-review.md`
+    - `docs/dependencies/vortex-0.71-upstream-intake.md`
+    - `docs/security/open-source-security-posture.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: harden future Vortex release intake so Dependabot can propose updates but cannot replace
+    ShardLoom-specific release-note review, API inventory, dependency-footprint proof, feature-gated
+    compile proof, no-fallback evidence, or runtime claim gating.
+  - Dependabot config change:
+    - Increased the Cargo open pull request limit from 5 to 10 so dependency work is less likely to
+      block Vortex intake PR visibility.
+    - Added a `vortex-upstream` group for `vortex` and `vortex-*` Cargo updates.
+    - No auto-merge or runtime-enabling automation was added.
+  - Runbook added:
+    - `docs/dependencies/vortex-upstream-release-intake-runbook.md` explains Dependabot limits,
+      pre-1.0 Vortex minor-release policy, required release-note/API inventory steps, feature-gated
+      compile checks, forbidden fallback dependency checks, opportunity mapping, verification, and
+      claim boundaries.
+  - Blockers preserved:
+    - Vortex updates still require human/agent review before merge.
+    - Dependabot must not grant runtime support, update public claims, invoke external engines, or
+      auto-merge pre-1.0 minor updates.
+    - Runtime support remains owned by the implementation-ready runtime slices.
+  - Verification:
+    - Dependabot YAML parse check for `vortex-upstream` group.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: maintenance workflow only; no dependency update, runtime behavior, package
+    publication, performance claim, production claim, or fallback support is introduced.
+
 - [x] Session label: GAR-VORTEX-071C runtime opportunity mapping from 0.71 APIs
   - Branch/PR: `codex/vortex-071-runtime-opportunity-map` / #781.
   - Primary files:
