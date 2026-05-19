@@ -50,6 +50,7 @@ from .query import (
     read_json,
     read_parquet,
     read_vortex,
+    sequence as generated_sequence,
 )
 
 DEFAULT_CAPABILITY_SCOPES = (
@@ -373,15 +374,15 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "sequence",
         "source_free_generation",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="source-free-sequence",
-        blocker_id="gar-gen-1.sequence_runtime_not_implemented",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
         required_evidence=(
-            "generator_node_contract",
             "generated_source_certificate",
             "output_native_io_certificate",
+            "execution_certificate",
         ),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
     ),
     _df_method(
         "sql_values",
@@ -4679,23 +4680,15 @@ class ShardLoomContext:
         *,
         step: int = 1,
         column: str = "value",
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for a source-free sequence generator."""
+    ) -> GeneratedRangeSource:
+        """Create a scoped source-free sequence for local output smokes."""
 
-        if isinstance(start, bool) or isinstance(end, bool) or isinstance(step, bool):
-            raise TypeError("sequence start, end, and step must be integers")
-        if not isinstance(start, int) or not isinstance(end, int) or not isinstance(step, int):
-            raise TypeError("sequence start, end, and step must be integers")
-        if step == 0:
-            raise ValueError("sequence step must not be zero")
-        column_name = _require_non_empty_text("sequence column", column)
-        target = f"start={start};end={end};step={step};column={column_name}"
-        return self._source_free_unsupported(
-            "source-free-sequence",
-            "sequence",
-            target,
-            check=check,
+        return generated_sequence(
+            start,
+            end,
+            step=step,
+            column=column,
+            client=self.client,
         )
 
     def sql_values(

@@ -1091,13 +1091,14 @@ plan before coding.
   invoking external engines, or upgrading support to claim-grade runtime.
 - [ ] Source-free generated-output workflows such as `ctx.from_rows(...).write(...)`,
   `ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and
-  `ctx.range(...).write(...)` now have scoped local JSONL smoke paths, and
+  `ctx.range(...).write(...)`/`ctx.sequence(...).write(...)` now have scoped local JSONL smoke paths, and
   `shardloom.generated_source_api_admission.v1` exposes deterministic admission rows for
   SQL literal `SELECT`, SQL `VALUES`, SQL source-free projection, SQL `generate_series`/`range`,
   DataFrame source-free projection, and generated `with_column`. `GAR-COMPAT-1B` projects the same
   posture into the universal compatibility scoreboard and website/status rows without broadening
-  runtime. SQL execution, broad DataFrame generation, engine-native sequence/values/synthetic
-  generators, object-store output, and Foundry generated-output runtime remain report-only/planned
+  runtime. Broad SQL execution beyond the scoped source-free literal/VALUES smokes, broad DataFrame
+  generation, engine-native values/synthetic generators, object-store output, and Foundry
+  generated-output runtime remain report-only/planned
   under `GAR-GEN-1` and `GAR-RUNTIME-COMPLETE-1A`. No-input smoke does not count as
   generated-output execution.
 - [ ] `GAR-COMPAT-1` is the user-workflow compatibility scoreboard for source/sink/adapters. It

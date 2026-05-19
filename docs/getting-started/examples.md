@@ -58,9 +58,23 @@ python -c "from shardloom import context; r=context(repo_root='.').range(0, 5, c
 ```
 
 Use this for the scoped GAR-GEN-1D path that executes one ShardLoom-native range generator, writes
-local JSONL output, and emits generated-source/output/no-fallback evidence. It is not SQL
-`VALUES`/literal execution, broad DataFrame runtime, other generator-node support, object-store
-output, Foundry output, production support, or a performance claim.
+local JSONL output, and emits generated-source/output/no-fallback evidence. The sequence helper uses
+the same scoped integer-generator contract while reporting `generated_source_kind=sequence`:
+
+```powershell
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; r=context(repo_root='.').sequence(0, 5, column='id').write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+```
+
+Equivalent CLI command:
+
+```powershell
+shardloom generated-source-sequence-smoke target\generated-sequence.jsonl 0 5 --column id --allow-overwrite --format json
+```
+
+Range and sequence smokes are not SQL `VALUES`/literal execution, SQL `generate_series`/`range`,
+broad DataFrame runtime, other generator-node support, object-store output, Foundry output,
+production support, or a performance claim.
 
 ## Source-Free SQL Literal/VALUES Local Output Smoke
 

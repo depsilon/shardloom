@@ -318,8 +318,8 @@
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1b.generated_output_broader_api_evidence_missing",
-      "required_future_evidence": "sequence_values_literal_table_calendar_sql_dataframe_object_store_foundry_output_evidence",
-      "claim_boundary": "Local user-row and range JSONL fixture-smoke generated-output runtime only."
+      "required_future_evidence": "synthetic_sql_dataframe_object_store_foundry_output_evidence",
+      "claim_boundary": "Local user-row, literal-table, calendar, range, sequence, SQL VALUES, and SQL literal SELECT JSONL fixture-smoke generated-output runtime only."
     },
     {
       "surface_id": "python_rows_dataframe",
@@ -423,6 +423,7 @@
       "no_dataset_smoke",
       "python_ctx_from_rows",
       "python_ctx_range",
+      "python_ctx_sequence",
       "python_ctx_literal_table",
       "python_ctx_calendar",
       "python_generated_source_write",
@@ -437,6 +438,7 @@
     "python_row_order": [
       "python_ctx_from_rows",
       "python_ctx_range",
+      "python_ctx_sequence",
       "python_ctx_literal_table",
       "python_ctx_calendar",
       "python_generated_source_write"
@@ -461,7 +463,7 @@
     "fallback_attempted": false,
     "external_engine_invoked": false,
     "claim_gate_status": "fixture_smoke_only",
-    "claim_boundary": "Only scoped local user-row, literal-table, calendar/date-dimension, and range JSONL generated-output smokes are admitted; SQL/DataFrame, object-store, lakehouse, Foundry, production, package, and performance claims remain blocked or report-only.",
+    "claim_boundary": "Only scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, and SQL literal SELECT JSONL generated-output smokes are admitted; broad SQL/DataFrame, object-store, lakehouse, Foundry, production, package, and performance claims remain blocked or report-only.",
     "rows": [
       {
         "row_id": "no_dataset_smoke",
@@ -527,6 +529,27 @@
         "claim_boundary": "Only scoped local range JSONL generated-output fixture smoke is admitted."
       },
       {
+        "row_id": "python_ctx_sequence",
+        "user_visible_surface": "Python ctx.sequence(...).write(local_jsonl)",
+        "surface_family": "python_generated_source",
+        "support_status": "smoke-supported",
+        "runtime_execution": true,
+        "data_read": false,
+        "write_io": true,
+        "source_io_performed": false,
+        "generated_source_created": true,
+        "output_io_performed": true,
+        "source_native_io_certificate_status": "not_applicable_no_source_dataset",
+        "output_native_io_certificate_status": "required_for_runtime_output",
+        "generated_source_certificate_status": "required_for_runtime",
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+        "blocker_id": "none_scoped_local_sequence_jsonl_smoke_only",
+        "required_evidence": "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        "claim_gate_status": "fixture_smoke_only",
+        "claim_boundary": "Only scoped local sequence JSONL generated-output fixture smoke is admitted."
+      },
+      {
         "row_id": "python_ctx_literal_table",
         "user_visible_surface": "Python ctx.literal_table([...]).write(local_jsonl)",
         "surface_family": "python_generated_source",
@@ -587,7 +610,7 @@
         "blocker_id": "none_supported_generated_source_write_smokes_only",
         "required_evidence": "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, and range JSONL smokes."
+        "claim_boundary": "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, range, sequence, SQL VALUES, and SQL literal SELECT JSONL smokes."
       },
       {
         "row_id": "local_output_only_generated_source_posture",

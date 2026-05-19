@@ -4032,6 +4032,36 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         return GeneratedSourceWriteReport(self.run(command, check=check))
 
+    def generated_source_sequence_smoke(
+        self,
+        output_path: str | os.PathLike[str],
+        start: int,
+        end: int,
+        *,
+        step: int = 1,
+        column: str = "value",
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Run the scoped local engine-native sequence generated-output smoke command."""
+
+        command: list[CommandPart] = [
+            "generated-source-sequence-smoke",
+            str(output_path),
+            str(start),
+            str(end),
+            "--step",
+            str(step),
+            "--column",
+            str(column),
+            "--output-format",
+            output_format,
+        ]
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        return GeneratedSourceWriteReport(self.run(command, check=check))
+
     def generated_source_sql_smoke(
         self,
         output_path: str | os.PathLike[str],

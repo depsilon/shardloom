@@ -1,8 +1,8 @@
 //! Scoped generated-source runtime smoke handlers.
 //!
 //! This module implements deliberately narrow local generated-output smokes. It
-//! accepts either rows already supplied by the user/API layer or one
-//! ShardLoom-native range generator, writes a local JSONL sink, and emits
+//! accepts either rows already supplied by the user/API layer or narrow
+//! ShardLoom-native integer generators, writes a local JSONL sink, and emits
 //! generated-source/output evidence. It does not read source datasets, parse
 //! SQL, execute broad `DataFrame` expressions, touch object stores, invoke
 //! Foundry, or call fallback engines.
@@ -38,6 +38,13 @@ const RANGE_GENERATED_SOURCE_CERTIFICATE_ID: &str = "generated-source.range.loca
 const RANGE_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str =
     "generated-source.range.local-output.native-io.v1";
 const RANGE_EXECUTION_CERTIFICATE_ID: &str = "generated-source.range.local-output.execution.v1";
+const SEQUENCE_COMMAND: &str = "generated-source-sequence-smoke";
+const SEQUENCE_SCHEMA_VERSION: &str = "shardloom.generated_source_sequence_smoke.v1";
+const SEQUENCE_GENERATED_SOURCE_CERTIFICATE_ID: &str = "generated-source.sequence.local-output.v1";
+const SEQUENCE_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str =
+    "generated-source.sequence.local-output.native-io.v1";
+const SEQUENCE_EXECUTION_CERTIFICATE_ID: &str =
+    "generated-source.sequence.local-output.execution.v1";
 const MAX_GENERATED_RANGE_ROWS: usize = 1_000_000;
 
 const SQL_COMMAND: &str = "generated-source-sql-smoke";
@@ -183,6 +190,7 @@ struct GeneratedUserRowsSmokeReport {
 struct GeneratedRangeSmokeRequest {
     output_path: PathBuf,
     output_format: GeneratedOutputFormat,
+    source_kind: RangeGeneratedSourceKind,
     start: i64,
     end: i64,
     step: i64,
@@ -194,6 +202,7 @@ struct GeneratedRangeSmokeRequest {
 struct GeneratedRangeSmokeReport {
     output_path: PathBuf,
     output_format: GeneratedOutputFormat,
+    source_kind: RangeGeneratedSourceKind,
     start: i64,
     end: i64,
     step: i64,
@@ -205,6 +214,77 @@ struct GeneratedRangeSmokeReport {
     schema_digest: String,
     plan_digest: String,
     write_millis: u128,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RangeGeneratedSourceKind {
+    Range,
+    Sequence,
+}
+
+impl RangeGeneratedSourceKind {
+    const fn command(self) -> &'static str {
+        match self {
+            Self::Range => RANGE_COMMAND,
+            Self::Sequence => SEQUENCE_COMMAND,
+        }
+    }
+
+    const fn schema_version(self) -> &'static str {
+        match self {
+            Self::Range => RANGE_SCHEMA_VERSION,
+            Self::Sequence => SEQUENCE_SCHEMA_VERSION,
+        }
+    }
+
+    const fn generated_source_certificate_id(self) -> &'static str {
+        match self {
+            Self::Range => RANGE_GENERATED_SOURCE_CERTIFICATE_ID,
+            Self::Sequence => SEQUENCE_GENERATED_SOURCE_CERTIFICATE_ID,
+        }
+    }
+
+    const fn output_native_io_certificate_id(self) -> &'static str {
+        match self {
+            Self::Range => RANGE_OUTPUT_NATIVE_IO_CERTIFICATE_ID,
+            Self::Sequence => SEQUENCE_OUTPUT_NATIVE_IO_CERTIFICATE_ID,
+        }
+    }
+
+    const fn execution_certificate_id(self) -> &'static str {
+        match self {
+            Self::Range => RANGE_EXECUTION_CERTIFICATE_ID,
+            Self::Sequence => SEQUENCE_EXECUTION_CERTIFICATE_ID,
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Range => "range",
+            Self::Sequence => "sequence",
+        }
+    }
+
+    const fn materialization_boundary(self) -> &'static str {
+        match self {
+            Self::Range => "engine_native_range_generator_to_local_jsonl_sink",
+            Self::Sequence => "engine_native_sequence_generator_to_local_jsonl_sink",
+        }
+    }
+
+    const fn claim_gate_reason(self) -> &'static str {
+        match self {
+            Self::Range => "one_scoped_local_range_generated_output_smoke",
+            Self::Sequence => "one_scoped_local_sequence_generated_output_smoke",
+        }
+    }
+
+    const fn summary_noun(self) -> &'static str {
+        match self {
+            Self::Range => "range",
+            Self::Sequence => "sequence",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -405,33 +485,51 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
 
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_generated_source_range_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    handle_generated_source_range_like_smoke(args, format, RangeGeneratedSourceKind::Range)
+}
+
+pub(crate) fn handle_generated_source_sequence_smoke(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_generated_source_range_like_smoke(args, format, RangeGeneratedSourceKind::Sequence)
+}
+
+#[allow(clippy::too_many_lines)]
+fn handle_generated_source_range_like_smoke(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+    source_kind: RangeGeneratedSourceKind,
+) -> ExitCode {
+    let command = source_kind.command();
+    let noun = source_kind.summary_noun();
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {RANGE_COMMAND} <local-output-path> <start> <end> [--step int] [--column name] [--output-format jsonl] [--allow-overwrite]"
+            "usage: shardloom {command} <local-output-path> <start> <end> [--step int] [--column name] [--output-format jsonl] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
     let Some(start_raw) = args.next() else {
         return emit_error(
-            RANGE_COMMAND,
+            command,
             format,
-            "generated-source range smoke failed",
-            &ShardLoomError::InvalidOperation(
-                "generated-source range smoke requires a start argument".to_string(),
-            ),
+            &format!("generated-source {noun} smoke failed"),
+            &ShardLoomError::InvalidOperation(format!(
+                "generated-source {noun} smoke requires a start argument"
+            )),
         );
     };
     let Some(end_raw) = args.next() else {
         return emit_error(
-            RANGE_COMMAND,
+            command,
             format,
-            "generated-source range smoke failed",
-            &ShardLoomError::InvalidOperation(
-                "generated-source range smoke requires an end argument".to_string(),
-            ),
+            &format!("generated-source {noun} smoke failed"),
+            &ShardLoomError::InvalidOperation(format!(
+                "generated-source {noun} smoke requires an end argument"
+            )),
         );
     };
 
@@ -444,9 +542,9 @@ pub(crate) fn handle_generated_source_range_smoke(
             "--output-format" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        RANGE_COMMAND,
+                        command,
                         format,
-                        "generated-source range smoke failed",
+                        &format!("generated-source {noun} smoke failed"),
                         &ShardLoomError::InvalidOperation(
                             "--output-format requires a value".to_string(),
                         ),
@@ -456,9 +554,9 @@ pub(crate) fn handle_generated_source_range_smoke(
                     Ok(parsed) => parsed,
                     Err(error) => {
                         return emit_error(
-                            RANGE_COMMAND,
+                            command,
                             format,
-                            "generated-source range smoke failed",
+                            &format!("generated-source {noun} smoke failed"),
                             &error,
                         );
                     }
@@ -468,9 +566,9 @@ pub(crate) fn handle_generated_source_range_smoke(
             "--step" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        RANGE_COMMAND,
+                        command,
                         format,
-                        "generated-source range smoke failed",
+                        &format!("generated-source {noun} smoke failed"),
                         &ShardLoomError::InvalidOperation("--step requires a value".to_string()),
                     );
                 };
@@ -478,9 +576,9 @@ pub(crate) fn handle_generated_source_range_smoke(
                     Ok(parsed) => parsed,
                     Err(error) => {
                         return emit_error(
-                            RANGE_COMMAND,
+                            command,
                             format,
-                            "generated-source range smoke failed",
+                            &format!("generated-source {noun} smoke failed"),
                             &error,
                         );
                     }
@@ -489,9 +587,9 @@ pub(crate) fn handle_generated_source_range_smoke(
             "--column" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        RANGE_COMMAND,
+                        command,
                         format,
-                        "generated-source range smoke failed",
+                        &format!("generated-source {noun} smoke failed"),
                         &ShardLoomError::InvalidOperation("--column requires a value".to_string()),
                     );
                 };
@@ -499,19 +597,19 @@ pub(crate) fn handle_generated_source_range_smoke(
                     Ok(parsed) if !parsed.trim().is_empty() => parsed,
                     Ok(_) => {
                         return emit_error(
-                            RANGE_COMMAND,
+                            command,
                             format,
-                            "generated-source range smoke failed",
-                            &ShardLoomError::InvalidOperation(
-                                "generated-source range column must not be empty".to_string(),
-                            ),
+                            &format!("generated-source {noun} smoke failed"),
+                            &ShardLoomError::InvalidOperation(format!(
+                                "generated-source {noun} column must not be empty"
+                            )),
                         );
                     }
                     Err(error) => {
                         return emit_error(
-                            RANGE_COMMAND,
+                            command,
                             format,
-                            "generated-source range smoke failed",
+                            &format!("generated-source {noun} smoke failed"),
                             &error,
                         );
                     }
@@ -519,10 +617,10 @@ pub(crate) fn handle_generated_source_range_smoke(
             }
             extra => {
                 return emit_error(
-                    RANGE_COMMAND,
+                    command,
                     format,
-                    "generated-source range smoke failed",
-                    &cli_unknown_arg_error(RANGE_COMMAND, extra),
+                    &format!("generated-source {noun} smoke failed"),
+                    &cli_unknown_arg_error(command, extra),
                 );
             }
         }
@@ -532,9 +630,9 @@ pub(crate) fn handle_generated_source_range_smoke(
         Ok(parsed) => parsed,
         Err(error) => {
             return emit_error(
-                RANGE_COMMAND,
+                command,
                 format,
-                "generated-source range smoke failed",
+                &format!("generated-source {noun} smoke failed"),
                 &error,
             );
         }
@@ -543,9 +641,9 @@ pub(crate) fn handle_generated_source_range_smoke(
         Ok(parsed) => parsed,
         Err(error) => {
             return emit_error(
-                RANGE_COMMAND,
+                command,
                 format,
-                "generated-source range smoke failed",
+                &format!("generated-source {noun} smoke failed"),
                 &error,
             );
         }
@@ -553,6 +651,7 @@ pub(crate) fn handle_generated_source_range_smoke(
     let request = match GeneratedRangeSmokeRequest::parse(
         &output_target,
         output_format,
+        source_kind,
         start,
         end,
         step,
@@ -562,9 +661,9 @@ pub(crate) fn handle_generated_source_range_smoke(
         Ok(request) => request,
         Err(error) => {
             return emit_error(
-                RANGE_COMMAND,
+                command,
                 format,
-                "generated-source range smoke failed",
+                &format!("generated-source {noun} smoke failed"),
                 &error,
             );
         }
@@ -574,20 +673,20 @@ pub(crate) fn handle_generated_source_range_smoke(
         Ok(report) => report,
         Err(error) => {
             return emit_error(
-                RANGE_COMMAND,
+                command,
                 format,
-                "generated-source range smoke failed",
+                &format!("generated-source {noun} smoke failed"),
                 &error,
             );
         }
     };
 
     emit(
-        RANGE_COMMAND,
+        command,
         format,
         CommandStatus::Success,
         format!(
-            "generated range local-output smoke wrote {} row(s)",
+            "generated {noun} local-output smoke wrote {} row(s)",
             report.rows.len()
         ),
         report.to_text(),
@@ -869,9 +968,11 @@ impl GeneratedUserRowsSmokeReport {
 }
 
 impl GeneratedRangeSmokeRequest {
+    #[allow(clippy::too_many_arguments)]
     fn parse(
         output_target: &str,
         output_format: GeneratedOutputFormat,
+        source_kind: RangeGeneratedSourceKind,
         start: i64,
         end: i64,
         step: i64,
@@ -879,14 +980,16 @@ impl GeneratedRangeSmokeRequest {
         allow_overwrite: bool,
     ) -> Result<Self, ShardLoomError> {
         if step == 0 {
-            return Err(ShardLoomError::InvalidOperation(
-                "generated-source range step must not be zero".to_string(),
-            ));
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "generated-source {} step must not be zero",
+                source_kind.as_str()
+            )));
         }
         if column_name.trim().is_empty() {
-            return Err(ShardLoomError::InvalidOperation(
-                "generated-source range column must not be empty".to_string(),
-            ));
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "generated-source {} column must not be empty",
+                source_kind.as_str()
+            )));
         }
         let output_path = normalize_local_output_path(output_target)?;
         let row_count = range_row_count(start, end, step)?;
@@ -898,6 +1001,7 @@ impl GeneratedRangeSmokeRequest {
         Ok(Self {
             output_path,
             output_format,
+            source_kind,
             start,
             end,
             step,
@@ -913,11 +1017,13 @@ impl GeneratedRangeSmokeReport {
         vec![
             (
                 "schema_version".to_string(),
-                RANGE_SCHEMA_VERSION.to_string(),
+                self.source_kind.schema_version().to_string(),
             ),
             (
                 "generated_source_smoke_report_id".to_string(),
-                RANGE_GENERATED_SOURCE_CERTIFICATE_ID.to_string(),
+                self.source_kind
+                    .generated_source_certificate_id()
+                    .to_string(),
             ),
             (
                 "execution_mode".to_string(),
@@ -932,7 +1038,10 @@ impl GeneratedRangeSmokeReport {
                 "not_applicable_no_source_dataset".to_string(),
             ),
             ("generated_source_created".to_string(), "true".to_string()),
-            ("generated_source_kind".to_string(), "range".to_string()),
+            (
+                "generated_source_kind".to_string(),
+                self.source_kind.as_str().to_string(),
+            ),
             (
                 "generated_source_range_start".to_string(),
                 self.start.to_string(),
@@ -973,7 +1082,9 @@ impl GeneratedRangeSmokeReport {
             ),
             (
                 "generated_source_certificate_id".to_string(),
-                RANGE_GENERATED_SOURCE_CERTIFICATE_ID.to_string(),
+                self.source_kind
+                    .generated_source_certificate_id()
+                    .to_string(),
             ),
             ("output_io_performed".to_string(), "true".to_string()),
             ("write_io".to_string(), "true".to_string()),
@@ -993,7 +1104,9 @@ impl GeneratedRangeSmokeReport {
             ),
             (
                 "output_native_io_certificate_id".to_string(),
-                RANGE_OUTPUT_NATIVE_IO_CERTIFICATE_ID.to_string(),
+                self.source_kind
+                    .output_native_io_certificate_id()
+                    .to_string(),
             ),
             (
                 "execution_certificate_status".to_string(),
@@ -1001,12 +1114,12 @@ impl GeneratedRangeSmokeReport {
             ),
             (
                 "execution_certificate_id".to_string(),
-                RANGE_EXECUTION_CERTIFICATE_ID.to_string(),
+                self.source_kind.execution_certificate_id().to_string(),
             ),
             ("correctness_digest".to_string(), self.output_digest.clone()),
             (
                 "materialization_boundary".to_string(),
-                "engine_native_range_generator_to_local_jsonl_sink".to_string(),
+                self.source_kind.materialization_boundary().to_string(),
             ),
             ("data_materialized".to_string(), "true".to_string()),
             ("data_decoded".to_string(), "false".to_string()),
@@ -1027,7 +1140,7 @@ impl GeneratedRangeSmokeReport {
             ),
             (
                 "claim_gate_reason".to_string(),
-                "one_scoped_local_range_generated_output_smoke".to_string(),
+                self.source_kind.claim_gate_reason().to_string(),
             ),
             ("performance_claim_allowed".to_string(), "false".to_string()),
             ("production_claim_allowed".to_string(), "false".to_string()),
@@ -1048,7 +1161,10 @@ impl GeneratedRangeSmokeReport {
 
     fn to_text(&self) -> String {
         format!(
-            "generated-source range smoke\nschema_version: {RANGE_SCHEMA_VERSION}\nrange: {}..{} step {}\ncolumn: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: certified_local_file_sink\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "generated-source {} smoke\nschema_version: {}\n{}: {}..{} step {}\ncolumn: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: certified_local_file_sink\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            self.source_kind.summary_noun(),
+            self.source_kind.schema_version(),
+            self.source_kind.summary_noun(),
             self.start,
             self.end,
             self.step,
@@ -1335,6 +1451,7 @@ fn run_generated_range_smoke(
     Ok(GeneratedRangeSmokeReport {
         output_path: request.output_path.clone(),
         output_format: request.output_format,
+        source_kind: request.source_kind,
         start: request.start,
         end: request.end,
         step: request.step,
@@ -1345,7 +1462,8 @@ fn run_generated_range_smoke(
         output_digest: output_digest.clone(),
         schema_digest: fnv64_digest(&schema_text),
         plan_digest: fnv64_digest(&format!(
-            "generated_source_kind=range;output_format={};start={};end={};step={};column={}",
+            "generated_source_kind={};output_format={};start={};end={};step={};column={}",
+            request.source_kind.as_str(),
             request.output_format.as_str(),
             request.start,
             request.end,

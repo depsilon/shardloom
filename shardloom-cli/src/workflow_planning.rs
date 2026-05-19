@@ -844,18 +844,9 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
         "sql-bind" | "sql_bind" => Some(workflow_unsupported_sql_bind()),
         "sql-plan" | "sql_plan" => Some(workflow_unsupported_sql_plan()),
         "sql-execute" | "sql_execute" => Some(workflow_unsupported_sql_execute()),
-        "source-free-sequence"
-        | "source_free_sequence"
-        | "sequence"
-        | "generate-series"
-        | "generate_series" => Some(workflow_unsupported_source_free_sequence()),
-        "sql-values" | "sql_values" | "values" => Some(workflow_unsupported_sql_values()),
-        "sql-literal-select"
-        | "sql_literal_select"
-        | "literal-select"
-        | "literal_select"
-        | "sql-source-free-projection"
-        | "sql_source_free_projection" => Some(workflow_unsupported_sql_literal_select()),
+        "sql-source-free-projection" | "sql_source_free_projection" => {
+            Some(workflow_unsupported_sql_source_free_projection())
+        }
         "dataframe-source-free-projection"
         | "dataframe_source_free_projection"
         | "df-source-free-projection"
@@ -1322,47 +1313,15 @@ fn workflow_unsupported_sql_execute() -> WorkflowUnsupportedOperation {
     }
 }
 
-fn workflow_unsupported_source_free_sequence() -> WorkflowUnsupportedOperation {
+fn workflow_unsupported_sql_source_free_projection() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
-        operation: "source_free_sequence",
-        label: "source-free sequence generator",
-        surface: "source_free_generated_output",
-        feature: "gar_gen_1.source_free_sequence",
-        blocker_id: "gar-gen-1.sequence_runtime_not_implemented",
-        required_evidence: "generator_node_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use ctx.range(...).write(...) for the scoped local range smoke; sequence/generate_series remains unsupported until a certified generator node contract exists.",
-        diagnostic_code: DiagnosticCode::NotImplemented,
-        materialization_required: false,
-        write_required: false,
-        runtime_required: true,
-    }
-}
-
-fn workflow_unsupported_sql_values() -> WorkflowUnsupportedOperation {
-    WorkflowUnsupportedOperation {
-        operation: "sql_values",
-        label: "SQL VALUES generated source",
-        surface: "sql_generated_source",
-        feature: "gar_gen_1.sql_values",
-        blocker_id: "gar-gen-1.sql_values_runtime_not_implemented",
-        required_evidence: "sql_parser,binder,planner,values_generator_contract,generated_source_certificate,output_native_io_certificate,no_fallback_evidence",
-        suggested_next_action: "Use ctx.literal_table(...).write(...) for the scoped local smoke; SQL VALUES execution remains blocked until ShardLoom-native SQL parsing, binding, planning, and generated-source evidence are certified.",
-        diagnostic_code: DiagnosticCode::UnsupportedSql,
-        materialization_required: false,
-        write_required: false,
-        runtime_required: true,
-    }
-}
-
-fn workflow_unsupported_sql_literal_select() -> WorkflowUnsupportedOperation {
-    WorkflowUnsupportedOperation {
-        operation: "sql_literal_select",
+        operation: "sql_source_free_projection",
         label: "SQL source-free literal projection",
         surface: "sql_generated_source",
         feature: "gar_gen_1.sql_source_free_projection",
         blocker_id: "gar-gen-1.sql_source_free_projection_runtime_not_implemented",
         required_evidence: "sql_parser,binder,planner,source_free_projection_contract,generated_source_certificate,output_native_io_certificate,no_fallback_evidence",
-        suggested_next_action: "Use generated-source Python smokes for local output; SQL source-free SELECT execution remains blocked until SQL frontend evidence is certified.",
+        suggested_next_action: "Use ctx.sql_values(...).write(...) or ctx.sql_literal_select(...).write(...) for scoped local JSONL smokes; broader SQL source-free projection remains blocked until expression evidence is certified.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
         materialization_required: false,
         write_required: false,

@@ -308,9 +308,12 @@ or documentation updates alone are insufficient.
 
 - [ ] GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime
   - Source: `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source rows.
-  - Current state: source-free/generated-output smokes exist, but `range`, `from_rows`,
-    `literal_table`, `calendar`, SQL `VALUES`, and source-free projection are not one coherent
-    public runtime surface.
+  - Current state: scoped local JSONL generated-output smokes now exist for `from_rows`,
+    `literal_table`, `calendar`, `range`, `sequence`, SQL `VALUES`, and SQL literal `SELECT` with
+    generated-source/output/no-fallback evidence. Remaining gaps are broader SQL source-free
+    projection, SQL `generate_series`/`range`, DataFrame source-free projection/`with_column`,
+    broader sink formats, object-store/Foundry generated-output paths, and claim-grade output
+    coverage.
   - Next slice outcome: implement generated-source builders across CLI/Python/SQL with local JSONL
     or Vortex output where admitted.
   - Runtime enablement: end-user generated-source execution that writes local output and emits a
@@ -766,9 +769,11 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5A generated-source end-user runtime builders
   - Source: `GAR-RUNTIME-IMPL-4E`, `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source
     rows.
-  - Current state: no-dataset smoke and scoped generated-output paths exist, but `range`,
-    `sequence`, `from_rows`, `literal_table`, `calendar`, SQL `VALUES`, SQL literal projection, and
-    DataFrame-style source-free output are not complete as ordinary end-user runtime workflows.
+  - Current state: no-dataset smoke remains separate. Scoped local JSONL generated-output runtime
+    now covers `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`, `ctx.range`, `ctx.sequence`,
+    SQL `VALUES`, and SQL literal `SELECT`. DataFrame-style source-free output, SQL
+    `generate_series`/`range`, broader source-free projection, broader output formats, object-store
+    sinks, and Foundry generated-output runtime remain incomplete or blocked.
   - Next slice outcome: promote one coherent local generated-source workflow set across CLI,
     Python, and SQL/DataFrame admission, writing local output with generated-source evidence.
   - Runtime enablement: ordinary end-user generated-source workflows that execute locally and write

@@ -190,13 +190,14 @@ class GeneratedRowsSource:
 
 @dataclass(frozen=True, slots=True)
 class GeneratedRangeSource:
-    """Scoped ShardLoom-native range generator that can write a local JSONL smoke output."""
+    """Scoped ShardLoom-native integer generator that can write a local JSONL smoke output."""
 
     start: int
     end: int
     step: int
     column: str
     client: ShardLoomClient
+    source_kind: str = "range"
 
     def write(
         self,
@@ -206,8 +207,19 @@ class GeneratedRangeSource:
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> GeneratedSourceWriteReport:
-        """Write the generated range to a scoped local output sink with evidence."""
+        """Write the generated integer source to a scoped local output sink with evidence."""
 
+        if self.source_kind == "sequence":
+            return self.client.generated_source_sequence_smoke(
+                target_uri,
+                self.start,
+                self.end,
+                step=self.step,
+                column=self.column,
+                output_format=output_format,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
         return self.client.generated_source_range_smoke(
             target_uri,
             self.start,
@@ -1055,6 +1067,33 @@ def range(
         step=normalized_step,
         column=normalized_column,
         client=_client_from_config(client, client_config),
+    )
+
+
+def sequence(
+    start: int,
+    end: int,
+    *,
+    step: int = 1,
+    column: str = "value",
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> GeneratedRangeSource:
+    """Create a scoped source-free ShardLoom-native sequence for local output smoke writes."""
+
+    normalized_start = _require_range_int("start", start)
+    normalized_end = _require_range_int("end", end)
+    normalized_step = _require_range_int("step", step)
+    if normalized_step == 0:
+        raise ValueError("sequence step must not be zero")
+    normalized_column = _require_non_empty("sequence column", column)
+    return GeneratedRangeSource(
+        start=normalized_start,
+        end=normalized_end,
+        step=normalized_step,
+        column=normalized_column,
+        client=_client_from_config(client, client_config),
+        source_kind="sequence",
     )
 
 

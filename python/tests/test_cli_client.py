@@ -1059,7 +1059,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "user_generated_source_blocker_id", "value": "none_scoped_local_jsonl_smoke_only"},
                             {"key": "user_generated_source_claim_gate_status", "value": "fixture_smoke_only"},
                             {"key": "engine_native_generated_source_support_status", "value": "fixture_smoke_supported"},
-                            {"key": "engine_native_generated_source_blocker_id", "value": "none_scoped_local_range_jsonl_smoke_only"},
+                            {"key": "engine_native_generated_source_blocker_id", "value": "none_scoped_local_range_sequence_jsonl_smoke_only"},
                             {"key": "input_dataset_count", "value": "0"},
                             {"key": "source_io_performed", "value": "false"},
                             {"key": "generated_source_created", "value": "false"},
@@ -1069,6 +1069,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         api_rows = [
                             ("python_ctx_from_rows", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("python_ctx_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_range_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_ctx_sequence", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sequence_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("python_ctx_literal_table", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_literal_table_jsonl_smoke_only", "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("python_ctx_calendar", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_calendar_jsonl_smoke_only", "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("python_generated_source_write", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_supported_generated_source_write_smokes_only", "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
@@ -1770,7 +1771,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             generated_source.engine_native_generated_source.blocker_id,
-            "none_scoped_local_range_jsonl_smoke_only",
+            "none_scoped_local_range_sequence_jsonl_smoke_only",
         )
         self.assertEqual(
             capabilities.sql_support.generated_source_contract.schema_version,
@@ -1782,7 +1783,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             capabilities.api_surfaces.generated_source_contract.engine_native_generated_source.blocker_id,
-            "none_scoped_local_range_jsonl_smoke_only",
+            "none_scoped_local_range_sequence_jsonl_smoke_only",
         )
         api_admission = capabilities.python.generated_source_api_admission
         self.assertIsInstance(api_admission, GeneratedSourceApiAdmissionMatrix)
@@ -1792,6 +1793,7 @@ class ShardLoomClientTests(unittest.TestCase):
             (
                 "python_ctx_from_rows",
                 "python_ctx_range",
+                "python_ctx_sequence",
                 "python_ctx_literal_table",
                 "python_ctx_calendar",
                 "python_generated_source_write",

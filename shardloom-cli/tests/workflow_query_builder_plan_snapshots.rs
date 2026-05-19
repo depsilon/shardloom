@@ -249,33 +249,11 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         ],
         false,
     );
-    let source_free_sequence = run_command_json(
+    let sql_source_free_projection = run_command_json(
         &[
             "workflow-unsupported-plan",
-            "source-free-sequence",
-            "source_free(sequence)",
-            "start=0;end=10;step=1;column=value",
-            "--format",
-            "json",
-        ],
-        false,
-    );
-    let sql_values = run_command_json(
-        &[
-            "workflow-unsupported-plan",
-            "sql-values",
-            "source_free(sql_values)",
-            "VALUES (1)",
-            "--format",
-            "json",
-        ],
-        false,
-    );
-    let sql_literal_select = run_command_json(
-        &[
-            "workflow-unsupported-plan",
-            "sql-literal-select",
-            "source_free(sql_literal_select)",
+            "sql-source-free-projection",
+            "source_free(sql_source_free_projection)",
             "SELECT 1 AS value",
             "--format",
             "json",
@@ -386,9 +364,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         &sql_bind,
         &sql_plan,
         &sql_execute,
-        &source_free_sequence,
-        &sql_values,
-        &sql_literal_select,
+        &sql_source_free_projection,
         &dataframe_source_free_projection,
         &dataframe_generated_with_column,
         &object_store_generated_output,
@@ -495,22 +471,15 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(sql_plan.contains(&field("workflow_operation", "sql_plan")));
     assert!(sql_execute.contains(&field("workflow_operation", "sql_execute")));
     assert!(sql_execute.contains(&field("runtime_required", "true")));
-    assert!(source_free_sequence.contains(&field("workflow_operation", "source_free_sequence")));
-    assert!(source_free_sequence.contains(&field(
-        "blocker_id",
-        "gar-gen-1.sequence_runtime_not_implemented"
-    )));
-    assert!(sql_values.contains(&field("workflow_operation", "sql_values")));
-    assert!(sql_values.contains(&field(
-        "blocker_id",
-        "gar-gen-1.sql_values_runtime_not_implemented"
-    )));
-    assert!(sql_values.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
-    assert!(sql_literal_select.contains(&field("workflow_operation", "sql_literal_select")));
-    assert!(sql_literal_select.contains(&field(
+    assert!(
+        sql_source_free_projection
+            .contains(&field("workflow_operation", "sql_source_free_projection"))
+    );
+    assert!(sql_source_free_projection.contains(&field(
         "blocker_id",
         "gar-gen-1.sql_source_free_projection_runtime_not_implemented"
     )));
+    assert!(sql_source_free_projection.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
     assert!(dataframe_source_free_projection.contains(&field(
         "workflow_operation",
         "dataframe_source_free_projection"
