@@ -521,6 +521,10 @@ plan before coding.
 - [x] GAR-0021-A: `cg20-approx-sketch-gate` now exposes a report-only approximate/sketch admission
   contract with GAR/support/claim fields, deterministic unsupported status, required evidence
   booleans, and no-fallback/no-external-engine fields.
+- [x] GAR-RUNTIME-IMPL-4D-S1 adds scoped ShardLoom-native UTF-8 string predicate runtime for
+  `utf8_starts_with` / `utf8_contains` and local SQL `LIKE 'prefix%'` / `LIKE '%contains%'`
+  lowering, with deterministic blockers for unsupported LIKE shapes and no fallback/external
+  engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 

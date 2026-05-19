@@ -207,6 +207,33 @@ enum ParsedPredicate {
     IsNotNull {
         column: String,
     },
+    StringMatch {
+        column: String,
+        op: StringPredicateOp,
+        value: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StringPredicateOp {
+    StartsWith,
+    Contains,
+}
+
+impl StringPredicateOp {
+    const fn function_name(self) -> &'static str {
+        match self {
+            Self::StartsWith => "utf8_starts_with",
+            Self::Contains => "utf8_contains",
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::StartsWith => "starts_with",
+            Self::Contains => "contains",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1307,9 +1334,10 @@ impl SortDirection {
 impl ParsedPredicate {
     fn column(&self) -> &str {
         match self {
-            Self::Compare { column, .. } | Self::IsNull { column } | Self::IsNotNull { column } => {
-                column
-            }
+            Self::Compare { column, .. }
+            | Self::IsNull { column }
+            | Self::IsNotNull { column }
+            | Self::StringMatch { column, .. } => column,
         }
     }
 
@@ -1349,6 +1377,22 @@ impl ParsedPredicate {
                     )),
                 },
             )),
+            Self::StringMatch { column, op, value } => Ok(Expression::new(
+                ExprId::new(format!("where.string.{}", op.as_str()))?,
+                ExpressionKind::FunctionCall {
+                    name: op.function_name().to_string(),
+                    args: vec![
+                        Expression::column(
+                            ExprId::new(format!("where.{column}"))?,
+                            ColumnRef::new(column.clone())?,
+                        ),
+                        Expression::literal(
+                            ExprId::new("where.string.literal")?,
+                            ScalarValue::Utf8(value.clone()),
+                        ),
+                    ],
+                },
+            )),
         }
     }
 
@@ -1356,6 +1400,14 @@ impl ParsedPredicate {
         match self {
             Self::Compare { .. } => "comparison",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
+            Self::StringMatch { .. } => "string_predicate",
+        }
+    }
+
+    fn string_operator(&self) -> &'static str {
+        match self {
+            Self::StringMatch { op, .. } => op.as_str(),
+            Self::Compare { .. } | Self::IsNull { .. } | Self::IsNotNull { .. } => "not_applicable",
         }
     }
 }
@@ -1620,6 +1672,14 @@ impl SqlLocalSourceReport {
             (
                 "predicate_operator_family".to_string(),
                 self.parsed.predicate.family().to_string(),
+            ),
+            (
+                "string_predicate_runtime_execution".to_string(),
+                matches!(self.parsed.predicate, ParsedPredicate::StringMatch { .. }).to_string(),
+            ),
+            (
+                "string_predicate_operator".to_string(),
+                self.parsed.predicate.string_operator().to_string(),
             ),
             ("projection_pushed_down".to_string(), "false".to_string()),
             ("filter_pushed_down".to_string(), "false".to_string()),
@@ -2286,16 +2346,59 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
         }
         [column, op_raw, literal_raw] => {
             validate_sql_column_ref(column)?;
-            let op = parse_comparison_op(op_raw)?;
-            let value = parse_sql_literal(literal_raw)?;
-            Ok(ParsedPredicate::Compare {
-                column: (*column).clone(),
-                op,
-                value,
-            })
+            if op_raw.eq_ignore_ascii_case("like") {
+                let pattern = parse_sql_string_literal(literal_raw)?;
+                let (op, value) = parse_like_string_predicate(&pattern)?;
+                Ok(ParsedPredicate::StringMatch {
+                    column: (*column).clone(),
+                    op,
+                    value,
+                })
+            } else {
+                let op = parse_comparison_op(op_raw)?;
+                let value = parse_sql_literal(literal_raw)?;
+                Ok(ParsedPredicate::Compare {
+                    column: (*column).clone(),
+                    op,
+                    value,
+                })
+            }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> IS NULL, or <column> IS NOT NULL",
+            "WHERE admits only <column> <op> <literal>, <column> LIKE <string-pattern>, <column> IS NULL, or <column> IS NOT NULL",
+        )),
+    }
+}
+
+fn parse_like_string_predicate(
+    pattern: &str,
+) -> Result<(StringPredicateOp, String), ShardLoomError> {
+    if pattern.contains('_') {
+        return Err(unsupported_sql_error(
+            "LIKE '_' wildcards are not admitted in this scoped string-predicate smoke",
+        ));
+    }
+    let percent_count = pattern.chars().filter(|ch| *ch == '%').count();
+    match (
+        pattern.strip_prefix('%'),
+        pattern.strip_suffix('%'),
+        percent_count,
+    ) {
+        (Some(inner), Some(_), 2) if pattern.len() >= 3 => {
+            let needle = inner.strip_suffix('%').unwrap_or(inner);
+            if needle.is_empty() || needle.contains('%') {
+                Err(unsupported_sql_error(
+                    "LIKE contains predicates admit exactly one non-empty %needle% pattern",
+                ))
+            } else {
+                Ok((StringPredicateOp::Contains, needle.to_string()))
+            }
+        }
+        (None, Some(prefix), 1) if !prefix.is_empty() => {
+            Ok((StringPredicateOp::StartsWith, prefix.to_string()))
+        }
+        _ => Err(unsupported_sql_error(
+            "LIKE admits only prefix 'text%' and contains '%text%' patterns in this scoped runtime slice; use = for exact string equality",
         )),
     }
 }

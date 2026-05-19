@@ -84,6 +84,120 @@ fn expression_semantics_baseline_keeps_unsupported_paths_deterministic() {
 }
 
 #[test]
+fn expression_semantics_evaluates_utf8_string_predicates_without_fallback() {
+    let starts_with = Expression::new(
+        expr_id("starts-with"),
+        ExpressionKind::FunctionCall {
+            name: "utf8_starts_with".to_string(),
+            args: vec![
+                Expression::column(expr_id("label"), col("label")),
+                Expression::literal(expr_id("prefix"), ScalarValue::Utf8("al".to_string())),
+            ],
+        },
+    );
+    let starts_with_report = evaluate_expression(
+        &starts_with,
+        &row(&[("label", ScalarValue::Utf8("alpha".into()))]),
+    );
+
+    assert_eq!(
+        starts_with_report.status,
+        ExpressionEvaluationStatus::Evaluated
+    );
+    assert_eq!(starts_with_report.value, Some(ScalarValue::Boolean(true)));
+    assert_eq!(starts_with_report.output_dtype, Some(LogicalDType::Boolean));
+    assert_eq!(starts_with_report.operator_family, "string_predicate");
+    assert_eq!(
+        starts_with_report.null_behavior,
+        NullBehavior::NullPropagating
+    );
+    assert!(starts_with_report.data_materialized);
+    assert!(!starts_with_report.fallback_attempted);
+    assert!(!starts_with_report.external_engine_invoked);
+
+    let contains = Expression::new(
+        expr_id("contains"),
+        ExpressionKind::FunctionCall {
+            name: "utf8_contains".to_string(),
+            args: vec![
+                Expression::column(expr_id("label-contains"), col("label")),
+                Expression::literal(expr_id("needle"), ScalarValue::Utf8("ha".to_string())),
+            ],
+        },
+    );
+    let contains_report = evaluate_expression(
+        &contains,
+        &row(&[("label", ScalarValue::Utf8("alpha".into()))]),
+    );
+
+    assert_eq!(
+        contains_report.status,
+        ExpressionEvaluationStatus::Evaluated
+    );
+    assert_eq!(contains_report.value, Some(ScalarValue::Boolean(true)));
+    assert_eq!(contains_report.operator_family, "string_predicate");
+    assert!(!contains_report.fallback_attempted);
+    assert!(!contains_report.external_engine_invoked);
+}
+
+#[test]
+fn expression_semantics_string_predicates_propagate_nulls_and_block_non_utf8() {
+    let starts_with = Expression::new(
+        expr_id("starts-with-null"),
+        ExpressionKind::FunctionCall {
+            name: "utf8_starts_with".to_string(),
+            args: vec![
+                Expression::column(expr_id("label"), col("label")),
+                Expression::literal(expr_id("prefix"), ScalarValue::Utf8("al".to_string())),
+            ],
+        },
+    );
+    let null_report = evaluate_expression(&starts_with, &row(&[("label", ScalarValue::Null)]));
+
+    assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
+    assert_eq!(null_report.value, Some(ScalarValue::Null));
+    assert_eq!(null_report.output_dtype, Some(LogicalDType::Boolean));
+    assert_eq!(null_report.operator_family, "string_predicate");
+    assert!(!null_report.fallback_attempted);
+    assert!(!null_report.external_engine_invoked);
+
+    let invalid = Expression::new(
+        expr_id("starts-with-invalid"),
+        ExpressionKind::FunctionCall {
+            name: "utf8_starts_with".to_string(),
+            args: vec![
+                Expression::column(expr_id("amount"), col("amount")),
+                Expression::literal(
+                    expr_id("prefix-invalid"),
+                    ScalarValue::Utf8("1".to_string()),
+                ),
+            ],
+        },
+    );
+    let invalid_report = evaluate_expression(&invalid, &row(&[("amount", ScalarValue::Int64(10))]));
+
+    assert_eq!(
+        invalid_report.status,
+        ExpressionEvaluationStatus::Unsupported
+    );
+    assert!(invalid_report.has_errors());
+    assert!(!invalid_report.fallback_attempted);
+    assert!(!invalid_report.external_engine_invoked);
+    assert!(
+        invalid_report
+            .diagnostics
+            .iter()
+            .all(|d| !d.fallback.attempted)
+    );
+    assert!(
+        invalid_report
+            .diagnostics
+            .iter()
+            .any(|d| d.feature.as_deref() == Some("string_predicate"))
+    );
+}
+
+#[test]
 fn projection_filter_and_limit_share_the_semantics_baseline() {
     let rows = vec![
         row(&[

@@ -265,10 +265,13 @@ or documentation updates alone are insufficient.
 
 - [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families
   - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics.
-  - Current state: expression support exists in scoped smoke paths, but user workflows still lack
-    broad typed casts, null predicates, string predicates, and date/time helpers.
+  - Current state: expression support exists in scoped smoke paths; scoped UTF-8 prefix/contains
+    string predicates are runtime-admitted through core expression semantics and local SQL `LIKE`
+    smoke paths, but user workflows still lack broad typed casts, date/time helpers, and
+    broader expression-family coverage.
   - Next slice outcome: add one implementation PR per expression family: numeric casts,
-    null/is-not-null, string equality/prefix/contains where admitted, and date extraction/literals.
+    null/is-not-null hardening where gaps remain, remaining admitted string predicates, and date
+    extraction/literals.
   - Runtime enablement: executable ShardLoom-native expression families or deterministic runtime
     blockers for unsupported operators.
   - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.
