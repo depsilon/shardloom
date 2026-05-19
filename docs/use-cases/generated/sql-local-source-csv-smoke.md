@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit, scalar aggregate, one-column group-by aggregate, single-key numeric ORDER BY/LIMIT top-N, and explicit local CSV inner equi-join smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, Python/DataFrame join support, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; scalar aggregate; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; and explicit local CSV inner equi-join smokes with optional local JSONL output only. No broad SQL/DataFrame runtime, Python/DataFrame join support, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ SQL local CSV projection/filter/limit, aggregate, group-by, top-N, and join smok
 
 ## Claim Boundary
 
-Scoped local CSV SELECT projection/filter/limit, scalar aggregate, one-column group-by aggregate, single-key numeric ORDER BY/LIMIT top-N, and explicit local CSV inner equi-join smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, Python/DataFrame join support, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+Scoped local CSV SELECT projection/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; scalar aggregate; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; and explicit local CSV inner equi-join smokes with optional local JSONL output only. No broad SQL/DataFrame runtime, Python/DataFrame join support, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,amount`n1
 
 ## Blocker
 
-Parquet/Vortex SQL sources, Python/DataFrame joins, outer/semi/anti/cross joins, multi-key and expression joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
+Parquet/Vortex SQL sources, Python/DataFrame joins, outer/semi/anti/cross joins, multi-key and expression joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 

@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python read_csv/select/filter/limit, read_csv/filter/scalar aggregate/limit, read_csv/filter/one-column group_by/aggregate/limit, and read_csv/select/filter/single-key numeric sort/limit collect/write workflows over local CSV only; no pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python read_csv/select/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; read_csv/filter/scalar aggregate/limit; read_csv/filter/one-column group_by/aggregate/limit; and read_csv/select/filter/single-key numeric sort/limit collect/write workflows over local CSV only. No pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Python local CSV query-builder projection, aggregate, group-by, and top-N smoke 
 
 ## Claim Boundary
 
-Scoped Python read_csv/select/filter/limit, read_csv/filter/scalar aggregate/limit, read_csv/filter/one-column group_by/aggregate/limit, and read_csv/select/filter/single-key numeric sort/limit collect/write workflows over local CSV only; no pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+Scoped Python read_csv/select/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; read_csv/filter/scalar aggregate/limit; read_csv/filter/one-column group_by/aggregate/limit; and read_csv/select/filter/single-key numeric sort/limit collect/write workflows over local CSV only. No pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha
 
 ## Blocker
 
-The Python query-builder runtime admits only local CSV select/filter/limit, scalar aggregate/filter/limit, one-column group_by/filter/aggregate/limit, and single-key numeric sort/filter/limit collect/write through the SQL local-source smoke. Joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
+The Python query-builder runtime admits only local CSV select/filter/limit with admitted predicate leaves and balanced grouping parentheses, scalar aggregate/filter/limit, one-column group_by/filter/aggregate/limit, and single-key numeric sort/filter/limit collect/write through the SQL local-source smoke. Joins, arbitrary predicate-tree completeness beyond admitted leaves, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
 
 ## Internal Flow
 

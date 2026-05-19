@@ -540,6 +540,11 @@ plan before coding.
   admitted predicate leaves, preserves SQL `NOT`/`AND`/`OR` precedence for unparenthesized scoped
   predicates, emits logical predicate evidence fields, and keeps parentheses/arbitrary predicate
   completeness outside this slice without fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D-S6 adds scoped local SQL balanced predicate-grouping parentheses over
+  already admitted comparison, cast, date-literal, null, string, and logical predicate leaves,
+  makes top-level `AND`/`OR` detection ignore grouped subexpressions, preserves recursive evidence,
+  and emits deterministic unbalanced-parenthesis blockers with no fallback/external engine
+  invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 

@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D-S6 scoped SQL predicate grouping parentheses runtime
+  - Branch/PR: `codex/sql-predicate-parentheses-runtime` / #789.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `website/compute-engine-flow.html`
+    - `website/status.html`
+  - Scope: admit balanced predicate grouping parentheses over already admitted scoped local SQL
+    predicate leaves while keeping arbitrary SQL predicate-tree completeness, broad expression
+    parsing, optimizer rewrites, production SQL/DataFrame support, and performance claims outside
+    the slice.
+  - Runtime behavior:
+    - Strips balanced enclosing predicate parentheses before binding scoped predicate forms.
+    - Finds top-level `OR` and `AND` only outside quoted strings and nested grouping parentheses,
+      preserving existing `NOT` and leaf predicate behavior.
+    - Emits deterministic unsupported diagnostics for unbalanced predicate parentheses, including
+      explicit no-fallback and no-external-engine text.
+  - Evidence:
+    - CLI JSON reports `predicate_operator_family=logical_predicate`,
+      `logical_predicate_runtime_execution=true`, `logical_predicate_operator=<and|or|not>`,
+      `logical_predicate_leaf_count=<n>`, recursive leaf evidence such as string predicate
+      operators, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Python query-builder tests confirm parenthesized filters are passed through to the scoped SQL
+      local-source runtime without fallback.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli parenthesized`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke logical`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_parenthesized_filter_invokes_sql_smoke`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: scoped local SQL/CLI/Python query-builder predicate grouping parentheses over
+    admitted predicate leaves only. This does not claim arbitrary SQL predicate trees, broad
+    SQL/DataFrame runtime, object-store/table/lakehouse/Foundry support, package readiness,
+    performance, superiority, or production support.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E/5A scoped generated-source sequence runtime
   - Branch/PR: `codex/generated-source-sequence-runtime` / #788.
   - Primary files:

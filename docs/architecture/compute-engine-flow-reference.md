@@ -586,8 +586,10 @@ End-to-end contract:
 - SQL/DataFrame access currently combines narrow smoke support with broader report-only posture.
   Source-free SQL `VALUES` and literal `SELECT` can write local JSONL through
   `generated-source-sql-smoke`, and local CSV
-  `SELECT <columns> FROM '<local.csv>' WHERE <simple predicate> LIMIT <n>` can execute through
-  `sql-local-source-smoke`. `capabilities sql`, `capabilities dataframe`, and Python
+  `SELECT <columns> FROM '<local.csv>' WHERE <scoped predicate> LIMIT <n>` can execute through
+  `sql-local-source-smoke`. The scoped predicate grammar admits comparisons, `DATE` literals,
+  casts, null checks, prefix/contains/suffix `LIKE`, `AND`/`OR`/`NOT`, and balanced grouping
+  parentheses over those admitted leaves. `capabilities sql`, `capabilities dataframe`, and Python
   `CapabilityView` accessors still keep broad SQL/DataFrame parse/bind/plan/execute, lazy-plan,
   expression, join, aggregate, and window support report-only or blocked outside those scoped smoke
   paths.
@@ -1095,8 +1097,10 @@ claim_gate_status=fixture_smoke_only | claim_grade | not_claim_grade
 This is the traditional-compute-like ShardLoom path. The current repo has scoped local CSV smoke
 paths for `selective filter` and `filter + projection + limit`, plus the `sql-local-source-smoke`
 path for local CSV `SELECT` projection/filter/limit, scalar aggregate, one-column group-by
-aggregate, and single-key numeric `ORDER BY ... LIMIT ...` top-N shapes. That SQL path can render
-bounded inline JSONL or write local JSONL output with output Native I/O certificate fields.
+aggregate, single-key numeric `ORDER BY ... LIMIT ...` top-N shapes, and scoped parenthesized
+logical predicates over admitted comparison, cast, date-literal, null, and string predicate leaves.
+That SQL path can render bounded inline JSONL or write local JSONL output with output Native I/O
+certificate fields.
 Python `ctx.read_csv(...).select(...).filter(...).limit().collect()/write(...)`,
 `ctx.read_csv(...).filter(...).aggregate(...).limit(1).collect()/write(...)`, and
 `ctx.read_csv(...).filter(...).group_by(...).agg(...).limit(n).collect()/write(...)`, and
@@ -1104,7 +1108,8 @@ Python `ctx.read_csv(...).select(...).filter(...).limit().collect()/write(...)`,
 admitted projection/scalar/one-column grouped/top-N runtime. Adjacent formats, multi-key grouped
 aggregate generality, named grouped aggregate aliases, multi-key sorts, null ordering, collation
 parity, joins, windows, broader result sinks, broad SQL/DataFrame access, and broader transient
-runtime behavior still return deterministic unsupported diagnostics.
+runtime behavior still return deterministic unsupported diagnostics. Balanced predicate grouping
+does not imply arbitrary SQL predicate-tree completeness or optimizer rewrite support.
 
 SQL/DataFrame diagnostics for this mode are interpreted through the GAR-0001A-A planner-readiness
 matrix. The matrix is `not_claim_grade`, preserves `fallback_attempted=false` and
