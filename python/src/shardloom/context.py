@@ -290,10 +290,10 @@ _WRITE_BOUNDARY = (
     "fallback, or production output claim."
 )
 _GENERATED_OUTPUT_BOUNDARY = (
-    "Scoped local generated-output smokes only; user rows, engine-native range, and source-free "
-    "SQL VALUES/literal SELECT write local JSONL with generated-source and output evidence, but "
-    "no broad DataFrame runtime, broad SQL runtime, object-store/lakehouse, Foundry, performance, "
-    "or production claim."
+    "Scoped local generated-output smokes only; user rows, engine-native range/sequence, and "
+    "source-free SQL VALUES/literal SELECT/generate_series/range write local JSONL with "
+    "generated-source and output evidence, but no broad DataFrame runtime, broad SQL runtime, "
+    "object-store/lakehouse, Foundry, performance, or production claim."
 )
 
 DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (

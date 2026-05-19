@@ -2614,6 +2614,14 @@ fn assert_generated_output_compatibility_fields(output: &str) {
         true
     )));
     assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_sql_generate_series_range_support_status",
+        "smoke-supported"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_row_sql_generate_series_range_runtime_execution",
+        true
+    )));
+    assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_local_output_only_generated_source_posture_blocker_id",
         "gar-compat-1b.non_local_generated_output_blocked"
     )));
@@ -2957,6 +2965,7 @@ fn generated_source_capability_contract_separates_no_dataset_smoke() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
     for scope in ["sql", "python", "dataframe", "api-surfaces"] {
         let output = run_capabilities_scope(scope);
@@ -3042,6 +3051,18 @@ fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
         )));
         assert!(output.contains(&field_pair("sql_values_runtime_execution", true)));
         assert!(output.contains(&field_pair("sql_values_generated_source_created", true)));
+        assert!(output.contains(&string_field_pair(
+            "sql_generate_series_range_blocker_id",
+            "none_scoped_local_sql_generate_series_range_jsonl_smoke_only"
+        )));
+        assert!(output.contains(&field_pair(
+            "sql_generate_series_range_runtime_execution",
+            true
+        )));
+        assert!(output.contains(&field_pair(
+            "sql_generate_series_range_generated_source_created",
+            true
+        )));
         assert!(output.contains(&string_field_pair(
             "dataframe_generated_with_column_blocker_id",
             "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented"

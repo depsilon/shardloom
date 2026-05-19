@@ -902,7 +902,7 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
     },
     UniversalCompatibilityRow {
         id: "sql_values_literals",
-        surface: "SQL VALUES / literals",
+        surface: "SQL VALUES / literals / range generators",
         family: "sql_frontend",
         direction: "api",
         support_status: "smoke-supported",
@@ -918,7 +918,7 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
         blocker_id: "none_scoped_local_sql_values_literals_jsonl_smoke_only",
         required_future_evidence: "broader_sql_parser_binder_planner_local_source_operator_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "only source-free SQL VALUES/literal local JSONL fixture smokes are admitted; no broad SQL runtime claim",
+        claim_boundary: "only source-free SQL VALUES/literal/range-generator local JSONL fixture smokes are admitted; no broad SQL runtime claim",
     },
     UniversalCompatibilityRow {
         id: "rest_flight_adbc",
@@ -1094,7 +1094,7 @@ const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = 
         blocker_id: "none_supported_generated_source_write_smokes_only",
         required_evidence: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, range, sequence, SQL VALUES, and SQL literal SELECT JSONL smokes.",
+        claim_boundary: "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL smokes.",
     },
     GeneratedOutputCompatibilityRow {
         id: "local_output_only_generated_source_posture",
@@ -1174,22 +1174,22 @@ const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = 
     },
     GeneratedOutputCompatibilityRow {
         id: "sql_generate_series_range",
-        user_visible_surface: "SQL generate_series/range vocabulary",
+        user_visible_surface: "SQL generate_series/range",
         family: "sql_generated_source",
-        support_status: "report-only",
-        runtime_execution: false,
+        support_status: "smoke-supported",
+        runtime_execution: true,
         data_read: false,
-        write_io: false,
+        write_io: true,
         source_io_performed: false,
-        generated_source_created: false,
-        output_io_performed: false,
+        generated_source_created: true,
+        output_io_performed: true,
         source_native_io_certificate_status: "not_applicable_no_source_dataset",
-        output_native_io_certificate_status: "not_emitted_report_only",
-        generated_source_certificate_status: "not_emitted_report_only",
-        blocker_id: "gar-gen-1.sql_generate_series_range_runtime_not_implemented",
-        required_evidence: "sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate",
-        claim_gate_status: "not_claim_grade",
-        claim_boundary: "SQL generate_series/range is vocabulary only; use Python ctx.range for the scoped runtime smoke.",
+        output_native_io_certificate_status: "required_for_runtime_output",
+        generated_source_certificate_status: "required_for_runtime",
+        blocker_id: "none_scoped_local_sql_generate_series_range_jsonl_smoke_only",
+        required_evidence: "sql_parser,sql_binder,sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "SQL generate_series/range is admitted only for SELECT * FROM generate_series/range(...) scoped local JSONL generated-output fixture smokes; no broad SQL runtime claim.",
     },
     GeneratedOutputCompatibilityRow {
         id: "dataframe_source_free_projection",
@@ -7811,7 +7811,7 @@ fn append_universal_compatibility_generated_output_fields(fields: &mut Vec<(Stri
     push_field(
         fields,
         "universal_compatibility_generated_output_claim_boundary",
-        "only scoped local user-row, range, and source-free SQL VALUES/literal JSONL generated-output smokes are admitted; broad SQL/DataFrame, object-store, lakehouse, Foundry, production, package, and performance claims remain blocked or report-only",
+        "only scoped local user-row, range, sequence, and source-free SQL VALUES/literal/generate_series/range JSONL generated-output smokes are admitted; broad SQL/DataFrame, object-store, lakehouse, Foundry, production, package, and performance claims remain blocked or report-only",
     );
 
     for row in GENERATED_OUTPUT_COMPATIBILITY_ROWS {

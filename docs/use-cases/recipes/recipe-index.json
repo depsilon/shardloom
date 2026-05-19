@@ -121,7 +121,7 @@
       "status": "smoke_supported",
       "use_case_id": "source-free-generated-output-boundary",
       "user_goal": "Create a reference table without an input dataset.",
-      "command": "$env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.claim_gate_status)\"",
+      "command": "$env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import context; ctx=context(repo_root='.'); r=ctx.from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).write('target/generated-reference.jsonl', allow_overwrite=True); s=ctx.sql('SELECT * FROM generate_series(0, 4)').write('target/generated-sql-series.jsonl', allow_overwrite=True); print(r.claim_gate_status, s.generated_source_kind, s.generated_source_range_end_inclusive)\"",
       "expected_output": "Local JSONL output plus a generated-source/output evidence envelope.",
       "evidence_fields": [
         "input_dataset_count=0",
@@ -132,7 +132,7 @@
         "fallback_attempted=false",
         "external_engine_invoked=false"
       ],
-      "claim_boundary": "Scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, and SQL literal SELECT JSONL fixture smokes only; broad SQL/DataFrame runtime, object-store writes, and Foundry generated-output runtime remain gated.",
+      "claim_boundary": "Scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL fixture smokes only; broad SQL/DataFrame runtime, object-store writes, and Foundry generated-output runtime remain gated.",
       "references": [
         "docs/foundry/proof-of-use-certification.md",
         "docs/architecture/compute-engine-flow-reference.md",
