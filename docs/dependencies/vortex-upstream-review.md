@@ -24,6 +24,8 @@ executable support from older PR-specific sections that say "this PR" or
 - Vortex-native array, compute, scan, source, and sink APIs may be future native
   providers only when feature-gated, version-recorded, policy-admitted, and
   certificate-backed.
+- Future upstream release intake is governed by
+  `docs/dependencies/vortex-upstream-release-intake-runbook.md`.
 - Vortex DataFusion, DuckDB, Spark, Trino, and similar integrations remain
   baseline/reference/oracle surfaces only; they must not execute unsupported
   ShardLoom residual work.

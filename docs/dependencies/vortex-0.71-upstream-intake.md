@@ -107,6 +107,8 @@ The phase plan owns these follow-through slices:
 - `GAR-VORTEX-071C`: runtime opportunity mapping into existing runtime slices. Complete once the
   matching PR lands; mapped into `GAR-RUNTIME-IMPL-4D`, `4F`, `4G`, `4H`, `4I`, `4J`, `4N`, and
   `4P`.
-- `GAR-VORTEX-071D`: Dependabot and release-intake workflow hardening.
+- `GAR-VORTEX-071D`: Dependabot and release-intake workflow hardening. Complete once the matching
+  PR lands; future Vortex updates use
+  `docs/dependencies/vortex-upstream-release-intake-runbook.md`.
 
 No ShardLoom runtime support changes are approved until those slices attach evidence.

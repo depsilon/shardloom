@@ -6,10 +6,15 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
       - "rust"
+    groups:
+      vortex-upstream:
+        patterns:
+          - "vortex"
+          - "vortex-*"
 
   - package-ecosystem: "pip"
     directory: "/python"

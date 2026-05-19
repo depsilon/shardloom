@@ -57,6 +57,11 @@ Release posture:
 Dependabot pull requests still require the normal dependency audit, license policy, CI, and
 no-fallback checks before merge.
 
+Cargo updates for `vortex` and `vortex-*` are grouped as `vortex-upstream` and must follow
+`docs/dependencies/vortex-upstream-release-intake-runbook.md`. Dependabot may propose those updates,
+but it must not auto-merge them or replace the ShardLoom-specific release-note/API inventory,
+feature-gated compile proof, dependency-footprint review, and no-fallback evidence checks.
+
 ## Maintainer Settings
 
 The following repository settings cannot be fully represented in code and must be verified by a
