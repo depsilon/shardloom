@@ -953,10 +953,12 @@ print(calendar_report.claim_gate_status)
 
 The supported engine-native range smoke is separate. It generates deterministic
 `int64` rows inside ShardLoom, writes local JSONL/CSV, and emits the same
-generated-source/output/no-fallback evidence family:
+generated-source/output/no-fallback evidence family. `limit(...)`, `head(...)`, and `take(...)`
+adjust the range bounds before invoking the same engine-native range/sequence smoke; they do not
+materialize rows in Python:
 
 ```python
-range_report = ctx.range(0, 5, column="id").write(
+range_report = ctx.range(0, 50, column="id").limit(5).write(
     "target/generated-range.jsonl",
     allow_overwrite=True,
 )
@@ -980,7 +982,7 @@ The supported engine-native sequence smoke uses the same integer generator contr
 DataFrame generation:
 
 ```python
-sequence_report = ctx.sequence(0, 5, column="id").write(
+sequence_report = ctx.sequence(0, 50, column="id").take(5).write(
     "target/generated-sequence.jsonl",
     allow_overwrite=True,
 )
