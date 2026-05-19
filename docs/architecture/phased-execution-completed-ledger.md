@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-USER-SURFACE-1C Python query-builder `count()` convenience
+  - Branch/PR: `codex/query-builder-count` / #806.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/phased-execution-plan.md`
+    - generated use-case/readme/status/field-guide website pages.
+  - Scope: add a PySpark-like `count()` convenience for ordinary local Python query-builder users
+    without introducing a new execution path.
+  - Runtime behavior:
+    - `LazyFrame.count()` lowers to the existing ShardLoom-owned scalar aggregate path as
+      `COUNT(*)` with a bounded `LIMIT 1`.
+    - The method is admitted only where scalar aggregate smokes are already admitted, including
+      optional local CSV/flat JSONL filters.
+    - Unsupported shapes still return deterministic unsupported workflow diagnostics.
+  - Evidence:
+    - Python tests assert exact lowering into `sql-local-source-smoke`, aggregate evidence fields,
+      `aggregate_functions=count(*)`, `fallback_attempted=false`, `external_engine_invoked=false`,
+      and `claim_gate_status=fixture_smoke_only`.
+    - Docs and generated use-case pages present `count()` as a convenience wrapper over existing
+      aggregate evidence, not broad DataFrame parity.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_count_invokes_scalar_aggregate_smoke`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo fmt --all -- --check`
+    - `git diff --check`
+  - Claim boundary: this is a scoped fixture-smoke convenience over local CSV/flat JSONL scalar
+    aggregate runtime only. It is not broad DataFrame runtime, SQL parity, object-store/table
+    support, external fallback, production support, or a performance claim.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5E literal projection local CSV output writer proof
   - Branch/PR: `codex/literal-with-column-output-writers` / #805.
   - Primary files:

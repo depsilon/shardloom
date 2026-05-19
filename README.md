@@ -136,6 +136,7 @@ Currently wired surfaces include:
   `ctx.read_json(...).select(...).limit().collect()/write(...)` with optional `filter(...)` for local flat
   `.jsonl`/`.ndjson` sources, plus CSV or flat JSONL/NDJSON
   optional-filter `aggregate(...).limit(1).collect()/write(...)`,
+  optional-filter `count()`,
   optional-filter `group_by(...).agg(...).limit(n).collect()/write(...)`,
   `select(...).sort(...).limit(n).collect()/write(...)`, explicit-projection
   literal `with_column(...).limit(n).collect()/write(...)`, and scoped local CSV
