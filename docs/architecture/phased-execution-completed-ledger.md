@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-USER-SURFACE-1E-S2 Python SQL local-source `result_rows` ergonomics
+  - Branch/PR: `codex/sql-local-result-rows` / #808.
+  - Primary files:
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/phased-execution-plan.md`
+    - generated use-case/readme/status website pages.
+  - Scope: make scoped SQL local-source Python reports easier for non-expert users to inspect
+    without parsing inline JSONL manually.
+  - Runtime behavior:
+    - `SqlLocalSourceSmokeReport.result_rows` parses bounded `result_jsonl` into an immutable tuple
+      of Python mapping rows.
+    - `SqlLocalSourceSmokeReport.first_result_row` returns the first bounded result row or `None`.
+    - Malformed result JSONL and non-object JSONL rows raise deterministic `ShardLoomProtocolError`
+      diagnostics instead of leaking raw JSON parsing errors.
+  - Evidence:
+    - Python query-builder tests assert local collect/count reports expose typed rows while preserving
+      existing `result_jsonl`, row-count, no-fallback, external-engine, and claim-gate fields.
+    - Protocol tests assert invalid JSONL and non-object rows fail through stable protocol errors.
+    - README, Python README, examples, use-case index, and generated website pages now prefer
+      `result_rows` / `first_result_row` in user examples while keeping evidence/claim fields
+      visible.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_collect_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_count_invokes_scalar_aggregate_smoke python.tests.test_cli_client.ShardLoomClientTests.test_sql_local_source_report_result_rows_validate_jsonl_objects`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python website\build_static_pages.py --benchmark-manifest website\assets\benchmarks\latest\manifest.json`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: typed row helpers improve usability for existing scoped SQL local-source
+    fixture-smoke reports only. They do not widen SQL/DataFrame runtime support, change execution
+    mode, upgrade claim status, add fallback, or create production/performance claims.
+
 - [x] Session label: GAR-USER-SURFACE-1C Python query-builder `head()`/`take()` preview conveniences
   - Branch/PR: `codex/query-builder-head-take` / #807.
   - Primary files:
