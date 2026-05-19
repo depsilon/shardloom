@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4B SQL order-by/top-N local runtime
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+  - Scope: promote one scoped local CSV single-key numeric `ORDER BY ... LIMIT ...` top-N shape
+    through the SQL local-source smoke and Python query-builder.
+  - Checklist:
+    - [x] Add `ORDER BY <column> [ASC|DESC] LIMIT <n>` parsing for the scoped local CSV projection
+          path.
+    - [x] Execute deterministic numeric single-key top-N after the existing local CSV source read
+          and simple `WHERE` predicate, using original row order as the stable tie breaker.
+    - [x] Emit `order_by_runtime_execution`, `top_n_runtime_execution`, sort key/direction,
+          null-ordering blocker policy, top-N limit, correctness digest, materialization/decode
+          status, no-fallback fields, and
+          `execution_certificate_ref=sql-local-source.csv.order-by-topn-filter-limit.execution.v1`.
+    - [x] Add Python `LazyFrame.sort(...).limit(...).collect()/write(...)` lowering for the same
+          scoped local CSV shape plus typed report accessors for top-N evidence.
+    - [x] Preserve multi-key sorts, expression sorts, null ordering, non-numeric ordering,
+          aggregate/grouped top-N, collation parity, window ranking, broad SQL/DataFrame runtime,
+          object-store/table sources, and production support as deterministic blocked surfaces.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - real local CLI smoke:
+      `sql-local-source-smoke "SELECT id,label FROM 'target/sql-local-source-topn.csv' WHERE amount >= 10 ORDER BY amount DESC LIMIT 2" --format json`
+    - real local Python smoke:
+      `ctx.read_csv(...).select("id", "label").filter("amount >= 0").sort("amount", descending=True).limit(2).collect()`
+    - use-case, website readiness, compile, contract, clippy, workspace test, and diff checks before
+      merge.
+  - Claim boundary:
+    - This admits one scoped local CSV numeric top-N/order-by fixture smoke only. It does not add
+      multi-key or expression ordering, null-ordering/collation parity, window ranking, joins,
+      broad SQL/DataFrame runtime, prepared/native top-N promotion, object-store/table support,
+      production support, or performance claims.
+  - Fallback boundary:
+    - Execution is ShardLoom-owned. No pandas, Polars, DuckDB, DataFusion, Spark, SQLite, Vortex
+      query-engine integration, or other external engine is invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4A Python group-by aggregate query-builder promotion
   - Primary files:
     - `python/src/shardloom/query.py`

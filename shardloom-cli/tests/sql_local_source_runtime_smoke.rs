@@ -176,6 +176,68 @@ fn sql_local_source_smoke_writes_local_jsonl_output_with_certificate_fields() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_numeric_order_by_topn_without_fallback() {
+    let source_path = unique_path("sql-local-source-order-by", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE amount >= 10 ORDER BY amount DESC LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_order_by_topn_filter_limit"
+    )));
+    assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sort_operator_family", "single_key_numeric_topn")));
+    assert!(stdout.contains(&field("sort_keys", "amount")));
+    assert!(stdout.contains(&field("sort_direction", "desc")));
+    assert!(stdout.contains(&field(
+        "sort_null_ordering",
+        "nulls_blocked_for_fixture_smoke"
+    )));
+    assert!(stdout.contains(&field("top_n_limit", "2")));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(stdout.contains(&field("output_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.order-by-topn-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_scalar_aggregates_without_fallback() {
     let source_path = unique_path("sql-local-source-aggregate", "csv");
     fs::write(
@@ -280,6 +342,74 @@ fn sql_local_source_smoke_executes_group_by_aggregates_without_fallback() {
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() {
+    let source_path = unique_path("sql-local-source-order-by-blocked", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE id >= 1 ORDER BY amount DESC LIMIT 2",
+        source_path.display()
+    );
+    let null_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        !null_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&null_output.stdout),
+        String::from_utf8_lossy(&null_output.stderr)
+    );
+    let stdout = String::from_utf8(null_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("ORDER BY NULL ordering is not admitted"));
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(stdout.contains("\"attempted\":false"));
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE id >= 1 ORDER BY label DESC LIMIT 2",
+        source_path.display()
+    );
+    let string_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        !string_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&string_output.stdout),
+        String::from_utf8_lossy(&string_output.stderr)
+    );
+    let stdout = String::from_utf8(string_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("ORDER BY top-N smoke admits numeric sort columns only"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE id >= 1 ORDER BY amount,label LIMIT 2",
+        source_path.display()
+    );
+    let multi_key_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        !multi_key_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&multi_key_output.stdout),
+        String::from_utf8_lossy(&multi_key_output.stderr)
+    );
+    let stdout = String::from_utf8(multi_key_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("ORDER BY top-N smoke admits exactly one sort key"));
 
     fs::remove_file(source_path).expect("remove source csv");
 }

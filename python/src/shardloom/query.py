@@ -587,11 +587,14 @@ class LazyFrame:
         *columns: object,
         descending: bool = False,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for DataFrame sorting."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped sort workflow when admitted, otherwise report unsupported."""
 
+        normalized_columns = _normalize_columns(columns)
         direction = "desc" if descending else "asc"
-        target = f"{direction}:{','.join(_normalize_columns(columns))}"
+        target = f"{direction}:{','.join(normalized_columns)}"
+        if self._can_append_sort(normalized_columns):
+            return self._append(WorkflowOperation("sort", (direction, normalized_columns[0])))
         return self._unsupported_operation("sort", target, check=check)
 
     def window(
@@ -784,6 +787,14 @@ class LazyFrame:
             for operation in self.operations
         )
 
+    def _can_append_sort(self, columns: tuple[str, ...]) -> bool:
+        if self.source.source_format != "csv" or len(columns) != 1:
+            return False
+        return all(
+            operation.kind not in {"aggregate", "group_by", "sort"}
+            for operation in self.operations
+        )
+
     def _append_group_by_aggregate(
         self,
         columns: tuple[str, ...],
@@ -806,6 +817,7 @@ class LazyFrame:
         projection_list: tuple[str, ...] | None = None
         aggregate_list: tuple[str, ...] | None = None
         group_by_list: tuple[str, ...] | None = None
+        sort_key: tuple[str, str] | None = None
         predicate: str | None = None
         limit: str | None = None
         for operation in self.operations:
@@ -815,6 +827,8 @@ class LazyFrame:
                 aggregate_list = operation.values
             elif operation.kind == "group_by" and group_by_list is None:
                 group_by_list = operation.values
+            elif operation.kind == "sort" and sort_key is None:
+                sort_key = (operation.values[0], operation.values[1])
             elif operation.kind == "filter" and predicate is None:
                 predicate = operation.values[0]
             elif operation.kind == "limit" and limit is None:
@@ -837,10 +851,16 @@ class LazyFrame:
                 group_by_clause = ""
         else:
             return None
+        if sort_key is not None and (aggregate_list is not None or group_by_list is not None):
+            return None
+        order_by_clause = ""
+        if sort_key is not None:
+            direction, column = sort_key
+            order_by_clause = f" ORDER BY {column} {direction.upper()}"
         source_uri = _quote_sql_local_source_path(self.source.uri)
         return (
             f"SELECT {select_clause} FROM {source_uri} "
-            f"WHERE {predicate}{group_by_clause} LIMIT {limit}"
+            f"WHERE {predicate}{group_by_clause}{order_by_clause} LIMIT {limit}"
         )
 
 

@@ -1739,7 +1739,9 @@ runtime/evidence proof.
   - Current state: source-free SQL is scoped, local-source projection/filter/limit is supported,
     local-source scalar aggregate smoke covers `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX` through CLI
     and Python query-builder wrappers, and local-source one-column group-by aggregate smoke is
-    supported through CLI and Python query-builder wrappers. Joins, order/top-N, casts, functions,
+    supported through CLI and Python query-builder wrappers. A scoped single-key numeric
+    local-source `ORDER BY ... LIMIT ...` top-N smoke is supported through CLI and Python
+    query-builder wrappers. Joins, generalized ordering/null/collation parity, casts, functions,
     named grouped aggregate aliases, multi-key grouped aggregate generality, and multi-source SQL
     are not broadly supported.
   - Next slice outcome: expand SQL lowering in staged groups: aggregate/group-by, order/top-N,
@@ -2077,8 +2079,8 @@ superseded by stronger runtime evidence.
 - [ ] GAR-RUNTIME-IMPL-3D SQL planner and expression runtime expansion by admitted syntax family
   - Source: `GAR-RUNTIME-IMPL-2C`, RFC 0032, operator semantics, SQL/DataFrame capability matrix.
   - Current state: scoped source-free SQL, local-source projection/filter/limit, local-source scalar
-    aggregate, and local-source one-column group-by aggregate SQL smokes exist; broad SQL execution
-    remains incomplete.
+    aggregate, local-source one-column group-by aggregate, and local-source single-key numeric
+    order/top-N SQL smokes exist; broad SQL execution remains incomplete.
   - Next slice outcome: implement syntax families in order: projection/filter/limit, aggregate,
     group-by, order/top-N, casts/null predicates, simple equi-join, then deterministic blockers for
     subqueries, windows, UDFs, catalogs, and unsupported functions.
@@ -2454,22 +2456,25 @@ matching leaf items below decide what work is actually next.
   - Ledger rule: ledger entry must include runnable Python snippet, evidence fields, and blocked
     grouped-aggregate shapes.
 
-- [ ] GAR-RUNTIME-IMPL-4B SQL order-by, limit, and top-N local runtime
+- [x] GAR-RUNTIME-IMPL-4B SQL order-by, limit, and top-N local runtime
   - Source: `GAR-RUNTIME-IMPL-3D`, benchmark top-N scenarios, expression/operator semantics.
-  - Current state: projection/filter/limit and aggregate SQL smokes exist; `ORDER BY` and top-N
-    execution are not ordinary local-source runtime features.
-  - Next slice outcome: implement scoped local CSV `ORDER BY ... LIMIT ...` and one top-N family
-    with deterministic blockers for unsupported ordering, collation, null ordering, and expressions.
+  - Current state: complete for a scoped local CSV projection/filter/single-key numeric
+    `ORDER BY ... ASC|DESC LIMIT ...` top-N shape through CLI `sql-local-source-smoke` and Python
+    `read_csv(...).select(...).filter(...).sort(...).limit(...).collect()/write(...)`.
+  - Next slice outcome: complete. Future top-N work remains under prepared/native operator,
+    generalized ordering/null/collation semantics, window ranking, and benchmark claim gates.
   - User-visible surface: CLI SQL local-source command, Python query builder if admitted, examples,
     benchmark smoke.
   - Implementation scope: parser/binder, sort/top-N operator, type/null ordering policy, output
     evidence, unsupported diagnostics.
   - Evidence required: sort keys, order direction, null ordering, rows scanned/output, top-N limit,
     correctness digest, materialization status, no-fallback fields.
-  - Acceptance: one admitted local top-N workflow returns deterministic output; unsupported sort
-    shapes block before execution.
-  - Verification: parser/binder tests, sort/top-N correctness tests, CLI smoke, unsupported
-    snapshots, release readiness metadata.
+  - Acceptance: complete for one admitted local numeric top-N workflow; unsupported multi-key,
+    expression, null-ordering, non-numeric, aggregate/top-N, and grouped/top-N shapes block with
+    deterministic no-fallback diagnostics.
+  - Verification: `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`,
+    `python -m unittest python.tests.test_query_builder`, plus release/site/use-case checks before
+    merge.
   - Non-goals: no distributed sort, window ranking, collation parity, or performance claim.
   - Claim boundary: scoped local top-N/order-by support only.
   - Fallback boundary: external engines may be comparison oracles only in tests.
