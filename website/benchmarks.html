@@ -70,15 +70,21 @@
         <p class="section-lede">This panel prevents missing competitor libraries from silently removing lanes from the public page. Full-local artifacts must list expected, available, and missing lanes before they can be interpreted as full-local benchmark evidence.</p>
 
         <div class="notice-panel benchmark-manifest-panel">
-          <strong>Published artifact profile: <code>smoke</code></strong>
+          <strong>Published artifact profile: <code>full_local</code></strong>
           <span>Artifact status: <code>complete</code>. The website renders committed benchmark artifacts; it does not import pandas, Polars, DuckDB, Spark, DataFusion, Dask, Java, GPU, or extended optional baseline packages at page-render time.</span>
         </div>
         <details class="raw-data-drawer manifest-drawer"><summary>Benchmark lane availability from manifest</summary><div class="table-scroll"><table>
 <thead><tr><th>Expected lane</th><th>Status</th><th>Profile policy</th><th>Version / reason</th></tr></thead><tbody>
-<tr><td>shardloom</td><td>available</td><td>required</td><td>available in committed website benchmark artifact</td></tr>
-<tr><td>shardloom-prepared-vortex</td><td>available</td><td>optional</td><td>available in committed website benchmark artifact</td></tr>
-<tr><td>shardloom-vortex</td><td>available</td><td>optional</td><td>available in committed website benchmark artifact</td></tr>
-<tr><td>native-vortex</td><td>available</td><td>optional</td><td>available in committed website benchmark artifact</td></tr>
+<tr><td>shardloom</td><td>available</td><td>required</td><td>available, version workspace-local-release-532ba0b</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>available</td><td>required</td><td>available, version workspace-local-release-532ba0b</td></tr>
+<tr><td>shardloom-vortex</td><td>available</td><td>required</td><td>available, version workspace-local-release-532ba0b</td></tr>
+<tr><td>pandas</td><td>available</td><td>required</td><td>available, version 3.0.3</td></tr>
+<tr><td>polars-eager</td><td>available</td><td>required</td><td>available, version 1.40.1</td></tr>
+<tr><td>polars-lazy</td><td>available</td><td>required</td><td>available, version 1.40.1 (lazy scan API)</td></tr>
+<tr><td>duckdb</td><td>available</td><td>required</td><td>available, version 1.5.2</td></tr>
+<tr><td>datafusion</td><td>available</td><td>required</td><td>available, version 53.0.0</td></tr>
+<tr><td>dask</td><td>available</td><td>required</td><td>available, version 2026.3.0</td></tr>
+<tr><td>native-vortex</td><td>available</td><td>optional</td><td>alias vocabulary for promoted shardloom-vortex/native_vortex evidence</td></tr>
 </tbody></table></div></details>
 
       </div>
@@ -177,7 +183,7 @@
             <p>The single-process prepared/native runner is visible as smoke evidence, not a hidden fast mode.</p>
           </article>
         </div>
-        <div class="freshness-grid"><p class="freshness-label"><strong>Comparative dashboard</strong> Source: <code>spark-retire/docs/shardloom-current-benchmark-dashboard.html</code> - 2026-05-14T01:58:30.687800+00:00 from local smoke results over 10000 fact rows.</p><p class="freshness-label"><strong>Prepared/native batch smoke</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_vortex_batch.json and native_vortex_batch.json</code> - batch runner PR #634; source files do not carry generated_at_utc</p><p class="freshness-label"><strong>Encoded predicate evidence</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_native_core.json</code> - 2026-05-17T18:37:39.881612+00:00</p><p class="freshness-label"><strong>Source-backed scan evidence</strong> Source: <code>target/shardloom-benchmark-evidence/native_vortex_batch.json and 6 related artifact(s)</code> - 2026-05-17T18:37:49.134329+00:00</p><p class="freshness-label"><strong>Fused pipeline evidence</strong> Source: <code>target/shardloom-benchmark-evidence/native_vortex_batch.json and 1 related artifact(s)</code> - 2026-05-17T18:37:49.134329+00:00</p></div>
+        <div class="freshness-grid"><p class="freshness-label"><strong>Comparative dashboard</strong> Source: <code>target/benchmark-artifacts/traditional-full-local-20260519.json</code> - 2026-05-19T11:21:05.796643+00:00 from promoted local benchmark artifact.</p><p class="freshness-label"><strong>Prepared/native batch smoke</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_vortex_batch.json and native_vortex_batch.json</code> - batch runner PR #634; source files do not carry generated_at_utc</p><p class="freshness-label"><strong>Encoded predicate evidence</strong> Source: <code>target/shardloom-benchmark-evidence/prepared_native_core.json</code> - 2026-05-17T18:37:39.881612+00:00</p><p class="freshness-label"><strong>Source-backed scan evidence</strong> Source: <code>target/shardloom-benchmark-evidence/native_vortex_batch.json and 6 related artifact(s)</code> - 2026-05-17T18:37:49.134329+00:00</p><p class="freshness-label"><strong>Fused pipeline evidence</strong> Source: <code>target/shardloom-benchmark-evidence/native_vortex_batch.json and 1 related artifact(s)</code> - 2026-05-17T18:37:49.134329+00:00</p></div>
       </div>
     </section>
     <section id="why-raw-speed">
@@ -248,7 +254,7 @@
       <div class="shell">
         <h2>Claim Boundary</h2>
         <div class="boundary-grid">
-          <article><strong>Allowed interpretation</strong><span>local one-iteration smoke evidence and direct CLI evidence only</span></article>
+          <article><strong>Allowed interpretation</strong><span>promoted local benchmark artifact evidence only</span></article>
           <article><strong>Performance claim</strong><span>not allowed</span></article>
           <article><strong>Spark-displacement claim</strong><span>not allowed</span></article>
           <article><strong>Production platform claim</strong><span>not allowed</span></article>
@@ -276,12 +282,12 @@
             <h2>Local Comparative Dashboard</h2>
             <p class="section-lede">This imports the richer local dashboard snapshot as context only. It helps explain what ran, which baselines were unavailable, and where ShardLoom's compatibility/prepared/native rows sit, but it is not a public performance, superiority, Spark-displacement, or best-default claim.</p>
           </div>
-          <p class="source-note">Source: <code>spark-retire/docs/shardloom-current-benchmark-dashboard.html</code><br>2026-05-14T01:58:30.687800+00:00 from local smoke results over 10000 fact rows.</p>
+          <p class="source-note">Source: <code>target/benchmark-artifacts/traditional-full-local-20260519.json</code><br>2026-05-19T11:21:05.796643+00:00 from promoted local benchmark artifact.</p>
         </div>
         <div class="metric-grid comparison-metrics">
-          <div class="metric"><strong>1080</strong><span>comparative rows</span></div>
-          <div class="metric"><strong>1080</strong><span>coverage rows</span></div>
-          <div class="metric"><strong>6</strong><span>source formats</span></div>
+          <div class="metric"><strong>360</strong><span>comparative rows</span></div>
+          <div class="metric"><strong>400</strong><span>coverage rows</span></div>
+          <div class="metric"><strong>2</strong><span>source formats</span></div>
           <div class="metric"><strong>False</strong><span>performance claim allowed</span></div>
         </div>
         <div class="notice-panel">
@@ -312,7 +318,7 @@
       <div class="shell">
         <h2>Local Timing Context</h2>
         <p class="section-lede">The mode view keeps compatibility certification, Vortex-oriented, prepared Vortex, and batch smoke lanes separated. These numbers are local context for attribution before optimization, not a leaderboard.</p>
-        <div class="mode-comparison-grid"><article class="mode-comparison-card"><span>compatibility_import_certified geomean</span><strong>120.15 ms</strong><p>certification lane with import, write/reopen, scan, sink, and evidence work</p></article><article class="mode-comparison-card"><span>shardloom-vortex geomean</span><strong>31.00 ms</strong><p>Vortex-oriented local lane from the comparative dashboard snapshot</p></article><article class="mode-comparison-card"><span>shardloom-prepared-vortex geomean</span><strong>30.23 ms</strong><p>prepared-artifact lane and current runtime-development direction</p></article><article class="mode-comparison-card"><span>prepared_vortex batch smoke total/compute</span><strong>6.618 ms</strong><p>scoped session-backed batch runner structural smoke evidence</p></article><article class="mode-comparison-card"><span>native_vortex batch smoke total/compute</span><strong>5.914 ms</strong><p>native Vortex batch runner structural smoke evidence</p></article></div>
+        <div class="mode-comparison-grid"><article class="mode-comparison-card"><span>compatibility_import_certified geomean</span><strong>441.84 ms</strong><p>certification lane with import, write/reopen, scan, sink, and evidence work</p></article><article class="mode-comparison-card"><span>shardloom-vortex geomean</span><strong>1.48 ms</strong><p>Vortex-oriented local lane from the promoted benchmark artifact</p></article><article class="mode-comparison-card"><span>shardloom-prepared-vortex geomean</span><strong>1.40 ms</strong><p>prepared-artifact lane and current runtime-development direction</p></article><article class="mode-comparison-card"><span>prepared_vortex batch smoke total/compute</span><strong>6.618 ms</strong><p>scoped session-backed batch runner structural smoke evidence</p></article><article class="mode-comparison-card"><span>native_vortex batch smoke total/compute</span><strong>5.914 ms</strong><p>native Vortex batch runner structural smoke evidence</p></article></div>
         <h3>Representative timing decomposition</h3>
         <p class="section-lede">The decomposition highlights why compatibility import totals should not be read as pure query speed: parse/import, Vortex write, scan, operator, sink, and evidence work are separate fields.</p>
         <div class="table-scroll"><table>
@@ -322,16 +328,15 @@
 </tbody></table></div>
         <details class="raw-data-drawer"><summary>Raw local timing context table</summary><div class="table-scroll"><table>
 <thead><tr><th>Engine</th><th>Available</th><th>Success / total</th><th>Geomean</th><th>CSV/Parquet geomean</th><th>local fastest count</th><th>local timing context</th></tr></thead><tbody>
-<tr><td>shardloom</td><td>yes</td><td>72/120</td><td>120.15 ms</td><td>114.99 ms</td><td>0</td><td>100.0%</td></tr>
-<tr><td>shardloom-vortex</td><td>yes</td><td>72/120</td><td>31.00 ms</td><td>31.41 ms</td><td>0</td><td>25.8%</td></tr>
-<tr><td>shardloom-prepared-vortex</td><td>yes</td><td>72/120</td><td>30.23 ms</td><td>30.68 ms</td><td>1</td><td>25.2%</td></tr>
-<tr><td>pandas</td><td>yes</td><td>60/100</td><td>9.27 ms</td><td>8.97 ms</td><td>16</td><td>7.7%</td></tr>
-<tr><td>polars</td><td>yes</td><td>55/100</td><td>3.12 ms</td><td>3.13 ms</td><td>53</td><td>4.0%</td></tr>
-<tr><td>duckdb</td><td>no</td><td>0/120</td><td>n/a</td><td>n/a</td><td>0</td><td>0.0%</td></tr>
-<tr><td>datafusion</td><td>yes</td><td>22/40</td><td>5.40 ms</td><td>5.40 ms</td><td>2</td><td>4.5%</td></tr>
-<tr><td>dask</td><td>no</td><td>0/120</td><td>n/a</td><td>n/a</td><td>0</td><td>0.0%</td></tr>
-<tr><td>spark-default</td><td>no</td><td>0/120</td><td>n/a</td><td>n/a</td><td>0</td><td>0.0%</td></tr>
-<tr><td>spark-local-tuned</td><td>no</td><td>0/120</td><td>n/a</td><td>n/a</td><td>0</td><td>0.0%</td></tr>
+<tr><td>shardloom</td><td>yes</td><td>24/40</td><td>441.84 ms</td><td>441.84 ms</td><td>0</td><td>100.0%</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>yes</td><td>24/40</td><td>1.40 ms</td><td>1.40 ms</td><td>15</td><td>0.3%</td></tr>
+<tr><td>shardloom-vortex</td><td>yes</td><td>24/40</td><td>1.48 ms</td><td>1.48 ms</td><td>9</td><td>0.3%</td></tr>
+<tr><td>pandas</td><td>yes</td><td>24/40</td><td>172.52 ms</td><td>172.52 ms</td><td>0</td><td>39.0%</td></tr>
+<tr><td>polars-eager</td><td>yes</td><td>22/40</td><td>67.06 ms</td><td>67.06 ms</td><td>0</td><td>15.2%</td></tr>
+<tr><td>polars-lazy</td><td>yes</td><td>20/40</td><td>55.62 ms</td><td>55.62 ms</td><td>0</td><td>12.6%</td></tr>
+<tr><td>duckdb</td><td>yes</td><td>22/40</td><td>82.58 ms</td><td>82.58 ms</td><td>0</td><td>18.7%</td></tr>
+<tr><td>datafusion</td><td>yes</td><td>22/40</td><td>45.43 ms</td><td>45.43 ms</td><td>0</td><td>10.3%</td></tr>
+<tr><td>dask</td><td>yes</td><td>22/40</td><td>169.58 ms</td><td>169.58 ms</td><td>0</td><td>38.4%</td></tr>
 </tbody></table></div></details>
       </div>
     </section>
@@ -340,19 +345,47 @@
         <h2>Vortex-Oriented Lanes By Source Format</h2>
         <p class="section-lede">This view makes the prepared and Vortex-oriented lanes easier to compare across source formats while keeping the compatibility/import boundary separate.</p>
         <details class="raw-data-drawer"><summary>Raw Vortex-oriented lanes table</summary><div class="table-scroll"><table>
-<thead><tr><th>Engine</th><th>Source format</th><th>Successful rows</th><th>Geomean</th><th>Mean</th></tr></thead><tbody>
-<tr><td>shardloom-vortex</td><td>csv</td><td>12</td><td>31.57 ms</td><td>32.44 ms</td></tr>
-<tr><td>shardloom-vortex</td><td>parquet</td><td>12</td><td>31.25 ms</td><td>32.00 ms</td></tr>
-<tr><td>shardloom-vortex</td><td>jsonl</td><td>12</td><td>30.42 ms</td><td>31.27 ms</td></tr>
-<tr><td>shardloom-vortex</td><td>arrow-ipc</td><td>12</td><td>30.40 ms</td><td>31.18 ms</td></tr>
-<tr><td>shardloom-vortex</td><td>avro</td><td>12</td><td>31.54 ms</td><td>32.18 ms</td></tr>
-<tr><td>shardloom-vortex</td><td>orc</td><td>12</td><td>30.86 ms</td><td>31.58 ms</td></tr>
-<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>12</td><td>30.07 ms</td><td>30.84 ms</td></tr>
-<tr><td>shardloom-prepared-vortex</td><td>parquet</td><td>12</td><td>31.30 ms</td><td>32.68 ms</td></tr>
-<tr><td>shardloom-prepared-vortex</td><td>jsonl</td><td>12</td><td>30.26 ms</td><td>31.02 ms</td></tr>
-<tr><td>shardloom-prepared-vortex</td><td>arrow-ipc</td><td>12</td><td>30.33 ms</td><td>31.00 ms</td></tr>
-<tr><td>shardloom-prepared-vortex</td><td>avro</td><td>12</td><td>29.72 ms</td><td>30.46 ms</td></tr>
-<tr><td>shardloom-prepared-vortex</td><td>orc</td><td>12</td><td>29.71 ms</td><td>30.40 ms</td></tr>
+<thead><tr><th>Engine</th><th>Source format</th><th>Scenario</th><th>Execution mode</th><th>Claim gate</th><th>Local row time</th><th>Vortex scan ms</th><th>Operator ms</th><th>Fallback</th><th>External engine</th></tr></thead><tbody>
+<tr><td>shardloom</td><td>csv</td><td>csv: csv/file ingest</td><td>compatibility_import_certified</td><td>claim_grade</td><td>508.97 ms</td><td>8.9903</td><td>8.9903</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: selective filter</td><td>compatibility_import_certified</td><td>claim_grade</td><td>298.08 ms</td><td>12.147</td><td>12.147</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: group by aggregation</td><td>compatibility_import_certified</td><td>claim_grade</td><td>311.50 ms</td><td>5.555</td><td>5.555</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: sort and top-k</td><td>compatibility_import_certified</td><td>claim_grade</td><td>296.27 ms</td><td>8.5263</td><td>8.5263</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: hash join</td><td>compatibility_import_certified</td><td>claim_grade</td><td>308.78 ms</td><td>18.042</td><td>18.042</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: wide projection</td><td>compatibility_import_certified</td><td>claim_grade</td><td>291.24 ms</td><td>4.1267</td><td>4.1267</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: distinct count</td><td>compatibility_import_certified</td><td>claim_grade</td><td>308.01 ms</td><td>23.579</td><td>23.579</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: filter + projection + limit</td><td>compatibility_import_certified</td><td>claim_grade</td><td>281.61 ms</td><td>5.3483</td><td>5.3483</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: multi-key group by</td><td>compatibility_import_certified</td><td>claim_grade</td><td>318.25 ms</td><td>20.4937</td><td>20.4937</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: join + aggregate</td><td>compatibility_import_certified</td><td>claim_grade</td><td>342.69 ms</td><td>23.6847</td><td>23.6847</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: row number window</td><td>compatibility_import_certified</td><td>claim_grade</td><td>277.31 ms</td><td>6.8853</td><td>6.8853</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>csv</td><td>csv: top-N per group</td><td>compatibility_import_certified</td><td>claim_grade</td><td>291.20 ms</td><td>6.9537</td><td>6.9537</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: csv/file ingest</td><td>compatibility_import_certified</td><td>claim_grade</td><td>585.49 ms</td><td>4.934</td><td>4.934</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: selective filter</td><td>compatibility_import_certified</td><td>claim_grade</td><td>556.77 ms</td><td>10.185</td><td>10.185</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: group by aggregation</td><td>compatibility_import_certified</td><td>claim_grade</td><td>580.99 ms</td><td>5.5743</td><td>5.5743</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: sort and top-k</td><td>compatibility_import_certified</td><td>claim_grade</td><td>568.91 ms</td><td>9.3293</td><td>9.3293</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: hash join</td><td>compatibility_import_certified</td><td>claim_grade</td><td>694.74 ms</td><td>24.8137</td><td>24.8137</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: wide projection</td><td>compatibility_import_certified</td><td>claim_grade</td><td>660.87 ms</td><td>5.4873</td><td>5.4873</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: distinct count</td><td>compatibility_import_certified</td><td>claim_grade</td><td>640.82 ms</td><td>20.3163</td><td>20.3163</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: filter + projection + limit</td><td>compatibility_import_certified</td><td>claim_grade</td><td>571.19 ms</td><td>5.4937</td><td>5.4937</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: multi-key group by</td><td>compatibility_import_certified</td><td>claim_grade</td><td>648.84 ms</td><td>20.079</td><td>20.079</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: join + aggregate</td><td>compatibility_import_certified</td><td>claim_grade</td><td>672.07 ms</td><td>24.8183</td><td>24.8183</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: row number window</td><td>compatibility_import_certified</td><td>claim_grade</td><td>605.74 ms</td><td>11.8617</td><td>11.8617</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom</td><td>parquet</td><td>parquet: top-N per group</td><td>compatibility_import_certified</td><td>claim_grade</td><td>666.01 ms</td><td>7.7703</td><td>7.7703</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: csv/file ingest</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>1.70 ms</td><td>1.7807</td><td>1.7807</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: selective filter</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>6.57 ms</td><td>7.16</td><td>7.16</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: group by aggregation</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>0.37 ms</td><td>0.4063</td><td>0.4063</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: sort and top-k</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>0.37 ms</td><td>0.386</td><td>0.386</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: hash join</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>15.67 ms</td><td>16.505</td><td>16.505</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: wide projection</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>1.25 ms</td><td>1.345</td><td>1.345</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: distinct count</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>12.07 ms</td><td>12.089</td><td>12.089</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: filter + projection + limit</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>0.22 ms</td><td>0.2177</td><td>0.2177</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: multi-key group by</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>0.44 ms</td><td>0.479</td><td>0.479</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: join + aggregate</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>23.93 ms</td><td>24.8163</td><td>24.8163</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: row number window</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>0.37 ms</td><td>0.382</td><td>0.382</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>csv</td><td>csv: top-N per group</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>0.60 ms</td><td>0.6693</td><td>0.6693</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>parquet</td><td>parquet: csv/file ingest</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>1.85 ms</td><td>1.9857</td><td>1.9857</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>parquet</td><td>parquet: selective filter</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>4.32 ms</td><td>4.3253</td><td>4.3253</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>parquet</td><td>parquet: group by aggregation</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>0.31 ms</td><td>0.3093</td><td>0.3093</td><td>False</td><td>False</td></tr>
+<tr><td>shardloom-prepared-vortex</td><td>parquet</td><td>parquet: sort and top-k</td><td>prepared_vortex</td><td>fixture_smoke_only</td><td>0.33 ms</td><td>0.3373</td><td>0.3373</td><td>False</td><td>False</td></tr>
 </tbody></table></div></details>
       </div>
     </section>
@@ -363,17 +396,17 @@
           <p class="section-lede">The distribution is useful because most rows remain blocked, fixture-only, external-baseline-only, or otherwise not claim-grade. That is expected for the current pre-release posture.</p>
           <details class="raw-data-drawer"><summary>Raw claim-gate distribution table</summary><div class="table-scroll"><table>
 <thead><tr><th>Claim gate</th><th>Rows</th><th>Share</th></tr></thead><tbody>
-<tr><td>blocked</td><td>720</td><td>66.7%</td></tr>
-<tr><td>fixture_smoke_only</td><td>144</td><td>13.3%</td></tr>
-<tr><td>external_baseline_only</td><td>137</td><td>12.7%</td></tr>
-<tr><td>claim_grade</td><td>72</td><td>6.7%</td></tr>
-<tr><td>unsupported</td><td>7</td><td>2.0%</td></tr>
+<tr><td>blocked</td><td>144</td><td>40.0%</td></tr>
+<tr><td>external_baseline_only</td><td>132</td><td>36.7%</td></tr>
+<tr><td>fixture_smoke_only</td><td>48</td><td>13.3%</td></tr>
+<tr><td>claim_grade</td><td>24</td><td>6.7%</td></tr>
+<tr><td>unsupported</td><td>12</td><td>3.3%</td></tr>
 </tbody></table></div></details>
         </div>
         <aside class="side-panel">
           <h3>Missing baselines</h3>
           <p>Missing optional libraries are shown so readers do not mistake absent baseline rows for ShardLoom evidence.</p>
-          <ul><li>duckdb: ModuleNotFoundError: No module named &#x27;duckdb&#x27;</li><li>dask: ModuleNotFoundError: No module named &#x27;dask&#x27;</li><li>spark-default: ModuleNotFoundError: No module named &#x27;pyspark&#x27;</li><li>spark-local-tuned: ModuleNotFoundError: No module named &#x27;pyspark&#x27;</li></ul>
+          <ul><li>No missing-baseline diagnostics were recorded in the local comparative dashboard.</li></ul>
         </aside>
       </div>
     </section>
@@ -513,17 +546,17 @@
         <p class="section-lede">The local table metadata smoke is included only as scoped metadata evidence, not as a lakehouse/catalog runtime benchmark.</p>
         <div class="table-scroll"><table>
 <thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
-<tr><td>schema_version</td><td>shardloom.local_table_metadata_read_smoke.v1</td></tr>
-<tr><td>support_status</td><td>runtime_supported</td></tr>
-<tr><td>claim_gate_status</td><td>scoped_local_metadata_smoke_only</td></tr>
 <tr><td>catalog_kind</td><td>local_manifest</td></tr>
+<tr><td>claim_boundary</td><td>one in-memory local manifest-backed metadata summary; no data file read, object-store read, credential resolution, write, CDC/delete execution, lakehouse, SQL/DataFrame, Foundry, production, or performance claim</td></tr>
+<tr><td>claim_gate_status</td><td>scoped_local_metadata_smoke_only</td></tr>
 <tr><td>dataset_format</td><td>vortex</td></tr>
 <tr><td>declared_row_count</td><td>8</td></tr>
-<tr><td>partition_count</td><td></td></tr>
-<tr><td>fallback_attempted</td><td>false</td></tr>
 <tr><td>external_engine_invoked</td><td>false</td></tr>
+<tr><td>fallback_attempted</td><td>false</td></tr>
+<tr><td>partition_count</td><td></td></tr>
 <tr><td>performance_claim_allowed</td><td>false</td></tr>
-<tr><td>claim_boundary</td><td>one in-memory local manifest-backed metadata summary; no data file read, object-store read, credential resolution, write, CDC/delete execution, lakehouse, SQL/DataFrame, Foundry, production, or performance claim</td></tr>
+<tr><td>schema_version</td><td>shardloom.local_table_metadata_read_smoke.v1</td></tr>
+<tr><td>support_status</td><td>runtime_supported</td></tr>
 </tbody></table></div>
       </div>
     </section>

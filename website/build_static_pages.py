@@ -3074,7 +3074,11 @@ def write_latest_benchmark_artifacts(summary: dict[str, Any]) -> dict[str, Any]:
         json.dumps(summary, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    manifest = benchmark_manifest_from_summary(summary, results_path)
+    manifest = benchmark_manifest_from_summary(
+        summary,
+        results_path,
+        summary.get("benchmark_profile", "smoke"),
+    )
     manifest_path = BENCHMARK_LATEST_DIR / "manifest.json"
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
@@ -3321,7 +3325,7 @@ def mode_comparison_visual(
         (
             "shardloom-vortex geomean",
             dashboard_table_value(timing_table, "shardloom-vortex", "Geomean"),
-            "Vortex-oriented local lane from the comparative dashboard snapshot",
+            "Vortex-oriented local lane from the promoted benchmark artifact",
         ),
         (
             "shardloom-prepared-vortex geomean",
@@ -4166,7 +4170,16 @@ def main() -> int:
         "--comparative-dashboard",
         type=Path,
         default=None,
-        help="Optional local comparative benchmark dashboard HTML to summarize.",
+        help=(
+            "Optional legacy local comparative dashboard HTML to summarize. "
+            "Prefer scripts/promote_benchmark_artifact.py for current publishing."
+        ),
+    )
+    parser.add_argument(
+        "--benchmark-profile",
+        default="smoke",
+        choices=tuple(PROFILES),
+        help="Benchmark profile to record when regenerating local smoke website artifacts.",
     )
     parser.add_argument(
         "--benchmark-manifest",
@@ -4201,11 +4214,8 @@ def main() -> int:
         summary = load_benchmark_summary_from_manifest(args.benchmark_manifest)
     else:
         summary = benchmark_summary(args.benchmark_dir)
+        summary["benchmark_profile"] = args.benchmark_profile
         comparative_dashboard = args.comparative_dashboard
-        if comparative_dashboard is None:
-            candidate = ROOT.parent / "spark-retire" / "docs" / "shardloom-current-benchmark-dashboard.html"
-            if candidate.exists():
-                comparative_dashboard = candidate
         if comparative_dashboard and comparative_dashboard.exists():
             summary["comparative_dashboard"] = comparative_dashboard_summary(comparative_dashboard)
         summary["benchmark_manifest"] = write_latest_benchmark_artifacts(summary)

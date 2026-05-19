@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -68,10 +69,45 @@ def result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows = payload.get("results")
     if isinstance(rows, list):
         return [row for row in rows if isinstance(row, dict)]
+    rows = payload.get("published_benchmark_rows")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
     rows = payload.get("rows")
     if isinstance(rows, list):
         return [row for row in rows if isinstance(row, dict)]
     return []
+
+
+def lane_evidence_counts(payload: dict[str, Any]) -> Counter[str]:
+    counts: Counter[str] = Counter()
+    for row in result_rows(payload):
+        engine = row.get("engine")
+        if engine:
+            lane = str(engine)
+            counts[lane] += 1
+            if lane == "shardloom-vortex":
+                counts["native-vortex"] += 1
+    for row in payload.get("batch_rows", []):
+        if not isinstance(row, dict):
+            continue
+        requested = str(row.get("requested_execution_mode") or "")
+        selected = str(row.get("selected_execution_modes") or "")
+        if requested == "prepared_vortex" or "prepared_vortex" in selected:
+            counts["shardloom-prepared-vortex"] += 1
+        if requested == "native_vortex" or "native_vortex" in selected:
+            counts["shardloom-vortex"] += 1
+            counts["native-vortex"] += 1
+    return counts
+
+
+def recursive_text_contains(value: Any, needle: str) -> bool:
+    if isinstance(value, str):
+        return needle in value
+    if isinstance(value, list):
+        return any(recursive_text_contains(item, needle) for item in value)
+    if isinstance(value, dict):
+        return any(recursive_text_contains(item, needle) for item in value.values())
+    return False
 
 
 def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
@@ -91,7 +127,10 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                     f"ShardLoom row {index} must set external_engine_invoked=false"
                 )
         elif engine:
-            if row.get("external_baseline_only") is not True and row.get("row_classification") != "external_baseline_only":
+            if (
+                row.get("external_baseline_only") is not True
+                and row.get("row_classification") != "external_baseline_only"
+            ):
                 blockers.append(
                     f"external row {index} ({engine}) is missing external_baseline_only marker"
                 )
@@ -134,6 +173,10 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
     for lane in missing:
         if not reasons.get(lane):
             blockers.append(f"missing lane lacks availability reason: {lane}")
+    versions = manifest.get("lane_versions") or {}
+    for lane in available:
+        if not versions.get(lane):
+            blockers.append(f"available lane lacks version metadata: {lane}")
 
     missing_required = [
         lane for lane in missing if lane_required_for_profile(profile, lane)
@@ -157,6 +200,25 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
             payload = load_json(json_path)
             if isinstance(payload, dict):
                 validate_rows(payload, blockers)
+                if recursive_text_contains(payload, "spark-retire"):
+                    blockers.append(
+                        "published benchmark artifact must not reference spark-retire"
+                    )
+                lane_counts = lane_evidence_counts(payload)
+                for lane in sorted(expected & available):
+                    if lane_counts[lane] == 0:
+                        blockers.append(
+                            f"available expected lane has no published row evidence: {lane}"
+                        )
+                if profile in {"full_local", "full_local_plus_spark"}:
+                    if "polars" in expected or "polars" in available:
+                        blockers.append(
+                            "full benchmark profiles must use polars-eager and "
+                            "polars-lazy, not collapsed polars"
+                        )
+                    for lane in ("polars-eager", "polars-lazy"):
+                        if lane not in expected:
+                            blockers.append(f"full benchmark profile missing {lane}")
             else:
                 blockers.append("artifact_paths.json must contain an object")
 
