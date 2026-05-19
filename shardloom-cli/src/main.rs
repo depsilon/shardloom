@@ -6526,14 +6526,17 @@ mod tests {
             "11"
         );
         assert_eq!(output_field(&fields, "not_yet_defined_fixture_count"), "0");
-        assert_eq!(output_field(&fields, "deferred_fixture_family_count"), "8");
+        assert_eq!(output_field(&fields, "deferred_fixture_family_count"), "9");
         assert!(
             output_field(&fields, "deferred_fixture_family_id_order")
                 .contains("encoded-vs-decoded-reference")
         );
+        assert!(
+            output_field(&fields, "deferred_fixture_family_id_order").contains("string-semantics")
+        );
         assert_eq!(
             output_field(&fields, "deferred_fixture_family_artifact_count"),
-            "8"
+            "9"
         );
         assert_eq!(
             output_field(&fields, "deferred_fixture_family_artifact_populated_count"),
@@ -6546,6 +6549,10 @@ mod tests {
         assert!(
             output_field(&fields, "deferred_fixture_family_artifact_id_order")
                 .contains("encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence")
+        );
+        assert!(
+            output_field(&fields, "deferred_fixture_family_artifact_id_order")
+                .contains("string-semantics.deferred-fixture-family.declared-evidence")
         );
         assert_eq!(
             output_field(&fields, "deferred_fixture_family_artifact_status_order"),

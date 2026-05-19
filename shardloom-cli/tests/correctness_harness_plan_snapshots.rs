@@ -62,7 +62,7 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "expected_output,decoded_reference,differential_comparison,property_based,fuzz,golden_diagnostic,unsupported_diagnostic_only"
     )));
     assert!(output.contains(&field("missing_validation_mode_order", "")));
-    assert!(output.contains(&field("fixture_count", "36")));
+    assert!(output.contains(&field("fixture_count", "38")));
     assert!(output.contains(&field("fixtures_with_source_ref_count", "18")));
     assert!(output.contains(&field("source_backed_edge_fixture_count", "11")));
     assert!(output.contains(&field(
@@ -79,12 +79,12 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
     assert!(output.contains(&field("decoded_reference_output_coverage_complete", "true")));
     assert!(output.contains(&field("executable_expected_output_count", "20")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "0")));
-    assert!(output.contains(&field("deferred_fixture_family_count", "8")));
+    assert!(output.contains(&field("deferred_fixture_family_count", "9")));
     assert!(output.contains(&field(
         "deferred_fixture_family_id_order",
-        "null-semantics,pruning-correctness,encoded-vs-decoded-reference,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
+        "null-semantics,pruning-correctness,encoded-vs-decoded-reference,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics,string-semantics"
     )));
-    assert!(output.contains(&field("deferred_fixture_family_artifact_count", "8")));
+    assert!(output.contains(&field("deferred_fixture_family_artifact_count", "9")));
     assert!(output.contains(&field(
         "deferred_fixture_family_artifact_populated_count",
         "0"
@@ -95,7 +95,7 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
     )));
     assert!(output.contains(&field(
         "deferred_fixture_family_artifact_id_order",
-        "null-semantics.deferred-fixture-family.declared-evidence,pruning-correctness.deferred-fixture-family.declared-evidence,encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence,nested-data-edge-corpus.deferred-fixture-family.declared-evidence,dictionary-encoded-edge-corpus.deferred-fixture-family.declared-evidence,sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence,run-length-edge-corpus.deferred-fixture-family.declared-evidence,temporal-semantics.deferred-fixture-family.declared-evidence"
+        "null-semantics.deferred-fixture-family.declared-evidence,pruning-correctness.deferred-fixture-family.declared-evidence,encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence,nested-data-edge-corpus.deferred-fixture-family.declared-evidence,dictionary-encoded-edge-corpus.deferred-fixture-family.declared-evidence,sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence,run-length-edge-corpus.deferred-fixture-family.declared-evidence,temporal-semantics.deferred-fixture-family.declared-evidence,string-semantics.deferred-fixture-family.declared-evidence"
     )));
     assert!(output.contains(&field(
         "deferred_fixture_family_artifact_status_order",
@@ -142,8 +142,16 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "reference_role_order",
         "golden_fixture,decoded_reference,generated_property,external_oracle"
     )));
-    assert!(output.contains(&field("generated_property_fixture_count", "3")));
-    assert!(output.contains(&field("fuzz_seed_count", "3")));
+    assert!(output.contains(&field("generated_property_fixture_count", "4")));
+    assert!(output.contains(&field(
+        "generated_property_fixture_id_order",
+        "property-encoded-filter-selection-vector-consistency,property-encoded-projection-preserves-row-order,property-encoded-filter-project-composition,property-string-utf8-predicate-consistency"
+    )));
+    assert!(output.contains(&field("fuzz_seed_count", "4")));
+    assert!(output.contains(&field(
+        "fuzz_seed_target_order",
+        "encoded_filter_selection_vector,encoded_projection_ordering,encoded_filter_project_composition,string_utf8_predicate_consistency"
+    )));
 }
 
 #[test]

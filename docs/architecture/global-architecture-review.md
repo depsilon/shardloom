@@ -362,7 +362,13 @@ plan before coding.
   `shardloom-contract-tests/tests/no_fallback_invariants.rs`
 - [x] Fixtures, semantic profiles, differential harness surfaces, and no-fallback tests exist.
 - [x] Local primitive certificates support scoped correctness evidence.
-- [ ] Fuzz/property expansion and claim-grade benchmark superiority coverage remain incomplete.
+- [x] `GAR-0015-A` adds string-semantics property/fuzz metadata and a declared deferred
+  fixture-family gap: `property-string-utf8-predicate-consistency`,
+  `string_utf8_predicate_consistency`, and `string-semantics` are exposed through correctness plan
+  and harness fields with no query execution, no external engine invocation, no fallback, and no
+  claim-grade benchmark status.
+- [ ] Broad property/fuzz execution and claim-grade benchmark superiority coverage remain blocked
+  and are carried by the later benchmark/claim-gate slices in the phased plan.
 
 ### RFC 0016 - Optimizer, Adaptive Execution, Runtime Filters, and Skew Handling
 

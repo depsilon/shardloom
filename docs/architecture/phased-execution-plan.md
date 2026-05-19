@@ -229,18 +229,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0015-A fuzz/property and semantic differential expansion
-  - Source: RFC 0015; correctness differential harness; correctness fixture manifest.
-  - Current state: selected correctness fixtures exist; fuzz/property expansion is not broad.
-  - Next slice outcome: add one fixture family or report-only gap with expected reference artifacts.
-  - User-visible surface: correctness harness, docs, release gate.
-  - Implementation scope: fixtures, harness metadata, tests.
-  - Evidence required: correctness refs, oracle/reference refs, no-fallback refs.
-  - Acceptance: selected family has deterministic references or an explicit gap.
-  - Verification: correctness harness tests, fixture manifest tests.
-  - Non-goals: no superiority/performance claim.
-  - Fallback/claim boundary: correctness expansion alone does not create performance claims.
-  - Dependencies/blockers: operator/source coverage.
 - [ ] GAR-0024-A publication and API/schema stability gate
   - Source: RFC 0024; release docs; workspace feature build matrix.
   - Current state: dry-run package proof exists; first public publication, stable API/schema windows,

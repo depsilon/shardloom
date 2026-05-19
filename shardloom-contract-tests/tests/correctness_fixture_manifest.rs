@@ -314,6 +314,11 @@ fn foundation_plan_declares_property_fuzz_metadata_without_execution() {
             SemanticArea::SelectionVectors,
             EdgeCase::DictionaryEncoded,
         ),
+        (
+            "property-string-utf8-predicate-consistency",
+            SemanticArea::Strings,
+            EdgeCase::MixedNulls,
+        ),
     ];
 
     for (id, area, edge_case) in cases {
@@ -330,13 +335,40 @@ fn foundation_plan_declares_property_fuzz_metadata_without_execution() {
         assert!(fixture.reference_roles_are_test_only());
     }
 
-    assert_eq!(plan.generated_property_fixture_count(), 3);
-    assert_eq!(plan.fuzz_seeds.len(), 3);
+    assert_eq!(plan.generated_property_fixture_count(), 4);
+    assert_eq!(
+        plan.generated_property_fixture_id_order(),
+        vec![
+            "property-encoded-filter-selection-vector-consistency",
+            "property-encoded-projection-preserves-row-order",
+            "property-encoded-filter-project-composition",
+            "property-string-utf8-predicate-consistency",
+        ]
+    );
+    assert_eq!(plan.fuzz_seeds.len(), 4);
+    assert_eq!(
+        plan.fuzz_seed_target_order(),
+        vec![
+            "encoded_filter_selection_vector",
+            "encoded_projection_ordering",
+            "encoded_filter_project_composition",
+            "string_utf8_predicate_consistency",
+        ]
+    );
     assert_eq!(plan.fuzz_seeds[0].target, "encoded_filter_selection_vector");
     assert_eq!(plan.fuzz_seeds[0].seed, 0x5E1E_C710_0001);
     assert_eq!(
         plan.fuzz_seeds[0].reproducer.as_deref(),
         Some("fixture-family=selection_vector; null_policy=mixed")
+    );
+    assert_eq!(
+        plan.fuzz_seeds[3].target,
+        "string_utf8_predicate_consistency"
+    );
+    assert_eq!(plan.fuzz_seeds[3].seed, 0x5E1E_C710_0004);
+    assert_eq!(
+        plan.fuzz_seeds[3].reproducer.as_deref(),
+        Some("fixture-family=strings; unicode_policy=utf8_boundary; null_policy=mixed")
     );
 }
 
@@ -411,7 +443,7 @@ fn reference_roles_remain_test_only_not_production_fallback() {
 fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-    assert_eq!(plan.fixture_count(), 36);
+    assert_eq!(plan.fixture_count(), 38);
     assert_eq!(plan.fixtures_with_source_ref_count(), 18);
     assert_eq!(plan.source_backed_edge_fixture_count(), 11);
     assert_eq!(
@@ -461,7 +493,7 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     assert!(plan.decoded_reference_output_coverage_complete());
     assert_eq!(plan.executable_expected_output_count(), 20);
     assert_eq!(plan.not_yet_defined_fixture_count(), 0);
-    assert_eq!(plan.deferred_fixture_family_count(), 8);
+    assert_eq!(plan.deferred_fixture_family_count(), 9);
     assert_eq!(
         plan.deferred_fixture_family_id_order(),
         vec![
@@ -473,9 +505,10 @@ fn foundation_plan_reports_reference_and_gap_counts() {
             "sparse-validity-edge-corpus",
             "run-length-edge-corpus",
             "temporal-semantics",
+            "string-semantics",
         ]
     );
-    assert_eq!(plan.deferred_fixture_family_artifact_count(), 8);
+    assert_eq!(plan.deferred_fixture_family_artifact_count(), 9);
     assert_eq!(plan.deferred_fixture_family_artifact_populated_count(), 0);
     assert!(!plan.deferred_fixture_family_artifacts_populated());
     assert_eq!(
@@ -489,6 +522,7 @@ fn foundation_plan_reports_reference_and_gap_counts() {
             "sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence",
             "run-length-edge-corpus.deferred-fixture-family.declared-evidence",
             "temporal-semantics.deferred-fixture-family.declared-evidence",
+            "string-semantics.deferred-fixture-family.declared-evidence",
         ]
     );
     assert_eq!(

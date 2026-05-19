@@ -79,9 +79,10 @@ The report answers:
 - Future executable fixture families must add decoded reference output artifacts
   before they can support correctness, benchmark, or production claims.
 - Generated property fixture families are present for encoded filter selection
-  vectors, encoded projection ordering, and encoded filter-project composition.
-- Reproducible fuzz seeds are present for the same primitive families, but fuzz
-  execution remains deferred.
+  vectors, encoded projection ordering, encoded filter-project composition, and
+  string UTF-8 predicate consistency.
+- Reproducible fuzz seeds are present for the same primitive families plus the
+  string predicate family, but fuzz execution remains deferred.
 - Declared external-oracle result artifact slots are present for each current
   source-backed edge fixture across Spark, DataFusion, DuckDB, Polars, pandas,
   Dask, and Velox comparison oracles.
@@ -91,6 +92,11 @@ The report answers:
   slots that record required fixture-manifest and decoded-reference refs,
   status `declared_not_populated`, `execution_performed=false`, and
   `fallback_attempted=false`.
+- `GAR-0015-A` adds the `string-semantics` deferred fixture family and
+  `property-string-utf8-predicate-consistency` property/fuzz metadata. The
+  string family is an explicit report-only gap until a fixture manifest,
+  decoded reference outputs, external-oracle result artifacts, and property/fuzz
+  execution are populated.
 - The benchmark claim gate explicitly reports blockers for unpopulated
   deferred fixture-family artifact slots, unpopulated external-oracle result
   artifacts, and property/fuzz execution not yet performed.
