@@ -266,12 +266,21 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0011-modular-extensibility-sql-udf-unstructured-llm-api-embeddings.md`](../rfcs/0011-modular-extensibility-sql-udf-unstructured-llm-api-embeddings.md)
-- Current read: Manifest/report contracts exist; effectful execution is not implemented.
+- Current read: Manifest/report contracts exist; extension/effect capability rows are deterministic
+  and report-only; effectful execution is not implemented.
 - Evidence: `shardloom-core/src/extension.rs`, `shardloom-core/src/effect_budget.rs`,
-  `shardloom-core/src/unstructured_workflow.rs`, `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+  `shardloom-core/src/unstructured_workflow.rs`,
+  `docs/architecture/extension-manifest-effect-capability-matrix.md`,
+  `shardloom-cli/tests/extension_manifest_effect_matrix_snapshots.rs`,
+  `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
 - [x] Extension manifests, permissions, provenance, effect budgets, and materialization metadata are
   represented.
 - [x] Tests lock the current non-executing extension posture.
+- [x] `GAR-0011-A` adds `shardloom.extension_manifest_effect_capability_matrix.v1` so extension
+  manifest families, required permissions, sandbox posture, effect metadata, materialization
+  boundaries, deterministic blockers, `claim_gate_status=not_claim_grade`,
+  `fallback_attempted=false`, and `external_engine_invoked=false` are emitted through extension,
+  UDF, and security/governance capability surfaces.
 - [ ] Extension execution, UDF execution, LLM/API calls, embeddings, and external effects remain
   unsupported/report-only.
 

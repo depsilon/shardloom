@@ -448,6 +448,71 @@ const EXTERNAL_EFFECT_BLOCKER_ROW_SUFFIXES: [&str; 17] = [
     "claim_boundary",
 ];
 
+const EXTENSION_MANIFEST_EFFECT_FIELD_KEYS: [&str; 21] = [
+    "extension_manifest_effect_matrix_schema_version",
+    "extension_manifest_effect_matrix_id",
+    "extension_manifest_effect_docs_ref",
+    "extension_manifest_effect_support_status_vocabulary",
+    "extension_manifest_effect_claim_gate_status",
+    "extension_manifest_effect_row_count",
+    "extension_manifest_effect_row_order",
+    "extension_manifest_effect_blocker_ids",
+    "extension_manifest_effect_required_evidence",
+    "extension_manifest_effect_all_runtime_blocked",
+    "extension_manifest_effect_all_external_effects_blocked",
+    "extension_manifest_effect_runtime_execution",
+    "extension_manifest_effect_extension_code_executed",
+    "extension_manifest_effect_dynamic_loading",
+    "extension_manifest_effect_udf_execution",
+    "extension_manifest_effect_external_effect_executed",
+    "extension_manifest_effect_credential_resolution_performed",
+    "extension_manifest_effect_network_probe_performed",
+    "extension_manifest_effect_dependency_expansion_allowed",
+    "extension_manifest_effect_fallback_attempted",
+    "extension_manifest_effect_external_engine_invoked",
+];
+
+const EXTENSION_MANIFEST_EFFECT_ROW_IDS: [&str; 14] = [
+    "metadata_only_manifest",
+    "sql_frontend_extension",
+    "rust_udf_extension",
+    "wasm_udf_extension",
+    "python_udf_extension",
+    "encoded_kernel_extension",
+    "translation_sink_extension",
+    "connector_extension",
+    "object_store_provider_extension",
+    "catalog_provider_extension",
+    "api_llm_effect_provider",
+    "embedding_vector_provider",
+    "observability_exporter_extension",
+    "benchmark_provider_extension",
+];
+
+const EXTENSION_MANIFEST_EFFECT_ROW_SUFFIXES: [&str; 21] = [
+    "extension_type",
+    "support_status",
+    "manifest_status",
+    "required_permissions",
+    "sandbox_policy",
+    "effect_metadata",
+    "materialization_boundary_required",
+    "blocker_id",
+    "diagnostic_code",
+    "required_evidence",
+    "runtime_execution",
+    "extension_code_executed",
+    "dynamic_loading",
+    "udf_execution",
+    "external_effect_executed",
+    "credential_resolution_performed",
+    "network_probe_performed",
+    "dependency_expansion_allowed",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_boundary",
+];
+
 const UNSTRUCTURED_ADAPTER_CAPABILITY_FIELD_KEYS: [&str; 14] = [
     "unstructured_adapter_capability_schema_version",
     "unstructured_adapter_capability_matrix_id",
@@ -699,6 +764,27 @@ fn with_external_effect_blocker_fields(base_keys: &[&'static str]) -> Vec<String
                 .map(|suffix| format!("external_effect_blocker_row_{row_id}_{suffix}")),
         );
     }
+    keys
+}
+
+fn append_extension_manifest_effect_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        EXTENSION_MANIFEST_EFFECT_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in EXTENSION_MANIFEST_EFFECT_ROW_IDS {
+        keys.extend(
+            EXTENSION_MANIFEST_EFFECT_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("extension_manifest_effect_row_{row_id}_{suffix}")),
+        );
+    }
+}
+
+fn with_extension_manifest_effect_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = with_external_effect_blocker_fields(base_keys);
+    append_extension_manifest_effect_keys(&mut keys);
     keys
 }
 
@@ -1520,7 +1606,7 @@ fn capability_discovery_json_field_keys_are_stable() {
                 )
             }
             "udfs" | "extensions" | "security-governance" => {
-                with_external_effect_blocker_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+                with_extension_manifest_effect_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
             }
             _ => WORLD_CLASS_SURFACE_FIELD_KEYS
                 .into_iter()
@@ -1677,6 +1763,77 @@ fn udf_and_effectful_capabilities_expose_external_effect_blockers() {
             )));
             assert!(output.contains(&field_pair(
                 &format!("external_effect_blocker_row_{row}_effect_executed"),
+                false
+            )));
+        }
+    }
+}
+
+#[test]
+fn extension_capabilities_expose_manifest_effect_matrix() {
+    for scope in ["udfs", "extensions", "security-governance"] {
+        let output = run_capabilities_scope(scope);
+        assert!(output.contains(&string_field_pair(
+            "extension_manifest_effect_matrix_schema_version",
+            "shardloom.extension_manifest_effect_capability_matrix.v1"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "extension_manifest_effect_matrix_id",
+            "gar-0011-a.extension_manifest_external_effect_capability_matrix"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "extension_manifest_effect_claim_gate_status",
+            "not_claim_grade"
+        )));
+        assert!(output.contains(&field_pair(
+            "extension_manifest_effect_all_runtime_blocked",
+            true
+        )));
+        assert!(output.contains(&field_pair(
+            "extension_manifest_effect_all_external_effects_blocked",
+            true
+        )));
+        assert!(output.contains(&field_pair(
+            "extension_manifest_effect_runtime_execution",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "extension_manifest_effect_extension_code_executed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "extension_manifest_effect_dynamic_loading",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "extension_manifest_effect_fallback_attempted",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "extension_manifest_effect_external_engine_invoked",
+            false
+        )));
+        for row in [
+            "metadata_only_manifest",
+            "python_udf_extension",
+            "object_store_provider_extension",
+            "api_llm_effect_provider",
+            "embedding_vector_provider",
+        ] {
+            assert!(output.contains(&field_pair(
+                &format!("extension_manifest_effect_row_{row}_runtime_execution"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("extension_manifest_effect_row_{row}_extension_code_executed"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("extension_manifest_effect_row_{row}_external_effect_executed"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("extension_manifest_effect_row_{row}_fallback_attempted"),
                 false
             )));
         }
