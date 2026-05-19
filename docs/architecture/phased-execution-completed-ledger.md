@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0043-B publication attestation and final release rehearsal
+  - Branch/PR: `codex/gar-0043b-final-release-rehearsal` / #770.
+  - Primary files:
+    - `scripts/final_release_rehearsal.py`
+    - `scripts/check_release_readiness.py`
+    - `scripts/run_release_validation_evidence.py`
+    - `docs/release/final-release-rehearsal.md`
+    - `docs/release/hard-release-readiness-gate.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0043-B by adding a local no-publication final release rehearsal and local
+    publication attestation plan that aggregate package artifact, checksum, SBOM, provenance,
+    security, architecture-tracker, package-channel, unsupported-path, per-claim, and
+    publication/API/schema refs without publishing, signing, tagging, uploading, using secrets,
+    invoking fallback, or invoking external engines.
+  - Checklist:
+    - [x] Add `shardloom.final_release_rehearsal_report.v1`.
+    - [x] Add `shardloom.local_publication_attestation_plan.v1`.
+    - [x] Wire final release rehearsal into the hard release-readiness gate.
+    - [x] Record final release rehearsal in release validation evidence collection.
+    - [x] Move GAR-0043-B out of the active non-runtime closeout queue.
+  - Evidence:
+    - `final_release_rehearsal_schema_version=shardloom.final_release_rehearsal_report.v1`
+    - `local_publication_attestation_plan_schema_version=shardloom.local_publication_attestation_plan.v1`
+    - `final_release_rehearsal_status=passed`
+    - `final_release_rehearsal_claim_gate_status=not_claim_grade`
+    - `final_release_rehearsal_package_artifact_ref_count=3`
+    - `final_release_rehearsal_sbom_ref_count=3`
+    - `final_release_rehearsal_checksum_ref_count=1`
+    - `final_release_rehearsal_attestation_ref_count=0`
+    - `final_release_rehearsal_public_release_claim_allowed=false`
+    - `final_release_rehearsal_public_package_claim_allowed=false`
+    - `final_release_rehearsal_publication_authorization_status=human_approval_required`
+    - `final_release_rehearsal_publication_human_approved=false`
+    - `final_release_rehearsal_local_artifacts_only=true`
+    - `final_release_rehearsal_final_attestation_status=not_signed_local_rehearsal`
+    - `final_release_rehearsal_package_upload_attempted=false`
+    - `final_release_rehearsal_feedstock_submission_attempted=false`
+    - `final_release_rehearsal_marketplace_submission_attempted=false`
+    - `final_release_rehearsal_signing_key_used=false`
+    - `final_release_rehearsal_publication_attempted=false`
+    - `final_release_rehearsal_tag_created=false`
+    - `final_release_rehearsal_secrets_required=false`
+    - `final_release_rehearsal_fallback_attempted=false`
+    - `final_release_rehearsal_external_engine_invoked=false`
+    - `final_release_rehearsal_report_ref=target/final-release-rehearsal/final-release-rehearsal-report.json`
+    - `local_publication_attestation_plan_ref=target/final-release-rehearsal/local-publication-attestation-plan.json`
+    - `final_release_rehearsal_doc_ref=docs/release/final-release-rehearsal.md`
+  - Verification:
+    - `python scripts\release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda --skip-benchmark-smoke`
+    - `python scripts\check_release_security_gate.py --allow-blocked`
+    - `python scripts\check_release_architecture_tracker.py --allow-blocked`
+    - `python scripts\check_package_channel_readiness.py`
+    - `python scripts\final_release_rehearsal.py --allow-blocked`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that local no-publication final release rehearsal and
+    local attestation planning now exist. It may not claim public release readiness, public package
+    publication, uploaded attestations, signing, release tags, maintainer approval, production
+    support, performance, Spark replacement, external engine execution, or fallback execution.
+
 - [x] Session label: GAR-0043-A hard release-readiness validators and architecture tracker
   - Branch/PR: `codex/gar-0043a-release-architecture-tracker-validator` / #769.
   - Primary files:

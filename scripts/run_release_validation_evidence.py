@@ -83,6 +83,10 @@ REQUIRED_VALIDATION_COMMANDS = [
         [sys.executable, "scripts/check_release_architecture_tracker.py", "--allow-blocked"],
     ),
     ("package_channel_readiness", [sys.executable, "scripts/check_package_channel_readiness.py"]),
+    (
+        "final_release_rehearsal",
+        [sys.executable, "scripts/final_release_rehearsal.py", "--allow-blocked"],
+    ),
 ]
 
 

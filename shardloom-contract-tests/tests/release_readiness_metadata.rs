@@ -1855,11 +1855,11 @@ fn gar_0043_a_release_architecture_tracker_gate_fails_closed() {
         )
     );
     assert!(plan.contains("docs/release/release-architecture-tracker-gate.md"));
-    assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
         "GAR-0043-A hard release-readiness validators and architecture tracker",
+        "GAR-0043-B publication attestation and final release rehearsal",
         "shardloom.release_architecture_tracker_report.v1",
         "release_architecture_tracker_status=blocked",
         "release_architecture_tracker_claim_gate_status=not_claim_grade",
@@ -1879,12 +1879,139 @@ fn gar_0043_a_release_architecture_tracker_gate_fails_closed() {
 
     let gar = read_repo_file("docs/architecture/global-architecture-review.md");
     assert!(gar.contains("`GAR-0043-A` adds `shardloom.release_architecture_tracker_report.v1`"));
-    assert!(gar.contains("Actual publication and final attestation remain incomplete"));
+    assert!(gar.contains("Actual public package publication, release tags, signing"));
 
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("GAR-0043-A"));
     assert!(traceability.contains("shardloom.release_architecture_tracker_report.v1"));
-    assert!(traceability.contains("Actual publication, release tags, signing, package upload"));
+    assert!(traceability.contains("Actual public publication remains unauthorized"));
+}
+
+#[test]
+fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
+    let rehearsal = read_repo_file("scripts/final_release_rehearsal.py");
+    for required in [
+        "shardloom.final_release_rehearsal_report.v1",
+        "shardloom.local_publication_attestation_plan.v1",
+        "final-release-rehearsal-report.json",
+        "local-publication-attestation-plan.json",
+        "publication_authorization_status",
+        "publication_human_approved",
+        "local_artifacts_only",
+        "package_artifact_ref_count",
+        "sbom_ref_count",
+        "checksum_ref_count",
+        "attestation_ref_count",
+        "final_attestation_status",
+        "not_signed_local_rehearsal",
+        "package_upload_attempted",
+        "feedstock_submission_attempted",
+        "marketplace_submission_attempted",
+        "signing_key_used",
+        "publication_attempted",
+        "tag_created",
+        "fallback_attempted",
+        "external_engine_invoked",
+        "--allow-blocked",
+    ] {
+        assert!(
+            rehearsal.contains(required),
+            "missing GAR-0043-B rehearsal script marker {required}"
+        );
+    }
+
+    let readiness_script = read_repo_file("scripts/check_release_readiness.py");
+    for required in [
+        "--final-release-rehearsal-report",
+        "final-release-rehearsal-report.json",
+        "final_release_rehearsal_report_ref",
+        "final_release_rehearsal",
+        "shardloom.final_release_rehearsal_report.v1",
+        "python scripts/final_release_rehearsal.py --allow-blocked",
+    ] {
+        assert!(
+            readiness_script.contains(required),
+            "missing GAR-0043-B hard release marker {required}"
+        );
+    }
+
+    let validation_script = read_repo_file("scripts/run_release_validation_evidence.py");
+    assert!(validation_script.contains("final_release_rehearsal"));
+    assert!(validation_script.contains("scripts/final_release_rehearsal.py"));
+
+    let doc = read_repo_file("docs/release/final-release-rehearsal.md");
+    for required in [
+        "GAR-0043-B",
+        "shardloom.final_release_rehearsal_report.v1",
+        "shardloom.local_publication_attestation_plan.v1",
+        "target/final-release-rehearsal/final-release-rehearsal-report.json",
+        "rehearsal_status=passed",
+        "claim_gate_status=not_claim_grade",
+        "publication_authorization_status=human_approval_required",
+        "publication_human_approved=false",
+        "public_release_claim_allowed=false",
+        "public_package_claim_allowed=false",
+        "local_artifacts_only=true",
+        "final_attestation_status=not_signed_local_rehearsal",
+        "package_upload_attempted=false",
+        "feedstock_submission_attempted=false",
+        "marketplace_submission_attempted=false",
+        "signing_key_used=false",
+        "publication_attempted=false",
+        "tag_created=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0043-B doc marker {required}"
+        );
+    }
+
+    let hard_gate = read_repo_file("docs/release/hard-release-readiness-gate.md");
+    assert!(hard_gate.contains("shardloom.final_release_rehearsal_report.v1"));
+    assert!(hard_gate.contains("shardloom.local_publication_attestation_plan.v1"));
+    assert!(
+        hard_gate.contains("target/final-release-rehearsal/final-release-rehearsal-report.json")
+    );
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0043-B publication attestation and final release rehearsal"));
+    assert!(plan.contains("Non-runtime closeout is complete through GAR-0043-B"));
+    assert!(plan.contains("docs/release/final-release-rehearsal.md"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "GAR-0043-B publication attestation and final release rehearsal",
+        "shardloom.final_release_rehearsal_report.v1",
+        "shardloom.local_publication_attestation_plan.v1",
+        "final_release_rehearsal_status=passed",
+        "final_release_rehearsal_claim_gate_status=not_claim_grade",
+        "final_release_rehearsal_public_release_claim_allowed=false",
+        "final_release_rehearsal_public_package_claim_allowed=false",
+        "final_release_rehearsal_publication_human_approved=false",
+        "final_release_rehearsal_local_artifacts_only=true",
+        "final_release_rehearsal_package_upload_attempted=false",
+        "final_release_rehearsal_signing_key_used=false",
+        "final_release_rehearsal_publication_attempted=false",
+        "final_release_rehearsal_tag_created=false",
+        "final_release_rehearsal_fallback_attempted=false",
+        "final_release_rehearsal_external_engine_invoked=false",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing GAR-0043-B ledger marker {required}"
+        );
+    }
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0043-B` adds `shardloom.final_release_rehearsal_report.v1`"));
+    assert!(gar.contains("Actual public package publication, release tags, signing"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0043-B"));
+    assert!(traceability.contains("shardloom.final_release_rehearsal_report.v1"));
+    assert!(traceability.contains("Actual public publication remains unauthorized"));
 }
 
 #[test]
@@ -5178,11 +5305,15 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("claim_gate_status=not_claim_grade"));
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(!plan.contains("- [ ] GAR-0024-A publication and API/schema stability gate"));
-    assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
+    assert!(plan.contains("Non-runtime closeout is complete through GAR-0043-B"));
     let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(
         completed_ledger.contains("GAR-0024-A publication and API/schema stability gate"),
         "GAR-0024-A should be moved from Planned to the completed ledger"
+    );
+    assert!(
+        completed_ledger.contains("GAR-0043-B publication attestation and final release rehearsal"),
+        "GAR-0043-B should be moved from Planned to the completed ledger"
     );
     let planned_gar_slices = planned_gar_slices(&plan);
     assert!(planned_gar_slices.len() + completed_gar_session_count(&completed_ledger) >= 32);
