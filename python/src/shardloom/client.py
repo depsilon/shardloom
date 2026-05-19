@@ -317,6 +317,45 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("selected_row_count", 0) or 0
 
     @property
+    def predicate_operator_family(self) -> str | None:
+        """Return the predicate operator family emitted by the smoke."""
+
+        return self.envelope.field("predicate_operator_family")
+
+    @property
+    def logical_predicate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted logical predicate path."""
+
+        return self.envelope.field_bool("logical_predicate_runtime_execution", False) is True
+
+    @property
+    def logical_predicate_operator(self) -> str | None:
+        """Return the admitted logical predicate operator, when present."""
+
+        return self.envelope.field("logical_predicate_operator")
+
+    @property
+    def logical_predicate_leaf_count(self) -> int:
+        """Return the number of predicate leaves in the logical predicate tree."""
+
+        return self.envelope.field_int("logical_predicate_leaf_count", 0) or 0
+
+    @property
+    def string_predicate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted string predicate leaf."""
+
+        return self.envelope.field_bool("string_predicate_runtime_execution", False) is True
+
+    @property
+    def string_predicate_operator(self) -> tuple[str, ...]:
+        """Return string predicate operators emitted by the smoke."""
+
+        value = self.envelope.field("string_predicate_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def output_io_performed(self) -> bool:
         """Whether the smoke wrote a local output file."""
 

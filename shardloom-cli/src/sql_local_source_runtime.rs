@@ -1,7 +1,7 @@
 //! Scoped local-source SQL runtime smoke.
 //!
 //! This module intentionally admits one small SQL shape over local CSV/JSONL:
-//! `SELECT <columns> FROM <local.csv|local.jsonl> WHERE <simple predicate> [ORDER BY <column> ASC|DESC] LIMIT <n>`
+//! `SELECT <columns> FROM <local.csv|local.jsonl> WHERE <scoped predicate> [ORDER BY <column> ASC|DESC] LIMIT <n>`
 //! plus one explicit local inner equi-join shape.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
@@ -19,9 +19,9 @@ use std::{
 };
 
 use shardloom_core::{
-    ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow, ExpressionKind,
-    LogicalDType, OutputFormat, ScalarValue, ShardLoomError, UnaryOp, evaluate_filter,
-    evaluate_projection, format_iso_date32, parse_iso_date32,
+    BinaryOp, ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow,
+    ExpressionKind, LogicalDType, OutputFormat, ScalarValue, ShardLoomError, UnaryOp,
+    evaluate_filter, evaluate_projection, format_iso_date32, parse_iso_date32,
 };
 
 use crate::{
@@ -220,6 +220,30 @@ enum ParsedPredicate {
         op: StringPredicateOp,
         value: String,
     },
+    Logical {
+        op: LogicalPredicateOp,
+        left: Box<ParsedPredicate>,
+        right: Box<ParsedPredicate>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LogicalPredicateOp {
+    And,
+}
+
+impl LogicalPredicateOp {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::And => "and",
+        }
+    }
+
+    const fn binary_op(self) -> BinaryOp {
+        match self {
+            Self::And => BinaryOp::And,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -746,14 +770,44 @@ fn apply_date_literal_column_coercions(
     source: &mut CsvSourceData,
     right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
-    let ParsedPredicate::Compare {
-        column,
-        value: ScalarValue::Date32(_),
-        ..
-    } = &parsed.predicate
-    else {
-        return Ok(());
-    };
+    apply_date_literal_predicate_coercions(&parsed.predicate, parsed, source, right_source)
+}
+
+fn apply_date_literal_predicate_coercions(
+    predicate: &ParsedPredicate,
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    match predicate {
+        ParsedPredicate::Compare {
+            column,
+            value: ScalarValue::Date32(_),
+            ..
+        } => coerce_date_literal_column(column, parsed, source, right_source),
+        ParsedPredicate::Logical { left, right, .. } => {
+            apply_date_literal_predicate_coercions(
+                left,
+                parsed,
+                source,
+                right_source.as_deref_mut(),
+            )?;
+            apply_date_literal_predicate_coercions(right, parsed, source, right_source)
+        }
+        ParsedPredicate::Compare { .. }
+        | ParsedPredicate::CastCompare { .. }
+        | ParsedPredicate::IsNull { .. }
+        | ParsedPredicate::IsNotNull { .. }
+        | ParsedPredicate::StringMatch { .. } => Ok(()),
+    }
+}
+
+fn coerce_date_literal_column(
+    column: &str,
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
     if let Some(join) = parsed.join.as_ref() {
         let left_alias = parsed.source_alias.as_ref().ok_or_else(|| {
             ShardLoomError::InvalidOperation("join date coercion requires a left alias".to_string())
@@ -1214,11 +1268,12 @@ fn bind_sql_local_source(
             "GROUP BY requires at least one aggregate function in this scoped smoke",
         ));
     }
-    let predicate_column = parsed.predicate.column();
-    if !header.iter().any(|candidate| candidate == predicate_column) {
-        return Err(unsupported_sql_error(&format!(
-            "predicate column {predicate_column:?} is not present in the CSV header"
-        )));
+    for predicate_column in parsed.predicate.columns() {
+        if !header.iter().any(|candidate| candidate == predicate_column) {
+            return Err(unsupported_sql_error(&format!(
+                "predicate column {predicate_column:?} is not present in the CSV header"
+            )));
+        }
     }
     Ok(())
 }
@@ -1298,13 +1353,10 @@ fn bind_qualified_predicate(
     right_alias: &str,
     right_header: &[String],
 ) -> Result<(), ShardLoomError> {
-    bind_qualified_column(
-        predicate.column(),
-        left_alias,
-        left_header,
-        right_alias,
-        right_header,
-    )
+    for column in predicate.columns() {
+        bind_qualified_column(column, left_alias, left_header, right_alias, right_header)?;
+    }
+    Ok(())
 }
 
 fn bind_qualified_column(
@@ -1485,13 +1537,23 @@ impl SortDirection {
 }
 
 impl ParsedPredicate {
-    fn column(&self) -> &str {
+    fn columns(&self) -> Vec<&str> {
+        let mut columns = Vec::new();
+        self.push_columns(&mut columns);
+        columns
+    }
+
+    fn push_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
         match self {
             Self::Compare { column, .. }
             | Self::CastCompare { column, .. }
             | Self::IsNull { column }
             | Self::IsNotNull { column }
-            | Self::StringMatch { column, .. } => column,
+            | Self::StringMatch { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_columns(columns);
+                right.push_columns(columns);
+            }
         }
     }
 
@@ -1570,6 +1632,14 @@ impl ParsedPredicate {
                     ],
                 },
             )),
+            Self::Logical { op, left, right } => Ok(Expression::new(
+                ExprId::new(format!("where.logical.{}", op.as_str()))?,
+                ExpressionKind::Binary {
+                    left: Box::new(left.to_expression()?),
+                    op: op.binary_op(),
+                    right: Box::new(right.to_expression()?),
+                },
+            )),
         }
     }
 
@@ -1579,53 +1649,150 @@ impl ParsedPredicate {
             Self::CastCompare { .. } => "cast",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::StringMatch { .. } => "string_predicate",
+            Self::Logical { .. } => "logical_predicate",
         }
     }
 
-    fn string_operator(&self) -> &'static str {
+    fn uses_string_predicate(&self) -> bool {
         match self {
-            Self::StringMatch { op, .. } => op.as_str(),
+            Self::StringMatch { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_string_predicate() || right.uses_string_predicate()
+            }
             Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
-            | Self::IsNotNull { .. } => "not_applicable",
+            | Self::IsNotNull { .. } => false,
+        }
+    }
+
+    fn string_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_string_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_string_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::StringMatch { op, .. } => operators.push(op.as_str()),
+            Self::Logical { left, right, .. } => {
+                left.push_string_operators(operators);
+                right.push_string_operators(operators);
+            }
+            Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. } => {}
         }
     }
 
     fn uses_date_literal(&self) -> bool {
-        matches!(
-            self,
+        match self {
             Self::Compare {
                 value: ScalarValue::Date32(_),
                 ..
-            } | Self::CastCompare {
+            }
+            | Self::CastCompare {
                 value: ScalarValue::Date32(_),
                 ..
+            } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_date_literal() || right.uses_date_literal()
             }
-        )
-    }
-
-    fn uses_cast(&self) -> bool {
-        matches!(self, Self::CastCompare { .. })
-    }
-
-    fn cast_source_column(&self) -> &str {
-        match self {
-            Self::CastCompare { column, .. } => column,
             Self::Compare { .. }
+            | Self::CastCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
-            | Self::StringMatch { .. } => "",
+            | Self::StringMatch { .. } => false,
         }
     }
 
-    fn cast_target_dtype(&self) -> String {
+    fn uses_cast(&self) -> bool {
         match self {
-            Self::CastCompare { target_dtype, .. } => target_dtype.as_str().to_string(),
+            Self::CastCompare { .. } => true,
+            Self::Logical { left, right, .. } => left.uses_cast() || right.uses_cast(),
             Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
-            | Self::StringMatch { .. } => "not_applicable".to_string(),
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn cast_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_cast_source_columns(&mut columns);
+        columns.join(",")
+    }
+
+    fn push_cast_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::CastCompare { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_cast_source_columns(columns);
+                right.push_cast_source_columns(columns);
+            }
+            Self::Compare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn cast_target_dtypes(&self) -> String {
+        let mut dtypes = Vec::new();
+        self.push_cast_target_dtypes(&mut dtypes);
+        if dtypes.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            dtypes.join(",")
+        }
+    }
+
+    fn push_cast_target_dtypes(&self, dtypes: &mut Vec<String>) {
+        match self {
+            Self::CastCompare { target_dtype, .. } => {
+                dtypes.push(target_dtype.as_str().to_string());
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_cast_target_dtypes(dtypes);
+                right.push_cast_target_dtypes(dtypes);
+            }
+            Self::Compare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn uses_logical_predicate(&self) -> bool {
+        matches!(self, Self::Logical { .. })
+    }
+
+    fn logical_operator(&self) -> &'static str {
+        match self {
+            Self::Logical { op, .. } => op.as_str(),
+            Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => "not_applicable",
+        }
+    }
+
+    fn logical_leaf_count(&self) -> usize {
+        match self {
+            Self::Logical { left, right, .. } => {
+                left.logical_leaf_count() + right.logical_leaf_count()
+            }
+            Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => 1,
         }
     }
 }
@@ -1925,11 +2092,23 @@ impl SqlLocalSourceReport {
             ),
             (
                 "string_predicate_runtime_execution".to_string(),
-                matches!(self.parsed.predicate, ParsedPredicate::StringMatch { .. }).to_string(),
+                self.parsed.predicate.uses_string_predicate().to_string(),
             ),
             (
                 "string_predicate_operator".to_string(),
-                self.parsed.predicate.string_operator().to_string(),
+                self.parsed.predicate.string_operator(),
+            ),
+            (
+                "logical_predicate_runtime_execution".to_string(),
+                self.parsed.predicate.uses_logical_predicate().to_string(),
+            ),
+            (
+                "logical_predicate_operator".to_string(),
+                self.parsed.predicate.logical_operator().to_string(),
+            ),
+            (
+                "logical_predicate_leaf_count".to_string(),
+                self.parsed.predicate.logical_leaf_count().to_string(),
             ),
             (
                 "date_literal_runtime_execution".to_string(),
@@ -1941,11 +2120,11 @@ impl SqlLocalSourceReport {
             ),
             (
                 "cast_source_column".to_string(),
-                self.parsed.predicate.cast_source_column().to_string(),
+                self.parsed.predicate.cast_source_columns(),
             ),
             (
                 "cast_target_dtype".to_string(),
-                self.parsed.predicate.cast_target_dtype(),
+                self.parsed.predicate.cast_target_dtypes(),
             ),
             ("projection_pushed_down".to_string(), "false".to_string()),
             ("filter_pushed_down".to_string(), "false".to_string()),
@@ -2836,6 +3015,9 @@ fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
 }
 
 fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
+    if let Some(predicate) = parse_logical_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_cast_predicate(raw)? {
         return Ok(predicate);
     }
@@ -2893,9 +3075,32 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> LIKE <string-pattern>, <column> IS NULL, or <column> IS NOT NULL",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, or admitted predicates joined by AND",
         )),
     }
+}
+
+fn parse_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    if contains_keyword_outside_quotes(raw, "or") {
+        return Err(unsupported_sql_error(
+            "OR predicates are not admitted in this scoped logical predicate runtime slice; use AND or split the query",
+        ));
+    }
+    let Some(and_index) = find_keyword_outside_quotes(raw, "and") else {
+        return Ok(None);
+    };
+    let left_raw = raw[..and_index].trim();
+    let right_raw = raw[and_index + "and".len()..].trim();
+    if left_raw.is_empty() || right_raw.is_empty() {
+        return Err(unsupported_sql_error(
+            "AND predicates must have a predicate on both sides",
+        ));
+    }
+    Ok(Some(ParsedPredicate::Logical {
+        op: LogicalPredicateOp::And,
+        left: Box::new(parse_predicate(left_raw)?),
+        right: Box::new(parse_predicate(right_raw)?),
+    }))
 }
 
 fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
@@ -3462,8 +3667,8 @@ mod tests {
             } if column == "amount"
         ));
         assert_eq!(parsed.predicate.family(), "cast");
-        assert_eq!(parsed.predicate.cast_source_column(), "amount");
-        assert_eq!(parsed.predicate.cast_target_dtype(), "int64");
+        assert_eq!(parsed.predicate.cast_source_columns(), "amount");
+        assert_eq!(parsed.predicate.cast_target_dtypes(), "int64");
     }
 
     #[test]
@@ -3484,7 +3689,30 @@ mod tests {
         ));
         assert!(parsed.predicate.uses_date_literal());
         assert_eq!(parsed.predicate.family(), "cast");
-        assert_eq!(parsed.predicate.cast_target_dtype(), "date32");
+        assert_eq!(parsed.predicate.cast_target_dtypes(), "date32");
+    }
+
+    #[test]
+    fn parses_scoped_logical_and_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 AND label LIKE '%ta' LIMIT 5",
+        )
+        .expect("logical AND statement parses");
+
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert!(parsed.predicate.uses_logical_predicate());
+        assert_eq!(parsed.predicate.logical_operator(), "and");
+        assert_eq!(parsed.predicate.logical_leaf_count(), 2);
+        assert!(parsed.predicate.uses_string_predicate());
+        assert_eq!(parsed.predicate.string_operator(), "ends_with");
+        assert_eq!(parsed.predicate.columns(), vec!["amount", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::Logical {
+                op: LogicalPredicateOp::And,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -3495,6 +3723,17 @@ mod tests {
         .expect_err("decimal cast target remains blocked");
 
         assert!(error.to_string().contains("CAST target dtype"));
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
+    fn logical_or_predicate_blocks_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE amount >= 10 OR label LIKE '%ta' LIMIT 5",
+        )
+        .expect_err("OR remains blocked");
+
+        assert!(error.to_string().contains("OR predicates are not admitted"));
         assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 

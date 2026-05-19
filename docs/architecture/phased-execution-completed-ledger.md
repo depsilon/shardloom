@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL logical AND predicate runtime
+  - Branch/PR: `codex/sql-logical-and-runtime` / #785.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: admit scoped local SQL `AND` predicates over already admitted leaf predicates while
+    preserving deterministic blockers for unsupported compound predicate forms.
+  - Runtime behavior:
+    - Added a logical predicate AST node and lowered `A AND B` to ShardLoom core boolean
+      expression evaluation.
+    - Preserved recursive binding/evidence for comparison, cast, date-literal, null, and string
+      predicate leaves.
+    - Kept `OR` predicates explicitly blocked for this slice with no fallback/external-engine
+      invocation.
+  - Evidence:
+    - CLI JSON reports `predicate_operator_family=logical_predicate`,
+      `logical_predicate_runtime_execution=true`, `logical_predicate_operator=and`,
+      `logical_predicate_leaf_count=<n>`, recursive leaf evidence such as
+      `string_predicate_runtime_execution=true`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - Unsupported `OR` reports a deterministic diagnostic and no fallback/external-engine
+      invocation.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_logical_and_predicate_statement`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke logical`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_logical_and_filter_invokes_sql_smoke`
+    - `python -m compileall -q python/src python/tests`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: scoped local SQL/CLI logical `AND` predicate runtime only. This does not claim
+    `OR`, `NOT`, arbitrary predicate trees, optimizer rewrites, DataFrame parity, performance, or
+    production SQL support.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTF-8 suffix LIKE runtime
   - Branch/PR: `codex/sql-like-ends-with-runtime` / #784.
   - Primary files:
