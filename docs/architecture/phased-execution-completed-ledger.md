@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-VORTEX-071C runtime opportunity mapping from 0.71 APIs
+  - Branch/PR: `codex/vortex-071-runtime-opportunity-map` / #781.
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/dependencies/vortex-0.71-upstream-intake.md`
+  - Scope: map upstream Vortex `0.71.0` runtime-relevant deltas into the owning runtime-enabling
+    phase slices without admitting runtime support.
+  - Runtime items updated:
+    - `GAR-RUNTIME-IMPL-4D`: pluggable struct cast, Variant/`VariantGet`, `DType::Union`, and
+      statistic expression follow-through.
+    - `GAR-RUNTIME-IMPL-4F`: Arrow input kernel registry, union/variant dtype, extension metadata,
+      and C FFI blocker follow-through.
+    - `GAR-RUNTIME-IMPL-4G`: Arrow export kernels, local async write behavior, schema translation,
+      and output lifecycle follow-through.
+    - `GAR-RUNTIME-IMPL-4H`: `VortexReadAt::read_at` validation, `Executor::spawn_io`, local async
+      write, and Vortex lifecycle follow-through.
+    - `GAR-RUNTIME-IMPL-4I`: statistic expressions, split row ranges, `IsSorted`, scan/pushdown,
+      and metadata-first evidence follow-through.
+    - `GAR-RUNTIME-IMPL-4J`: FastLanes signed bases, SparseArray iterative execution, mask/rank
+      intersection, smallvec, TurboQuant, and GPU blocker follow-through.
+    - `GAR-RUNTIME-IMPL-4N`: object-store read evidence implications for `VortexReadAt` and async
+      I/O hooks.
+    - `GAR-RUNTIME-IMPL-4P`: split row-range, local split validation, async I/O, and scale-grade
+      blocker follow-through.
+  - Blockers preserved:
+    - No 0.71 API is admitted as executable runtime support by this docs-only mapping.
+    - Arrow kernel and C FFI changes do not authorize default Arrow conversion or ABI support.
+    - CUDA/GPU updates remain future accelerator context only.
+    - Object-store, table, distributed, SQL/DataFrame, performance, and production claims remain
+      blocked until their owning runtime slices land evidence.
+  - Verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that Vortex `0.71.0` opportunities are mapped to
+    implementation-ready runtime slices. It may not claim new runtime support or expanded public
+    capability from this mapping.
+
 - [x] Session label: GAR-VORTEX-071B feature-gated dependency bump and footprint proof
   - Branch/PR: `codex/vortex-071-dependency-bump` / #780.
   - Primary files:

@@ -260,52 +260,6 @@ This bundle is an upstream-intake and dependency-gate bundle. It may update depe
 API inventories, and planned runtime opportunities. It must not mark new runtime support complete
 unless a later runtime slice adds executable behavior, tests, and evidence.
 
-- [ ] GAR-VORTEX-071C runtime opportunity mapping from 0.71 APIs
-  - Source: `GAR-VORTEX-071A`, runtime implementation queue, Vortex API inventory.
-  - Current state:
-    - Several 0.71 items may help existing ShardLoom runtime goals, but none are automatically
-      admitted.
-  - Next slice outcome:
-    - Map relevant 0.71 items into existing runtime slices or add child slices only where no item
-      exists.
-  - User-visible surface:
-    - Phase plan only.
-  - Implementation scope:
-    - Update the runtime queue references for:
-      - `GAR-RUNTIME-IMPL-4D` cast/expression work from pluggable struct cast, statistic
-        expression, Variant/`VariantGet`, and `DType::Union`.
-      - `GAR-RUNTIME-IMPL-4F` local input adapter work from Arrow kernel registry and union/variant
-        dtype handling.
-      - `GAR-RUNTIME-IMPL-4G` output/fanout work from Arrow export kernel registry.
-      - `GAR-RUNTIME-IMPL-4H` Vortex lifecycle work from `VortexReadAt::read_at` validation and
-        local async write behavior.
-      - `GAR-RUNTIME-IMPL-4I` pushdown work from statistic expression and scan/split evidence.
-      - `GAR-RUNTIME-IMPL-4J` encoded kernel work from FastLanes signed bases, SparseArray
-        iterative execution, mask/rank-intersection improvements, and TurboQuant.
-      - `GAR-SCALE-1B`/`GAR-SCALE-1C`/`GAR-SCALE-1E` from split row-range, I/O validation, and
-        async I/O hooks.
-  - Evidence required:
-    - Existing or new phase item IDs for every accepted opportunity.
-    - Explicit blockers for opportunities not yet admitted.
-  - Acceptance:
-    - No 0.71 runtime-relevant item is left as an undocumented vague opportunity.
-    - Runtime items still require executable behavior, tests, and evidence before completion.
-  - Verification:
-    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
-    - `git diff --check`
-  - Non-goals:
-    - No dependency bump in this mapping-only slice.
-    - No runtime behavior.
-  - Claim boundary:
-    - Opportunity mapping only; no support claim.
-  - Fallback boundary:
-    - External integrations remain baseline-only.
-  - Dependencies/blockers: completed `GAR-VORTEX-071A` classification, runtime queue ownership for
-    accepted opportunities, and deterministic blockers for 0.71 APIs not admitted into ShardLoom
-    native-provider execution.
-  - Ledger rule:
-    - Ledger entry must list runtime items updated or added.
-
 - [ ] GAR-VORTEX-071D Dependabot and upstream-release intake workflow hardening
   - Source: `.github/dependabot.yml`, `GAR-VORTEX-071A`, `GAR-VORTEX-071B`.
   - Current state:
@@ -370,7 +324,8 @@ runtime behavior, deterministic runtime admission/blockers, or runtime-claim val
 or documentation updates alone are insufficient.
 
 - [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families
-  - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics.
+  - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics,
+    `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: expression support exists in scoped smoke paths; scoped UTF-8 prefix/contains
     string predicates are runtime-admitted through core expression semantics and local SQL `LIKE`
     smoke paths; scoped ISO Date32 parsing/formatting, extraction helpers, UTF-8/Date32 casts, and
@@ -387,6 +342,15 @@ or documentation updates alone are insufficient.
   - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.
   - Implementation scope: expression IR, type coercion policy, null semantics, parser lowering,
     native evaluators, diagnostics.
+  - Vortex 0.71 opportunity mapping:
+    - Pluggable struct cast informs ShardLoom-native cast/coercion admission only after local
+      correctness tests and output evidence exist.
+    - Variant array and `VariantGet` inform nested/semi-structured expression blockers and later
+      scoped runtime support.
+    - `DType::Union` must remain explicit unsupported/runtime-blocked until union semantics,
+      nullability, schema reporting, and output evidence are implemented.
+    - Statistic expression support can inform metadata-first expression planning, but cannot become
+      a correctness or performance claim by itself.
   - Evidence required: expression family, input/output dtype, null policy, cast status, decoded/
     materialized flags, correctness digest, no-fallback fields.
   - Acceptance: every admitted expression has fixture coverage and unsupported expressions report a
@@ -429,7 +393,8 @@ or documentation updates alone are insufficient.
   - Ledger rule: ledger entry must list generator kind, output format, and unsupported generators.
 
 - [ ] GAR-RUNTIME-IMPL-4F local input adapter runtime coverage by format
-  - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs.
+  - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs,
+    `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: CSV is the strongest local smoke path; scoped flat JSONL/NDJSON local input is
     now runtime-admitted through `sql-local-source-smoke` with SourceState-style evidence, content
     fingerprints, schema digests, and deterministic blockers for nested JSON values. General JSON,
@@ -443,6 +408,13 @@ or documentation updates alone are insufficient.
     source-format rows.
   - Implementation scope: format detection, local reader, schema/dtype inference, fingerprinting,
     SourceState digest, decode/materialization evidence.
+  - Vortex 0.71 opportunity mapping:
+    - Pluggable Arrow input kernel registry is a candidate adapter boundary, not a default
+      decode-to-Arrow execution path.
+    - `DType::Union`, Variant, and extension dtype metadata fixes should feed schema/dtype
+      diagnostics and SourceState schema reporting before any runtime admission.
+    - Arrow-to-Vortex C FFI conversion remains blocked for current Rust local runtime and belongs
+      to future ABI/interoperability review only.
   - Evidence required: source format/location/fingerprint, schema digest, SourceState id/digest,
     row count/file count/bytes, decode/materialization status, no-fallback fields.
   - Acceptance: each listed format is either runnable with evidence or blocked with actionable
@@ -457,7 +429,8 @@ or documentation updates alone are insufficient.
   - Ledger rule: ledger entry must include the per-format support table.
 
 - [ ] GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion
-  - Source: OutputPlan, result-sink replay proof, cross-format fanout architecture.
+  - Source: OutputPlan, result-sink replay proof, cross-format fanout architecture,
+    `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: scoped local JSONL output exists; CSV, Parquet, Arrow IPC, Vortex, replay proof,
     and multi-output fanout are not ordinary user-facing runtime features.
   - Next slice outcome: add local writer registry and fanout for admitted formats, with per-output
@@ -468,6 +441,13 @@ or documentation updates alone are insufficient.
     `io_reuse_and_fanout`, website status.
   - Implementation scope: OutputPlan builder, writers, schema translation, output digests, replay
     verifier, fanout orchestration.
+  - Vortex 0.71 opportunity mapping:
+    - Pluggable Arrow export kernels may inform compatibility-output boundaries, but export remains
+      translation/fanout and cannot execute unsupported compute.
+    - Local async file write behavior and `Executor::spawn_io` are candidates for later explicit
+      output lifecycle admission with side-effect, certificate, and replay evidence.
+    - Struct cast and extension dtype metadata fixes should inform schema-translation blockers
+      before any writer/fanout support is claimed.
   - Evidence required: output plan id/digest, format/location/schema, write timing, replay status,
     metadata fidelity/loss, correctness digest, no-fallback fields.
   - Acceptance: one admitted input/prepared state can write multiple local outputs; unsupported
@@ -482,7 +462,8 @@ or documentation updates alone are insufficient.
   - Ledger rule: ledger entry must list format combinations and replay proof refs.
 
 - [ ] GAR-RUNTIME-IMPL-4H Vortex prepare/read/write/reopen lifecycle promotion
-  - Source: Vortex provider docs, compute-flow reference, prepared/native benchmark evidence.
+  - Source: Vortex provider docs, compute-flow reference, prepared/native benchmark evidence,
+    `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: prepared/native evidence exists in scoped benchmark paths; a simple user
     lifecycle from local source to Vortex artifact, query, write, reopen, and verify remains
     incomplete.
@@ -493,6 +474,12 @@ or documentation updates alone are insufficient.
   - User-visible surface: CLI, Python helper, benchmark rows, compute-flow, Field Guide/status.
   - Implementation scope: VortexPreparedState, local Vortex writer, reopen verifier,
     source-backed scan bridge, digest/certificate reporting.
+  - Vortex 0.71 opportunity mapping:
+    - `VortexReadAt::read_at` result checking is a candidate for Native I/O certificate hardening
+      and reopen/read validation.
+    - `Executor::spawn_io` and local async write behavior are candidate lifecycle hooks only when
+      explicit side-effect policy, output certificates, and no-fallback evidence are present.
+    - No lifecycle support may use Vortex query-engine integrations or default to Arrow conversion.
   - Evidence required: prepared state/artifact refs, layout/encoding/stats summary, write/reopen
     digest, scan fields, decode/materialization status, no-fallback fields.
   - Acceptance: workflow runs without compatibility re-import during query timing; unsupported
@@ -507,7 +494,8 @@ or documentation updates alone are insufficient.
   - Ledger rule: ledger entry must include artifact refs, operator scope, and reopen proof.
 
 - [ ] GAR-RUNTIME-IMPL-4I Vortex scan pushdown and encoded-predicate runtime completion
-  - Source: `GAR-PERF-2C`, Vortex Scan API docs, encoded predicate provider evidence.
+  - Source: `GAR-PERF-2C`, Vortex Scan API docs, encoded predicate provider evidence,
+    `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: source-backed scan and encoded predicate evidence are scoped; pushdown is not
     complete across admitted prepared/native scenarios.
   - Next slice outcome: lower filter, projection, and limit into Vortex Scan where admitted, and
@@ -517,6 +505,13 @@ or documentation updates alone are insufficient.
   - User-visible surface: prepared/native benchmark rows, explain output, capability matrix.
   - Implementation scope: scan request builder, filter expression lowering, projection mask, limit/
     slice pushdown, evidence fields.
+  - Vortex 0.71 opportunity mapping:
+    - Statistic expressions, stats rewrite sessions, `NullCount`, and `UncompressedSize` are
+      candidates for metadata-first planning and scan evidence, not standalone runtime claims.
+    - `register_splits` offset/relative row-range fixes should feed split-aware scan evidence and
+      blockers.
+    - `IsSorted` dtype fixes may inform sorted/min-max pruning and top-k blockers before any
+      sorted-kernel runtime claim.
   - Evidence required: filter/projection/limit pushdown status, filter/output columns read,
     encoded predicate provider fields, data decoded/materialized, no-fallback fields.
   - Acceptance: supported scenarios avoid reading unused output columns; unsupported pushdown does
@@ -531,7 +526,8 @@ or documentation updates alone are insufficient.
   - Ledger rule: ledger entry must list pushed-down and blocked expression shapes.
 
 - [ ] GAR-RUNTIME-IMPL-4J encoded kernel registry execution pairs
-  - Source: `GAR-PERF-2D`, RFC 0021, encoded execution docs.
+  - Source: `GAR-PERF-2D`, RFC 0021, encoded execution docs,
+    `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: encoded-kernel evidence exists for selected scoped inputs; broad encoded-native
     operator coverage remains incomplete.
   - Next slice outcome: implement or block one encoding/operator pair at a time, starting with
@@ -542,6 +538,14 @@ or documentation updates alone are insufficient.
   - User-visible surface: benchmark evidence, explain output, capability matrix.
   - Implementation scope: kernel registry, admission policy, encoded evaluator, decoded reference
     comparison, blockers.
+  - Vortex 0.71 opportunity mapping:
+    - FastLanes signed bases, SparseArray iterative execution, mask/rank intersection
+      improvements, smallvec performance fixes, and TurboQuant are candidate inputs for
+      encoding/operator-pair admission.
+    - Sparse traversal remains blocked until source-backed segment extraction and certificate
+      evidence exist.
+    - CUDA/FSST and GPU fixes remain blocked future accelerator context, not CPU-local runtime
+      support or a performance claim.
   - Evidence required: encoding id, operator family, kernel admitted/executed, canonicalization
     required, decoded/materialized flags, correctness digest, encoded-native claim flag.
   - Acceptance: supported pairs pass decoded-reference correctness; unsupported encodings block
@@ -633,7 +637,8 @@ or documentation updates alone are insufficient.
   - Ledger rule: ledger entry must include artifact refs and public claim status.
 
 - [ ] GAR-RUNTIME-IMPL-4N object-store read admission with local emulator/public fixture proof
-  - Source: `GAR-COMPAT-1C`, `GAR-SCALE-1E`, object-store request planner.
+  - Source: `GAR-COMPAT-1C`, `GAR-SCALE-1E`, object-store request planner,
+    `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: object-store planning/report-only surfaces exist; runtime reads are blocked.
   - Next slice outcome: implement URI parse, credential/effect policy, optional listing, byte-range
     read, streaming/full-file read, and SourceState evidence in an approved emulator or public
@@ -643,6 +648,11 @@ or documentation updates alone are insufficient.
   - User-visible surface: CLI/Python object-store diagnostics, capability/status pages, use cases.
   - Implementation scope: provider abstraction, effect gate, credential policy, request planner,
     byte-range adapter, local cache boundary, tests.
+  - Vortex 0.71 opportunity mapping:
+    - `VortexReadAt::read_at` validation and async I/O hooks may inform byte-range/object-store
+      read evidence after policy admission.
+    - 0.71 I/O hooks do not admit object-store runtime by themselves; provider policy, credentials,
+      fixtures, and Native I/O certificates remain required.
   - Evidence required: provider/profile, credential/network status, object version/ETag, byte
     ranges, SourceState id, Native I/O certificate, no-fallback fields.
   - Acceptance: public and authenticated read gates are separate; no network probe or credential
@@ -685,7 +695,8 @@ or documentation updates alone are insufficient.
   - Ledger rule: ledger entry must list provider, table format, operation, and blocked behaviors.
 
 - [ ] GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime
-  - Source: `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017.
+  - Source: `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017,
+    `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: scale contracts exist, but larger-than-memory, split-parallel, spill, shuffle,
     retry, and idempotent output commit runtime are not claimable.
   - Next slice outcome: implement a declared-resource local scale profile with SplitManifest,
@@ -696,6 +707,13 @@ or documentation updates alone are insufficient.
   - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
   - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
     cancellation/recovery, output commit status, scale benchmark rows.
+  - Vortex 0.71 opportunity mapping:
+    - `register_splits` offset and relative row-range support should inform `SplitManifest`
+      row-range evidence and per-split blockers.
+    - `VortexReadAt::read_at` validation and async I/O hooks are candidate inputs for local split
+      read validation and spill/output lifecycle evidence.
+    - These hooks do not imply distributed, object-store, table, or larger-than-memory runtime
+      support until scale-grade execution and correctness proof land.
   - Evidence required: scale profile/status, data volume, split/file/partition counts,
     memory/spill/shuffle fields, retry/idempotency, output commit status, correctness digest.
   - Acceptance: larger-than-memory and split-parallel claims require real bytes and correctness
