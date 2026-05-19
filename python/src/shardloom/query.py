@@ -416,7 +416,7 @@ class LazyFrame:
         *,
         check: bool = False,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
-        """Collect rows for the one admitted local CSV SQL smoke shape."""
+        """Collect rows for admitted local CSV SQL smoke shapes."""
 
         if statement := self._sql_local_source_statement():
             return self.client.sql_local_source_smoke(statement, check=check)
@@ -430,7 +430,7 @@ class LazyFrame:
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport:
-        """Write the admitted local CSV projection/filter/limit smoke to JSONL."""
+        """Write an admitted local CSV SQL smoke result to JSONL."""
 
         if output_format.strip().lower() not in {"jsonl", "json-lines", "ndjson"}:
             raise ValueError("scoped LazyFrame.write currently supports local JSONL only")
@@ -438,7 +438,8 @@ class LazyFrame:
         if statement is None:
             raise ValueError(
                 "LazyFrame.write currently requires a local CSV source with "
-                "select(...), filter(...), and limit(...) operations"
+                "select(...), filter(...), and limit(...) operations, or "
+                "aggregate(...), filter(...), and limit(...) operations"
             )
         return self.client.sql_local_source_smoke(
             statement,
@@ -552,22 +553,22 @@ class LazyFrame:
         self,
         *expressions: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for DataFrame aggregations."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scalar aggregate workflow when admitted, otherwise report unsupported."""
 
-        return self._unsupported_operation(
-            "aggregate",
-            ",".join(_normalize_columns(expressions)),
-            check=check,
-        )
+        values = _normalize_columns(expressions)
+        target = ",".join(values)
+        if self._can_append_scalar_aggregate():
+            return self._append(WorkflowOperation("aggregate", values))
+        return self._unsupported_operation("aggregate", target, check=check)
 
     def agg(
         self,
         *expressions: object,
         check: bool = False,
         **named_expressions: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for DataFrame-style `agg`."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scalar aggregate workflow for positional expressions when admitted."""
 
         values = list(_normalize_columns(expressions)) if expressions else []
         values.extend(
@@ -576,6 +577,8 @@ class LazyFrame:
         )
         if not values:
             raise ValueError("aggregate expressions must not be empty")
+        if not named_expressions and self._can_append_scalar_aggregate():
+            return self._append(WorkflowOperation("aggregate", tuple(values)))
         return self._unsupported_operation("agg", ",".join(values), check=check)
 
     def sort(
@@ -764,26 +767,34 @@ class LazyFrame:
             envelope=envelope,
         )
 
+    def _can_append_scalar_aggregate(self) -> bool:
+        if self.source.source_format != "csv":
+            return False
+        return all(
+            operation.kind not in {"select", "aggregate"}
+            for operation in self.operations
+        )
+
     def _sql_local_source_statement(self) -> str | None:
         if self.source.source_format != "csv":
             return None
-        projection: tuple[str, ...] | None = None
+        select_list: tuple[str, ...] | None = None
         predicate: str | None = None
         limit: str | None = None
         for operation in self.operations:
-            if operation.kind == "select" and projection is None:
-                projection = operation.values
+            if operation.kind in {"select", "aggregate"} and select_list is None:
+                select_list = operation.values
             elif operation.kind == "filter" and predicate is None:
                 predicate = operation.values[0]
             elif operation.kind == "limit" and limit is None:
                 limit = operation.values[0]
             else:
                 return None
-        if projection is None or predicate is None or limit is None:
+        if select_list is None or predicate is None or limit is None:
             return None
         source_uri = _quote_sql_local_source_path(self.source.uri)
         return (
-            f"SELECT {','.join(projection)} FROM {source_uri} "
+            f"SELECT {','.join(select_list)} FROM {source_uri} "
             f"WHERE {predicate} LIMIT {limit}"
         )
 

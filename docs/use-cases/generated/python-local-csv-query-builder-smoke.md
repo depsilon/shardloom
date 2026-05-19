@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Python local CSV query-builder smoke
+# Python local CSV query-builder projection and scalar aggregate smoke
 
 ## Quick Answer
 
@@ -8,29 +8,29 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** One scoped Python read_csv/select/filter/limit collect/write workflow over local CSV only; no pandas/Polars backend, broad DataFrame runtime, production SQL support, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python read_csv/select/filter/limit and read_csv/filter/scalar aggregate/limit collect/write workflows over local CSV only; no pandas/Polars backend, broad DataFrame runtime, grouped aggregate runtime, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-Python local CSV query-builder smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+Python local CSV query-builder projection and scalar aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-One scoped Python read_csv/select/filter/limit collect/write workflow over local CSV only; no pandas/Polars backend, broad DataFrame runtime, production SQL support, object-store/table source, external fallback, or performance claim.
+Scoped Python read_csv/select/filter/limit and read_csv/filter/scalar aggregate/limit collect/write workflows over local CSV only; no pandas/Polars backend, broad DataFrame runtime, grouped aggregate runtime, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').filter('amount >= 10').limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); print(r.output_path, r.output_native_io_certificate_status, r.fallback_attempted, r.external_engine_invoked)"
+New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').filter('amount >= 10').limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); a=ctx.read_csv('target/sql-local-source-smoke.csv').filter('amount >= 10').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); print(r.output_path, r.output_native_io_certificate_status, a.result_jsonl, a.aggregate_operator_family, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 ## Blocker
 
-The Python query-builder runtime admits only local CSV select/filter/limit collect/write through the SQL local-source smoke. Joins, aggregates, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
+The Python query-builder runtime admits only local CSV select/filter/limit and scalar aggregate/filter/limit collect/write through the SQL local-source smoke. Joins, grouped aggregates, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
 
 ## Internal Flow
 
-`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, local_jsonl_output, typed_python_report, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, local_jsonl_output, scalar_aggregate_result, typed_python_report, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -39,6 +39,8 @@ The Python query-builder runtime admits only local CSV select/filter/limit colle
 - `sql_binder_executed=true`
 - `sql_planner_executed=true`
 - `source_io_performed=true`
+- `aggregate_runtime_execution`
+- `aggregate_operator_family`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`
 - `fallback_attempted=false`
@@ -47,7 +49,7 @@ The Python query-builder runtime admits only local CSV select/filter/limit colle
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with local CSV source evidence, local JSONL output evidence, output Native I/O certificate status, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with local CSV source evidence, local JSONL output evidence when written, scalar aggregate fields when requested, output Native I/O certificate status, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
