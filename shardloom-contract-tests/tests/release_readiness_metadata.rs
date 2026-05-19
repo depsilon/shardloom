@@ -3878,6 +3878,88 @@ fn gar_0009_a_spark_displacement_benchmark_matrix_remains_not_claim_grade() {
 }
 
 #[test]
+fn gar_0015_a_string_property_fuzz_gap_remains_report_only() {
+    let correctness = read_repo_file("shardloom-core/src/correctness.rs");
+    for required in [
+        "property-string-utf8-predicate-consistency",
+        "string_utf8_predicate_consistency",
+        "string-semantics",
+        "generated_property_fixture_id_order",
+        "fuzz_seed_target_order",
+        "property_fuzz_execution_performed = false",
+        "query_execution: false",
+        "decoded_reference_execution_performed: false",
+        "external_engine_execution: false",
+        "fallback_attempted: false",
+    ] {
+        assert!(
+            correctness.contains(required),
+            "missing GAR-0015-A correctness marker {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/evidence_certificates.rs");
+    for required in [
+        "generated_property_fixture_id_order",
+        "fuzz_seed_target_order",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing GAR-0015-A CLI marker {required}"
+        );
+    }
+
+    let plan_snapshot = read_repo_file("shardloom-cli/tests/correctness_plan_snapshots.rs");
+    for required in [
+        "property-string-utf8-predicate-consistency",
+        "string_utf8_predicate_consistency",
+        "string-semantics.deferred-fixture-family.declared-evidence",
+    ] {
+        assert!(
+            plan_snapshot.contains(required),
+            "missing GAR-0015-A correctness-plan snapshot marker {required}"
+        );
+    }
+
+    let harness_snapshot =
+        read_repo_file("shardloom-cli/tests/correctness_harness_plan_snapshots.rs");
+    assert!(harness_snapshot.contains("generated_property_fixture_count\", \"4"));
+    assert!(harness_snapshot.contains("fuzz_seed_count\", \"4"));
+    assert!(harness_snapshot.contains("property_fuzz_execution_performed\", \"false"));
+
+    let harness_doc = read_repo_file("docs/architecture/correctness-differential-harness.md");
+    for required in [
+        "`GAR-0015-A`",
+        "`string-semantics`",
+        "`property-string-utf8-predicate-consistency`",
+        "fuzz execution remains deferred",
+    ] {
+        assert!(
+            harness_doc.contains(required),
+            "missing GAR-0015-A harness doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0015-A fuzz/property and semantic differential expansion"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0015-A fuzz/property and semantic differential expansion"));
+    assert!(completed.contains("generated_property_fixture_count=4"));
+    assert!(completed.contains("fuzz_seed_count=4"));
+    assert!(completed.contains("fallback_attempted=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0015-A` adds string-semantics property/fuzz metadata"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(
+        traceability.contains("GAR-0015-A adds the `property-string-utf8-predicate-consistency`")
+    );
+    assert!(traceability.contains("no external engine invocation, no fallback"));
+}
+
+#[test]
 fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
     let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
     for required in [

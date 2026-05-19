@@ -20,7 +20,7 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
         report.status,
         CorrectnessDifferentialHarnessStatus::NeedsEvidence
     );
-    assert_eq!(report.fixture_count, 36);
+    assert_eq!(report.fixture_count, 38);
     assert_eq!(report.fixtures_with_source_ref_count, 18);
     assert_eq!(report.source_backed_edge_fixture_count, 11);
     assert_eq!(
@@ -71,7 +71,7 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     );
     assert!(report.decoded_reference_output_coverage_complete);
     assert_eq!(report.not_yet_defined_fixture_count, 0);
-    assert_eq!(report.deferred_fixture_family_count, 8);
+    assert_eq!(report.deferred_fixture_family_count, 9);
     assert_eq!(
         report.deferred_fixture_family_id_order,
         vec![
@@ -83,9 +83,10 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
             "sparse-validity-edge-corpus".to_string(),
             "run-length-edge-corpus".to_string(),
             "temporal-semantics".to_string(),
+            "string-semantics".to_string(),
         ]
     );
-    assert_eq!(report.deferred_fixture_family_artifact_count, 8);
+    assert_eq!(report.deferred_fixture_family_artifact_count, 9);
     assert_eq!(report.deferred_fixture_family_artifact_populated_count, 0);
     assert!(!report.deferred_fixture_family_artifacts_populated);
     assert_eq!(
@@ -99,6 +100,7 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
             "sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence".to_string(),
             "run-length-edge-corpus.deferred-fixture-family.declared-evidence".to_string(),
             "temporal-semantics.deferred-fixture-family.declared-evidence".to_string(),
+            "string-semantics.deferred-fixture-family.declared-evidence".to_string(),
         ]
     );
     assert_eq!(
@@ -127,8 +129,26 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     assert!(report.external_oracle_result_artifact_id_order.contains(
         &"vortex-edge-count-all-empty-input.external-oracle.spark.declared-result".to_string()
     ));
-    assert_eq!(report.generated_property_fixture_count, 3);
-    assert_eq!(report.fuzz_seed_count, 3);
+    assert_eq!(report.generated_property_fixture_count, 4);
+    assert_eq!(
+        report.generated_property_fixture_id_order,
+        vec![
+            "property-encoded-filter-selection-vector-consistency".to_string(),
+            "property-encoded-projection-preserves-row-order".to_string(),
+            "property-encoded-filter-project-composition".to_string(),
+            "property-string-utf8-predicate-consistency".to_string(),
+        ]
+    );
+    assert_eq!(report.fuzz_seed_count, 4);
+    assert_eq!(
+        report.fuzz_seed_target_order,
+        vec![
+            "encoded_filter_selection_vector".to_string(),
+            "encoded_projection_ordering".to_string(),
+            "encoded_filter_project_composition".to_string(),
+            "string_utf8_predicate_consistency".to_string(),
+        ]
+    );
     assert_eq!(report.planned_surface_count, 8);
     assert_eq!(report.blocked_surface_count, 3);
     assert_eq!(

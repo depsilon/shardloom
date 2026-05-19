@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0015-A fuzz/property and semantic differential expansion
+  - Branch/PR: `codex/gar-0015a-string-property-fuzz-correctness` / #763.
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-cli/src/evidence_certificates.rs`
+    - `shardloom-cli/tests/correctness_plan_snapshots.rs`
+    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `docs/architecture/correctness-differential-harness.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: close GAR-0015-A by adding one explicit report-only string-semantics correctness gap
+    plus property/fuzz metadata so the correctness plan and harness expose the next fixture family
+    without executing queries, decoded references, external oracles, data reads, writes, object-store
+    I/O, fallback, or benchmark claims.
+  - Checklist:
+    - [x] Add `property-string-utf8-predicate-consistency` to the generated property fixture
+          inventory.
+    - [x] Add `string_utf8_predicate_consistency` as a reproducible fuzz seed target.
+    - [x] Add `string-semantics` as a deferred fixture-family artifact slot with required
+          fixture-manifest and decoded-reference refs.
+    - [x] Expose generated property fixture ID order and fuzz seed target order through CLI
+          correctness plan/harness fields.
+    - [x] Move GAR-0015-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `fixture_count=38`
+    - `generated_property_fixture_count=4`
+    - `generated_property_fixture_id_order=property-encoded-filter-selection-vector-consistency,property-encoded-projection-preserves-row-order,property-encoded-filter-project-composition,property-string-utf8-predicate-consistency`
+    - `fuzz_seed_count=4`
+    - `fuzz_seed_target_order=encoded_filter_selection_vector,encoded_projection_ordering,encoded_filter_project_composition,string_utf8_predicate_consistency`
+    - `deferred_fixture_family_count=9`
+    - `deferred_fixture_family_artifact_count=9`
+    - `string-semantics.deferred-fixture-family.declared-evidence`
+    - `property_fuzz_execution_performed=false`
+    - `external_engine_execution=false`
+    - `fallback_attempted=false`
+  - Verification:
+    - `cargo test -p shardloom-core correctness --lib`
+    - `cargo test -p shardloom-contract-tests --test correctness_fixture_manifest`
+    - `cargo test -p shardloom-contract-tests --test correctness_differential_harness`
+    - `cargo test -p shardloom-cli --test correctness_plan_snapshots`
+    - `cargo test -p shardloom-cli --test correctness_harness_plan_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that string predicate correctness has an explicit
+    property/fuzz metadata lane and deferred evidence slot. It may not claim property/fuzz execution,
+    external-oracle execution, production correctness, performance, superiority, Spark displacement,
+    or fallback execution.
+
 - [x] Session label: GAR-0009-A Spark-displacement benchmark evidence matrix
   - Branch/PR: `codex/gar-0009a-spark-displacement-evidence-matrix` / #762.
   - Primary files:

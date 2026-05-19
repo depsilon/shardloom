@@ -863,6 +863,11 @@ fn add_property_fuzz_foundation(plan: &mut CorrectnessValidationPlan) {
             SemanticArea::SelectionVectors,
             &[EdgeCase::DictionaryEncoded, EdgeCase::RunLengthEncoded],
         ),
+        generated_property_fixture(
+            "property-string-utf8-predicate-consistency",
+            SemanticArea::Strings,
+            &[EdgeCase::MixedNulls, EdgeCase::HighCardinality],
+        ),
     ] {
         plan.add_fixture(fixture);
     }
@@ -881,6 +886,13 @@ fn add_property_fuzz_foundation(plan: &mut CorrectnessValidationPlan) {
         FuzzSeed::new("encoded_filter_project_composition", 0x5E1E_C710_0003)
             .expect("valid")
             .with_reproducer("fixture-family=filter_project; encodings=dictionary_run_length"),
+    );
+    plan.add_fuzz_seed(
+        FuzzSeed::new("string_utf8_predicate_consistency", 0x5E1E_C710_0004)
+            .expect("valid")
+            .with_reproducer(
+                "fixture-family=strings; unicode_policy=utf8_boundary; null_policy=mixed",
+            ),
     );
 }
 
@@ -983,6 +995,13 @@ fn add_remaining_foundation_fixture_requirements(plan: &mut CorrectnessValidatio
         SemanticArea::Temporal,
         EdgeCase::TemporalValues,
         "temporal value fixture corpus with timestamp/date/timezone semantic references",
+    );
+    add_deferred_fixture_family_requirement(
+        plan,
+        "string-semantics",
+        SemanticArea::Strings,
+        EdgeCase::HighCardinality,
+        "UTF-8 string equality, prefix, case-sensitive predicate, empty-string, and null-string corpus with decoded reference outputs",
     );
 }
 
@@ -1261,6 +1280,19 @@ impl CorrectnessValidationPlan {
             .filter(|fixture| fixture.has_reference_role(ReferenceRole::GeneratedProperty))
             .count()
     }
+    pub fn generated_property_fixture_id_order(&self) -> Vec<&str> {
+        self.fixtures
+            .iter()
+            .filter(|fixture| fixture.has_reference_role(ReferenceRole::GeneratedProperty))
+            .map(|fixture| fixture.id.as_str())
+            .collect()
+    }
+    pub fn fuzz_seed_target_order(&self) -> Vec<&str> {
+        self.fuzz_seeds
+            .iter()
+            .map(|seed| seed.target.as_str())
+            .collect()
+    }
     pub fn executable_expected_output_count(&self) -> usize {
         self.fixtures
             .iter()
@@ -1523,7 +1555,9 @@ pub struct CorrectnessDifferentialHarnessReport {
     pub external_oracle_artifacts_test_only: bool,
     pub reference_role_order: Vec<String>,
     pub generated_property_fixture_count: usize,
+    pub generated_property_fixture_id_order: Vec<String>,
     pub fuzz_seed_count: usize,
+    pub fuzz_seed_target_order: Vec<String>,
     pub planned_surface_count: usize,
     pub blocked_surface_count: usize,
     pub blocked_surface_order: Vec<String>,
@@ -1714,7 +1748,17 @@ pub fn plan_correctness_differential_harness(
         .map(ToString::to_string)
         .collect::<Vec<_>>();
     let generated_property_fixture_count = plan.generated_property_fixture_count();
+    let generated_property_fixture_id_order = plan
+        .generated_property_fixture_id_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
     let fuzz_seed_count = plan.fuzz_seeds.len();
+    let fuzz_seed_target_order = plan
+        .fuzz_seed_target_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
     let property_fuzz_execution_performed = false;
     let benchmark_claim_blocker_order = correctness_benchmark_claim_blockers(
         not_yet_defined_fixture_count,
@@ -1820,7 +1864,9 @@ pub fn plan_correctness_differential_harness(
         external_oracle_artifacts_test_only,
         reference_role_order,
         generated_property_fixture_count,
+        generated_property_fixture_id_order,
         fuzz_seed_count,
+        fuzz_seed_target_order,
         planned_surface_count,
         blocked_surface_count,
         blocked_surface_order,
@@ -2231,7 +2277,7 @@ mod tests {
     fn foundation_plan_exposes_coverage_inventory() {
         let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-        assert_eq!(plan.fixture_count(), 36);
+        assert_eq!(plan.fixture_count(), 38);
         assert_eq!(plan.fixtures_with_source_ref_count(), 18);
         assert_eq!(plan.source_backed_edge_fixture_count(), 11);
         assert_eq!(plan.golden_fixture_count(), 21);
@@ -2240,7 +2286,7 @@ mod tests {
         assert!(plan.decoded_reference_output_coverage_complete());
         assert_eq!(plan.executable_expected_output_count(), 20);
         assert_eq!(plan.not_yet_defined_fixture_count(), 0);
-        assert_eq!(plan.deferred_fixture_family_count(), 8);
+        assert_eq!(plan.deferred_fixture_family_count(), 9);
         assert_eq!(
             plan.deferred_fixture_family_id_order(),
             vec![
@@ -2251,10 +2297,11 @@ mod tests {
                 "dictionary-encoded-edge-corpus",
                 "sparse-validity-edge-corpus",
                 "run-length-edge-corpus",
-                "temporal-semantics"
+                "temporal-semantics",
+                "string-semantics"
             ]
         );
-        assert_eq!(plan.deferred_fixture_family_artifact_count(), 8);
+        assert_eq!(plan.deferred_fixture_family_artifact_count(), 9);
         assert_eq!(plan.deferred_fixture_family_artifact_populated_count(), 0);
         assert!(!plan.deferred_fixture_family_artifacts_populated());
         assert_eq!(
@@ -2287,6 +2334,24 @@ mod tests {
                 "external_oracle"
             ]
         );
+        assert_eq!(
+            plan.generated_property_fixture_id_order(),
+            vec![
+                "property-encoded-filter-selection-vector-consistency",
+                "property-encoded-projection-preserves-row-order",
+                "property-encoded-filter-project-composition",
+                "property-string-utf8-predicate-consistency"
+            ]
+        );
+        assert_eq!(
+            plan.fuzz_seed_target_order(),
+            vec![
+                "encoded_filter_selection_vector",
+                "encoded_projection_ordering",
+                "encoded_filter_project_composition",
+                "string_utf8_predicate_consistency"
+            ]
+        );
     }
     #[test]
     fn correctness_harness_surfaces_evidence_gaps_without_execution() {
@@ -2306,12 +2371,12 @@ mod tests {
             report.report_id,
             "cg5.correctness_differential_harness.aggregate"
         );
-        assert_eq!(report.fixture_count, 36);
+        assert_eq!(report.fixture_count, 38);
         assert_eq!(report.golden_fixture_count, 21);
         assert_eq!(report.executable_expected_output_count, 20);
         assert_eq!(report.not_yet_defined_fixture_count, 0);
-        assert_eq!(report.deferred_fixture_family_count, 8);
-        assert_eq!(report.deferred_fixture_family_artifact_count, 8);
+        assert_eq!(report.deferred_fixture_family_count, 9);
+        assert_eq!(report.deferred_fixture_family_artifact_count, 9);
         assert_eq!(report.deferred_fixture_family_artifact_populated_count, 0);
         assert!(!report.deferred_fixture_family_artifacts_populated);
         assert_eq!(
@@ -2324,8 +2389,26 @@ mod tests {
         assert_eq!(report.reference_artifact_count, 20);
         assert_eq!(report.decoded_reference_output_count, 20);
         assert!(report.decoded_reference_output_coverage_complete);
-        assert_eq!(report.generated_property_fixture_count, 3);
-        assert_eq!(report.fuzz_seed_count, 3);
+        assert_eq!(report.generated_property_fixture_count, 4);
+        assert_eq!(
+            report.generated_property_fixture_id_order,
+            vec![
+                "property-encoded-filter-selection-vector-consistency".to_string(),
+                "property-encoded-projection-preserves-row-order".to_string(),
+                "property-encoded-filter-project-composition".to_string(),
+                "property-string-utf8-predicate-consistency".to_string()
+            ]
+        );
+        assert_eq!(report.fuzz_seed_count, 4);
+        assert_eq!(
+            report.fuzz_seed_target_order,
+            vec![
+                "encoded_filter_selection_vector".to_string(),
+                "encoded_projection_ordering".to_string(),
+                "encoded_filter_project_composition".to_string(),
+                "string_utf8_predicate_consistency".to_string()
+            ]
+        );
         assert_eq!(report.baseline_count, 7);
         assert_eq!(report.external_oracle_result_artifact_count, 77);
         assert_eq!(report.external_oracle_result_populated_count, 0);

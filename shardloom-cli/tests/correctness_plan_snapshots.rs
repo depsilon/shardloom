@@ -33,14 +33,14 @@ fn correctness_plan_json_exposes_fixture_and_edge_case_inventory() {
     assert!(output.contains("\"status\":\"success\""));
     assert!(output.contains(&field("mode", "correctness_plan")));
     assert!(output.contains(&field("status", "planned")));
-    assert!(output.contains(&field("fixture_count", "36")));
+    assert!(output.contains(&field("fixture_count", "38")));
     assert!(output.contains(&field(
         "fixture_id_order",
-        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-struct-five,vortex-local-filter-project-struct-five,vortex-prepared-encoded-filter-dictionary-run,vortex-prepared-encoded-projection-dictionary,vortex-prepared-encoded-filter-project-selection-vector,vortex-edge-count-all-empty-input,vortex-edge-project-single-row,vortex-edge-filter-all-null,vortex-edge-filter-mixed-null-sparse,vortex-edge-filter-duplicate-low-cardinality,vortex-edge-project-high-cardinality,vortex-edge-filter-project-sorted-dictionary,vortex-edge-filter-project-unsorted-rle,vortex-edge-reader-chunk-dictionary-kernel-input,vortex-edge-reader-chunk-run-end-kernel-input,vortex-edge-filter-temporal-values,property-encoded-filter-selection-vector-consistency,property-encoded-projection-preserves-row-order,property-encoded-filter-project-composition,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
+        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-struct-five,vortex-local-filter-project-struct-five,vortex-prepared-encoded-filter-dictionary-run,vortex-prepared-encoded-projection-dictionary,vortex-prepared-encoded-filter-project-selection-vector,vortex-edge-count-all-empty-input,vortex-edge-project-single-row,vortex-edge-filter-all-null,vortex-edge-filter-mixed-null-sparse,vortex-edge-filter-duplicate-low-cardinality,vortex-edge-project-high-cardinality,vortex-edge-filter-project-sorted-dictionary,vortex-edge-filter-project-unsorted-rle,vortex-edge-reader-chunk-dictionary-kernel-input,vortex-edge-reader-chunk-run-end-kernel-input,vortex-edge-filter-temporal-values,property-encoded-filter-selection-vector-consistency,property-encoded-projection-preserves-row-order,property-encoded-filter-project-composition,property-string-utf8-predicate-consistency,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics,string-semantics"
     )));
     assert!(output.contains(&field(
         "semantic_area_order",
-        "metadata_only,encoded_execution,selection_vectors,nulls,temporal,pruning,translation,unsupported_diagnostics,external_effects,nested_data"
+        "metadata_only,encoded_execution,selection_vectors,nulls,temporal,strings,pruning,translation,unsupported_diagnostics,external_effects,nested_data"
     )));
     assert!(output.contains(&field(
         "edge_case_order",
@@ -55,6 +55,14 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
     assert!(output.contains(&field(
         "reference_role_order",
         "golden_fixture,decoded_reference,generated_property,external_oracle"
+    )));
+    assert!(output.contains(&field(
+        "generated_property_fixture_id_order",
+        "property-encoded-filter-selection-vector-consistency,property-encoded-projection-preserves-row-order,property-encoded-filter-project-composition,property-string-utf8-predicate-consistency"
+    )));
+    assert!(output.contains(&field(
+        "fuzz_seed_target_order",
+        "encoded_filter_selection_vector,encoded_projection_ordering,encoded_filter_project_composition,string_utf8_predicate_consistency"
     )));
     assert!(output.contains(&field("fixtures_with_source_ref_count", "18")));
     assert!(output.contains(&field("source_backed_edge_fixture_count", "11")));
@@ -72,12 +80,12 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
     assert!(output.contains(&field("decoded_reference_output_coverage_complete", "true")));
     assert!(output.contains(&field("executable_expected_output_count", "20")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "0")));
-    assert!(output.contains(&field("deferred_fixture_family_count", "8")));
+    assert!(output.contains(&field("deferred_fixture_family_count", "9")));
     assert!(output.contains(&field(
         "deferred_fixture_family_id_order",
-        "null-semantics,pruning-correctness,encoded-vs-decoded-reference,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
+        "null-semantics,pruning-correctness,encoded-vs-decoded-reference,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics,string-semantics"
     )));
-    assert!(output.contains(&field("deferred_fixture_family_artifact_count", "8")));
+    assert!(output.contains(&field("deferred_fixture_family_artifact_count", "9")));
     assert!(output.contains(&field(
         "deferred_fixture_family_artifact_populated_count",
         "0"
@@ -88,7 +96,7 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
     )));
     assert!(output.contains(&field(
         "deferred_fixture_family_artifact_id_order",
-        "null-semantics.deferred-fixture-family.declared-evidence,pruning-correctness.deferred-fixture-family.declared-evidence,encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence,nested-data-edge-corpus.deferred-fixture-family.declared-evidence,dictionary-encoded-edge-corpus.deferred-fixture-family.declared-evidence,sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence,run-length-edge-corpus.deferred-fixture-family.declared-evidence,temporal-semantics.deferred-fixture-family.declared-evidence"
+        "null-semantics.deferred-fixture-family.declared-evidence,pruning-correctness.deferred-fixture-family.declared-evidence,encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence,nested-data-edge-corpus.deferred-fixture-family.declared-evidence,dictionary-encoded-edge-corpus.deferred-fixture-family.declared-evidence,sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence,run-length-edge-corpus.deferred-fixture-family.declared-evidence,temporal-semantics.deferred-fixture-family.declared-evidence,string-semantics.deferred-fixture-family.declared-evidence"
     )));
     assert!(output.contains(&field(
         "deferred_fixture_family_artifact_status_order",

@@ -239,6 +239,14 @@ pub(crate) fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(
             plan.reference_role_order().join(","),
         ),
         (
+            "generated_property_fixture_id_order".to_string(),
+            plan.generated_property_fixture_id_order().join(","),
+        ),
+        (
+            "fuzz_seed_target_order".to_string(),
+            plan.fuzz_seed_target_order().join(","),
+        ),
+        (
             "fixtures_with_source_ref_count".to_string(),
             plan.fixtures_with_source_ref_count().to_string(),
         ),
@@ -589,7 +597,17 @@ pub(crate) fn correctness_harness_fields(
         "generated_property_fixture_count",
         report.generated_property_fixture_count,
     );
+    push_field(
+        &mut fields,
+        "generated_property_fixture_id_order",
+        &report.generated_property_fixture_id_order.join(","),
+    );
     push_count_field(&mut fields, "fuzz_seed_count", report.fuzz_seed_count);
+    push_field(
+        &mut fields,
+        "fuzz_seed_target_order",
+        &report.fuzz_seed_target_order.join(","),
+    );
     push_bool_field(
         &mut fields,
         "property_fuzz_execution_performed",
