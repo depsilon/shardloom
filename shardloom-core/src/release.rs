@@ -1649,21 +1649,8 @@ fn competitive_replacement_sufficiency_rows() -> Vec<CompetitiveReplacementSuffi
 
 fn engine_replacement_claim_inventory_rows() -> Vec<EngineReplacementClaimInventoryRow> {
     vec![
-        EngineReplacementClaimInventoryRow::blocked(
-            "spark_displacement_claim",
-            "spark_displacement",
-            "Spark-displacement language is blocked",
-            "production_batch_runtime,larger_than_memory_local,split_parallel_local,shuffle_join_groupby_window,object_store_table_scale_runtime",
-            "local_and_object_store_outputs,table_commit_semantics,result_sink_replay,output_fanout_evidence",
-            "semantic_conformance,differential_oracle_correctness,fuzz_property_coverage,edge_case_fixtures",
-            "claim_grade_full_local_plus_spark,scale_benchmark_profile,reproducible_environment,baseline_versions",
-            "execution_certificate,operator_certificate,scale_certificate",
-            "source_native_io_certificate,output_native_io_certificate,materialization_decode_certificate",
-            "GAR-0009-A,GAR-0041-A,P8.4 hard release readiness",
-            "GAR-0009-A Spark-displacement benchmark evidence matrix; GAR-0041-A per-claim evidence attachment matrix; GAR-SCALE-1 scale contract; GAR-RUNTIME-IMPL runtime queue",
-            "runtime_evidence,output_evidence,correctness_evidence,benchmark_evidence,execution_certificate,native_io_certificate,no_fallback_evidence,release_gate",
-            "No Spark-displacement or Spark-replacement claim is allowed; external Spark rows are baselines/oracles only.",
-        ),
+        spark_displacement_claim_inventory_row(),
+        performance_superiority_claim_inventory_row(),
         EngineReplacementClaimInventoryRow::blocked(
             "general_engine_replacement_claim",
             "engine_replacement",
@@ -1740,6 +1727,42 @@ fn engine_replacement_claim_inventory_rows() -> Vec<EngineReplacementClaimInvent
             "Managed-platform replacement claims remain blocked; Foundry and managed platforms are validation targets only.",
         ),
     ]
+}
+
+fn spark_displacement_claim_inventory_row() -> EngineReplacementClaimInventoryRow {
+    EngineReplacementClaimInventoryRow::blocked(
+        "spark_displacement_claim",
+        "spark_displacement",
+        "Spark-displacement language is blocked",
+        "production_batch_runtime,larger_than_memory_local,split_parallel_local,shuffle_join_groupby_window,object_store_table_scale_runtime",
+        "local_and_object_store_outputs,table_commit_semantics,result_sink_replay,output_fanout_evidence",
+        "semantic_conformance,differential_oracle_correctness,fuzz_property_coverage,edge_case_fixtures",
+        "claim_grade_full_local_plus_spark,scale_benchmark_profile,reproducible_environment,baseline_versions",
+        "execution_certificate,operator_certificate,scale_certificate",
+        "source_native_io_certificate,output_native_io_certificate,materialization_decode_certificate",
+        "GAR-0009-A,GAR-0041-A,P8.4 hard release readiness",
+        "GAR-0009-A Spark-displacement benchmark evidence matrix; GAR-0041-A per-claim evidence attachment matrix; GAR-SCALE-1 scale contract; GAR-RUNTIME-IMPL runtime queue",
+        "runtime_evidence,output_evidence,correctness_evidence,benchmark_evidence,execution_certificate,native_io_certificate,no_fallback_evidence,release_gate",
+        "No Spark-displacement or Spark-replacement claim is allowed; external Spark rows are baselines/oracles only.",
+    )
+}
+
+fn performance_superiority_claim_inventory_row() -> EngineReplacementClaimInventoryRow {
+    EngineReplacementClaimInventoryRow::blocked(
+        "performance_superiority_claim",
+        "benchmark",
+        "performance-superiority language is blocked",
+        "claim-grade runtime coverage for the exact workload, execution mode, and evidence level being compared",
+        "result-sink proof, output certificate refs, and materialization/decode boundaries for measured workloads",
+        "workload-specific correctness tests and differential/reference evidence for every measured scenario",
+        "complete benchmark profile with expected lanes, versions, environment fingerprint, and reproducible command",
+        "execution certificates and benchmark claim certificates for each measured ShardLoom row",
+        "Native I/O certificate refs for every measured ShardLoom source and sink",
+        "GAR-0041-A,P8.4 hard release readiness",
+        "GAR-BENCH-PUB-1; GAR-PERF-1; GAR-PERF-2; GAR-RUNTIME-IMPL-4M",
+        "claim_grade_benchmark,correctness_evidence,execution_certificate,native_io_certificate,no_fallback_evidence,release_gate",
+        "Performance and superiority language remains blocked; benchmark pages are evidence dashboards, not leaderboards.",
+    )
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -3030,7 +3053,7 @@ mod tests {
         );
         assert_eq!(report.claim_gate_status, "not_claim_grade");
         assert_eq!(report.support_status, "report_only");
-        assert_eq!(report.rows.len(), 6);
+        assert_eq!(report.rows.len(), 7);
         assert!(report.release_gate_required);
         assert!(report.all_rows_not_claim_grade());
         assert!(report.all_rows_side_effect_free());
@@ -3046,6 +3069,11 @@ mod tests {
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
         assert!(report.row_order().contains(&"spark_displacement_claim"));
+        assert!(
+            report
+                .row_order()
+                .contains(&"performance_superiority_claim")
+        );
         assert!(
             report
                 .dependency_gate_refs()

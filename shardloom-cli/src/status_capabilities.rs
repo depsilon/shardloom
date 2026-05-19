@@ -8909,6 +8909,7 @@ fn world_class_surface_fields(
             "schema_version".to_string(),
             report.schema_version.to_string(),
         ),
+        ("support_status".to_string(), "report_only".to_string()),
         (
             "fallback_execution_allowed".to_string(),
             report.fallback_execution_allowed.to_string(),

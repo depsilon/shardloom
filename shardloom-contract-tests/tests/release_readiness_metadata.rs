@@ -1765,6 +1765,7 @@ fn gar_0043_a_release_architecture_tracker_gate_fails_closed() {
         "unchecked_phase_plan_count",
         "unchecked_global_architecture_review_items",
         "unchecked_phase_plan_items",
+        "missing required architecture tracker input",
         "architecture_tracker_status",
         "public_release_claim_allowed",
         "public_package_claim_allowed",
@@ -1904,6 +1905,8 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
         "attestation_ref_count",
         "final_attestation_status",
         "not_signed_local_rehearsal",
+        "upstream_report_blockers",
+        "status must include",
         "package_upload_attempted",
         "feedstock_submission_attempted",
         "marketplace_submission_attempted",
@@ -4575,6 +4578,8 @@ fn gar_0001b_a_engine_replacement_claim_inventory_blocks_displacement_language()
         "public_engine_replacement_claim_allowed: false",
         "spark_displacement_claim_allowed: false",
         "performance_superiority_claim_allowed: false",
+        "performance_superiority_claim",
+        "performance-superiority language is blocked",
         "best_default_claim_allowed: false",
         "production_platform_claim_allowed: false",
         "runtime_execution_performed: false",
@@ -4613,6 +4618,9 @@ fn gar_0001b_a_engine_replacement_claim_inventory_blocks_displacement_language()
         "engine_replacement_claim_inventory_row_spark_displacement_claim_claim_gate_status"
     ));
     assert!(cli_tests.contains(
+        "engine_replacement_claim_inventory_row_performance_superiority_claim_claim_gate_status"
+    ));
+    assert!(cli_tests.contains(
         "engine_replacement_claim_inventory_row_spark_displacement_claim_public_claim_allowed"
     ));
 
@@ -4623,6 +4631,7 @@ fn gar_0001b_a_engine_replacement_claim_inventory_blocks_displacement_language()
         "engine_replacement_claim_inventory_claim_gate_status=not_claim_grade",
         "engine_replacement_claim_inventory_all_claims_blocked=true",
         "engine_replacement_claim_inventory_spark_displacement_claim_allowed=false",
+        "Performance superiority",
         "engine_replacement_claim_inventory_external_engine_invoked=false",
         "no public displacement language",
         "No replacement claim",

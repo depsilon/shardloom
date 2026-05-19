@@ -106,6 +106,46 @@ def false_field_blockers(payload: dict[str, Any] | None, label: str, fields: lis
     return blockers
 
 
+def upstream_report_blockers(
+    payload: dict[str, Any] | None,
+    label: str,
+    *,
+    status_fields: tuple[str, ...] = ("status",),
+    expected_status: str = "passed",
+) -> list[str]:
+    if payload is None:
+        return []
+    blockers: list[str] = []
+    upstream_blockers = payload.get("blockers")
+    if isinstance(upstream_blockers, list) and upstream_blockers:
+        blockers.append(f"{label} blockers: " + ",".join(str(item) for item in upstream_blockers))
+    observed_statuses = {
+        field: payload.get(field)
+        for field in status_fields
+        if payload.get(field) is not None
+    }
+    if not observed_statuses:
+        blockers.append(f"{label} missing status field: {'/'.join(status_fields)}")
+    elif not any(status == expected_status for status in observed_statuses.values()):
+        rendered = ",".join(f"{field}={value}" for field, value in observed_statuses.items())
+        blockers.append(f"{label} status must include {expected_status}: {rendered}")
+    return blockers
+
+
+def provenance_status_blockers(payload: dict[str, Any] | None) -> list[str]:
+    if payload is None:
+        return []
+    blockers: list[str] = []
+    if payload.get("provenance_status") != "dry_run_unsigned_local_evidence":
+        blockers.append(
+            f"provenance status must be dry_run_unsigned_local_evidence: {payload.get('provenance_status')}"
+        )
+    upstream_blockers = payload.get("blockers")
+    if isinstance(upstream_blockers, list) and upstream_blockers:
+        blockers.append("provenance blockers: " + ",".join(str(item) for item in upstream_blockers))
+    return blockers
+
+
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -154,6 +194,16 @@ def main() -> int:
         blockers.append("missing release architecture tracker report")
     if package_report is None:
         blockers.append("missing package-channel readiness report")
+    blockers.extend(provenance_status_blockers(provenance))
+    blockers.extend(upstream_report_blockers(security_report, "release security"))
+    blockers.extend(
+        upstream_report_blockers(
+            architecture_report,
+            "architecture tracker",
+            status_fields=("status", "architecture_tracker_status"),
+        )
+    )
+    blockers.extend(upstream_report_blockers(package_report, "package channel report"))
 
     artifact_missing = ref_paths_exist(repo_root, artifact_rows)
     sbom_missing = ref_paths_exist(repo_root, sbom_rows)

@@ -4232,6 +4232,13 @@ mod tests {
         assert_eq!(
             output_field(
                 &fields,
+                "engine_replacement_claim_inventory_row_performance_superiority_claim_claim_gate_status"
+            ),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
                 "engine_replacement_claim_inventory_row_spark_displacement_claim_public_claim_allowed"
             ),
             "false"
