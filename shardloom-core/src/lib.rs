@@ -79,8 +79,10 @@ pub use benchmark::{
     BenchmarkEngineVersion, BenchmarkEvidenceBundle, BenchmarkEvidenceState,
     BenchmarkFallbackState, BenchmarkMetric, BenchmarkMetricGap, BenchmarkPlan,
     BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkResultGap, BenchmarkRunManifest,
-    BenchmarkScenario, CorrectnessValidationMode, MetricValue, WorkloadClass,
-    plan_benchmark_claim_evidence,
+    BenchmarkScenario, CorrectnessValidationMode, MetricValue,
+    SparkDisplacementBenchmarkEvidenceMatrixReport, SparkDisplacementBenchmarkEvidenceRow,
+    WorkloadClass, plan_benchmark_claim_evidence,
+    plan_spark_displacement_benchmark_evidence_matrix,
 };
 pub use benchmark_suite::{
     BenchmarkConstitutionRequirementReport, BenchmarkCoverageStatus, BenchmarkCoverageTableRow,

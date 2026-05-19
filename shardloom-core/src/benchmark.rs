@@ -1165,6 +1165,202 @@ impl BenchmarkClaimEvidenceReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SparkDisplacementBenchmarkEvidenceRow {
+    pub row_id: &'static str,
+    pub workload_family: &'static str,
+    pub workload_ref: &'static str,
+    pub shardloom_lane: &'static str,
+    pub baseline_oracle_lanes: &'static str,
+    pub correctness_ref: &'static str,
+    pub timing_ref: &'static str,
+    pub environment_ref: &'static str,
+    pub execution_mode_ref: &'static str,
+    pub policy_ref: &'static str,
+    pub claim_gate_status: &'static str,
+    pub missing_evidence: &'static str,
+    pub external_baseline_only: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct SparkDisplacementBenchmarkEvidenceMatrixReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub docs_ref: &'static str,
+    pub source_refs: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<SparkDisplacementBenchmarkEvidenceRow>,
+    pub performance_claim_allowed: bool,
+    pub superiority_claim_allowed: bool,
+    pub spark_displacement_claim_allowed: bool,
+    pub benchmark_rerun_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl SparkDisplacementBenchmarkEvidenceMatrixReport {
+    #[must_use]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.spark_displacement_benchmark_evidence_matrix.v1",
+            report_id: "gar-0009-a.spark_displacement_benchmark_evidence_matrix",
+            docs_ref: "docs/architecture/spark-displacement-benchmark-evidence-matrix.md",
+            source_refs: "docs/rfcs/0009-benchmark-methodology-spark-displacement.md,docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md,docs/architecture/benchmark-competitive-claim-evidence.md,docs/architecture/benchmark-suite-catalog.md,benchmarks/traditional_analytics/README.md",
+            support_status: "report_only",
+            claim_gate_status: "not_claim_grade",
+            rows: spark_displacement_benchmark_evidence_rows(),
+            performance_claim_allowed: false,
+            superiority_claim_allowed: false,
+            spark_displacement_claim_allowed: false,
+            benchmark_rerun_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn missing_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.missing_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn all_rows_not_claim_grade(&self) -> bool {
+        self.rows
+            .iter()
+            .all(|row| row.claim_gate_status == "not_claim_grade")
+    }
+
+    #[must_use]
+    pub fn all_external_lanes_baseline_only(&self) -> bool {
+        self.rows.iter().all(|row| {
+            row.external_baseline_only && !row.external_engine_invoked && !row.fallback_attempted
+        })
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.performance_claim_allowed
+            && !self.superiority_claim_allowed
+            && !self.spark_displacement_claim_allowed
+            && !self.benchmark_rerun_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.all_rows_not_claim_grade()
+            && self.all_external_lanes_baseline_only()
+    }
+}
+
+#[must_use]
+pub fn plan_spark_displacement_benchmark_evidence_matrix()
+-> SparkDisplacementBenchmarkEvidenceMatrixReport {
+    SparkDisplacementBenchmarkEvidenceMatrixReport::report_only()
+}
+
+fn spark_displacement_benchmark_evidence_rows() -> Vec<SparkDisplacementBenchmarkEvidenceRow> {
+    vec![
+        SparkDisplacementBenchmarkEvidenceRow {
+            row_id: "compatibility_import_certified_lane",
+            workload_family: "compatibility_import_certified",
+            workload_ref: "local CSV/Parquet/JSONL/Arrow/Avro/ORC compatibility import rows",
+            shardloom_lane: "compatibility_import_certified",
+            baseline_oracle_lanes: "pandas,polars,duckdb,spark,datafusion,dask",
+            correctness_ref: "coverage_table correctness digest refs required",
+            timing_ref: "source_read,compatibility_parse,vortex_import,write,reopen,scan,result_sink,evidence timing",
+            environment_ref: "benchmark manifest with versions, hardware, OS, cache state, reproduction steps",
+            execution_mode_ref: "docs/architecture/compute-engine-flow-reference.md",
+            policy_ref: "fallback_attempted=false,external_engine_invoked=false,external_baseline_only",
+            claim_gate_status: "not_claim_grade",
+            missing_evidence: "pure_query_runtime_separation,reproducible_full_local_plus_spark_manifest,approved_comparison_rows,scale_evidence",
+            external_baseline_only: true,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary: "Compatibility import rows prove workflow/evidence coverage, not Spark displacement or pure query speed.",
+        },
+        SparkDisplacementBenchmarkEvidenceRow {
+            row_id: "prepared_native_runtime_lane",
+            workload_family: "prepared_vortex_runtime",
+            workload_ref: "selective filter, filter+projection+limit, group-by, hash join, top-N batch smoke",
+            shardloom_lane: "prepared_vortex,native_vortex",
+            baseline_oracle_lanes: "pandas,polars,duckdb,spark,datafusion,dask",
+            correctness_ref: "operator correctness digest and execution certificate refs required",
+            timing_ref: "prepared/native batch total, operator_compute, scan, materialization/decode timings",
+            environment_ref: "profiled benchmark artifact with lane versions and source-state reuse fields",
+            execution_mode_ref: "prepared_vortex and native_vortex mode refs",
+            policy_ref: "no hidden fast mode; no external engine fallback",
+            claim_gate_status: "not_claim_grade",
+            missing_evidence: "claim_grade_rerun,complete_operator_coverage,materialization_decode_certificates,per_claim_attachment",
+            external_baseline_only: true,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary: "Prepared/native rows are the runtime-development lane, not a public Spark replacement claim.",
+        },
+        SparkDisplacementBenchmarkEvidenceRow {
+            row_id: "messy_data_etl_lane",
+            workload_family: "messy_data_workflow",
+            workload_ref: "dirty CSV cleanup, nested JSON scan, CDC overlay, result-sink replay",
+            shardloom_lane: "compatibility_import_certified,prepared_vortex",
+            baseline_oracle_lanes: "pandas,polars,duckdb,spark,datafusion,dask",
+            correctness_ref: "workflow recipe refs, expected output refs, replay proof refs required",
+            timing_ref: "workflow stage timing and output write/replay timing",
+            environment_ref: "local taxonomy artifact profile metadata",
+            execution_mode_ref: "mode attribution contract",
+            policy_ref: "external baselines comparison-only; no object-store/table claim",
+            claim_gate_status: "not_claim_grade",
+            missing_evidence: "full_workflow_correctness_matrix,output_fanout_evidence,source_state_reuse_evidence,claim_grade_artifacts",
+            external_baseline_only: true,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary: "Messy-data rows show scoped workflow coverage only.",
+        },
+        SparkDisplacementBenchmarkEvidenceRow {
+            row_id: "scale_and_table_boundary_lane",
+            workload_family: "scale_object_store_lakehouse",
+            workload_ref: "larger-than-memory, split-parallel, object-store, table/lakehouse, distributed, Foundry scale boundaries",
+            shardloom_lane: "report_only",
+            baseline_oracle_lanes: "spark and managed-platform lanes as baselines/oracles only",
+            correctness_ref: "scale correctness, split, spill, shuffle, commit, retry, and idempotency evidence required",
+            timing_ref: "scale profile timing and resource evidence required",
+            environment_ref: "declared resource envelope and scale benchmark profile required",
+            execution_mode_ref: "GAR-SCALE-1 scale classes",
+            policy_ref: "object_store_runtime=false,table_runtime=false,distributed_runtime=false",
+            claim_gate_status: "not_claim_grade",
+            missing_evidence: "scale_runtime,object_store_runtime,table_commit_runtime,distributed_runtime,foundry_scale_proof",
+            external_baseline_only: true,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary: "Scale/table rows are boundary evidence only and cannot imply any-volume or Spark replacement support.",
+        },
+        SparkDisplacementBenchmarkEvidenceRow {
+            row_id: "public_claim_attachment_lane",
+            workload_family: "claim_attachment",
+            workload_ref: "per-claim evidence attachment and release gate",
+            shardloom_lane: "release_claim_gate",
+            baseline_oracle_lanes: "external rows remain baseline-only",
+            correctness_ref: "per-claim correctness refs required",
+            timing_ref: "per-claim benchmark refs required",
+            environment_ref: "benchmark manifest and reproducibility refs required",
+            execution_mode_ref: "per-row execution_mode and engine_mode required",
+            policy_ref: "no-fallback release gate and engine replacement claim inventory",
+            claim_gate_status: "not_claim_grade",
+            missing_evidence: "GAR-0041-A_per_claim_evidence_attachment,release_approval,publication_gate",
+            external_baseline_only: true,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary: "No public performance, superiority, or Spark-displacement language is allowed without per-claim evidence.",
+        },
+    ]
+}
+
 #[must_use]
 pub fn plan_benchmark_claim_evidence(
     scope: impl Into<String>,
@@ -2352,6 +2548,35 @@ mod tests {
         );
         assert!(report.side_effect_free());
         assert!(!report.performance_claim_allowed);
+    }
+
+    #[test]
+    fn spark_displacement_benchmark_evidence_matrix_blocks_public_claims() {
+        let report = plan_spark_displacement_benchmark_evidence_matrix();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.spark_displacement_benchmark_evidence_matrix.v1"
+        );
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.support_status, "report_only");
+        assert_eq!(report.rows.len(), 5);
+        assert!(report.all_rows_not_claim_grade());
+        assert!(report.all_external_lanes_baseline_only());
+        assert!(report.side_effect_free());
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.superiority_claim_allowed);
+        assert!(!report.spark_displacement_claim_allowed);
+        assert!(!report.benchmark_rerun_performed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.row_order().contains(&"prepared_native_runtime_lane"));
+        assert!(
+            report
+                .missing_evidence()
+                .iter()
+                .any(|missing| missing.contains("GAR-0041-A"))
+        );
     }
 
     #[test]

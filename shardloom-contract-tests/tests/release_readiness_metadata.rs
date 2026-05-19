@@ -3775,6 +3775,109 @@ fn gar_0001b_a_engine_replacement_claim_inventory_blocks_displacement_language()
 }
 
 #[test]
+fn gar_0009_a_spark_displacement_benchmark_matrix_remains_not_claim_grade() {
+    let benchmark = read_repo_file("shardloom-core/src/benchmark.rs");
+    for required in [
+        "SparkDisplacementBenchmarkEvidenceMatrixReport",
+        "SparkDisplacementBenchmarkEvidenceRow",
+        "plan_spark_displacement_benchmark_evidence_matrix",
+        "shardloom.spark_displacement_benchmark_evidence_matrix.v1",
+        "gar-0009-a.spark_displacement_benchmark_evidence_matrix",
+        "claim_gate_status: \"not_claim_grade\"",
+        "performance_claim_allowed: false",
+        "superiority_claim_allowed: false",
+        "spark_displacement_claim_allowed: false",
+        "benchmark_rerun_performed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "compatibility_import_certified_lane",
+        "prepared_native_runtime_lane",
+        "public_claim_attachment_lane",
+        "spark_displacement_benchmark_evidence_matrix_blocks_public_claims",
+    ] {
+        assert!(
+            benchmark.contains(required),
+            "missing Spark-displacement matrix core marker {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/benchmark_planning.rs");
+    for required in [
+        "append_spark_displacement_benchmark_evidence_matrix_fields",
+        "spark_displacement_matrix_schema_version",
+        "spark_displacement_matrix_claim_gate_status",
+        "spark_displacement_matrix_all_external_lanes_baseline_only",
+        "spark_displacement_matrix_spark_displacement_claim_allowed",
+        "spark_displacement_matrix_external_engine_invoked",
+        "(\"claim_gate_status\", row.claim_gate_status)",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing Spark-displacement matrix CLI marker {required}"
+        );
+    }
+
+    let cli_snapshot =
+        read_repo_file("shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs");
+    assert!(
+        cli_snapshot.contains(
+            "spark_displacement_matrix_row_prepared_native_runtime_lane_claim_gate_status"
+        )
+    );
+    assert!(
+        cli_snapshot.contains(
+            "spark_displacement_matrix_row_public_claim_attachment_lane_fallback_attempted"
+        )
+    );
+
+    let doc = read_repo_file("docs/architecture/spark-displacement-benchmark-evidence-matrix.md");
+    for required in [
+        "GAR-0009-A",
+        "spark_displacement_matrix_schema_version=shardloom.spark_displacement_benchmark_evidence_matrix.v1",
+        "spark_displacement_matrix_claim_gate_status=not_claim_grade",
+        "spark_displacement_matrix_all_external_lanes_baseline_only=true",
+        "spark_displacement_matrix_spark_displacement_claim_allowed=false",
+        "No public performance claim",
+        "No superiority claim",
+        "No Spark-displacement claim",
+        "External engines are baseline/oracle context only",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing Spark-displacement matrix doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0009-A Spark-displacement benchmark evidence matrix"));
+    assert!(plan.contains("docs/architecture/spark-displacement-benchmark-evidence-matrix.md"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0009-A Spark-displacement benchmark evidence matrix"));
+    assert!(completed.contains("shardloom.spark_displacement_benchmark_evidence_matrix.v1"));
+    assert!(completed.contains("spark_displacement_matrix_all_rows_not_claim_grade=true"));
+    assert!(completed.contains("spark_displacement_matrix_external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(
+        gar.contains(
+            "`GAR-0009-A` adds `shardloom.spark_displacement_benchmark_evidence_matrix.v1`"
+        )
+    );
+    assert!(gar.contains("Every row remains `claim_gate_status=not_claim_grade`"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(
+        traceability.contains(
+            "GAR-0009-A adds `shardloom.spark_displacement_benchmark_evidence_matrix.v1`"
+        )
+    );
+    assert!(traceability.contains("no Spark-displacement claim"));
+}
+
+#[test]
 fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
     let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
     for required in [

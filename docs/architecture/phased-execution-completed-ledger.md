@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0009-A Spark-displacement benchmark evidence matrix
+  - Branch/PR: `codex/gar-0009a-spark-displacement-evidence-matrix` / #762.
+  - Primary files:
+    - `shardloom-core/src/benchmark.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/benchmark_planning.rs`
+    - `shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs`
+    - `docs/architecture/spark-displacement-benchmark-evidence-matrix.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/benchmark_claim_evidence.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0009-A by adding a report-only benchmark evidence matrix that ties
+    compatibility-import, prepared/native, messy-data ETL, scale/table boundary, and public-claim
+    attachment rows to workload refs, baseline/oracle lanes, correctness refs, timing refs,
+    environment refs, execution-mode refs, missing evidence, and claim status.
+  - Checklist:
+    - [x] Add `shardloom.spark_displacement_benchmark_evidence_matrix.v1`.
+    - [x] Emit matrix fields through `benchmark-claim-evidence-plan`.
+    - [x] Keep every matrix row `claim_gate_status=not_claim_grade`.
+    - [x] Preserve external engines as baseline/oracle-only with no fallback and no external engine
+          invocation.
+    - [x] Move GAR-0009-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `spark_displacement_matrix_schema_version=shardloom.spark_displacement_benchmark_evidence_matrix.v1`
+    - `spark_displacement_matrix_claim_gate_status=not_claim_grade`
+    - `spark_displacement_matrix_all_rows_not_claim_grade=true`
+    - `spark_displacement_matrix_all_external_lanes_baseline_only=true`
+    - `spark_displacement_matrix_performance_claim_allowed=false`
+    - `spark_displacement_matrix_superiority_claim_allowed=false`
+    - `spark_displacement_matrix_spark_displacement_claim_allowed=false`
+    - `spark_displacement_matrix_benchmark_rerun_performed=false`
+    - `spark_displacement_matrix_fallback_attempted=false`
+    - `spark_displacement_matrix_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core spark_displacement_benchmark_evidence_matrix_blocks_public_claims`
+    - `cargo test -p shardloom-contract-tests --test benchmark_claim_evidence`
+    - `cargo test -p shardloom-cli --test benchmark_claim_evidence_plan_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that Spark-displacement benchmark evidence
+    prerequisites are inventoried and blocked. It may not claim performance, superiority, Spark
+    displacement, engine replacement, production SQL/DataFrame support, object-store/lakehouse
+    support, managed-platform support, benchmark rerun proof, external engine execution, or fallback
+    execution.
+
 - [x] Session label: GAR-0001B-A engine-replacement claim inventory
   - Branch/PR: `codex/gar-0001b-engine-replacement-claim-inventory` / #761.
   - Primary files:

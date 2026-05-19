@@ -8,7 +8,8 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     BenchmarkClaimEvidenceReport, BenchmarkPlan, CommandStatus, OutputFormat, ShardLoomError,
-    plan_benchmark_claim_evidence,
+    SparkDisplacementBenchmarkEvidenceMatrixReport, SparkDisplacementBenchmarkEvidenceRow,
+    plan_benchmark_claim_evidence, plan_spark_displacement_benchmark_evidence_matrix,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -378,10 +379,181 @@ pub(crate) fn benchmark_claim_evidence_fields(
         "best_default_claim_allowed",
         report.best_default_claim_allowed,
     );
+    append_spark_displacement_benchmark_evidence_matrix_fields(
+        &mut fields,
+        &plan_spark_displacement_benchmark_evidence_matrix(),
+    );
     append_vortex_boundary_claim_fields(&mut fields);
     push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
+}
+
+fn append_spark_displacement_benchmark_evidence_matrix_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &SparkDisplacementBenchmarkEvidenceMatrixReport,
+) {
+    append_spark_displacement_matrix_identity_fields(fields, report);
+    append_spark_displacement_matrix_claim_fields(fields, report);
+    append_spark_displacement_matrix_row_fields(fields, report);
+}
+
+fn append_spark_displacement_matrix_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &SparkDisplacementBenchmarkEvidenceMatrixReport,
+) {
+    push_field(
+        fields,
+        "spark_displacement_matrix_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "spark_displacement_matrix_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "spark_displacement_matrix_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "spark_displacement_matrix_source_refs",
+        report.source_refs,
+    );
+    push_field(
+        fields,
+        "spark_displacement_matrix_support_status",
+        report.support_status,
+    );
+    push_field(
+        fields,
+        "spark_displacement_matrix_claim_gate_status",
+        report.claim_gate_status,
+    );
+}
+
+fn append_spark_displacement_matrix_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &SparkDisplacementBenchmarkEvidenceMatrixReport,
+) {
+    push_count_field(
+        fields,
+        "spark_displacement_matrix_row_count",
+        report.rows.len(),
+    );
+    push_field(
+        fields,
+        "spark_displacement_matrix_row_order",
+        &report.row_order().join(","),
+    );
+    push_field(
+        fields,
+        "spark_displacement_matrix_missing_evidence",
+        &report.missing_evidence().join(" | "),
+    );
+    push_bool_field(
+        fields,
+        "spark_displacement_matrix_all_rows_not_claim_grade",
+        report.all_rows_not_claim_grade(),
+    );
+    push_bool_field(
+        fields,
+        "spark_displacement_matrix_all_external_lanes_baseline_only",
+        report.all_external_lanes_baseline_only(),
+    );
+    push_bool_field(
+        fields,
+        "spark_displacement_matrix_performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "spark_displacement_matrix_superiority_claim_allowed",
+        report.superiority_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "spark_displacement_matrix_spark_displacement_claim_allowed",
+        report.spark_displacement_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "spark_displacement_matrix_benchmark_rerun_performed",
+        report.benchmark_rerun_performed,
+    );
+    push_bool_field(
+        fields,
+        "spark_displacement_matrix_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "spark_displacement_matrix_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "spark_displacement_matrix_side_effect_free",
+        report.side_effect_free(),
+    );
+}
+
+fn append_spark_displacement_matrix_row_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &SparkDisplacementBenchmarkEvidenceMatrixReport,
+) {
+    for row in &report.rows {
+        let prefix = format!("spark_displacement_matrix_row_{}", row.row_id);
+        append_spark_displacement_matrix_row_text_fields(fields, &prefix, row);
+        append_spark_displacement_matrix_row_status_fields(fields, &prefix, row);
+    }
+}
+
+fn append_spark_displacement_matrix_row_text_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &SparkDisplacementBenchmarkEvidenceRow,
+) {
+    for (suffix, value) in [
+        ("workload_family", row.workload_family),
+        ("workload_ref", row.workload_ref),
+        ("shardloom_lane", row.shardloom_lane),
+        ("baseline_oracle_lanes", row.baseline_oracle_lanes),
+        ("correctness_ref", row.correctness_ref),
+        ("timing_ref", row.timing_ref),
+        ("environment_ref", row.environment_ref),
+        ("execution_mode_ref", row.execution_mode_ref),
+        ("policy_ref", row.policy_ref),
+        ("claim_gate_status", row.claim_gate_status),
+        ("missing_evidence", row.missing_evidence),
+        ("claim_boundary", row.claim_boundary),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+}
+
+fn append_spark_displacement_matrix_row_status_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &SparkDisplacementBenchmarkEvidenceRow,
+) {
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_baseline_only"),
+        row.external_baseline_only,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        row.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        row.external_engine_invoked,
+    );
 }
 
 fn append_benchmark_plan_overview_fields(fields: &mut Vec<(String, String)>, plan: &BenchmarkPlan) {

@@ -65,6 +65,22 @@ execution dependencies and not fallback engines.
 If any future report marks a baseline as fallback-capable or records fallback
 attempts, the aggregate status must become `unsafe_fallback_policy`.
 
+## GAR-0009-A Spark-Displacement Matrix
+
+`benchmark-claim-evidence-plan` now also emits the report-only
+`spark_displacement_matrix_schema_version=shardloom.spark_displacement_benchmark_evidence_matrix.v1`
+surface. The matrix keeps compatibility-import, prepared/native, messy-data ETL, scale/table
+boundary, and public-claim attachment rows visible with `claim_gate_status=not_claim_grade`.
+
+The matrix is an evidence checklist, not a benchmark result:
+
+- `spark_displacement_matrix_performance_claim_allowed=false`
+- `spark_displacement_matrix_superiority_claim_allowed=false`
+- `spark_displacement_matrix_spark_displacement_claim_allowed=false`
+- `spark_displacement_matrix_all_external_lanes_baseline_only=true`
+- `spark_displacement_matrix_fallback_attempted=false`
+- `spark_displacement_matrix_external_engine_invoked=false`
+
 ## Acceptance Boundary
 
 This surface closes only the benchmark-claim aggregate inventory. It does not
