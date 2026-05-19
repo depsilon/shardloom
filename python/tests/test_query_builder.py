@@ -174,6 +174,71 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.claim_summary.claim_gate_status, "fixture_smoke_only")
         self.assertFalse(report.claim_summary.public_performance_claim_allowed)
 
+    def test_generated_rows_select_and_with_column_write_transformed_rows(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-user-rows-smoke",
+                    "target/generated-transformed.jsonl",
+                    "id:int64,segment:utf8",
+                    "id=1,segment=north;id=2,segment=north",
+                    "--source-kind",
+                    "user_rows",
+                    "--output-format",
+                    "jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-user-rows-smoke",
+                    "status": "success",
+                    "summary": "generated transformed",
+                    "human_text": "generated transformed",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/generated-transformed.jsonl"},
+                        {"key": "generated_source_kind", "value": "user_rows"},
+                        {"key": "generated_source_row_count", "value": "2"},
+                        {"key": "generated_source_created", "value": "true"},
+                        {"key": "source_io_performed", "value": "false"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "performance_claim_allowed", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.from_rows(
+                [
+                    {"id": 1, "label": "alpha"},
+                    {"id": 2, "label": "beta"},
+                ]
+            )
+            .with_column("segment", "lit('north')")
+            .select("id", "segment")
+            .write("target/generated-transformed.jsonl")
+        )
+
+        self.assertEqual(report.envelope.command, "generated-source-user-rows-smoke")
+        self.assertEqual(report.generated_source_kind, "user_rows")
+        self.assertEqual(report.generated_source_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_collect_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -1075,6 +1140,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 "2026-05-18",
                 binary=["definitely-missing-shardloom"],
             )
+        source = sl.from_rows([{"id": 1}], binary=["definitely-missing-shardloom"])
+        with self.assertRaises(ValueError):
+            source.select("missing")
+        with self.assertRaises(ValueError):
+            source.with_column("bad", "id + 1")
+        with self.assertRaises(ValueError):
+            source.with_column("bad", "lit(null)")
 
     def test_range_write_invokes_engine_native_generated_source_smoke(self) -> None:
         binary = self.fake_cli(

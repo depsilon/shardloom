@@ -37,6 +37,18 @@ Use this for the scoped GAR-GEN-1C path that writes caller-provided rows to a lo
 emits generated-source and output evidence. It is not SQL/VALUES execution, broad DataFrame
 runtime, object-store output, Foundry output, production support, or a performance claim.
 
+The scoped user-row source also supports a small source-free transform before writing: projection
+plus deterministic literal `with_column` values. The output still goes through the same
+generated-source local-output command and no-fallback evidence path:
+
+```powershell
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).with_column('batch_id', 1).select('id', 'batch_id').write('target/generated-reference-transformed.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status, r.fallback_attempted, r.external_engine_invoked)"
+```
+
+This is not broad DataFrame expression execution. Unsupported generated expressions fail
+deterministically rather than falling back to another engine.
+
 ## Source-Free Literal Table And Calendar Local Output Smokes
 
 ```powershell
