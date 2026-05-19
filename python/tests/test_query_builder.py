@@ -1007,7 +1007,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "sql-local-source-smoke",
                     "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
                     "--output-format",
-                    "inline-jsonl",
+                    "jsonl",
                     "--output",
                     "target/joined.jsonl",
                     "--allow-overwrite",
@@ -1065,7 +1065,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "sql-local-source-smoke",
                     "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
                     "--output-format",
-                    "inline-jsonl",
+                    "jsonl",
                     "--output",
                     "target/out.jsonl",
                     "--allow-overwrite",
@@ -1083,6 +1083,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fields": [
                         {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
                         {"key": "output_path", "value": "target/out.jsonl"},
+                        {"key": "output_format", "value": "jsonl"},
                         {"key": "output_row_count", "value": "1"},
                         {"key": "selected_row_count", "value": "2"},
                         {"key": "output_io_performed", "value": "true"},
@@ -1106,10 +1107,76 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
 
         self.assertEqual(report.output_path, "target/out.jsonl")
+        self.assertEqual(report.output_format, "jsonl")
         self.assertTrue(report.output_io_performed)
         self.assertEqual(
             report.output_native_io_certificate_status,
             "certified_local_jsonl_sink",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_write_csv_invokes_sql_smoke_output(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
+                    "--output-format",
+                    "csv",
+                    "--output",
+                    "target/out.csv",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_path", "value": "target/out.csv"},
+                        {"key": "output_format", "value": "csv"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "3"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_csv_sink"},
+                        {"key": "output_certificate_ref", "value": "sql-local-source.csv.local-csv-output.native-io.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .limit(2)
+            .write_csv("target/out.csv", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.output_path, "target/out.csv")
+        self.assertEqual(report.output_format, "csv")
+        self.assertTrue(report.output_io_performed)
+        self.assertEqual(
+            report.output_native_io_certificate_status,
+            "certified_local_csv_sink",
+        )
+        self.assertEqual(
+            report.envelope.field("output_certificate_ref"),
+            "sql-local-source.csv.local-csv-output.native-io.v1",
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -1559,7 +1626,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "sql-local-source-smoke",
                     {statement!r},
                     "--output-format",
-                    "inline-jsonl",
+                    "jsonl",
                     "--output",
                     "target/sql-local.jsonl",
                     "--allow-overwrite",
@@ -1580,7 +1647,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {{"key": "output_row_count", "value": "2"}},
                         {{"key": "selected_row_count", "value": "2"}},
                         {{"key": "output_io_performed", "value": "true"}},
-                        {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"}},
                         {{"key": "fallback_attempted", "value": "false"}},
                         {{"key": "external_engine_invoked", "value": "false"}},
                         {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
@@ -1596,7 +1663,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.envelope.command, "sql-local-source-smoke")
         self.assertEqual(report.output_path, "target/sql-local.jsonl")
         self.assertTrue(report.output_io_performed)
-        self.assertEqual(report.output_native_io_certificate_status, "certified_local_file_sink")
+        self.assertEqual(report.output_native_io_certificate_status, "certified_local_jsonl_sink")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -1611,7 +1678,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "sql-local-source-smoke",
                     {statement!r},
                     "--output-format",
-                    "inline-jsonl",
+                    "jsonl",
                     "--output",
                     "target/json-result.jsonl",
                     "--allow-overwrite",
@@ -1636,7 +1703,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {{"key": "source_state_id", "value": "source-state-jsonl-1"}},
                         {{"key": "source_state_digest", "value": "sha256:jsonl-source-state"}},
                         {{"key": "output_io_performed", "value": "true"}},
-                        {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"}},
                         {{"key": "fallback_attempted", "value": "false"}},
                         {{"key": "external_engine_invoked", "value": "false"}},
                         {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
@@ -1663,7 +1730,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.envelope.field_bool("source_io_performed", False))
         self.assertEqual(report.envelope.field("source_state_id"), "source-state-jsonl-1")
         self.assertTrue(report.output_io_performed)
-        self.assertEqual(report.output_native_io_certificate_status, "certified_local_file_sink")
+        self.assertEqual(report.output_native_io_certificate_status, "certified_local_jsonl_sink")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
@@ -1753,7 +1820,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "sql-local-source-smoke",
                     {statement!r},
                     "--output-format",
-                    "inline-jsonl",
+                    "jsonl",
                     "--output",
                     "target/json-grouped.jsonl",
                     "--allow-overwrite",
@@ -1779,7 +1846,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {{"key": "group_by_columns", "value": "label"}},
                         {{"key": "group_by_group_count", "value": "1"}},
                         {{"key": "output_io_performed", "value": "true"}},
-                        {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"}},
                         {{"key": "execution_certificate_ref", "value": "sql-local-source.jsonl.group-by-aggregate-filter-limit.execution.v1"}},
                         {{"key": "fallback_attempted", "value": "false"}},
                         {{"key": "external_engine_invoked", "value": "false"}},
@@ -1811,7 +1878,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.group_by_columns, ("label",))
         self.assertEqual(report.group_by_group_count, 1)
         self.assertTrue(report.output_io_performed)
-        self.assertEqual(report.output_native_io_certificate_status, "certified_local_file_sink")
+        self.assertEqual(report.output_native_io_certificate_status, "certified_local_jsonl_sink")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

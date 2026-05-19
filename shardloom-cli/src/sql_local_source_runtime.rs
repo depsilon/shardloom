@@ -31,7 +31,8 @@ use crate::{
 
 const COMMAND: &str = "sql-local-source-smoke";
 const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
-const OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
+const JSONL_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
+const CSV_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-csv-output.native-io.v1";
 const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
@@ -47,14 +48,16 @@ struct SqlLocalSourceRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SqlLocalSourceOutputFormat {
     InlineJsonl,
+    Csv,
 }
 
 impl SqlLocalSourceOutputFormat {
     fn parse(value: &str) -> Result<Self, ShardLoomError> {
         match value.trim().to_ascii_lowercase().as_str() {
             "inline-jsonl" | "jsonl" | "json-lines" | "ndjson" => Ok(Self::InlineJsonl),
+            "csv" => Ok(Self::Csv),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported SQL local-source output format {other:?}; scoped local SQL supports inline JSONL only"
+                "unsupported SQL local-source output format {other:?}; scoped local SQL supports local JSONL or CSV only"
             ))),
         }
     }
@@ -62,6 +65,35 @@ impl SqlLocalSourceOutputFormat {
     const fn as_str(self) -> &'static str {
         match self {
             Self::InlineJsonl => "inline_jsonl",
+            Self::Csv => "csv",
+        }
+    }
+
+    const fn sink_format(self) -> &'static str {
+        match self {
+            Self::InlineJsonl => "jsonl",
+            Self::Csv => "csv",
+        }
+    }
+
+    const fn certificate_status(self) -> &'static str {
+        match self {
+            Self::InlineJsonl => "certified_local_jsonl_sink",
+            Self::Csv => "certified_local_csv_sink",
+        }
+    }
+
+    const fn certificate_ref(self) -> &'static str {
+        match self {
+            Self::InlineJsonl => JSONL_OUTPUT_CERTIFICATE_ID,
+            Self::Csv => CSV_OUTPUT_CERTIFICATE_ID,
+        }
+    }
+
+    fn render_rows(self, columns: &[String], rows: &[Vec<(String, ScalarValue)>]) -> String {
+        match self {
+            Self::InlineJsonl => rows_to_jsonl(rows),
+            Self::Csv => rows_to_csv(columns, rows),
         }
     }
 }
@@ -342,6 +374,7 @@ struct SqlLocalSourceReport {
     plan_digest: String,
     source_schema_digest: String,
     result_digest: String,
+    output_digest: String,
     output_write_millis: u128,
     output_bytes: u64,
     operator_compute_millis: u128,
@@ -355,7 +388,7 @@ pub(crate) fn handle_sql_local_source_smoke(
 ) -> ExitCode {
     let Some(statement_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl] [--output local.jsonl] [--allow-overwrite] [--format text|json]"
+            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl|csv] [--output local.jsonl|local.csv] [--allow-overwrite] [--format text|json]"
         );
         return ExitCode::from(2);
     };
@@ -421,6 +454,12 @@ pub(crate) fn handle_sql_local_source_smoke(
         }
     }
 
+    if let Err(error) =
+        validate_sql_local_source_output_request(output_format, output_path.as_deref())
+    {
+        return emit_error(COMMAND, format, "SQL local-source smoke failed", &error);
+    }
+
     let request = SqlLocalSourceRequest {
         statement: statement_raw,
         output_format,
@@ -447,6 +486,37 @@ pub(crate) fn handle_sql_local_source_smoke(
         report.fields(),
     );
     ExitCode::SUCCESS
+}
+
+fn validate_sql_local_source_output_request(
+    output_format: SqlLocalSourceOutputFormat,
+    output_path: Option<&Path>,
+) -> Result<(), ShardLoomError> {
+    if output_path.is_none() && matches!(output_format, SqlLocalSourceOutputFormat::Csv) {
+        return Err(ShardLoomError::InvalidOperation(
+            "SQL local-source CSV output requires --output <local.csv>".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn output_column_names(parsed: &ParsedSqlLocalSource, source: &CsvSourceData) -> Vec<String> {
+    if parsed.is_grouped_aggregate() {
+        let mut columns = parsed.group_by.clone();
+        columns.extend(parsed.aggregates.iter().map(ParsedAggregate::output_name));
+        return columns;
+    }
+    if parsed.is_aggregate() {
+        return parsed
+            .aggregates
+            .iter()
+            .map(ParsedAggregate::output_name)
+            .collect();
+    }
+    if parsed.join.is_some() {
+        return parsed.projections.clone();
+    }
+    parsed.projection_columns(&source.header)
 }
 
 fn run_sql_local_source_smoke(
@@ -492,8 +562,13 @@ fn run_sql_local_source_smoke(
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
+    let output_columns = output_column_names(&parsed, &source);
     let result_jsonl = rows_to_jsonl(&output_rows);
     let result_digest = fnv64_digest(&result_jsonl);
+    let output_content = request
+        .output_format
+        .render_rows(&output_columns, &output_rows);
+    let output_digest = fnv64_digest(&output_content);
     let source_schema_digest = fnv64_digest(&source.header.join(","));
     let plan_digest = fnv64_digest(&format!(
         "{}|{}|{}|{}|{}",
@@ -506,8 +581,8 @@ fn run_sql_local_source_smoke(
         request.output_format.as_str()
     ));
     let evidence_render_millis = evidence_start.elapsed().as_millis();
-    let output_bytes = u64::try_from(result_jsonl.len()).unwrap_or(u64::MAX);
-    let output_write_millis = write_optional_sql_output(request, &result_jsonl)?;
+    let output_bytes = u64::try_from(output_content.len()).unwrap_or(u64::MAX);
+    let output_write_millis = write_optional_sql_output(request, &output_content)?;
 
     Ok(SqlLocalSourceReport {
         request: request.clone(),
@@ -521,6 +596,7 @@ fn run_sql_local_source_smoke(
         plan_digest,
         source_schema_digest,
         result_digest,
+        output_digest,
         output_write_millis,
         output_bytes,
         operator_compute_millis,
@@ -1183,7 +1259,7 @@ fn usize_to_f64(value: usize) -> f64 {
 
 fn write_optional_sql_output(
     request: &SqlLocalSourceRequest,
-    result_jsonl: &str,
+    output_content: &str,
 ) -> Result<u128, ShardLoomError> {
     let Some(output_path) = request.output_path.as_ref() else {
         return Ok(0);
@@ -1205,7 +1281,7 @@ fn write_optional_sql_output(
         }
     }
     let write_start = Instant::now();
-    fs::write(output_path, result_jsonl.as_bytes()).map_err(|error| {
+    fs::write(output_path, output_content.as_bytes()).map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to write local SQL output {}: {error}",
             output_path.display()
@@ -2223,10 +2299,7 @@ impl SqlLocalSourceReport {
             ("plan_digest".to_string(), self.plan_digest.clone()),
             ("correctness_digest".to_string(), self.result_digest.clone()),
             ("result_digest".to_string(), self.result_digest.clone()),
-            (
-                "result_format".to_string(),
-                self.request.output_format.as_str().to_string(),
-            ),
+            ("result_format".to_string(), "inline_jsonl".to_string()),
             ("result_jsonl".to_string(), self.result_jsonl.clone()),
             (
                 "output_path".to_string(),
@@ -2235,9 +2308,12 @@ impl SqlLocalSourceReport {
                     .as_ref()
                     .map_or_else(String::new, |path| path.display().to_string()),
             ),
-            ("output_format".to_string(), "jsonl".to_string()),
+            (
+                "output_format".to_string(),
+                self.request.output_format.sink_format().to_string(),
+            ),
             ("output_bytes".to_string(), self.output_bytes.to_string()),
-            ("output_digest".to_string(), self.result_digest.clone()),
+            ("output_digest".to_string(), self.output_digest.clone()),
             (
                 "source_read_millis".to_string(),
                 self.source.read_millis.to_string(),
@@ -2303,7 +2379,7 @@ impl SqlLocalSourceReport {
             (
                 "output_native_io_certificate_status".to_string(),
                 if self.request.output_path.is_some() {
-                    "certified_local_jsonl_sink"
+                    self.request.output_format.certificate_status()
                 } else {
                     "not_requested"
                 }
@@ -2312,7 +2388,7 @@ impl SqlLocalSourceReport {
             (
                 "output_certificate_ref".to_string(),
                 if self.request.output_path.is_some() {
-                    OUTPUT_CERTIFICATE_ID
+                    self.request.output_format.certificate_ref()
                 } else {
                     ""
                 }
@@ -3816,6 +3892,43 @@ fn rows_to_jsonl(rows: &[Vec<(String, ScalarValue)>]) -> String {
     output
 }
 
+fn rows_to_csv(columns: &[String], rows: &[Vec<(String, ScalarValue)>]) -> String {
+    let mut output = String::new();
+    if columns.is_empty() {
+        return output;
+    }
+    for (index, name) in columns.iter().enumerate() {
+        if index > 0 {
+            output.push(',');
+        }
+        output.push_str(&csv_escape(name));
+    }
+    output.push('\n');
+    for row in rows {
+        for (index, (_name, value)) in row.iter().enumerate() {
+            if index > 0 {
+                output.push(',');
+            }
+            output.push_str(&csv_escape(&scalar_to_csv_value(value)));
+        }
+        output.push('\n');
+    }
+    output
+}
+
+fn scalar_to_csv_value(value: &ScalarValue) -> String {
+    match value {
+        ScalarValue::Boolean(value) => value.to_string(),
+        ScalarValue::Int64(value) | ScalarValue::TimestampMicros(value) => value.to_string(),
+        ScalarValue::UInt64(value) => value.to_string(),
+        ScalarValue::Float64(value) if value.is_finite() => value.to_string(),
+        ScalarValue::Null | ScalarValue::Float64(_) => String::new(),
+        ScalarValue::Utf8(value) => value.clone(),
+        ScalarValue::Binary(value) => format!("binary[len={}]", value.len()),
+        ScalarValue::Date32(value) => format_iso_date32(*value),
+    }
+}
+
 fn scalar_to_json(value: &ScalarValue) -> String {
     match value {
         ScalarValue::Boolean(value) => value.to_string(),
@@ -3852,6 +3965,14 @@ fn json_escape(value: &str) -> String {
         }
     }
     out
+}
+
+fn csv_escape(value: &str) -> String {
+    if value.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
 }
 
 fn fnv64_digest(value: &str) -> String {

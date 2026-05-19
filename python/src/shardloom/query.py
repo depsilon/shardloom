@@ -351,15 +351,16 @@ class SqlWorkflow:
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
-        """Write an admitted SQL result to a scoped local JSONL output."""
+        """Write an admitted SQL result to a scoped local output."""
 
-        if output_format.strip().lower() not in {"jsonl", "json-lines", "ndjson"}:
-            raise ValueError("scoped SqlWorkflow.write currently supports local JSONL only")
+        normalized_output_format = _normalize_local_output_format(output_format)
         if _is_source_free_sql_statement(self.statement):
+            if normalized_output_format != "jsonl":
+                raise ValueError("source-free SQL writes currently support local JSONL only")
             return self.client.generated_source_sql_smoke(
                 target_uri,
                 self.statement,
-                output_format="jsonl",
+                output_format=normalized_output_format,
                 allow_overwrite=allow_overwrite,
                 check=check,
             )
@@ -367,7 +368,7 @@ class SqlWorkflow:
             return self.client.sql_local_source_smoke(
                 self.statement,
                 output_path=target_uri,
-                output_format="inline-jsonl",
+                output_format=normalized_output_format,
                 allow_overwrite=allow_overwrite,
                 check=check,
             )
@@ -594,10 +595,9 @@ class LazyFrame:
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport:
-        """Write an admitted local CSV/flat JSONL SQL smoke result to JSONL."""
+        """Write an admitted local CSV/flat JSONL SQL smoke result to a local sink."""
 
-        if output_format.strip().lower() not in {"jsonl", "json-lines", "ndjson"}:
-            raise ValueError("scoped LazyFrame.write currently supports local JSONL only")
+        normalized_output_format = _normalize_local_output_format(output_format)
         statement = self._sql_local_source_statement()
         if statement is None:
             raise ValueError(
@@ -610,7 +610,7 @@ class LazyFrame:
         return self.client.sql_local_source_smoke(
             statement,
             output_path=target_uri,
-            output_format="inline-jsonl",
+            output_format=normalized_output_format,
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -627,6 +627,22 @@ class LazyFrame:
         return self.write(
             target_uri,
             output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_csv(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport:
+        """Alias for `write(..., output_format="csv")`."""
+
+        return self.write(
+            target_uri,
+            output_format="csv",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -1877,6 +1893,15 @@ def _optional_sql_where_clause(predicate: str | None) -> str:
     if predicate is None:
         return ""
     return f" WHERE {predicate}"
+
+
+def _normalize_local_output_format(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"jsonl", "json-lines", "ndjson", "inline-jsonl"}:
+        return "jsonl"
+    if normalized == "csv":
+        return "csv"
+    raise ValueError("scoped local writes currently support local JSONL or CSV only")
 
 
 def _is_non_string_sequence(value: object) -> bool:
