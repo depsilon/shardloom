@@ -159,6 +159,34 @@ certificate ref, and no-fallback evidence. It admits one numeric non-null sort k
 sorts, expression ordering, null ordering, collation parity, window ranking, broad SQL/DataFrame
 runtime, object-store/table sources, performance evidence, and production claims remain blocked.
 
+## SQL Local CSV Inner Equi-Join Smoke
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+id,customer_id,amount
+1,10,8
+2,20,15
+3,30,21
+4,99,13
+"@ | Set-Content -Encoding utf8 target\sql-local-source-join-fact.csv
+@"
+customer_id,segment
+10,seed
+20,enterprise
+30,startup
+"@ | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv
+cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10" --format json
+```
+
+Use this for the scoped GAR-RUNTIME-IMPL-4C join promotion. It emits
+`sql_statement_kind=local_source_inner_equi_join_filter_limit`,
+`join_runtime_execution=true`, `join_type=inner_equi`, left/right source refs, join keys,
+matched/scanned/output row counts, a scoped memory estimate, the inner-equi-join execution
+certificate ref, and no-fallback evidence. It admits one local CSV inner equi-join with explicit
+aliases only. Outer, semi, anti, cross, multi-key, expression, distributed, broadcast, shuffle,
+Python/DataFrame, object-store/table, performance, and production join claims remain blocked.
+
 ## Python Local CSV Query-Builder Smoke
 
 ```powershell

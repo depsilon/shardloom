@@ -347,6 +347,162 @@ fn sql_local_source_smoke_executes_group_by_aggregates_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_inner_equi_join_without_fallback() {
+    let fact_path = unique_path("sql-local-source-join-fact", "csv");
+    let dim_path = unique_path("sql-local-source-join-dim", "csv");
+    fs::write(
+        &fact_path,
+        "id,customer_id,amount\n1,10,8\n2,20,15\n3,30,21\n4,99,13\n",
+    )
+    .expect("write fact csv");
+    fs::write(
+        &dim_path,
+        "customer_id,segment\n10,seed\n20,enterprise\n30,startup\n",
+    )
+    .expect("write dim csv");
+
+    let statement = format!(
+        "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_equi_join_filter_limit"
+    )));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_type", "inner_equi")));
+    assert!(stdout.contains(&field("source_alias", "f")));
+    assert!(stdout.contains(&field("right_source_alias", "d")));
+    assert!(stdout.contains(&field("left_input_row_count", "4")));
+    assert!(stdout.contains(&field("right_input_row_count", "3")));
+    assert!(stdout.contains(&field("join_left_key", "f.customer_id")));
+    assert!(stdout.contains(&field("join_right_key", "d.customer_id")));
+    assert!(stdout.contains(&field("join_matched_row_count", "3")));
+    assert!(stdout.contains(&field("join_left_rows_scanned", "4")));
+    assert!(stdout.contains(&field("join_right_rows_scanned", "3")));
+    assert!(stdout.contains(&field("join_rows_output", "2")));
+    assert!(stdout.contains(&field("join_memory_estimate_bytes", "2240")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(&field("output_row_count", "2")));
+    assert!(stdout.contains(&field("projected_columns", "f.id,d.segment")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"f.id\\\":2,\\\"d.segment\\\":\\\"enterprise\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"startup\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.inner-equi-join-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
+    let fact_path = unique_path("sql-local-source-join-blocked-fact", "csv");
+    let dim_path = unique_path("sql-local-source-join-blocked-dim", "csv");
+    fs::write(&fact_path, "id,customer_id,amount\n1,10,8\n2,20,15\n").expect("write fact csv");
+    fs::write(&dim_path, "customer_id,segment\n10,seed\n20,enterprise\n").expect("write dim csv");
+
+    let cases = [
+        (
+            format!(
+                "SELECT f.id,d.segment FROM '{}' AS f LEFT JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 0 LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            "outer/cross/semi/anti joins remain blocked",
+        ),
+        (
+            format!(
+                "SELECT f.id,d.segment FROM '{}' AS f SEMI JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 0 LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            "outer/cross/semi/anti joins remain blocked",
+        ),
+        (
+            format!(
+                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id <> d.customer_id WHERE f.amount >= 0 LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            "JOIN smoke admits equi-join ON predicates only",
+        ),
+        (
+            format!(
+                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.id = d.customer_id WHERE f.amount >= 0 LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            "JOIN smoke ON clause must be",
+        ),
+        (
+            format!(
+                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id + 1 = d.customer_id WHERE f.amount >= 0 LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            "JOIN smoke ON clause must be",
+        ),
+        (
+            format!(
+                "SELECT id,segment FROM '{}' JOIN '{}' ON customer_id = customer_id WHERE amount >= 0 LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            "JOIN smoke requires left source syntax",
+        ),
+    ];
+
+    for (statement, expected_reason) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .output()
+            .expect("sql-local-source-smoke command runs");
+        assert!(
+            !output.status.success(),
+            "statement={statement} stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(
+            stdout.contains(expected_reason),
+            "statement={statement} expected={expected_reason} stdout={stdout}"
+        );
+        assert!(stdout.contains("no fallback execution was attempted"));
+        assert!(stdout.contains("external_engine_invoked=false"));
+    }
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
 fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() {
     let source_path = unique_path("sql-local-source-order-by-blocked", "csv");
     fs::write(

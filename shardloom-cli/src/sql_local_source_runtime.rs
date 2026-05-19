@@ -1,7 +1,8 @@
 //! Scoped local-source SQL runtime smoke.
 //!
 //! This module intentionally admits one small SQL shape over local CSV:
-//! `SELECT <columns> FROM <local.csv> WHERE <simple predicate> [ORDER BY <column> ASC|DESC] LIMIT <n>`.
+//! `SELECT <columns> FROM <local.csv> WHERE <simple predicate> [ORDER BY <column> ASC|DESC] LIMIT <n>`
+//! plus one explicit local CSV inner equi-join shape.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
 //! `Polars`, `pandas`, object stores, catalogs, or Vortex query-engine
@@ -32,6 +33,8 @@ const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
 const EXECUTION_CERTIFICATE_ID: &str = "sql-local-source.csv.projection-filter-limit.execution.v1";
 const ORDER_BY_TOPN_EXECUTION_CERTIFICATE_ID: &str =
     "sql-local-source.csv.order-by-topn-filter-limit.execution.v1";
+const INNER_JOIN_EXECUTION_CERTIFICATE_ID: &str =
+    "sql-local-source.csv.inner-equi-join-filter-limit.execution.v1";
 const AGGREGATE_EXECUTION_CERTIFICATE_ID: &str =
     "sql-local-source.csv.aggregate-filter-limit.execution.v1";
 const GROUPED_AGGREGATE_EXECUTION_CERTIFICATE_ID: &str =
@@ -78,6 +81,8 @@ struct ParsedSqlLocalSource {
     group_by: Vec<String>,
     order_by: Option<ParsedOrderBy>,
     source_path: PathBuf,
+    source_alias: Option<String>,
+    join: Option<ParsedJoin>,
     predicate: ParsedPredicate,
     limit: usize,
     normalized_statement: String,
@@ -93,6 +98,27 @@ struct ParsedAggregate {
 struct ParsedOrderBy {
     column: String,
     direction: SortDirection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedJoin {
+    right_source_path: PathBuf,
+    right_alias: String,
+    left_key: QualifiedColumn,
+    right_key: QualifiedColumn,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedSourceClause {
+    source_path: PathBuf,
+    source_alias: Option<String>,
+    join: Option<ParsedJoin>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct QualifiedColumn {
+    alias: String,
+    column: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -200,11 +226,20 @@ struct GroupedAggregateBucket {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+struct JoinEvaluationOutput {
+    joined_row_count: usize,
+    selected_row_count: usize,
+    output_rows: Vec<Vec<(String, ScalarValue)>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct SqlLocalSourceReport {
     request: SqlLocalSourceRequest,
     parsed: ParsedSqlLocalSource,
     source: CsvSourceData,
+    right_source: Option<CsvSourceData>,
     selected_row_count: usize,
+    joined_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
     result_jsonl: String,
     plan_digest: String,
@@ -323,31 +358,51 @@ fn run_sql_local_source_smoke(
     let total_start = Instant::now();
     let parsed = parse_sql_local_source_statement(&request.statement)?;
     let source = read_local_csv_source(&parsed.source_path)?;
-    bind_sql_local_source(&parsed, &source.header)?;
+    let right_source = parsed
+        .join
+        .as_ref()
+        .map(|join| read_local_csv_source(&join.right_source_path))
+        .transpose()?;
+    bind_sql_local_source(
+        &parsed,
+        &source.header,
+        right_source.as_ref().map(|source| source.header.as_slice()),
+    )?;
 
     let compute_start = Instant::now();
-    let predicate_expression = parsed.predicate.to_expression()?;
-    let filter = evaluate_filter(&predicate_expression, &source.rows);
-    if filter.has_errors() {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "SQL local-source predicate evaluation failed: {}",
-            filter
-                .diagnostics
-                .first()
-                .map_or("unknown diagnostic", |diagnostic| diagnostic
-                    .message
-                    .as_str())
-        )));
-    }
-    let output_rows = if parsed.is_grouped_aggregate() {
-        evaluate_grouped_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
-    } else if parsed.is_aggregate() {
-        evaluate_scalar_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
-    } else {
-        let selected_row_indexes =
-            ordered_projection_row_indexes(&parsed, &source, &filter.selected_row_indexes)?;
-        evaluate_projection_output(&parsed, &source, &selected_row_indexes)?
-    };
+    let (selected_row_count, joined_row_count, output_rows) =
+        if let Some(right_source) = right_source.as_ref() {
+            let join_output = evaluate_join_output(&parsed, &source, right_source)?;
+            (
+                join_output.selected_row_count,
+                join_output.joined_row_count,
+                join_output.output_rows,
+            )
+        } else {
+            let predicate_expression = parsed.predicate.to_expression()?;
+            let filter = evaluate_filter(&predicate_expression, &source.rows);
+            if filter.has_errors() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "SQL local-source predicate evaluation failed: {}",
+                    filter
+                        .diagnostics
+                        .first()
+                        .map_or("unknown diagnostic", |diagnostic| diagnostic
+                            .message
+                            .as_str())
+                )));
+            }
+            let output_rows = if parsed.is_grouped_aggregate() {
+                evaluate_grouped_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
+            } else if parsed.is_aggregate() {
+                evaluate_scalar_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
+            } else {
+                let selected_row_indexes =
+                    ordered_projection_row_indexes(&parsed, &source, &filter.selected_row_indexes)?;
+                evaluate_projection_output(&parsed, &source, &selected_row_indexes)?
+            };
+            (filter.selected_row_count(), 0, output_rows)
+        };
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
@@ -355,10 +410,13 @@ fn run_sql_local_source_smoke(
     let result_digest = fnv64_digest(&result_jsonl);
     let source_schema_digest = fnv64_digest(&source.header.join(","));
     let plan_digest = fnv64_digest(&format!(
-        "{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}",
         parsed.normalized_statement,
         source_schema_digest,
         source.source_digest,
+        right_source
+            .as_ref()
+            .map_or_else(String::new, |source| source.source_digest.clone()),
         request.output_format.as_str()
     ));
     let evidence_render_millis = evidence_start.elapsed().as_millis();
@@ -369,7 +427,9 @@ fn run_sql_local_source_smoke(
         request: request.clone(),
         parsed,
         source,
-        selected_row_count: filter.selected_row_count(),
+        right_source,
+        selected_row_count,
+        joined_row_count,
         output_rows,
         result_jsonl,
         plan_digest,
@@ -461,6 +521,139 @@ fn ordered_projection_row_indexes(
     Ok(ordered)
 }
 
+fn evaluate_join_output(
+    parsed: &ParsedSqlLocalSource,
+    left_source: &CsvSourceData,
+    right_source: &CsvSourceData,
+) -> Result<JoinEvaluationOutput, ShardLoomError> {
+    let join = parsed.join.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("join evaluation requested without join plan".to_string())
+    })?;
+    let left_alias = parsed.source_alias.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("join evaluation requires a left alias".to_string())
+    })?;
+
+    let mut right_rows_by_key: BTreeMap<String, Vec<&ExpressionInputRow>> = BTreeMap::new();
+    for right_row in &right_source.rows {
+        let Some(key_value) = right_row.get(&join.right_key.column) else {
+            return Err(unsupported_sql_error(&format!(
+                "JOIN right key column {:?} is not present in the right CSV row",
+                join.right_key.column
+            )));
+        };
+        if matches!(key_value, ScalarValue::Null) {
+            continue;
+        }
+        right_rows_by_key
+            .entry(key_value.summary())
+            .or_default()
+            .push(right_row);
+    }
+
+    let mut joined_rows = Vec::new();
+    for left_row in &left_source.rows {
+        let Some(key_value) = left_row.get(&join.left_key.column) else {
+            return Err(unsupported_sql_error(&format!(
+                "JOIN left key column {:?} is not present in the left CSV row",
+                join.left_key.column
+            )));
+        };
+        if matches!(key_value, ScalarValue::Null) {
+            continue;
+        }
+        if let Some(right_matches) = right_rows_by_key.get(&key_value.summary()) {
+            for right_row in right_matches {
+                joined_rows.push(qualified_join_row(
+                    left_alias,
+                    &left_source.header,
+                    left_row,
+                    &join.right_alias,
+                    &right_source.header,
+                    right_row,
+                ));
+            }
+        }
+    }
+    let joined_row_count = joined_rows.len();
+
+    let predicate_expression = parsed.predicate.to_expression()?;
+    let filter = evaluate_filter(&predicate_expression, &joined_rows);
+    if filter.has_errors() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "SQL local-source join predicate evaluation failed: {}",
+            filter
+                .diagnostics
+                .first()
+                .map_or("unknown diagnostic", |diagnostic| diagnostic
+                    .message
+                    .as_str())
+        )));
+    }
+    let projection_expressions = parsed
+        .projections
+        .iter()
+        .map(|column| {
+            Ok(Expression::column(
+                ExprId::new(format!("join.project.{column}"))?,
+                ColumnRef::new(column.clone())?,
+            ))
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let mut output_rows = Vec::new();
+    for row_index in filter.selected_row_indexes.iter().take(parsed.limit) {
+        let row = joined_rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected join row index is out of bounds".to_string())
+        })?;
+        let projection = evaluate_projection(&projection_expressions, row);
+        if projection.has_errors() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "SQL local-source join projection evaluation failed: {}",
+                projection
+                    .diagnostics
+                    .first()
+                    .map_or("unknown diagnostic", |diagnostic| diagnostic
+                        .message
+                        .as_str())
+            )));
+        }
+        output_rows.push(
+            projection
+                .projected_columns
+                .into_iter()
+                .map(|column| (column.name, column.value))
+                .collect(),
+        );
+    }
+
+    Ok(JoinEvaluationOutput {
+        joined_row_count,
+        selected_row_count: filter.selected_row_count(),
+        output_rows,
+    })
+}
+
+fn qualified_join_row(
+    left_alias: &str,
+    left_header: &[String],
+    left_row: &ExpressionInputRow,
+    right_alias: &str,
+    right_header: &[String],
+    right_row: &ExpressionInputRow,
+) -> ExpressionInputRow {
+    let mut row = ExpressionInputRow::new();
+    for column in left_header {
+        if let Some(value) = left_row.get(column) {
+            row.insert(qualified_column_name(left_alias, column), value.clone());
+        }
+    }
+    for column in right_header {
+        if let Some(value) = right_row.get(column) {
+            row.insert(qualified_column_name(right_alias, column), value.clone());
+        }
+    }
+    row
+}
+
 fn evaluate_scalar_aggregate_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
@@ -532,6 +725,22 @@ fn group_key(values: &[(String, ScalarValue)]) -> String {
         .map(|(_name, value)| value.summary())
         .collect::<Vec<_>>()
         .join("\u{1f}")
+}
+
+fn qualified_column_name(alias: &str, column: &str) -> String {
+    format!("{alias}.{column}")
+}
+
+fn join_memory_estimate_bytes(left_source: &CsvSourceData, right_source: &CsvSourceData) -> u64 {
+    let row_count = left_source
+        .rows
+        .len()
+        .saturating_add(right_source.rows.len());
+    let column_count = left_source
+        .header
+        .len()
+        .saturating_add(right_source.header.len());
+    u64::try_from(row_count.saturating_mul(column_count).saturating_mul(64)).unwrap_or(u64::MAX)
 }
 
 fn evaluate_scalar_aggregate(
@@ -756,7 +965,11 @@ fn write_optional_sql_output(
 fn bind_sql_local_source(
     parsed: &ParsedSqlLocalSource,
     header: &[String],
+    right_header: Option<&[String]>,
 ) -> Result<(), ShardLoomError> {
+    if parsed.is_join() {
+        return bind_join_sql_local_source(parsed, header, right_header);
+    }
     if let Some(order_by) = parsed.order_by.as_ref() {
         if parsed.is_aggregate() || parsed.is_grouped_aggregate() {
             return Err(unsupported_sql_error(
@@ -830,7 +1043,132 @@ fn bind_sql_local_source(
     Ok(())
 }
 
+fn bind_join_sql_local_source(
+    parsed: &ParsedSqlLocalSource,
+    left_header: &[String],
+    right_header: Option<&[String]>,
+) -> Result<(), ShardLoomError> {
+    let join = parsed.join.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("join binder called without join plan".to_string())
+    })?;
+    let Some(left_alias) = parsed.source_alias.as_ref() else {
+        return Err(unsupported_sql_error(
+            "JOIN smoke requires an explicit left source alias",
+        ));
+    };
+    let Some(right_header) = right_header else {
+        return Err(unsupported_sql_error(
+            "JOIN smoke requires a readable local right CSV source",
+        ));
+    };
+    if parsed.is_aggregate()
+        || !parsed.group_by.is_empty()
+        || parsed.order_by.is_some()
+        || parsed.projections.is_empty()
+    {
+        return Err(unsupported_sql_error(
+            "JOIN smoke currently admits projection/filter/limit only; aggregate, group-by, and order-by joins remain blocked",
+        ));
+    }
+    if join.left_key.alias != *left_alias || join.right_key.alias != join.right_alias {
+        return Err(unsupported_sql_error(
+            "JOIN ON must compare the left alias to the right alias in this scoped smoke",
+        ));
+    }
+    if !left_header
+        .iter()
+        .any(|column| column == &join.left_key.column)
+    {
+        return Err(unsupported_sql_error(&format!(
+            "JOIN left key column {:?} is not present in the left CSV header",
+            join.left_key.column
+        )));
+    }
+    if !right_header
+        .iter()
+        .any(|column| column == &join.right_key.column)
+    {
+        return Err(unsupported_sql_error(&format!(
+            "JOIN right key column {:?} is not present in the right CSV header",
+            join.right_key.column
+        )));
+    }
+    for projection in &parsed.projections {
+        bind_qualified_column(
+            projection,
+            left_alias,
+            left_header,
+            &join.right_alias,
+            right_header,
+        )?;
+    }
+    bind_qualified_predicate(
+        &parsed.predicate,
+        left_alias,
+        left_header,
+        &join.right_alias,
+        right_header,
+    )
+}
+
+fn bind_qualified_predicate(
+    predicate: &ParsedPredicate,
+    left_alias: &str,
+    left_header: &[String],
+    right_alias: &str,
+    right_header: &[String],
+) -> Result<(), ShardLoomError> {
+    bind_qualified_column(
+        predicate.column(),
+        left_alias,
+        left_header,
+        right_alias,
+        right_header,
+    )
+}
+
+fn bind_qualified_column(
+    column_ref: &str,
+    left_alias: &str,
+    left_header: &[String],
+    right_alias: &str,
+    right_header: &[String],
+) -> Result<(), ShardLoomError> {
+    let column = parse_qualified_column_ref(column_ref)?;
+    if column.alias == left_alias {
+        if left_header
+            .iter()
+            .any(|candidate| candidate == &column.column)
+        {
+            Ok(())
+        } else {
+            Err(unsupported_sql_error(&format!(
+                "qualified left column {column_ref:?} is not present in the left CSV header"
+            )))
+        }
+    } else if column.alias == right_alias {
+        if right_header
+            .iter()
+            .any(|candidate| candidate == &column.column)
+        {
+            Ok(())
+        } else {
+            Err(unsupported_sql_error(&format!(
+                "qualified right column {column_ref:?} is not present in the right CSV header"
+            )))
+        }
+    } else {
+        Err(unsupported_sql_error(&format!(
+            "qualified column {column_ref:?} does not use an admitted JOIN alias"
+        )))
+    }
+}
+
 impl ParsedSqlLocalSource {
+    fn is_join(&self) -> bool {
+        self.join.is_some()
+    }
+
     fn is_aggregate(&self) -> bool {
         !self.aggregates.is_empty()
     }
@@ -840,7 +1178,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn statement_kind(&self) -> &'static str {
-        if self.order_by.is_some() {
+        if self.is_join() {
+            "local_source_inner_equi_join_filter_limit"
+        } else if self.order_by.is_some() {
             "local_source_order_by_topn_filter_limit"
         } else if self.is_grouped_aggregate() {
             "local_source_group_by_aggregate_filter_limit"
@@ -852,7 +1192,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn claim_gate_reason(&self) -> &'static str {
-        if self.order_by.is_some() {
+        if self.is_join() {
+            "one_scoped_local_csv_sql_inner_equi_join_filter_limit_smoke"
+        } else if self.order_by.is_some() {
             "one_scoped_local_csv_sql_order_by_topn_filter_limit_smoke"
         } else if self.is_grouped_aggregate() {
             "one_scoped_local_csv_sql_group_by_aggregate_filter_limit_smoke"
@@ -864,7 +1206,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn execution_certificate_ref(&self) -> &'static str {
-        if self.order_by.is_some() {
+        if self.is_join() {
+            INNER_JOIN_EXECUTION_CERTIFICATE_ID
+        } else if self.order_by.is_some() {
             ORDER_BY_TOPN_EXECUTION_CERTIFICATE_ID
         } else if self.is_grouped_aggregate() {
             GROUPED_AGGREGATE_EXECUTION_CERTIFICATE_ID
@@ -884,7 +1228,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn output_columns(&self, header: &[String]) -> Vec<String> {
-        if self.is_grouped_aggregate() {
+        if self.is_join() {
+            self.projections.clone()
+        } else if self.is_grouped_aggregate() {
             self.group_by
                 .iter()
                 .cloned()
@@ -940,6 +1286,12 @@ impl AggregateFunction {
 impl ParsedOrderBy {
     fn direction_label(&self) -> &'static str {
         self.direction.as_str()
+    }
+}
+
+impl QualifiedColumn {
+    fn to_ref(&self) -> String {
+        qualified_column_name(&self.alias, &self.column)
     }
 }
 
@@ -1039,6 +1391,10 @@ impl SqlLocalSourceReport {
                 self.parsed.source_path.display().to_string(),
             ),
             (
+                "source_alias".to_string(),
+                self.parsed.source_alias.clone().unwrap_or_default(),
+            ),
+            (
                 "source_bytes".to_string(),
                 self.source.source_bytes.to_string(),
             ),
@@ -1058,6 +1414,105 @@ impl SqlLocalSourceReport {
             (
                 "input_row_count".to_string(),
                 self.source.rows.len().to_string(),
+            ),
+            (
+                "left_input_row_count".to_string(),
+                self.source.rows.len().to_string(),
+            ),
+            (
+                "right_source_path".to_string(),
+                self.parsed.join.as_ref().map_or_else(String::new, |join| {
+                    join.right_source_path.display().to_string()
+                }),
+            ),
+            (
+                "right_source_alias".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .map_or_else(String::new, |join| join.right_alias.clone()),
+            ),
+            (
+                "right_input_row_count".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or(0, |source| source.rows.len())
+                    .to_string(),
+            ),
+            (
+                "right_source_digest".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or_else(String::new, |source| source.source_digest.clone()),
+            ),
+            (
+                "right_source_columns".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or_else(String::new, |source| source.header.join(",")),
+            ),
+            (
+                "join_runtime_execution".to_string(),
+                self.parsed.is_join().to_string(),
+            ),
+            (
+                "join_type".to_string(),
+                if self.parsed.is_join() {
+                    "inner_equi"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "join_left_key".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .map_or_else(String::new, |join| join.left_key.to_ref()),
+            ),
+            (
+                "join_right_key".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .map_or_else(String::new, |join| join.right_key.to_ref()),
+            ),
+            (
+                "join_matched_row_count".to_string(),
+                self.joined_row_count.to_string(),
+            ),
+            (
+                "join_left_rows_scanned".to_string(),
+                if self.parsed.is_join() {
+                    self.source.rows.len().to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "join_right_rows_scanned".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or(0, |source| source.rows.len())
+                    .to_string(),
+            ),
+            (
+                "join_rows_output".to_string(),
+                if self.parsed.is_join() {
+                    self.output_rows.len().to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "join_memory_estimate_bytes".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or(0, |right_source| {
+                        join_memory_estimate_bytes(&self.source, right_source)
+                    })
+                    .to_string(),
             ),
             (
                 "selected_row_count".to_string(),
@@ -1530,7 +1985,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     let projection_list = parse_projection_list(select_list)?;
     let group_by = parse_group_by_list(group_by_raw)?;
     let order_by = parse_order_by(order_by_raw)?;
-    let source_path = parse_source_path(source_raw)?;
+    let source_clause = parse_source_clause(source_raw)?;
     let predicate = parse_predicate(predicate_raw)?;
     let limit = parse_limit(limit_raw)?;
 
@@ -1539,7 +1994,9 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
         aggregates: projection_list.aggregates,
         group_by,
         order_by,
-        source_path,
+        source_path: source_clause.source_path,
+        source_alias: source_clause.source_alias,
+        join: source_clause.join,
         predicate,
         limit,
         normalized_statement: statement,
@@ -1583,7 +2040,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
             aggregates.push(aggregate);
         } else {
-            validate_sql_identifier(projection)?;
+            validate_sql_column_ref(projection)?;
             projections.push(projection.to_string());
         }
     }
@@ -1699,6 +2156,93 @@ fn parse_order_by(raw: Option<&str>) -> Result<Option<ParsedOrderBy>, ShardLoomE
     }))
 }
 
+fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> {
+    let Some((join_index, join_keyword_len)) = find_keyword_outside_quotes(raw, "inner join")
+        .map(|index| (index, "inner join".len()))
+        .or_else(|| find_keyword_outside_quotes(raw, "join").map(|index| (index, "join".len())))
+    else {
+        return Ok(ParsedSourceClause {
+            source_path: parse_source_path(raw)?,
+            source_alias: None,
+            join: None,
+        });
+    };
+    if contains_keyword_outside_quotes(raw, "left join")
+        || contains_keyword_outside_quotes(raw, "right join")
+        || contains_keyword_outside_quotes(raw, "full join")
+        || contains_keyword_outside_quotes(raw, "cross join")
+        || contains_keyword_outside_quotes(raw, "outer join")
+        || contains_keyword_outside_quotes(raw, "semi join")
+        || contains_keyword_outside_quotes(raw, "anti join")
+    {
+        return Err(unsupported_sql_error(
+            "JOIN smoke admits explicit INNER-style equi-join only; outer/cross/semi/anti joins remain blocked",
+        ));
+    }
+    let left_raw = raw[..join_index].trim();
+    let join_tail = raw[join_index + join_keyword_len..].trim();
+    let on_index = find_keyword_outside_quotes(join_tail, "on").ok_or_else(|| {
+        unsupported_sql_error("JOIN smoke requires an ON <left> = <right> clause")
+    })?;
+    let right_raw = join_tail[..on_index].trim();
+    let on_raw = join_tail[on_index + "on".len()..].trim();
+    let (source_path, left_alias) = parse_aliased_source(left_raw, "left")?;
+    let (right_source_path, right_alias) = parse_aliased_source(right_raw, "right")?;
+    if left_alias == right_alias {
+        return Err(unsupported_sql_error(
+            "JOIN smoke requires distinct left and right aliases",
+        ));
+    }
+    let (left_key, right_key) = parse_join_on(on_raw)?;
+    if left_key.alias != left_alias || right_key.alias != right_alias {
+        return Err(unsupported_sql_error(
+            "JOIN ON must be ordered as <left_alias>.<column> = <right_alias>.<column>",
+        ));
+    }
+    Ok(ParsedSourceClause {
+        source_path,
+        source_alias: Some(left_alias),
+        join: Some(ParsedJoin {
+            right_source_path,
+            right_alias,
+            left_key,
+            right_key,
+        }),
+    })
+}
+
+fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    let [path_raw, as_keyword, alias] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(&format!(
+            "JOIN smoke requires {side} source syntax <local.csv> AS <alias>"
+        )));
+    };
+    if !as_keyword.eq_ignore_ascii_case("as") {
+        return Err(unsupported_sql_error(&format!(
+            "JOIN smoke requires {side} source alias with AS"
+        )));
+    }
+    validate_sql_identifier(alias)?;
+    Ok((parse_source_path(path_raw)?, alias.clone()))
+}
+
+fn parse_join_on(raw: &str) -> Result<(QualifiedColumn, QualifiedColumn), ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    match tokens.as_slice() {
+        [left, op, right] if op == "=" => Ok((
+            parse_qualified_column_ref(left)?,
+            parse_qualified_column_ref(right)?,
+        )),
+        [_, op, _] if op != "=" => Err(unsupported_sql_error(
+            "JOIN smoke admits equi-join ON predicates only",
+        )),
+        _ => Err(unsupported_sql_error(
+            "JOIN smoke ON clause must be <left_alias>.<column> = <right_alias>.<column>",
+        )),
+    }
+}
+
 fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
     let path = if raw.starts_with('\'') {
         parse_sql_string_literal(raw)?
@@ -1725,7 +2269,7 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             if is_keyword.eq_ignore_ascii_case("is")
                 && null_keyword.eq_ignore_ascii_case("null") =>
         {
-            validate_sql_identifier(column)?;
+            validate_sql_column_ref(column)?;
             Ok(ParsedPredicate::IsNull {
                 column: (*column).clone(),
             })
@@ -1735,13 +2279,13 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
                 && not_keyword.eq_ignore_ascii_case("not")
                 && null_keyword.eq_ignore_ascii_case("null") =>
         {
-            validate_sql_identifier(column)?;
+            validate_sql_column_ref(column)?;
             Ok(ParsedPredicate::IsNotNull {
                 column: (*column).clone(),
             })
         }
         [column, op_raw, literal_raw] => {
-            validate_sql_identifier(column)?;
+            validate_sql_column_ref(column)?;
             let op = parse_comparison_op(op_raw)?;
             let value = parse_sql_literal(literal_raw)?;
             Ok(ParsedPredicate::Compare {
@@ -2002,6 +2546,34 @@ fn validate_sql_identifier(value: &str) -> Result<(), ShardLoomError> {
     Ok(())
 }
 
+fn validate_sql_column_ref(value: &str) -> Result<(), ShardLoomError> {
+    if value.contains('.') {
+        let _ = parse_qualified_column_ref(value)?;
+        Ok(())
+    } else {
+        validate_sql_identifier(value)
+    }
+}
+
+fn parse_qualified_column_ref(value: &str) -> Result<QualifiedColumn, ShardLoomError> {
+    let Some((alias, column)) = value.split_once('.') else {
+        return Err(unsupported_sql_error(
+            "qualified JOIN columns must use <alias>.<column> syntax",
+        ));
+    };
+    if column.contains('.') {
+        return Err(unsupported_sql_error(
+            "qualified JOIN columns may contain exactly one alias separator",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    validate_sql_identifier(column)?;
+    Ok(QualifiedColumn {
+        alias: alias.to_string(),
+        column: column.to_string(),
+    })
+}
+
 fn is_identifier_char(ch: char) -> bool {
     ch == '_' || ch.is_ascii_alphanumeric()
 }
@@ -2163,6 +2735,38 @@ mod tests {
             parsed.statement_kind(),
             "local_source_order_by_topn_filter_limit"
         );
+    }
+
+    #[test]
+    fn parses_scoped_inner_equi_join_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT f.id,d.segment FROM 'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 3",
+        )
+        .expect("join statement parses");
+
+        assert_eq!(parsed.projections, vec!["f.id", "d.segment"]);
+        assert!(parsed.aggregates.is_empty());
+        assert!(parsed.group_by.is_empty());
+        assert!(parsed.order_by.is_none());
+        assert_eq!(parsed.source_path, PathBuf::from("target/fact.csv"));
+        assert_eq!(parsed.source_alias.as_deref(), Some("f"));
+        let join = parsed.join.as_ref().expect("join parsed");
+        assert_eq!(join.right_source_path, PathBuf::from("target/dim.csv"));
+        assert_eq!(join.right_alias, "d");
+        assert_eq!(join.left_key.to_ref(), "f.customer_id");
+        assert_eq!(join.right_key.to_ref(), "d.customer_id");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_inner_equi_join_filter_limit"
+        );
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::Compare {
+                ref column,
+                op: ComparisonOp::GtEq,
+                value: ScalarValue::Int64(10)
+            } if column == "f.amount"
+        ));
     }
 
     #[test]

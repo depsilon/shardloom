@@ -408,7 +408,9 @@ stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
 The lower-level `client.sql_local_source_smoke(...)` helper can also call the
-scoped local CSV scalar, grouped aggregate, and order/top-N smokes directly:
+scoped local CSV scalar, grouped aggregate, order/top-N, and explicit inner
+equi-join smokes directly. Python query-builder joins are still blocked; direct
+client calls are only a typed wrapper around the CLI fixture-smoke evidence:
 
 ```python
 report = client.sql_local_source_smoke(
@@ -433,10 +435,23 @@ topn = client.sql_local_source_smoke(
 )
 print(topn.sort_keys)
 print(topn.top_n_limit)
+
+join = client.sql_local_source_smoke(
+    "SELECT f.id,d.segment "
+    "FROM 'target/sql-local-source-join-fact.csv' AS f "
+    "INNER JOIN 'target/sql-local-source-join-dim.csv' AS d "
+    "ON f.customer_id = d.customer_id "
+    "WHERE f.amount >= 10 LIMIT 10",
+)
+print(join.join_runtime_execution)
+print(join.join_type)
+print(join.join_left_key, join.join_right_key)
+print(join.join_matched_row_count, join.join_rows_output)
 ```
 
 That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
 generality, grouped aliases, multi-key sorts, null ordering, collation parity,
+Python/DataFrame joins, outer/semi/anti/cross joins, multi-key or expression
 joins, broad SQL/DataFrame planning, and production query support remain blocked
 until later runtime slices.
 
