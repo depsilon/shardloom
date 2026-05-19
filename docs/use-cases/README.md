@@ -67,6 +67,12 @@ If a use case is `planned`, `blocked`, `unsupported`, or `report_only`, the bloc
 part of the product surface. It prevents unsupported paths from being mistaken for hidden runtime
 support.
 
+Current scoped runtime smokes include source-checkout status/capability checks, source-free local
+generated-output helpers, local compatibility import certification, prepared/native Vortex benchmark
+paths, SQL local CSV projection/filter/limit, and the Python local CSV query-builder wrapper over
+that same SQL smoke. These are technical-preview paths, not broad SQL/DataFrame or production
+claims.
+
 ## Local Validation
 
 Use the atlas checks after editing the index:

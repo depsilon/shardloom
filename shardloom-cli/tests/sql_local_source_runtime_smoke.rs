@@ -25,7 +25,7 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
     let source_path = unique_path("sql-local-source", "csv");
     fs::write(
         &source_path,
-        "id,label,amount,active\n1,alpha,8,true\n2,beta,15,false\n3,gamma,,true\n4,delta,21,true\n",
+        "\u{feff}id,label,amount,active\n1,alpha,8,true\n2,beta,15,false\n3,gamma,,true\n4,delta,21,true\n",
     )
     .expect("write source csv");
 
@@ -93,6 +93,10 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
     assert!(stdout.contains(&field("data_decoded", "true")));
     assert!(stdout.contains(&field("data_materialized", "true")));
     assert!(stdout.contains(&field("output_io_performed", "false")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "not_requested"
+    )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("fallback_execution_allowed", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -110,6 +114,65 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
     assert!(stdout.contains("\"correctness_digest\",\"value\":\"fnv64:"));
 
     fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_writes_local_jsonl_output_with_certificate_fields() {
+    let source_path = unique_path("sql-local-source-output", "csv");
+    let output_path = unique_path("sql-local-source-output", "jsonl");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output",
+            output_path.to_str().expect("utf8 output path"),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let written = fs::read_to_string(&output_path).expect("read output jsonl");
+    assert_eq!(
+        written,
+        "{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("write_io", "true")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_jsonl_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "output_certificate_ref",
+        "sql-local-source.csv.local-jsonl-output.native-io.v1"
+    )));
+    assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("object_store_io", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(output_path).expect("remove output jsonl");
 }
 
 #[test]

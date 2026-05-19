@@ -15,6 +15,7 @@ from .client import (
     EngineSelectionPlan,
     GeneratedSourceWriteReport,
     ShardLoomClient,
+    SqlLocalSourceSmokeReport,
 )
 from .models import Diagnostic, OutputEnvelope
 
@@ -410,10 +411,58 @@ class LazyFrame:
 
         return self._unsupported_operation("profile", check=check)
 
-    def collect(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for materializing workflow rows."""
+    def collect(
+        self,
+        *,
+        check: bool = False,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Collect rows for the one admitted local CSV SQL smoke shape."""
 
+        if statement := self._sql_local_source_statement():
+            return self.client.sql_local_source_smoke(statement, check=check)
         return self._unsupported_operation("collect", check=check)
+
+    def write(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport:
+        """Write the admitted local CSV projection/filter/limit smoke to JSONL."""
+
+        if output_format.strip().lower() not in {"jsonl", "json-lines", "ndjson"}:
+            raise ValueError("scoped LazyFrame.write currently supports local JSONL only")
+        statement = self._sql_local_source_statement()
+        if statement is None:
+            raise ValueError(
+                "LazyFrame.write currently requires a local CSV source with "
+                "select(...), filter(...), and limit(...) operations"
+            )
+        return self.client.sql_local_source_smoke(
+            statement,
+            output_path=target_uri,
+            output_format="inline-jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_jsonl(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport:
+        """Alias for `write(..., output_format="jsonl")`."""
+
+        return self.write(
+            target_uri,
+            output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
 
     def to_pandas(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
         """Return the unsupported report for pandas materialization."""
@@ -713,6 +762,29 @@ class LazyFrame:
             workflow=self,
             operation=operation,
             envelope=envelope,
+        )
+
+    def _sql_local_source_statement(self) -> str | None:
+        if self.source.source_format != "csv":
+            return None
+        projection: tuple[str, ...] | None = None
+        predicate: str | None = None
+        limit: str | None = None
+        for operation in self.operations:
+            if operation.kind == "select" and projection is None:
+                projection = operation.values
+            elif operation.kind == "filter" and predicate is None:
+                predicate = operation.values[0]
+            elif operation.kind == "limit" and limit is None:
+                limit = operation.values[0]
+            else:
+                return None
+        if projection is None or predicate is None or limit is None:
+            return None
+        source_uri = _quote_sql_local_source_path(self.source.uri)
+        return (
+            f"SELECT {','.join(projection)} FROM {source_uri} "
+            f"WHERE {predicate} LIMIT {limit}"
         )
 
 
@@ -1275,6 +1347,16 @@ def _require_non_empty(name: str, value: object) -> str:
     if not text:
         raise ValueError(f"{name} must not be empty")
     return text
+
+
+def _quote_sql_local_source_path(value: str) -> str:
+    path = _require_non_empty("SQL local-source path", value)
+    if "'" in path:
+        raise ValueError(
+            "SQL local-source paths containing single quotes are not supported "
+            "by the scoped Python query-builder smoke"
+        )
+    return f"'{path}'"
 
 
 def _is_non_string_sequence(value: object) -> bool:

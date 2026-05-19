@@ -57,6 +57,7 @@ Python can import the package and invoke explicit status/capability commands thr
 ## Related Use Cases
 
 - `first-10-minutes-local-smoke`
+- `python-local-csv-query-builder-smoke`
 - `sql-dataframe-capability-posture`
 
 ## Related Field Guide Terms

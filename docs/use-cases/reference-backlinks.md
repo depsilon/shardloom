@@ -8,14 +8,14 @@ relationship auditable.
 
 | Reference file | Related use cases |
 | --- | --- |
-| `README.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke`, `table-lakehouse-boundary-report`, `package-channel-readiness-boundary` |
+| `README.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke`, `python-local-csv-query-builder-smoke`, `sql-local-source-csv-smoke`, `table-lakehouse-boundary-report`, `package-channel-readiness-boundary` |
 | `docs/getting-started/first-10-minutes.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke`, `package-channel-readiness-boundary` |
-| `docs/getting-started/examples.md` | `first-10-minutes-local-smoke`, `local-file-etl-cleanup-smoke`, `messy-data-local-fixtures` |
+| `docs/getting-started/examples.md` | `first-10-minutes-local-smoke`, `local-file-etl-cleanup-smoke`, `python-local-csv-query-builder-smoke`, `sql-local-source-csv-smoke`, `messy-data-local-fixtures` |
 | `docs/getting-started/certified-local-workload.md` | `local-file-etl-cleanup-smoke`, `compatibility-import-certified-local`, `evidence-audit-claim-gates` |
 | `benchmarks/traditional_analytics/README.md` | `compatibility-import-certified-local`, `prepared-native-vortex-runtime-direction`, `messy-data-local-fixtures`, `query-scenario-cookbook-smoke`, `benchmark-interpretation-evidence-not-leaderboard` |
 | `docs/architecture/benchmark-suite-catalog.md` | `prepared-native-vortex-runtime-direction`, `messy-data-local-fixtures`, `query-scenario-cookbook-smoke`, `benchmark-interpretation-evidence-not-leaderboard` |
 | `docs/architecture/canonical-terminology.md` | `sql-dataframe-capability-posture` |
-| `docs/architecture/compute-engine-flow-reference.md` | `local-file-etl-cleanup-smoke`, `compatibility-import-certified-local`, `prepared-native-vortex-runtime-direction`, `source-free-generated-output-boundary`, `object-store-boundary-report`, `table-lakehouse-boundary-report`, `foundry-local-proof-boundary`, `evidence-audit-claim-gates` |
+| `docs/architecture/compute-engine-flow-reference.md` | `local-file-etl-cleanup-smoke`, `compatibility-import-certified-local`, `prepared-native-vortex-runtime-direction`, `python-local-csv-query-builder-smoke`, `sql-local-source-csv-smoke`, `source-free-generated-output-boundary`, `object-store-boundary-report`, `table-lakehouse-boundary-report`, `foundry-local-proof-boundary`, `evidence-audit-claim-gates` |
 | `docs/architecture/io-reuse-and-fanout-architecture.md` | `output-result-sink-and-fanout-boundary` |
 | `docs/architecture/object-store-request-planner.md` | `object-store-boundary-report` |
 | `docs/architecture/operational-evidence-policy-hardening.md` | `evidence-audit-claim-gates` |
@@ -29,7 +29,7 @@ relationship auditable.
 | `docs/getting-started/install.md` | `package-channel-readiness-boundary` |
 | `docs/release/hard-release-readiness-gate.md` | `package-channel-readiness-boundary` |
 | `docs/architecture/adoption-commercial-readiness-friction-reduction.md` | `package-channel-readiness-boundary` |
-| `python/README.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke`, `sql-dataframe-capability-posture`, `source-free-generated-output-boundary` |
+| `python/README.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke`, `python-local-csv-query-builder-smoke`, `sql-dataframe-capability-posture`, `source-free-generated-output-boundary` |
 | `examples/local-python-smoke/README.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke` |
 | `examples/local-vortex-benchmark/README.md` | `local-file-etl-cleanup-smoke`, `output-result-sink-and-fanout-boundary` |
 | `examples/foundry-lightweight-transform/README.md` | `foundry-local-proof-boundary` |

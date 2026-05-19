@@ -286,6 +286,71 @@ class GeneratedSourceWriteReport:
 
 
 @dataclass(frozen=True, slots=True)
+class SqlLocalSourceSmokeReport:
+    """Typed view over the scoped local CSV SQL projection/filter/limit smoke."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def result_jsonl(self) -> str:
+        """Return the bounded inline JSONL result emitted by ShardLoom."""
+
+        return _required_field(self.envelope, "result_jsonl")
+
+    @property
+    def output_path(self) -> str | None:
+        """Return the local output path when the smoke wrote one."""
+
+        value = self.envelope.field("output_path")
+        return value or None
+
+    @property
+    def output_row_count(self) -> int:
+        """Return the number of result rows emitted by the smoke."""
+
+        return self.envelope.field_int("output_row_count", 0) or 0
+
+    @property
+    def selected_row_count(self) -> int:
+        """Return the number of source rows selected before limit."""
+
+        return self.envelope.field_int("selected_row_count", 0) or 0
+
+    @property
+    def output_io_performed(self) -> bool:
+        """Whether the smoke wrote a local output file."""
+
+        return self.envelope.field_bool("output_io_performed", False) is True
+
+    @property
+    def output_native_io_certificate_status(self) -> str | None:
+        """Return the output Native I/O certificate status, when present."""
+
+        return self.envelope.field("output_native_io_certificate_status")
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the smoke command attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the smoke command invoked an external engine."""
+
+        return _envelope_external_engine_invoked(self.envelope)
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the scoped SQL smoke claim gate status."""
+
+        return _required_field(self.envelope, "claim_gate_status")
+
+
+@dataclass(frozen=True, slots=True)
 class LocalVortexPrimitiveSmokeReport:
     """Result of the explicit local Vortex primitive smoke workflow."""
 
@@ -3826,6 +3891,29 @@ class ShardLoomClient:
         if allow_overwrite:
             command.append("--allow-overwrite")
         return GeneratedSourceWriteReport(self.run(command, check=check))
+
+    def sql_local_source_smoke(
+        self,
+        statement: str,
+        *,
+        output_path: str | os.PathLike[str] | None = None,
+        output_format: str = "inline-jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport:
+        """Run the scoped local CSV SQL projection/filter/limit smoke command."""
+
+        command: list[CommandPart] = [
+            "sql-local-source-smoke",
+            statement,
+            "--output-format",
+            output_format,
+        ]
+        if output_path is not None:
+            command.extend(["--output", str(output_path)])
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        return SqlLocalSourceSmokeReport(self.run(command, check=check))
 
     def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only execution certificate planning envelope."""
