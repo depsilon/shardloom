@@ -255,7 +255,11 @@ plan before coding.
   distinct, maps every public capability family to references and claim boundaries, and prevents
   planned/blocked paths from being mistaken for runtime support through generated docs, website
   pages, validators, glossary coverage, and backlink checks.
-- [ ] Mature ergonomic runtime APIs, DataFrame/notebook surfaces, REST runtime, and user-facing
+- [x] `GAR-0010-B` adds a report-only DataFrame/notebook/package readiness matrix so local package
+  metadata, editable install smoke, DataFrame method posture, notebook display blockers, public
+  package publication blockers, and deterministic unsupported diagnostics are inspectable without
+  claiming runtime or publication support.
+- [ ] Mature ergonomic runtime APIs, broad DataFrame/notebook runtime, REST runtime, and user-facing
   package publication remain incomplete.
 
 ### RFC 0011 - Modular Extensibility for SQL, UDFs, Unstructured Data, LLM Calls, API Calls, and Embeddings

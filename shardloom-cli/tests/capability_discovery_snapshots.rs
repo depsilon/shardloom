@@ -495,6 +495,59 @@ const UNSTRUCTURED_ADAPTER_CAPABILITY_ROW_SUFFIXES: [&str; 14] = [
     "claim_boundary",
 ];
 
+const DATAFRAME_NOTEBOOK_PACKAGE_READINESS_FIELD_KEYS: [&str; 24] = [
+    "dataframe_notebook_package_readiness_schema_version",
+    "dataframe_notebook_package_readiness_report_id",
+    "dataframe_notebook_package_readiness_docs_ref",
+    "dataframe_notebook_package_readiness_source_refs",
+    "dataframe_notebook_package_readiness_support_status_vocabulary",
+    "dataframe_notebook_package_readiness_row_count",
+    "dataframe_notebook_package_readiness_row_order",
+    "dataframe_notebook_package_readiness_ready_local_count",
+    "dataframe_notebook_package_readiness_smoke_supported_count",
+    "dataframe_notebook_package_readiness_report_only_count",
+    "dataframe_notebook_package_readiness_blocked_count",
+    "dataframe_notebook_package_readiness_local_install_smoke_supported",
+    "dataframe_notebook_package_readiness_installed_package_smoke_distinct_from_runtime_support",
+    "dataframe_notebook_package_readiness_dataframe_runtime_supported",
+    "dataframe_notebook_package_readiness_notebook_runtime_supported",
+    "dataframe_notebook_package_readiness_package_publication_ready",
+    "dataframe_notebook_package_readiness_package_publication_claim_allowed",
+    "dataframe_notebook_package_readiness_dataframe_runtime_claim_allowed",
+    "dataframe_notebook_package_readiness_notebook_runtime_claim_allowed",
+    "dataframe_notebook_package_readiness_fallback_attempted",
+    "dataframe_notebook_package_readiness_external_engine_invoked",
+    "dataframe_notebook_package_readiness_all_rows_no_runtime_claims",
+    "dataframe_notebook_package_readiness_claim_gate_status",
+    "dataframe_notebook_package_readiness_claim_boundary",
+];
+
+const DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROW_IDS: [&str; 6] = [
+    "python_package_metadata",
+    "editable_install_smoke",
+    "dataframe_method_matrix",
+    "notebook_display_surface",
+    "public_package_publication",
+    "unsupported_diagnostics",
+];
+
+const DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROW_SUFFIXES: [&str; 14] = [
+    "family",
+    "surface",
+    "support_status",
+    "local_install_smoke",
+    "package_publication_allowed",
+    "dataframe_runtime_supported",
+    "notebook_runtime_supported",
+    "deterministic_diagnostic_code",
+    "blocker_id",
+    "required_evidence",
+    "claim_gate_status",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_boundary",
+];
+
 const SQL_FIELD_KEYS: [&str; 55] = [
     "scope",
     "schema_version",
@@ -598,23 +651,6 @@ fn with_generated_source_alignment_fields(base_keys: &[&'static str]) -> Vec<Str
     keys
 }
 
-fn with_wrapper_connector_registry_fields(base_keys: &[&'static str]) -> Vec<String> {
-    let mut keys = with_generated_source_alignment_fields(base_keys);
-    keys.extend(
-        WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS
-            .into_iter()
-            .map(str::to_string),
-    );
-    for row_id in WRAPPER_CONNECTOR_REGISTRY_ROW_IDS {
-        keys.extend(
-            WRAPPER_CONNECTOR_REGISTRY_ROW_SUFFIXES
-                .into_iter()
-                .map(|suffix| format!("wrapper_connector_registry_row_{row_id}_{suffix}")),
-        );
-    }
-    keys
-}
-
 fn with_openlineage_facet_mapping_fields(base_keys: &[&'static str]) -> Vec<String> {
     let mut keys: Vec<String> = base_keys.iter().copied().map(str::to_string).collect();
     keys.extend(
@@ -681,14 +717,102 @@ fn append_unstructured_adapter_capability_keys(keys: &mut Vec<String>) {
     }
 }
 
-fn with_external_effect_and_unstructured_adapter_fields(base_keys: &[&'static str]) -> Vec<String> {
-    let mut keys = with_external_effect_blocker_fields(base_keys);
+fn append_dataframe_notebook_package_readiness_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        DATAFRAME_NOTEBOOK_PACKAGE_READINESS_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROW_IDS {
+        keys.extend(
+            DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| {
+                    format!("dataframe_notebook_package_readiness_row_{row_id}_{suffix}")
+                }),
+        );
+    }
+}
+
+fn append_generated_source_contract_keys(keys: &mut Vec<String>) {
+    keys.extend(GENERATED_SOURCE_FIELD_KEYS.into_iter().map(str::to_string));
+}
+
+fn append_generated_source_api_admission_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        GENERATED_SOURCE_API_ADMISSION_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in GENERATED_SOURCE_API_ADMISSION_ROW_IDS {
+        keys.extend(
+            GENERATED_SOURCE_API_ADMISSION_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("{row_id}_{suffix}")),
+        );
+    }
+}
+
+fn append_generated_source_alignment_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        GENERATED_SOURCE_EVIDENCE_ALIGNMENT_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_IDS {
+        keys.extend(
+            GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("generated_source_evidence_alignment_row_{row_id}_{suffix}")),
+        );
+    }
+}
+
+fn with_dataframe_notebook_package_readiness_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys: Vec<String> = base_keys.iter().copied().map(str::to_string).collect();
+    append_dataframe_notebook_package_readiness_keys(&mut keys);
+    keys
+}
+
+fn with_dataframe_notebook_package_and_generated_source_fields(
+    base_keys: &[&'static str],
+) -> Vec<String> {
+    let mut keys = with_dataframe_notebook_package_readiness_fields(base_keys);
+    append_generated_source_contract_keys(&mut keys);
+    keys
+}
+
+fn with_dataframe_notebook_package_and_generated_source_alignment_fields(
+    base_keys: &[&'static str],
+) -> Vec<String> {
+    let mut keys = with_dataframe_notebook_package_and_generated_source_fields(base_keys);
+    append_generated_source_api_admission_keys(&mut keys);
+    append_generated_source_alignment_keys(&mut keys);
+    keys
+}
+
+fn with_dataframe_notebook_package_wrapper_and_unstructured_fields(
+    base_keys: &[&'static str],
+) -> Vec<String> {
+    let mut keys = with_dataframe_notebook_package_and_generated_source_alignment_fields(base_keys);
+    keys.extend(
+        WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in WRAPPER_CONNECTOR_REGISTRY_ROW_IDS {
+        keys.extend(
+            WRAPPER_CONNECTOR_REGISTRY_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("wrapper_connector_registry_row_{row_id}_{suffix}")),
+        );
+    }
     append_unstructured_adapter_capability_keys(&mut keys);
     keys
 }
 
-fn with_wrapper_and_unstructured_adapter_fields(base_keys: &[&'static str]) -> Vec<String> {
-    let mut keys = with_wrapper_connector_registry_fields(base_keys);
+fn with_external_effect_and_unstructured_adapter_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = with_external_effect_blocker_fields(base_keys);
     append_unstructured_adapter_capability_keys(&mut keys);
     keys
 }
@@ -1336,10 +1460,10 @@ fn capability_discovery_json_field_keys_are_stable() {
         let keys = field_keys(&output);
         let keys: Vec<String> = keys.into_iter().map(str::to_string).collect();
         let expected_keys = match scope {
-            "python" => {
-                with_generated_source_alignment_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
-            }
-            "api-surfaces" => with_wrapper_and_unstructured_adapter_fields(
+            "python" => with_dataframe_notebook_package_and_generated_source_alignment_fields(
+                WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
+            ),
+            "api-surfaces" => with_dataframe_notebook_package_wrapper_and_unstructured_fields(
                 WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
             ),
             "universal-adapters" => {
@@ -1351,8 +1475,11 @@ fn capability_discovery_json_field_keys_are_stable() {
                 append_unstructured_adapter_capability_keys(&mut keys);
                 keys
             }
-            "dataframe" => with_generated_source_alignment_fields(
+            "dataframe" => with_dataframe_notebook_package_and_generated_source_alignment_fields(
                 DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
+            ),
+            "notebook" | "deployment" => with_dataframe_notebook_package_readiness_fields(
+                WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
             ),
             "observability" => {
                 with_observability_contract_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
@@ -1597,6 +1724,117 @@ fn unstructured_and_adapter_capabilities_expose_report_only_matrix() {
             assert!(output.contains(&field_pair(
                 &format!("unstructured_adapter_capability_row_{row}_sink_io_performed"),
                 false
+            )));
+        }
+    }
+}
+
+#[test]
+fn dataframe_notebook_package_readiness_distinguishes_install_from_runtime_support() {
+    for scope in [
+        "python",
+        "dataframe",
+        "notebook",
+        "deployment",
+        "api-surfaces",
+    ] {
+        let output = run_capabilities_scope(scope);
+        assert_dataframe_notebook_package_readiness_summary(&output);
+        assert_dataframe_notebook_package_readiness_rows(&output);
+    }
+}
+
+fn assert_dataframe_notebook_package_readiness_summary(output: &str) {
+    assert!(output.contains(&string_field_pair(
+        "dataframe_notebook_package_readiness_schema_version",
+        "shardloom.dataframe_notebook_package_readiness.v1",
+    )));
+    assert!(output.contains(&string_field_pair(
+        "dataframe_notebook_package_readiness_report_id",
+        "gar-0010-b.dataframe_notebook_package_readiness",
+    )));
+    assert!(output.contains(&string_field_pair(
+        "dataframe_notebook_package_readiness_claim_gate_status",
+        "not_claim_grade",
+    )));
+    for (key, value) in [
+        (
+            "dataframe_notebook_package_readiness_local_install_smoke_supported",
+            true,
+        ),
+        (
+            "dataframe_notebook_package_readiness_installed_package_smoke_distinct_from_runtime_support",
+            true,
+        ),
+        (
+            "dataframe_notebook_package_readiness_dataframe_runtime_supported",
+            false,
+        ),
+        (
+            "dataframe_notebook_package_readiness_notebook_runtime_supported",
+            false,
+        ),
+        (
+            "dataframe_notebook_package_readiness_package_publication_ready",
+            false,
+        ),
+        (
+            "dataframe_notebook_package_readiness_package_publication_claim_allowed",
+            false,
+        ),
+        (
+            "dataframe_notebook_package_readiness_fallback_attempted",
+            false,
+        ),
+        (
+            "dataframe_notebook_package_readiness_external_engine_invoked",
+            false,
+        ),
+        (
+            "dataframe_notebook_package_readiness_all_rows_no_runtime_claims",
+            true,
+        ),
+    ] {
+        assert!(output.contains(&field_pair(key, value)));
+    }
+}
+
+fn assert_dataframe_notebook_package_readiness_rows(output: &str) {
+    assert!(output.contains(&string_field_pair(
+        "dataframe_notebook_package_readiness_row_order",
+        "python_package_metadata,editable_install_smoke,dataframe_method_matrix,notebook_display_surface,public_package_publication,unsupported_diagnostics",
+    )));
+    for (key, value) in [
+        (
+            "dataframe_notebook_package_readiness_row_editable_install_smoke_support_status",
+            "smoke_supported",
+        ),
+        (
+            "dataframe_notebook_package_readiness_row_dataframe_method_matrix_support_status",
+            "report_only",
+        ),
+        (
+            "dataframe_notebook_package_readiness_row_notebook_display_surface_support_status",
+            "blocked",
+        ),
+        (
+            "dataframe_notebook_package_readiness_row_public_package_publication_blocker_id",
+            "gar-0024.package_publication_gate_required",
+        ),
+    ] {
+        assert!(output.contains(&string_field_pair(key, value)));
+    }
+    for row in DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROW_IDS {
+        for suffix in [
+            "package_publication_allowed",
+            "dataframe_runtime_supported",
+            "notebook_runtime_supported",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ] {
+            assert!(output.contains(&field_pair(
+                &format!("dataframe_notebook_package_readiness_row_{row}_{suffix}"),
+                false,
             )));
         }
     }

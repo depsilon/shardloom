@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0010-B DataFrame/notebook and package surface readiness report
+  - Primary files:
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/dataframe-notebook-package-readiness.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: close GAR-0010-B by adding a side-effect-free readiness matrix that distinguishes local
+    package/import smoke from public package publication, broad DataFrame runtime, and notebook
+    runtime support.
+  - Checklist:
+    - [x] Add `shardloom.dataframe_notebook_package_readiness.v1` fields to `capabilities python`,
+          `capabilities dataframe`, `capabilities notebook`, `capabilities deployment`, and
+          `capabilities api-surfaces`.
+    - [x] Add rows for `python_package_metadata`, `editable_install_smoke`,
+          `dataframe_method_matrix`, `notebook_display_surface`, `public_package_publication`, and
+          `unsupported_diagnostics`.
+    - [x] Expose typed Python accessors through
+          `CapabilityView.dataframe_notebook_package_readiness`,
+          `ContextCapabilities.dataframe_notebook_package_readiness`, and
+          `ShardLoomContext.dataframe_notebook_package_readiness()`.
+    - [x] Document the report-only readiness boundary and keep public package publication, broad
+          DataFrame runtime, and notebook runtime blocked.
+    - [x] Move GAR-0010-B out of the active non-runtime closeout queue.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo fmt --all -- --check`
+    - `git diff --check`
+  - Claim boundary:
+    - The readiness matrix supports local package/DataFrame/notebook posture and deterministic
+      unsupported diagnostics only. It does not claim public package publication, broad
+      DataFrame/notebook runtime, production SQL/DataFrame support, object-store/lakehouse/Foundry
+      support, performance, Spark replacement, or package-release readiness.
+  - Fallback boundary:
+    - The matrix is report-only capability metadata. It does not import DataFrame/notebook
+      dependencies, render notebook output, contact package registries, execute runtime work, invoke
+      external engines, or attempt fallback.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4C SQL local equi-join smoke and blocker matrix
   - Primary files:
     - `shardloom-cli/src/sql_local_source_runtime.rs`
