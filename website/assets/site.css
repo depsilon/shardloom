@@ -1923,6 +1923,45 @@ tr:last-child td {
   min-width: 0;
 }
 
+.atlas-surface-body {
+  min-width: 0;
+}
+
+.atlas-surface-body > section {
+  border-bottom-color: rgba(4, 169, 222, 0.16);
+}
+
+.atlas-surface-body .shell {
+  width: min(980px, calc(100% - 48px));
+}
+
+.atlas-surface-body .doc-hero {
+  background:
+    radial-gradient(circle at 14% 12%, rgba(4, 169, 222, 0.12), transparent 28%),
+    linear-gradient(135deg, rgba(4, 169, 222, 0.08), rgba(124, 92, 255, 0.05)),
+    transparent;
+}
+
+.atlas-surface-body .page-header-logo {
+  width: min(236px, 68vw);
+}
+
+.atlas-surface-body .page-subnav {
+  position: static;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.atlas-surface-body .doc-body,
+.atlas-surface-body .terminal-panel,
+.atlas-surface-body .use-case-card,
+.atlas-surface-body .status-matrix-row {
+  box-shadow: 0 12px 28px rgba(7, 18, 41, 0.04);
+}
+
+.atlas-surface-sidebar .atlas-side-category.active {
+  background: rgba(4, 169, 222, 0.1);
+}
+
 .atlas-topbar {
   position: sticky;
   top: 0;
@@ -2706,6 +2745,10 @@ footer {
     width: min(100%, 860px);
   }
 
+  .atlas-surface-body .shell {
+    width: min(100%, 860px);
+  }
+
   .atlas-reading-grid,
   .atlas-stat-row,
   .atlas-meta-grid {
@@ -2832,6 +2875,10 @@ footer {
 
   .atlas-content {
     padding: 22px 16px 32px;
+  }
+
+  .atlas-surface-body .shell {
+    width: calc(100% - 32px);
   }
 
   .atlas-sidebar {

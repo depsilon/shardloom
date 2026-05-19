@@ -145,6 +145,12 @@ FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS = [
     "What this proves:",
 ]
 USE_CASE_PAGE_REQUIRED_FIELDS = [
+    "atlas-surface",
+    "atlas-surface-sidebar",
+    "atlas-surface-body",
+    "Knowledge Atlas",
+    "Core Surfaces",
+    "On This Page",
     "Use Case Atlas",
     "Plain-English Summary",
     "Status Table",
@@ -161,6 +167,21 @@ USE_CASE_PAGE_REQUIRED_FIELDS = [
     "external_engine_invoked=false",
     'data-citation-block="reference-files"',
     "What this proves:",
+]
+ATLAS_SURFACE_REQUIRED_FIELDS = [
+    "atlas-surface",
+    "atlas-surface-sidebar",
+    "atlas-surface-body",
+    "Knowledge Atlas",
+    "Core Surfaces",
+    "On This Page",
+    "pagefind-modal-trigger",
+]
+ATLAS_SURFACE_PAGES = [
+    "compute-engine-flow.html",
+    "status.html",
+    "readme.html",
+    "use-cases/index.html",
 ]
 
 
@@ -500,6 +521,16 @@ def main() -> int:
                     blockers.append(f"Field Guide index page missing atlas field: {required}")
         else:
             blockers.append("missing field-guide/index.html")
+
+        for relative in ATLAS_SURFACE_PAGES:
+            atlas_page = website / relative
+            if not atlas_page.exists():
+                blockers.append(f"missing atlas surface page: {relative}")
+                continue
+            atlas_text = atlas_page.read_text(encoding="utf-8")
+            for required in ATLAS_SURFACE_REQUIRED_FIELDS:
+                if required not in atlas_text:
+                    blockers.append(f"atlas surface page {relative} missing field: {required}")
 
         status_page = website / "status.html"
         if status_page.exists():
