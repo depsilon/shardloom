@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# SQL local CSV projection/optional-filter/limit, aggregate, group-by, top-N, and join smoke
+# SQL local CSV projection/optional-filter/IN/limit, aggregate, group-by, top-N, and join smoke
 
 ## Quick Answer
 
@@ -8,15 +8,15 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; optional local JSONL or CSV output sinks with format-specific certificate fields; and one Python query-builder local CSV inner equi-join bridge. No broad SQL/DataFrame runtime, production SQL support, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, bounded IN, null, string, logical, and balanced parenthesized predicates when filters are present; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; optional local JSONL or CSV output sinks with format-specific certificate fields; and one Python query-builder local CSV inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals, including DATE literal lists, and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. No broad SQL/DataFrame runtime, production SQL support, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, NULL/subquery-backed IN, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-SQL local CSV projection/optional-filter/limit, aggregate, group-by, top-N, and join smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+SQL local CSV projection/optional-filter/IN/limit, aggregate, group-by, top-N, and join smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; optional local JSONL or CSV output sinks with format-specific certificate fields; and one Python query-builder local CSV inner equi-join bridge. No broad SQL/DataFrame runtime, production SQL support, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, bounded IN, null, string, logical, and balanced parenthesized predicates when filters are present; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; optional local JSONL or CSV output sinks with format-specific certificate fields; and one Python query-builder local CSV inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals, including DATE literal lists, and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. No broad SQL/DataFrame runtime, production SQL support, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, NULL/subquery-backed IN, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,amount`n1
 
 ## Blocker
 
-Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV inner equi-join bridge, outer/semi/anti/cross joins, multi-key and expression joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
+Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV inner equi-join bridge, outer/semi/anti/cross joins, multi-key and expression joins, NULL/subquery-backed IN, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
@@ -42,6 +42,8 @@ Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV i
 - `source_format=csv`
 - `filter_runtime_execution`
 - `predicate_operator_family`
+- `in_predicate_runtime_execution`
+- `in_list_value_count`
 - `aggregate_runtime_execution`
 - `aggregate_operator_family`
 - `group_by_runtime_execution`
@@ -75,7 +77,7 @@ Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV i
 
 ## Expected Output Or Evidence
 
-A JSON envelope and typed Python report with inline JSONL result, optional local JSONL or CSV output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope and typed Python report with inline JSONL result, optional local JSONL or CSV output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, in_predicate_runtime_execution and in_list_value_count when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
@@ -84,6 +86,7 @@ A JSON envelope and typed Python report with inline JSONL result, optional local
 - `expecting_broad_python_dataframe_join_support`
 - `expecting_general_join_or_grouped_aggregate_support`
 - `expecting_general_order_by_or_null_ordering_support`
+- `expecting_subquery_or_null_in_semantics`
 
 ## Reference Files
 

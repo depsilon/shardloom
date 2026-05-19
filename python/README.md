@@ -336,8 +336,12 @@ same projection/optional-filter/limit
 shape is admitted for `read_json(...)` only when the source path is local
 `.jsonl` or `.ndjson`; plain `.json`, nested JSON expansion, and JSONPath
 remain deterministic unsupported surfaces. Filters admit scoped comparison,
-cast, date-literal, string `LIKE`, null, logical `AND`/`OR`/`NOT`, and
-balanced grouping parentheses over already admitted leaves. CSV and local flat
+cast, date-literal, bounded `IN (...)`, string `LIKE`, null, logical
+`AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
+leaves. `IN` lists admit up to 32 non-null literal values from one scalar
+family, including `DATE 'YYYY-MM-DD'` lists, and expose
+`in_predicate_runtime_execution` plus `in_list_value_count` in typed reports.
+CSV and local flat
 JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`, one-column grouped aggregates shaped as
@@ -378,6 +382,13 @@ filtered = (
     .select("id", "label")
     .filter("amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%')")
     .limit(1)
+    .collect()
+)
+in_filtered = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter("label IN ('alpha','gamma')")
+    .limit(10)
     .collect()
 )
 json_rows = (
@@ -430,6 +441,7 @@ print(written.evidence_summary.output_native_io_certificate_status)
 print(written.claim_summary.claim_gate_status)
 print(preview.result_jsonl)
 print(filtered.logical_predicate_operator, filtered.logical_predicate_leaf_count)
+print(in_filtered.in_predicate_runtime_execution, in_filtered.in_list_value_count)
 print(json_rows.output_path, json_rows.envelope.field("source_format"))
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
@@ -457,12 +469,18 @@ sql_rows = ctx.sql(
     "WHERE amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%') LIMIT 2"
 ).collect()
 
+sql_in_rows = ctx.sql(
+    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE label IN ('alpha','gamma') LIMIT 10"
+).collect()
+
 sql_written = ctx.sql(
     "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
     "WHERE amount >= 10 LIMIT 2"
 ).write("target/sql-local-source-from-sql.jsonl", allow_overwrite=True)
 
 print(sql_rows.result_jsonl)
+print(sql_in_rows.in_predicate_runtime_execution, sql_in_rows.in_list_value_count)
 print(sql_written.output_path)
 print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 ```
@@ -541,8 +559,9 @@ print(join.join_matched_row_count, join.join_rows_output)
 ```
 
 That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
-generality, grouped aliases, multi-key sorts, null ordering, collation parity, arbitrary
-predicate-tree completeness beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
+generality, grouped aliases, multi-key sorts, null ordering, collation parity,
+NULL or subquery-backed `IN`, arbitrary predicate-tree completeness beyond the admitted
+parenthesized leaves, Python/DataFrame joins beyond
 the scoped local CSV inner-equi query-builder bridge, outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
 production query support remain blocked until later runtime slices.
 

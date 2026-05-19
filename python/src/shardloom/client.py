@@ -366,6 +366,18 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("logical_predicate_leaf_count", 0) or 0
 
     @property
+    def in_predicate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted IN predicate path."""
+
+        return self.envelope.field_bool("in_predicate_runtime_execution", False) is True
+
+    @property
+    def in_list_value_count(self) -> int:
+        """Return the number of admitted literal values in the IN predicate tree."""
+
+        return self.envelope.field_int("in_list_value_count", 0) or 0
+
+    @property
     def string_predicate_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted string predicate leaf."""
 
