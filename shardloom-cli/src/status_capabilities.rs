@@ -33,6 +33,7 @@ use crate::{
     cli_unknown_arg_error,
     engine_runtime_planning::append_streaming_capability_matrix_summary_fields,
     evidence_certificates::append_best_default_certification_gate_fields,
+    extension_planning::append_extension_manifest_effect_capability_matrix_fields,
     operational_hardening::append_external_effect_blocker_matrix_fields,
 };
 
@@ -9031,6 +9032,14 @@ fn world_class_surface_fields(
             | CapabilityDiscoveryScope::SecurityGovernance
     ) {
         append_external_effect_blocker_matrix_fields(&mut fields);
+    }
+    if matches!(
+        scope,
+        CapabilityDiscoveryScope::Udfs
+            | CapabilityDiscoveryScope::Extensions
+            | CapabilityDiscoveryScope::SecurityGovernance
+    ) {
+        append_extension_manifest_effect_capability_matrix_fields(&mut fields);
     }
     if matches!(
         scope,

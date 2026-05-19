@@ -111,6 +111,7 @@ Reference index:
   `docs/architecture/adoption-commercial-readiness-friction-reduction.md`,
   `docs/architecture/workspace-feature-build-matrix.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
+  `docs/architecture/extension-manifest-effect-capability-matrix.md`,
   `docs/architecture/substrait-report-only-contract.md`,
   `docs/architecture/rfc-coverage-followthrough.md`,
   `docs/architecture/typed-command-result-envelope.md`,
@@ -202,20 +203,6 @@ explicitly reprioritized.
 
 ##### Non-Runtime GAR-P4 - Extension, Governance, And Runtime Policy
 
-- [ ] GAR-0011-A extension manifest and external-effect capability matrix
-  - Source: RFC 0011; effect budget plan; RFC 0019.
-  - Current state: extension manifests/effect budgets are represented; execution, UDFs, LLM/API calls,
-    embeddings, and external effects are unsupported/report-only.
-  - Next slice outcome: matrix for extension types, required permissions, materialization/effect
-    metadata, and default blockers.
-  - User-visible surface: CLI extension plan, capability view, docs.
-  - Implementation scope: extension/effect report fields, diagnostics, tests.
-  - Evidence required: policy/security/no-fallback refs.
-  - Acceptance: all external effects default to blocked with deterministic diagnostics.
-  - Verification: extension planning tests, effect budget tests.
-  - Non-goals: no extension execution, network call, model call, or embedding runtime.
-  - Fallback/claim boundary: no external-effect support claim.
-  - Dependencies/blockers: GAR-0019 credential/policy.
 - [ ] GAR-0019-A credential lifecycle and policy enforcement gate
   - Source: RFC 0019; operational evidence policy hardening; security docs.
   - Current state: security/policy reports exist; production credential lifecycle and runtime policy

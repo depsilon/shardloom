@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0011-A extension manifest and external-effect capability matrix
+  - Branch/PR: `codex/gar-0011a-extension-effect-matrix` / #757.
+  - Primary files:
+    - `shardloom-core/src/extension.rs`
+    - `shardloom-cli/src/extension_planning.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/extension_manifest_effect_matrix_snapshots.rs`
+    - `docs/architecture/extension-manifest-effect-capability-matrix.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0011-A by making extension manifest families, required permissions, sandbox
+    posture, effect metadata, materialization boundaries, and default blockers explicit through a
+    deterministic report-only capability matrix.
+  - Checklist:
+    - [x] Add `shardloom.extension_manifest_effect_capability_matrix.v1`.
+    - [x] Classify metadata-only, SQL frontend, UDF, encoded-kernel, sink, connector,
+          object-store/catalog, API/LLM, embedding/vector, observability, and benchmark-provider
+          extension families.
+    - [x] Emit matrix fields through extension registry/inspect, UDF runtime plan, and
+          capabilities for extensions, UDFs, and security/governance.
+    - [x] Move GAR-0011-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `extension_manifest_effect_matrix_schema_version=shardloom.extension_manifest_effect_capability_matrix.v1`
+    - `extension_manifest_effect_matrix_id=gar-0011-a.extension_manifest_external_effect_capability_matrix`
+    - `extension_manifest_effect_claim_gate_status=not_claim_grade`
+    - `extension_manifest_effect_all_runtime_blocked=true`
+    - `extension_manifest_effect_all_external_effects_blocked=true`
+    - `extension_manifest_effect_runtime_execution=false`
+    - `extension_manifest_effect_extension_code_executed=false`
+    - `extension_manifest_effect_dynamic_loading=false`
+    - `extension_manifest_effect_udf_execution=false`
+    - `extension_manifest_effect_external_effect_executed=false`
+    - `extension_manifest_effect_credential_resolution_performed=false`
+    - `extension_manifest_effect_network_probe_performed=false`
+    - `extension_manifest_effect_dependency_expansion_allowed=false`
+    - `extension_manifest_effect_fallback_attempted=false`
+    - `extension_manifest_effect_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core extension_manifest_effect_capability_matrix_blocks_runtime_and_effects`
+    - `cargo test -p shardloom-cli --test extension_manifest_effect_matrix_snapshots`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that it exposes a deterministic report-only
+    extension manifest/effect capability matrix. It may not claim extension execution, plugin
+    dynamic loading, UDF runtime, API/LLM/embedding/vector/model-call runtime, object-store,
+    catalog, connector, or sink extension runtime, credential resolution, network effects,
+    dependency expansion, external engine invocation, fallback execution, or a production extension
+    platform.
+
 - [x] Session label: GAR-0036-A Foundry package and proof boundary matrix
   - Branch/PR: `codex/gar-0036a-foundry-boundary-matrix` / #756.
   - Primary files:

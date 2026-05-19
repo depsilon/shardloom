@@ -153,7 +153,8 @@ pub use execution_certificate::{
 pub use extension::{
     ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory, ExtensionEffectDeclaration,
     ExtensionId, ExtensionInspectionReport, ExtensionInspectionStatus, ExtensionLicenseKind,
-    ExtensionLifecycleState, ExtensionManifest, ExtensionPermission, ExtensionProvenance,
+    ExtensionLifecycleState, ExtensionManifest, ExtensionManifestEffectCapabilityMatrix,
+    ExtensionManifestEffectCapabilityRow, ExtensionPermission, ExtensionProvenance,
     ExtensionRegistrySnapshot, ExtensionVersion, PluginAbiRequirement, PluginAbiStatus,
     SandboxPolicy, SandboxPolicyKind, UdfRuntimeKind,
 };

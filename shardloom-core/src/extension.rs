@@ -917,6 +917,362 @@ impl ExtensionRegistrySnapshot {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtensionManifestEffectCapabilityRow {
+    pub row_id: &'static str,
+    pub extension_type: &'static str,
+    pub support_status: &'static str,
+    pub manifest_status: &'static str,
+    pub required_permissions: &'static str,
+    pub sandbox_policy: &'static str,
+    pub effect_metadata: &'static str,
+    pub materialization_boundary_required: bool,
+    pub blocker_id: &'static str,
+    pub diagnostic_code: &'static str,
+    pub required_evidence: &'static str,
+    pub runtime_execution: bool,
+    pub extension_code_executed: bool,
+    pub dynamic_loading: bool,
+    pub udf_execution: bool,
+    pub external_effect_executed: bool,
+    pub credential_resolution_performed: bool,
+    pub network_probe_performed: bool,
+    pub dependency_expansion_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+impl ExtensionManifestEffectCapabilityRow {
+    #[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
+    const fn new(
+        row_id: &'static str,
+        extension_type: &'static str,
+        support_status: &'static str,
+        manifest_status: &'static str,
+        required_permissions: &'static str,
+        sandbox_policy: &'static str,
+        effect_metadata: &'static str,
+        materialization_boundary_required: bool,
+        blocker_id: &'static str,
+        diagnostic_code: &'static str,
+        required_evidence: &'static str,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            row_id,
+            extension_type,
+            support_status,
+            manifest_status,
+            required_permissions,
+            sandbox_policy,
+            effect_metadata,
+            materialization_boundary_required,
+            blocker_id,
+            diagnostic_code,
+            required_evidence,
+            runtime_execution: false,
+            extension_code_executed: false,
+            dynamic_loading: false,
+            udf_execution: false,
+            external_effect_executed: false,
+            credential_resolution_performed: false,
+            network_probe_performed: false,
+            dependency_expansion_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtensionManifestEffectCapabilityMatrix {
+    pub schema_version: &'static str,
+    pub matrix_id: &'static str,
+    pub docs_ref: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<ExtensionManifestEffectCapabilityRow>,
+    pub runtime_execution: bool,
+    pub extension_code_executed: bool,
+    pub dynamic_loading: bool,
+    pub udf_execution: bool,
+    pub external_effect_executed: bool,
+    pub credential_resolution_performed: bool,
+    pub network_probe_performed: bool,
+    pub dependency_expansion_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl ExtensionManifestEffectCapabilityMatrix {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.extension_manifest_effect_capability_matrix.v1",
+            matrix_id: "gar-0011-a.extension_manifest_external_effect_capability_matrix",
+            docs_ref: "docs/architecture/extension-manifest-effect-capability-matrix.md",
+            claim_gate_status: "not_claim_grade",
+            rows: vec![
+                ExtensionManifestEffectCapabilityRow::new(
+                    "metadata_only_manifest",
+                    "manifest",
+                    "report_only",
+                    "metadata_only_validated_no_load",
+                    "none",
+                    "metadata_only",
+                    "none",
+                    false,
+                    "none_metadata_only_manifest",
+                    "SL_EXTENSION_METADATA_ONLY",
+                    "manifest_schema,provenance_fields,no_fallback_evidence",
+                    "Metadata-only extension manifest inspection may be reported; it does not load code or enable runtime support.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "sql_frontend_extension",
+                    "frontend",
+                    "report_only",
+                    "manifest_only",
+                    "plan_metadata_only",
+                    "metadata_only",
+                    "none",
+                    true,
+                    "gar-0011-a.sql_frontend_extension_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "parser_contract,binder_contract,planner_contract,semantic_tests,effect_budget_certificate,no_fallback_evidence",
+                    "SQL frontend extensions remain report-only; no parser, binder, planner, runtime, or fallback execution is enabled.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "rust_udf_extension",
+                    "scalar_udf",
+                    "blocked",
+                    "manifest_only",
+                    "execute_udf,read_local,write_local_optional",
+                    "full_sandbox_required",
+                    "determinism_and_materialization_declared",
+                    true,
+                    "gar-0011-a.rust_udf_extension_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "abi_contract,function_registry,sandbox_policy,determinism_policy,execution_certificate,no_fallback_evidence",
+                    "Rust UDF extensions remain blocked until ABI, registry, sandbox, determinism, and evidence contracts admit execution.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "wasm_udf_extension",
+                    "wasm_udf",
+                    "blocked",
+                    "manifest_only",
+                    "execute_udf",
+                    "full_sandbox_required",
+                    "fuel_memory_and_effects_declared",
+                    true,
+                    "gar-0011-a.wasm_udf_extension_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "wasm_runtime_policy,fuel_budget,memory_budget,sandbox_policy,execution_certificate,no_fallback_evidence",
+                    "WASM UDF extensions remain blocked; no WASM runtime, fuel budget, memory budget, or execution claim is enabled.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "python_udf_extension",
+                    "python_udf",
+                    "blocked",
+                    "manifest_only",
+                    "execute_udf,materialize_rows",
+                    "full_sandbox_required",
+                    "python_boundary_and_materialization_declared",
+                    true,
+                    "gar-0011-a.python_udf_extension_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "python_boundary,materialization_policy,sandbox_policy,redaction_policy,execution_certificate,no_fallback_evidence",
+                    "Python UDF extensions remain blocked; no Python function execution, row materialization, data egress, or fallback path is enabled.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "encoded_kernel_extension",
+                    "encoded_kernel",
+                    "blocked",
+                    "manifest_only",
+                    "execute_kernel,read_encoded_segments",
+                    "full_sandbox_required",
+                    "encoding_and_decode_boundary_declared",
+                    true,
+                    "gar-0011-a.encoded_kernel_extension_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "kernel_registry,encoding_support_matrix,correctness_tests,decode_materialization_evidence,no_fallback_evidence",
+                    "Encoded-kernel extensions remain blocked until kernel registry, encoding support, correctness, and decode-boundary evidence exist.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "translation_sink_extension",
+                    "translation_sink",
+                    "blocked",
+                    "manifest_only",
+                    "write_output",
+                    "full_sandbox_required",
+                    "sink_io_and_replay_declared",
+                    true,
+                    "gar-0011-a.translation_sink_extension_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "sink_contract,result_replay_evidence,output_native_io_certificate,commit_policy,no_fallback_evidence",
+                    "Translation sink extensions remain blocked; no sink write, commit, replay, or production output claim is enabled.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "connector_extension",
+                    "connector",
+                    "blocked",
+                    "manifest_only",
+                    "read_source,write_sink_optional",
+                    "full_sandbox_required",
+                    "source_sink_effects_declared",
+                    true,
+                    "gar-0011-a.connector_extension_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "adapter_contract,credential_policy,network_policy,source_sink_certificates,no_fallback_evidence",
+                    "Connector extensions remain blocked; no database, SaaS, object-store, or external adapter runtime is enabled.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "object_store_provider_extension",
+                    "object_store_provider",
+                    "blocked",
+                    "manifest_only",
+                    "object_store_read,object_store_write_optional",
+                    "full_sandbox_required",
+                    "credential_network_commit_effects_declared",
+                    true,
+                    "gar-0011-a.object_store_provider_extension_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "credential_policy,network_policy,byte_range_evidence,commit_protocol,Native_IO_certificate,no_fallback_evidence",
+                    "Object-store provider extensions remain blocked; no credential resolution, network probe, read, write, or commit runtime is enabled.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "catalog_provider_extension",
+                    "catalog_provider",
+                    "blocked",
+                    "manifest_only",
+                    "catalog_read,catalog_write_optional",
+                    "full_sandbox_required",
+                    "catalog_effects_declared",
+                    true,
+                    "gar-0011-a.catalog_provider_extension_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "catalog_contract,credential_policy,table_metadata_policy,transaction_policy,no_fallback_evidence",
+                    "Catalog provider extensions remain blocked; no catalog probe, table metadata runtime, transaction, or fallback path is enabled.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "api_llm_effect_provider",
+                    "effect_provider",
+                    "blocked",
+                    "manifest_only",
+                    "call_api,call_model,network_egress",
+                    "full_sandbox_required",
+                    "external_call_cost_redaction_and_audit_declared",
+                    true,
+                    "gar-0011-a.api_llm_effect_provider_runtime_blocked",
+                    "SL_BLOCKED_EXTERNAL_EFFECT",
+                    "credential_policy,network_policy,model_policy,cost_budget,redaction_policy,audit_trail,no_fallback_evidence",
+                    "API and LLM effect providers remain denied by default; no credential use, network call, prompt/data egress, or model invocation is enabled.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "embedding_vector_provider",
+                    "embedding_vector_provider",
+                    "blocked",
+                    "manifest_only",
+                    "call_model,vector_index_read,network_egress",
+                    "full_sandbox_required",
+                    "embedding_vector_effects_declared",
+                    true,
+                    "gar-0011-a.embedding_vector_provider_runtime_blocked",
+                    "SL_BLOCKED_EXTERNAL_EFFECT",
+                    "model_policy,credential_policy,network_policy,vector_schema,redaction_policy,no_fallback_evidence",
+                    "Embedding and vector providers remain blocked; no model call, vector generation, remote index query, or vector-runtime claim is enabled.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "observability_exporter_extension",
+                    "observability_exporter",
+                    "report_only",
+                    "manifest_only",
+                    "export_evidence_optional",
+                    "metadata_only",
+                    "export_disabled_by_default",
+                    false,
+                    "gar-0011-a.observability_exporter_runtime_blocked",
+                    "SL_BLOCKED_EXTERNAL_EFFECT",
+                    "export_schema,redaction_policy,network_policy,opt_in_policy,no_fallback_evidence",
+                    "Observability exporter extensions remain report-only and opt-in; no lineage or telemetry event is emitted by default.",
+                ),
+                ExtensionManifestEffectCapabilityRow::new(
+                    "benchmark_provider_extension",
+                    "benchmark_provider",
+                    "report_only",
+                    "manifest_only",
+                    "external_baseline_optional",
+                    "metadata_only",
+                    "external_baseline_only",
+                    false,
+                    "gar-0011-a.benchmark_provider_runtime_blocked",
+                    "SL_BLOCKED_EXTENSION_RUNTIME",
+                    "benchmark_profile,baseline_boundary,dependency_policy,claim_gate,no_fallback_evidence",
+                    "Benchmark provider extensions are external-baseline-only; they cannot satisfy ShardLoom runtime or fallback execution.",
+                ),
+            ],
+            runtime_execution: false,
+            extension_code_executed: false,
+            dynamic_loading: false,
+            udf_execution: false,
+            external_effect_executed: false,
+            credential_resolution_performed: false,
+            network_probe_performed: false,
+            dependency_expansion_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.blocker_id).collect()
+    }
+
+    #[must_use]
+    pub fn required_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.required_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn all_runtime_blocked(&self) -> bool {
+        !self.runtime_execution
+            && !self.extension_code_executed
+            && !self.dynamic_loading
+            && !self.udf_execution
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.rows.iter().all(|row| {
+                !row.runtime_execution
+                    && !row.extension_code_executed
+                    && !row.dynamic_loading
+                    && !row.udf_execution
+                    && !row.fallback_attempted
+                    && !row.external_engine_invoked
+            })
+    }
+
+    #[must_use]
+    pub fn all_external_effects_blocked(&self) -> bool {
+        !self.external_effect_executed
+            && !self.credential_resolution_performed
+            && !self.network_probe_performed
+            && !self.dependency_expansion_allowed
+            && self.rows.iter().all(|row| {
+                !row.external_effect_executed
+                    && !row.credential_resolution_performed
+                    && !row.network_probe_performed
+                    && !row.dependency_expansion_allowed
+            })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1156,5 +1512,35 @@ mod tests {
         s.add_manifest(m);
         assert_eq!(s.usable_count(), 0);
         assert_eq!(s.requires_review_count(), 1)
+    }
+
+    #[test]
+    fn extension_manifest_effect_capability_matrix_blocks_runtime_and_effects() {
+        let matrix = ExtensionManifestEffectCapabilityMatrix::report_only();
+        assert_eq!(
+            matrix.schema_version,
+            "shardloom.extension_manifest_effect_capability_matrix.v1"
+        );
+        assert_eq!(matrix.claim_gate_status, "not_claim_grade");
+        assert!(matrix.all_runtime_blocked());
+        assert!(matrix.all_external_effects_blocked());
+        assert!(matrix.row_order().contains(&"metadata_only_manifest"));
+        assert!(matrix.row_order().contains(&"python_udf_extension"));
+        assert!(matrix.row_order().contains(&"api_llm_effect_provider"));
+        assert!(
+            matrix
+                .row_order()
+                .contains(&"object_store_provider_extension")
+        );
+        assert!(matrix.rows.iter().all(|row| !row.runtime_execution));
+        assert!(matrix.rows.iter().all(|row| !row.extension_code_executed));
+        assert!(matrix.rows.iter().all(|row| !row.external_effect_executed));
+        assert!(
+            matrix
+                .rows
+                .iter()
+                .all(|row| row.claim_boundary.contains("no")
+                    || row.claim_boundary.contains("remain"))
+        );
     }
 }

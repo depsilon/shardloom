@@ -3315,6 +3315,101 @@ fn gar_0032_c_udf_external_effect_blockers_remain_denied_by_default() {
 }
 
 #[test]
+fn gar_0011_a_extension_manifest_effect_matrix_remains_report_only() {
+    let extension = read_repo_file("shardloom-core/src/extension.rs");
+    for required in [
+        "ExtensionManifestEffectCapabilityMatrix",
+        "shardloom.extension_manifest_effect_capability_matrix.v1",
+        "gar-0011-a.extension_manifest_external_effect_capability_matrix",
+        "runtime_execution: false",
+        "extension_code_executed: false",
+        "dynamic_loading: false",
+        "udf_execution: false",
+        "external_effect_executed: false",
+        "credential_resolution_performed: false",
+        "network_probe_performed: false",
+        "dependency_expansion_allowed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "metadata_only_manifest",
+        "rust_udf_extension",
+        "python_udf_extension",
+        "object_store_provider_extension",
+        "catalog_provider_extension",
+        "api_llm_effect_provider",
+        "embedding_vector_provider",
+    ] {
+        assert!(
+            extension.contains(required),
+            "missing extension manifest/effect matrix marker {required}"
+        );
+    }
+
+    let extension_planning = read_repo_file("shardloom-cli/src/extension_planning.rs");
+    for required in [
+        "append_extension_manifest_effect_capability_matrix_fields",
+        "extension_manifest_effect_matrix_schema_version",
+        "extension_manifest_effect_all_runtime_blocked",
+        "extension_manifest_effect_all_external_effects_blocked",
+        "extension_manifest_effect_external_engine_invoked",
+    ] {
+        assert!(
+            extension_planning.contains(required),
+            "missing extension manifest/effect CLI marker {required}"
+        );
+    }
+
+    let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    assert!(capabilities.contains("append_extension_manifest_effect_capability_matrix_fields"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::Udfs"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::Extensions"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::SecurityGovernance"));
+
+    let doc = read_repo_file("docs/architecture/extension-manifest-effect-capability-matrix.md");
+    for required in [
+        "GAR-0011-A",
+        "extension_manifest_effect_matrix_schema_version=shardloom.extension_manifest_effect_capability_matrix.v1",
+        "extension_manifest_effect_claim_gate_status=not_claim_grade",
+        "extension_manifest_effect_all_runtime_blocked=true",
+        "extension_manifest_effect_all_external_effects_blocked=true",
+        "extension_manifest_effect_runtime_execution=false",
+        "extension_manifest_effect_external_effect_executed=false",
+        "extension_manifest_effect_fallback_attempted=false",
+        "extension_manifest_effect_external_engine_invoked=false",
+        "no extension execution claim",
+        "no fallback or external-engine execution claim",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing extension manifest/effect doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0011-A extension manifest"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(
+        completed.contains("GAR-0011-A extension manifest and external-effect capability matrix")
+    );
+    assert!(completed.contains("shardloom.extension_manifest_effect_capability_matrix.v1"));
+    assert!(completed.contains("extension_manifest_effect_runtime_execution=false"));
+    assert!(completed.contains("extension_manifest_effect_external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(
+        gar.contains(
+            "`GAR-0011-A` adds `shardloom.extension_manifest_effect_capability_matrix.v1`"
+        )
+    );
+    assert!(gar.contains("Extension execution, UDF execution, LLM/API calls"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("Priority 3.6, GAR-0011-A"));
+    assert!(traceability.contains("shardloom.extension_manifest_effect_capability_matrix.v1"));
+}
+
+#[test]
 fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
     let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
     for required in [
