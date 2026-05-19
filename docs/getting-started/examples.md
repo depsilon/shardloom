@@ -115,6 +115,28 @@ direct-transient boundary and emits `aggregate_runtime_execution=true`,
 execution certificate ref, and no-fallback evidence. It is not grouped aggregation, joins, broad SQL
 runtime, performance evidence, or production SQL/DataFrame support.
 
+## SQL Local CSV Group-By Aggregate Smoke
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+id,region,amount
+1,east,10
+2,west,5
+3,east,12
+4,west,
+5,north,3
+"@ | Set-Content -Encoding utf8 target\sql-local-source-group-by.csv
+cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT region,count(*),sum(amount) FROM 'target/sql-local-source-group-by.csv' WHERE amount >= 0 GROUP BY region LIMIT 10" --format json
+```
+
+Use this for the next GAR-RUNTIME-IMPL-1E operator-family promotion. It emits
+`sql_statement_kind=local_source_group_by_aggregate_filter_limit`,
+`aggregate_operator_family=grouped_aggregate`, `group_by_runtime_execution=true`,
+`group_by_columns`, group count, the grouped aggregate execution certificate ref, and no-fallback
+evidence. It is not multi-key group-by generality, Python `group_by().agg(...)`, broad SQL,
+prepared/native aggregate promotion, performance evidence, or production SQL/DataFrame support.
+
 ## Python Local CSV Query-Builder Smoke
 
 ```powershell

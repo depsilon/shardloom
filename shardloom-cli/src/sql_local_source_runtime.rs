@@ -8,6 +8,7 @@
 //! integrations.
 
 use std::{
+    collections::BTreeMap,
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
@@ -30,6 +31,8 @@ const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
 const EXECUTION_CERTIFICATE_ID: &str = "sql-local-source.csv.projection-filter-limit.execution.v1";
 const AGGREGATE_EXECUTION_CERTIFICATE_ID: &str =
     "sql-local-source.csv.aggregate-filter-limit.execution.v1";
+const GROUPED_AGGREGATE_EXECUTION_CERTIFICATE_ID: &str =
+    "sql-local-source.csv.group-by-aggregate-filter-limit.execution.v1";
 const SOURCE_CERTIFICATE_ID: &str = "sql-local-source.csv.compatibility-source.v1";
 const OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const MAX_INPUT_ROWS: usize = 50_000;
@@ -69,6 +72,7 @@ impl SqlLocalSourceOutputFormat {
 struct ParsedSqlLocalSource {
     projections: Vec<String>,
     aggregates: Vec<ParsedAggregate>,
+    group_by: Vec<String>,
     source_path: PathBuf,
     predicate: ParsedPredicate,
     limit: usize,
@@ -119,6 +123,12 @@ struct CsvSourceData {
     source_digest: String,
     read_millis: u128,
     parse_millis: u128,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct GroupedAggregateBucket {
+    values: Vec<(String, ScalarValue)>,
+    row_indexes: Vec<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -261,7 +271,9 @@ fn run_sql_local_source_smoke(
                     .as_str())
         )));
     }
-    let output_rows = if parsed.is_aggregate() {
+    let output_rows = if parsed.is_grouped_aggregate() {
+        evaluate_grouped_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
+    } else if parsed.is_aggregate() {
         evaluate_scalar_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
     } else {
         evaluate_projection_output(&parsed, &source, &filter.selected_row_indexes)?
@@ -360,6 +372,61 @@ fn evaluate_scalar_aggregate_output(
         ));
     }
     Ok(vec![row])
+}
+
+fn evaluate_grouped_aggregate_output(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+    if parsed.limit == 0 {
+        return Ok(Vec::new());
+    }
+    let mut groups: BTreeMap<String, GroupedAggregateBucket> = BTreeMap::new();
+    for row_index in selected_row_indexes {
+        let row = source.rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+        })?;
+        let group_values = parsed
+            .group_by
+            .iter()
+            .map(|column| {
+                let value = row.get(column).cloned().ok_or_else(|| {
+                    unsupported_sql_error(&format!(
+                        "GROUP BY column {column:?} is not present in the CSV row"
+                    ))
+                })?;
+                Ok((column.clone(), value))
+            })
+            .collect::<Result<Vec<_>, ShardLoomError>>()?;
+        let key = group_key(&group_values);
+        let entry = groups.entry(key).or_insert_with(|| GroupedAggregateBucket {
+            values: group_values,
+            row_indexes: Vec::new(),
+        });
+        entry.row_indexes.push(*row_index);
+    }
+
+    let mut output_rows = Vec::new();
+    for (_key, bucket) in groups.into_iter().take(parsed.limit) {
+        let mut row = bucket.values;
+        for aggregate in &parsed.aggregates {
+            row.push((
+                aggregate.output_name(),
+                evaluate_scalar_aggregate(aggregate, source, &bucket.row_indexes)?,
+            ));
+        }
+        output_rows.push(row);
+    }
+    Ok(output_rows)
+}
+
+fn group_key(values: &[(String, ScalarValue)]) -> String {
+    values
+        .iter()
+        .map(|(_name, value)| value.summary())
+        .collect::<Vec<_>>()
+        .join("\u{1f}")
 }
 
 fn evaluate_scalar_aggregate(
@@ -585,7 +652,34 @@ fn bind_sql_local_source(
     parsed: &ParsedSqlLocalSource,
     header: &[String],
 ) -> Result<(), ShardLoomError> {
-    if parsed.is_aggregate() {
+    if parsed.is_grouped_aggregate() {
+        if parsed.projections != parsed.group_by {
+            return Err(unsupported_sql_error(
+                "GROUP BY smoke requires SELECT group columns to exactly match GROUP BY columns before aggregate functions",
+            ));
+        }
+        for column in &parsed.group_by {
+            if !header.iter().any(|candidate| candidate == column) {
+                return Err(unsupported_sql_error(&format!(
+                    "GROUP BY column {column:?} is not present in the CSV header"
+                )));
+            }
+        }
+        for aggregate in &parsed.aggregates {
+            if let Some(column) = aggregate.column.as_deref() {
+                if !header.iter().any(|candidate| candidate == column) {
+                    return Err(unsupported_sql_error(&format!(
+                        "aggregate column {column:?} is not present in the CSV header"
+                    )));
+                }
+            }
+        }
+    } else if parsed.is_aggregate() {
+        if !parsed.projections.is_empty() {
+            return Err(unsupported_sql_error(
+                "scalar aggregate SELECT list cannot mix aggregate functions with raw columns in this scoped smoke",
+            ));
+        }
         for aggregate in &parsed.aggregates {
             if let Some(column) = aggregate.column.as_deref() {
                 if !header.iter().any(|candidate| candidate == column) {
@@ -604,6 +698,11 @@ fn bind_sql_local_source(
             }
         }
     }
+    if !parsed.group_by.is_empty() && !parsed.is_grouped_aggregate() {
+        return Err(unsupported_sql_error(
+            "GROUP BY requires at least one aggregate function in this scoped smoke",
+        ));
+    }
     let predicate_column = parsed.predicate.column();
     if !header.iter().any(|candidate| candidate == predicate_column) {
         return Err(unsupported_sql_error(&format!(
@@ -618,8 +717,14 @@ impl ParsedSqlLocalSource {
         !self.aggregates.is_empty()
     }
 
+    fn is_grouped_aggregate(&self) -> bool {
+        !self.group_by.is_empty() && self.is_aggregate()
+    }
+
     fn statement_kind(&self) -> &'static str {
-        if self.is_aggregate() {
+        if self.is_grouped_aggregate() {
+            "local_source_group_by_aggregate_filter_limit"
+        } else if self.is_aggregate() {
             "local_source_aggregate_filter_limit"
         } else {
             "local_source_projection_filter_limit"
@@ -627,7 +732,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn claim_gate_reason(&self) -> &'static str {
-        if self.is_aggregate() {
+        if self.is_grouped_aggregate() {
+            "one_scoped_local_csv_sql_group_by_aggregate_filter_limit_smoke"
+        } else if self.is_aggregate() {
             "one_scoped_local_csv_sql_scalar_aggregate_filter_limit_smoke"
         } else {
             "one_scoped_local_csv_sql_projection_filter_limit_smoke"
@@ -635,7 +742,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn execution_certificate_ref(&self) -> &'static str {
-        if self.is_aggregate() {
+        if self.is_grouped_aggregate() {
+            GROUPED_AGGREGATE_EXECUTION_CERTIFICATE_ID
+        } else if self.is_aggregate() {
             AGGREGATE_EXECUTION_CERTIFICATE_ID
         } else {
             EXECUTION_CERTIFICATE_ID
@@ -651,7 +760,13 @@ impl ParsedSqlLocalSource {
     }
 
     fn output_columns(&self, header: &[String]) -> Vec<String> {
-        if self.is_aggregate() {
+        if self.is_grouped_aggregate() {
+            self.group_by
+                .iter()
+                .cloned()
+                .chain(self.aggregates.iter().map(ParsedAggregate::output_name))
+                .collect()
+        } else if self.is_aggregate() {
             self.aggregates
                 .iter()
                 .map(ParsedAggregate::output_name)
@@ -824,7 +939,9 @@ impl SqlLocalSourceReport {
             ),
             (
                 "aggregate_operator_family".to_string(),
-                if self.parsed.is_aggregate() {
+                if self.parsed.is_grouped_aggregate() {
+                    "grouped_aggregate"
+                } else if self.parsed.is_aggregate() {
                     "scalar_aggregate"
                 } else {
                     "not_applicable"
@@ -839,6 +956,22 @@ impl SqlLocalSourceReport {
                     .map(ParsedAggregate::label)
                     .collect::<Vec<_>>()
                     .join(","),
+            ),
+            (
+                "group_by_runtime_execution".to_string(),
+                self.parsed.is_grouped_aggregate().to_string(),
+            ),
+            (
+                "group_by_columns".to_string(),
+                self.parsed.group_by.join(","),
+            ),
+            (
+                "group_by_group_count".to_string(),
+                if self.parsed.is_grouped_aggregate() {
+                    self.output_rows.len().to_string()
+                } else {
+                    "0".to_string()
+                },
             ),
             (
                 "predicate_operator_family".to_string(),
@@ -1157,15 +1290,21 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     let limit_index = find_keyword_outside_quotes(&statement, "limit").ok_or_else(|| {
         unsupported_sql_error("SQL local-source smoke requires a LIMIT <n> clause")
     })?;
-    if !(from_index > 6 && where_index > from_index && limit_index > where_index) {
+    let group_by_index = find_keyword_outside_quotes(&statement, "group by");
+    if !(from_index > 6 && where_index > from_index && limit_index > where_index)
+        || group_by_index.is_some_and(|index| !(index > where_index && index < limit_index))
+    {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke requires SELECT ... FROM ... WHERE ... LIMIT ... order",
+            "SQL local-source smoke requires SELECT ... FROM ... WHERE ... [GROUP BY ...] LIMIT ... order",
         ));
     }
 
     let select_list = statement[6..from_index].trim();
     let source_raw = statement[from_index + 4..where_index].trim();
-    let predicate_raw = statement[where_index + 5..limit_index].trim();
+    let predicate_end = group_by_index.unwrap_or(limit_index);
+    let predicate_raw = statement[where_index + 5..predicate_end].trim();
+    let group_by_raw =
+        group_by_index.map(|index| statement[index + "group by".len()..limit_index].trim());
     let limit_raw = statement[limit_index + 5..].trim();
     if select_list.is_empty()
         || source_raw.is_empty()
@@ -1186,6 +1325,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     }
 
     let projection_list = parse_projection_list(select_list)?;
+    let group_by = parse_group_by_list(group_by_raw)?;
     let source_path = parse_source_path(source_raw)?;
     let predicate = parse_predicate(predicate_raw)?;
     let limit = parse_limit(limit_raw)?;
@@ -1193,6 +1333,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     Ok(ParsedSqlLocalSource {
         projections: projection_list.projections,
         aggregates: projection_list.aggregates,
+        group_by,
         source_path,
         predicate,
         limit,
@@ -1241,11 +1382,6 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             projections.push(projection.to_string());
         }
     }
-    if !aggregates.is_empty() && !projections.is_empty() {
-        return Err(unsupported_sql_error(
-            "scalar aggregate SELECT list cannot mix aggregate functions with raw columns in this scoped smoke",
-        ));
-    }
     Ok(ParsedProjectionList {
         projections,
         aggregates,
@@ -1292,6 +1428,30 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
         function,
         column: Some(argument.to_string()),
     }))
+}
+
+fn parse_group_by_list(raw: Option<&str>) -> Result<Vec<String>, ShardLoomError> {
+    let Some(raw) = raw else {
+        return Ok(Vec::new());
+    };
+    if raw.trim().is_empty() {
+        return Err(unsupported_sql_error("GROUP BY columns must not be empty"));
+    }
+    let columns = split_sql_csv(raw)?;
+    if columns.is_empty() {
+        return Err(unsupported_sql_error("GROUP BY columns must not be empty"));
+    }
+    let mut parsed = Vec::with_capacity(columns.len());
+    for column in columns {
+        validate_sql_identifier(&column)?;
+        if parsed.iter().any(|existing| existing == &column) {
+            return Err(unsupported_sql_error(
+                "GROUP BY duplicate columns are not admitted in this scoped smoke",
+            ));
+        }
+        parsed.push(column);
+    }
+    Ok(parsed)
 }
 
 fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
@@ -1686,6 +1846,7 @@ mod tests {
 
         assert_eq!(parsed.projections, vec!["id", "label"]);
         assert!(parsed.aggregates.is_empty());
+        assert!(parsed.group_by.is_empty());
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
         assert_eq!(parsed.limit, 5);
         assert!(matches!(
@@ -1710,10 +1871,29 @@ mod tests {
         assert_eq!(parsed.aggregates[0].label(), "count(*)");
         assert_eq!(parsed.aggregates[1].label(), "sum(amount)");
         assert_eq!(parsed.aggregates[2].output_name(), "avg_amount");
+        assert!(parsed.group_by.is_empty());
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
         assert_eq!(
             parsed.statement_kind(),
             "local_source_aggregate_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_group_by_aggregate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT region,count(*),sum(amount) FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region LIMIT 10",
+        )
+        .expect("group-by aggregate statement parses");
+
+        assert_eq!(parsed.projections, vec!["region"]);
+        assert_eq!(parsed.group_by, vec!["region"]);
+        assert_eq!(parsed.aggregates.len(), 2);
+        assert_eq!(parsed.aggregates[0].label(), "count(*)");
+        assert_eq!(parsed.aggregates[1].label(), "sum(amount)");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_group_by_aggregate_filter_limit"
         );
     }
 
