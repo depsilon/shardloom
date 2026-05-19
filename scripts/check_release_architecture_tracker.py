@@ -39,8 +39,11 @@ def resolve(repo_root: Path, path: Path) -> Path:
     return path if path.is_absolute() else repo_root / path
 
 
-def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8") if path.exists() else ""
+def read_required_text(path: Path, label: str, blockers: list[str]) -> str:
+    if not path.exists():
+        blockers.append(f"missing required architecture tracker input: {label} ({path.as_posix()})")
+        return ""
+    return path.read_text(encoding="utf-8")
 
 
 def unchecked_items(text: str) -> list[str]:
@@ -89,14 +92,15 @@ def main() -> int:
     per_claim_matrix_ref = Path("docs/release/per-claim-evidence-attachment-matrix.md")
     completed_ref = Path("docs/architecture/phased-execution-completed-ledger.md")
 
-    global_review = read_text(repo_root / global_review_ref)
-    phase_plan = read_text(repo_root / phase_plan_ref)
-    traceability = read_text(repo_root / traceability_ref)
-    unsupported = read_text(repo_root / unsupported_ref)
-    security = read_text(repo_root / security_ref)
-    provenance = read_text(repo_root / provenance_ref)
-    per_claim_matrix = read_text(repo_root / per_claim_matrix_ref)
-    completed = read_text(repo_root / completed_ref)
+    blockers: list[str] = []
+    global_review = read_required_text(repo_root / global_review_ref, "global architecture review", blockers)
+    phase_plan = read_required_text(repo_root / phase_plan_ref, "phased execution plan", blockers)
+    traceability = read_required_text(repo_root / traceability_ref, "RFC phase traceability", blockers)
+    unsupported = read_required_text(repo_root / unsupported_ref, "known unsupported paths", blockers)
+    security = read_required_text(repo_root / security_ref, "release security gate", blockers)
+    provenance = read_required_text(repo_root / provenance_ref, "release provenance dry run", blockers)
+    per_claim_matrix = read_required_text(repo_root / per_claim_matrix_ref, "per-claim evidence matrix", blockers)
+    completed = read_required_text(repo_root / completed_ref, "completed ledger", blockers)
 
     global_unchecked = unchecked_items(global_review)
     phase_unchecked = unchecked_items(phase_plan)
@@ -107,7 +111,6 @@ def main() -> int:
     known_mirrored_ids = mirrored_phase_gar_ids | completed_gar_ids
     mirrored_missing = sorted(global_gar_ids - mirrored_gar_ids(global_gar_ids, known_mirrored_ids))
 
-    blockers: list[str] = []
     if global_unchecked:
         blockers.append(f"global architecture review has unchecked items: {len(global_unchecked)}")
     if phase_unchecked:

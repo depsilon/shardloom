@@ -1701,9 +1701,10 @@ const CERTIFICATION_FIELD_KEYS: [&str; 46] = [
     "best_default_certification_gate_claim_boundary",
 ];
 
-const WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 24] = [
+const WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 25] = [
     "scope",
     "schema_version",
+    "support_status",
     "fallback_execution_allowed",
     "fallback_attempted",
     "side_effect_free",
@@ -1728,9 +1729,10 @@ const WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 24] = [
     "best_default_publication_allowed",
 ];
 
-const DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 45] = [
+const DATAFRAME_WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 46] = [
     "scope",
     "schema_version",
+    "support_status",
     "fallback_execution_allowed",
     "fallback_attempted",
     "side_effect_free",
