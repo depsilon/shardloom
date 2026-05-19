@@ -368,6 +368,23 @@ a pandas/Polars-like execution engine, does not add broad SQL/DataFrame
 runtime, does not support object stores or table/lakehouse inputs, and does not
 create a performance or production claim.
 
+The lower-level `client.sql_local_source_smoke(...)` helper can also call the
+scoped local CSV scalar aggregate smoke directly:
+
+```python
+report = client.sql_local_source_smoke(
+    "SELECT count(*),sum(amount),avg(amount) "
+    "FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE amount >= 10 LIMIT 1",
+)
+print(report.result_jsonl)
+print(report.claim_gate_status)
+```
+
+That path is still fixture-smoke evidence only. Grouped aggregates, joins, broad
+SQL/DataFrame planning, and production query support remain blocked until later
+runtime slices.
+
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A
 future Python `explain()` trace should expose optimizer rule status, before/after plan digests,
 rewrite safety, evidence preservation, no-fallback fields, and claim gates without implying broad

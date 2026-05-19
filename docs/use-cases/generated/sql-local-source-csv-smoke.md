@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# SQL local CSV projection/filter/limit smoke
+# SQL local CSV projection/filter/limit and scalar aggregate smoke
 
 ## Quick Answer
 
@@ -8,15 +8,15 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** One scoped local CSV SELECT projection/filter/limit smoke with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit and scalar aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, grouped aggregate, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-SQL local CSV projection/filter/limit smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+SQL local CSV projection/filter/limit and scalar aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-One scoped local CSV SELECT projection/filter/limit smoke with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, external fallback, or performance claim.
+Scoped local CSV SELECT projection/filter/limit and scalar aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, grouped aggregate, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,11 +26,11 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha
 
 ## Blocker
 
-Parquet/Vortex SQL sources, joins, aggregates, functions, subqueries, catalogs, object stores, table/lakehouse sources, output sinks, and production SQL/DataFrame support require later runtime slices.
+Parquet/Vortex SQL sources, joins, grouped aggregates, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
-`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, optional_local_jsonl_output, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, optional_local_jsonl_output, scalar_aggregate_result, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -40,6 +40,8 @@ Parquet/Vortex SQL sources, joins, aggregates, functions, subqueries, catalogs, 
 - `sql_planner_executed=true`
 - `source_io_performed=true`
 - `source_format=csv`
+- `aggregate_runtime_execution`
+- `aggregate_operator_family`
 - `output_io_performed`
 - `output_native_io_certificate_status`
 - `materialization_boundary`
@@ -49,13 +51,13 @@ Parquet/Vortex SQL sources, joins, aggregates, functions, subqueries, catalogs, 
 
 ## Expected Output Or Evidence
 
-A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, scalar aggregate fields when requested, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
 - `treating_smoke_as_sql_compatibility`
 - `expecting_parquet_or_s3_sql_sources`
-- `expecting_join_or_aggregate_support`
+- `expecting_join_or_grouped_aggregate_support`
 
 ## Reference Files
 

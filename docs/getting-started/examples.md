@@ -92,8 +92,28 @@ Use this for the scoped GAR-RUNTIME-IMPL-1B path that parses, binds, plans, and 
 CSV SQL shape through ShardLoom-owned projection/filter/limit semantics. It prints bounded inline
 JSONL and emits source-read, execution-certificate, materialization/decode, no-fallback, and
 claim-gate evidence. It is not broad SQL runtime, a production SQL/DataFrame claim, Parquet/Vortex
-SQL source support, joins, aggregates, functions, subqueries, object-store/table support, or a
+SQL source support, joins, grouped aggregates, functions, subqueries, object-store/table support, or a
 performance claim.
+
+## SQL Local CSV Scalar Aggregate Smoke
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+id,label,amount
+1,alpha,8
+2,beta,15
+3,gamma,
+4,delta,21
+"@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
+cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT count(*),sum(amount),avg(amount),min(amount),max(amount) FROM 'target/sql-local-source-smoke.csv' WHERE amount >= 10 LIMIT 1" --format json
+```
+
+Use this for the first GAR-RUNTIME-IMPL-1E operator-family promotion. It keeps the same local CSV
+direct-transient boundary and emits `aggregate_runtime_execution=true`,
+`aggregate_operator_family=scalar_aggregate`, scalar aggregate function labels, the aggregate
+execution certificate ref, and no-fallback evidence. It is not grouped aggregation, joins, broad SQL
+runtime, performance evidence, or production SQL/DataFrame support.
 
 ## Python Local CSV Query-Builder Smoke
 
