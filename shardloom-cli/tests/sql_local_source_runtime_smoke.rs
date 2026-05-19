@@ -750,10 +750,83 @@ fn sql_local_source_smoke_executes_jsonl_projection_filter_limit_with_source_sta
         "not_cached_sql_local_source_smoke"
     )));
     assert!(stdout.contains(&field("source_columns", "id,label,amount,event_date")));
+    assert!(stdout.contains(&field(
+        "pushdown_status",
+        "not_applicable_local_jsonl_transient"
+    )));
+    assert!(stdout.contains(&field(
+        "source_certificate_ref",
+        "sql-local-source.jsonl.compatibility-source.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.jsonl.projection-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "local_jsonl_row_materialization_to_expression_semantics"
+    )));
+    assert!(stdout.contains(&field(
+        "claim_gate_reason",
+        "one_scoped_local_jsonl_sql_projection_filter_limit_smoke"
+    )));
     assert!(stdout.contains(&field("input_row_count", "3")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(
         "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\",\\\"event_date\\\":\\\"2026-05-19\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\",\\\"event_date\\\":\\\"2026-05-20\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source jsonl");
+}
+
+#[test]
+fn sql_local_source_smoke_jsonl_scalar_aggregate_uses_jsonl_evidence_labels() {
+    let source_path = unique_path("sql-local-source-jsonl-aggregate", "jsonl");
+    fs::write(
+        &source_path,
+        "{\"id\":1,\"label\":\"alpha\",\"amount\":8}\n\
+         {\"id\":2,\"label\":\"beta\",\"amount\":15}\n\
+         {\"id\":3,\"label\":\"beta\",\"amount\":21}\n",
+    )
+    .expect("write source jsonl");
+
+    let statement = format!(
+        "SELECT count(*),sum(amount),avg(amount) FROM '{}' WHERE amount >= 10 LIMIT 1",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "jsonl")));
+    assert!(stdout.contains(&field("aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("aggregate_operator_family", "scalar_aggregate")));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.jsonl.aggregate-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "local_jsonl_row_materialization_to_expression_semantics"
+    )));
+    assert!(stdout.contains(&field(
+        "claim_gate_reason",
+        "one_scoped_local_jsonl_sql_scalar_aggregate_filter_limit_smoke"
+    )));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"count_all\\\":2,\\\"sum_amount\\\":36,\\\"avg_amount\\\":18.0}\\n\""
     ));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));

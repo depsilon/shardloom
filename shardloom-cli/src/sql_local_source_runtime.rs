@@ -31,16 +31,6 @@ use crate::{
 
 const COMMAND: &str = "sql-local-source-smoke";
 const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
-const EXECUTION_CERTIFICATE_ID: &str = "sql-local-source.csv.projection-filter-limit.execution.v1";
-const ORDER_BY_TOPN_EXECUTION_CERTIFICATE_ID: &str =
-    "sql-local-source.csv.order-by-topn-filter-limit.execution.v1";
-const INNER_JOIN_EXECUTION_CERTIFICATE_ID: &str =
-    "sql-local-source.csv.inner-equi-join-filter-limit.execution.v1";
-const AGGREGATE_EXECUTION_CERTIFICATE_ID: &str =
-    "sql-local-source.csv.aggregate-filter-limit.execution.v1";
-const GROUPED_AGGREGATE_EXECUTION_CERTIFICATE_ID: &str =
-    "sql-local-source.csv.group-by-aggregate-filter-limit.execution.v1";
-const SOURCE_CERTIFICATE_ID: &str = "sql-local-source.csv.compatibility-source.v1";
 const OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
@@ -1432,31 +1422,31 @@ impl ParsedSqlLocalSource {
         }
     }
 
-    fn claim_gate_reason(&self) -> &'static str {
+    fn execution_certificate_suffix(&self) -> &'static str {
         if self.is_join() {
-            "one_scoped_local_csv_sql_inner_equi_join_filter_limit_smoke"
+            "inner-equi-join-filter-limit"
         } else if self.order_by.is_some() {
-            "one_scoped_local_csv_sql_order_by_topn_filter_limit_smoke"
+            "order-by-topn-filter-limit"
         } else if self.is_grouped_aggregate() {
-            "one_scoped_local_csv_sql_group_by_aggregate_filter_limit_smoke"
+            "group-by-aggregate-filter-limit"
         } else if self.is_aggregate() {
-            "one_scoped_local_csv_sql_scalar_aggregate_filter_limit_smoke"
+            "aggregate-filter-limit"
         } else {
-            "one_scoped_local_csv_sql_projection_filter_limit_smoke"
+            "projection-filter-limit"
         }
     }
 
-    fn execution_certificate_ref(&self) -> &'static str {
+    fn claim_gate_reason_suffix(&self) -> &'static str {
         if self.is_join() {
-            INNER_JOIN_EXECUTION_CERTIFICATE_ID
+            "inner_equi_join_filter_limit"
         } else if self.order_by.is_some() {
-            ORDER_BY_TOPN_EXECUTION_CERTIFICATE_ID
+            "order_by_topn_filter_limit"
         } else if self.is_grouped_aggregate() {
-            GROUPED_AGGREGATE_EXECUTION_CERTIFICATE_ID
+            "group_by_aggregate_filter_limit"
         } else if self.is_aggregate() {
-            AGGREGATE_EXECUTION_CERTIFICATE_ID
+            "scalar_aggregate_filter_limit"
         } else {
-            EXECUTION_CERTIFICATE_ID
+            "projection_filter_limit"
         }
     }
 
@@ -2154,10 +2144,7 @@ impl SqlLocalSourceReport {
             ("projection_pushed_down".to_string(), "false".to_string()),
             ("filter_pushed_down".to_string(), "false".to_string()),
             ("limit_pushed_down".to_string(), "false".to_string()),
-            (
-                "pushdown_status".to_string(),
-                "not_applicable_local_csv_transient".to_string(),
-            ),
+            ("pushdown_status".to_string(), self.pushdown_status()),
             ("plan_digest".to_string(), self.plan_digest.clone()),
             ("correctness_digest".to_string(), self.result_digest.clone()),
             ("result_digest".to_string(), self.result_digest.clone()),
@@ -2214,7 +2201,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "source_certificate_ref".to_string(),
-                SOURCE_CERTIFICATE_ID.to_string(),
+                self.source_certificate_ref(),
             ),
             (
                 "execution_certificate_status".to_string(),
@@ -2222,11 +2209,11 @@ impl SqlLocalSourceReport {
             ),
             (
                 "execution_certificate_ref".to_string(),
-                self.parsed.execution_certificate_ref().to_string(),
+                self.execution_certificate_ref(),
             ),
             (
                 "materialization_boundary".to_string(),
-                "local_csv_row_materialization_to_expression_semantics".to_string(),
+                self.materialization_boundary(),
             ),
             ("data_decoded".to_string(), "true".to_string()),
             ("data_materialized".to_string(), "true".to_string()),
@@ -2271,10 +2258,7 @@ impl SqlLocalSourceReport {
                 "claim_gate_status".to_string(),
                 "fixture_smoke_only".to_string(),
             ),
-            (
-                "claim_gate_reason".to_string(),
-                self.parsed.claim_gate_reason().to_string(),
-            ),
+            ("claim_gate_reason".to_string(), self.claim_gate_reason()),
             ("performance_claim_allowed".to_string(), "false".to_string()),
             ("production_claim_allowed".to_string(), "false".to_string()),
             (
@@ -2324,6 +2308,47 @@ impl SqlLocalSourceReport {
             source.rows.len(),
             source.source_bytes
         ))
+    }
+
+    fn source_format_label(&self) -> &'static str {
+        self.source.source_format.as_str()
+    }
+
+    fn source_certificate_ref(&self) -> String {
+        format!(
+            "sql-local-source.{}.compatibility-source.v1",
+            self.source_format_label()
+        )
+    }
+
+    fn execution_certificate_ref(&self) -> String {
+        format!(
+            "sql-local-source.{}.{}.execution.v1",
+            self.source_format_label(),
+            self.parsed.execution_certificate_suffix()
+        )
+    }
+
+    fn materialization_boundary(&self) -> String {
+        format!(
+            "local_{}_row_materialization_to_expression_semantics",
+            self.source_format_label()
+        )
+    }
+
+    fn pushdown_status(&self) -> String {
+        format!(
+            "not_applicable_local_{}_transient",
+            self.source_format_label()
+        )
+    }
+
+    fn claim_gate_reason(&self) -> String {
+        format!(
+            "one_scoped_local_{}_sql_{}_smoke",
+            self.source_format_label(),
+            self.parsed.claim_gate_reason_suffix()
+        )
     }
 }
 

@@ -347,7 +347,9 @@ or documentation updates alone are insufficient.
     fingerprints, schema digests, and deterministic blockers for nested JSON values. The Python
     query-builder can lower local flat `.jsonl`/`.ndjson`
     `read_json(...).select(...).filter(...).limit(...).collect()/write(...)` workflows into that
-    runtime path. General JSON, Parquet, Arrow IPC, Avro, and ORC do not all have ordinary
+    runtime path. Local-source evidence labels for CSV versus JSONL/NDJSON source certificate refs,
+    execution certificate refs, materialization boundaries, pushdown status, and claim reasons are
+    source-format-aware. General JSON, Parquet, Arrow IPC, Avro, and ORC do not all have ordinary
     user-facing SourceState runtime parity.
   - Next slice outcome: promote one remaining local input format at a time into the adapter registry
     with SourceState evidence and deterministic blockers for unsupported formats/features.
@@ -866,8 +868,9 @@ docs/website parity, and a completed-ledger entry.
 
 - [ ] GAR-RUNTIME-IMPL-5D local input adapter runtime parity
   - Source: `GAR-RUNTIME-IMPL-4F`, `GAR-IOREUSE-1A`, universal compatibility scoreboard.
-  - Current state: local CSV and scoped flat JSONL/NDJSON local SQL smokes exist, and the Python
-    query-builder now bridges local flat JSONL/NDJSON projection/filter/limit workflows. General
+  - Current state: local CSV and scoped flat JSONL/NDJSON local SQL smokes exist, the Python
+    query-builder now bridges local flat JSONL/NDJSON projection/filter/limit workflows, and
+    local-source evidence labels are source-format-aware for CSV versus JSONL/NDJSON rows. General
     JSON, nested JSON, Parquet, Arrow IPC, Avro, ORC, Excel, database files, and unsupported formats
     are not uniformly represented by runtime SourceState adapters.
   - Next slice outcome: promote one local input format at a time into a SourceState adapter registry
