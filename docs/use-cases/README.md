@@ -36,7 +36,7 @@ family to at least one use case:
 3. compatibility import certified
 4. prepared/native Vortex
 5. Python wrapper/client
-6. SQL/DataFrame/report-only surfaces
+6. SQL/DataFrame scoped smokes and report-only surfaces
 7. source-free generated output
 8. messy data / dirty CSV / nested JSON / CDC
 9. query scenario cookbook

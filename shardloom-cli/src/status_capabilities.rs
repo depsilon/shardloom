@@ -4818,9 +4818,73 @@ fn append_sql_certification_fields(
         ),
     );
     append_sql_dataframe_planner_readiness_fields(fields);
+    append_sql_local_source_runtime_smoke_fields(fields);
     append_generated_source_certificate_contract_fields(fields);
     append_generated_source_api_admission_fields(fields);
     append_generated_source_evidence_alignment_fields(fields);
+}
+
+fn append_sql_local_source_runtime_smoke_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "sql_local_source_smoke_schema_version",
+        "shardloom.sql_local_source_smoke.v1",
+    );
+    push_field(
+        fields,
+        "sql_local_source_smoke_command",
+        "sql-local-source-smoke",
+    );
+    push_field(
+        fields,
+        "sql_local_source_smoke_support_status",
+        "fixture_smoke_supported",
+    );
+    push_field(
+        fields,
+        "sql_local_source_smoke_statement_shape",
+        "SELECT <columns> FROM <local.csv> WHERE <simple predicate> LIMIT <n>",
+    );
+    push_field(
+        fields,
+        "sql_local_source_smoke_execution_mode",
+        "direct_compatibility_transient",
+    );
+    push_field(fields, "sql_local_source_smoke_engine_mode", "batch");
+    push_field(fields, "sql_local_source_smoke_source_format", "csv");
+    push_field(
+        fields,
+        "sql_local_source_smoke_result_format",
+        "inline_jsonl",
+    );
+    push_bool_field(fields, "sql_local_source_smoke_runtime_execution", true);
+    push_bool_field(fields, "sql_local_source_smoke_parser_executed", true);
+    push_bool_field(fields, "sql_local_source_smoke_binder_executed", true);
+    push_bool_field(fields, "sql_local_source_smoke_planner_executed", true);
+    push_bool_field(fields, "sql_local_source_smoke_source_io_performed", true);
+    push_bool_field(fields, "sql_local_source_smoke_output_io_performed", false);
+    push_bool_field(fields, "sql_local_source_smoke_object_store_io", false);
+    push_bool_field(
+        fields,
+        "sql_local_source_smoke_external_engine_invoked",
+        false,
+    );
+    push_bool_field(fields, "sql_local_source_smoke_fallback_attempted", false);
+    push_field(
+        fields,
+        "sql_local_source_smoke_claim_gate_status",
+        "fixture_smoke_only",
+    );
+    push_field(
+        fields,
+        "sql_local_source_smoke_claim_boundary",
+        "one scoped local CSV SELECT projection/filter/limit smoke only; no broad SQL/DataFrame or production SQL claim",
+    );
+    push_field(
+        fields,
+        "sql_local_source_smoke_blocked_shapes",
+        "joins,aggregates,functions,subqueries,windows,catalogs,non_csv_sources,object_store_sources,table_lakehouse_sources,production_sql",
+    );
 }
 
 fn append_sql_dataframe_planner_readiness_fields(fields: &mut Vec<(String, String)>) {

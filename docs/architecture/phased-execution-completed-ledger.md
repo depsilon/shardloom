@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-1B SQL local-source projection/filter/limit runtime
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+  - Scope: promote one SQL local-source runtime path from broad report-only posture into a scoped
+    local CSV fixture smoke using ShardLoom-owned parsing, binding, planning, and expression
+    semantics.
+  - Checklist:
+    - [x] Add CLI `sql-local-source-smoke <sql-statement>` for
+          `SELECT <columns> FROM <local.csv> WHERE <simple predicate> LIMIT <n>`.
+    - [x] Admit only local CSV sources, explicit projection or `*`, comparison predicates,
+          `IS NULL`/`IS NOT NULL`, and bounded `LIMIT`.
+    - [x] Execute projection/filter/limit through `shardloom-core` expression semantics rather than
+          DataFusion, DuckDB, SQLite, Spark, Polars, pandas, or another fallback engine.
+    - [x] Emit `shardloom.sql_local_source_smoke.v1` fields for parser/binder/planner/runtime flags,
+          source read/parse timing, source and schema digests, plan/correctness/result digests,
+          materialization/decode status, inline JSONL result, certificates, no-fallback, and claim
+          gates.
+    - [x] Block remote/object-store paths, non-CSV sources, unbounded statements, unsupported
+          predicates, unsupported identifiers, and unsupported literals before execution.
+    - [x] Add SQL capability fields that expose the scoped local-source smoke without changing the
+          broader SQL/DataFrame planner-readiness matrix into runtime support.
+    - [x] Update README, getting-started examples, Use Case Atlas, compute-flow docs, website
+          generated pages, and the active phase plan.
+    - [x] Move GAR-RUNTIME-IMPL-1B out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli sql_local_source`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python website/build_static_pages.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - This admits only one scoped local CSV SQL projection/filter/limit fixture smoke with bounded
+      inline JSONL output. It does not add broad SQL/DataFrame support, Parquet/Vortex SQL source
+      support, output sink writes, joins, aggregates, functions, subqueries, catalogs,
+      object-store/table/lakehouse support, production SQL, performance claims, or Spark-replacement
+      claims.
+  - Fallback boundary:
+    - SQL parsing, binding, planning, local CSV row evaluation, and result rendering are
+      ShardLoom-owned for the admitted subset. Unsupported semantics fail deterministically and do
+      not invoke DataFusion, DuckDB, SQLite, Spark, Polars, pandas, Vortex query-engine
+      integrations, object-store providers, or any external fallback engine.
+
 - [x] Session label: GAR-RUNTIME-IMPL-1D expression and operator semantics baseline
   - Primary files:
     - `shardloom-core/src/expression.rs`

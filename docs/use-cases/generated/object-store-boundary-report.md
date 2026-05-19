@@ -68,7 +68,7 @@ A blocked or report-only object-store plan with no provider probe and no externa
 ## Related Field Guide Terms
 
 - `website/field-guide/no-fallback.html` - No Fallback (`Start Here` / `core-contract`)
-- `website/field-guide/direct-compatibility-transient.html` - Direct Compatibility Transient (`Execution Modes` / `report-only`)
+- `website/field-guide/direct-compatibility-transient.html` - Direct Compatibility Transient (`Execution Modes` / `scoped-local-smoke`)
 - `website/field-guide/live-engine.html` - Live Engine (`Engine Modes` / `report-only`)
 - `website/field-guide/no-fallback-evidence.html` - No-Fallback Evidence (`Evidence And Claims` / `core-contract`)
 - `website/field-guide/report-only.html` - Report-Only (`Evidence And Claims` / `status-vocabulary`)

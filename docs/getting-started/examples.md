@@ -75,6 +75,26 @@ subset, writes local JSONL output, and emits generated-source/output/no-fallback
 broad SQL runtime, SQL over input datasets, functions, joins, SQL/DataFrame production support,
 object-store output, Foundry output, or a performance claim.
 
+## SQL Local CSV Projection/Filter/Limit Smoke
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+id,label,amount
+1,alpha,8
+2,beta,15
+3,gamma,
+"@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
+cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT id,label FROM 'target/sql-local-source-smoke.csv' WHERE amount >= 10 LIMIT 1" --format json
+```
+
+Use this for the scoped GAR-RUNTIME-IMPL-1B path that parses, binds, plans, and executes one local
+CSV SQL shape through ShardLoom-owned projection/filter/limit semantics. It prints bounded inline
+JSONL and emits source-read, execution-certificate, materialization/decode, no-fallback, and
+claim-gate evidence. It is not broad SQL runtime, a production SQL/DataFrame claim, Parquet/Vortex
+SQL source support, joins, aggregates, functions, subqueries, object-store/table support, or a
+performance claim.
+
 ## Foundry Lightweight Transform
 
 ```powershell
