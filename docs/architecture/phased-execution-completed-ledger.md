@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5C scoped input-backed literal `with_column` runtime
+  - Branch/PR: `codex/input-with-column-literal` / #804.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/phased-execution-plan.md`
+    - generated use-case/readme/status/field-guide website pages.
+  - Scope: add one scoped input-backed literal column workflow for local CSV/flat JSONL Python
+    query-builder users without broad SQL/DataFrame expansion.
+  - Runtime behavior:
+    - `sql-local-source-smoke` admits explicit literal projections shaped as
+      `<literal> AS <column>` alongside explicit source projections, optional filter, and limit.
+    - Literal projections support deterministic non-null scalar literals already admitted by the
+      scoped SQL literal parser, including strings, bools, numbers, and `DATE 'YYYY-MM-DD'`.
+    - Python `LazyFrame.with_column(...)` lowers admitted deterministic literals from local
+      CSV/flat JSONL query-builder chains into the existing ShardLoom-owned SQL local-source
+      runtime.
+    - Duplicate output names, `SELECT *` plus literals, aggregates, group-by, order-by, joins,
+      non-literal expressions, NULL literals, broad DataFrame runtime, and external backends remain
+      deterministic blockers.
+  - Evidence:
+    - Literal projection rows emit `literal_projection_runtime_execution=true`,
+      `literal_projection_columns`, `literal_projection_count`, expanded `projected_columns`,
+      source/materialization/decode evidence, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+    - Python tests assert exact SQL lowering from
+      `.select(...).with_column(...).filter(...).limit(...).collect()` into
+      `sql-local-source-smoke`, plus typed report fields over the returned envelope.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli literal_projection -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_literal_invokes_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: this is a scoped fixture-smoke literal-column path for admitted local CSV/flat
+    JSONL workflows only. It is not non-literal `with_column`, broad SQL/DataFrame parity,
+    Parquet/Vortex/object-store/table runtime, external fallback, production support, or a
+    performance claim.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D Python column predicate helper runtime surface
   - Branch/PR: `codex/python-expression-builder` / #803.
   - Primary files:

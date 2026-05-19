@@ -118,6 +118,55 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
 }
 
 #[test]
+fn sql_local_source_smoke_executes_literal_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-literal-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label,'north' AS segment FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_literal_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("literal_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field("literal_projection_columns", "segment")));
+    assert!(stdout.contains(&field("literal_projection_count", "1")));
+    assert!(stdout.contains(&field("projected_columns", "id,label,segment")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\",\\\"segment\\\":\\\"north\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\",\\\"segment\\\":\\\"north\\\"}\\n\""
+    ));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
     let source_path = unique_path("sql-local-source-no-filter", "csv");
     fs::write(
