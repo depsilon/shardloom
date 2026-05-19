@@ -288,6 +288,62 @@ fn bayesian_performance_layout_advisor_remains_report_only() {
 }
 
 #[test]
+fn gar_0022_a_substrait_report_only_contract_remains_claim_safe() {
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0022-A Substrait import/export report-only contract"));
+    assert!(plan.contains("docs/architecture/substrait-report-only-contract.md"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "GAR-0022-A Substrait import/export report-only contract",
+        "shardloom.substrait_report_only_contract.v1",
+        "substrait_report_contract_support_status=report_only",
+        "substrait_dependency_status=not_added",
+        "substrait_import_parser_status=not_implemented",
+        "substrait_export_serializer_status=not_implemented",
+        "substrait_imported_plan_execution_allowed=false",
+        "substrait_external_engine_invoked=false",
+        "substrait_fallback_attempted=false",
+        "substrait_claim_gate_status=not_claim_grade",
+        "Substrait compatibility",
+        "imported-plan execution",
+        "external engine fallback",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing GAR-0022-A completed ledger field {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/architecture/substrait-report-only-contract.md");
+    for required in [
+        "Status: implemented report-only contract for `GAR-0022-A`",
+        "substrait_report_contract_support_status=report_only",
+        "substrait_dependency_status=not_added",
+        "substrait_imported_plan_execution_allowed=false",
+        "substrait_external_engine_invoked=false",
+        "substrait_fallback_attempted=false",
+        "substrait_claim_gate_status=not_claim_grade",
+        "No Substrait dependency is added",
+        "No imported plan is executed",
+        "It may not claim Substrait compatibility",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing Substrait report-only doc field {required}"
+        );
+    }
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("- [x] `GAR-0022-A`"));
+    assert!(gar.contains("Real Substrait parser/exporter support"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0022-A"));
+    assert!(traceability.contains("shardloom.substrait_report_only_contract.v1"));
+}
+
+#[test]
 fn dependency_audit_scaffolding_documents_policy_and_tools() {
     let deny = read_repo_file("deny.toml");
     for allowed in [

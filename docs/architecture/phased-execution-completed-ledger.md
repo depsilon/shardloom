@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0022-A Substrait import/export report-only contract
+  - Branch/PR: `codex/gar-0022a-substrait-report-contract` / #754.
+  - Primary files:
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/tests/plan_portability_snapshots.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/substrait-report-only-contract.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0022-A by making Substrait import/export requests explicit report-only
+    surfaces instead of generic non-native plan portability failures.
+  - Checklist:
+    - [x] Add `shardloom.substrait_report_only_contract.v1` fields to Substrait import/export
+          envelopes.
+    - [x] Keep `plan-import substrait` and `plan-export substrait` side-effect-free and
+          unsupported/report-only.
+    - [x] Expose dependency, parser, payload-parse, export-serialization, imported-plan execution,
+          external-engine, fallback, and claim-gate fields.
+    - [x] Add Python `plan_import(...)` helper coverage alongside `plan_export(...)`.
+    - [x] Move GAR-0022-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `substrait_report_contract_schema_version=shardloom.substrait_report_only_contract.v1`
+    - `substrait_report_contract_support_status=report_only`
+    - `substrait_dependency_status=not_added`
+    - `substrait_import_parser_status=not_implemented`
+    - `substrait_export_serializer_status=not_implemented`
+    - `substrait_imported_plan_execution_allowed=false`
+    - `substrait_external_engine_invoked=false`
+    - `substrait_fallback_attempted=false`
+    - `substrait_claim_gate_status=not_claim_grade`
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli --test plan_portability_snapshots`
+    - `python -m unittest python.tests.test_cli_client`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim deterministic report-only Substrait import/export
+    diagnostics only. It may not claim Substrait compatibility, dependency adoption, payload
+    parsing, plan export, plan round-tripping, imported-plan execution, production interoperability,
+    or external engine fallback.
+
 - [x] Session label: GAR-0010-B DataFrame/notebook and package surface readiness report
   - Primary files:
     - `shardloom-cli/src/status_capabilities.rs`

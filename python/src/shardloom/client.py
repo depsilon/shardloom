@@ -4511,6 +4511,17 @@ class ShardLoomClient:
 
         return self.run(["translation-plan", str(target_uri)], check=check)
 
+    def plan_import(
+        self,
+        format_kind: str,
+        source_label: str,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return a plan import portability envelope for the requested format."""
+
+        return self.run(["plan-import", format_kind, source_label], check=check)
+
     def plan_export(self, format_kind: str = "native", *, check: bool = True) -> OutputEnvelope:
         """Return a plan export portability envelope for the requested format."""
 

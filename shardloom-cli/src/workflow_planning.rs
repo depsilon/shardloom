@@ -316,6 +316,9 @@ pub(crate) fn handle_plan_import(
     };
     let report = PlanPortabilityReport::for_import_request(&request);
     let mut fields = plan_portability_fields(&report, "plan_import");
+    if format_kind == PlanInteropFormat::SubstraitLike {
+        append_substrait_report_contract_fields(&mut fields, "import");
+    }
     if let Some(document) = &request.imported_document {
         let certification = CapabilityCertificationReport::contract_only();
         let gate = ImportedPlanCapabilityGateReport::for_import_request(&request, &certification);
@@ -364,6 +367,9 @@ pub(crate) fn handle_plan_export(
     };
     let report = PlanPortabilityReport::for_export_request(&request);
     let mut fields = plan_portability_fields(&report, "plan_export");
+    if format_kind == PlanInteropFormat::SubstraitLike {
+        append_substrait_report_contract_fields(&mut fields, "export");
+    }
     if let Some(serialized_plan) = &serialized_plan {
         push_field(&mut fields, "serialized_plan", serialized_plan);
     }
@@ -2830,6 +2836,66 @@ fn imported_plan_capability_gate_fields(
     ]
 }
 
+fn append_substrait_report_contract_fields(fields: &mut Vec<(String, String)>, direction: &str) {
+    push_field(
+        fields,
+        "substrait_report_contract_schema_version",
+        "shardloom.substrait_report_only_contract.v1",
+    );
+    push_field(
+        fields,
+        "substrait_report_contract_report_id",
+        "gar-0022-a.substrait_import_export_report_only_contract",
+    );
+    push_field(fields, "substrait_report_contract_direction", direction);
+    push_field(
+        fields,
+        "substrait_report_contract_docs_ref",
+        "docs/architecture/substrait-report-only-contract.md",
+    );
+    push_field(
+        fields,
+        "substrait_report_contract_support_status",
+        "report_only",
+    );
+    push_field(fields, "substrait_import_parser_status", "not_implemented");
+    push_field(
+        fields,
+        "substrait_export_serializer_status",
+        "not_implemented",
+    );
+    push_field(
+        fields,
+        "substrait_imported_plan_execution_status",
+        "blocked",
+    );
+    push_field(fields, "substrait_dependency_status", "not_added");
+    push_bool_field(fields, "substrait_dependency_license_approved", false);
+    push_bool_field(fields, "substrait_parser_executed", false);
+    push_bool_field(fields, "substrait_payload_parsed", false);
+    push_bool_field(fields, "substrait_export_serialization_performed", false);
+    push_bool_field(fields, "substrait_imported_plan_execution_allowed", false);
+    push_bool_field(fields, "substrait_runtime_execution", false);
+    push_bool_field(fields, "substrait_external_engine_invoked", false);
+    push_bool_field(fields, "substrait_fallback_attempted", false);
+    push_field(fields, "substrait_claim_gate_status", "not_claim_grade");
+    push_field(
+        fields,
+        "substrait_blocker_ids",
+        "gar-0022-a.substrait_dependency_not_approved,gar-0022-a.substrait_parser_not_implemented,gar-0022-a.substrait_exporter_not_implemented,gar-0022-a.imported_plan_execution_blocked",
+    );
+    push_field(
+        fields,
+        "substrait_required_evidence",
+        "dependency_license_approval,parser_schema_version,construct_coverage_matrix,roundtrip_fixtures,imported_plan_capability_gate,no_fallback_evidence",
+    );
+    push_field(
+        fields,
+        "substrait_claim_boundary",
+        "report_only_no_substrait_import_export_execution",
+    );
+}
+
 fn native_plan_export_document() -> Result<NativePlanDocument, ShardLoomError> {
     let mut document = NativePlanDocument::new(
         PlanId::new("plan-export-native-skeleton")?,
@@ -2854,7 +2920,7 @@ fn parse_plan_interop_format(value: &str) -> PlanInteropFormat {
     match value {
         "native" => PlanInteropFormat::ShardLoomNative,
         "agent" => PlanInteropFormat::AgentPlanSpec,
-        "substrait-like" => PlanInteropFormat::SubstraitLike,
+        "substrait" | "substrait-like" => PlanInteropFormat::SubstraitLike,
         "json-like" => PlanInteropFormat::JsonLike,
         _ => PlanInteropFormat::Unknown,
     }

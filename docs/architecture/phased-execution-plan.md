@@ -110,6 +110,7 @@ Reference index:
   `docs/architecture/adoption-commercial-readiness-friction-reduction.md`,
   `docs/architecture/workspace-feature-build-matrix.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
+  `docs/architecture/substrait-report-only-contract.md`,
   `docs/architecture/rfc-coverage-followthrough.md`,
   `docs/architecture/typed-command-result-envelope.md`,
   `docs/architecture/crate-posture-public-exports.md`, and `docs/release/*`.
@@ -198,20 +199,6 @@ runtime behavior or support claims. The GAR-P0/P4/P5 groups in this section are 
 non-runtime queue; do not start the runtime implementation queue below until these are closed or
 explicitly reprioritized.
 
-- [ ] GAR-0022-A Substrait import/export report-only contract
-  - Source: RFC 0022; plan IR docs; rfc-coverage followthrough.
-  - Current state: native Plan IR exists; real Substrait import/export and imported-plan execution
-    are not implemented.
-  - Next slice outcome: deterministic report for parse/export support status, unsupported diagnostics,
-    and imported-plan evidence requirements.
-  - User-visible surface: CLI plan import/export, docs.
-  - Implementation scope: plan portability report, CLI output, tests.
-  - Evidence required: diagnostic/no-fallback refs; no execution evidence in this slice.
-  - Acceptance: Substrait requests report support status without executing imported plans.
-  - Verification: plan portability tests and default GAR verification.
-  - Non-goals: no Substrait execution or dependency expansion.
-  - Fallback/claim boundary: imported plans are not runtime-supported.
-  - Dependencies/blockers: dependency/license approval for any parser library.
 - [ ] GAR-0032-E best-default certification gate
   - Source: RFC 0032; operational evidence policy hardening; benchmark-suite catalog.
   - Current state: user capability and sufficiency reports exist; best-default claims are not
