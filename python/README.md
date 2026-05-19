@@ -345,6 +345,10 @@ The Python query builder also exposes a scoped `sl.col(...)` predicate helper fo
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
 `startswith()`, `endswith()`, `like(...)`, bounded `isin(...)`, and `cast(dtype)` comparisons into
 the same ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
+Input-backed literal `with_column(...)` is also admitted after an explicit `select(...)` for local
+CSV and flat JSONL/NDJSON projection/filter/limit workflows. The first slice accepts only
+deterministic `lit(...)` values or direct bool/int/float literals, emits literal-projection
+evidence, and blocks non-literal expressions before fallback.
 CSV and local flat
 JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
@@ -392,6 +396,14 @@ predicate_builder_filtered = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
     .filter((sl.col("amount") >= 10) & sl.col("label").contains("ta"))
+    .limit(10)
+    .collect()
+)
+literal_column = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .with_column("segment", "lit('north')")
+    .filter(sl.col("amount") >= 10)
     .limit(10)
     .collect()
 )
@@ -498,9 +510,10 @@ print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 
 This is a fixture-smoke local CSV plus flat JSONL/NDJSON bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
-preview/select-star, and single-key numeric top-N shapes. It does not make the Python client a
+preview/select-star, input-backed literal `with_column`, and single-key numeric top-N shapes.
+It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
-generalized grouped aggregation, ordering/collation parity, nested JSON, object
+non-literal `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON, object
 stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
@@ -573,7 +586,8 @@ That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
 generality, grouped aliases, multi-key sorts, null ordering, collation parity,
 NULL or subquery-backed `IN`, arbitrary predicate-tree completeness beyond the admitted
 parenthesized leaves, Python/DataFrame joins beyond
-the scoped local CSV inner-equi query-builder bridge, outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
+the scoped local CSV inner-equi query-builder bridge, non-literal input-backed `with_column`,
+outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
 production query support remain blocked until later runtime slices.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A

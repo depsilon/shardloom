@@ -766,14 +766,26 @@ class LazyFrame:
         expression: object,
         *,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for expression-backed column creation."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped literal-column workflow when admitted."""
 
-        column_name = _require_non_empty("column name", name)
-        expression_text = _require_non_empty("column expression", expression)
+        column_name = _normalize_output_column_name(name)
+        try:
+            literal = _generated_literal_expression(expression)
+        except (TypeError, ValueError):
+            expression_text = _require_non_empty("column expression", expression)
+            return self._unsupported_operation(
+                "with-column",
+                f"{column_name}={expression_text}",
+                check=check,
+            )
+        if self._can_append_literal_column(column_name):
+            return self._append(
+                WorkflowOperation("with_column", (column_name, _sql_literal(literal)))
+            )
         return self._unsupported_operation(
             "with-column",
-            f"{column_name}={expression_text}",
+            f"{column_name}={_sql_literal(literal)}",
             check=check,
         )
 
@@ -1242,6 +1254,25 @@ class LazyFrame:
             for operation in self.operations
         )
 
+    def _can_append_literal_column(self, column_name: str) -> bool:
+        if not _is_query_builder_local_source(self.source):
+            return False
+        saw_projection = False
+        for operation in self.operations:
+            if operation.kind == "select":
+                saw_projection = True
+                if column_name in operation.values:
+                    return False
+            elif operation.kind == "filter":
+                continue
+            elif operation.kind == "with_column":
+                if column_name == operation.values[0]:
+                    return False
+                continue
+            else:
+                return False
+        return saw_projection
+
     def _append_group_by_aggregate(
         self,
         columns: tuple[str, ...],
@@ -1264,6 +1295,7 @@ class LazyFrame:
         projection_list: tuple[str, ...] | None = None
         aggregate_list: tuple[str, ...] | None = None
         group_by_list: tuple[str, ...] | None = None
+        literal_columns: list[tuple[str, str]] = []
         join_info: tuple[str, str, str, str, str, str] | None = None
         sort_key: tuple[str, str] | None = None
         predicate: str | None = None
@@ -1275,6 +1307,8 @@ class LazyFrame:
                 aggregate_list = operation.values
             elif operation.kind == "group_by" and group_by_list is None:
                 group_by_list = operation.values
+            elif operation.kind == "with_column":
+                literal_columns.append((operation.values[0], operation.values[1]))
             elif operation.kind == "sort" and sort_key is None:
                 sort_key = (operation.values[0], operation.values[1])
             elif operation.kind == "join" and join_info is None:
@@ -1292,6 +1326,7 @@ class LazyFrame:
                 projection_list is None
                 or aggregate_list is not None
                 or group_by_list is not None
+                or literal_columns
                 or sort_key is not None
             ):
                 return None
@@ -1308,9 +1343,15 @@ class LazyFrame:
         if projection_list is not None:
             if aggregate_list is not None or group_by_list is not None:
                 return None
-            select_clause = ",".join(projection_list)
+            select_values = list(projection_list)
+            select_values.extend(
+                f"{literal} AS {column}" for column, literal in literal_columns
+            )
+            select_clause = ",".join(select_values)
             group_by_clause = ""
         elif aggregate_list is not None:
+            if literal_columns:
+                return None
             if group_by_list is not None:
                 select_clause = ",".join((*group_by_list, *aggregate_list))
                 group_by_clause = f" GROUP BY {','.join(group_by_list)}"
@@ -1318,6 +1359,8 @@ class LazyFrame:
                 select_clause = ",".join(aggregate_list)
                 group_by_clause = ""
         else:
+            if literal_columns:
+                return None
             select_clause = "*"
             group_by_clause = ""
         if sort_key is not None and (aggregate_list is not None or group_by_list is not None):
@@ -1851,10 +1894,10 @@ def _generated_literal_expression(expression: object) -> object:
     if isinstance(expression, str):
         text = expression.strip()
         if not text:
-            raise ValueError("generated with_column expression must not be empty")
+            raise ValueError("literal with_column expression must not be empty")
         if not (text.startswith("lit(") and text.endswith(")")):
             raise ValueError(
-                "generated with_column currently supports only lit(...) expressions "
+                "literal with_column currently supports only lit(...) expressions "
                 "or direct Python bool/int/float literals"
             )
         inner = text[4:-1].strip()
@@ -1864,7 +1907,7 @@ def _generated_literal_expression(expression: object) -> object:
         if lowered in {"true", "false"}:
             return lowered == "true"
         if lowered in {"null", "none"}:
-            raise ValueError("generated with_column does not support null literals yet")
+            raise ValueError("literal with_column does not support null literals yet")
         try:
             parsed = ast.literal_eval(inner)
         except (SyntaxError, ValueError) as exc:
@@ -2025,6 +2068,13 @@ def _normalize_expression_column(value: object) -> str:
         raise ValueError(
             "column expressions admit only bare column names or alias.column references"
         )
+    return column
+
+
+def _normalize_output_column_name(value: object) -> str:
+    column = _require_non_empty("output column name", value)
+    if not _is_sql_identifier(column):
+        raise ValueError("output column names admit only bare SQL identifiers")
     return column
 
 

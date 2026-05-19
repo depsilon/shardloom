@@ -10,7 +10,7 @@
 
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
@@ -102,6 +102,7 @@ impl SqlLocalSourceOutputFormat {
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedSqlLocalSource {
     projections: Vec<String>,
+    literal_projections: Vec<ParsedLiteralProjection>,
     aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
     order_by: Option<ParsedOrderBy>,
@@ -117,6 +118,12 @@ struct ParsedSqlLocalSource {
 struct ParsedAggregate {
     function: AggregateFunction,
     column: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedLiteralProjection {
+    alias: String,
+    value: ScalarValue,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -213,9 +220,10 @@ impl SortValue {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct ParsedProjectionList {
     projections: Vec<String>,
+    literal_projections: Vec<ParsedLiteralProjection>,
     aggregates: Vec<ParsedAggregate>,
 }
 
@@ -648,6 +656,16 @@ fn evaluate_projection_output(
             ))
         })
         .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let projection_expressions = projection_expressions
+        .into_iter()
+        .chain(
+            parsed
+                .literal_projections
+                .iter()
+                .map(literal_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .collect::<Vec<_>>();
     let mut output_rows = Vec::new();
     for row_index in selected_row_indexes.iter().take(parsed.limit) {
         let row = source.rows.get(*row_index).ok_or_else(|| {
@@ -674,6 +692,22 @@ fn evaluate_projection_output(
         );
     }
     Ok(output_rows)
+}
+
+fn literal_projection_expression(
+    projection: &ParsedLiteralProjection,
+) -> Result<Expression, ShardLoomError> {
+    let literal = Expression::literal(
+        ExprId::new(format!("project.literal.{}", projection.alias))?,
+        projection.value.clone(),
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(literal),
+            alias: projection.alias.clone(),
+        },
+    ))
 }
 
 fn ordered_projection_row_indexes(
@@ -1324,6 +1358,18 @@ fn bind_sql_local_source(
             )));
         }
     }
+    if !parsed.literal_projections.is_empty()
+        && (parsed.is_aggregate()
+            || !parsed.group_by.is_empty()
+            || parsed.order_by.is_some()
+            || parsed.projections.is_empty()
+            || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
+    {
+        return Err(unsupported_sql_error(
+            "literal projection smoke currently admits explicit projection columns plus <literal> AS <column> before optional filter/limit only",
+        ));
+    }
+    validate_literal_projection_output_names(parsed)?;
     if parsed.is_grouped_aggregate() {
         if parsed.projections != parsed.group_by {
             return Err(unsupported_sql_error(
@@ -1347,6 +1393,11 @@ fn bind_sql_local_source(
             }
         }
     } else if parsed.is_aggregate() {
+        if !parsed.literal_projections.is_empty() {
+            return Err(unsupported_sql_error(
+                "scalar aggregate SELECT list cannot mix aggregate functions with literal projections in this scoped smoke",
+            ));
+        }
         if !parsed.projections.is_empty() {
             return Err(unsupported_sql_error(
                 "scalar aggregate SELECT list cannot mix aggregate functions with raw columns in this scoped smoke",
@@ -1385,6 +1436,30 @@ fn bind_sql_local_source(
     Ok(())
 }
 
+fn validate_literal_projection_output_names(
+    parsed: &ParsedSqlLocalSource,
+) -> Result<(), ShardLoomError> {
+    if parsed.literal_projections.is_empty() {
+        return Ok(());
+    }
+    let mut output_names = BTreeSet::new();
+    for column in &parsed.projections {
+        if !output_names.insert(column.as_str()) {
+            return Err(unsupported_sql_error(
+                "literal projection smoke requires unique output column names",
+            ));
+        }
+    }
+    for literal_projection in &parsed.literal_projections {
+        if !output_names.insert(literal_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "literal projection smoke requires unique output column names",
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn bind_join_sql_local_source(
     parsed: &ParsedSqlLocalSource,
     left_header: &[String],
@@ -1406,6 +1481,7 @@ fn bind_join_sql_local_source(
     if parsed.is_aggregate()
         || !parsed.group_by.is_empty()
         || parsed.order_by.is_some()
+        || !parsed.literal_projections.is_empty()
         || parsed.projections.is_empty()
     {
         return Err(unsupported_sql_error(
@@ -1520,6 +1596,10 @@ impl ParsedSqlLocalSource {
         !self.predicate.is_all()
     }
 
+    fn has_literal_projection(&self) -> bool {
+        !self.literal_projections.is_empty()
+    }
+
     fn statement_kind(&self) -> &'static str {
         if self.is_join() && self.has_filter() {
             "local_source_inner_equi_join_filter_limit"
@@ -1537,6 +1617,10 @@ impl ParsedSqlLocalSource {
             "local_source_aggregate_filter_limit"
         } else if self.is_aggregate() {
             "local_source_aggregate_limit"
+        } else if self.has_literal_projection() && self.has_filter() {
+            "local_source_literal_projection_filter_limit"
+        } else if self.has_literal_projection() {
+            "local_source_literal_projection_limit"
         } else if self.has_filter() {
             "local_source_projection_filter_limit"
         } else {
@@ -1561,6 +1645,10 @@ impl ParsedSqlLocalSource {
             "aggregate-filter-limit"
         } else if self.is_aggregate() {
             "aggregate-limit"
+        } else if self.has_literal_projection() && self.has_filter() {
+            "literal-projection-filter-limit"
+        } else if self.has_literal_projection() {
+            "literal-projection-limit"
         } else if self.has_filter() {
             "projection-filter-limit"
         } else {
@@ -1585,6 +1673,10 @@ impl ParsedSqlLocalSource {
             "scalar_aggregate_filter_limit"
         } else if self.is_aggregate() {
             "scalar_aggregate_limit"
+        } else if self.has_literal_projection() && self.has_filter() {
+            "literal_projection_filter_limit"
+        } else if self.has_literal_projection() {
+            "literal_projection_limit"
         } else if self.has_filter() {
             "projection_filter_limit"
         } else {
@@ -1616,6 +1708,13 @@ impl ParsedSqlLocalSource {
                 .collect()
         } else {
             self.projection_columns(header)
+                .into_iter()
+                .chain(
+                    self.literal_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .collect()
         }
     }
 }
@@ -2398,6 +2497,23 @@ impl SqlLocalSourceReport {
                 "cast_target_dtype".to_string(),
                 self.parsed.predicate.cast_target_dtypes(),
             ),
+            (
+                "literal_projection_runtime_execution".to_string(),
+                self.parsed.has_literal_projection().to_string(),
+            ),
+            (
+                "literal_projection_columns".to_string(),
+                self.parsed
+                    .literal_projections
+                    .iter()
+                    .map(|projection| projection.alias.as_str())
+                    .collect::<Vec<_>>()
+                    .join(","),
+            ),
+            (
+                "literal_projection_count".to_string(),
+                self.parsed.literal_projections.len().to_string(),
+            ),
             ("projection_pushed_down".to_string(), "false".to_string()),
             ("filter_pushed_down".to_string(), "false".to_string()),
             ("limit_pushed_down".to_string(), "false".to_string()),
@@ -3083,6 +3199,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
 
     Ok(ParsedSqlLocalSource {
         projections: projection_list.projections,
+        literal_projections: projection_list.literal_projections,
         aggregates: projection_list.aggregates,
         group_by,
         order_by,
@@ -3118,6 +3235,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         return Err(unsupported_sql_error("SELECT list must not be empty"));
     }
     let mut projections = Vec::with_capacity(entries.len());
+    let mut literal_projections = Vec::new();
     let mut aggregates = Vec::new();
     let projection_count = entries.len();
     for projection in entries {
@@ -3131,6 +3249,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             projections.push("*".to_string());
         } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
             aggregates.push(aggregate);
+        } else if let Some(literal_projection) = parse_literal_projection(projection)? {
+            literal_projections.push(literal_projection);
         } else {
             validate_sql_column_ref(projection)?;
             projections.push(projection.to_string());
@@ -3138,8 +3258,33 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     }
     Ok(ParsedProjectionList {
         projections,
+        literal_projections,
         aggregates,
     })
+}
+
+fn parse_literal_projection(raw: &str) -> Result<Option<ParsedLiteralProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
+        return Ok(None);
+    };
+    let literal_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    if literal_raw.is_empty() || alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "literal projections must be written as <literal> AS <column>",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let value = parse_projection_literal_value(literal_raw)?;
+    if matches!(value, ScalarValue::Null) {
+        return Err(unsupported_sql_error(
+            "literal projections do not admit NULL values in this scoped runtime slice",
+        ));
+    }
+    Ok(Some(ParsedLiteralProjection {
+        alias: alias.to_string(),
+        value,
+    }))
 }
 
 fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, ShardLoomError> {
@@ -3706,6 +3851,17 @@ fn parse_limit(raw: &str) -> Result<usize, ShardLoomError> {
     Ok(value)
 }
 
+fn parse_projection_literal_value(raw: &str) -> Result<ScalarValue, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed
+        .get(..4)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("date"))
+    {
+        return parse_sql_date_literal(trimmed[4..].trim());
+    }
+    parse_sql_literal(trimmed)
+}
+
 fn parse_sql_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
     let value = raw.trim();
     if value.eq_ignore_ascii_case("null") {
@@ -4216,6 +4372,54 @@ mod tests {
         assert!(parsed.predicate.is_all());
         assert_eq!(parsed.statement_kind(), "local_source_projection_limit");
         assert_eq!(parsed.execution_certificate_suffix(), "projection-limit");
+    }
+
+    #[test]
+    fn parses_scoped_literal_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label,'north' AS segment,DATE '2026-05-19' AS batch_date FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect("literal projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "label"]);
+        assert_eq!(parsed.literal_projections.len(), 2);
+        assert_eq!(parsed.literal_projections[0].alias, "segment");
+        assert_eq!(
+            parsed.literal_projections[0].value,
+            ScalarValue::Utf8("north".to_string())
+        );
+        assert_eq!(parsed.literal_projections[1].alias, "batch_date");
+        assert!(matches!(
+            parsed.literal_projections[1].value,
+            ScalarValue::Date32(_)
+        ));
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_literal_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "literal-projection-filter-limit"
+        );
+    }
+
+    #[test]
+    fn literal_projection_duplicate_output_names_are_blocked() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,'north' AS id FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect("literal projection statement parses before binding");
+        let header = vec!["id".to_string(), "amount".to_string()];
+
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("duplicate literal projection output name is blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("literal projection smoke requires unique output column names"),
+            "{error}"
+        );
     }
 
     #[test]

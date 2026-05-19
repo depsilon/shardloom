@@ -851,9 +851,11 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity
   - Source: `GAR-RUNTIME-IMPL-4A`, `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4E`, Python README,
     Use Case Atlas.
-  - Current state: Python wrapper and selected query-builder methods exist, but complete
-    end-to-end generated/local/Vortex workflows and unsupported-method diagnostics are not yet
-    ordinary user-grade coverage.
+  - Current state: Python wrapper and selected query-builder methods exist. The local CSV/flat
+    JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, one-column
+    group-by, single-key top-N, scoped local CSV inner equi-join, and explicit-projection literal
+    `with_column(...)` workflows, but complete end-to-end generated/local/Vortex workflows and
+    unsupported-method diagnostics are not yet ordinary user-grade coverage.
   - Next slice outcome: make one import path support generated, local file, and prepared/native
     Vortex workflows with select/filter/project/limit/preview/aggregate/group/order/write where
     admitted.
@@ -1312,12 +1314,12 @@ runnable, documented, tested, and claim-safe.
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
     capability matrix, `docs/getting-started/examples.md`.
   - Current state: Python `read_csv(...)` and local flat JSONL/NDJSON `read_json(...)` query-builder
-    chains support scoped projection/optional-filter/limit, preview/select-star, scalar
-    aggregate/optional-filter/limit, one-column grouped aggregate/optional-filter/limit, and
-    single-key top-N collect/write workflows. Scoped local CSV inner equi-join and
-    generated-output helpers also exist for scoped local workflows. Broad Python
-    DataFrame joins, `with_column` over input-backed rows, broader expression projection, richer
-    outputs, and parity-like method coverage remain unsupported/report-only.
+    chains support scoped projection/optional-filter/limit, preview/select-star, explicit-projection
+    literal `with_column(...)`, scalar aggregate/optional-filter/limit, one-column grouped
+    aggregate/optional-filter/limit, and single-key top-N collect/write workflows. Scoped local CSV
+    inner equi-join and generated-output helpers also exist for scoped local workflows. Broad Python
+    DataFrame joins, non-literal `with_column` over input-backed rows, broader expression
+    projection, richer outputs, and parity-like method coverage remain unsupported/report-only.
   - Next slice outcome: promote DataFrame-style methods in user-value order with either runnable
     runtime or deterministic blockers: joins, `with_column`, expression projection, schema helpers,
     output writers, and collect/write ergonomics.
